@@ -1,0 +1,29 @@
+/* Default CSS */
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.photo-grid {
+  display: flex !important;
+  flex-wrap: wrap;
+}
+
+.photo-grid>div {
+  width: 25%;
+  height: 150px;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 800px) {
+  .photo-grid>div {
+    width: 33.33%;
+  }
+}
+
+@media (max-width: 500px) {
+  .photo-grid>div {
+    width: 50%;
+  }
+}

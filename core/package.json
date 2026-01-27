@@ -1,0 +1,37 @@
+{
+    "name": "photo-desktop-core",
+    "version": "1.0.0",
+    "description": "Node.js Sidecar for Photo Library Desktop",
+    "main": "dist/main.js",
+    "bin": "dist/main.js",
+    "scripts": {
+        "build": "tsc",
+        "package": "pkg . --targets node18-win-x64 --output core",
+        "start": "node dist/main.js"
+    },
+    "dependencies": {
+        "better-sqlite3": "^11.10.0",
+        "fs-extra": "^11.2.0",
+        "onnxruntime-node": "^1.20.0",
+        "sharp": "^0.33.5",
+        "uuid": "^11.0.3"
+    },
+    "devDependencies": {
+        "@types/better-sqlite3": "^7.6.12",
+        "@types/fs-extra": "^11.0.4",
+        "@types/node": "^22.10.1",
+        "@types/uuid": "^10.0.0",
+        "pkg": "^5.8.1",
+        "typescript": "^5.7.2"
+    },
+    "pkg": {
+        "assets": [
+            "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
+            "node_modules/onnxruntime-node/bin/napi-v6/win32/x64/onnxruntime_binding.node",
+            "node_modules/onnxruntime-node/bin/napi-v6/win32/x64/onnxruntime.dll",
+            "node_modules/@img/**/*",
+            "node_modules/sharp/**/*",
+            "models/*.onnx"
+        ]
+    }
+}

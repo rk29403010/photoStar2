@@ -1,0 +1,51 @@
+{
+    "identifier": "sidecar-allow",
+    "description": "Allow sidecar execution",
+    "local": true,
+    "windows": [
+        "main"
+    ],
+    "permissions": [
+        "shell:allow-open",
+        "dialog:default",
+        {
+            "identifier": "shell:allow-execute",
+            "allow": [
+                {
+                    "name": "binaries/core",
+                    "sidecar": true,
+                    "args": true
+                }
+            ]
+        },
+        {
+            "identifier": "shell:allow-spawn",
+            "allow": [
+                {
+                    "name": "binaries/core",
+                    "sidecar": true,
+                    "args": true
+                }
+            ]
+        },
+        {
+            "identifier": "shell:allow-stdin-write",
+            "allow": [
+                {
+                    "name": "binaries/core",
+                    "sidecar": true,
+                    "args": true
+                }
+            ]
+        },
+        "core:path:default",
+        {
+            "identifier": "fs:allow-read",
+            "allow": [
+                {
+                    "path": "$APPDATA/**"
+                }
+            ]
+        }
+    ]
+}
