@@ -1,12 +1,13 @@
 {
     "name": "photo-desktop-core",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "description": "Node.js Sidecar for Photo Library Desktop",
     "main": "dist/main.js",
     "bin": "dist/main.js",
     "scripts": {
         "build": "tsc",
-        "package": "pkg . --targets node18-win-x64 --output core",
+        "dev": "npx concurrently \"tsc --watch\" \"node --watch dist/main.js\"",
+        "package": "pkg . --targets node18-win-x64 --output ../src-tauri/binaries/core-x86_64-pc-windows-msvc",
         "start": "node dist/main.js"
     },
     "dependencies": {
@@ -14,13 +15,17 @@
         "fs-extra": "^11.2.0",
         "onnxruntime-node": "^1.20.0",
         "sharp": "^0.33.5",
-        "uuid": "^11.0.3"
+        "smartcrop": "^2.0.5",
+        "smartcrop-sharp": "^2.0.8",
+        "uuid": "^11.0.3",
+        "ws": "^8.19.0"
     },
     "devDependencies": {
         "@types/better-sqlite3": "^7.6.12",
         "@types/fs-extra": "^11.0.4",
         "@types/node": "^22.10.1",
         "@types/uuid": "^10.0.0",
+        "@types/ws": "^8.18.1",
         "pkg": "^5.8.1",
         "typescript": "^5.7.2"
     },

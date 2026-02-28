@@ -1,0 +1,109 @@
+
+C:\Users\robin\Projects\photoStar2\core\src\coordinator\index.ts
+   10:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   45:25  error  'event' is defined but never used         @typescript-eslint/no-unused-vars
+  173:32  error  'event' is defined but never used         @typescript-eslint/no-unused-vars
+
+C:\Users\robin\Projects\photoStar2\core\src\coordinator\workflows.ts
+  5:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\robin\Projects\photoStar2\core\src\db.ts
+    3:33   error  'readFileSync' is defined but never used  @typescript-eslint/no-unused-vars
+  100:90   error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  100:93   error  Empty block statement                     no-empty
+  101:91   error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  101:94   error  Empty block statement                     no-empty
+  104:90   error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  104:93   error  Empty block statement                     no-empty
+  105:91   error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  105:94   error  Empty block statement                     no-empty
+  106:104  error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  106:107  error  Empty block statement                     no-empty
+  107:108  error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  107:111  error  Empty block statement                     no-empty
+  108:104  error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  108:107  error  Empty block statement                     no-empty
+  109:97   error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  109:100  error  Empty block statement                     no-empty
+  110:104  error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  110:107  error  Empty block statement                     no-empty
+
+C:\Users\robin\Projects\photoStar2\core\src\file-utils.ts
+  27:14  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\robin\Projects\photoStar2\core\src\jobs\cluster_faces.ts
+  20:17  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  22:9   error  'allFaces' is never reassigned. Use 'const' instead  prefer-const
+  47:11  error  'clusters' is assigned a value but never used        @typescript-eslint/no-unused-vars
+
+C:\Users\robin\Projects\photoStar2\core\src\jobs\detect_faces.ts
+    1:10   error  'parentPort' is defined but never used    @typescript-eslint/no-unused-vars
+   13:6    error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+   32:28   error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+   34:18   error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+   35:17   error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+   64:46   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:18   error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  110:93   error  'origW' is defined but never used         @typescript-eslint/no-unused-vars
+  110:108  error  'origH' is defined but never used         @typescript-eslint/no-unused-vars
+  112:27   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:29   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:21   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:17   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  196:122  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  199:102  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  209:21   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  217:17   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  249:21   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\robin\Projects\photoStar2\core\src\jobs\previews.ts
+    2:25   error  'basename' is defined but never used      @typescript-eslint/no-unused-vars
+   75:119  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:21   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\robin\Projects\photoStar2\core\src\jobs\recognise_faces.ts
+    2:10  error  'parentPort' is defined but never used         @typescript-eslint/no-unused-vars
+   14:6   error  A `require()` style import is forbidden        @typescript-eslint/no-require-imports
+   25:28  error  A `require()` style import is forbidden        @typescript-eslint/no-require-imports
+   27:18  error  A `require()` style import is forbidden        @typescript-eslint/no-require-imports
+   28:17  error  A `require()` style import is forbidden        @typescript-eslint/no-require-imports
+   36:62  error  'landmarks' is defined but never used          @typescript-eslint/no-unused-vars
+   46:13  error  'x2' is never reassigned. Use 'const' instead  prefer-const
+   47:13  error  'y2' is never reassigned. Use 'const' instead  prefer-const
+  102:17  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  146:21  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+C:\Users\robin\Projects\photoStar2\core\src\jobs\scan.ts
+    2:20  error  'getFileStats' is defined but never used  @typescript-eslint/no-unused-vars
+   76:37  error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  112:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  118:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\robin\Projects\photoStar2\core\src\main.ts
+   13:10   error  'DomainEvent' is defined but never used           @typescript-eslint/no-unused-vars
+   28:7    error  'coordinator' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  106:35   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  127:17   error  Unexpected lexical declaration in case block      no-case-declarations
+  150:17   error  Unexpected lexical declaration in case block      no-case-declarations
+  150:97   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  181:29   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  199:37   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  208:29   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  214:110  error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  216:29   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  248:39   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  254:29   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  262:29   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  269:19   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  310:41   error  'err' is defined but never used                   @typescript-eslint/no-unused-vars
+  351:70   error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+
+C:\Users\robin\Projects\photoStar2\core\src\math-utils.ts
+  53:11  error  'scaleX' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  54:11  error  'scaleY' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  55:11  error  'skewX' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  56:11  error  'skewY' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+✖ 83 problems (83 errors, 0 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+

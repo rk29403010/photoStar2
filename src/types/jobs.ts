@@ -1,18 +1,23 @@
 export type JobState =
     | "queued" | "starting" | "running" | "paused" | "retrying"
-    | "completed" | "failed" | "cancelled";
+    | "completed" | "failed" | "cancelled" | "idle";
 
 export type StageState =
     | "idle" | "queued" | "running" | "succeeded" | "warning" | "failed" | "skipped";
 
 export type IssueSeverity = "info" | "warning" | "error" | "fatal";
 
-export type JobKind =
+export type PipelineStage =
     | "bulk_ingest"
     | "watched_folder_ingest"
     | "reindex"
+    | "scan"
+    | "onboarding"
+    | "previews"
+    | "analysis"
     | "face_analysis"
-    | "similarity_cluster";
+    | "similarity_cluster"
+    | "preview_generation";
 
 export interface JobIssue {
     id: string;
@@ -48,11 +53,12 @@ export interface JobProgress {
     stages: StageProgress[];
     message?: string; // Compatibility with existing backend
     current?: string; // Compatibility with existing backend
+    throughputIps?: number;
 }
 
 export interface BackgroundJob {
     id: string;
-    kind: JobKind;
+    stage: PipelineStage;
     title: string;
     state: JobState;
     createdAt: string;
@@ -62,6 +68,8 @@ export interface BackgroundJob {
     source?: { type: "folder" | "device" | "api"; label: string };
     progress: JobProgress;
     issues: JobIssue[];
+    activeCount?: number;
+    avgDurationSec?: number;
     canPause?: boolean;
     canCancel?: boolean;
     canRetry?: boolean;

@@ -17,13 +17,14 @@ if not exist node_modules (
 )
 
 echo Starting Sidecar in Watch Mode (if available) or Direct...
-if exist dist\main.js (
-    node dist\main.js
-) else (
-    echo dist\main.js not found. Building...
-    call npm run build
-    node dist\main.js
+call node scripts\smart_build.js --compile-only
+if %errorlevel% neq 0 (
+    echo Build failed. Exiting.
+    pause
+    exit /b %errorlevel%
 )
+
+node dist\main.js
 
 echo.
 echo Sidecar exited.

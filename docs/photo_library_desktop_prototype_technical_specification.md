@@ -1,6 +1,7 @@
 # Photo Library Desktop Prototype – Technical Specification
 
 ## Purpose
+
 Define a **buildable prototype** that demonstrates the core architecture for a local-first photo library application, using a modern, privacy-resilient tech stack. This document is intended to be handed to **Antigravity** (or equivalent agent IDE) to implement end-to-end.
 
 The prototype is not a throwaway spike: it should form the **spine** of a future commercial product.
@@ -16,6 +17,7 @@ The prototype is not a throwaway spike: it should form the **spine** of a future
 5. Modular design so experimental features can be slotted in later
 
 Non-goals for this prototype:
+
 - Mobile app
 - Multi-user sync
 - Full Google Photos live integration
@@ -32,33 +34,41 @@ Non-goals for this prototype:
 ## Technology Stack (Locked)
 
 ### Language
+
 - **TypeScript** (single language across UI, workers, shared models)
 
 ### Desktop Shell
+
 - **Tauri**
 
 ### UI
+
 - React
 - Vite
 - Virtualised grid (for large libraries)
 
 ### Local Backend / Core
+
 - Tauri command layer
 - No embedded web server
 
 ### Workers
+
 - Node.js worker processes (spawned by Tauri)
 - Long-running, cancellable jobs
 
 ### Database
+
 - SQLite (WAL mode)
 - Accessed only by core / workers (not UI)
 
 ### Local AI Runtime
+
 - ONNX Runtime (CPU)
 - Pre-trained face detection + face embedding models
 
 ### Cloud AI
+
 - Google Gemini APIs (2.5 + 3)
 - Abstracted behind provider interfaces
 
@@ -74,6 +84,7 @@ UI (React)
         → Cloud AI APIs (optional)
 
 UI never:
+
 - Reads raw image bytes
 - Traverses directories
 - Runs ML inference
@@ -85,11 +96,13 @@ UI never:
 ### 1. Library Ingest
 
 #### User Flow
+
 - User selects a **root folder** via native dialog
 - Ingest job begins
 - Progress is shown (file count + stages)
 
 #### Backend Responsibilities
+
 - Recursive directory scan
 - Ignore non-image files
 - Compute:
@@ -100,6 +113,7 @@ UI never:
 - Store assets in SQLite
 
 Deliverable:
+
 - Library view populated from local folder
 
 ---
@@ -111,6 +125,7 @@ Deliverable:
 - Cache invalidation handled by versioning
 
 Deliverable:
+
 - Smooth scrolling grid UI
 
 ---
@@ -118,10 +133,12 @@ Deliverable:
 ### 3. Local Face Detection (Required)
 
 #### Capabilities
+
 - Detect faces in photos
 - Return bounding boxes
 
 #### Implementation
+
 - ONNX face detection model
 - Node worker loads model once
 - Results stored as derived artefacts
@@ -129,6 +146,7 @@ Deliverable:
 No face recognition required in v1.
 
 Deliverable:
+
 - Face boxes visible as overlays in UI
 
 ---
@@ -136,12 +154,14 @@ Deliverable:
 ### 4. Local Face Embeddings (Stretch but recommended)
 
 #### Capabilities
+
 - Generate embedding vectors per detected face
 - Store vectors for future matching
 
 No identity assignment in prototype.
 
 Deliverable:
+
 - Embeddings stored and queryable
 
 ---
@@ -154,6 +174,7 @@ Deliverable:
 - Run only on user-selected images
 
 Deliverable:
+
 - Text description shown in asset detail view
 
 ---
@@ -161,6 +182,7 @@ Deliverable:
 ### 6. Reprocessing Model
 
 All derived data must include:
+
 - task (e.g. face_detection, description)
 - provider (local_onnx, gemini_2.5)
 - model_version
@@ -171,6 +193,7 @@ Original files are immutable.
 Derived artefacts are disposable and replaceable.
 
 Deliverable:
+
 - Ability to re-run a task on selected assets
 
 ---
@@ -178,6 +201,7 @@ Deliverable:
 ## Database – Minimal Schema
 
 ### assets
+
 - id (uuid)
 - original_path
 - file_hash
@@ -186,12 +210,14 @@ Deliverable:
 - created_at
 
 ### previews
+
 - asset_id
 - size
 - path
 - version
 
 ### derived_results
+
 - id
 - asset_id
 - task
@@ -201,6 +227,7 @@ Deliverable:
 - created_at
 
 Indexes required on:
+
 - asset_id
 - task
 
@@ -211,6 +238,7 @@ Indexes required on:
 All heavy work runs as jobs.
 
 Job properties:
+
 - id
 - type
 - status
@@ -218,6 +246,7 @@ Job properties:
 - cancelable
 
 Jobs to implement:
+
 - scan_folder
 - generate_previews
 - detect_faces

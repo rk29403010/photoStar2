@@ -116,4 +116,15 @@ You MUST implement the following 4-phase pattern for long-running jobs:
 
 * **Motto:** "Keep on trucking."
 
+## 6. DEV PARITY PROTOCOL (Chrome vs Tauri)
+
+**MANDATORY:** All frontend code must execute flawlessly in BOTH the standard Chrome Browser (`npm run dev`) AND the native Tauri wrapper (`npm run tauri dev`). 
+
+Before implementing any new OS-level feature, hardware interaction, or filesystem access from the UI, you MUST follow these constraints:
+
+1. **Environment Checking:** You must never assume `window.__TAURI_INTERNALS__` exists. Every Tauri API call must be guarded by checking if the app is currently running inside Tauri.
+2. **Graceful Fallbacks:** If a Native Tauri API is unavailable in standard Chrome, you MUST provide a functional pure-web fallback (e.g., using `window.prompt` instead of a native file picker dialog). The fallback does not need to be perfect, but it must prevent the application from crashing.
+3. **IPC Abstraction:** The React UI must never directly query the OS. All requests for data or jobs must be dispatched as generalized commands to the backend (via Tauri Cmds when packaged, or the WebSocket bridge when in Dev).
+4. **No UI-Side Node Modules:** The Vite/React application must remain a pure static SPA. Never import `fs`, `path`, `os`, or `child_process` into any React component or UI hook.
+
 * **Implementation:** prioritize stability. If a non-critical component fails, isolate it, alert the user unobtrusively, and maintain application state.

@@ -30,6 +30,7 @@ They are intentionally conservative, calm, and respectful of source material.
 - Cropping is never destructive and never automatic unless explicitly flagged safe.
 
 **Tile intents:**
+
 - Utility
 - Normal
 - Emphasis
@@ -71,6 +72,7 @@ Purpose: fast scanning and archival clarity.
   - Animated burst thumbnail (if enabled)
 
 Rules:
+
 - Animation is idle-only.
 - Animation pauses on hover, scroll, or focus.
 - Expanded bursts open **inline**, not in a new context by default.
@@ -96,6 +98,7 @@ User bias always dominates AI-derived scores.
 - Layout decisions are never influenced by variants.
 
 Variant types are semantic only:
+
 - Clean
 - Repair
 - Enhance
@@ -151,6 +154,7 @@ Originals remain the ground truth for identity and clustering.
 - Tile entry: fade + slight rise.
 
 Explicitly disallowed:
+
 - Bounce or spring easing
 - Ken Burns effects
 - Parallax scrolling
@@ -173,11 +177,13 @@ Respect `prefers-reduced-motion` everywhere.
 ## A11. Feature flags (guardrails)
 
 Feature classes:
+
 - Structural (always on)
 - Behavioural (user-toggleable)
 - Experiential (bundled under Beautiful Mode)
 
 **Beautiful Mode:**
+
 - Default OFF
 - Presentation only
 - One master toggle
@@ -216,10 +222,12 @@ Purpose: communicate derivation without labels.
 ## B3. Seasonal / contextual theming
 
 Examples:
+
 - Autumn: warm paper tones, subtle leaf texture
 - Winter: cooler whites, increased grain
 
 Rules:
+
 - Section-based, not per-image
 - Very slow transitions
 - Never more than one theme active
@@ -332,6 +340,7 @@ If the answer is no, don’t ship it.
 # Final note
 
 This document separates:
+
 - **Correctness** (Part A)
 - **Possibility** (Part B)
 - **Discipline** (Part C)
@@ -339,4 +348,3 @@ This document separates:
 Part A must ship cleanly on its own.
 
 Everything else is optional, reversible, and explicitly gated.
-

@@ -2,13 +2,24 @@
 import { DatabaseManager } from '../db';
 import { cosineSimilarity } from '../math-utils';
 import { v4 as uuidv4 } from 'uuid';
+import { EventBus } from '../events/bus';
+import sharp from 'sharp';
+import { join, dirname } from 'node:path';
+import { existsSync, mkdirSync } from 'node:fs';
 
 export async function runFaceClusteringJob(
     jobId: string,
     dbManager: DatabaseManager,
-    onProgress: (p: any) => void
+    eventBus: EventBus
 ) {
     const db = dbManager.getDb();
+    const activeJobId = `cluster-batch-${Date.now()}`;
+
+    eventBus.emit({
+        type: 'JobStarted',
+        jobId: activeJobId,
+        pipelineStage: 'analysis'
+    });
 
     // 1. Load all embeddings
     // We need to know which asset and which face index each embedding belongs to.
@@ -17,8 +28,6 @@ export async function runFaceClusteringJob(
         FROM derived_results 
         WHERE task = 'face_recognition'
     `).all() as any[];
-
-    console.log(`[DEBUG] Clustering: Loaded ${rows.length} assets with recognition data.`);
 
     let allFaces: { assetId: string, faceIndex: number, embedding: number[] }[] = [];
 
@@ -41,30 +50,14 @@ export async function runFaceClusteringJob(
         }
     }
 
-    console.log(`[DEBUG] Clustering: Found ${allFaces.length} valid face embeddings.`);
-
     if (allFaces.length === 0) {
-        onProgress({ status: 'complete', processed: 0, total: 0 });
+        eventBus.emit({ type: 'JobCompleted', jobId: activeJobId, pipelineStage: 'analysis' });
         return;
     }
 
     // 2. Simple Agglomerative Clustering
-    // Threshold: 0.6 similarity (= 0.4 distance if distance is 1-sim? No, usually directly sim threshold)
-    // Docs say: > 0.65 is plausible match. Let's use 0.65 as threshold.
     const THRESHOLD = 0.65;
-
-    // Start with each face in its own cluster
-    // clusterMap maps faceIndex(in allFaces array) -> clusterId
     const clusters: number[][] = allFaces.map((_, i) => [i]);
-
-    // We can use a greedy approach for MVP:
-    // Iterate all pairs, if sim > threshold, merge clusters.
-    // Optimization: Compute all pairwise similarities first? O(N^2).
-    // If N=1000, N^2 = 1M. Javascript can handle this fast.
-    // If N=10k, N^2 = 100M. Slower but maybe okay for local job.
-
-    // Let's implement a simple greedy merge.
-    // We will maintain a list of active clusters. Each cluster has a "representative" embedding (e.g. average).
 
     type Cluster = {
         id: string; // Temp ID
@@ -72,16 +65,15 @@ export async function runFaceClusteringJob(
         centroid: number[];
     };
 
+    // Naive re-clustering each time (MVP)
+    // Wipe existing?
     const activeClusters: Cluster[] = [];
-
-    onProgress({ status: 'running', message: 'Clustering...' });
 
     for (let i = 0; i < allFaces.length; i++) {
         const face = allFaces[i];
         let bestMatch: Cluster | null = null;
         let bestSim = -1;
 
-        // Find best matching existing cluster
         for (const cluster of activeClusters) {
             const sim = cosineSimilarity(face.embedding, cluster.centroid);
             if (sim > THRESHOLD && sim > bestSim) {
@@ -91,39 +83,21 @@ export async function runFaceClusteringJob(
         }
 
         if (bestMatch) {
-            // Add to cluster and update centroid
             bestMatch.faces.push(i);
-            // Re-calculate centroid (running average)
             const n = bestMatch.faces.length;
-            // newCentroid = (oldSum + newVec) / n
-            // Actually, keep sum to avoid drift?
-            // Simple approach: weighted average
-            // centroid =  (centroid * (n-1) + newVec) / n
             for (let k = 0; k < 512; k++) {
                 bestMatch.centroid[k] = (bestMatch.centroid[k] * (n - 1) + face.embedding[k]) / n;
             }
         } else {
-            // Create new cluster
             activeClusters.push({
                 id: uuidv4(),
                 faces: [i],
                 centroid: [...face.embedding]
             });
         }
-
-        if (i % 100 === 0) {
-            onProgress({ status: 'running', processed: i, total: allFaces.length, message: `Clustering ${i}/${allFaces.length}` });
-        }
     }
 
-    console.log(`[DEBUG] Clustering complete. Found ${activeClusters.length} clusters.`);
-
     // 3. Save to DB
-    // Clear old data?
-    // "Simple" strategy: for now we wipe people table logic?
-    // Or we should be smarter?
-    // User asked for "Create simple job". Let's wipe `people` and `face_assignments` for MVP to avoid complexity of incremental updates.
-
     const wipe = db.transaction(() => {
         db.prepare("DELETE FROM face_assignments").run();
         db.prepare("DELETE FROM people").run();
@@ -136,34 +110,118 @@ export async function runFaceClusteringJob(
     const saveTransaction = db.transaction(() => {
         let pCount = 0;
         for (const cluster of activeClusters) {
-            // Only keep clusters with > 0 faces (always true)
-            // Name: "Person <N>"
             pCount++;
             const name = `Person ${pCount}`;
-
-            // Pick a thumbnail: The first face in the cluster
-            const firstFaceIdx = cluster.faces[0];
-            const firstFace = allFaces[firstFaceIdx];
-            // We need the original path... we have assetId.
-            // We can resolve it or just store assetId?
-            // "thumbnail_path" usually implies a file path.
-            // But we might want `preview_path`.
-            // Let's look up the asset to get a hint?
-            // For now, let's just leave thumbnail_path empty or put the asset_id as reference?
-            // DB Schema says `thumbnail_path TEXT`.
 
             insertPerson.run(cluster.id, name, null);
 
             for (const faceIdx of cluster.faces) {
                 const face = allFaces[faceIdx];
-                // confident = sim with centroid?
                 const conf = cosineSimilarity(face.embedding, cluster.centroid);
                 insertAssignment.run(face.assetId, face.faceIndex, cluster.id, conf);
             }
+
+            eventBus.emit({
+                type: 'FaceClusteringUpdated',
+                clusterId: cluster.id
+            });
         }
     });
 
     saveTransaction();
 
-    onProgress({ status: 'complete', processed: allFaces.length, total: allFaces.length, message: `Created ${activeClusters.length} people.` });
+    // 4. Generate Face-Crop Thumbnails for each person
+    const libraryDir = dirname(db.name);
+    const previewsDir = join(libraryDir, 'previews');
+    if (!existsSync(previewsDir)) mkdirSync(previewsDir, { recursive: true });
+
+    console.error(`[Clustering] Generating thumbnails for ${activeClusters.length} people...`);
+    let thumbDone = 0;
+
+    for (const cluster of activeClusters) {
+        try {
+            const bestFace = db.prepare(`
+                SELECT asset_id, face_index 
+                FROM face_assignments 
+                WHERE person_id = ? 
+                ORDER BY confidence DESC 
+                LIMIT 1
+            `).get(cluster.id) as { asset_id: string, face_index: number } | undefined;
+
+            if (bestFace) {
+                const asset = db.prepare('SELECT original_path, width, height FROM assets WHERE id = ?').get(bestFace.asset_id) as { original_path: string, width: number, height: number } | undefined;
+                const detection = db.prepare("SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'").get(bestFace.asset_id) as { data: string } | undefined;
+
+                if (asset && detection && asset.width && asset.height) {
+                    const data = JSON.parse(detection.data);
+                    const face = data.faces[bestFace.face_index];
+                    if (face) {
+                        const box = face.box; // [x1, y1, x2, y2]
+                        const fw = box[2] - box[0];
+                        const fh = box[3] - box[1];
+                        const cx = (box[0] + box[2]) / 2;
+                        const cy = (box[1] + box[3]) / 2;
+
+                        // Normalize: 1.5x padded square crop
+                        const cropSize = Math.max(fw, fh) * 1.5;
+                        let x1 = cx - cropSize / 2;
+                        let y1 = cy - cropSize / 2;
+                        let x2 = cx + cropSize / 2;
+                        let y2 = cy + cropSize / 2;
+
+                        // Clamp and keep square if possible
+                        if (x1 < 0) { x2 -= x1; x1 = 0; }
+                        if (y1 < 0) { y2 -= y1; y1 = 0; }
+                        if (x2 > 1) { x1 -= (x2 - 1); x2 = 1; }
+                        if (y2 > 1) { y1 -= (y2 - 1); y2 = 1; }
+                        x1 = Math.max(0, x1); y1 = Math.max(0, y1);
+                        x2 = Math.min(1, x2); y2 = Math.min(1, y2);
+
+                        const outPath = join(previewsDir, `person-${cluster.id}.webp`);
+
+                        const cropLeft = Math.floor(x1 * asset.width);
+                        const cropTop = Math.floor(y1 * asset.height);
+                        const cropWidth = Math.floor((x2 - x1) * asset.width);
+                        const cropHeight = Math.floor((y2 - y1) * asset.height);
+
+                        // Ensure dimensions are valid for sharp
+                        if (cropWidth > 5 && cropHeight > 5) {
+                            await sharp(asset.original_path)
+                                .rotate()
+                                .extract({
+                                    left: cropLeft,
+                                    top: cropTop,
+                                    width: cropWidth,
+                                    height: cropHeight
+                                })
+                                .resize(256, 256)
+                                .webp({ quality: 85 })
+                                .toFile(outPath);
+
+                            db.prepare("UPDATE people SET thumbnail_path = ? WHERE id = ?").run(outPath, cluster.id);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error(`Failed to generate thumbnail for person ${cluster.id}:`, e);
+        }
+
+        thumbDone++;
+        if (thumbDone % 10 === 0 || thumbDone === activeClusters.length) {
+            eventBus.emit({
+                type: 'JobProgress',
+                jobId: activeJobId,
+                processedItems: thumbDone,
+                totalItems: activeClusters.length,
+                currentItemPath: `Person ${thumbDone}`
+            });
+        }
+    }
+
+    eventBus.emit({
+        type: 'JobCompleted',
+        jobId: activeJobId,
+        pipelineStage: 'analysis'
+    });
 }

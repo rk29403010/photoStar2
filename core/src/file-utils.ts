@@ -19,9 +19,10 @@ export function getFileStats(filePath: string) {
 export async function getExifData(filePath: string) {
     try {
         const metadata = await sharp(filePath).metadata();
+        const isRotated = metadata.orientation && metadata.orientation >= 5;
         return {
-            width: metadata.width,
-            height: metadata.height,
+            width: isRotated ? metadata.height : metadata.width,
+            height: isRotated ? metadata.width : metadata.height,
             exif: metadata.exif // Raw buffer, strictly we might want to parse this, but sharp provides some parsed fields too
         };
     } catch (e) {
