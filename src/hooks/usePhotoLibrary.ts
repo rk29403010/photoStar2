@@ -4,18 +4,40 @@ import { useJobManager } from './useJobManager';
 import type { Asset, Person, LibraryStats } from '../types/core';
 import type { BackgroundJob } from '../types/jobs';
 
+export type FilterType = 'person_any' | 'person_all' | 'person_only';
+export interface LibraryFilter {
+    type: FilterType;
+    personIds: string[];
+    description?: string; // Optional human-readable description
+    persons?: { id: string; name: string }[]; // Structured person data for legend
+}
+
 export function usePhotoLibrary() {
     const [status, setStatus] = useState('Initializing...');
     const [error, setError] = useState<string | null>(null);
     const [childProcess, setChildProcess] = useState<Child | null>(null);
     const { jobs, addJob, updateJobProgress, processEvent } = useJobManager();
 
-    // Data State
+    // Data State — pause persisted so backend is re-paused on reconnect
+    const [isSystemPaused, setIsSystemPausedState] = useState<boolean>(() => {
+        try { return JSON.parse(localStorage.getItem('ps_system_paused') ?? 'false'); } catch { return false; }
+    });
+    const setIsSystemPaused = (val: boolean) => {
+        try { localStorage.setItem('ps_system_paused', JSON.stringify(val)); } catch { /* ignore */ }
+        setIsSystemPausedState(val);
+    };
     const [stats, setStats] = useState<LibraryStats | null>(null);
     const [assets, setAssets] = useState<Asset[]>([]);
     const [people, setPeople] = useState<Person[]>([]);
     const [systemJobs, setSystemJobs] = useState<BackgroundJob[]>([]);
     const [folderHistory, setFolderHistory] = useState<{ path: string, last_scanned_at: string }[]>([]);
+    const [rejectedAssets, setRejectedAssets] = useState<Asset[]>([]);
+
+    // Filters
+    const [filterStack, setFilterStackState] = useState<LibraryFilter[]>([]);
+    const filterStackRef = useRef<LibraryFilter[]>([]);
+
+
 
     // Logs
     const [logs, setLogs] = useState<string[]>([]);
@@ -40,8 +62,12 @@ export function usePhotoLibrary() {
                 if (msg.status === 'ok') {
                     if (msg.data?.message === 'pong') {
                         addLog('Pong received');
+                    } else if (msg.data?.isPaused !== undefined) {
+                        setIsSystemPaused(msg.data.isPaused);
                     } else if (msg.data?.count !== undefined) {
                         setStats(msg.data);
+                    } else if (msg.data?.assets && msg.id?.startsWith('rejected-assets-')) {
+                        setRejectedAssets(msg.data.assets);
                     } else if (msg.data?.assets) {
                         setAssets(msg.data.assets);
                     } else if (msg.data?.people) {
@@ -58,6 +84,10 @@ export function usePhotoLibrary() {
                         console.log('[Frontend] Event received:', event.type, event); // DEBUG LOG
                         processEvent(event);
 
+                        if (event.type === 'SystemPausedStateChanged') {
+                            setIsSystemPaused(event.isPaused);
+                        }
+
                         // Handle State Updates for Assets
                         if (event.type === 'MediaDiscovered') {
                             setStats(prev => ({ count: (prev?.count || 0) + 1 }));
@@ -72,7 +102,7 @@ export function usePhotoLibrary() {
                             };
                             setAssets(prev => {
                                 if (prev.some(a => a.id === newAsset.id)) return prev;
-                                return [newAsset, ...prev];
+                                return [...prev, newAsset];
                             });
                         }
 
@@ -82,6 +112,16 @@ export function usePhotoLibrary() {
                             setAssets(prev => prev.map(a => {
                                 if (a.id === event.mediaId) {
                                     return { ...a, preview_path: event.path };
+                                }
+                                return a;
+                            }));
+                        }
+
+                        // Handle Sensitivity Score updates
+                        if (event.type === 'SensitivityScored') {
+                            setAssets(prev => prev.map(a => {
+                                if (a.id === event.mediaId) {
+                                    return { ...a, sensitivity_score: event.score };
                                 }
                                 return a;
                             }));
@@ -130,8 +170,15 @@ export function usePhotoLibrary() {
                     // Initial Ping & Fetch
                     ws.send(JSON.stringify({ id: '1', command: 'ping', payload: {} }) + '\n');
                     ws.send(JSON.stringify({ id: 'stats-init', command: 'get_stats', payload: {} }) + '\n');
-                    ws.send(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: 1000 } }) + '\n');
+                    const initialFilter = filterStackRef.current.length > 0 ? filterStackRef.current[filterStackRef.current.length - 1] : undefined;
+                    ws.send(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: 1000, filter: initialFilter } }) + '\n');
                     ws.send(JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} }) + '\n');
+
+                    // Rehydrate pause state — if we were paused before, tell the backend immediately
+                    const waspaused = localStorage.getItem('ps_system_paused') === 'true';
+                    if (waspaused) {
+                        ws.send(JSON.stringify({ id: 'rehydrate-pause', command: 'pause_jobs', payload: {} }) + '\n');
+                    }
                 };
 
                 ws.onmessage = (event) => {
@@ -187,8 +234,15 @@ export function usePhotoLibrary() {
                 // Initial Ping & Fetch
                 await process.write(JSON.stringify({ id: '1', command: 'ping', payload: {} }) + '\n');
                 await process.write(JSON.stringify({ id: 'stats-init', command: 'get_stats', payload: {} }) + '\n');
-                await process.write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: 1000 } }) + '\n');
+                const initialFilter = filterStackRef.current.length > 0 ? filterStackRef.current[filterStackRef.current.length - 1] : undefined;
+                await process.write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: 1000, filter: initialFilter } }) + '\n');
                 await process.write(JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} }) + '\n');
+
+                // Rehydrate pause state
+                const wasPaused = localStorage.getItem('ps_system_paused') === 'true';
+                if (wasPaused) {
+                    await process.write(JSON.stringify({ id: 'rehydrate-pause', command: 'pause_jobs', payload: {} }) + '\n');
+                }
 
             } catch (e) {
                 const msg = `Failed to spawn: ${String(e)}`;
@@ -229,7 +283,6 @@ export function usePhotoLibrary() {
         setStatus(`Scanning: ${path}`);
         const jobId = 'scan-' + Date.now();
         lastScanId.current = jobId;
-        addJob(jobId, 'bulk_ingest', 'Import Folder');
         if (childProcess) {
             await childProcess.write(JSON.stringify({
                 id: jobId,
@@ -237,7 +290,7 @@ export function usePhotoLibrary() {
                 payload: { path }
             }) + '\n');
         }
-    }, [childProcess, addJob]);
+    }, [childProcess]);
 
     const generatePreviews = useCallback(async () => {
         const jobId = 'previews-' + Date.now();
@@ -287,10 +340,120 @@ export function usePhotoLibrary() {
         }
     }, [childProcess, addJob]);
 
+    const scanSensitive = useCallback(async () => {
+        const jobId = 'sensitive-' + Date.now();
+        addJob(jobId, 'sensitive_scan', 'Sensitive Content Scan');
+        if (childProcess) {
+            await childProcess.write(JSON.stringify({
+                id: jobId,
+                command: 'scan_sensitive',
+                payload: {}
+            }) + '\n');
+        }
+    }, [childProcess, addJob]);
+
+    const scanSensitiveAll = useCallback(async () => {
+        const jobId = 'sensitive-force-' + Date.now();
+        addJob(jobId, 'sensitive_scan', 'Force Re-scan All (Sensitive)');
+        if (childProcess) {
+            await childProcess.write(JSON.stringify({
+                id: jobId,
+                command: 'scan_sensitive_force',
+                payload: {}
+            }) + '\n');
+        }
+    }, [childProcess, addJob]);
+
+    const getSetting = useCallback((key: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            if (!childProcess) {
+                reject(new Error('Sidecar not ready'));
+                return;
+            }
+            const id = `get_setting_${key}_${Date.now()}`;
+            const timeout = setTimeout(() => reject(new Error('Timeout getting setting')), 5000);
+
+            const listener = (line: string) => {
+                try {
+                    const msg = JSON.parse(line);
+                    if (msg.id === id && msg.status === 'ok') {
+                        clearTimeout(timeout);
+                        resolve(msg.data?.value || '');
+                        const childStdout = (childProcess as unknown as { stdout?: { removeListener: (ev: string, l: unknown) => void, on: (ev: string, l: unknown) => void } }).stdout;
+                        if (childStdout) childStdout.removeListener('data', listener);
+                    } else if (msg.id === id && msg.status === 'error') {
+                        clearTimeout(timeout);
+                        reject(new Error(msg.error));
+                        const childStdout = (childProcess as unknown as { stdout?: { removeListener: (ev: string, l: unknown) => void, on: (ev: string, l: unknown) => void } }).stdout;
+                        if (childStdout) childStdout.removeListener('data', listener);
+                    }
+                } catch {
+                    // Ignore parse errors from partial chunks
+                }
+            };
+            const childStdout = (childProcess as unknown as { stdout?: { removeListener: (ev: string, l: unknown) => void, on: (ev: string, l: unknown) => void } }).stdout;
+            if (childStdout) childStdout.on('data', listener);
+            childProcess.write(JSON.stringify({ id, command: 'get_setting', payload: { key } }) + '\n').catch(reject);
+        });
+    }, [childProcess]);
+
+    const extractAiMetadata = useCallback(async (mediaId?: string) => {
+        // Validate API Key First
+        const apiKey = await getSetting('gemini_api_key').catch(() => '');
+        if (!apiKey || apiKey.trim() === '') {
+            throw new Error("MISSING_API_KEY");
+        }
+
+        const jobId = 'ai_meta-' + Date.now();
+        addJob(jobId, 'ai_metadata', 'Extract AI Metadata');
+        if (childProcess) {
+            await childProcess.write(JSON.stringify({
+                id: jobId,
+                command: 'extract_ai_metadata',
+                payload: mediaId ? { mediaId } : {}
+            }) + '\n');
+        }
+        return jobId;
+    }, [childProcess, addJob, getSetting]);
+
+
+
+    const setSetting = useCallback(async (key: string, value: string) => {
+        if (childProcess) {
+            await childProcess.write(JSON.stringify({
+                id: `set_setting_${key}_${Date.now()}`,
+                command: 'set_setting',
+                payload: { key, value }
+            }) + '\n');
+        }
+    }, [childProcess]);
+
+    const setSensitivity = useCallback(async (assetId: string, status: string | null) => {
+        if (childProcess) {
+            await childProcess.write(JSON.stringify({
+                id: `set-sensitivity-${Date.now()}`,
+                command: 'set_sensitivity',
+                payload: { assetId, status }
+            }) + '\n');
+            // Optimistic local update
+            setAssets(prev => prev.map(a => a.id === assetId ? { ...a, sensitivity_status: status } : a));
+        }
+    }, [childProcess]);
+
     const refreshLibrary = useCallback(() => {
         sendCommand('get_stats');
-        sendCommand('get_assets', { limit: 1000 });
+        const stack = filterStackRef.current;
+        const currentFilter = stack.length > 0 ? stack[stack.length - 1] : undefined;
+        sendCommand('get_assets', { limit: 1000, filter: currentFilter });
     }, [sendCommand]);
+
+    const updateFilterStack = useCallback((newStack: LibraryFilter[]) => {
+        filterStackRef.current = newStack;
+        setFilterStackState(newStack);
+        if (childProcess || typeof window !== 'undefined') {
+            refreshLibrary();
+        }
+    }, [childProcess, refreshLibrary]);
 
     const refreshPeople = useCallback(() => sendCommand('get_people'), [sendCommand]);
 
@@ -320,37 +483,92 @@ export function usePhotoLibrary() {
         }, 1000);
     }, [sendCommand, refreshLibrary]);
 
+    const toggleSystemPause = useCallback(() => {
+        if (isSystemPaused) {
+            sendCommand('resume_jobs');
+        } else {
+            sendCommand('pause_jobs');
+        }
+    }, [isSystemPaused, sendCommand]);
+
     const actions = useMemo(() => ({
+        toggleSystemPause,
         scanLibrary,
         stopScan,
         generatePreviews,
         detectFaces,
         recogniseFaces,
         clusterFaces,
+        scanSensitive,
+        scanSensitiveAll,
+        extractAiMetadata,
+        getSetting,
+        setSetting,
+        setSensitivity,
         refreshLibrary,
         refreshPeople,
         refreshSystemJobs,
         resetFaces,
         resetLibrary,
+        prioritizeAsset: (mediaId: string) => {
+            sendCommand('prioritize_asset_processing', { mediaId });
+        },
+        renamePerson: (personId: string, newName: string) => {
+            sendCommand('rename_person', { personId, newName });
+        },
+        mergePeople: (personIds: string[], targetName: string) => {
+            sendCommand('merge_people', { personIds, targetName });
+        },
+        isolateFace: (assetId: string, faceIndex: number) => {
+            sendCommand('isolate_face', { assetId, faceIndex });
+        },
+        isolatePersonAsset: (assetId: string, personId: string) => {
+            sendCommand('isolate_person_asset', { assetId, personId });
+        },
+        getRejectedAssetsForPerson: (personId: string | null) => {
+            if (!personId) {
+                setRejectedAssets([]);
+                return;
+            }
+            const id = `rejected-assets-${Date.now()}`;
+            // Send with a specific id prefix so the response handler routes correctly
+            if (childProcess) {
+                childProcess.write(JSON.stringify({ id, command: 'get_rejected_assets_for_person', payload: { personId } }) + '\n');
+            }
+        },
         updateAsset: (id: string, partial: Partial<Asset>) => {
             setAssets(prev => prev.map(a => a.id === id ? { ...a, ...partial } : a));
+        },
+        pushFilter: (filter: LibraryFilter) => {
+            updateFilterStack([...filterStackRef.current, filter]);
+        },
+        popFilter: () => {
+            if (filterStackRef.current.length > 0) {
+                updateFilterStack(filterStackRef.current.slice(0, -1));
+            }
+        },
+        clearFilters: () => {
+            updateFilterStack([]);
         }
     }), [
-        scanLibrary, stopScan, generatePreviews, detectFaces, recogniseFaces,
-        clusterFaces, refreshLibrary, refreshPeople, refreshSystemJobs,
-        resetFaces, resetLibrary
+        toggleSystemPause, scanLibrary, stopScan, generatePreviews, detectFaces, recogniseFaces,
+        clusterFaces, scanSensitive, scanSensitiveAll, extractAiMetadata, getSetting, setSetting, setSensitivity, refreshLibrary, refreshPeople, refreshSystemJobs,
+        resetFaces, resetLibrary, sendCommand, updateFilterStack, childProcess, setRejectedAssets
     ]);
 
     return {
         status,
         error,
         logs,
+        isSystemPaused,
         stats,
         assets,
         people,
+        rejectedAssets,
         jobs, // from useJobManager
         systemJobs,
         folderHistory,
-        actions
+        actions,
+        filterStack
     };
 }

@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import type { Asset, TileIntent } from '../../types/core';
+import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 
 interface LayoutEngineProps {
@@ -7,6 +8,13 @@ interface LayoutEngineProps {
     debug?: boolean;
     onAssetClick?: (id: string) => void;
     selectedAssetId?: string | null;
+    activeFilter?: LibraryFilter;
+    showFaces?: boolean;
+    onUntagAsset?: (assetId: string, personId: string) => void;
+    onSetSensitivity?: (assetId: string, status: string | null) => void;
+    librarySelection?: Set<string>;
+    onLibrarySelectionChange?: (selection: Set<string>) => void;
+    declusteredAssets?: Set<string>;
 }
 
 const computeLayout = (assets: Asset[]): { asset: Asset; intent: TileIntent; spanW: number; spanH: number; styles?: React.CSSProperties }[] => {
@@ -59,8 +67,60 @@ const computeLayout = (assets: Asset[]): { asset: Asset; intent: TileIntent; spa
     });
 };
 
-export const LayoutEngine: React.FC<LayoutEngineProps> = ({ assets, debug = false, onAssetClick, selectedAssetId }) => {
-    const layoutItems = useMemo(() => computeLayout(assets), [assets]);
+export const LayoutEngine: React.FC<LayoutEngineProps> = ({
+    assets, debug = false, onAssetClick, selectedAssetId,
+    activeFilter, showFaces, onUntagAsset, onSetSensitivity,
+    librarySelection, onLibrarySelectionChange, declusteredAssets
+}) => {
+    const layoutItems = React.useMemo(() => computeLayout(assets), [assets]);
+
+    // Multi-select state
+    const [isSelecting, setIsSelecting] = React.useState(false);
+    const [lastSelectedIdx, setLastSelectedIdx] = React.useState<number | null>(null);
+    const pressTimer = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        const handleMouseUp = () => setIsSelecting(false);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+                if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+                if (onLibrarySelectionChange) {
+                    e.preventDefault();
+                    const allIds = new Set(layoutItems.map(item => item.asset.id));
+                    onLibrarySelectionChange(allIds);
+                }
+            }
+        };
+        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [layoutItems, onLibrarySelectionChange]);
+
+    const toggleSelection = (id: string, index: number, shiftKey: boolean) => {
+        if (!librarySelection || !onLibrarySelectionChange) return;
+        const next = new Set(librarySelection);
+
+        if (shiftKey && lastSelectedIdx !== null) {
+            // Block select
+            const start = Math.min(lastSelectedIdx, index);
+            const end = Math.max(lastSelectedIdx, index);
+            const isAdding = !next.has(id);
+            for (let i = start; i <= end; i++) {
+                if (isAdding) next.add(layoutItems[i].asset.id);
+                else next.delete(layoutItems[i].asset.id);
+            }
+        } else {
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+        }
+
+        setLastSelectedIdx(index);
+        onLibrarySelectionChange(next);
+    };
 
     return (
         <div
@@ -77,23 +137,94 @@ export const LayoutEngine: React.FC<LayoutEngineProps> = ({ assets, debug = fals
                 margin: '0 auto',
             }}
         >
-            {layoutItems.map((item, i) => (
-                <div
-                    key={item.asset.id || i}
-                    style={{
-                        gridColumn: `span ${item.spanW}`,
-                        gridRow: `span ${item.spanH}`
-                    }}
-                    onClick={() => onAssetClick?.(item.asset.id)}
-                >
-                    <Tile
-                        asset={item.asset}
-                        intent={item.intent}
-                        debug={debug}
-                        selected={selectedAssetId === item.asset.id}
-                    />
-                </div>
-            ))}
+            {layoutItems.map((item, i) => {
+                const isSelected = librarySelection?.has(item.asset.id) || selectedAssetId === item.asset.id;
+                const isDeclustered = declusteredAssets?.has(item.asset.id);
+
+                return (
+                    <div
+                        key={item.asset.id || i}
+                        style={{
+                            gridColumn: `span ${item.spanW}`,
+                            gridRow: `span ${item.spanH}`,
+                            opacity: isDeclustered ? 0.4 : 1,
+                            filter: isDeclustered ? 'grayscale(80%)' : 'none',
+                            position: 'relative',
+                            userSelect: 'none',
+                            transform: isSelected ? 'scale(0.95)' : 'none',
+                            transition: 'transform 0.2s',
+                            boxShadow: isSelected ? '0 0 0 3px #3b82f6' : 'none',
+                            borderRadius: '4px',
+                            overflow: 'hidden'
+                        }}
+                        onPointerDown={(e) => {
+                            if (e.button !== 0) return;
+                            if (librarySelection && librarySelection.size > 0) {
+                                setIsSelecting(true);
+                                toggleSelection(item.asset.id, i, e.shiftKey);
+                            } else {
+                                pressTimer.current = window.setTimeout(() => {
+                                    if (onLibrarySelectionChange) {
+                                        setIsSelecting(true);
+                                        const next = new Set([item.asset.id]);
+                                        setLastSelectedIdx(i);
+                                        onLibrarySelectionChange(next);
+                                    }
+                                }, 500); // 500ms long press to activate
+                            }
+                        }}
+                        onPointerUp={() => {
+                            if (pressTimer.current) {
+                                clearTimeout(pressTimer.current);
+                                pressTimer.current = null;
+                            }
+                        }}
+                        onPointerLeave={() => {
+                            if (pressTimer.current) {
+                                clearTimeout(pressTimer.current);
+                                pressTimer.current = null;
+                            }
+                        }}
+                        onPointerEnter={() => {
+                            if (isSelecting && librarySelection && onLibrarySelectionChange) {
+                                // Drag-select adds to selection naturally
+                                const next = new Set(librarySelection);
+                                next.add(item.asset.id);
+                                onLibrarySelectionChange(next);
+                                setLastSelectedIdx(i);
+                            }
+                        }}
+                        onClick={() => {
+                            if (pressTimer.current) {
+                                clearTimeout(pressTimer.current);
+                                pressTimer.current = null;
+                            }
+                            if (librarySelection && librarySelection.size > 0) {
+                                // Already handled partially by pointerDown, but pointerDown + up means click
+                                // Actually, pointerDown already toggled it if size > 0.
+                                // But if pointerDown dragged, it adds. If click, we prevent normal view.
+                            } else {
+                                onAssetClick?.(item.asset.id);
+                            }
+                        }}
+                    >
+                        {/* Semi-transparent overlay for multi-select visual aid */}
+                        {isSelected && (
+                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(59, 130, 246, 0.2)', zIndex: 5, pointerEvents: 'none' }} />
+                        )}
+                        <Tile
+                            asset={item.asset}
+                            intent={item.intent}
+                            debug={debug}
+                            selected={isSelected}
+                            activeFilter={activeFilter}
+                            showFaces={showFaces}
+                            onUntagAsset={onUntagAsset}
+                            onSetSensitivity={onSetSensitivity}
+                        />
+                    </div>
+                );
+            })}
         </div>
     );
 };

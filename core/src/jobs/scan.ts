@@ -4,6 +4,7 @@ import { join, extname } from 'node:path';
 import { readdirSync, statSync } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
 import { EventBus } from '../events/bus';
+import { waitIfPaused } from '../state';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic']);
 
@@ -94,6 +95,7 @@ export async function runScanJob(
         try {
             const files = readdirSync(dir);
             for (const file of files) {
+                await waitIfPaused(signal);
                 const fullPath = join(dir, file);
                 try {
                     const stats = statSync(fullPath);

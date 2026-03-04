@@ -3,6 +3,7 @@ import { join, dirname, basename } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import sharp from 'sharp';
 import { EventBus } from '../events/bus';
+import { waitIfPaused } from '../state';
 
 const PREVIEW_SIZES = {
     'thumbnail': 450,
@@ -61,6 +62,7 @@ export async function runPreviewJob(
 
     // Process provided mediaIds
     for (const mediaId of mediaIds) {
+        await waitIfPaused();
         try {
             const asset = db.prepare('SELECT id, original_path FROM assets WHERE id = ?').get(mediaId) as { id: string, original_path: string } | undefined;
 

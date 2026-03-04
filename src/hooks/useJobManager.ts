@@ -1,14 +1,14 @@
 import { useState, useCallback } from 'react';
-import type { BackgroundJob, JobKind, JobState } from '../types/jobs';
+import type { BackgroundJob, PipelineStage, JobState } from '../types/jobs';
 import type { DomainEvent } from '../types/events';
 
 export function useJobManager() {
     const [jobs, setJobs] = useState<BackgroundJob[]>([]);
 
-    const addJob = useCallback((id: string, kind: JobKind, title: string) => {
+    const addJob = useCallback((id: string, stage: PipelineStage, title: string) => {
         const newJob: BackgroundJob = {
             id,
-            kind,
+            stage,
             title,
             state: 'queued',
             createdAt: new Date().toISOString(),
@@ -75,7 +75,7 @@ export function useJobManager() {
     // NEW: consume events
     const processEvent = useCallback((event: DomainEvent) => {
         switch (event.type) {
-            case 'TaskStarted': {
+            case 'JobStarted': {
                 const kindTitles: Record<string, string> = {
                     'bulk_ingest': 'Ingesting Library',
                     'scan': 'Scanning Folders',
@@ -84,19 +84,19 @@ export function useJobManager() {
                     'similarity_cluster': 'Clustering Similar Faces',
                     'reindex': 'Rebuilding Index'
                 };
-                let displayTitle = kindTitles[event.taskKind] || event.taskKind;
-                if (event.taskId.startsWith('recog-')) displayTitle = 'Recognising Faces';
-                if (event.taskId.startsWith('detect-')) displayTitle = 'Detecting Faces';
-                if (event.taskId.startsWith('previews-') || event.taskId.startsWith('preview-')) displayTitle = 'Generating Thumbnails';
+                let displayTitle = kindTitles[event.pipelineStage] || event.pipelineStage;
+                if (event.jobId.startsWith('recog-')) displayTitle = 'Recognising Faces';
+                if (event.jobId.startsWith('detect-')) displayTitle = 'Detecting Faces';
+                if (event.jobId.startsWith('previews-') || event.jobId.startsWith('preview-')) displayTitle = 'Generating Thumbnails';
 
-                addJob(event.taskId, event.taskKind as JobKind, displayTitle);
-                updateJobState(event.taskId, 'running');
+                addJob(event.jobId, event.pipelineStage as PipelineStage, displayTitle);
+                updateJobState(event.jobId, 'running');
                 break;
             }
 
-            case 'TaskProgress':
+            case 'JobProgress':
                 setJobs(prev => prev.map(job => {
-                    if (job.id === event.taskId) {
+                    if (job.id === event.jobId) {
                         const newPercent = event.totalItems && event.totalItems > 0
                             ? (event.processedItems / event.totalItems) * 100
                             : undefined;
@@ -111,8 +111,8 @@ export function useJobManager() {
                                 current: event.currentItemPath,
                                 throughputIps: event.throughputIps,
                                 errors: event.errorCount,
-                                indexed: job.kind === 'bulk_ingest' || job.kind === 'scan' ? event.processedItems : job.progress.indexed,
-                                analysed: job.kind === 'face_analysis' ? event.processedItems : job.progress.analysed,
+                                indexed: job.stage === 'bulk_ingest' || job.stage === 'scan' ? event.processedItems : job.progress.indexed,
+                                analysed: job.stage === 'face_analysis' ? event.processedItems : job.progress.analysed,
                             }
                         };
                     }
@@ -120,15 +120,15 @@ export function useJobManager() {
                 }));
                 break;
 
-            case 'TaskCompleted':
-                updateJobState(event.taskId, 'completed');
-                updateJobProgress(event.taskId, { status: 'complete' });
+            case 'JobCompleted':
+                updateJobState(event.jobId, 'completed');
+                updateJobProgress(event.jobId, { status: 'complete' });
                 break;
 
-            case 'TaskFailed':
-                updateJobState(event.taskId, 'failed');
+            case 'JobFailed':
+                updateJobState(event.jobId, 'failed');
                 setJobs(prev => prev.map(job => {
-                    if (job.id === event.taskId) {
+                    if (job.id === event.jobId) {
                         return {
                             ...job,
                             issues: [...job.issues, {
@@ -144,11 +144,11 @@ export function useJobManager() {
                 break;
 
             case 'FolderScanRequested':
-                addJob(event.scanSessionId, 'bulk_ingest', 'Ingest Session');
+                // Removed intentionally: The backend already serves a distinct 'class-onboarding' card named "Photo Onboarding"
                 break;
             case 'FacesDetected':
                 setJobs(prev => prev.map(job => {
-                    if (job.kind === 'face_analysis' && job.state === 'running') {
+                    if (job.stage === 'face_analysis' && job.state === 'running') {
                         return {
                             ...job,
                             progress: {
@@ -162,7 +162,7 @@ export function useJobManager() {
                 break;
             case 'FaceEmbeddingGenerated':
                 setJobs(prev => prev.map(job => {
-                    if (job.kind === 'face_analysis' && job.state === 'running') {
+                    if (job.stage === 'face_analysis' && job.state === 'running') {
                         return {
                             ...job,
                             progress: {

@@ -62,6 +62,15 @@ export type FaceClusteringUpdated = {
     clusterId: string;
 };
 
+export type FaceRecognitionRequested = {
+    type: "FaceRecognitionRequested";
+    mediaIds?: string[];
+};
+
+export type FaceClusteringRequested = {
+    type: "FaceClusteringRequested";
+};
+
 export type JobStarted = {
     type: "JobStarted";
     jobId: string;
@@ -92,6 +101,13 @@ export type JobFailed = {
     reason: string;
 };
 
+export type SensitivityScored = {
+    type: "SensitivityScored";
+    mediaId: string;
+    score: number;       // 0–100
+    tier: 'safe' | 'review' | 'unsafe';
+};
+
 export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
@@ -103,7 +119,10 @@ export type DomainEvent =
     | FaceEmbeddingGenerated
     | FaceMatched
     | FaceClusteringUpdated
+    | FaceRecognitionRequested
+    | FaceClusteringRequested
     | JobStarted
     | JobProgress
     | JobCompleted
-    | JobFailed;
+    | JobFailed
+    | SensitivityScored;

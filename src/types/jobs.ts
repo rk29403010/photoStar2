@@ -17,7 +17,9 @@ export type PipelineStage =
     | "analysis"
     | "face_analysis"
     | "similarity_cluster"
-    | "preview_generation";
+    | "preview_generation"
+    | "sensitive_scan"
+    | "ai_metadata";
 
 export interface JobIssue {
     id: string;

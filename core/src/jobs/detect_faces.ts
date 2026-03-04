@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import { EventBus } from '../events/bus';
+import { waitIfPaused } from '../state';
 
 const MODEL_FILENAME = 'det_10g.onnx';
 let MODEL_PATH = join(path.dirname(process.execPath), 'models', MODEL_FILENAME);
@@ -257,6 +258,7 @@ export async function runFaceDetectionJob(
     `);
 
     for (const asset of assets) {
+        await waitIfPaused();
         // Run synchronously-ish
         try {
             const faces = await detector.detect(asset.original_path);
@@ -270,6 +272,7 @@ export async function runFaceDetectionJob(
                 }))
             });
 
+            db.prepare('DELETE FROM derived_results WHERE asset_id = ? AND task = ?').run(asset.id, 'face_detection');
             insertStmt.run(uuidv4(), asset.id, resultData);
 
             eventBus.emit({

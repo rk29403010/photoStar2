@@ -49,7 +49,7 @@ Jobs are managed by the `Coordinator` (`core/src/coordinator/index.ts`) which wa
 
 **STRICT RULE:** All background processing systems, workers, database tables, and UI components MUST adhere to the following terminology map:
 
-1. **Job:** The high-level intent or overarching process holding business value (e.g., "Scanning `C:\Photos`"). A `Job` represents the *entire* batch of work to be done. 
+1. **Job:** The high-level intent or overarching process holding business value (e.g., "Scanning `C:\Photos`"). A `Job` represents the *entire* batch of work to be done.
 2. **Task:** The smallest, atomic unit of measurable work within a Job (e.g., "Scanning a single file `image01.jpg`", "Detecting faces in `IMG_2030.HEIC`").
 3. **Pipeline Stage:** The specific classification or category of processing the Job is currently running (e.g., `onboarding`, `previews`, `face_analysis`, `bulk_ingest`). Previously referred to as "Job Kind", "Job Type", or "Job Class".
 4. **Queue/Batch:** Internal orchestration structures pointing to pending `Tasks` to be processed as part of a `Job`.

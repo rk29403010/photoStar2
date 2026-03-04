@@ -25,7 +25,24 @@ export class DatabaseManager {
         width INTEGER,
         height INTEGER,
         exif_datetime TEXT,
+        sensitivity_score INTEGER,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Permanent identity map (survives factory reset)
+      CREATE TABLE IF NOT EXISTS asset_identities (
+        guid TEXT PRIMARY KEY,
+        original_path TEXT NOT NULL UNIQUE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Generic manual shadow table (survives factory reset)
+      -- sensitivity_status: 'safe' | 'review' | 'unsafe' | NULL (use AI score)
+      CREATE TABLE IF NOT EXISTS assets_manual (
+        identity_guid TEXT PRIMARY KEY,
+        sensitivity_status TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(identity_guid) REFERENCES asset_identities(guid)
       );
 
       CREATE TABLE IF NOT EXISTS events (
@@ -108,15 +125,54 @@ export class DatabaseManager {
         FOREIGN KEY(asset_id) REFERENCES assets(id)
       );
 
+      CREATE TABLE IF NOT EXISTS manual_face_names (
+        original_path TEXT NOT NULL,
+        face_index INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (original_path, face_index)
+      );
+
+      CREATE TABLE IF NOT EXISTS manual_face_isolations (
+        original_path TEXT NOT NULL,
+        face_index INTEGER NOT NULL,
+        from_person_id TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (original_path, face_index)
+      );
+
+      CREATE TABLE IF NOT EXISTS task_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        media_id TEXT NOT NULL,
+        pipeline_stage TEXT NOT NULL,
+        status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+        priority INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(media_id, pipeline_stage),
+        FOREIGN KEY(media_id) REFERENCES assets(id)
+      );
+
       CREATE INDEX IF NOT EXISTS idx_assets_path ON assets(original_path);
       CREATE INDEX IF NOT EXISTS idx_derived_task ON derived_results(task);
       CREATE INDEX IF NOT EXISTS idx_assignments_person ON face_assignments(person_id);
       CREATE INDEX IF NOT EXISTS idx_issues_asset ON processing_issues(asset_id);
+      CREATE INDEX IF NOT EXISTS idx_task_queue_status_priority ON task_queue(status, priority DESC);
+      CREATE INDEX IF NOT EXISTS idx_identities_path ON asset_identities(original_path);
+
+      CREATE TABLE IF NOT EXISTS settings (
+        id TEXT PRIMARY KEY,
+        value TEXT
+      );
     `);
 
     // Migrations for existing tables
     try { this.db.prepare("ALTER TABLE assets ADD COLUMN width INTEGER").run(); } catch (e) { }
     try { this.db.prepare("ALTER TABLE assets ADD COLUMN height INTEGER").run(); } catch (e) { }
+    try { this.db.prepare("ALTER TABLE assets ADD COLUMN caption TEXT").run(); } catch (e) { }
+    try { this.db.prepare("ALTER TABLE assets ADD COLUMN sensitivity_score INTEGER").run(); } catch (e) { }
+
+    // manual_face_isolations migration: track which person a face was removed from
+    try { this.db.prepare("ALTER TABLE manual_face_isolations ADD COLUMN from_person_id TEXT").run(); } catch (e) { }
 
     // Jobs migrations
     try { this.db.prepare("ALTER TABLE jobs RENAME COLUMN type TO stage").run(); } catch (e) { }
@@ -127,6 +183,13 @@ export class DatabaseManager {
     try { this.db.prepare("ALTER TABLE jobs ADD COLUMN error_count INTEGER DEFAULT 0").run(); } catch (e) { }
     try { this.db.prepare("ALTER TABLE jobs ADD COLUMN current_item_path TEXT").run(); } catch (e) { }
     try { this.db.prepare("ALTER TABLE jobs ADD COLUMN throughput_ips REAL DEFAULT 0").run(); } catch (e) { }
+
+    // Resume uncompleted tasks on application restart
+    try {
+      this.db.prepare("UPDATE task_queue SET status = 'pending' WHERE status = 'processing'").run();
+    } catch (e) {
+      // table might not exist on extremely weird edge cases before commit, ignore
+    }
   }
 
   public getDb() {

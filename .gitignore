@@ -33,3 +33,7 @@ dist-ssr
 # Coverage
 coverage/
 .nyc_output/
+
+# AI model weights (large binaries — re-downloaded on first run or via postinstall)
+core/models/nsfwjs/
+core/models/*.onnx

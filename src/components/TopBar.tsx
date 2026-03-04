@@ -5,9 +5,11 @@ interface TopBarProps {
     setView: (view: 'library' | 'people' | 'dashboard') => void;
     onRefresh: () => void;
     onOpenActions: () => void;
+    showFaces: boolean;
+    setShowFaces: (val: boolean) => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpenActions }) => {
+export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpenActions, showFaces, setShowFaces }) => {
     return (
         <div style={{
             marginBottom: 10,
@@ -70,6 +72,27 @@ export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpen
             </div>
 
             <div style={{ width: 1, height: 24, background: '#444' }} />
+
+            <button
+                onClick={() => setShowFaces(!showFaces)}
+                style={{
+                    background: showFaces ? 'rgba(0, 255, 255, 0.2)' : 'transparent',
+                    border: '1px solid',
+                    borderColor: showFaces ? 'cyan' : 'transparent',
+                    borderRadius: '4px',
+                    color: showFaces ? 'cyan' : '#aaa',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    padding: '4px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    transition: 'all 0.2s',
+                    marginLeft: 'auto'
+                }}
+            >
+                <span style={{ fontSize: 16 }}>👤</span> Faces
+            </button>
 
             <button onClick={onRefresh} style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '0.9rem' }}>
                 ↻ Refresh

@@ -1,18 +1,24 @@
 {
     "name": "photo-desktop-core",
-    "version": "1.0.2",
+    "version": "1.0.4",
     "description": "Node.js Sidecar for Photo Library Desktop",
     "main": "dist/main.js",
     "bin": "dist/main.js",
     "scripts": {
         "build": "tsc",
         "dev": "npx concurrently \"tsc --watch\" \"node --watch dist/main.js\"",
+        "download:models": "node scripts/download_nsfw_model.js",
         "package": "pkg . --targets node18-win-x64 --output ../src-tauri/binaries/core-x86_64-pc-windows-msvc",
+        "postinstall": "node scripts/fix_tfjs_binding.js",
         "start": "node dist/main.js"
     },
     "dependencies": {
+        "@google/generative-ai": "^0.24.1",
+        "@tensorflow/tfjs-node": "^4.22.0",
         "better-sqlite3": "^11.10.0",
+        "exif-parser": "^0.1.12",
         "fs-extra": "^11.2.0",
+        "nsfwjs": "^4.2.1",
         "onnxruntime-node": "^1.20.0",
         "sharp": "^0.33.5",
         "smartcrop": "^2.0.5",
@@ -34,9 +40,12 @@
             "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
             "node_modules/onnxruntime-node/bin/napi-v6/win32/x64/onnxruntime_binding.node",
             "node_modules/onnxruntime-node/bin/napi-v6/win32/x64/onnxruntime.dll",
+            "node_modules/@tensorflow/tfjs-node/lib/napi-v8/tfjs_binding.node",
+            "node_modules/@tensorflow/tfjs-node/lib/napi-v8/tensorflow.dll",
             "node_modules/@img/**/*",
             "node_modules/sharp/**/*",
-            "models/*.onnx"
+            "models/*.onnx",
+            "models/nsfwjs/**/*"
         ]
     }
 }

@@ -51,6 +51,22 @@ export default defineConfig({
     })
   ],
   server: {
-    open: true
+    open: true,
+    watch: {
+      // Only watch src/ and public/ — ignore docs, core, markdown files at root, etc.
+      ignored: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.git/**',
+        '**/core/**',
+        '**/docs/**',
+        '**/src-tauri/**',
+        '**/*.md',
+        '**/package.json',
+        '**/package-lock.json',
+        '**/metadata.json',
+        '**/updates.md',
+      ]
+    }
   }
 })

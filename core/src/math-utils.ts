@@ -50,11 +50,6 @@ export function estimateAffine(src: Point[], dst: Point[]): number[] {
     const a = numA / denom; // s * cos(theta)
     const b = numB / denom; // s * sin(theta)
 
-    const scaleX = a;
-    const scaleY = a;
-    const skewX = -b;
-    const skewY = b;
-
     // Translation
     const transX = dstMean.x - (a * srcMean.x - b * srcMean.y);
     const transY = dstMean.y - (b * srcMean.x + a * srcMean.y);

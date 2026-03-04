@@ -1,12 +1,13 @@
 {
   "name": "photo-star-2",
   "private": true,
-  "version": "0.1.36",
+  "version": "0.1.41",
   "type": "module",
   "scripts": {
     "🚀dev": "tauri dev",
     "dev:ui": "vite",
     "dev:core": "cd core && npm run dev",
+    "predev": "node scripts/kill-ports.js",
     "dev": "concurrently \"npm run dev:ui\" \"npm run dev:core\"",
     "build": "npm run lint && tsc -b && vite build",
     "build:core": "node core/scripts/smart_build.js",

@@ -1,3 +1,156 @@
+## [0.1.55] - 2026-03-03T23:30:00Z
+
+- **Fix (Core): AI Metadata Events** — Resolved an architectural drift where the backend was emitting `JobStarted`/`JobFailed`, but the frontend `useJobManager` and `SinglePhotoView` were expecting `TaskStarted`.
+- **Fix (Core): Gemini Model Stability** — Swapped `gemini-exp-1206` for the stable `gemini-1.5-pro` model to resolve invalid API Key/Model Not Found errors on accounts that lack access to experimental nodes.
+- **Improvement (UI): Detailed DB Info Panel** — Added a highly requested "Display all Info" action inside the `SinglePhotoView` Action Menu that opens a dedicated modal rendering the raw `Asset` object in a nicely formatted syntax container for immediate technical access.
+
+## [0.1.54] - 2026-03-03T18:42:00Z
+
+- **Improvement (UI): AI Metadata Extraction Hardening** — Upgraded the Analyze Image flow to gracefully handle API errors directly inside `SinglePhotoView`.
+  - The UI now actively manages its own internal `analysisState` ('analyzing', 'cancelling', 'error').
+  - The "Analyze Image" button transforms into a `🚫 Cancel Analysis` button during processing.
+  - If the Gemini API Key is missing, the backend throws an explicit `MISSING_API_KEY` exception that the UI catches. This triggers a dedicated Error Modal overlaying the full-screen view containing direct links to Google AI Studio and an actionable button to open the settings panel.
+  - Moved the Safe/Unsafe explicit tagging buttons out of the main zoom-toolbar and neatly grouped them under the Action Menu dropdown, visually styling them with `😃` and `🫣` emojis. The "Review" action was dropped per user request.
+
+## [0.1.53] - 2026-03-03T12:35:00Z
+
+- **Feature (UI): AI Analysis Status Indicator** — Added a visual indicator within `SinglePhotoView` when an AI metadata analysis is running.
+  - When triggering "Analyze Image", a pulsing ✨ `Analyzing` badge appears immediately in the top right Controls header next to the Actions menu.
+  - While tracking the `analyzingAssetId`, the component watches real-time state for incoming payload updates.
+  - Upon successful backend delivery (`asset.ai_metadata` is populated), the component clears the analyzing flag and automatically opens the AI Info modal to present the results. 
+
+## [0.1.52] - 2026-03-03T12:25:00Z
+
+- **Feature (UI): Single Photo Actions Menu** — Added a drop-down "Actions" menu to the top-right overlay of the SinglePhotoView. 
+  - Allows triggering the "✨ Analyze Image" AI Metadata job specifically for the currently viewed photo without returning to the main dashboard.
+  - Automatically hides when the UI controls fade out or when clicking elsewhere.
+  - Passes the new `onExtractAiMetadata` prop directly from `App.tsx` through to `SinglePhotoView.tsx`.
+
+## [0.1.51] - 2026-03-03T11:28:00Z
+
+- **Bugfix (UI): Fix "Invisible Locked Gallery"** — Resolved an issue where reloading the app with a selected photo cached in `localStorage` caused the `SinglePhotoView` to mount before the `assets` payload arrived. This cached an invalid `currentIndex = 0` internally, and combined with a missing `@keyframes fadeInOverlay` CSS definition, rendered an invisible fullscreen div over the gallery that permanently blocked all clicks.
+  - Defended `App.tsx` by explicitly blocking `SinglePhotoView` from mounting until `assets` fully populates and actually contains the `selectedAssetId`.
+  - Added the missing `fadeInOverlay` to `index.css`.
+- **Bugfix (React): Passive Listener Exceptions** — Resolved `Unable to preventDefault inside passive event listener invocation` errors cascading down the console by swapping inline `onWheel` props on the `SinglePhotoView` with a native `useEffect` that explicitly binds with DOM `{ passive: false }`.
+
+## [0.1.50] - 2026-03-03T08:06:00Z
+
+- **Bugfix (Frontend): Fix TypeScript type errors in `usePhotoLibrary.ts`** —
+  - Resolves `@typescript-eslint/no-explicit-any` on `addJob` by adding `ai_metadata` to the permitted `PipelineStage` union array in `types/jobs.ts`.
+  - Fixes missing generic `stdout` typed properties when extracting setting outputs by securely casting the mocked Websocket Child sidecar (`childProcess`), preventing runtime destructuring exceptions in development WS mode.
+
+## [1.0.4] - 2026-03-02T19:42:02Z
+
+- **Bugfix (Core): WebP thumbnail incompatibility with `tf.node.decodeImage`** —
+  Thumbnails are stored as WebP but TensorFlow's `decodeImage` only accepts
+  BMP/JPEG/PNG/GIF, causing `"unsupported image type"` on every scan item.
+  - `scan_sensitive.ts`: Added in-memory WebP → PNG conversion via `sharp` before
+    calling `tf.node.decodeImage`. No temp files are written; the PNG buffer is
+    GC-collected immediately after tensor creation.
+  - Added lazy `_sharp` module ref alongside `_tf` / `_nsfwjs` for consistency.
+  - End-to-end integration test (`scripts/test_webp_scan.js`) confirms full
+    WebP → PNG → TF → nsfwjs → score pipeline works correctly.
+
+## [1.0.3] - 2026-03-02T18:30:53Z
+
+- **Bugfix (Core): `@tensorflow/tfjs-node` native binding on Node 22** — The pre-built
+  `tfjs_binding.node` (NAPI v8) failed to load on Node 22 (NAPI v10) with
+  `"The specified module could not be found"` because `tensorflow.dll` was only
+  placed in `lib/napi-v10/` by the installer, not co-located with the v8 binding.
+  - Added `scripts/fix_tfjs_binding.js` — copies `tensorflow.dll` into `lib/napi-v8/`
+    so the NAPI-ABI-stable binding resolves its DLL on any Node version.
+  - Registered as `postinstall` in `core/package.json` so future `npm install` runs
+    apply the fix automatically.
+  - Added both `tfjs_binding.node` and `tensorflow.dll` to `pkg.assets` for correct
+    Tauri packaging.
+  - Fixed stray `flush` function reference being passed as an arg to `console.log`
+    in `scan_sensitive.ts`; removed the now-unused `flush` no-op helper.
+
+## [0.1.49] - 2026-03-02
+
+- **Feature: Manual De/Clustering improvements** — Full rejected-photo tracking and gallery visibility:
+  - **DB**: Added `from_person_id` column to `manual_face_isolations` (with migration) so every face rejection remembers which person it came from.
+  - **Backend**: `isolate_person_asset` now stores `from_person_id` in the isolation record.
+  - **Backend**: `get_people` query now includes a `rejected_count` subquery per person.
+  - **Backend**: New `get_rejected_assets_for_person` command returns assets previously removed from a given person.
+  - **People View**: Photo count label now shows a red `-N` badge when a person has rejected photos. Full tooltip reads `N photos rejected` on hover.
+  - **People Gallery (filter bar)**: New `🚫 Show Rejected` / `🚫 Hide Rejected` toggle button visible only when browsing a single person's gallery. Clicking it fetches and displays rejected photos.
+  - **Library View**: Rejected assets appear in a clearly labeled greyed-out section (`opacity: 0.45`, `grayscale(40%)`) below the normal grid, with a divider reading "Rejected — N photos removed from this person".
+  - Toggle and rejected assets state are properly cleaned up on Back, Clear All, and Refresh.
+
+## [0.1.48] - 2026-03-02
+
+- **Feature**: Added **"Force Re-scan All Images"** button to the Action Panel (AI Pipeline section).
+  - Clears all existing `sensitivity_score` values across the entire library and kicks off a fresh scan of every asset.
+  - Guarded by a confirmation dialog to prevent accidental long-running jobs.
+  - Distinct orange 🔁 styling to differentiate from the incremental "Scan Sensitive Content" button.
+  - Backend: `scan_sensitive_force` command + `force` flag on `runSensitiveScanJob`.
+
+## [0.1.47] - 2026-03-02
+
+- **Feature: Sensitive Content Detection** — Full end-to-end implementation of local AI-powered content safety scanning:
+  - **Backend Job** (`scan_sensitive.ts`): Runs `nsfwjs` + `@tensorflow/tfjs-node` on-device. Scores each photo 0–100% for NSFW likelihood. Tier thresholds: Safe (0–24%), Review (25–74%), Unsafe (75–100%).
+  - **Database**: Added `sensitivity_score` to `assets`, plus generic `asset_identities` (GUID ↔ path) and `assets_manual` (shadow table for manual overrides). Both shadow tables survive factory reset.
+  - **Coordinator**: Sensitive scan is automatically queued as a low-priority background task after preview generation completes.
+  - **API Commands**: `scan_sensitive`, `get_sensitivity`, `set_sensitivity` exposed via WebSocket/IPC.
+  - **Dashboard**: New "Sensitive Content Scan" card in the System Dashboard showing progress and error count.
+- **Gallery View** — Sensitivity badge on each tile:
+  - ⚠ amber badge for `review` (25–74%) or manual-review override.
+  - 🔞 red badge for `unsafe` (75–100%) or manual-unsafe override.
+  - Instant hover quick-action buttons: `✓ Safe`, `⚠ Review`, `🔞 Unsafe` — toggleable/clearable.
+- **Single Photo View** — Sensitivity controls in the bottom toolbar: AI score displayed, plus `✓ Safe`, `⚠ Review`, `🔞 Unsafe` toggle buttons.
+- **Action Panel** — New "Scan Sensitive Content" button in the AI Pipeline section.
+- **Types**: Extended `Asset` with `sensitivity_score?: number` and `sensitivity_status?: string | null`. Added `sensitive_scan` to `PipelineStage`.
+- **Real-time updates**: Frontend state updates live as `SensitivityScored` events arrive from the backend.
+
+## [0.1.46] - 2026-03-02
+
+- **Feature**: Multi-Select in Library/Gallery View!
+  - You can now long-press any photo in the library to enter multi-select mode.
+  - Multi-select natively supports click-and-drag block selection! Simply drag across the grid to quickly highlight multiple contiguous items.
+  - Selecting items opens a contextual action bar beside the current filter stack.
+  - Use `Ctrl+A` or `Cmd+A` to instantly select all visible library items.
+- **Decluster UX**: Renamed 'Untag' to 'Decluster'.
+- **Decluster Visibility**: Declustered assets no longer vanish instantly until the next refresh. Instead, they visibly drop to the bottom of the current view and are greyed out, ensuring you don't lose your place in a large grid while scrubbing through false positives.
+
+## [0.1.45] - 2026-03-02
+
+- **Feature**: Manual Overrides! Provided interactive inline actions across the app to reorganize misidentified clusters:
+  - **Single Photo View**: Click 'Not this Person' on a face bounding box to isolate the face into a new Unknown identity.
+  - **Gallery View**: When filtering by a single person, hover over a photo to 'Untag Person' and instantly eject all faces of that person from that photo.
+  - **People View**: Click any person's name to edit it inline, persisting immediately to the backend.
+  - **People View**: Multi-select 2 or more people and press 'Merge' to combine them into a single identity with a new name.
+
+## [0.1.44] - 2026-03-02
+
+- **Bugfix**: Addressed filter `Back` logic so pressing back off the root of a query reliably drops you back into `People` view instead of sticking in the root Library.
+- **Bugfix**: Corrected `get_people` total assets SQL, now specifically counting distinct `asset_id`s rather than multiplying out per-face instances.
+- **Feature**: Track selected people count within App root and injected organically into Status Bar.
+
+## [0.1.42] - 2026-03-01 14:00:00Z
+
+- **Gallery Filters:** Added robust stackable filtering system for narrowing down photos by person ('any', 'all', 'only').
+- **People View:** Added multi-select functionality via "long press" and integrated an action bar for applying compound filters.
+- **Single Photo View:** Enabled clickable face bounding boxes that instantly apply a filter for that person and return the user to the filtered gallery. 
+- **Top Bar:** Automatically clears the active filter stack when switching core views to prevent confusion.
+
+## [0.1.39] - 2026-03-01 10:45:00Z
+
+- **Global Job Pause:** Added a "PAUSE ALL / RESUME ACTIVITY" toggle button to the main Dashboard. 
+- **Core State Interruption:** Implemented a new internal `SystemState` pausing loop across all heavyweight background tasks (`scan`, `previews`, `detect_faces`, `recognise_faces`, `cluster_faces`) allowing instantaneous zero-CPU state preservation.
+
+## [0.1.38] - 2026-03-01 10:30:00Z
+
+- **Linter Fix:** Removed unused `overlayStyle`, `rect`, and `ResizeObserver` variables from `Tile.tsx`.
+
+## [0.1.37] - 2026-03-01 10:00:00Z
+
+- **Job Orchestration:** Modified backend task coordinator to prioritize `previews` pipeline execution before handing off to ML analysis logic. Preview completion events now instantly bypass the 500ms debounce block, accelerating overall thumbnail generation rate without UI freezing.
+- **Gallery Presentation:** Changed SQL query sort order from descending to ascending `ORDER BY a.created_at ASC`. Incoming media thumbnails now append sequentially at the end of the grid, ensuring stable scrolling and page layouts for the user during heavy ingest.
+- **Gallery Stability:** `LayoutEngine` front-end components and backend event broadcasts strictly display images *only* when a valid `preview_path` extraction completes, preventing black placeholder flashes.
+- **Auto-clustering:** Integrated a self-monitoring global trigger logic in the dispatcher loop. The global sweep "Face Clustering" Job now safely auto-executes upon completion of all active Recognition batches (without spamming identical clustering jobs).
+- **Dashboard:** Relabeled "Face Analysis" card title to "Face Detection" for pipeline accuracy.
+
 ## [0.1.36] - 2026-02-28 20:10:00Z
 
 - **People View (Crops):** Implemented automated "Face Cutout" generation. The clustering job now extracts a normalized, square 256x256 crop of the representative face for each person.

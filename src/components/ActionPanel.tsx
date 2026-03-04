@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 interface ActionPanelProps {
     isOpen: boolean;
@@ -8,28 +8,43 @@ interface ActionPanelProps {
     onDetect: () => void;
     onRecognise: () => void;
     onCluster: () => void;
+    onExtractAiMetadata: () => void;
+    onScanSensitive: () => void;
+    onScanSensitiveAll: () => void;
     onRefresh: () => void;
     onResetFaces: () => void;
     onResetAll: () => void;
     onStopScan: () => void;
+    getSetting: (key: string) => Promise<string>;
+    setSetting: (key: string, value: string) => Promise<void>;
     folderHistory?: { path: string, last_scanned_at: string }[];
 }
 
 export function ActionPanel({
-    isOpen,
-    onClose,
-    onScan,
-    onPreviews,
-    onDetect,
-    onRecognise,
-    onCluster,
-    onRefresh,
-    onResetFaces,
-    onResetAll,
-    onStopScan,
+    isOpen, onClose, onScan, onPreviews,
+    onDetect, onRecognise, onCluster, onExtractAiMetadata,
+    onScanSensitive, onScanSensitiveAll,
+    onRefresh, onResetFaces, onResetAll, onStopScan,
+    getSetting, setSetting,
     folderHistory = []
 }: ActionPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null);
+    const [apiKey, setApiKey] = useState('');
+    const [csvPath, setCsvPath] = useState('');
+    const [settingsSaved, setSettingsSaved] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            getSetting('gemini_api_key').then(val => {
+                setApiKey(val);
+                setSettingsSaved(false); // Only set this when data is loaded, instead of globally per effect
+            }).catch(() => { });
+            getSetting('gemini_csv_path').then(val => {
+                setCsvPath(val);
+                setSettingsSaved(false);
+            }).catch(() => { });
+        }
+    }, [isOpen, getSetting]);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -155,12 +170,79 @@ export function ActionPanel({
                                     </div>
                                     <p className="text-[10px] text-gray-500 leading-relaxed">Group similar faces into discovery clusters</p>
                                 </button>
+
+                                <button onClick={() => { onScanSensitive(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-amber-500/50 rounded-lg transition-all group">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium group-hover:text-amber-400 transition-colors">Scan Sensitive Content</span>
+                                        <span className="text-lg">🔞</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 leading-relaxed">Detect NSFW content locally (unscanned only)</p>
+                                </button>
+
+                                <button onClick={() => { if (window.confirm('This will clear and re-run the sensitive content scan over ALL images in the library. This may take a long time. Continue?')) { onScanSensitiveAll(); onClose(); } }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-orange-600/50 rounded-lg transition-all group">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium group-hover:text-orange-400 transition-colors">Force Re-scan All Images</span>
+                                        <span className="text-lg">🔁</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 leading-relaxed">Clear existing scores &amp; re-run on every asset</p>
+                                </button>
+
+                                <button onClick={() => { onExtractAiMetadata(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-indigo-500/50 rounded-lg transition-all group">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium group-hover:text-indigo-400 transition-colors">Extract AI Metadata</span>
+                                        <span className="text-lg">🧠</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 leading-relaxed">Use Gemini to generate rich captions and detect semantic info</p>
+                                </button>
                             </div>
                         </section>
                     </div>
 
                     {/* Column 3: Maintenance & Danger */}
                     <div className="space-y-8">
+                        <section>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center">
+                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-2"></span>
+                                AI Settings
+                            </h3>
+                            <div className="bg-[#242424] border border-[#333] rounded-lg p-4 space-y-4">
+                                <div>
+                                    <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Gemini API Key</label>
+                                    <input
+                                        type="password"
+                                        value={apiKey}
+                                        onChange={e => setApiKey(e.target.value)}
+                                        placeholder="AIzaSy..."
+                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Kinship Explorer CSV Path (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={csvPath}
+                                        onChange={e => setCsvPath(e.target.value)}
+                                        placeholder="C:/Path/To/Names.csv"
+                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
+                                    />
+                                    <p className="text-[9px] text-gray-500 mt-1">Used to identify people across generations</p>
+                                </div>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={async () => {
+                                            await setSetting('gemini_api_key', apiKey);
+                                            await setSetting('gemini_csv_path', csvPath);
+                                            setSettingsSaved(true);
+                                            setTimeout(() => setSettingsSaved(false), 2000);
+                                        }}
+                                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-semibold"
+                                    >
+                                        {settingsSaved ? 'Saved \u2713' : 'Save Settings'}
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+
                         <section>
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center">
                                 <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-2"></span>

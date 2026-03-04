@@ -61,15 +61,16 @@ export type FaceClusteringUpdated = {
     clusterId: string;
 };
 
-export type TaskStarted = {
-    type: "TaskStarted";
-    taskId: string;
-    taskKind: string;
+export type JobStarted = {
+    type: "JobStarted";
+    jobId: string;
+    pipelineStage: string;
+    totalItems?: number;
 };
 
-export type TaskProgress = {
-    type: "TaskProgress";
-    taskId: string;
+export type JobProgress = {
+    type: "JobProgress";
+    jobId: string;
     processedItems: number;
     totalItems?: number;
     currentItemPath?: string;
@@ -77,15 +78,15 @@ export type TaskProgress = {
     errorCount?: number;
 };
 
-export type TaskCompleted = {
-    type: "TaskCompleted";
-    taskId: string;
-    taskKind?: string;
+export type JobCompleted = {
+    type: "JobCompleted";
+    jobId: string;
+    pipelineStage?: string;
 };
 
-export type TaskFailed = {
-    type: "TaskFailed";
-    taskId: string;
+export type JobFailed = {
+    type: "JobFailed";
+    jobId: string;
     severity: "warning" | "error" | "fatal";
     reason: string;
 };
@@ -101,7 +102,7 @@ export type DomainEvent =
     | FaceEmbeddingGenerated
     | FaceMatched
     | FaceClusteringUpdated
-    | TaskStarted
-    | TaskProgress
-    | TaskCompleted
-    | TaskFailed;
+    | JobStarted
+    | JobProgress
+    | JobCompleted
+    | JobFailed;

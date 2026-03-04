@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import { EventBus } from '../events/bus';
+import { waitIfPaused } from '../state';
 
 const MODEL_FILENAME = 'w600k_r50.onnx';
 let MODEL_PATH = join(path.dirname(process.execPath), 'models', MODEL_FILENAME);
@@ -84,22 +85,42 @@ class FaceRecogniser {
 }
 
 export async function runFaceRecognitionJob(
-    jobId: string,
+    targetInput: string | string[],
     dbManager: DatabaseManager,
     eventBus: EventBus
 ) {
     const db = dbManager.getDb();
 
-    // Find assets with detection but no recognition
-    const assets = db.prepare(`
-        SELECT d.asset_id, d.data, a.original_path 
-        FROM derived_results d
-        JOIN assets a ON a.id = d.asset_id
-        WHERE d.task = 'face_detection'
-        AND d.asset_id NOT IN (
-            SELECT asset_id FROM derived_results WHERE task = 'face_recognition'
-        )
-    `).all() as any[];
+    // Determine scope
+    let assets: any[] = [];
+
+    if (Array.isArray(targetInput) && targetInput.length > 0) {
+        const placeholders = targetInput.map(() => '?').join(',');
+        assets = db.prepare(`
+            SELECT d.asset_id, d.data, a.original_path 
+            FROM derived_results d
+            JOIN assets a ON a.id = d.asset_id
+            WHERE d.task = 'face_detection' AND a.id IN (${placeholders})
+        `).all(...targetInput) as any[];
+    } else if (typeof targetInput === 'string' && !targetInput.includes('sweep') && !targetInput.includes('auto')) {
+        assets = db.prepare(`
+            SELECT d.asset_id, d.data, a.original_path 
+            FROM derived_results d
+            JOIN assets a ON a.id = d.asset_id
+            WHERE d.task = 'face_detection' AND a.id = ?
+        `).all(targetInput) as any[];
+    } else {
+        // Find assets with detection but no recognition
+        assets = db.prepare(`
+            SELECT d.asset_id, d.data, a.original_path 
+            FROM derived_results d
+            JOIN assets a ON a.id = d.asset_id
+            WHERE d.task = 'face_detection'
+            AND d.asset_id NOT IN (
+                SELECT asset_id FROM derived_results WHERE task = 'face_recognition'
+            )
+        `).all() as any[];
+    }
 
     if (assets.length === 0) return;
 
@@ -145,6 +166,7 @@ export async function runFaceRecognitionJob(
     };
 
     for (const row of assets) {
+        await waitIfPaused();
         try {
             const detectionData = JSON.parse(row.data);
             const faces = detectionData.faces || [];
@@ -175,6 +197,7 @@ export async function runFaceRecognitionJob(
                 }
             }
 
+            db.prepare('DELETE FROM derived_results WHERE asset_id = ? AND task = ?').run(row.asset_id, 'face_recognition');
             insertStmt.run(uuidv4(), row.asset_id, JSON.stringify({ embeddings }));
             processed++;
             reportProgress(row.original_path);

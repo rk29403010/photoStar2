@@ -1,14 +1,16 @@
 import React, { useEffect } from 'react';
 import type { BackgroundJob } from '../types/jobs';
-import { AlertCircle as AlertCircleIcon } from 'lucide-react';
+import { AlertCircle as AlertCircleIcon, PauseCircle, PlayCircle } from 'lucide-react';
 
 interface DashboardViewProps {
     jobs: BackgroundJob[];
     systemJobs: BackgroundJob[];
     refreshSystemJobs: () => void;
+    isSystemPaused: boolean;
+    onTogglePause: () => void;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, refreshSystemJobs }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, refreshSystemJobs, isSystemPaused, onTogglePause }) => {
 
     useEffect(() => {
         refreshSystemJobs();
@@ -41,8 +43,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, 
     return (
         <div className="p-6 w-full mx-auto overflow-y-auto h-full space-y-6 flex flex-col bg-[#0a0a0a]">
             <div className="flex justify-between items-end border-b border-gray-800 pb-3">
-                <h2 className="text-2xl font-light tracking-wide text-gray-100 uppercase">System Dashboard</h2>
-                <div className="text-[10px] text-gray-500 font-mono tracking-widest">{displayJobs.length} MODULES OPERATIONAL</div>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-light tracking-wide text-gray-100 uppercase">System Dashboard</h2>
+                    <button
+                        onClick={onTogglePause}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${isSystemPaused
+                            ? 'bg-amber-900/30 text-amber-400 border-amber-700/50 hover:bg-amber-900/50'
+                            : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'
+                            }`}
+                    >
+                        {isSystemPaused ? <PlayCircle size={16} /> : <PauseCircle size={16} />}
+                        {isSystemPaused ? 'RESUME ACTIVITY' : 'PAUSE ALL'}
+                    </button>
+                </div>
+                <div className="text-[10px] text-gray-500 font-mono tracking-widest">{displayJobs.length} MODULES {isSystemPaused ? 'PAUSED' : 'OPERATIONAL'}</div>
             </div>
             {/* Tighter grid for 8-10 cards without scroll */}
             <div className="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-4 auto-rows-max">

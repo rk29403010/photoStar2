@@ -101,3 +101,7 @@ button:focus-visible {
     opacity: 0.3;
   }
 }
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

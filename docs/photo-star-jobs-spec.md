@@ -11,6 +11,38 @@
 
 ## 2. Defined Jobs
 
+```mermaid
+flowchart TD
+    UI[User Interface] -->|scan_folder| Scan[Folder Scan Job]
+    Scan -->|MediaDiscovered| Coord(Coordinator)
+    Coord -->|Batch Query| Prev[Preview Generation Job]
+    Prev -->|PreviewGenerated| Coord
+    Coord -->|Batch Query| Detect[Face Detection Job]
+    Detect -->|FacesDetected| Coord
+    Coord -->|Batch Query| Recog[Face Recognition Job]
+    Recog -->|FaceEmbeddingGenerated| Coord
+    Coord -->|All Recog Done| Cluster[Face Clustering Job]
+    
+    subquote Ingest Phase
+        Scan
+    end
+    
+    subquote Processing Phase
+        Prev
+    end
+    
+    subquote AI Analysis Pipeline
+        Detect --> Recog --> Cluster
+    end
+    
+    classDef ui fill:#333,stroke:#666,stroke-width:2px,color:#fff
+    classDef job fill:#1c3d5a,stroke:#2b6cb0,stroke-width:2px,color:#fff
+    classDef coord fill:#4a5568,stroke:#718096,stroke-width:2px,color:#fff
+    class UI ui
+    class Scan,Prev,Detect,Recog,Cluster job
+    class Coord coord
+```
+
 ### 2.1. Folder Scan (`scan.ts`)
 
 * **Description**: Discovers new media files in directories, extracts EXIF data, and registers assets in the database. Operates as a Job consisting of many file-level Tasks.
@@ -90,7 +122,17 @@ The Job Dashboard serves as the primary visual interface for monitoring backgrou
 
 Based on the initial design intentions and recent discussions, the following deviations and unimplemented features exist in the job management system:
 
-1. **Job Queue Persistence & Retries**: The `Coordinator` notes state that it utilizes a "Simple in-memory task queue for now". The queue is primarily used for immediate batching (e.g., waiting 500ms to group previews). It lacks persistence across restarts, nor does it have robust retry logic for failed items beyond skipping fatal errors on rescan.
+1.[x] **Job Queue Persistence & Retries**: The `Coordinator` notes state that it utilizes a "Simple in-memory task queue for now". The queue is primarily used for immediate batching (e.g., waiting 500ms to group previews). It lacks persistence across restarts, nor does it have robust retry logic for failed items beyond skipping fatal errors on rescan.
 2. **Dashboard Data Mapping Gap**: In `main.ts` (`get_system_jobs`), the backend currently aggregates multiple distinct Jobs (`detect-` and `recog-`) under broad "class" summaries (like `class-detection` and `class-mapping`), which blurs the lines. Also, the `cluster_faces` job metrics are currently omitted from detailed tracking entirely. The backend payload needs adjusting to supply precise per-Job stats to fulfill the 1-card-per-job UI requirement.
 3. **Destructive Clustering Method**: `cluster_faces.ts` completely wipes the `face_assignments` and `people` tables on every run, recalculating identities from scratch. This deviates from an efficient incremental approach and becomes a scaling bottleneck as the library grows.
 4. **Premature "Slow" Phase Transition**: The `Coordinator` shifts from 'fast' ingest phase to 'slow' AI phase upon the very first Task completion event. In a complex, multi-folder scenario, this might trigger the heavy AI pipeline before the entire ingest backlog is fully stable.
+
+1. Rename Face recognition to Face detection in the dashboard
+2. [x] Face clustering needs to run automatically. Clustering should be triggered from events raised by the face recognition job.
+3. [x] Face clustering must not wipe data tables when it starts, it should be incremental. However, make sure that edge cases are handled, such as when a photo is rescanned and one or more faces are no longer found, the face assignments should be updated accordingly.
+4. [x] We need to make face thumbnails cutout from the original image. Not sure which job is best placed for that? Or it could be a new job that's triggered by the face recognition/detection job.
+5. [x] Dashboard - still has a card for ingest session??
+6. Vistual representation of the jobs, and how they link together to form a workflow.
+7. [x] don't show face rectangle in gallery view
+8. Do show face rectangles in single view mode - on a toggle option, default to off.
+9. Hovering over the face rectangle in single view mode should show the name of the person, if known.
