@@ -37,3 +37,7 @@ coverage/
 # AI model weights (large binaries — re-downloaded on first run or via postinstall)
 core/models/nsfwjs/
 core/models/*.onnx
+
+# Compiled Binaries
+src-tauri/binaries/*.exe
+*.exe
