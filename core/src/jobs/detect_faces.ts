@@ -1,18 +1,18 @@
-import { parentPort } from 'node:worker_threads';
-import path from 'node:path';
-import { DatabaseManager } from '../db';
+import { join, dirname } from 'node:path';
+import { existsSync, mkdirSync, copyFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { v4 as uuidv4 } from 'uuid';
 import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
-import { join } from 'node:path';
-import { v4 as uuidv4 } from 'uuid';
+import { DatabaseManager } from '../db';
 import { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
 
 const MODEL_FILENAME = 'det_10g.onnx';
-let MODEL_PATH = join(path.dirname(process.execPath), 'models', MODEL_FILENAME);
+let MODEL_PATH = join(dirname(process.execPath), 'models', MODEL_FILENAME);
 
-if (!require('fs').existsSync(MODEL_PATH)) {
-    MODEL_PATH = join(__dirname, '../../models', MODEL_FILENAME);
+if (!existsSync(MODEL_PATH)) {
+    MODEL_PATH = join(__dirname, '../../../../models', MODEL_FILENAME);
 }
 
 // RetinaFace / Buffalo_L Constants
@@ -22,6 +22,12 @@ const STEPS = [8, 16, 32];
 const MIN_SIZES = [[16, 32], [64, 128], [256, 512]];
 const VARIANCE = [0.1, 0.2];
 
+export interface FaceDetectionCandidate {
+    score: number;
+    box: [number, number, number, number]; // [x1, y1, x2, y2] normalized
+    landmarks: { x: number; y: number }[];
+}
+
 class FaceDetector {
     private session: ort.InferenceSession | null = null;
     private anchors: number[][] = [];
@@ -30,10 +36,11 @@ class FaceDetector {
         if (this.session) return;
         let usableModelPath = MODEL_PATH;
         if (MODEL_PATH.includes('snapshot')) {
-            const tmpDir = require('os').tmpdir();
+            const tmpDir = tmpdir();
             const tmpPath = join(tmpDir, MODEL_FILENAME);
-            if (!require('fs').existsSync(tmpPath)) {
-                require('fs').copyFileSync(MODEL_PATH, tmpPath);
+            if (!existsSync(tmpPath)) {
+                mkdirSync(dirname(tmpPath), { recursive: true }); // Ensure directory exists
+                copyFileSync(MODEL_PATH, tmpPath);
             }
             usableModelPath = tmpPath;
         }
@@ -62,7 +69,7 @@ class FaceDetector {
         });
     }
 
-    async detect(imagePath: string): Promise<any[]> {
+    async detect(imagePath: string): Promise<FaceDetectionCandidate[]> {
         if (!this.session) throw new Error('Model not loaded');
         const image = sharp(imagePath);
         const metadata = await image.metadata();
@@ -102,15 +109,15 @@ class FaceDetector {
                 ...(results['500'].data as Float32Array)
             ]);
 
-            return this.postProcess(scores, boxes, landmarks, origW, origH);
-        } catch (e) {
+            return this.postProcess(scores, boxes, landmarks);
+        } catch {
             return [];
         }
     }
 
-    private postProcess(scores: Float32Array, boxes: Float32Array, landmarks: Float32Array, origW: number, origH: number) {
+    private postProcess(scores: Float32Array, boxes: Float32Array, landmarks: Float32Array): FaceDetectionCandidate[] {
         const threshold = 0.5;
-        const candidates: any[] = [];
+        const candidates: FaceDetectionCandidate[] = [];
         for (let i = 0; i < this.anchors.length; i++) {
             const score = scores[i];
             if (score > threshold) {
@@ -154,11 +161,12 @@ class FaceDetector {
         return this.nms(candidates);
     }
 
-    private nms(candidates: any[]) {
+    private nms(candidates: FaceDetectionCandidate[]): FaceDetectionCandidate[] {
         candidates.sort((a, b) => b.score - a.score);
-        const kept: any[] = [];
+        const kept: FaceDetectionCandidate[] = [];
         while (candidates.length > 0) {
             const best = candidates.shift();
+            if (!best) break;
             kept.push(best);
             for (let i = candidates.length - 1; i >= 0; i--) {
                 if (this.iou(best.box, candidates[i].box) > 0.4) {
@@ -184,29 +192,30 @@ class FaceDetector {
 export async function runFaceDetectionJob(
     targetInput: string | string[],
     dbManager: DatabaseManager,
-    eventBus: EventBus
+    eventBus: EventBus,
+    signal?: AbortSignal
 ) {
     const db = dbManager.getDb();
 
     // Determine scope
-    let assets: any[] = [];
+    let assets: { id: string; original_path: string }[] = [];
 
     if (Array.isArray(targetInput) && targetInput.length > 0) {
         // Optimised batch fetch
         const placeholders = targetInput.map(() => '?').join(',');
-        assets = db.prepare(`SELECT id, original_path FROM assets WHERE id IN (${placeholders})`).all(...targetInput) as any[];
-    } else if (typeof targetInput === 'string' && !targetInput.startsWith('job-')) {
+        assets = db.prepare(`SELECT id, original_path FROM assets WHERE id IN(${placeholders})`).all(...targetInput) as { id: string; original_path: string }[];
+    } else if (typeof targetInput === 'string' && !targetInput.startsWith('job-') && !targetInput.startsWith('auto')) {
         // Single ID
-        assets = db.prepare('SELECT id, original_path FROM assets WHERE id = ?').all(targetInput) as any[];
+        assets = db.prepare('SELECT id, original_path FROM assets WHERE id = ?').all(targetInput) as { id: string; original_path: string }[];
     } else {
         // Fallback or "Scanning" mode - find all pending
         assets = db.prepare(`
             SELECT id, original_path 
             FROM assets 
-            WHERE id NOT IN (
-                SELECT asset_id FROM derived_results WHERE task = 'face_detection'
-            )
-        `).all() as any[];
+            WHERE id NOT IN(
+    SELECT asset_id FROM derived_results WHERE task = 'face_detection'
+)
+        `).all() as { id: string; original_path: string }[];
     }
 
     if (assets.length === 0) return;
@@ -214,12 +223,13 @@ export async function runFaceDetectionJob(
     const detector = new FaceDetector();
     try {
         await detector.init();
-    } catch (e: any) {
+    } catch (err: unknown) {
+        const e = err as Error;
         console.error('Failed to init detector', e);
         return;
     }
 
-    const jobId = `detect-batch-${Date.now()}`;
+    const jobId = targetInput === 'auto' ? `detect-auto-${Date.now()}` : `detect-batch-${Date.now()}`;
     const totalItems = assets.length;
     let processed = 0;
     let errors = 0;
@@ -253,12 +263,16 @@ export async function runFaceDetectionJob(
     };
 
     const insertStmt = db.prepare(`
-        INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
-        VALUES (?, ?, 'face_detection', 'onnx_retina_10g', '1.0', ?)
+        INSERT INTO derived_results(id, asset_id, task, provider, model_version, data)
+VALUES(?, ?, 'face_detection', 'onnx_retina_10g', '1.0', ?)
     `);
 
     for (const asset of assets) {
-        await waitIfPaused();
+        if (signal?.aborted) {
+            console.log(`Job ${jobId} cancelled.`);
+            break;
+        }
+        await waitIfPaused(signal);
         // Run synchronously-ish
         try {
             const faces = await detector.detect(asset.original_path);
@@ -284,15 +298,16 @@ export async function runFaceDetectionJob(
             processed++;
             reportProgress(asset.original_path);
 
-        } catch (e: any) {
-            console.error(`Error detecting faces for ${asset.original_path}:`, e);
+        } catch (err: unknown) {
+            const e = err as Error;
+            console.error(`Error detecting faces for ${asset.original_path}: `, e);
             errors++;
 
             try {
                 db.prepare(`
-                    INSERT INTO processing_issues (id, asset_id, job_id, task, severity, message)
-                    VALUES (?, ?, ?, 'detection', 'fatal', ?)
-                `).run(uuidv4(), asset.id, jobId, e.message);
+                    INSERT INTO processing_issues(id, asset_id, job_id, task, severity, message)
+VALUES(?, ?, ?, 'detection', 'fatal', ?)
+    `).run(uuidv4(), asset.id, jobId, e.message);
             } catch (dbErr) {
                 console.error('Failed to log processing issue:', dbErr);
             }

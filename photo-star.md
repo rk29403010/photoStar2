@@ -131,3 +131,41 @@ Before implementing any new OS-level feature, hardware interaction, or filesyste
 
 * **Rule:** You MUST check and update `docs/photo-star-brain.md` whenever making major architectural changes, altering database schemas, or modifying background job pipelines.
 * **Purpose:** Ensures the AI context remains accurate and highly efficient for directing future development sessions.
+
+## 8. AI EFFICIENCY & ARCHITECTURAL MODULARITY (ANTI-MONOLITH POLICY)
+
+To ensure this codebase remains highly maintainable and optimized for AI code assistants, you must strictly adhere to the following modularity rules:
+
+### A. Size Limits & Deconstruction
+
+* **The 300-Line Heuristic:** If a file (like a React component or a Node handler) grows beyond ~300 lines, it is likely doing too much. You MUST break it down into smaller, focused modules.
+* **Component Splitting:** Do not build Monolithic React views. Isolate complex logic into custom hooks (e.g., `usePanZoom`) and split complex UI into granular, single-responsibility components (e.g., `ViewerOverlay.tsx`, `ActionMenu.tsx`).
+
+### B. Strict Layer Separation
+
+* **Backend Monoliths:** Do NOT cram all WebSocket command handlers and SQL queries into `main.ts`. `main.ts` should only initialize systems and route events.
+* **Handlers & Repositories:** WebSocket messages must be routed to dedicated handlers (e.g., `AssetHandlers.ts`). Raw `.prepare().run()` database calls should be abstracted into a Repository layer (e.g., `db/AssetRepository.ts`).
+
+### C. Shared Contracts
+
+* **Types:** Always define shared contracts (interfaces, Zod schemas) in a common `shared/types` directory. Ensure both the Node backend and React frontend independently import these types. Do not let one environment guess the data shape of the other.
+
+### D. Pluggable Workflows
+
+* **Job Modules:** New backend jobs must conform to a standardized interface (e.g., `IJobModule`), avoiding hardcoded chaining. Workflows should be configuration-driven (JSON/YAML) and event-based.
+
+### E. AI Prompts as Code
+
+* **Abstraction:** AI prompts must be treated with the exact same strictness as SQL strings. Do not embed raw, multi-line prompts directly inside business logic or UI components.
+* **Storage & Maintenance:** Store base prompts in dedicated files or a centralized repository (e.g., `core/src/prompts/` or a database table) so they can be easily reviewed, version-controlled, and maintained independently of the code executing them.
+* **Injection:** If prompts require programmatic construction or placeholder injection, use standardized template builder functions. Treat them as parameterized queries to ensure stability and reusability.
+
+### F. Strict Type Safety (No `any` Escape Hatches)
+
+* **Zero Tolerance for `any`:** The use of the `any` type, either implicit or explicit (e.g., `as any`), is strictly forbidden.
+* **Linting Enforcement:** ESLint is configured to error on `@typescript-eslint/no-explicit-any`. All code generated must pass this linting standard.
+
+### G. Autonomous Validation (AI Linting Checks)
+
+* **Mandatory AI Self-Review:** After the AI modifying any code, the AI MUST autonomously run `npm run lint` and `npm run build` in the background (or relevant sub-project build scripts) to silently catch its own syntax errors, unused variables, and typing issues.
+* **Zero Noise Tolerance:** The AI MUST NOT leave "minor" unused variables or TypeScript errors for the user to find. The AI is responsible for fixing all errors it introduces before marking a task as complete and notifying the user.

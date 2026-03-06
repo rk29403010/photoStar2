@@ -1,7 +1,8 @@
 import { DatabaseManager } from '../db';
-import { join, dirname, basename } from 'node:path';
+import { join, dirname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import sharp from 'sharp';
+import { v4 as uuidv4 } from 'uuid';
 import { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
 
@@ -78,7 +79,7 @@ export async function runPreviewJob(
             const thumbPath = join(previewsDir, `${asset.id}-thumbnail.webp`);
 
             // Check if already has thumbnails matching the current version
-            const existing = db.prepare('SELECT count(*) as count FROM previews WHERE asset_id = ? AND version >= ?').get(asset.id, CURRENT_PREVIEW_VERSION) as any;
+            const existing = db.prepare('SELECT count(*) as count FROM previews WHERE asset_id = ? AND version >= ?').get(asset.id, CURRENT_PREVIEW_VERSION) as { count: number };
             if (existing.count >= Object.keys(PREVIEW_SIZES).length) {
                 // Already done
                 eventBus.emit({
@@ -124,7 +125,8 @@ export async function runPreviewJob(
             processed++;
             reportProgress(asset.original_path);
 
-        } catch (e: any) {
+        } catch (err: unknown) {
+            const e = err as Error;
             console.error(`Failed preview for ${mediaId}:`, e);
             errors++;
 
@@ -133,7 +135,7 @@ export async function runPreviewJob(
                 db.prepare(`
                     INSERT INTO processing_issues (id, asset_id, job_id, task, severity, message)
                     VALUES (?, ?, ?, 'preview', 'fatal', ?)
-                `).run(require('uuid').v4(), mediaId, jobId, e.message);
+                `).run(uuidv4(), mediaId, jobId, e.message);
             } catch (dbErr) {
                 console.error('Failed to log processing issue:', dbErr);
             }

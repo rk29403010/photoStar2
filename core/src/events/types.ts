@@ -108,6 +108,61 @@ export type SensitivityScored = {
     tier: 'safe' | 'review' | 'unsafe';
 };
 
+export type AiMetadataRequested = {
+    type: "AiMetadataRequested";
+    mediaIds?: string[];
+    jobId?: string;
+};
+
+export type SensitiveScanRequested = {
+    type: "SensitiveScanRequested";
+    mediaIds?: string[];
+};
+
+export type AssetUpdated = {
+    type: "AssetUpdated";
+    assetId: string;
+};
+
+/** Emitted when quota fallback occurs — informs UI of degraded service */
+export type QuotaWarning = {
+    type: "QuotaWarning";
+    model: string;          // The model that was rate-limited
+    fallbackModel: string;  // The model that was used instead (or '' if none)
+    reason: 'rate_limit' | 'daily_quota';
+    assetIds: string[];     // Assets affected by this batch
+    pendingProCount: number;// How many are queued for pro re-analysis
+};
+
+/** Emitted when items are queued awaiting pro-model re-analysis */
+export type ProAnalysisPending = {
+    type: "ProAnalysisPending";
+    assetIds: string[];
+    proModel: string;
+};
+
+export type SystemPausedStateChanged = {
+    type: "SystemPausedStateChanged";
+    isPaused: boolean;
+};
+
+export type ComputeHashesRequested = {
+    type: "ComputeHashesRequested";
+};
+
+export type DuplicateGroupingRequested = {
+    type: "DuplicateGroupingRequested";
+};
+
+export type VariantGroupingRequested = {
+    type: "VariantGroupingRequested";
+};
+
+export type BurstGroupingRequested = {
+    type: "BurstGroupingRequested";
+    jobId?: string;
+};
+
 export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
@@ -125,4 +180,16 @@ export type DomainEvent =
     | JobProgress
     | JobCompleted
     | JobFailed
-    | SensitivityScored;
+    | SensitivityScored
+    | AiMetadataRequested
+    | SensitiveScanRequested
+    | AssetUpdated
+    | QuotaWarning
+    | ProAnalysisPending
+    | SystemPausedStateChanged
+    | ComputeHashesRequested
+    | DuplicateGroupingRequested
+    | VariantGroupingRequested
+    | BurstGroupingRequested;
+
+export type EventType = DomainEvent['type'];

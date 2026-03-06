@@ -1,3 +1,143 @@
+## [0.1.72] - 2026-03-06T10:00:00Z
+
+- **Fix: Job Controls & Dashboard UI** — Refined the system dashboard for better control and aesthetics.
+  - **Functional Stop/Clear** — Updated backend `stop_job` and `clear_job_errors` to correctly handle virtual system job classes (e.g., stopping all active recognition jobs).
+  - **Svelte UI** — Significantly reduced the size of action buttons in the Dashboard cards. Renamed to "Stop" and "Clear" for a cleaner, more professional look.
+  - **Task Mapping** — Fixed error clearing by mapping frontend stages to correct backend database task names.
+  - **Stability** — Added `stopPropagation` to dashboard actions to prevent accidental card selection.
+
+## [0.1.71] - 2026-03-06T09:40:00Z
+
+- **Fix: Lint Errors** — Resolved all reported code linting errors.
+  - Removed unused `DomainEvent` import in `core/src/main.ts`.
+  - Fixed `react-hooks/exhaustive-deps` and `react-hooks/preserve-manual-memoization` errors in `src/hooks/usePhotoLibrary.ts` by adding missing dependencies to the `actions` useMemo.
+  - Updated `package.json` to ignore `src-tauri/target` in markdown linting and applied auto-fixes to documentation files.
+
+## [0.1.70] - 2026-03-06T09:35:00Z
+
+- **Feature: Advanced Job Management** — Implemented comprehensive controls for background system tasks.
+  - **Stop Job** — Introduced a backend `stop_job` command with `AbortSignal` integration for grouping and hashing jobs. Stop buttons added to the System Dashboard and Background Tasks drawer.
+  - **Clear Errors** — New `clear_job_errors` command removes processing issues from the database for a specific task class.
+  - **Unified Progress** — The `build_groups` job now aggregates hash computation and similarity grouping into a single progress card with a shared parent ID.
+  - **Task Drawer Close** — Added a **✕** close button to the Task Drawer header to allow manual dismissal of the task list.
+  - **UI: AI Metadata De-duplication** — Added `ai_metadata` to the system dashboard stage list to prevent duplicate persistent/transient cards.
+  - **UI: Fixed Dashboard Syntax** — Resolved syntax errors in `DashboardView.tsx` to ensure stable rendering of job controls.
+
+## [0.1.69] - 2026-03-05T23:11:00Z
+
+- **Feature: Interactive JSON Tree Viewer** — The Raw JSON tab now renders a fully interactive, colour-coded JSON tree instead of a flat pre block. Pure React, zero extra dependencies.
+  - 🟦 **Object keys** — blue
+  - 🟩 **Strings** — green
+  - 🟨 **Numbers** — amber
+  - 🩵 **Booleans** — cyan
+  - 🟥 **Null** — red
+  - Objects and arrays have a **▶ chevron** to expand/collapse inline. Clicking anywhere on the header row toggles.
+  - **Top-level keys start expanded**; all children start collapsed for a clean overview.
+  - **↵ Word Wrap toggle** — new icon button beside Copy JSON. When active, long string values wrap instead of extending horizontally. Button highlights indigo when enabled.
+
+## [0.1.68] - 2026-03-05T23:00:00Z
+
+- **Feature: Persist Info Panel State** — The Info Panel's open/closed state and active tab are now persisted to `localStorage` via `usePersistedState`. Navigating to gallery view and opening a different photo (or returning to the same one) will keep the panel visible and on the same tab as when you left. Keys: `ps_info_panel_open`, `ps_info_tab`.
+
+## [0.1.67] - 2026-03-05T22:45:00Z
+
+- **Feature: Bidirectional Face Hover Highlighting** — Hovering a person/subject card in the Info Panel's People tab highlights the corresponding bounding box on the image with a glow effect (and vice versa).
+  - **Recognised Faces** cards (green) — hover highlights the matched face box (cyan/green glow).
+  - **Detected Faces** list — all detected faces (named or unknown) now each have an individually hoverable row with a numbered badge.
+  - **AI Subjects** cards (indigo) — hover highlights the AI `bounding_box` on the image with a purple dashed-border overlay.
+  - **Image → Panel**: hovering a face box or AI subject box on the image also highlights the matching panel card.
+- **Feature: AI Subject Bounding Boxes** — `FaceOverlayMap` now renders AI subject bounding boxes from `ai_metadata.subjects[].bounding_box` as dashed purple overlays (separate from face detection boxes). Supports both 0–1 and 0–1000 normalised coordinate systems.
+- **Feature: Always-On Overlays for People Tab** — When the Info Panel's People tab is active, face and AI subject overlays are shown on the image even if the 👤 Faces button is off, giving instant spatial context.
+- **Refactor: Controlled Tab State** — `activeInfoTab` is now lifted to `SinglePhotoView` so other components (e.g. `FaceOverlayMap`) can react to which tab is visible.
+
+## [0.1.66] - 2026-03-05T21:50:00Z
+
+- **UI: Zoom Bar — Info button** — Moved the "View Info" toggle out of the top bar into the bottom zoom bar as an icon-only `ℹ` button (indigo when active), matching the Faces button style.
+- **UI: Zoom Bar — Faces button** — Stripped the "Faces" text label; button is now icon-only `👤` for a cleaner, more compact zoom bar.
+- **UI: Zoom Bar padding** — Tightened zone `padding` from `8px 18px → 6px 14px` and gap from `12px → 8px`; nudged bar up from `bottom: 32 → 24`.
+
+## [0.1.65] - 2026-03-05T18:33:00Z
+
+- **Feature: View Info Panel** — Replaced the "View AI Metadata" modal and "Display All Info" option with a unified, modeless left-side info panel. Toggled by the **📋 View Info** button (or press **I**). Panel stays open while navigating images, showing data for the current photo.
+- **UI: Info Panel Tabs** — Four tabs: **File** (filename, path, format, dimensions, AI caption, keywords, emotional impact), **Analysis** (quality scores as ★ stars, authenticity, sensitivity, enhancements), **People** (recognised faces, detected face count, AI subjects with pills for gender/age/emotion/location), **Raw** (sanitised JSON, no face embeddings, with copy button).
+- **UI: Star Ratings** — Quality scores displayed as ★☆ stars out of 5 with exact % on hover tooltip.
+- **UI: Two-column Layout** — When info panel is open, the photo fills the remaining right-hand space with aspect-ratio preserved. Panel slides in with animation.
+- **Fix: Removed spurious 🔍 0% control** — The zoom bar sensitivity indicator was showing at 0% even for un-scored images. Removed from the zoom bar entirely (sensitivity is now shown in the Analysis tab of the Info Panel).
+- **Fix: Removed old AI metadata modal and "Display all Info" modal** — Superseded by the new Info Panel.
+- **Auto-open Info Panel** — Panel auto-opens when AI analysis completes on the current image.
+
+## [0.1.64] - 2026-03-05T16:04:00Z
+
+- **Feature: Proactive Quota Management** — New `quota_manager.ts` singleton tracks per-model Gemini rate limits (RPM window + daily quota) across all batch and single-asset calls in the same process.
+- **Feature: Pro → Flash Fallback Chain** — `get_metadata_ai` now tries `gemini-3.1-pro-preview` first (best for person ID with CSV matching). On rate limit: waits ≤90s then retries pro once; if still limited falls to `gemini-3-flash-preview` with a simplified prompt. On flash rate limit: stops the batch gracefully. On daily quota: stops immediately.
+- **Feature: Pro Re-analysis Queue** — Assets processed by flash due to pro rate limit are tagged as `ai_metadata_pro_pending` in `derived_results`. A future job run will pick them up and re-analyse with the pro model for enhanced person matching.
+- **Feature: Two-tier Prompts** — Pro prompt uses multi-step reasoning and CSV name matching. Flash prompt is a lighter schema (no person CSV, fewer fields) matching model capabilities.
+- **Feature: QuotaWarning + ProAnalysisPending Events** — New domain events emitted on fallback. Frontend displays dismissable golden/blue notification banners (top-right) explaining what happened and how many assets are queued.
+- **Improvement: Shared Quota State** — Since quota is shared across batch and single-asset calls (same API key), the module-level singleton correctly prevents double-spending quota between concurrent or sequential invocations.
+
+## [0.1.63] - 2026-03-05T12:49:00Z
+
+- **Bugfix (Critical): AI Metadata Not Persisting** — The `auto` mode query in `runAiMetadataJob` was missing the `LEFT JOIN derived_results dr` clause, causing a SQL parse error (`dr.id IS NULL` with no `dr` alias). The query was silently returning all assets (or crashing), but the data write path was fine once it got to a row.
+- **Bugfix (Critical): UI Not Refreshing After AI Metadata Save** — After the backend wrote AI metadata to `derived_results`, there was no mechanism to notify the frontend. Added a new `AssetUpdated` domain event (backend + frontend types). The backend `AssetUpdated` subscriber re-queries the full asset with all JOINs and pushes it as a typed event payload to all connected frontends.
+- **Feature: Real-time Asset Refresh** — Frontend `usePhotoLibrary` now handles `AssetUpdated` events by merging the pushed asset into the local assets state. The updated image will show the 🧠 Info button immediately after analysis completes without requiring a page reload.
+- **Improvement: Caption Promotion** — The `caption` field from AI metadata JSON is now promoted to the top-level `Asset` object in both `get_assets` and the `AssetUpdated` push, so it's available for gallery overlays and the "Show All Info" panel.
+
+## [0.1.62] - 2026-03-05T10:20:00Z
+
+- **Bugfix (UI): Error Modal Overflow** — Error modal now uses `maxHeight: 70vh` + `display:flex/column` so long error strings no longer escape the box. Content area scrolls, is selectable, and a 📋 Copy button copies the error to clipboard.
+- **Improvement (UI): API error formatting** — Non-key errors are now shown in a styled `<pre>` block with `word-break` and `white-space: pre-wrap` for readability.
+- **Feature (Backend): Configurable Gemini Model** — The AI model used for image analysis is now read from the `job_ai_model` DB setting (default: `gemini-2.0-flash`). Model name and key suffix logged on each job start.
+- **Feature (Settings): Model Selection Dropdown** — Added a model selector dropdown in **Settings → Jobs → get_metadata_ai** with 4 options (2.0-flash, 2.5-flash, 3-flash-preview, 3.1-pro-preview) plus a direct API key link.
+
+## [0.1.61] - 2026-03-05T09:49:00Z
+
+- **Bugfix (Critical): `getSetting` in WebSocket Dev Mode** — The `getSetting` call was listening on `childProcess.stdout` which doesn't exist in WebSocket (browser) mode, causing a 5-second timeout and a false `MISSING_API_KEY` error even when the key was correctly stored. Fixed by routing through `wsRef` — a ref that tracks the active WebSocket — and using `addEventListener('message', ...)` pattern in WS mode.
+- **Feature: Gemini API Key Format Validation** — Backend now validates the API key format (`AIza...`, ≥30 chars) before calling the API, logging the key suffix (`...XXXX`) in the error output for diagnosis.
+- **Feature: Improved API Error Logging** — When a Gemini API call fails, the error log now includes the asset ID, last 4 digits of the key, and the full error message.
+- **Bugfix (UI): Analysis Error Message** — Fixed incorrect "AI Studio" reference; updated link to `aistudio.google.com/apikey`; added `INVALID_API_KEY_FORMAT` error handling in the error modal; "Open Settings → API Key" button now opens the Settings modal (not ActionPanel).
+- **Feature: In-App Dev Console** — Added a floating `DevConsole` component that intercepts all `console.log/warn/error/info` calls and displays them in a toggleable panel (bottom-right corner). Unread error/warn count shown on the badge. Eliminates the need to switch to Chrome DevTools for routine log inspection.
+
+## [0.1.60] - 2026-03-05T09:21:00Z
+
+- **Feature (Settings): Wired UI Settings** — `ps_theme` and `ps_animations` are now managed in `App.tsx` (single source of truth) and passed as props to `SettingsModal`. Toggling the theme applies `data-theme` attribute to `<html>`, and disabling animations applies `.no-animations` class (CSS disables all transitions globally).
+- **Feature (Settings): Wired System Log Level** — The `system_log_level` DB setting is read on core sidecar startup. If set to `warn` or `error`, `console.log` (info-level) output is silenced globally, keeping the output stream clean.
+- **Feature (Settings): Wired Auto-Scan on Startup** — If `workflow_auto_scan` is set to `last_folder`, the core sidecar automatically re-scans the most recently used folder 1.5 seconds after startup.
+- **Feature (Settings): Wired Preview-on-Ingest** — The `workflow_generate_previews_on_ingest` setting is checked in the `Coordinator`. When set to `false`, newly discovered media skips the preview stage and proceeds directly to face detection.
+- **Feature (Settings): Wired Cluster Threshold** — The `job_cluster_threshold` DB setting is read at runtime by `runFaceClusteringJob`, replacing the hardcoded `0.65` value. Defaults to `0.65` if not set.
+- **Refactor (Core): `DatabaseManager.getSetting/setSetting`** — Extracted common settings read/write into typed helper methods on `DatabaseManager`. Callers in `handlers.ts`, `get_metadata_ai.ts`, `cluster_faces.ts`, and `coordinator/index.ts` now use these.
+
+## [0.1.59] - 2026-03-05T07:35:00Z
+
+- **Feature (UI): Dedicated Settings Window** — Moved application settings out of the Action menu into a dedicated `SettingsModal` accessible via a new 'cog' icon in the `TopBar`.
+- **Refactor (Core): Settings Categories & Persistence** — Organized settings into System, UI, Workflows, and registered Job Types.
+  - Connected UI settings (e.g., Theme, Animations) to local state.
+  - Connected System & Job settings (e.g., Gemini API Key, Cluster Threshold) to the SQLite `settings` table via backend IPC, ensuring sensitive credentials are never stored in version-controlled files.
+  - Migrated the existing Google API Key input to the AI Pipeline job settings tab.
+
+## [0.1.58] - 2026-03-05T00:08:42Z
+
+- **Build Pipeline Optimization**: Fixed a subtle race condition in the Fast Dev Loop (caused by concurrent execution of `tsc --watch` and `node --watch`) that resulted in Node immediately crash-restarting the `core/src/main.ts` server twice on launch. Pre-compiling `tsc` cleanly beforehand prevents node from capturing cascading file rewrites.
+
+## [0.1.57] - 2026-03-04T23:44:24Z
+
+- **Bugfix (Core): EADDRINUSE Orphan Port Auto-Kill** — Re-introduced an intelligent, targeted port-kill mechanism for `port 5174` in `main.ts` that specifically identifies the holding GUI/node process through `Get-NetTCPConnection` or `lsof` and violently kills it *only* if the PID doesn't match the current hot-reloading `process.pid`. This solves the issue where `node --watch` orphaned process trees and failed to recycle.
+- **Bugfix (UI/Types):** Fixed ESLint errors (`@typescript-eslint/no-explicit-any` on `activeChild` object mapping inside `usePhotoLibrary.ts`) by correctly typing variables to Tauri's `Child` class from `@tauri-apps/plugin-shell`, and removing unused error exception payloads `catch(e)`.
+
+## [0.1.56] - 2026-03-04T23:31:32Z
+
+- **Bugfix (UI): Persistent "lost connection" visual error** — Resolved a persistent bug where the UI would correctly use local cached state but falsely display a permanent 'Lost connection to backend server' error in the header when the connection temporarily reset.
+  - Added robust Auto-Reconnect logic in `usePhotoLibrary.ts` for both `WebSocket` dev proxies and Tauri `Child` sidecars.
+  - Removed double-socket race conditions by properly utilizing the `useEffect` cleanup return to kill active WebSockets and reset `useRef` guards during Vite's React Fast Refresh loops.
+
+## [1.0.6] - 2026-03-04T22:57:02Z
+
+- **Fix (Core): EADDRINUSE Dev Loop** — Resolved the infinite process crashing during `node --watch` restarts by removing hostile manual port kills (`Stop-Process`), allowing graceful port recycling.
+- **Refactor (Core): Procedural Routing** — Extracted the monolithic 700-line Websocket switch statement from `main.ts` into a cleanly separated `handlers.ts` module, drastically improving maintainability while preserving strict TypeScript safety.
+
+## [1.0.5] - 2026-03-04T22:00:00Z
+
+- **Fix (Core): TypeScript and Linting Errors** — Replaced `any` payloads with precise `unknown` and generic casts, added standard fallback values in `EventBus` payload deconstructions, and removed unused exception variables `_err` and `_e` across `main.ts` ensuring a fully strict `tsc` compilation.
+
 ## [0.1.55] - 2026-03-03T23:30:00Z
 
 - **Fix (Core): AI Metadata Events** — Resolved an architectural drift where the backend was emitting `JobStarted`/`JobFailed`, but the frontend `useJobManager` and `SinglePhotoView` were expecting `TaskStarted`.
@@ -17,11 +157,11 @@
 - **Feature (UI): AI Analysis Status Indicator** — Added a visual indicator within `SinglePhotoView` when an AI metadata analysis is running.
   - When triggering "Analyze Image", a pulsing ✨ `Analyzing` badge appears immediately in the top right Controls header next to the Actions menu.
   - While tracking the `analyzingAssetId`, the component watches real-time state for incoming payload updates.
-  - Upon successful backend delivery (`asset.ai_metadata` is populated), the component clears the analyzing flag and automatically opens the AI Info modal to present the results. 
+  - Upon successful backend delivery (`asset.ai_metadata` is populated), the component clears the analyzing flag and automatically opens the AI Info modal to present the results.
 
 ## [0.1.52] - 2026-03-03T12:25:00Z
 
-- **Feature (UI): Single Photo Actions Menu** — Added a drop-down "Actions" menu to the top-right overlay of the SinglePhotoView. 
+- **Feature (UI): Single Photo Actions Menu** — Added a drop-down "Actions" menu to the top-right overlay of the SinglePhotoView.
   - Allows triggering the "✨ Analyze Image" AI Metadata job specifically for the currently viewed photo without returning to the main dashboard.
   - Automatically hides when the UI controls fade out or when clicking elsewhere.
   - Passes the new `onExtractAiMetadata` prop directly from `App.tsx` through to `SinglePhotoView.tsx`.
@@ -131,12 +271,12 @@
 
 - **Gallery Filters:** Added robust stackable filtering system for narrowing down photos by person ('any', 'all', 'only').
 - **People View:** Added multi-select functionality via "long press" and integrated an action bar for applying compound filters.
-- **Single Photo View:** Enabled clickable face bounding boxes that instantly apply a filter for that person and return the user to the filtered gallery. 
+- **Single Photo View:** Enabled clickable face bounding boxes that instantly apply a filter for that person and return the user to the filtered gallery.
 - **Top Bar:** Automatically clears the active filter stack when switching core views to prevent confusion.
 
 ## [0.1.39] - 2026-03-01 10:45:00Z
 
-- **Global Job Pause:** Added a "PAUSE ALL / RESUME ACTIVITY" toggle button to the main Dashboard. 
+- **Global Job Pause:** Added a "PAUSE ALL / RESUME ACTIVITY" toggle button to the main Dashboard.
 - **Core State Interruption:** Implemented a new internal `SystemState` pausing loop across all heavyweight background tasks (`scan`, `previews`, `detect_faces`, `recognise_faces`, `cluster_faces`) allowing instantaneous zero-CPU state preservation.
 
 ## [0.1.38] - 2026-03-01 10:30:00Z

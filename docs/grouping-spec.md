@@ -1,14 +1,10 @@
-([Past chat][1])([Past chat][2])([Past chat][3])
-
-## Image Grouping + Similarity Spec (for Antigravity IDE implementation)
+# Image Grouping + Similarity Spec
 
 This spec collates the **grouping / “variants orbit original”** concept and the **similarity detection** ideas into a concrete DB + job/event design that fits the app’s current SQLite/WAL architecture and existing tables.
 
 Where something depends on choices we didn’t lock down earlier, it’s marked **Not verified** and implemented as a parameter.
 
----
-
-# 1. Goals
+## 1. Goals
 
 1. **Automatically group assets** into useful “sets”:
 
@@ -27,15 +23,13 @@ Where something depends on choices we didn’t lock down earlier, it’s marked 
    * existing **assets / derived_results / face_assignments**
    * existing **jobs / events** pipeline
 
----
+## 2. Terms and data model concepts
 
-# 2. Terms and data model concepts
-
-## 2.1 Asset
+### 2.1 Asset
 
 Existing row in `assets`.
 
-## 2.2 Group
+### 2.2 Group
 
 A named container of assets, with a *reason/type* and optional *canonical* representative.
 
@@ -46,20 +40,20 @@ Examples:
 * “Burst sequence”
 * “Same people cluster”
 
-## 2.3 Relationship (edge)
+### 2.3 Relationship (edge)
 
 A *pairwise link* between two assets with a score + reason, used to build groups and to power UI adjacency browsing (“show me things like this”).
 
 ---
 
-# 3. Use cases (what the system must support)
+## 3. Use cases (what the system must support)
 
-## 3.1 Duplicate handling
+### 3.1 Duplicate handling
 
 * Same file content (byte-identical) imported multiple times.
 * Same image re-saved (different file hash) but visually identical.
 
-## 3.2 Variant sets (“orbiting”)
+### 3.2 Variant sets (“orbiting”)
 
 One “best” item + orbiting variants:
 
@@ -70,33 +64,33 @@ One “best” item + orbiting variants:
 * screenshots of photos
 * montage/collage derived from originals (**Not verified** if you want this linked automatically)
 
-## 3.3 Bursts / sequences
+### 3.3 Bursts / sequences
 
 * Phones produce near-identical shots seconds apart.
 * Want “pick best” within burst; optionally keep the rest collapsed.
 
-## 3.4 Same-people groupings
+### 3.4 Same-people groupings
 
 * “All photos containing X and Y together”
 * “Photos containing any of these people” (family event clustering)
 
-## 3.5 Document-like assets
+### 3.5 Document-like assets
 
 * scanned documents, receipts, forms
 * similarity may come from OCR text + layout rather than visual features (**Not verified** whether to include in v1 grouping)
 
 ---
 
-# 4. Recommended DB changes
+## 4. Recommended DB changes
 
 You can do this in two ways.
 
-## Option 1 (minimal schema change): store everything in `derived_results` (fast to implement)
+### Option 1 (minimal schema change): store everything in `derived_results` (fast to implement)
 
 * Pros: no migrations beyond conventions; flexible JSON.
 * Cons: harder to index/query; harder to maintain “current grouping state”.
 
-## Option 2 (recommended): add **first-class grouping tables** + keep heavy features in `derived_results`
+### Option 2 (recommended): add **first-class grouping tables** + keep heavy features in `derived_results`
 
 * Pros: fast queries, stable UI, incremental recompute, clear semantics.
 * Cons: migration work.
@@ -105,9 +99,9 @@ The rest of this spec assumes **Option 2**.
 
 ---
 
-## 4.1 New tables
+### 4.1 New tables
 
-### 4.1.1 `asset_groups`
+#### 4.1.1 `asset_groups`
 
 Represents a group/stack/cluster.
 
@@ -130,7 +124,7 @@ CREATE INDEX idx_asset_groups_type ON asset_groups(type);
 CREATE INDEX idx_asset_groups_canonical ON asset_groups(canonical_asset_id);
 ```
 
-### 4.1.2 `asset_group_members`
+#### 4.1.2 `asset_group_members`
 
 Membership + role.
 
@@ -151,7 +145,7 @@ CREATE INDEX idx_group_members_asset ON asset_group_members(asset_id);
 CREATE INDEX idx_group_members_group ON asset_group_members(group_id);
 ```
 
-### 4.1.3 `asset_similarity_edges`
+#### 4.1.3 `asset_similarity_edges`
 
 Pairwise similarity store (sparse graph).
 
@@ -177,7 +171,7 @@ CREATE INDEX idx_edges_kind_score ON asset_similarity_edges(kind, score);
 
 **Canonical ordering rule**: always store `(min(asset_id), max(asset_id))` to prevent duplicates.
 
-### 4.1.4 `asset_features` (optional but useful)
+#### 4.1.4 `asset_features` (optional but useful)
 
 A “thin indexed” table for fast lookup of core features, while keeping large payloads in `derived_results`.
 
@@ -205,7 +199,7 @@ If you don’t want this table, you can store hashes in `derived_results` but yo
 
 ---
 
-# 5. What goes in `derived_results` (and conventions)
+## 5. What goes in `derived_results` (and conventions)
 
 Keep heavy/variable analysis in `derived_results` with consistent `task` names:
 
@@ -219,9 +213,9 @@ Keep heavy/variable analysis in `derived_results` with consistent `task` names:
 
 ---
 
-# 6. Similarity detection pipeline (incremental)
+## 6. Similarity detection pipeline (incremental)
 
-## 6.1 Stage A - deterministic exact duplicates (fast)
+### 6.1 Stage A - deterministic exact duplicates (fast)
 
 1. Use existing `assets.file_hash`:
 
@@ -234,7 +228,7 @@ Keep heavy/variable analysis in `derived_results` with consistent `task` names:
 
    * `GroupProposed` or `GroupCreated` event
 
-## 6.2 Stage B - perceptual hash near-duplicates (fast-ish)
+### 6.2 Stage B - perceptual hash near-duplicates (fast-ish)
 
 Compute `pHash/dHash/aHash` once per asset.
 
@@ -260,7 +254,7 @@ Output:
 * insert edges in `asset_similarity_edges(kind='visual', reason='phash')`
 * build groups by connected components above threshold.
 
-## 6.3 Stage C - embedding similarity (slower, better)
+### 6.3 Stage C - embedding similarity (slower, better)
 
 Compute image embeddings (CLIP-like or ONNX model).
 
@@ -279,7 +273,7 @@ Store:
 * embedding in `derived_results.task='image_embedding_v1'`
 * sparse edges for top-K neighbors per asset (K=10..30) to keep DB bounded (**Not verified** K default: 20)
 
-## 6.4 Stage D - burst/sequence detection (metadata)
+### 6.4 Stage D - burst/sequence detection (metadata)
 
 Using `assets.exif_datetime` (and optionally `original_path` adjacency):
 
@@ -290,7 +284,7 @@ Threshold (**Not verified**):
 
 * `T_burst_seconds = 3` (burst) and `T_sequence_seconds = 30` (sequence)
 
-## 6.5 Stage E - face-driven similarity (when available)
+### 6.5 Stage E - face-driven similarity (when available)
 
 Using:
 
@@ -304,16 +298,16 @@ Rules:
 
 ---
 
-# 7. Group formation rules (how edges become groups)
+## 7. Group formation rules (how edges become groups)
 
 Groups should be created by dedicated “group builders” that run per group type:
 
-## 7.1 Duplicate groups
+### 7.1 Duplicate groups
 
 * purely from file_hash equality
 * status can be `confirmed` automatically (very low false positives)
 
-## 7.2 Near-duplicate groups
+### 7.2 Near-duplicate groups
 
 * require both:
 
@@ -325,7 +319,7 @@ Crop/downscale heuristic:
 * if aspect ratios match within 2% and one resolution is smaller => likely downscale variant
 * if aspect ratios differ but embedding very high => possible crop variant
 
-## 7.3 Variant sets (“orbit”)
+### 7.3 Variant sets (“orbit”)
 
 A variant set is a stricter near-duplicate group with a canonical:
 
@@ -343,16 +337,16 @@ A variant set is a stricter near-duplicate group with a canonical:
   2. close variants (highest similarity)
   3. more distant variants
 
-## 7.4 Burst groups
+### 7.4 Burst groups
 
 * time window + moderate similarity
 * canonical is “best shot” by quality score (if available), else sharpest proxy (**Not verified**), else largest resolution.
 
 ---
 
-# 8. Jobs + Events design
+## 8. Jobs + Events design
 
-## 8.1 Jobs (new types)
+### 8.1 Jobs (new types)
 
 Add job `type` values (existing `jobs` table supports this).
 
@@ -377,7 +371,7 @@ Add job `type` values (existing `jobs` table supports this).
 
    * handles merges/splits and “locked” groups
 
-## 8.2 Events (new types)
+### 8.2 Events (new types)
 
 Use `events` as immutable ledger.
 
@@ -404,9 +398,9 @@ Suggested event types + payloads:
 
 ---
 
-# 9. UI requirements (what DB must make easy)
+## 9. UI requirements (what DB must make easy)
 
-## 9.1 Default library grid
+### 9.1 Default library grid
 
 * Each tile represents either:
 
@@ -419,12 +413,12 @@ Suggested view/query concept:
 * include assets that are **not** members of any group as canonical
 * include canonical assets of groups
 
-## 9.2 Open group (“orbit view”)
+### 9.2 Open group (“orbit view”)
 
 * Show canonical center + orbiting variants ordered by rank/similarity
 * Show reason tags (“duplicate”, “crop”, “burst”, “edit?”)
 
-## 9.3 Actions
+### 9.3 Actions
 
 * “Select canonical”
 * “Remove from group”
@@ -438,9 +432,9 @@ These must translate into DB state changes:
 
 ---
 
-# 10. Query patterns (examples Antigrav can wire into repo/services)
+## 10. Query patterns (examples Antigrav can wire into repo/services)
 
-## 10.1 Find group for an asset
+### 10.1 Find group for an asset
 
 ```sql
 SELECT g.*
@@ -449,7 +443,7 @@ JOIN asset_group_members m ON m.group_id = g.id
 WHERE m.asset_id = ?;
 ```
 
-## 10.2 Get tiles for main grid
+### 10.2 Get tiles for main grid
 
 One approach:
 
@@ -478,7 +472,7 @@ WHERE m.asset_id IS NULL;
 
 (You’ll likely wrap this in a CTE and apply ORDER BY / LIMIT/OFFSET.)
 
-## 10.3 Get orbit members for a group
+### 10.3 Get orbit members for a group
 
 ```sql
 SELECT m.asset_id, m.role, m.rank, m.evidence_json
@@ -491,9 +485,9 @@ ORDER BY
 
 ---
 
-# 11. Rebuild + reconciliation rules (important)
+## 11. Rebuild + reconciliation rules (important)
 
-## 11.1 Non-destructive rebuild
+### 11.1 Non-destructive rebuild
 
 When algorithms rerun:
 
@@ -502,7 +496,7 @@ When algorithms rerun:
 
   * allow canonical to change only if confidence is high (**Not verified**) or keep stable to avoid UI churn.
 
-## 11.2 Merges and splits
+### 11.2 Merges and splits
 
 When two groups become connected by new edges:
 
@@ -512,7 +506,7 @@ When two groups become connected by new edges:
 
 ---
 
-# 12. Performance constraints
+## 12. Performance constraints
 
 1. Keep `asset_similarity_edges` sparse:
 
@@ -522,7 +516,7 @@ When two groups become connected by new edges:
 
 ---
 
-# 13. Implementation sequence (recommended)
+## 13. Implementation sequence (recommended)
 
 1. Add tables: `asset_groups`, `asset_group_members`, `asset_similarity_edges` (+ optional `asset_features`).
 2. Implement `build_duplicate_groups` from `file_hash`.
@@ -537,7 +531,7 @@ When two groups become connected by new edges:
 
 ---
 
-# 14. Open parameters (marking what needs final choice)
+## 14. Open parameters (marking what needs final choice)
 
 1. **Thresholds** (pHash Hamming, embedding cosine, burst windows) - defaults in this doc are **Not verified**.
 2. **Canonical selection** priority (quality score vs resolution vs file_size).
@@ -545,6 +539,3 @@ When two groups become connected by new edges:
 
 If you want, I can provide a “constants” block (single JSON object) that Antigrav can drop into config and version via `algorithm_version`, so rebuilds remain reproducible.
 
-[1]: https://chatgpt.com/c/68f8dd2e-96a8-832d-8447-2c0811915e45 "Photo archive consolidation"
-[2]: https://chatgpt.com/c/697a96cc-51f0-832f-a78e-120db049039b "Filename Separation Spec"
-[3]: https://chatgpt.com/c/69585400-0558-8333-bb15-957b2fdc2b05 "Photo Library App Dev"

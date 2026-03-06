@@ -3,6 +3,7 @@ import './App.css';
 import metadata from '../metadata.json';
 import { TaskDrawer } from './components/jobs/TaskDrawer';
 import { ActionPanel } from './components/ActionPanel';
+import { SettingsModal } from './components/SettingsModal';
 import { SinglePhotoView } from './components/SinglePhotoView';
 import { usePhotoLibrary } from './hooks/usePhotoLibrary';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -10,8 +11,10 @@ import { TopBar } from './components/TopBar';
 import { LibraryView } from './components/LibraryView';
 import { PeopleView } from './components/PeopleView';
 import { DashboardView } from './components/DashboardView';
+import { AlbumsView } from './components/AlbumsView';
 import { LoadingScreen } from './components/LoadingScreen';
-import { PERSON_COLORS } from './types/core';
+import { PERSON_COLORS } from '../shared/types/core';
+import { DevConsole } from './components/DevConsole';
 
 function App() {
   const {
@@ -27,18 +30,28 @@ function App() {
     isSystemPaused,
     actions,
     logs,
-    filterStack
+    filterStack,
+    notifications,
+    dismissNotification
   } = usePhotoLibrary();
 
   // Persisted UI State
-  const [view, setView] = usePersistedState<'library' | 'people' | 'dashboard'>('ps_view', 'library');
+  const [view, setView] = usePersistedState<'library' | 'people' | 'dashboard' | 'albums'>('ps_view', 'library');
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
   const [showFaces, setShowFaces] = usePersistedState<boolean>('ps_show_faces', false);
+  const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);
+  const [activeInfoTab, setActiveInfoTab] = usePersistedState<'file' | 'analysis' | 'people' | 'json'>('ps_info_tab', 'file');
   const [showActions, setShowActions] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [peopleSelectionCount, setPeopleSelectionCount] = useState(0);
   const [librarySelection, setLibrarySelection] = useState<Set<string>>(new Set());
   const [declusteredAssets, setDeclusteredAssets] = useState<Set<string>>(new Set());
   const [showRejected, setShowRejected] = useState(false);
+
+  // UI Settings (applied globally)
+  const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
+  const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
+
   // Transient status-bar override (clears after timeout)
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -58,6 +71,12 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets]);
+
+  // Apply UI Settings side-effects
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.classList.toggle('no-animations', !animationsEnabled);
+  }, [theme, animationsEnabled]);
 
 
   if (status.includes('Initializing')) {
@@ -84,6 +103,7 @@ function App() {
           actions.refreshPeople();
         }}
         onOpenActions={() => setShowActions(true)}
+        onOpenSettings={() => setShowSettings(true)}
         showFaces={showFaces}
         setShowFaces={setShowFaces}
       />
@@ -227,6 +247,8 @@ function App() {
           <LibraryView
             assets={assets.filter(a => !!a.preview_path)}
             loading={status.includes('Initializing')}
+            backendReady={status.startsWith('Ready')}
+            backendStatus={status}
             onAssetClick={setSelectedAssetId}
             selectedAssetId={selectedAssetId}
             activeFilter={filterStack.length > 0 ? filterStack[filterStack.length - 1] : undefined}
@@ -263,6 +285,20 @@ function App() {
             refreshSystemJobs={actions.refreshSystemJobs}
             isSystemPaused={isSystemPaused}
             onTogglePause={actions.toggleSystemPause}
+            onStopJob={actions.stopJob}
+            onClearErrors={actions.clearJobErrors}
+            loading={!status.startsWith('Ready')}
+          />
+        )}
+        {view === 'albums' && (
+          <AlbumsView
+            getAlbums={actions.getAlbums}
+            createAlbum={actions.createAlbum}
+            deleteAlbum={actions.deleteAlbum}
+            onOpenAlbum={(albumId, albumTitle) => {
+              actions.pushFilter({ type: 'album', albumId, description: albumTitle, personIds: [] });
+              setView('library');
+            }}
           />
         )}
       </div>
@@ -333,13 +369,24 @@ function App() {
         onScanSensitive={actions.scanSensitive}
         onScanSensitiveAll={actions.scanSensitiveAll}
         onExtractAiMetadata={actions.extractAiMetadata}
-        getSetting={actions.getSetting}
-        setSetting={actions.setSetting}
         onRefresh={() => { actions.refreshLibrary(); actions.refreshPeople(); }}
         onResetFaces={actions.resetFaces}
         onResetAll={actions.resetLibrary}
         onStopScan={actions.stopScan}
+        onBuildGroups={actions.buildGroups}
+        onBuildBursts={actions.buildBursts}
         folderHistory={folderHistory}
+      />
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        getSetting={actions.getSetting}
+        setSetting={actions.setSetting}
+        theme={theme}
+        setTheme={setTheme}
+        animationsEnabled={animationsEnabled}
+        setAnimationsEnabled={setAnimationsEnabled}
       />
 
       {/* Photo Overlay */}
@@ -349,7 +396,11 @@ function App() {
           initialIndex={assets.findIndex(a => a.id === selectedAssetId)}
           onClose={() => setSelectedAssetId(null)}
           onPrioritize={actions.prioritizeAsset}
-          onFaceClick={(personId, personName) => {
+          showInfoPanel={showInfoPanel}
+          onShowInfoPanelChange={setShowInfoPanel}
+          activeInfoTab={activeInfoTab}
+          onActiveInfoTabChange={setActiveInfoTab}
+          onFaceClick={(personId: string, personName: string) => {
             actions.pushFilter({
               type: 'person_any',
               personIds: [personId],
@@ -363,13 +414,45 @@ function App() {
           onExtractAiMetadata={actions.extractAiMetadata}
           onOpenSettings={() => {
             setSelectedAssetId(null);
-            setShowActions(true);
+            setShowSettings(true);
           }}
+          onGetGroupOrbit={actions.getGroupOrbit}
+          onSetCanonical={actions.setCanonical}
+          onExplodeGroup={actions.explodeGroup}
           jobs={jobs}
         />
       )}
 
-      <TaskDrawer jobs={jobs} />
+      <TaskDrawer jobs={jobs} onStop={actions.stopJob} />
+      <DevConsole />
+
+      {/* Quota / System Notification Banners */}
+      {notifications.length > 0 && (
+        <div style={{
+          position: 'fixed', top: '52px', right: '12px', zIndex: 9990,
+          display: 'flex', flexDirection: 'column', gap: '8px',
+          maxWidth: '420px', width: 'calc(100vw - 24px)'
+        }}>
+          {notifications.map(n => (
+            <div key={n.id} style={{
+              background: n.type === 'warning' ? 'rgba(161,98,7,0.95)' : 'rgba(30,64,175,0.92)',
+              border: `1px solid ${n.type === 'warning' ? '#854d0e' : '#1d4ed8'}`,
+              borderRadius: '8px', padding: '10px 14px',
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(8px)',
+              animation: 'fadeInOverlay 0.2s ease-out'
+            }}>
+              <span style={{ fontSize: '13px', color: '#fef3c7', flex: 1, lineHeight: 1.5 }}>{n.message}</span>
+              <button
+                onClick={() => dismissNotification(n.id)}
+                style={{ background: 'transparent', border: 'none', color: '#fde68a', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0, padding: '0 2px' }}
+                title="Dismiss"
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

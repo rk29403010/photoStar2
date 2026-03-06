@@ -58,7 +58,15 @@ export class Coordinator {
 
     private onMediaDiscovered(event: DomainEvent) {
         if (event.type !== 'MediaDiscovered') return;
-        this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'previews')`).run(event.mediaId);
+
+        const autoPreview = this.db.getSetting('workflow_generate_previews_on_ingest') !== 'false';
+
+        if (autoPreview) {
+            this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'previews')`).run(event.mediaId);
+        } else {
+            // Skip previews, go straight to detection
+            this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'detection')`).run(event.mediaId);
+        }
         this.triggerEvaluateQueue();
     }
 
@@ -285,7 +293,7 @@ export class Coordinator {
             this.eventBus.emit({
                 type: 'SensitiveScanRequested',
                 mediaIds: mediaIdsByStage['sensitive_scan']
-            } as any);
+            } as unknown as DomainEvent);
         }
     }
 }

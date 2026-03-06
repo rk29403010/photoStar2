@@ -11,10 +11,11 @@ import { waitIfPaused } from '../state';
 export async function runFaceClusteringJob(
     jobId: string,
     dbManager: DatabaseManager,
-    eventBus: EventBus
+    eventBus: EventBus,
+    signal?: AbortSignal
 ) {
     const db = dbManager.getDb();
-    const activeJobId = `cluster-batch-${Date.now()}`;
+    const activeJobId = jobId || `cluster-batch-${Date.now()}`;
 
     eventBus.emit({
         type: 'JobStarted',
@@ -57,7 +58,8 @@ export async function runFaceClusteringJob(
     }
 
     // 2. Simple Agglomerative Clustering
-    const THRESHOLD = 0.65;
+    const thresholdSetting = dbManager.getSetting('job_cluster_threshold');
+    const THRESHOLD = thresholdSetting ? parseFloat(thresholdSetting) : 0.65;
 
     type Cluster = {
         id: string; // Temp ID
@@ -70,7 +72,11 @@ export async function runFaceClusteringJob(
     const activeClusters: Cluster[] = [];
 
     for (let i = 0; i < allFaces.length; i++) {
-        await waitIfPaused();
+        if (signal?.aborted) {
+            console.log(`Clustering ${activeJobId} cancelled during phase 1.`);
+            break;
+        }
+        await waitIfPaused(signal);
         const face = allFaces[i];
         let bestMatch: Cluster | null = null;
         let bestSim = -1;
@@ -236,7 +242,11 @@ export async function runFaceClusteringJob(
     let thumbDone = 0;
 
     for (const cluster of activeClusters) {
-        await waitIfPaused();
+        if (signal?.aborted) {
+            console.log(`Clustering ${activeJobId} cancelled during phase 2.`);
+            break;
+        }
+        await waitIfPaused(signal);
         try {
             const bestFace = db.prepare(`
                 SELECT asset_id, face_index 

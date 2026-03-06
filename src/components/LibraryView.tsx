@@ -1,11 +1,13 @@
 import React from 'react';
-import type { Asset } from '../types/core';
+import type { Asset } from '../../shared/types/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { LayoutEngine } from './layout/LayoutEngine';
 
 interface LibraryViewProps {
     assets: Asset[];
     loading: boolean;
+    backendReady: boolean;
+    backendStatus: string;
     onAssetClick?: (id: string) => void;
     selectedAssetId?: string | null;
     activeFilter?: LibraryFilter;
@@ -19,7 +21,11 @@ interface LibraryViewProps {
     rejectedAssets?: Asset[];
 }
 
-export const LibraryView: React.FC<LibraryViewProps> = ({ assets, loading, onAssetClick, selectedAssetId, activeFilter, showFaces, onUntagAsset, onSetSensitivity, librarySelection, onLibrarySelectionChange, declusteredAssets, showRejected, rejectedAssets }) => {
+export const LibraryView: React.FC<LibraryViewProps> = ({ 
+    assets, loading, backendReady, backendStatus, onAssetClick, selectedAssetId, 
+    activeFilter, showFaces, onUntagAsset, onSetSensitivity, librarySelection, 
+    onLibrarySelectionChange, declusteredAssets, showRejected, rejectedAssets 
+}) => {
     const displayAssets = React.useMemo(() => {
         if (!declusteredAssets || declusteredAssets.size === 0) return assets;
         const normal = assets.filter(a => !declusteredAssets.has(a.id));
@@ -27,8 +33,27 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ assets, loading, onAss
         return [...normal, ...trailing];
     }, [assets, declusteredAssets]);
 
-    if (loading && assets.length === 0) {
-        return <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>Loading library...</div>;
+    // Show loading if we are explicitly loading or if the backend isn't ready and we have no assets
+    if ((loading || !backendReady) && assets.length === 0) {
+        return (
+            <div style={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                color: '#666',
+                gap: 16 
+            }}>
+                <div className="animate-pulse" style={{ fontSize: '2rem' }}>⌛</div>
+                <div style={{ textAlign: 'center' }}>
+                    <div>{backendStatus.includes('Error') ? backendStatus : 'Initialising photo library...'}</div>
+                    {!backendReady && !backendStatus.includes('Error') && (
+                        <div style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: 4 }}>Establishing connection to sidecar...</div>
+                    )}
+                </div>
+            </div>
+        );
     }
 
     if (assets.length === 0 && (!showRejected || !rejectedAssets || rejectedAssets.length === 0)) {
@@ -43,8 +68,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ assets, loading, onAss
                 gap: 16
             }}>
                 <div style={{ fontSize: '3rem', opacity: 0.3 }}>📂</div>
-                <div>No photos found in library.</div>
-                <div style={{ fontSize: '0.9rem' }}>Click &quot;Actions &gt; Scan Folder&quot; to import photos.</div>
+                <div style={{ fontWeight: 500 }}>No photos found in library.</div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Click &quot;Actions &gt; Scan Folder&quot; to import photos.</div>
             </div>
         );
     }

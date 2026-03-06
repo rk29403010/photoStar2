@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Asset, TileIntent } from '../../types/core';
+import type { Asset, TileIntent } from '../../../shared/types/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 

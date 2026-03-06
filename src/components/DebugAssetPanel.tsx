@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Asset } from '../types/core';
+import type { Asset } from '../../shared/types/core';
 
 interface DebugAssetPanelProps {
     asset: Asset;

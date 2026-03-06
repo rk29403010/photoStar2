@@ -2,7 +2,7 @@ import { DomainEvent } from '../events/types';
 
 export type WorkflowDefinition = {
     trigger: DomainEvent['type'];
-    action: (event: any) => Promise<DomainEvent[] | void>;
+    action: (event: unknown) => Promise<DomainEvent[] | void>;
 };
 
 // This file is a placeholder for declarative workflow definitions.

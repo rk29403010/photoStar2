@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { BackgroundJob, PipelineStage, JobState } from '../types/jobs';
+import type { BackgroundJob, PipelineStage, JobState } from '../../shared/types/jobs';
 import type { DomainEvent } from '../types/events';
 
 export function useJobManager() {
@@ -178,6 +178,12 @@ export function useJobManager() {
                 break;
             case 'PreviewGenerated':
                 break;
+            case 'AssetUpdated':
+                break; // Handled in usePhotoLibrary directly
+            case 'QuotaWarning':
+                break; // Surfaced as a JobFailed warning by the backend
+            case 'ProAnalysisPending':
+                break; // Informational — no job state change needed
         }
     }, [addJob, updateJobState, updateJobProgress]);
 

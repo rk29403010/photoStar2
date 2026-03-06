@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect } from 'react';
 
 interface ActionPanelProps {
     isOpen: boolean;
@@ -15,8 +15,8 @@ interface ActionPanelProps {
     onResetFaces: () => void;
     onResetAll: () => void;
     onStopScan: () => void;
-    getSetting: (key: string) => Promise<string>;
-    setSetting: (key: string, value: string) => Promise<void>;
+    onBuildGroups: () => void;
+    onBuildBursts: () => void; // Added this line
     folderHistory?: { path: string, last_scanned_at: string }[];
 }
 
@@ -24,27 +24,10 @@ export function ActionPanel({
     isOpen, onClose, onScan, onPreviews,
     onDetect, onRecognise, onCluster, onExtractAiMetadata,
     onScanSensitive, onScanSensitiveAll,
-    onRefresh, onResetFaces, onResetAll, onStopScan,
-    getSetting, setSetting,
+    onRefresh, onResetFaces, onResetAll, onStopScan, onBuildGroups, onBuildBursts, // Added onBuildBursts here
     folderHistory = []
 }: ActionPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null);
-    const [apiKey, setApiKey] = useState('');
-    const [csvPath, setCsvPath] = useState('');
-    const [settingsSaved, setSettingsSaved] = useState(false);
-
-    useEffect(() => {
-        if (isOpen) {
-            getSetting('gemini_api_key').then(val => {
-                setApiKey(val);
-                setSettingsSaved(false); // Only set this when data is loaded, instead of globally per effect
-            }).catch(() => { });
-            getSetting('gemini_csv_path').then(val => {
-                setCsvPath(val);
-                setSettingsSaved(false);
-            }).catch(() => { });
-        }
-    }, [isOpen, getSetting]);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -201,45 +184,25 @@ export function ActionPanel({
                     {/* Column 3: Maintenance & Danger */}
                     <div className="space-y-8">
                         <section>
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-4 flex items-center">
-                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-2"></span>
-                                AI Settings
+                            <h3 className="text-xs font-bold text-teal-400 uppercase tracking-[0.2em] mb-4 flex items-center">
+                                <span className="w-1.5 h-1.5 bg-teal-400 rounded-full mr-2"></span>
+                                Relationship Analysis
                             </h3>
-                            <div className="bg-[#242424] border border-[#333] rounded-lg p-4 space-y-4">
-                                <div>
-                                    <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Gemini API Key</label>
-                                    <input
-                                        type="password"
-                                        value={apiKey}
-                                        onChange={e => setApiKey(e.target.value)}
-                                        placeholder="AIzaSy..."
-                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Kinship Explorer CSV Path (Optional)</label>
-                                    <input
-                                        type="text"
-                                        value={csvPath}
-                                        onChange={e => setCsvPath(e.target.value)}
-                                        placeholder="C:/Path/To/Names.csv"
-                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
-                                    />
-                                    <p className="text-[9px] text-gray-500 mt-1">Used to identify people across generations</p>
-                                </div>
-                                <div className="flex justify-end">
-                                    <button
-                                        onClick={async () => {
-                                            await setSetting('gemini_api_key', apiKey);
-                                            await setSetting('gemini_csv_path', csvPath);
-                                            setSettingsSaved(true);
-                                            setTimeout(() => setSettingsSaved(false), 2000);
-                                        }}
-                                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-semibold"
-                                    >
-                                        {settingsSaved ? 'Saved \u2713' : 'Save Settings'}
-                                    </button>
-                                </div>
+                            <div className="space-y-3"> {/* Added a div for spacing multiple buttons */}
+                                <button onClick={() => { onBuildGroups(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-teal-500/50 rounded-lg transition-all group">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium group-hover:text-teal-400 transition-colors">Group Duplicates & Variants</span>
+                                        <span className="text-lg">👯</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 leading-relaxed">Automatically stack identical files and similar versions (variants)</p>
+                                </button>
+                                <button onClick={() => { onBuildBursts(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-teal-500/50 rounded-lg transition-all group">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium group-hover:text-teal-400 transition-colors">Group Bursts & Sequences</span>
+                                        <span className="text-lg">📸</span> {/* Changed emoji for distinction */}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 leading-relaxed">Automatically group rapid-fire photo sequences</p>
+                                </button>
                             </div>
                         </section>
 

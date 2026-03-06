@@ -1,5 +1,5 @@
 import { DatabaseManager } from '../db';
-import { hashFile, getFileStats, getExifData } from '../file-utils';
+import { hashFile, getExifData } from '../file-utils';
 import { join, extname } from 'node:path';
 import { readdirSync, statSync } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
@@ -40,9 +40,9 @@ export async function runScanJob(
                             totalToProcess++;
                         }
                     }
-                } catch (e) { }
+                } catch { /* ignore */ }
             }
-        } catch (e) { }
+        } catch { /* ignore */ }
     }
     console.error(`[ScanJob] Total files found: ${totalToProcess}`);
 
@@ -160,13 +160,15 @@ export async function runScanJob(
                             reportProgress(fullPath);
                         }
                     }
-                } catch (e: any) {
+                } catch (err: unknown) {
+                    const e = err as Error;
                     console.error(`Error processing ${fullPath}:`, e);
                     errors++;
                     reportProgress(fullPath);
                 }
             }
-        } catch (e: any) {
+        } catch (err: unknown) {
+            const e = err as Error;
             console.error(`Error reading dir ${dir}:`, e);
             errors++;
             eventBus.emit({

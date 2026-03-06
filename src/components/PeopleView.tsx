@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import type { Person } from '../types/core';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import type { Person } from '../../shared/types/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
+import { resolveImageUrl } from '../config/backend';
 
 interface PeopleViewProps {
     people: Person[];
@@ -82,13 +82,7 @@ export const PeopleView: React.FC<PeopleViewProps> = ({ people, onFilter, onSele
         return <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>No people found.</div>;
     }
 
-    const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-    const getSafeImgSrc = (path: string | undefined): string | null => {
-        if (!path) return null;
-        if (isTauri) return convertFileSrc(path);
-        // Browser Fallback (development mode)
-        return `http://localhost:5174/image?path=${encodeURIComponent(path)}`;
-    };
+    const getSafeImgSrc = (path: string | undefined): string | null => resolveImageUrl(path);
 
     return (
         <div style={{ position: 'relative', height: '100%', overflow: 'auto' }}>

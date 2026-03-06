@@ -51,6 +51,7 @@ export default defineConfig({
     })
   ],
   server: {
+    host: true, // Expose to local network (0.0.0.0)
     open: true,
     watch: {
       // Only watch src/ and public/ — ignore docs, core, markdown files at root, etc.

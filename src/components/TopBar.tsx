@@ -1,15 +1,16 @@
 import React from 'react';
 
 interface TopBarProps {
-    view: 'library' | 'people' | 'dashboard';
-    setView: (view: 'library' | 'people' | 'dashboard') => void;
+    view: 'library' | 'people' | 'dashboard' | 'albums';
+    setView: (view: 'library' | 'people' | 'dashboard' | 'albums') => void;
     onRefresh: () => void;
     onOpenActions: () => void;
     showFaces: boolean;
     setShowFaces: (val: boolean) => void;
+    onOpenSettings: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpenActions, showFaces, setShowFaces }) => {
+export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpenActions, showFaces, setShowFaces, onOpenSettings }) => {
     return (
         <div style={{
             marginBottom: 10,
@@ -56,6 +57,20 @@ export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpen
                     People
                 </button>
                 <button
+                    onClick={() => setView('albums')}
+                    disabled={view === 'albums'}
+                    style={{
+                        padding: '6px 16px',
+                        background: view === 'albums' ? '#333' : 'transparent',
+                        color: view === 'albums' ? '#fff' : '#aaa',
+                        border: '1px solid #444',
+                        borderRadius: 4,
+                        cursor: view === 'albums' ? 'default' : 'pointer'
+                    }}
+                >
+                    Albums
+                </button>
+                <button
                     onClick={() => setView('dashboard')}
                     disabled={view === 'dashboard'}
                     style={{
@@ -98,6 +113,26 @@ export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpen
                 ↻ Refresh
             </button>
 
+            <button
+                onClick={onOpenSettings}
+                style={{
+                    padding: '6px',
+                    background: 'transparent',
+                    color: '#aaa',
+                    border: '1px solid #444',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    marginLeft: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 32,
+                    height: 32
+                }}
+                title="Settings"
+            >
+                ⚙️
+            </button>
             <button
                 onClick={onOpenActions}
                 style={{

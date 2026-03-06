@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import type { BackgroundJob } from '../types/jobs';
+import type { BackgroundJob } from '../../shared/types/jobs';
 import { AlertCircle as AlertCircleIcon, PauseCircle, PlayCircle } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -8,9 +8,23 @@ interface DashboardViewProps {
     refreshSystemJobs: () => void;
     isSystemPaused: boolean;
     onTogglePause: () => void;
+    onStopJob: (jobId: string) => void;
+    onClearErrors: (task: string) => void;
+    loading?: boolean;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, refreshSystemJobs, isSystemPaused, onTogglePause }) => {
+const SKELETON_SYSTEM_JOBS: BackgroundJob[] = [
+    { id: 'class-onboarding', stage: 'onboarding', title: 'Photo Onboarding', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-previews', stage: 'previews', title: 'Thumbnail Generation', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [] , progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-detection', stage: 'analysis', title: 'Face Detection', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [] , progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-mapping', stage: 'analysis', title: 'Face Recognition', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [] , progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-clustering', stage: 'analysis', title: 'Face Clustering', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [] , progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-ai-metadata', stage: 'ai_metadata', title: 'AI Metadata', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [] , progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } }
+];
+
+export const DashboardView: React.FC<DashboardViewProps> = ({ 
+    jobs, systemJobs, refreshSystemJobs, isSystemPaused, onTogglePause, onStopJob, onClearErrors, loading 
+}) => {
 
     useEffect(() => {
         refreshSystemJobs();
@@ -22,9 +36,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, 
     const activeJobIds = new Set(jobs.filter(j => j.state === 'running' || j.state === 'queued').map(j => j.id));
 
     // We only show the aggregated system jobs plus any regular jobs that don't belong to these classes
-    const systemStages = ['onboarding', 'bulk_ingest', 'previews', 'preview_generation', 'analysis', 'face_analysis', 'scan'];
+    const systemStages = ['onboarding', 'bulk_ingest', 'previews', 'preview_generation', 'analysis', 'face_analysis', 'scan', 'ai_metadata'];
+    
+    // If we're loading and have no system jobs yet, use skeletons to speed up the initial paint
+    const baseSystemJobs = (loading && systemJobs.length === 0) ? SKELETON_SYSTEM_JOBS : systemJobs;
+
     const displayJobs = [
-        ...systemJobs,
+        ...baseSystemJobs,
         ...jobs.filter(j =>
             !j.id.startsWith('system-') &&
             activeJobIds.has(j.id) &&
@@ -32,9 +50,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, 
         )
     ];
 
-    if (displayJobs.length === 0) {
+    if (displayJobs.length === 0 && !loading) {
         return (
-            <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="flex items-center justify-center h-full text-gray-500 bg-[#0a0a0a]">
                 <p>No background jobs running or completed yet.</p>
             </div>
         );
@@ -45,6 +63,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, 
             <div className="flex justify-between items-end border-b border-gray-800 pb-3">
                 <div className="flex items-center gap-4">
                     <h2 className="text-2xl font-light tracking-wide text-gray-100 uppercase">System Dashboard</h2>
+                    {loading && (
+                        <span className="text-[10px] text-cyan-500 font-mono animate-pulse tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                            INITIALISING DATA...
+                        </span>
+                    )}
                     <button
                         onClick={onTogglePause}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${isSystemPaused
@@ -61,18 +84,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ jobs, systemJobs, 
             {/* Tighter grid for 8-10 cards without scroll */}
             <div className="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-4 auto-rows-max">
                 {displayJobs.map((job) => (
-                    <JobCard key={job.id} job={job} />
+                    <JobCard key={job.id} job={job} onStop={onStopJob} onClearErrors={onClearErrors} />
                 ))}
             </div>
         </div>
     );
 };
 
-const JobCard: React.FC<{ job: BackgroundJob }> = ({ job }) => {
+const JobCard: React.FC<{ 
+    job: BackgroundJob, 
+    onStop: (id: string) => void, 
+    onClearErrors: (task: string) => void 
+}> = ({ job, onStop, onClearErrors }) => {
     const isRunning = job.state === 'running';
     const hasFailed = job.state === 'failed';
     const isComplete = job.state === 'completed';
     const isPaused = job.state === 'paused';
+
+    const [isStopping, setIsStopping] = React.useState(false);
+    const [isClearing, setIsClearing] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!isRunning) setIsStopping(false);
+    }, [isRunning]);
+
+    React.useEffect(() => {
+        if (!job.progress.errors) setIsClearing(false);
+    }, [job.progress.errors]);
 
     // Premium Status Colors tailored for Dark Mode
     let stateColor = 'text-gray-400';
@@ -184,20 +222,43 @@ const JobCard: React.FC<{ job: BackgroundJob }> = ({ job }) => {
                 </div>
             )}
 
-            {/* Current processing item footer */}
-            {job.progress.current && isRunning && (
-                <div className="mt-6 pt-3 border-t border-gray-800/50">
-                    <div className="flex items-center gap-2 text-[11px] text-gray-500">
-                        <span className="uppercase tracking-widest shrink-0">Working on</span>
-                        <span className="truncate text-gray-400 font-mono tracking-tight bg-black/40 px-2 py-0.5 rounded">
-                            {job.progress.current.split(/[\\/]/).pop()}
-                        </span>
-                    </div>
+            {/* Actions Footer - More compact and svelte */}
+            <div className="mt-auto pt-3 flex justify-between items-center px-4 py-2 bg-black/40 -mx-4 -mb-4 border-t border-gray-800/30">
+                <div className="flex gap-1.5">
+                    {isRunning && (
+                        <button
+                            disabled={isStopping}
+                            onClick={(e) => { e.stopPropagation(); setIsStopping(true); onStop(job.id); }}
+                            className={`px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-tighter rounded border transition-colors cursor-pointer ${
+                                isStopping 
+                                ? 'bg-rose-900/10 text-rose-800 border-rose-900/20 cursor-wait'
+                                : 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
+                            }`}
+                        >
+                            {isStopping ? 'Stopping...' : 'Stop'}
+                        </button>
+                    )}
+                    {(job.progress.errors || 0) > 0 && (
+                        <button
+                            disabled={isClearing}
+                            onClick={(e) => { e.stopPropagation(); setIsClearing(true); onClearErrors(job.id.startsWith('class-') ? job.id : job.stage); }}
+                            className={`px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-tighter rounded border transition-colors cursor-pointer ${
+                                isClearing
+                                ? 'bg-gray-800/20 text-gray-600 border-gray-800/20 cursor-wait'
+                                : 'bg-gray-500/10 text-gray-400 border-gray-500/20 hover:bg-gray-500/20'
+                            }`}
+                        >
+                            {isClearing ? 'Clearing...' : 'Clear'}
+                        </button>
+                    )}
                 </div>
-            )}
+                <div className="text-[8px] text-gray-600 font-mono tracking-tight opacity-50 uppercase">
+                    {job.id.startsWith('class-') ? 'Persistent' : 'Ephemeral'}
+                </div>
+            </div>
 
             {/* Animated Glow when running */}
-            {isRunning && (
+            {isRunning && !isStopping && (
                 <div className="absolute top-0 left-0 w-full h-px bg-linear-to-r from-transparent via-cyan-500/80 to-transparent animate-[pulse_2s_ease-in-out_infinite]" />
             )}
         </div>

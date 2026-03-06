@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
-import type { Asset, TileIntent } from '../../types/core';
-import { PERSON_COLORS } from '../../types/core';
+import type { Asset, TileIntent } from '../../../shared/types/core';
+import { PERSON_COLORS } from '../../../shared/types/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
+import { resolveImageUrl } from '../../config/backend';
 
 interface TileProps {
     asset: Asset;
@@ -33,7 +33,6 @@ export const Tile: React.FC<TileProps> = ({
     asset, intent = 'normal', debug = false, selected = false,
     activeFilter, showFaces = false, onUntagAsset, onSetSensitivity
 }) => {
-    const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
     const [hoverZone, setHoverZone] = useState<'info' | 'caption' | null>(null);
 
@@ -49,21 +48,7 @@ export const Tile: React.FC<TileProps> = ({
         setHoverZone(null);
     }, []);
 
-    const getSafeImgSrc = (path: string | undefined): string | null => {
-        if (!path) return null;
-        if (isTauri) {
-            try {
-                return convertFileSrc(path);
-            } catch (e) {
-                console.warn('Tauri convertFileSrc failed', e);
-                return null;
-            }
-        } else {
-            return `http://localhost:5174/image?path=${encodeURIComponent(path)}`;
-        }
-    };
-
-    const imgSrc = getSafeImgSrc(asset.preview_path);
+    const imgSrc = resolveImageUrl(asset.preview_path);
 
     const borderColor = selected ? 'gold' : 'none';
     const borderWidth = selected ? '3px' : '0px';
@@ -193,7 +178,36 @@ export const Tile: React.FC<TileProps> = ({
                 </div>
             )}
 
-            {/* Top-right corner: Technical Info overlay */}
+            {/* Stack counter badge (top right) */}
+            {asset.stack_count != null && asset.stack_count > 1 && (
+                <div style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    background: 'rgba(59, 130, 246, 0.85)', // subtle blueish tint to stand out without being urgent
+                    color: 'white',
+                    borderRadius: '12px',
+                    padding: '2px 6px',
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    zIndex: 15,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                    pointerEvents: 'none'
+                }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    {asset.stack_count}
+                </div>
+            )}
+
+            {/* Top-right corner: Technical Info overlay (rendered over badge on hover) */}
             {showInfoPanel && (
                 <div style={{
                     position: 'absolute',

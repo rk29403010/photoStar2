@@ -25,7 +25,7 @@ export async function getExifData(filePath: string) {
             height: isRotated ? metadata.width : metadata.height,
             exif: metadata.exif // Raw buffer, strictly we might want to parse this, but sharp provides some parsed fields too
         };
-    } catch (e) {
+    } catch {
         return null;
     }
 }

@@ -57,7 +57,7 @@ async function ensureModel(modelsDir: string): Promise<string> {
         await downloadFile(`${NSFWJS_MODEL_BASE}/model.json`, modelJsonPath);
         const manifest = JSON.parse(await fs.readFile(modelJsonPath, 'utf8'));
         const shards: string[] = [...new Set<string>(
-            manifest.weightsManifest.flatMap((g: any) => g.paths as string[])
+            manifest.weightsManifest.flatMap((g: { paths: string[] }) => g.paths)
         )];
         console.log(`[NSFWScanner] Discovered ${shards.length} shard(s):`, shards);
 
@@ -96,10 +96,10 @@ export function sensitivityTier(score: number): 'safe' | 'review' | 'unsafe' {
 
 // ─── Job ─────────────────────────────────────────────────────────────────────
 
-let _nsfwModel: any = null;
-let _tf: any = null;
-let _nsfwjs: any = null;
-let _sharp: any = null;
+let _nsfwModel: unknown = null;
+let _tf: unknown = null;
+let _nsfwjs: unknown = null;
+let _sharp: unknown = null;
 
 async function loadModel(modelsDir: string) {
     if (_nsfwModel) return _nsfwModel;
@@ -117,7 +117,7 @@ async function loadModel(modelsDir: string) {
 
     const modelPath = await ensureModel(modelsDir);
     console.log(`[NSFWScanner] Loading model from ${modelPath}…`);
-    _nsfwModel = await _nsfwjs.load(modelPath, { size: 224 });
+    _nsfwModel = await (_nsfwjs as { load: (p: string, o: { size: number }) => Promise<unknown> }).load(modelPath, { size: 224 });
     console.log('[NSFWScanner] Model loaded.');
     return _nsfwModel;
 }
@@ -160,7 +160,7 @@ export async function runSensitiveScanJob(
             INNER JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             WHERE a.sensitivity_score IS NULL
             ORDER BY a.created_at ASC
-        `).all() as any[];
+        `).all() as { id: string; preview_path: string }[];
     } else {
         const placeholders = mediaIds.map(() => '?').join(',');
         rows = db.prepare(`
@@ -169,7 +169,7 @@ export async function runSensitiveScanJob(
             INNER JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             WHERE a.id IN (${placeholders})
             AND a.sensitivity_score IS NULL
-        `).all(...mediaIds) as any[];
+        `).all(...mediaIds) as { id: string; preview_path: string }[];
     }
 
     if (rows.length === 0) {
@@ -203,10 +203,11 @@ export async function runSensitiveScanJob(
         lastReportTime = now;
     };
 
-    let model: any;
+    let model: unknown; // NSFW model instance
     try {
         model = await loadModel(effectiveModelsDir);
-    } catch (e: any) {
+    } catch (err: unknown) {
+        const e = err as Error;
         console.error('[NSFWScanner] Failed to load model:', e.message);
         eventBus.emit({ type: 'JobFailed', jobId, severity: 'fatal', reason: `Model load failed: ${e.message}` });
         return;
@@ -225,9 +226,9 @@ export async function runSensitiveScanJob(
             // tf.node.decodeImage only supports BMP/JPEG/PNG/GIF — thumbnails are WebP.
             // Convert to PNG in-memory via sharp (no temp file needed).
             const rawBuffer = await fs.readFile(row.preview_path);
-            const pngBuffer = await _sharp(rawBuffer).png().toBuffer();
-            const tensor = _tf.node.decodeImage(pngBuffer, 3) as any;
-            const predictions = await model.classify(tensor);
+            const pngBuffer = await (_sharp as (buf: Buffer) => { png: () => { toBuffer: () => Promise<Buffer> } })(rawBuffer).png().toBuffer();
+            const tensor = (_tf as { node: { decodeImage: (buf: Buffer, c: number) => { dispose: () => void } } }).node.decodeImage(pngBuffer, 3);
+            const predictions = await (model as { classify: (t: unknown) => Promise<Array<{ className: string; probability: number }>> }).classify(tensor);
             tensor.dispose();
 
             const score = scoreFromPredictions(predictions);
@@ -247,11 +248,12 @@ export async function runSensitiveScanJob(
                 mediaId: row.id,
                 score,
                 tier
-            } as any);
+            });
 
             processed++;
             reportProgress(row.preview_path);
-        } catch (e: any) {
+        } catch (err: unknown) {
+            const e = err as Error;
             console.error(`[NSFWScanner] Failed for ${row.id}:`, e.message);
             errors++;
 
@@ -269,6 +271,6 @@ export async function runSensitiveScanJob(
     }
 
     reportProgress(undefined, true);
-    eventBus.emit({ type: 'JobCompleted', jobId, pipelineStage: 'sensitive_scan' } as any);
+    eventBus.emit({ type: 'JobCompleted', jobId, pipelineStage: 'sensitive_scan' });
     console.log(`[NSFWScanner] Done. ${processed - errors} succeeded, ${errors} errors.`);
 }

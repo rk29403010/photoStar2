@@ -1,4 +1,3 @@
-
 // Basic Matrix Utils for Affine Transform
 
 export type Point = { x: number, y: number };
@@ -64,8 +63,7 @@ function getMean(points: Point[]) {
 
 // Convert [a, b, tx, c, d, ty] to SVG matrix string or sharp affine string
 // Sharp takes: [a, b, c, d] (2x2) + separate translate? No, sharp uses logic.
-// Actually sharp has `affine` method taking a 2x2 matrix and separate translation or direct buffer based ops.
-// Wait, sharp.affine takes a 2x2 matrix string? Or an Array?
+// Actually sharp.affine takes a 2x2 matrix string? Or an Array?
 // Sharp ... implementation details ...
 
 export function dotProduct(a: number[], b: number[]) {
@@ -83,4 +81,64 @@ export function magnitude(a: number[]) {
 export function cosineSimilarity(a: number[], b: number[]) {
     if (a.length !== b.length) throw new Error("Vector length mismatch");
     return dotProduct(a, b) / (magnitude(a) * magnitude(b));
+}
+
+// Custom blockhash / perceptual hashing routines
+export function blockhashData(data: Buffer | Uint8Array | number[], _bits?: number): string {
+    // A simple mean-hash (aHash) based on the supplied grayscale block
+    // the image should ideally be resized to bits x bits before calling this.
+    // If bits is provided, it helps clarify the expected data length (bits*bits).
+    const targetLength = _bits ? _bits * _bits : 64; // Default to 8x8 = 64 bits if _bits not provided
+    
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+        sum += data[i];
+    }
+    const mean = sum / data.length;
+
+    let hash = 0n;
+    // We iterate up to 64 bits max for a 16-char hex string, 
+    // or the length of the data if it's smaller.
+    const len = Math.min(data.length, targetLength, 64); // Ensure we don't exceed 64 bits for the hash
+    for (let i = 0; i < len; i++) {
+        if (data[i] >= mean) {
+            hash |= (1n << BigInt(len - 1 - i));
+        }
+    }
+    return hash.toString(16).padStart(16, '0');
+}
+
+export async function dhashData(data: Buffer | Uint8Array, width: number, height: number): Promise<string> {
+    // dHash calculates the difference between adjacent pixels.
+    // the image should ideally be resized to (bits + 1) x bits (e.g. 9x8) before calling this
+    // but if it's 8x8, we just do it per row.
+    let hash = 0n;
+    let bitIndex = 0;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width - 1; x++) {
+            const left = data[y * width + x];
+            const right = data[y * width + x + 1];
+            if (left > right) {
+                hash |= (1n << BigInt(63 - bitIndex));
+            }
+            bitIndex++;
+            if (bitIndex >= 64) break;
+        }
+        if (bitIndex >= 64) break;
+    }
+
+    return hash.toString(16).padStart(16, '0');
+}
+
+export function hammingDistance(hash1: string, hash2: string): number {
+    const b1 = BigInt('0x' + hash1);
+    const b2 = BigInt('0x' + hash2);
+    let xor = b1 ^ b2;
+    let dist = 0;
+    while (xor > 0n) {
+        dist += Number(xor & 1n);
+        xor >>= 1n;
+    }
+    return dist;
 }

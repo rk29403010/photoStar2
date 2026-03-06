@@ -91,6 +91,26 @@ export type JobFailed = {
     reason: string;
 };
 
+export type QuotaWarning = {
+    type: "QuotaWarning";
+    model: string;
+    fallbackModel: string;
+    reason: 'rate_limit' | 'daily_quota';
+    assetIds: string[];
+    pendingProCount: number;
+};
+
+export type ProAnalysisPending = {
+    type: "ProAnalysisPending";
+    assetIds: string[];
+    proModel: string;
+};
+
+export type AssetUpdated = {
+    type: "AssetUpdated";
+    asset: Record<string, unknown>; // Full asset object pushed from backend
+};
+
 export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
@@ -105,4 +125,7 @@ export type DomainEvent =
     | JobStarted
     | JobProgress
     | JobCompleted
-    | JobFailed;
+    | JobFailed
+    | AssetUpdated
+    | QuotaWarning
+    | ProAnalysisPending;

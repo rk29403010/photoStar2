@@ -1,19 +1,18 @@
-
-import { parentPort } from 'node:worker_threads';
-import path from 'node:path';
+import { join, dirname } from 'node:path';
+import { existsSync, copyFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { DatabaseManager } from '../db';
 import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
-import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
 
 const MODEL_FILENAME = 'w600k_r50.onnx';
-let MODEL_PATH = join(path.dirname(process.execPath), 'models', MODEL_FILENAME);
+let MODEL_PATH = join(dirname(process.execPath), 'models', MODEL_FILENAME);
 
-if (!require('fs').existsSync(MODEL_PATH)) {
-    MODEL_PATH = join(__dirname, '../../models', MODEL_FILENAME);
+if (!existsSync(MODEL_PATH)) {
+    MODEL_PATH = join(__dirname, '../../../../models', MODEL_FILENAME);
 }
 
 class FaceRecogniser {
@@ -23,10 +22,10 @@ class FaceRecogniser {
         if (this.session) return;
         let usableModelPath = MODEL_PATH;
         if (MODEL_PATH.includes('snapshot')) {
-            const tmpDir = require('os').tmpdir();
+            const tmpDir = tmpdir();
             const tmpPath = join(tmpDir, MODEL_FILENAME);
-            if (!require('fs').existsSync(tmpPath)) {
-                require('fs').copyFileSync(MODEL_PATH, tmpPath);
+            if (!existsSync(tmpPath)) {
+                copyFileSync(MODEL_PATH, tmpPath);
             }
             usableModelPath = tmpPath;
         }
@@ -34,7 +33,7 @@ class FaceRecogniser {
         this.session = await ort.InferenceSession.create(usableModelPath, options);
     }
 
-    async computeEmbedding(imagePath: string, box: number[], landmarks: { x: number, y: number }[]): Promise<number[] | null> {
+    async computeEmbedding(imagePath: string, box: number[]): Promise<number[] | null> {
         if (!this.session) throw new Error('Model not loaded');
 
         const image = sharp(imagePath);
@@ -44,8 +43,8 @@ class FaceRecogniser {
 
         let x1 = box[0] * iw;
         let y1 = box[1] * ih;
-        let x2 = box[2] * iw;
-        let y2 = box[3] * ih;
+        const x2 = box[2] * iw;
+        const y2 = box[3] * ih;
 
         let bw = x2 - x1;
         let bh = y2 - y1;
@@ -87,12 +86,13 @@ class FaceRecogniser {
 export async function runFaceRecognitionJob(
     targetInput: string | string[],
     dbManager: DatabaseManager,
-    eventBus: EventBus
+    eventBus: EventBus,
+    signal?: AbortSignal
 ) {
     const db = dbManager.getDb();
 
     // Determine scope
-    let assets: any[] = [];
+    let assets: { asset_id: string; data: string; original_path: string }[] = [];
 
     if (Array.isArray(targetInput) && targetInput.length > 0) {
         const placeholders = targetInput.map(() => '?').join(',');
@@ -101,14 +101,14 @@ export async function runFaceRecognitionJob(
             FROM derived_results d
             JOIN assets a ON a.id = d.asset_id
             WHERE d.task = 'face_detection' AND a.id IN (${placeholders})
-        `).all(...targetInput) as any[];
+        `).all(...targetInput) as { asset_id: string; data: string; original_path: string }[];
     } else if (typeof targetInput === 'string' && !targetInput.includes('sweep') && !targetInput.includes('auto')) {
         assets = db.prepare(`
             SELECT d.asset_id, d.data, a.original_path 
             FROM derived_results d
             JOIN assets a ON a.id = d.asset_id
             WHERE d.task = 'face_detection' AND a.id = ?
-        `).all(targetInput) as any[];
+        `).all(targetInput) as { asset_id: string; data: string; original_path: string }[];
     } else {
         // Find assets with detection but no recognition
         assets = db.prepare(`
@@ -119,7 +119,7 @@ export async function runFaceRecognitionJob(
             AND d.asset_id NOT IN (
                 SELECT asset_id FROM derived_results WHERE task = 'face_recognition'
             )
-        `).all() as any[];
+        `).all() as { asset_id: string; data: string; original_path: string }[];
     }
 
     if (assets.length === 0) return;
@@ -132,7 +132,7 @@ export async function runFaceRecognitionJob(
         VALUES (?, ?, 'face_recognition', 'onnx_arcface_r50', '1.0', ?)
     `);
 
-    const activeJobId = `recog-batch-${Date.now()}`;
+    const jobId = targetInput === 'auto' ? `recog-auto-${Date.now()}` : `recog-batch-${Date.now()}`;
     const totalItems = assets.length;
     let processed = 0;
     let errors = 0;
@@ -141,7 +141,7 @@ export async function runFaceRecognitionJob(
 
     eventBus.emit({
         type: 'JobStarted',
-        jobId: activeJobId,
+        jobId: jobId,
         pipelineStage: 'recognition'
     });
 
@@ -154,7 +154,7 @@ export async function runFaceRecognitionJob(
 
         eventBus.emit({
             type: 'JobProgress',
-            jobId: activeJobId,
+            jobId: jobId,
             processedItems: processed,
             totalItems,
             currentItemPath,
@@ -166,7 +166,11 @@ export async function runFaceRecognitionJob(
     };
 
     for (const row of assets) {
-        await waitIfPaused();
+        if (signal?.aborted) {
+            console.log(`Job ${jobId} cancelled.`);
+            break;
+        }
+        await waitIfPaused(signal);
         try {
             const detectionData = JSON.parse(row.data);
             const faces = detectionData.faces || [];
@@ -178,7 +182,7 @@ export async function runFaceRecognitionJob(
             for (const face of faces) {
                 if (face.box && face.landmarks) {
                     try {
-                        const emb = await recogniser.computeEmbedding(row.original_path, face.box, face.landmarks);
+                        const emb = await recogniser.computeEmbedding(row.original_path, face.box);
                         embeddings.push(emb);
 
                         if (emb && face.id) {
@@ -201,7 +205,8 @@ export async function runFaceRecognitionJob(
             insertStmt.run(uuidv4(), row.asset_id, JSON.stringify({ embeddings }));
             processed++;
             reportProgress(row.original_path);
-        } catch (e: any) {
+        } catch (err: unknown) {
+            const e = err as Error;
             console.error(`Error recognizing faces for ${row.asset_id}:`, e);
             errors++;
             processed++;
@@ -212,7 +217,7 @@ export async function runFaceRecognitionJob(
     reportProgress(undefined, true);
     eventBus.emit({
         type: 'JobCompleted',
-        jobId: activeJobId,
+        jobId: jobId,
         pipelineStage: 'recognition'
     });
 }

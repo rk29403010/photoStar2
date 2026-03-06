@@ -38,6 +38,11 @@ export interface Asset {
     // Layout Derived Properties
     intent?: TileIntent;
 
+    // Grouping Properties
+    group_id?: string | null;
+    group_role?: string | null;
+    stack_count?: number | null;
+
     // Progressive Enhancement State (Masonry Gallery)
     processingPhase?: 0 | 1 | 2;
     layoutCapabilities?: {
@@ -65,4 +70,15 @@ export interface Person {
 export interface LibraryStats {
     count: number;
     [key: string]: unknown;
+}
+
+export interface Album {
+    id: string;
+    title: string;
+    description: string | null;
+    cover_asset_id: string | null;
+    rules_json: string | null;
+    created_at: string;
+    item_count: number;
+    cover_preview_path: string | null;
 }

@@ -1,16 +1,16 @@
 {
     "name": "photo-desktop-core",
-    "version": "1.0.4",
+    "version": "1.0.6",
     "description": "Node.js Sidecar for Photo Library Desktop",
-    "main": "dist/main.js",
-    "bin": "dist/main.js",
+    "main": "dist/core/src/main.js",
+    "bin": "dist/core/src/main.js",
     "scripts": {
         "build": "tsc",
-        "dev": "npx concurrently \"tsc --watch\" \"node --watch dist/main.js\"",
-        "download:models": "node scripts/download_nsfw_model.js",
+        "dev": "tsc-watch --onSuccess \"node dist/core/src/main.js\"",
+        "download:models": "node scripts/download_nsfw_model.js && node scripts/download_arcface_model.js",
         "package": "pkg . --targets node18-win-x64 --output ../src-tauri/binaries/core-x86_64-pc-windows-msvc",
         "postinstall": "node scripts/fix_tfjs_binding.js",
-        "start": "node dist/main.js"
+        "start": "node dist/core/src/main.js"
     },
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
@@ -33,6 +33,7 @@
         "@types/uuid": "^10.0.0",
         "@types/ws": "^8.18.1",
         "pkg": "^5.8.1",
+        "tsc-watch": "^7.2.0",
         "typescript": "^5.7.2"
     },
     "pkg": {

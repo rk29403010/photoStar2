@@ -1,14 +1,36 @@
-import type { BackgroundJob } from "../../types/jobs";
+import React, { useState } from 'react';
+import type { BackgroundJob } from '../../../shared/types/jobs';
 import { ProgressBarSoft } from "./ProgressBarSoft";
 
-export function JobRow({ job }: { job: BackgroundJob }) {
+export function JobRow({ job, onStop }: { job: BackgroundJob, onStop?: (id: string) => void }) {
     const indeterminate = job.progress.overallPercent == null;
+    const [isStopping, setIsStopping] = useState(false);
+
+    // Reset when job changes state
+    React.useEffect(() => {
+        if (job.state !== 'running') setIsStopping(false);
+    }, [job.state]);
 
     return (
         <div className="border-b border-gray-200 py-3">
             <div className="flex justify-between items-center mb-1">
                 <div className="font-medium">{job.title}</div>
-                <div className="text-xs text-gray-500 capitalize">{job.state}</div>
+                <div className="flex items-center gap-2">
+                    <div className="text-xs text-gray-500 capitalize">{job.state}</div>
+                    {job.state === 'running' && onStop && (
+                        <button 
+                            disabled={isStopping}
+                            onClick={() => { setIsStopping(true); onStop(job.id); }}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                                isStopping 
+                                ? 'bg-rose-100 text-rose-400 cursor-wait'
+                                : 'bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer'
+                            }`}
+                        >
+                            {isStopping ? 'Stopping...' : 'Stop'}
+                        </button>
+                    )}
+                </div>
             </div>
 
             <ProgressBarSoft
