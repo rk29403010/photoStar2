@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { v4 as uuidv4 } from 'uuid';
 import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
-import { DatabaseManager } from '../db';
-import { EventBus } from '../events/bus';
+import type { DatabaseManager } from '../db';
+import type { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
 
 const MODEL_FILENAME = 'det_10g.onnx';
@@ -33,7 +33,7 @@ class FaceDetector {
     private anchors: number[][] = [];
 
     async init() {
-        if (this.session) return;
+        if (this.session) {return;}
         let usableModelPath = MODEL_PATH;
         if (MODEL_PATH.includes('snapshot')) {
             const tmpDir = tmpdir();
@@ -70,11 +70,11 @@ class FaceDetector {
     }
 
     async detect(imagePath: string): Promise<FaceDetectionCandidate[]> {
-        if (!this.session) throw new Error('Model not loaded');
+        if (!this.session) {throw new Error('Model not loaded');}
         const image = sharp(imagePath);
         const metadata = await image.metadata();
         const { width: origW, height: origH } = metadata;
-        if (!origW || !origH) throw new Error('Bad image');
+        if (!origW || !origH) {throw new Error('Bad image');}
 
         const buffer = await image
             .resize(INPUT_WIDTH, INPUT_HEIGHT, { fit: 'fill' })
@@ -166,7 +166,7 @@ class FaceDetector {
         const kept: FaceDetectionCandidate[] = [];
         while (candidates.length > 0) {
             const best = candidates.shift();
-            if (!best) break;
+            if (!best) {break;}
             kept.push(best);
             for (let i = candidates.length - 1; i >= 0; i--) {
                 if (this.iou(best.box, candidates[i].box) > 0.4) {
@@ -189,47 +189,130 @@ class FaceDetector {
     }
 }
 
+type DetectionAsset = { id: string; original_path: string };
+
+function resolveDetectionAssets(
+    db: ReturnType<DatabaseManager['getDb']>,
+    targetInput: string | string[]
+): DetectionAsset[] {
+    if (Array.isArray(targetInput) && targetInput.length > 0) {
+        const placeholders = targetInput.map(() => '?').join(',');
+        return db.prepare(`SELECT id, original_path FROM assets WHERE id IN(${placeholders})`).all(...targetInput) as DetectionAsset[];
+    }
+
+    if (typeof targetInput === 'string' && !targetInput.startsWith('job-') && !targetInput.startsWith('auto')) {
+        return db.prepare('SELECT id, original_path FROM assets WHERE id = ?').all(targetInput) as DetectionAsset[];
+    }
+
+    return db.prepare(`
+        SELECT id, original_path 
+        FROM assets 
+        WHERE id NOT IN(SELECT asset_id FROM derived_results WHERE task = 'face_detection')
+    `).all() as DetectionAsset[];
+}
+
+function emitDetectionProgress(
+    eventBus: EventBus,
+    jobId: string,
+    processed: number,
+    totalItems: number,
+    errors: number,
+    startTime: number,
+    lastReportTime: number,
+    currentItemPath?: string,
+    force = false
+): number {
+    const now = Date.now();
+    if (!force && now - lastReportTime < 500) {return lastReportTime;}
+    const elapsedSec = (now - startTime) / 1000;
+    const throughputIps = elapsedSec > 0 ? processed / elapsedSec : 0;
+
+    eventBus.emit({
+        type: 'JobProgress',
+        jobId,
+        processedItems: processed,
+        totalItems,
+        currentItemPath,
+        throughputIps,
+        errorCount: errors
+    });
+
+    return now;
+}
+
+async function initDetectorOrFail(detector: FaceDetector, eventBus: EventBus, jobId: string): Promise<boolean> {
+    try {
+        await detector.init();
+        return true;
+    } catch (err: unknown) {
+        const e = err as Error;
+        console.error('Failed to init detector', e);
+        eventBus.emit({
+            type: 'JobFailed',
+            jobId,
+            severity: 'fatal',
+            reason: `Detector init failed: ${e.message}`
+        });
+        return false;
+    }
+}
+
+async function processDetectionAsset(
+    db: ReturnType<DatabaseManager['getDb']>,
+    asset: DetectionAsset,
+    detector: FaceDetector,
+    jobId: string,
+    eventBus: EventBus
+): Promise<{ errors: number; currentPath?: string }> {
+    try {
+        const faces = await detector.detect(asset.original_path);
+        const resultData = JSON.stringify({
+            faces: faces.map(f => ({ id: uuidv4(), box: f.box, score: f.score, landmarks: f.landmarks }))
+        });
+
+        db.prepare('DELETE FROM derived_results WHERE asset_id = ? AND task = ?').run(asset.id, 'face_detection');
+        db.prepare(`
+            INSERT INTO derived_results(id, asset_id, task, provider, model_version, data)
+            VALUES(?, ?, 'face_detection', 'onnx_retina_10g', '1.0', ?)
+        `).run(uuidv4(), asset.id, resultData);
+
+        eventBus.emit({ type: 'FacesDetected', mediaId: asset.id, faceCount: faces.length });
+        return { errors: 0, currentPath: asset.original_path };
+    } catch (err: unknown) {
+        const e = err as Error;
+        console.error(`Error detecting faces for ${asset.original_path}: `, e);
+        try {
+            db.prepare(`
+                INSERT INTO processing_issues(id, asset_id, job_id, task, severity, message)
+                VALUES(?, ?, ?, 'detection', 'fatal', ?)
+            `).run(uuidv4(), asset.id, jobId, e.message);
+        } catch (dbErr) {
+            console.error('Failed to log processing issue:', dbErr);
+        }
+        eventBus.emit({ type: 'JobFailed', jobId: `detection-${asset.id}`, severity: 'warning', reason: e.message });
+        return { errors: 1 };
+    }
+}
+
 export async function runFaceDetectionJob(
     targetInput: string | string[],
     dbManager: DatabaseManager,
     eventBus: EventBus,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    uiJobId?: string
 ) {
     const db = dbManager.getDb();
+    const assets = resolveDetectionAssets(db, targetInput);
+    const generatedJobId = targetInput === 'auto' ? `detect-auto-${Date.now()}` : `detect-batch-${Date.now()}`;
+    const jobId = uiJobId || generatedJobId;
 
-    // Determine scope
-    let assets: { id: string; original_path: string }[] = [];
-
-    if (Array.isArray(targetInput) && targetInput.length > 0) {
-        // Optimised batch fetch
-        const placeholders = targetInput.map(() => '?').join(',');
-        assets = db.prepare(`SELECT id, original_path FROM assets WHERE id IN(${placeholders})`).all(...targetInput) as { id: string; original_path: string }[];
-    } else if (typeof targetInput === 'string' && !targetInput.startsWith('job-') && !targetInput.startsWith('auto')) {
-        // Single ID
-        assets = db.prepare('SELECT id, original_path FROM assets WHERE id = ?').all(targetInput) as { id: string; original_path: string }[];
-    } else {
-        // Fallback or "Scanning" mode - find all pending
-        assets = db.prepare(`
-            SELECT id, original_path 
-            FROM assets 
-            WHERE id NOT IN(
-    SELECT asset_id FROM derived_results WHERE task = 'face_detection'
-)
-        `).all() as { id: string; original_path: string }[];
-    }
-
-    if (assets.length === 0) return;
-
-    const detector = new FaceDetector();
-    try {
-        await detector.init();
-    } catch (err: unknown) {
-        const e = err as Error;
-        console.error('Failed to init detector', e);
+    if (assets.length === 0) {
+        if (uiJobId) {
+            eventBus.emit({ type: 'JobStarted', jobId, pipelineStage: 'detection', totalItems: 0 });
+            eventBus.emit({ type: 'JobCompleted', jobId, pipelineStage: 'detection' });
+        }
         return;
     }
-
-    const jobId = targetInput === 'auto' ? `detect-auto-${Date.now()}` : `detect-batch-${Date.now()}`;
     const totalItems = assets.length;
     let processed = 0;
     let errors = 0;
@@ -238,95 +321,54 @@ export async function runFaceDetectionJob(
 
     eventBus.emit({
         type: 'JobStarted',
-        jobId: jobId,
-        pipelineStage: 'detection'
+        jobId,
+        pipelineStage: 'detection',
+        totalItems
     });
 
-    const reportProgress = (currentItemPath?: string, force = false) => {
-        const now = Date.now();
-        if (!force && now - lastReportTime < 500) return;
+    lastReportTime = emitDetectionProgress(eventBus, jobId, processed, totalItems, errors, startTime, lastReportTime, 'Loading face detector model', true);
 
-        const elapsedSec = (now - startTime) / 1000;
-        const throughputIps = elapsedSec > 0 ? processed / elapsedSec : 0;
+    const detector = new FaceDetector();
+    if (!(await initDetectorOrFail(detector, eventBus, jobId))) {return;}
 
-        eventBus.emit({
-            type: 'JobProgress',
-            jobId: jobId,
-            processedItems: processed,
-            totalItems,
-            currentItemPath,
-            throughputIps,
-            errorCount: errors
-        });
-
-        lastReportTime = now;
-    };
-
-    const insertStmt = db.prepare(`
-        INSERT INTO derived_results(id, asset_id, task, provider, model_version, data)
-VALUES(?, ?, 'face_detection', 'onnx_retina_10g', '1.0', ?)
-    `);
-
-    for (const asset of assets) {
-        if (signal?.aborted) {
-            console.log(`Job ${jobId} cancelled.`);
-            break;
-        }
-        await waitIfPaused(signal);
-        // Run synchronously-ish
-        try {
-            const faces = await detector.detect(asset.original_path);
-
-            const resultData = JSON.stringify({
-                faces: faces.map(f => ({
-                    id: uuidv4(), // Assign ID to each face
-                    box: f.box,
-                    score: f.score,
-                    landmarks: f.landmarks
-                }))
-            });
-
-            db.prepare('DELETE FROM derived_results WHERE asset_id = ? AND task = ?').run(asset.id, 'face_detection');
-            insertStmt.run(uuidv4(), asset.id, resultData);
-
-            eventBus.emit({
-                type: 'FacesDetected',
-                mediaId: asset.id,
-                faceCount: faces.length
-            });
-
-            processed++;
-            reportProgress(asset.original_path);
-
-        } catch (err: unknown) {
-            const e = err as Error;
-            console.error(`Error detecting faces for ${asset.original_path}: `, e);
-            errors++;
-
-            try {
-                db.prepare(`
-                    INSERT INTO processing_issues(id, asset_id, job_id, task, severity, message)
-VALUES(?, ?, ?, 'detection', 'fatal', ?)
-    `).run(uuidv4(), asset.id, jobId, e.message);
-            } catch (dbErr) {
-                console.error('Failed to log processing issue:', dbErr);
+    try {
+        for (const asset of assets) {
+            if (signal?.aborted) {
+                console.log(`Job ${jobId} cancelled.`);
+                eventBus.emit({
+                    type: 'JobFailed',
+                    jobId,
+                    severity: 'warning',
+                    reason: 'Cancelled by user'
+                });
+                emitDetectionProgress(eventBus, jobId, processed, totalItems, errors, startTime, lastReportTime, undefined, true);
+                return;
             }
-
-            eventBus.emit({
-                type: 'JobFailed',
-                jobId: 'detection-' + asset.id,
-                severity: 'warning',
-                reason: e.message
-            });
+            await waitIfPaused(signal);
+            const outcome = await processDetectionAsset(db, asset, detector, jobId, eventBus);
             processed++;
-            reportProgress();
+            errors += outcome.errors;
+            lastReportTime = emitDetectionProgress(
+                eventBus,
+                jobId,
+                processed,
+                totalItems,
+                errors,
+                startTime,
+                lastReportTime,
+                outcome.currentPath
+            );
         }
-    }
 
-    reportProgress(undefined, true);
-    eventBus.emit({
-        type: 'JobCompleted',
-        jobId: jobId,
-        pipelineStage: 'detection'
-    });
+        emitDetectionProgress(eventBus, jobId, processed, totalItems, errors, startTime, lastReportTime, undefined, true);
+        eventBus.emit({ type: 'JobCompleted', jobId, pipelineStage: 'detection' });
+    } catch (err: unknown) {
+        const e = err as Error;
+        eventBus.emit({
+            type: 'JobFailed',
+            jobId,
+            severity: 'fatal',
+            reason: `Detection job crashed: ${e.message}`
+        });
+    }
 }

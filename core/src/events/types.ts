@@ -99,6 +99,7 @@ export type JobFailed = {
     jobId: string;
     severity: "warning" | "error" | "fatal";
     reason: string;
+    pipelineStage?: string;
 };
 
 export type SensitivityScored = {
@@ -112,6 +113,7 @@ export type AiMetadataRequested = {
     type: "AiMetadataRequested";
     mediaIds?: string[];
     jobId?: string;
+    queueMode?: 'fresh' | 'pro_pending' | 'all';
 };
 
 export type SensitiveScanRequested = {
@@ -131,7 +133,7 @@ export type QuotaWarning = {
     fallbackModel: string;  // The model that was used instead (or '' if none)
     reason: 'rate_limit' | 'daily_quota';
     assetIds: string[];     // Assets affected by this batch
-    pendingProCount: number;// How many are queued for pro re-analysis
+    pendingProCount: number;// How many remain queued for follow-up work
 };
 
 /** Emitted when items are queued awaiting pro-model re-analysis */

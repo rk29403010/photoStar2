@@ -1,5 +1,5 @@
-import { DatabaseManager } from '../db';
-import { DomainEvent } from './types';
+import type { DatabaseManager } from '../db';
+import type { DomainEvent } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 type EventHandler = (event: DomainEvent) => void;

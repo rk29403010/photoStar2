@@ -14,12 +14,12 @@ The same React SPA and the same Node.js backend serve all modes; only the
 ### Mode 1 — Tauri (packaged desktop app)
 
 ```text
-┌──────────── Tauri shell (Rust) ──────────────┐
-│  ┌────────────────┐   stdin/stdout IPC        │
-│  │  React SPA     │◄─────────────────────────►│ Node.js sidecar
-│  │  (WebView)     │   convertFileSrc()        │ (core/)
-│  └────────────────┘   native asset://         │
-└──────────────────────────────────────────────┘
+┌──────────── Tauri shell (Rust) ──────────────────────────────────┐
+│  ┌────────────────┐   stdin/stdout IPC        ┌────────────────┐ │
+│  │  React SPA     │◄─────────────────────────►│ Node.js sidecar│ │
+│  │  (WebView)     │   convertFileSrc()        │ (core/)        │ │
+│  └────────────────┘   native asset://         └────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
          local filesystem (direct read)
 ```
 
@@ -28,6 +28,27 @@ The same React SPA and the same Node.js backend serve all modes; only the
 - **Constraints:** Must compile for target OS. Heavy native bindings
   (TensorFlow) must be available as pre-built NAPI binaries for the platform.
 - **Best for:** Single-user, offline-capable, maximum performance.
+
+---
+
+### Mode 1b — Tauri desktop dev (same app, watched sidecar)
+
+```text
+┌──────────── Tauri shell (Rust) ───────────────────────────────────────────┐
+│  ┌────────────────┐   ws://localhost:5174     ┌──────────────────────────┐│
+│  │  React SPA     │◄─────────────────────────►│ Node.js core (watch mode)││
+│  │  (Vite dev)    │   http://localhost:5174   │ /image + WS bridge       ││
+│  └────────────────┘                           └──────────────────────────┘│
+└───────────────────────────────────────────────────────────────────────────┘ 
+```
+
+- **Comms:** WebSocket to a locally watched Node sidecar, even though the UI is
+  still hosted in the Tauri shell.
+- **Images:** HTTP `/image?path=` endpoint from the local sidecar.
+- **Constraints:** Requires both the Vite dev server and the local Node sidecar
+  to be running. This is a development mode, not the packaged desktop path.
+- **Best for:** Fast desktop iteration without rebuilding the packaged sidecar
+  binary on every backend change.
 
 ---
 
@@ -86,33 +107,36 @@ src/config/backend.ts
 
 The module exposes:
 
-| Export                  | Purpose                                                |
-| ----------------------- | ------------------------------------------------------ |
-| `getBackendWsUrl()`     | WebSocket URL (`ws://` / `wss://`) for the current env |
-| `resolveImageUrl(path)` | Correct image URL strategy for the current env         |
-| `getDeploymentMode()`   | `'tauri'` \| `'lan'` \| `'cloud'`                      |
+| Export                          | Purpose                                                     |
+| ------------------------------- | ----------------------------------------------------------- |
+| `getBackendTransportKind()`     | Backend transport for the current runtime (`ipc` / `ws`)    |
+| `getBackendWsUrl()`             | WebSocket URL (`ws://` / `wss://`) for the current env      |
+| `resolveImageUrl(path)`         | Correct image URL strategy for the current env              |
+| `getDeploymentMode()`           | `'tauri'` \| `'lan'` \| `'cloud'`                           |
+| `canUseNativeDirectoryPicker()` | Whether the current host can open native directory dialogs  |
 
 Resolution priority:
 
-1. **Tauri detected** (`window.__TAURI_INTERNALS__`) → use IPC / `convertFileSrc`
-2. **`VITE_BACKEND_URL` set** at build time → use that origin (cloud mode)
-3. **Fallback** → derive from `window.location.hostname:5174` (LAN / dev mode)
+1. **Tauri host detected** (`window.__TAURI_INTERNALS__`)
+2. **`VITE_DESKTOP_BACKEND` set** → override desktop transport (`ipc` / `ws`)
+3. **`VITE_BACKEND_URL` set** at build time → use that origin (cloud mode)
+4. **Fallback** → derive from `window.location.hostname:5174` (LAN / dev mode)
 
 ---
 
 ## Feature Availability by Mode
 
-| Feature                    | Tauri | LAN            | Cloud            |
-| -------------------------- | ----- | -------------- | ---------------- |
-| Gallery browse             | ✅     | ✅              | ✅                |
-| Folder scan                | ✅     | ✅              | ⚠️ server FS only |
-| Preview generation         | ✅     | ✅              | ✅                |
-| Face detection (TF native) | ✅     | ✅              | ✅ on server      |
-| Sensitive content scan     | ✅     | ✅              | ✅ on server      |
-| AI metadata (Gemini)       | ✅     | ✅              | ✅                |
-| Native file picker         | ✅     | ❌ (text input) | ❌ (text input)   |
-| Offline use                | ✅     | ⚠️ LAN only     | ❌                |
-| Multi-user                 | ❌     | ✅ (no auth)    | ✅ (with auth)    |
+| Feature                    | Tauri | LAN             | Cloud              |
+| -------------------------- | ----- | --------------- | ------------------ |
+| Gallery browse             | ✅    | ✅              | ✅                 |
+| Folder scan                | ✅    | ✅              | ⚠️ server FS only  |
+| Preview generation         | ✅    | ✅              | ✅                 |
+| Face detection (TF native) | ✅    | ✅              | ✅ on server       |
+| Sensitive content scan     | ✅    | ✅              | ✅ on server       |
+| AI metadata (Gemini)       | ✅    | ✅              | ✅                 |
+| Native file picker         | ✅    | ❌ (text input) | ❌ (text input)    |
+| Offline use                | ✅    | ⚠️ LAN only     | ❌                 |
+| Multi-user                 | ❌    | ✅ (no auth)    | ✅ (with auth)     |
 
 ---
 
@@ -121,13 +145,13 @@ Resolution priority:
 | Port   | Service                         | Notes                                    |
 | ------ | ------------------------------- | ---------------------------------------- |
 | `5173` | Vite dev server (frontend)      | Dev only; production uses static hosting |
-| `5174` | Node.js HTTP + WebSocket bridge | All non-Tauri modes                      |
+| `5174` | Node.js HTTP + WebSocket bridge | LAN, cloud, and desktop-dev WS transport |
 
 ---
 
 ## Adding a New Deployment Mode
 
-1. Add a detection strategy in `src/config/backend.ts`.
-2. Implement `getBackendWsUrl()` and `resolveImageUrl()` for the new case.
+1. Add a detection strategy or override in `src/config/backend.ts`.
+2. Implement transport and image resolution for the new case.
 3. Update this document and the feature availability table.
-4. Add a firewall / network note to `README.md`.
+4. Add a workflow note to `README.md`.

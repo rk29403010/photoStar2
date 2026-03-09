@@ -1,0 +1,467 @@
+import { v4 as uuidv4 } from 'uuid';
+import type { CommandHandlerMap } from './types';
+
+type AssetRow = {
+    id: string;
+    original_path: string;
+    width: number;
+    height: number;
+    file_size: number;
+    created_at: string;
+    preview_path: string | null;
+    faces_data: string | null;
+    rec_data: string | null;
+    ai_metadata_data: string | null;
+    people_data: string | null;
+    caption: string | null;
+    sensitivity_score: number | null;
+    sensitivity_status: string | null;
+    member_group_id?: string | null;
+    member_role?: string | null;
+    stack_count?: number | null;
+};
+
+type AssetFilter = { personIds?: string[]; type?: string; albumId?: string };
+type AssetDetailLevel = 'gallery' | 'full';
+type AssetQueryPayload = {
+    assetId?: string;
+    offset?: number;
+    limit?: number;
+    withGroupCounts?: boolean;
+    filter?: AssetFilter;
+    detailLevel?: AssetDetailLevel;
+};
+
+type AssetQueryParts = {
+    sql: string;
+    params: (string | number)[];
+};
+
+type DetailFragments = {
+    recSelect: string;
+    recJoin: string;
+    aiSelect: string;
+    aiJoin: string;
+};
+
+function getDetailLevel(payload: AssetQueryPayload | undefined): AssetDetailLevel {
+    return payload?.detailLevel === 'gallery' ? 'gallery' : 'full';
+}
+
+function buildDetailFragments(params: {
+    detailLevel: AssetDetailLevel;
+    recAlias: string;
+    aiNewAlias: string;
+    aiLegacyAlias: string;
+}): DetailFragments {
+    const { detailLevel, recAlias, aiNewAlias, aiLegacyAlias } = params;
+    if (detailLevel === 'gallery') {
+        return {
+            recSelect: 'null as rec_data,',
+            recJoin: '',
+            aiSelect: 'null as ai_metadata_data,',
+            aiJoin: '',
+        };
+    }
+
+    return {
+        recSelect: `${recAlias}.data as rec_data,`,
+        recJoin: `LEFT JOIN derived_results ${recAlias} ON a.id = ${recAlias}.asset_id AND ${recAlias}.task = 'face_recognition'`,
+        aiSelect: `COALESCE(${aiNewAlias}.data, ${aiLegacyAlias}.data) as ai_metadata_data,`,
+        aiJoin: `
+            LEFT JOIN derived_results ${aiNewAlias} ON a.id = ${aiNewAlias}.asset_id AND ${aiNewAlias}.task = 'ai_metadata'
+            LEFT JOIN derived_results ${aiLegacyAlias} ON a.id = ${aiLegacyAlias}.asset_id AND ${aiLegacyAlias}.task = 'photo_metadata'`,
+    };
+}
+
+function buildFilterSubquery(filter: AssetFilter | undefined, params: (string | number)[]) {
+    if (!filter) {return '';}
+
+    if (filter.type === 'album' && filter.albumId) {
+        params.push(filter.albumId);
+        return 'AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
+    }
+
+    const personIds = filter.personIds || [];
+    if (personIds.length === 0) {return '';}
+
+    const placeholders = personIds.map(() => '?').join(',');
+    if (filter.type === 'person_any') {
+        params.push(...personIds);
+        return `AND a.id IN (SELECT asset_id FROM face_assignments WHERE person_id IN (${placeholders}))`;
+    }
+    if (filter.type === 'person_all') {
+        params.push(...personIds);
+        return `AND a.id IN (
+            SELECT asset_id FROM face_assignments
+            WHERE person_id IN (${placeholders})
+            GROUP BY asset_id
+            HAVING COUNT(DISTINCT person_id) = ${personIds.length}
+        )`;
+    }
+    if (filter.type === 'person_only') {
+        params.push(...personIds, ...personIds);
+        return `AND a.id IN (
+            SELECT asset_id FROM face_assignments
+            GROUP BY asset_id
+            HAVING COUNT(DISTINCT CASE WHEN person_id IN (${placeholders}) THEN person_id END) = ${personIds.length}
+            AND COUNT(DISTINCT CASE WHEN person_id NOT IN (${placeholders}) THEN person_id END) = 0
+        )`;
+    }
+
+    return '';
+}
+
+function buildFilteredAssetsQuery(filterSubquery: string, params: (string | number)[], limit: number, offset: number, detailLevel: AssetDetailLevel): AssetQueryParts {
+    const detail = buildDetailFragments({
+        detailLevel,
+        recAlias: 'fr',
+        aiNewAlias: 'aim_new',
+        aiLegacyAlias: 'aim_legacy',
+    });
+    params.push(limit, offset);
+
+    return {
+        sql: `
+            SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+                a.caption, a.sensitivity_score,
+                am.sensitivity_status,
+                p.path as preview_path,
+                COALESCE(dr_new.data, dr_legacy.data) as faces_data,
+                ${detail.recSelect}
+                ${detail.aiSelect}
+                (
+                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
+                    FROM face_assignments fa
+                    JOIN people per ON fa.person_id = per.id
+                    WHERE fa.asset_id = a.id
+                ) as people_data,
+                null as member_group_id, null as member_role, null as stack_count
+            FROM assets a
+            LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            LEFT JOIN derived_results dr_new ON a.id = dr_new.asset_id AND dr_new.task = 'face_detection'
+            LEFT JOIN derived_results dr_legacy ON a.id = dr_legacy.asset_id AND dr_legacy.task = 'face_landmarks'
+            ${detail.recJoin}
+            ${detail.aiJoin}
+            LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
+            LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
+            WHERE 1=1 ${filterSubquery}
+            ORDER BY a.created_at ASC
+            LIMIT ? OFFSET ?
+        `,
+        params,
+    };
+}
+
+function buildGroupedAssetsQuery(limit: number, offset: number, detailLevel: AssetDetailLevel): AssetQueryParts {
+    const detail = buildDetailFragments({
+        detailLevel,
+        recAlias: 'r_rec',
+        aiNewAlias: 'r_ai_new',
+        aiLegacyAlias: 'r_ai_legacy',
+    });
+
+    return {
+        sql: `
+            WITH GroupCounts AS (
+                SELECT group_id, COUNT(asset_id) as stack_count
+                FROM asset_group_members
+                GROUP BY group_id
+            )
+            SELECT
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+                a.caption, a.sensitivity_score,
+                null as sensitivity_status,
+                p.path as preview_path,
+                m.group_id as member_group_id,
+                m.role as member_role,
+                gc.stack_count,
+                COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
+                ${detail.recSelect}
+                ${detail.aiSelect}
+                json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data
+            FROM assets a
+            LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
+            LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
+            ${detail.recJoin}
+            ${detail.aiJoin}
+            LEFT JOIN face_assignments fa ON a.id = fa.asset_id
+            LEFT JOIN people ppl ON fa.person_id = ppl.id
+            LEFT JOIN asset_group_members m ON a.id = m.asset_id
+            LEFT JOIN GroupCounts gc ON m.group_id = gc.group_id
+            WHERE (m.group_id IS NULL OR m.role = 'canonical')
+            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data, m.group_id, m.role, gc.stack_count${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
+            ORDER BY a.created_at DESC
+            LIMIT ? OFFSET ?
+        `,
+        params: [limit, offset],
+    };
+}
+
+function buildUngroupedAssetsQuery(limit: number, offset: number, detailLevel: AssetDetailLevel): AssetQueryParts {
+    const detail = buildDetailFragments({
+        detailLevel,
+        recAlias: 'r_rec',
+        aiNewAlias: 'r_ai_new',
+        aiLegacyAlias: 'r_ai_legacy',
+    });
+
+    return {
+        sql: `
+            SELECT
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+                a.caption, a.sensitivity_score,
+                null as sensitivity_status,
+                p.path as preview_path,
+                COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
+                ${detail.recSelect}
+                ${detail.aiSelect}
+                json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
+                null as member_group_id, null as member_role, null as stack_count
+            FROM assets a
+            LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
+            LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
+            ${detail.recJoin}
+            ${detail.aiJoin}
+            LEFT JOIN face_assignments fa ON a.id = fa.asset_id
+            LEFT JOIN people ppl ON fa.person_id = ppl.id
+            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
+            ORDER BY a.created_at DESC
+            LIMIT ? OFFSET ?
+        `,
+        params: [limit, offset],
+    };
+}
+
+function buildAssetDetailQuery(assetId: string): AssetQueryParts {
+    return {
+        sql: `
+            WITH GroupCounts AS (
+                SELECT group_id, COUNT(asset_id) as stack_count
+                FROM asset_group_members
+                GROUP BY group_id
+            )
+            SELECT
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+                a.caption, a.sensitivity_score,
+                am.sensitivity_status,
+                p.path as preview_path,
+                m.group_id as member_group_id,
+                m.role as member_role,
+                gc.stack_count,
+                COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
+                r_rec.data as rec_data,
+                COALESCE(r_ai_new.data, r_ai_legacy.data) as ai_metadata_data,
+                (
+                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
+                    FROM face_assignments fa
+                    JOIN people per ON fa.person_id = per.id
+                    WHERE fa.asset_id = a.id
+                ) as people_data
+            FROM assets a
+            LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
+            LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
+            LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
+            LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
+            LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
+            LEFT JOIN asset_group_members m ON a.id = m.asset_id
+            LEFT JOIN GroupCounts gc ON m.group_id = gc.group_id
+            LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
+            LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
+            WHERE a.id = ?
+            ORDER BY CASE WHEN m.role = 'canonical' THEN 0 ELSE 1 END, a.created_at DESC
+            LIMIT 1
+        `,
+        params: [assetId],
+    };
+}
+
+function parseFaces(row: AssetRow) {
+    try {
+        return row.faces_data ? JSON.parse(row.faces_data).faces || [] : [];
+    } catch {
+        return [];
+    }
+}
+
+function parsePeopleAssignments(row: AssetRow) {
+    if (!row.people_data) {return [];}
+    try {
+        return JSON.parse(row.people_data).filter((person: { person_id: string | null }) => person.person_id !== null) as Array<{ face_index: number; person_id: string; name: string }>;
+    } catch {
+        return [];
+    }
+}
+
+function applyPeopleAssignments(faces: Array<{ person_id?: string; person_name?: string }>, peopleData: Array<{ face_index: number; person_id: string; name: string }>) {
+    faces.forEach((face, index) => {
+        const assignment = peopleData.find((person) => person.face_index === index);
+        if (!assignment) {return;}
+        face.person_id = assignment.person_id;
+        face.person_name = assignment.name;
+    });
+}
+
+function parseAiMetadata(row: AssetRow) {
+    if (!row.ai_metadata_data) {return undefined;}
+    try {
+        return JSON.parse(row.ai_metadata_data) as Record<string, unknown>;
+    } catch {
+        return undefined;
+    }
+}
+
+function parseFaceEmbeddings(row: AssetRow) {
+    if (!row.rec_data) {return [];}
+    try {
+        return JSON.parse(row.rec_data).embeddings || [];
+    } catch {
+        return [];
+    }
+}
+
+function toAsset(row: AssetRow) {
+    const faces = parseFaces(row);
+    applyPeopleAssignments(faces, parsePeopleAssignments(row));
+    const aiMeta = parseAiMetadata(row);
+
+    return {
+        id: row.id,
+        original_path: row.original_path,
+        width: row.width,
+        height: row.height,
+        file_size: row.file_size,
+        created_at: row.created_at,
+        preview_path: row.preview_path,
+        faces,
+        face_embeddings: parseFaceEmbeddings(row),
+        ai_metadata: aiMeta,
+        caption: row.caption || aiMeta?.caption || undefined,
+        sensitivity_score: row.sensitivity_score,
+        sensitivity_status: row.sensitivity_status,
+        group_id: row.member_group_id,
+        group_role: row.member_role,
+        stack_count: row.stack_count,
+    };
+}
+
+function dedupeAssetsById(assets: ReturnType<typeof toAsset>[]) {
+    const deduped = new Map<string, ReturnType<typeof toAsset>>();
+    for (const asset of assets) {deduped.set(asset.id, asset);}
+    return Array.from(deduped.values());
+}
+
+function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
+    const offset = payload.offset || 0;
+    const limit = payload.limit || 500;
+    const withGroupCounts = payload.withGroupCounts ?? true;
+    const detailLevel = getDetailLevel(payload);
+    const params: (string | number)[] = [];
+    const filterSubquery = buildFilterSubquery(payload.filter, params);
+
+    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, params, limit, offset, detailLevel);}
+    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, detailLevel);}
+    return buildUngroupedAssetsQuery(limit, offset, detailLevel);
+}
+
+function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
+    const { id, payload, originWs, dbManager, respond } = ctx;
+    const requestPayload = (payload || {}) as AssetQueryPayload;
+    const query = getAssetsQuery(requestPayload);
+    const rows = dbManager.getDb().prepare(query.sql).all(...query.params) as AssetRow[];
+    const assets = dedupeAssetsById(rows.map(toAsset));
+    const limit = requestPayload.limit || 500;
+    const offset = requestPayload.offset || 0;
+    respond(id, 'ok', { assets, hasMore: rows.length === limit, limit, offset }, null, originWs);
+}
+
+function respondAssetDetail(ctx: Parameters<CommandHandlerMap['get_asset_detail']>[0]) {
+    const { id, payload, originWs, dbManager, respond } = ctx;
+    const requestPayload = (payload || {}) as AssetQueryPayload;
+    if (!requestPayload.assetId) {
+        throw new Error('assetId is required');
+    }
+
+    const query = buildAssetDetailQuery(requestPayload.assetId);
+    const row = dbManager.getDb().prepare(query.sql).get(...query.params) as AssetRow | undefined;
+    if (!row) {
+        throw new Error(`Asset ${requestPayload.assetId} not found`);
+    }
+
+    respond(id, 'ok', { asset: toAsset(row) }, null, originWs);
+}
+
+export const assetCommandHandlers: CommandHandlerMap = {
+    get_assets: (ctx) => {
+        try {
+            respondAssetList(ctx);
+        } catch (error) {
+            ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
+        }
+    },
+
+    get_asset_detail: (ctx) => {
+        try {
+            respondAssetDetail(ctx);
+        } catch (error) {
+            ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
+        }
+    },
+
+    get_sensitivity: (ctx) => {
+        const { id, payload, originWs, dbManager, respond } = ctx;
+        try {
+            const { assetId } = payload as { assetId: string };
+            const row = dbManager.getDb().prepare(`
+                SELECT a.sensitivity_score, am.sensitivity_status
+                FROM assets a
+                LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
+                LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
+                WHERE a.id = ?
+            `).get(assetId) as { sensitivity_score: number | null; sensitivity_status: string | null } | undefined;
+            respond(id, 'ok', row || { sensitivity_score: null, sensitivity_status: null }, null, originWs);
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
+
+    set_sensitivity: (ctx) => {
+        const { id, payload, originWs, dbManager, eventBus, respond } = ctx;
+        try {
+            const { assetId, status } = payload as { assetId: string; status: string | null };
+            const db = dbManager.getDb();
+
+            db.transaction(() => {
+                const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(assetId) as { original_path: string } | undefined;
+                if (!asset) {throw new Error(`Asset ${assetId} not found`);}
+
+                let identity = db.prepare('SELECT guid FROM asset_identities WHERE original_path = ?').get(asset.original_path) as { guid: string } | undefined;
+                if (!identity) {
+                    const guid = uuidv4();
+                    db.prepare('INSERT INTO asset_identities (guid, original_path) VALUES (?, ?)').run(guid, asset.original_path);
+                    identity = { guid };
+                }
+
+                if (status === null) {
+                    db.prepare('DELETE FROM assets_manual WHERE identity_guid = ?').run(identity.guid);
+                } else {
+                    db.prepare(`
+                        INSERT INTO assets_manual (identity_guid, sensitivity_status, updated_at)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(identity_guid) DO UPDATE SET
+                            sensitivity_status = excluded.sensitivity_status,
+                            updated_at = excluded.updated_at
+                    `).run(identity.guid, status, new Date().toISOString());
+                }
+            })();
+
+            respond(id, 'ok', { message: 'Sensitivity override saved' }, null, originWs);
+            eventBus.emit({ type: 'JobCompleted', jobId: 'set-sensitivity', pipelineStage: 'manual' });
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
+};

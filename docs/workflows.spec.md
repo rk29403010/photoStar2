@@ -6,8 +6,6 @@
 
 This document is **normative**. Implement as written. No discussion, alternatives, or UX debate belong here.
 
----
-
 ## 1. Core Goals
 
 1. Files appear in the library **as soon as they are discovered** (indexed), not when a batch completes.
@@ -16,21 +14,17 @@ This document is **normative**. Implement as written. No discussion, alternative
 4. A **Coordinator** determines what happens next based on workflow definition and current state.
 5. Heavy work is decoupled, parallelisable, and clusterable (e.g. preview generation).
 
----
-
 ## 2. Conceptual Model
 
 ### 2.1 Key concepts
 
 | Concept | Meaning |
-|---|---|
+| --- | --- |
 | Workflow | A declarative definition of steps and reactions to events |
 | Event | A fact that something has happened (file discovered, preview ready, faces detected) |
 | Task | A concrete unit of work executed by a worker |
 | Coordinator | Orchestrates workflows by reacting to events |
 | Worker | Performs tasks and emits events |
-
----
 
 ## 3. Workflows
 
@@ -43,8 +37,6 @@ A **workflow** defines:
 - Any conditions, batching, or throttling rules
 
 Workflows are **data**, not code.
-
----
 
 ### 3.2 Initial required workflows
 
@@ -60,8 +52,6 @@ Workflows are **data**, not code.
    - Emit `MediaDiscovered`
 3. No enrichment blocks library visibility
 
----
-
 #### 3.2.2 Preview workflow
 
 **Trigger:** `MediaDiscovered`
@@ -71,8 +61,6 @@ Workflows are **data**, not code.
 - Schedule preview generation
 - Coordinator may batch multiple preview requests
 - Emit `PreviewGenerated`
-
----
 
 #### 3.2.3 Face analysis workflow (sub‑workflow)
 
@@ -92,8 +80,6 @@ Failures at any stage:
 - Do not block other stages
 - Do not block library visibility
 
----
-
 ## 4. Events (Canonical Set)
 
 Events are append‑only facts.
@@ -112,8 +98,6 @@ export type DomainEvent =
   | { type: "TaskFailed"; taskId: string; severity: "warning" | "error" | "fatal" };
 ```
 
----
-
 ## 5. Coordinator
 
 ### 5.1 Responsibilities
@@ -131,8 +115,6 @@ The Coordinator **does not**:
 - Maintain UI state
 - Block on task completion
 
----
-
 ### 5.2 Example: Ingest flow
 
 1. `FolderScanRequested`
@@ -141,8 +123,6 @@ The Coordinator **does not**:
 4. Coordinator reacts:
    - Emits `PreviewRequested` (batched)
    - Emits `FaceDetectionRequested` per media
-
----
 
 ### 5.3 Batching rules (required)
 
@@ -153,14 +133,12 @@ The Coordinator **may**:
 
 Batching is **transparent** to the workflow definition.
 
----
-
 ## 6. Tasks
 
 ### 6.1 Task characteristics
 
 | Property | Requirement |
-|---|---|
+| --- | --- |
 | Idempotent | Yes |
 | Stateless | Preferable |
 | Retryable | Yes (unless fatal) |
@@ -168,18 +146,14 @@ Batching is **transparent** to the workflow definition.
 
 Tasks never update domain state directly.
 
----
-
 ### 6.2 Task lifecycle
 
-```
+```text
 queued → running → succeeded
                 ↘ failed (warning | error | fatal)
 ```
 
 On completion or failure, a task **must emit an event**.
-
----
 
 ## 7. Jobs (UI‑Facing Only)
 
@@ -191,15 +165,11 @@ A **job** is a **projection** for UI purposes only.
 - Jobs group related tasks (e.g. an ingest session)
 - Jobs do not drive execution
 
----
-
 ### 7.2 Job behaviour
 
 - A job may complete while work continues
 - A job may complete with warnings or errors
 - Jobs must show activity within ≤1 s of user action
-
----
 
 ## 8. Progress & Feedback Rules
 
@@ -208,15 +178,11 @@ A **job** is a **projection** for UI purposes only.
 - Media records appear immediately after `MediaDiscovered`
 - Missing previews or faces are shown as *pending*, not blocked
 
----
-
 ### 8.2 Progress semantics
 
 - Progress is **time‑smoothed**
 - Progress is **approximate by design**
 - No UI surface waits on a full workflow to complete
-
----
 
 ## 9. Persistence
 
@@ -228,8 +194,6 @@ Minimum required persistence:
 
 Workflows may be re‑driven by replaying events.
 
----
-
 ## 10. Libraries / Patterns to Use (Non‑Prescriptive)
 
 The architecture must align with:
@@ -239,8 +203,6 @@ The architecture must align with:
 - Workflow orchestration patterns
 
 Specific libraries are **implementation choices**, but the model must remain event‑driven and coordinator‑led.
-
----
 
 ## 11. Definition of Done
 
@@ -254,8 +216,6 @@ This system is **done** when:
 
 No additional features are in scope.
 
----
-
 ## 12. Canonical Event Set (Locked)
 
 This section defines the **minimal, sufficient, stable** event vocabulary. Implement **exact names and payloads**. No aliases. No overloading.
@@ -266,8 +226,6 @@ This section defines the **minimal, sufficient, stable** event vocabulary. Imple
 - Past tense for facts, imperative for requests
 - Append-only
 - Small, immutable payloads
-
----
 
 ### 12.2 Core domain events
 
@@ -288,8 +246,6 @@ type MediaDiscovered = {
   scanSessionId: string;
 };
 ```
-
----
 
 #### Preview pipeline
 
@@ -315,8 +271,6 @@ type PreviewFailed = {
   severity: "warning" | "error";
 };
 ```
-
----
 
 #### Face analysis pipeline
 
@@ -411,7 +365,7 @@ This section defines **what is kept, adapted, or replaced** in Antigravity.
 ### 13.1 Jobs
 
 | Aspect | Old Meaning | New Meaning |
-|---|---|---|
+| --- | --- | --- |
 | Purpose | Execution driver | UI projection only |
 | Lifecycle | Start → complete | Derived from events |
 | Completion | Hard gate | Soft / inferred |
@@ -423,7 +377,7 @@ This section defines **what is kept, adapted, or replaced** in Antigravity.
 ### 13.2 Tasks
 
 | Aspect | Status |
-|---|---|
+| --- | --- |
 | Execution unit | Keep |
 | Retryable | Keep |
 | Side effects | Must emit events only |
@@ -475,7 +429,7 @@ Projections are **read models** derived from events. They never drive execution.
 **Invariant:** Library visibility is controlled **only** by `MediaDiscovered`.
 
 | Field | Derived from |
-|---|---|
+| --- | --- |
 | visible | MediaDiscovered |
 | previewStatus | PreviewGenerated / PreviewFailed / absence |
 | faceStatus | FacesDetected and downstream events |
@@ -523,7 +477,7 @@ Failures degrade capability, never visibility.
 ### 15.1 Severity meanings
 
 | Severity | Effect |
-|---|---|
+| --- | --- |
 | warning | Continue |
 | error | Skip item, continue |
 | fatal | Stop scheduling in that workflow |
@@ -533,7 +487,7 @@ Failures degrade capability, never visibility.
 ## 16. Ingest Workflow – Failure Semantics
 
 | Failure | Severity | Behaviour |
-|---|---|---|
+| --- | --- | --- |
 | File unreadable | warning | Skip file |
 | Hash failure | warning | Create record without hash |
 | Folder access lost | fatal | Stop ingest |
@@ -543,7 +497,7 @@ Failures degrade capability, never visibility.
 ## 17. Preview Workflow – Failure Semantics
 
 | Failure | Severity | Behaviour |
-|---|---|---|
+| --- | --- | --- |
 | Unsupported format | warning | No preview |
 | Decode error | error | Skip preview |
 | Repeated crash | fatal | Pause preview workflow |
@@ -555,7 +509,7 @@ Failures degrade capability, never visibility.
 ### 18.1 Face Detection
 
 | Failure | Severity | Behaviour |
-|---|---|---|
+| --- | --- | --- |
 | No faces | info | Emit zero faces |
 | Detection error | warning | Skip pipeline |
 | Model load failure | fatal | Stop face workflow |
@@ -563,14 +517,14 @@ Failures degrade capability, never visibility.
 ### 18.2 Face Embedding
 
 | Failure | Severity | Behaviour |
-|---|---|---|
+| --- | --- | --- |
 | Per-face failure | warning | Skip face |
 | Repeated model failure | fatal | Stop embedding |
 
 ### 18.3 Face Matching
 
 | Failure | Severity | Behaviour |
-|---|---|---|
+| --- | --- | --- |
 | No match | info | personId=null |
 | Matcher error | warning | Skip match |
 | DB unavailable | error | Retry |
@@ -578,7 +532,7 @@ Failures degrade capability, never visibility.
 ### 18.4 Face Clustering
 
 | Failure | Severity | Behaviour |
-|---|---|---|
+| --- | --- | --- |
 | Conflict | warning | Retry later |
 | Index corrupt | fatal | Disable clustering |
 
@@ -587,7 +541,7 @@ Failures degrade capability, never visibility.
 ## 19. Retry Policy
 
 | Severity | Retry |
-|---|---|
+| --- | --- |
 | warning | No auto-retry |
 | error | Exponential backoff |
 | fatal | Never auto-retry |
@@ -597,3 +551,13 @@ Failures degrade capability, never visibility.
 ## 20. Invariant
 
 **Failures degrade capability, never visibility.**
+
+---
+
+## 21. To Do and To Consider
+
+Review error handling events.
+Some error raised while processing one item should impact the processing of other items.
+
+e.g. if an api call is made to an AI model that has been retired, there's no point in sending other requests to it.
+e.g. If an AI model has a daily rate limit and that's reached, we should pause that task until the following day.

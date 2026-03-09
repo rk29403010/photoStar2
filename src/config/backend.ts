@@ -1,100 +1,108 @@
 /**
  * backend.ts
  * ──────────────────────────────────────────────────────────────────────────────
- * Single source of truth for "how do I talk to the backend?".
+ * Single source of truth for runtime backend capabilities and transport.
  *
  * Resolution priority:
- *   1. Tauri detected  → IPC (stdin/stdout) + convertFileSrc()
- *   2. VITE_BACKEND_URL set at build time → use that origin (cloud / staging)
- *   3. Fallback → derive from window.location.hostname (LAN / dev mode)
+ *   1. Tauri host detected
+ *   2. Optional transport override via VITE_DESKTOP_BACKEND
+ *   3. Cloud backend via VITE_BACKEND_URL
+ *   4. LAN/dev fallback via window.location.hostname
  *
- * Nothing outside this module should hardcode 'localhost:5174'.
+ * Nothing outside this module should hardcode localhost, __TAURI_INTERNALS__,
+ * or assume that a Tauri host must always use IPC.
  * ──────────────────────────────────────────────────────────────────────────────
  */
 
 import { convertFileSrc } from '@tauri-apps/api/core';
 
-// ---------------------------------------------------------------------------
-// Deployment mode detection
-// ---------------------------------------------------------------------------
-
 export type DeploymentMode = 'tauri' | 'lan' | 'cloud';
-
-export function getDeploymentMode(): DeploymentMode {
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-        return 'tauri';
-    }
-    // VITE_BACKEND_URL is set at build time for cloud / staging deployments.
-    // It will be undefined in dev / LAN mode.
-    if (import.meta.env.VITE_BACKEND_URL) {
-        return 'cloud';
-    }
-    return 'lan';
-}
-
-// ---------------------------------------------------------------------------
-// Backend origin
-// ---------------------------------------------------------------------------
+export type FrontendHost = 'tauri' | 'browser';
+export type BackendTransportKind = 'ipc' | 'ws';
+export type ImageSourceStrategy = 'asset' | 'http';
 
 const BACKEND_PORT = 5174;
 
+function hasTauriHost(): boolean {
+    return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+function getBackendTransportOverride(): BackendTransportKind | null {
+    const value = (import.meta.env.VITE_DESKTOP_BACKEND as string | undefined)?.trim().toLowerCase();
+    if (value === 'ipc' || value === 'ws') {
+        return value;
+    }
+    return null;
+}
+
+export function getFrontendHost(): FrontendHost {
+    return hasTauriHost() ? 'tauri' : 'browser';
+}
+
+export function isTauriHost(): boolean {
+    return getFrontendHost() === 'tauri';
+}
+
+export function canUseNativeDirectoryPicker(): boolean {
+    return isTauriHost();
+}
+
+export function getDeploymentMode(): DeploymentMode {
+    if (isTauriHost() && getBackendTransportKind() === 'ipc') {
+        return 'tauri';
+    }
+
+    if (import.meta.env.VITE_BACKEND_URL) {
+        return 'cloud';
+    }
+
+    return 'lan';
+}
+
+export function getBackendTransportKind(): BackendTransportKind {
+    const override = getBackendTransportOverride();
+    if (override === 'ws') {
+        return 'ws';
+    }
+
+    if (override === 'ipc' && isTauriHost()) {
+        return 'ipc';
+    }
+
+    return isTauriHost() ? 'ipc' : 'ws';
+}
+
+export function getImageSourceStrategy(): ImageSourceStrategy {
+    return isTauriHost() && getBackendTransportKind() === 'ipc' ? 'asset' : 'http';
+}
+
 /**
  * Returns the HTTP/WS origin for the backend server.
- * Not valid in Tauri mode (IPC is used instead).
- *
- * Examples:
- *   LAN:   "192.168.0.117:5174"  (or "localhost:5174" if accessed locally)
- *   Cloud: "api.example.com"     (from VITE_BACKEND_URL, no port)
+ * Only relevant when the runtime transport is WebSocket/HTTP.
  */
 export function getBackendOrigin(): string {
     const envUrl = import.meta.env.VITE_BACKEND_URL as string | undefined;
     if (envUrl) {
-        // Strip protocol if someone accidentally included it
         return envUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
-    // LAN / dev: use the same hostname the frontend was served from,
-    // so it auto-works for both localhost and any LAN IP.
+
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     return `${host}:${BACKEND_PORT}`;
 }
 
-// ---------------------------------------------------------------------------
-// WebSocket URL
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the full WebSocket URL for the backend bridge.
- * Uses wss:// in cloud mode (VITE_BACKEND_URL), ws:// otherwise.
- */
 export function getBackendWsUrl(): string {
-    const mode = getDeploymentMode();
-    if (mode === 'tauri') {
-        throw new Error('getBackendWsUrl() called in Tauri mode — use IPC instead');
+    if (getBackendTransportKind() !== 'ws') {
+        throw new Error('getBackendWsUrl() called while backend transport is IPC');
     }
-    const protocol = mode === 'cloud' ? 'wss' : 'ws';
+
+    const protocol = getDeploymentMode() === 'cloud' ? 'wss' : 'ws';
     return `${protocol}://${getBackendOrigin()}`;
 }
 
-// ---------------------------------------------------------------------------
-// Image URL resolver
-// ---------------------------------------------------------------------------
-
-/**
- * Resolves the correct URL/src for a given file path depending on the
- * current deployment mode.
- *
- *   Tauri:  convertFileSrc() → native asset:// protocol (fast, no HTTP)
- *   LAN:    http://<host>:5174/image?path=…
- *   Cloud:  https://<host>/image?path=…
- *
- * Returns null if path is undefined/empty.
- */
 export function resolveImageUrl(path: string | undefined | null): string | null {
-    if (!path) return null;
+    if (!path) {return null;}
 
-    const mode = getDeploymentMode();
-
-    if (mode === 'tauri') {
+    if (getImageSourceStrategy() === 'asset') {
         try {
             return convertFileSrc(path);
         } catch {
@@ -102,6 +110,6 @@ export function resolveImageUrl(path: string | undefined | null): string | null 
         }
     }
 
-    const protocol = mode === 'cloud' ? 'https' : 'http';
+    const protocol = getDeploymentMode() === 'cloud' ? 'https' : 'http';
     return `${protocol}://${getBackendOrigin()}/image?path=${encodeURIComponent(path)}`;
 }

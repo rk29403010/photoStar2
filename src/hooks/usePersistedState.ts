@@ -11,7 +11,7 @@ export function usePersistedState<T>(key: string, fallback: T): [T, (v: T | ((pr
     const [state, setStateInner] = useState<T>(() => {
         try {
             const raw = localStorage.getItem(key);
-            if (raw === null) return fallback;
+            if (raw === null) {return fallback;}
             return JSON.parse(raw) as T;
         } catch {
             return fallback;

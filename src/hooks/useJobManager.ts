@@ -1,191 +1,229 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import type { BackgroundJob, PipelineStage, JobState } from '../../shared/types/jobs';
 import type { DomainEvent } from '../types/events';
 
+const TERMINAL_STATES = new Set<JobState>(['completed', 'failed', 'cancelled']);
+const MAX_TERMINAL_JOB_HISTORY = 40;
+const JOB_TITLE_BY_STAGE: Record<string, string> = {
+    'bulk_ingest': 'Ingesting Library',
+    'scan': 'Scanning Folders',
+    'preview_generation': 'Generating Previews',
+    'face_analysis': 'Analysing Faces',
+    'similarity_cluster': 'Clustering Similar Faces',
+    'reindex': 'Rebuilding Index',
+    'ai_metadata_3f': 'Extracting AI Metadata (3F)',
+    'ai_metadata_31p': 'Upgrading AI Metadata (31P)'
+};
+
+type JobUpdater = SetStateAction<BackgroundJob[]>;
+type LegacyProgressPayload = {
+    processed?: number;
+    total?: number;
+    message?: string;
+    current?: string;
+    status?: string;
+};
+
+function pruneJobHistory(list: BackgroundJob[]): BackgroundJob[] {
+    const active = list.filter(j => !TERMINAL_STATES.has(j.state));
+    const terminal = list.filter(j => TERMINAL_STATES.has(j.state)).slice(0, MAX_TERMINAL_JOB_HISTORY);
+    return [...active, ...terminal];
+}
+
+function getDisplayTitle(event: Extract<DomainEvent, { type: 'JobStarted' }>): string {
+    if (event.jobId.startsWith('recog-')) {return 'Recognising Faces';}
+    if (event.jobId.startsWith('detect-')) {return 'Detecting Faces';}
+    if (event.jobId.startsWith('previews-') || event.jobId.startsWith('preview-')) {return 'Generating Thumbnails';}
+    return JOB_TITLE_BY_STAGE[event.pipelineStage] || event.pipelineStage;
+}
+
+function updateJobsForProgress(event: Extract<DomainEvent, { type: 'JobProgress' }>): JobUpdater {
+    return (prev) => prev.map(job => {
+        if (job.id !== event.jobId) {return job;}
+        const newPercent = event.totalItems && event.totalItems > 0
+            ? (event.processedItems / event.totalItems) * 100
+            : undefined;
+
+        return {
+            ...job,
+            progress: {
+                ...job.progress,
+                overallDone: event.processedItems,
+                overallTotal: event.totalItems,
+                overallPercent: newPercent,
+                current: event.currentItemPath,
+                throughputIps: event.throughputIps,
+                errors: event.errorCount,
+                indexed: job.stage === 'bulk_ingest' || job.stage === 'scan' ? event.processedItems : job.progress.indexed,
+                analysed: job.stage === 'face_analysis' ? event.processedItems : job.progress.analysed,
+            }
+        };
+    });
+}
+
+function updateJobsForFailure(event: Extract<DomainEvent, { type: 'JobFailed' }>): JobUpdater {
+    return (prev) => prev.map(job => {
+        if (job.id !== event.jobId) {return job;}
+        return {
+            ...job,
+            issues: [...job.issues, {
+                id: Math.random().toString(),
+                severity: event.severity,
+                message: event.reason,
+                createdAt: new Date().toISOString()
+            }]
+        };
+    });
+}
+
+function incrementFaceMetric(
+    metric: 'facesFound' | 'facesRecognised',
+    amount: number
+): JobUpdater {
+    return (prev) => prev.map(job => {
+        if (job.stage !== 'face_analysis' || job.state !== 'running') {return job;}
+        return {
+            ...job,
+            progress: {
+                ...job.progress,
+                [metric]: (job.progress[metric] || 0) + amount
+            }
+        };
+    });
+}
+
+function createQueuedJob(id: string, stage: PipelineStage, title: string): BackgroundJob {
+    return {
+        id,
+        stage,
+        title,
+        state: 'queued',
+        createdAt: new Date().toISOString(),
+        trigger: 'user',
+        progress: {
+            stages: [],
+            overallPercent: undefined
+        },
+        issues: []
+    };
+}
+
+function applyJobState(job: BackgroundJob, state: JobState): BackgroundJob {
+    return {
+        ...job,
+        state,
+        startedAt: state === 'running' && !job.startedAt ? new Date().toISOString() : job.startedAt,
+        finishedAt: (state === 'completed' || state === 'failed') ? new Date().toISOString() : undefined
+    };
+}
+
+function getLegacyProgressState(status: LegacyProgressPayload['status'], currentState: JobState): JobState {
+    if (status === 'running') {return 'running';}
+    if (status === 'complete') {return 'completed';}
+    if (status === 'error') {return 'failed';}
+    return currentState;
+}
+
+function applyLegacyProgress(job: BackgroundJob, payload: LegacyProgressPayload): BackgroundJob {
+    const nextProgress = { ...job.progress };
+    if (payload.processed !== undefined) {nextProgress.overallDone = payload.processed;}
+    if (payload.total !== undefined) {nextProgress.overallTotal = payload.total;}
+    if (nextProgress.overallTotal && nextProgress.overallTotal > 0) {
+        nextProgress.overallPercent = ((nextProgress.overallDone || 0) / nextProgress.overallTotal) * 100;
+    } else if (payload.status === 'complete') {
+        nextProgress.overallPercent = 100;
+    }
+    nextProgress.message = payload.message;
+    nextProgress.current = payload.current;
+
+    return {
+        ...job,
+        state: getLegacyProgressState(payload.status, job.state),
+        progress: nextProgress
+    };
+}
+
+type ProcessEventDeps = {
+    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    setJobs: Dispatch<SetStateAction<BackgroundJob[]>>;
+    updateJobState: (id: string, state: JobState) => void;
+    updateJobProgress: (id: string, payload: { status?: string }) => void;
+};
+
+function createProcessEvent({ addJob, setJobs, updateJobState, updateJobProgress }: ProcessEventDeps) {
+    const handlers = {
+        JobStarted: (event: Extract<DomainEvent, { type: 'JobStarted' }>) => {
+            addJob(event.jobId, event.pipelineStage as PipelineStage, getDisplayTitle(event));
+            updateJobState(event.jobId, 'running');
+        },
+        JobProgress: (event: Extract<DomainEvent, { type: 'JobProgress' }>) => {
+            setJobs(updateJobsForProgress(event));
+        },
+        JobCompleted: (event: Extract<DomainEvent, { type: 'JobCompleted' }>) => {
+            updateJobState(event.jobId, 'completed');
+            updateJobProgress(event.jobId, { status: 'complete' });
+        },
+        JobFailed: (event: Extract<DomainEvent, { type: 'JobFailed' }>) => {
+            updateJobState(event.jobId, 'failed');
+            setJobs(updateJobsForFailure(event));
+        },
+        FacesDetected: (event: Extract<DomainEvent, { type: 'FacesDetected' }>) => {
+            setJobs(incrementFaceMetric('facesFound', event.faceCount || 0));
+        },
+        FaceEmbeddingGenerated: () => {
+            setJobs(incrementFaceMetric('facesRecognised', 1));
+        },
+    };
+
+    return (event: DomainEvent) => {
+        const handler = handlers[event.type as keyof typeof handlers];
+        if (handler) {handler(event as never);}
+    };
+}
+
+function useAddJob(setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
+    return useCallback((id: string, stage: PipelineStage, title: string) => {
+        const newJob = createQueuedJob(id, stage, title);
+        setJobs((prev) => {
+            if (prev.find((job) => job.id === id)) {return prev;}
+            return pruneJobHistory([newJob, ...prev]);
+        });
+    }, [setJobs]);
+}
+
+function useUpdateJobState(setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
+    return useCallback((id: string, state: JobState) => {
+        setJobs((prev) => pruneJobHistory(prev.map((job) => {
+            if (job.id !== id) {return job;}
+            return applyJobState(job, state);
+        })));
+    }, [setJobs]);
+}
+
+function useUpdateJobProgress(setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
+    return useCallback((id: string, payload: LegacyProgressPayload) => {
+        setJobs((prev) => prev.map((job) => {
+            if (job.id !== id) {return job;}
+            return applyLegacyProgress(job, payload);
+        }));
+    }, [setJobs]);
+}
+
 export function useJobManager() {
     const [jobs, setJobs] = useState<BackgroundJob[]>([]);
+    const addJob = useAddJob(setJobs);
+    const updateJobState = useUpdateJobState(setJobs);
+    const updateJobProgress = useUpdateJobProgress(setJobs);
 
-    const addJob = useCallback((id: string, stage: PipelineStage, title: string) => {
-        const newJob: BackgroundJob = {
-            id,
-            stage,
-            title,
-            state: 'queued',
-            createdAt: new Date().toISOString(),
-            trigger: 'user',
-            progress: {
-                stages: [],
-                overallPercent: undefined // indeterminate start
-            },
-            issues: []
-        };
+    const processEventHandler = useMemo(
+        () => createProcessEvent({ addJob, setJobs, updateJobState, updateJobProgress }),
+        [addJob, setJobs, updateJobState, updateJobProgress]
+    );
 
-        setJobs(prev => {
-            // Avoid duplicates
-            if (prev.find(j => j.id === id)) return prev;
-            return [newJob, ...prev];
-        });
-    }, []);
-
-    const updateJobState = useCallback((id: string, state: JobState) => {
-        // Immediate update for state changes to feel responsive? 
-        // Or smooth them too?
-        // State changes are rare, immediate is better.
-        setJobs(prev => prev.map(job => {
-            if (job.id !== id) return job;
-            return {
-                ...job,
-                state,
-                startedAt: state === 'running' && !job.startedAt ? new Date().toISOString() : job.startedAt,
-                finishedAt: (state === 'completed' || state === 'failed') ? new Date().toISOString() : undefined
-            };
-        }));
-    }, []);
-
-    const updateJobProgress = useCallback((id: string, payload: {
-        processed?: number;
-        total?: number;
-        message?: string;
-        current?: string;
-        status?: string;
-    }) => {
-        // Legacy support
-        setJobs(prev => prev.map(job => {
-            if (job.id !== id) return job;
-            const newProgress = { ...job.progress };
-            if (payload.processed !== undefined) newProgress.overallDone = payload.processed;
-            if (payload.total !== undefined) newProgress.overallTotal = payload.total;
-            if (newProgress.overallTotal && newProgress.overallTotal > 0) {
-                newProgress.overallPercent = (newProgress.overallDone || 0) / newProgress.overallTotal * 100;
-            } else if (payload.status === 'complete') {
-                newProgress.overallPercent = 100;
-            }
-            newProgress.message = payload.message;
-            newProgress.current = payload.current;
-
-            let state = job.state;
-            if (payload.status === 'running') state = 'running';
-            if (payload.status === 'complete') state = 'completed';
-            if (payload.status === 'error') state = 'failed';
-
-            return { ...job, state, progress: newProgress };
-        }));
-    }, []);
-
-    // NEW: consume events
     const processEvent = useCallback((event: DomainEvent) => {
-        switch (event.type) {
-            case 'JobStarted': {
-                const kindTitles: Record<string, string> = {
-                    'bulk_ingest': 'Ingesting Library',
-                    'scan': 'Scanning Folders',
-                    'preview_generation': 'Generating Previews',
-                    'face_analysis': 'Analysing Faces',
-                    'similarity_cluster': 'Clustering Similar Faces',
-                    'reindex': 'Rebuilding Index'
-                };
-                let displayTitle = kindTitles[event.pipelineStage] || event.pipelineStage;
-                if (event.jobId.startsWith('recog-')) displayTitle = 'Recognising Faces';
-                if (event.jobId.startsWith('detect-')) displayTitle = 'Detecting Faces';
-                if (event.jobId.startsWith('previews-') || event.jobId.startsWith('preview-')) displayTitle = 'Generating Thumbnails';
-
-                addJob(event.jobId, event.pipelineStage as PipelineStage, displayTitle);
-                updateJobState(event.jobId, 'running');
-                break;
-            }
-
-            case 'JobProgress':
-                setJobs(prev => prev.map(job => {
-                    if (job.id === event.jobId) {
-                        const newPercent = event.totalItems && event.totalItems > 0
-                            ? (event.processedItems / event.totalItems) * 100
-                            : undefined;
-
-                        return {
-                            ...job,
-                            progress: {
-                                ...job.progress,
-                                overallDone: event.processedItems,
-                                overallTotal: event.totalItems,
-                                overallPercent: newPercent,
-                                current: event.currentItemPath,
-                                throughputIps: event.throughputIps,
-                                errors: event.errorCount,
-                                indexed: job.stage === 'bulk_ingest' || job.stage === 'scan' ? event.processedItems : job.progress.indexed,
-                                analysed: job.stage === 'face_analysis' ? event.processedItems : job.progress.analysed,
-                            }
-                        };
-                    }
-                    return job;
-                }));
-                break;
-
-            case 'JobCompleted':
-                updateJobState(event.jobId, 'completed');
-                updateJobProgress(event.jobId, { status: 'complete' });
-                break;
-
-            case 'JobFailed':
-                updateJobState(event.jobId, 'failed');
-                setJobs(prev => prev.map(job => {
-                    if (job.id === event.jobId) {
-                        return {
-                            ...job,
-                            issues: [...job.issues, {
-                                id: Math.random().toString(),
-                                severity: event.severity,
-                                message: event.reason,
-                                createdAt: new Date().toISOString()
-                            }]
-                        };
-                    }
-                    return job;
-                }));
-                break;
-
-            case 'FolderScanRequested':
-                // Removed intentionally: The backend already serves a distinct 'class-onboarding' card named "Photo Onboarding"
-                break;
-            case 'FacesDetected':
-                setJobs(prev => prev.map(job => {
-                    if (job.stage === 'face_analysis' && job.state === 'running') {
-                        return {
-                            ...job,
-                            progress: {
-                                ...job.progress,
-                                facesFound: (job.progress.facesFound || 0) + (event.faceCount || 0)
-                            }
-                        };
-                    }
-                    return job;
-                }));
-                break;
-            case 'FaceEmbeddingGenerated':
-                setJobs(prev => prev.map(job => {
-                    if (job.stage === 'face_analysis' && job.state === 'running') {
-                        return {
-                            ...job,
-                            progress: {
-                                ...job.progress,
-                                facesRecognised: (job.progress.facesRecognised || 0) + 1
-                            }
-                        };
-                    }
-                    return job;
-                }));
-                break;
-            case 'PreviewRequested':
-                break;
-            case 'PreviewGenerated':
-                break;
-            case 'AssetUpdated':
-                break; // Handled in usePhotoLibrary directly
-            case 'QuotaWarning':
-                break; // Surfaced as a JobFailed warning by the backend
-            case 'ProAnalysisPending':
-                break; // Informational — no job state change needed
-        }
-    }, [addJob, updateJobState, updateJobProgress]);
+        processEventHandler(event);
+    }, [processEventHandler]);
 
     return {
         jobs,

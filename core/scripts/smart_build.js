@@ -104,10 +104,11 @@ function runBuild(hashFile, currentHash) {
         // Update hash
         fs.writeFileSync(hashFile, currentHash);
         console.log('[SmartBuild] Success. Hash updated.');
-    } catch (e) {
-        console.error('[SmartBuild] Build failed.');
+    } catch (error) {
+        console.error('[SmartBuild] Build failed.', error);
         process.exit(1);
     }
 }
 
 main();
+

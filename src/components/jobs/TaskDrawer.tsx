@@ -6,7 +6,7 @@ export function TaskDrawer({ jobs, onStop }: { jobs: BackgroundJob[], onStop?: (
     const [isMinimized, setIsMinimized] = useState(false);
     const [isClosed, setIsClosed] = useState(false);
 
-    if (jobs.length === 0 || isClosed) return null;
+    if (jobs.length === 0 || isClosed) {return null;}
 
     return (
         <div className="fixed bottom-0 right-0 w-96 max-h-[70vh] bg-white shadow-xl border-l border-t border-gray-200 z-50 flex flex-col transition-all">

@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react"
+  ],
+  "env": {
+    "es2020": true
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "core/dist/**",
+    "src-tauri/target/**",
+    "src-tauri/binaries/**",
+    "vite.config.ts.timestamp-*.mjs"
+  ],
+  "rules": {
+    "curly": "error",
+    "eqeqeq": [
+      "error",
+      "smart"
+    ],
+    "no-console": "off",
+    "no-implicit-coercion": "error",
+    "object-shorthand": "error",
+    "prefer-object-has-own": "error",
+    "preserve-caught-error": "off",
+    "react/jsx-uses-react": "off",
+    "react/react-in-jsx-scope": "off",
+    "react/self-closing-comp": "error",
+    "unicorn/no-array-sort": "off",
+    "unicorn/prefer-add-event-listener": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/**/*.{ts,tsx,js,jsx}"
+      ],
+      "env": {
+        "browser": true
+      }
+    },
+    {
+      "files": [
+        "vite.config.ts",
+        "scripts/**/*.{js,mjs,cjs,ts}",
+        "core/**/*.{ts,js,mjs,cjs}"
+      ],
+      "env": {
+        "node": true
+      }
+    }
+  ]
+}

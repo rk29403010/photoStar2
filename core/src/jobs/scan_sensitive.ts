@@ -1,7 +1,7 @@
-import { DatabaseManager } from '../db';
+import type { DatabaseManager } from '../db';
 import { join, dirname } from 'node:path';
 import { existsSync, mkdirSync, createWriteStream, promises as fs } from 'node:fs';
-import { EventBus } from '../events/bus';
+import type { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
 import * as https from 'node:https';
 import * as http from 'node:http';
@@ -89,8 +89,8 @@ export function scoreFromPredictions(predictions: Array<{ className: string; pro
 }
 
 export function sensitivityTier(score: number): 'safe' | 'review' | 'unsafe' {
-    if (score < 25) return 'safe';
-    if (score < 75) return 'review';
+    if (score < 25) {return 'safe';}
+    if (score < 75) {return 'review';}
     return 'unsafe';
 }
 
@@ -102,7 +102,7 @@ let _nsfwjs: unknown = null;
 let _sharp: unknown = null;
 
 async function loadModel(modelsDir: string) {
-    if (_nsfwModel) return _nsfwModel;
+    if (_nsfwModel) {return _nsfwModel;}
 
     // Lazy-load TF, nsfwjs and sharp to avoid startup overhead
     if (!_tf) {
@@ -122,73 +122,98 @@ async function loadModel(modelsDir: string) {
     return _nsfwModel;
 }
 
-export async function runSensitiveScanJob(
-    mediaIds: string[] | 'auto',
-    dbManager: DatabaseManager,
-    eventBus: EventBus,
-    force = false    // When true, re-scan even if already scored
-): Promise<void> {
-    const db = dbManager.getDb();
-    const libraryDir = dirname(db.name);
-    const modelsDir = join(libraryDir, '..', 'models'); // peer to library.db
-    // Prefer the core/models dir if it exists (development)
-    const coreModelsDir = join(process.cwd(), 'models');
-    const effectiveModelsDir = existsSync(coreModelsDir) ? coreModelsDir : modelsDir;
-
-    if (!existsSync(effectiveModelsDir)) {
-        mkdirSync(effectiveModelsDir, { recursive: true });
-    }
-
-    // When force=true, reset scores first so the WHERE clause below includes them
-    if (force) {
-        if (mediaIds === 'auto') {
-            console.log('[NSFWScanner] Force mode: clearing all existing sensitivity scores…');
-            db.prepare('UPDATE assets SET sensitivity_score = NULL').run();
-        } else {
-            const placeholders = mediaIds.map(() => '?').join(',');
-            console.log(`[NSFWScanner] Force mode: clearing sensitivity scores for ${mediaIds.length} assets…`);
-            db.prepare(`UPDATE assets SET sensitivity_score = NULL WHERE id IN (${placeholders})`).run(...mediaIds);
-        }
-    }
-
-    // Determine items to process
-    let rows: { id: string; preview_path: string }[];
+function clearSensitivityScores(
+    db: ReturnType<DatabaseManager['getDb']>,
+    mediaIds: string[] | 'auto'
+): void {
     if (mediaIds === 'auto') {
-        rows = db.prepare(`
+        console.log('[NSFWScanner] Force mode: clearing all existing sensitivity scores...');
+        db.prepare('UPDATE assets SET sensitivity_score = NULL').run();
+        return;
+    }
+
+    const placeholders = mediaIds.map(() => '?').join(',');
+    console.log(`[NSFWScanner] Force mode: clearing sensitivity scores for ${mediaIds.length} assets...`);
+    db.prepare(`UPDATE assets SET sensitivity_score = NULL WHERE id IN (${placeholders})`).run(...mediaIds);
+}
+
+function getRowsToScan(
+    db: ReturnType<DatabaseManager['getDb']>,
+    mediaIds: string[] | 'auto'
+): { id: string; preview_path: string }[] {
+    if (mediaIds === 'auto') {
+        return db.prepare(`
             SELECT a.id, p.path as preview_path
             FROM assets a
             INNER JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             WHERE a.sensitivity_score IS NULL
             ORDER BY a.created_at ASC
         `).all() as { id: string; preview_path: string }[];
-    } else {
-        const placeholders = mediaIds.map(() => '?').join(',');
-        rows = db.prepare(`
-            SELECT a.id, p.path as preview_path
-            FROM assets a
-            INNER JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-            WHERE a.id IN (${placeholders})
-            AND a.sensitivity_score IS NULL
-        `).all(...mediaIds) as { id: string; preview_path: string }[];
     }
 
-    if (rows.length === 0) {
-        console.log('[NSFWScanner] Nothing to scan.');
-        return;
-    }
+    const placeholders = mediaIds.map(() => '?').join(',');
+    return db.prepare(`
+        SELECT a.id, p.path as preview_path
+        FROM assets a
+        INNER JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+        WHERE a.id IN (${placeholders})
+        AND a.sensitivity_score IS NULL
+    `).all(...mediaIds) as { id: string; preview_path: string }[];
+}
 
-    const jobId = `sensitive-${Date.now()}`;
-    const totalItems = rows.length;
-    let processed = 0;
-    let errors = 0;
+function prepareRowsForScan(
+    db: ReturnType<DatabaseManager['getDb']>,
+    mediaIds: string[] | 'auto',
+    force: boolean
+): { id: string; preview_path: string }[] {
+    if (force) {clearSensitivityScores(db, mediaIds);}
+    return getRowsToScan(db, mediaIds);
+}
+
+async function loadModelOrEmitFailure(
+    eventBus: EventBus,
+    jobId: string,
+    effectiveModelsDir: string
+): Promise<unknown | null> {
+    try {
+        return await loadModel(effectiveModelsDir);
+    } catch (err: unknown) {
+        const e = err as Error;
+        console.error('[NSFWScanner] Failed to load model:', e.message);
+        eventBus.emit({ type: 'JobFailed', jobId, severity: 'fatal', reason: `Model load failed: ${e.message}` });
+        return null;
+    }
+}
+
+function resolveSensitiveModelDir(db: ReturnType<DatabaseManager['getDb']>): string {
+    const libraryDir = dirname(db.name);
+    const modelsDir = join(libraryDir, '..', 'models');
+    const coreModelsDir = join(process.cwd(), 'models');
+    return existsSync(coreModelsDir) ? coreModelsDir : modelsDir;
+}
+
+function ensureDirectoryExists(dir: string) {
+    if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+    }
+}
+
+function createProgressReporter(
+    eventBus: EventBus,
+    jobId: string,
+    totalItems: number
+) {
     const startTime = Date.now();
     let lastReportTime = startTime;
-
-    eventBus.emit({ type: 'JobStarted', jobId, pipelineStage: 'sensitive_scan', totalItems });
+    let processed = 0;
+    let errors = 0;
 
     const reportProgress = (currentItemPath?: string, force = false) => {
         const now = Date.now();
-        if (!force && now - lastReportTime < 800) return;
+        if (!force && now - lastReportTime < 800) {
+            return;
+        }
+
         const elapsedSec = (now - startTime) / 1000;
         const throughputIps = elapsedSec > 0 ? processed / elapsedSec : 0;
         eventBus.emit({
@@ -203,74 +228,123 @@ export async function runSensitiveScanJob(
         lastReportTime = now;
     };
 
-    let model: unknown; // NSFW model instance
+    return {
+        getErrors: () => errors,
+        getProcessed: () => processed,
+        incrementError: () => {
+            errors += 1;
+        },
+        incrementProcessed: () => {
+            processed += 1;
+        },
+        reportProgress
+    };
+}
+
+async function scoreSensitiveAsset(
+    row: { id: string; preview_path: string },
+    db: ReturnType<DatabaseManager['getDb']>,
+    eventBus: EventBus,
+    model: unknown
+) {
+    const rawBuffer = await fs.readFile(row.preview_path);
+    const pngBuffer = await (_sharp as (buf: Buffer) => { png: () => { toBuffer: () => Promise<Buffer> } })(rawBuffer).png().toBuffer();
+    const tensor = (_tf as { node: { decodeImage: (buf: Buffer, c: number) => { dispose: () => void } } }).node.decodeImage(pngBuffer, 3);
+    const predictions = await (model as { classify: (t: unknown) => Promise<Array<{ className: string; probability: number }>> }).classify(tensor);
+    tensor.dispose();
+
+    const score = scoreFromPredictions(predictions);
+    const tier = sensitivityTier(score);
+
+    db.prepare(`
+        UPDATE assets SET sensitivity_score = ? WHERE id = ?
+    `).run(score, row.id);
+
+    console.log(`[NSFWScanner] ${row.id}: score=${score}% tier=${tier}`);
+
+    eventBus.emit({
+        type: 'SensitivityScored',
+        mediaId: row.id,
+        score,
+        tier
+    });
+}
+
+async function recordSensitiveScanFailure(
+    db: ReturnType<DatabaseManager['getDb']>,
+    rowId: string,
+    jobId: string,
+    message: string
+) {
     try {
-        model = await loadModel(effectiveModelsDir);
-    } catch (err: unknown) {
-        const e = err as Error;
-        console.error('[NSFWScanner] Failed to load model:', e.message);
-        eventBus.emit({ type: 'JobFailed', jobId, severity: 'fatal', reason: `Model load failed: ${e.message}` });
+        const { v4: uuidv4 } = await import('uuid');
+        db.prepare(`
+            INSERT INTO processing_issues (id, asset_id, job_id, task, severity, message)
+            VALUES (?, ?, ?, 'sensitive_scan', 'warning', ?)
+        `).run(uuidv4(), rowId, jobId, message);
+    } catch {
+        // ignore log failures
+    }
+}
+
+async function processSensitiveScanRow(
+    row: { id: string; preview_path: string },
+    db: ReturnType<DatabaseManager['getDb']>,
+    eventBus: EventBus,
+    jobId: string,
+    model: unknown,
+    reporter: ReturnType<typeof createProgressReporter>
+) {
+    await waitIfPaused();
+
+    if (!existsSync(row.preview_path)) {
+        reporter.incrementError();
+        reporter.incrementProcessed();
+        reporter.reportProgress();
         return;
     }
 
+    try {
+        await scoreSensitiveAsset(row, db, eventBus, model);
+        reporter.incrementProcessed();
+        reporter.reportProgress(row.preview_path);
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error(`[NSFWScanner] Failed for ${row.id}:`, error.message);
+        reporter.incrementError();
+        await recordSensitiveScanFailure(db, row.id, jobId, error.message);
+        reporter.incrementProcessed();
+        reporter.reportProgress();
+    }
+}
+
+export async function runSensitiveScanJob(
+    mediaIds: string[] | 'auto',
+    dbManager: DatabaseManager,
+    eventBus: EventBus,
+    force = false    // When true, re-scan even if already scored
+): Promise<void> {
+    const db = dbManager.getDb();
+    const effectiveModelsDir = resolveSensitiveModelDir(db);
+    ensureDirectoryExists(effectiveModelsDir);
+
+    const rows = prepareRowsForScan(db, mediaIds, force);
+
+    if (rows.length === 0) {console.log('[NSFWScanner] Nothing to scan.'); return;}
+
+    const jobId = `sensitive-${Date.now()}`;
+    const totalItems = rows.length;
+    eventBus.emit({ type: 'JobStarted', jobId, pipelineStage: 'sensitive_scan', totalItems });
+    const reporter = createProgressReporter(eventBus, jobId, totalItems);
+
+    const model = await loadModelOrEmitFailure(eventBus, jobId, effectiveModelsDir);
+    if (!model) {return;}
+
     for (const row of rows) {
-        await waitIfPaused();
-        try {
-            if (!existsSync(row.preview_path)) {
-                errors++;
-                processed++;
-                reportProgress();
-                continue;
-            }
-
-            // tf.node.decodeImage only supports BMP/JPEG/PNG/GIF — thumbnails are WebP.
-            // Convert to PNG in-memory via sharp (no temp file needed).
-            const rawBuffer = await fs.readFile(row.preview_path);
-            const pngBuffer = await (_sharp as (buf: Buffer) => { png: () => { toBuffer: () => Promise<Buffer> } })(rawBuffer).png().toBuffer();
-            const tensor = (_tf as { node: { decodeImage: (buf: Buffer, c: number) => { dispose: () => void } } }).node.decodeImage(pngBuffer, 3);
-            const predictions = await (model as { classify: (t: unknown) => Promise<Array<{ className: string; probability: number }>> }).classify(tensor);
-            tensor.dispose();
-
-            const score = scoreFromPredictions(predictions);
-            const tier = sensitivityTier(score);
-
-            db.prepare(`
-                UPDATE assets SET sensitivity_score = ? WHERE id = ?
-            `).run(score, row.id);
-
-            // If auto-flagged as safe, ensure no manual override blocks cloud usage by default
-            // (manual overrides are separate in assets_manual table)
-
-            console.log(`[NSFWScanner] ${row.id}: score=${score}% tier=${tier}`);
-
-            eventBus.emit({
-                type: 'SensitivityScored',
-                mediaId: row.id,
-                score,
-                tier
-            });
-
-            processed++;
-            reportProgress(row.preview_path);
-        } catch (err: unknown) {
-            const e = err as Error;
-            console.error(`[NSFWScanner] Failed for ${row.id}:`, e.message);
-            errors++;
-
-            try {
-                const { v4: uuidv4 } = await import('uuid');
-                db.prepare(`
-                    INSERT INTO processing_issues (id, asset_id, job_id, task, severity, message)
-                    VALUES (?, ?, ?, 'sensitive_scan', 'warning', ?)
-                `).run(uuidv4(), row.id, jobId, e.message);
-            } catch { /* ignore log failures */ }
-
-            processed++;
-            reportProgress();
-        }
+        await processSensitiveScanRow(row, db, eventBus, jobId, model, reporter);
     }
 
-    reportProgress(undefined, true);
+    reporter.reportProgress(undefined, true);
     eventBus.emit({ type: 'JobCompleted', jobId, pipelineStage: 'sensitive_scan' });
-    console.log(`[NSFWScanner] Done. ${processed - errors} succeeded, ${errors} errors.`);
+    console.log(`[NSFWScanner] Done. ${reporter.getProcessed() - reporter.getErrors()} succeeded, ${reporter.getErrors()} errors.`);
 }

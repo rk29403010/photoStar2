@@ -1,19 +1,44 @@
-import React from 'react';
+import type React from 'react';
 
 interface TopBarProps {
     view: 'library' | 'people' | 'dashboard' | 'albums';
     setView: (view: 'library' | 'people' | 'dashboard' | 'albums') => void;
-    onRefresh: () => void;
     onOpenActions: () => void;
-    showFaces: boolean;
-    setShowFaces: (val: boolean) => void;
-    onOpenSettings: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpenActions, showFaces, setShowFaces, onOpenSettings }) => {
+type ViewType = TopBarProps['view'];
+
+function ViewButton({
+    view,
+    current,
+    setView
+}: {
+    view: ViewType;
+    current: ViewType;
+    setView: (view: ViewType) => void;
+}) {
+    const selected = current === view;
+    return (
+        <button
+            onClick={() => setView(view)}
+            disabled={selected}
+            style={{
+                padding: '6px 16px',
+                background: selected ? '#333' : 'transparent',
+                color: selected ? '#fff' : '#d1d5db',
+                border: '1px solid #444',
+                borderRadius: 4,
+                cursor: selected ? 'default' : 'pointer'
+            }}
+        >
+            {view[0].toUpperCase() + view.slice(1)}
+        </button>
+    );
+}
+
+export const TopBar: React.FC<TopBarProps> = ({ view, setView, onOpenActions }) => {
     return (
         <div style={{
-            marginBottom: 10,
             padding: '12px 16px',
             borderBottom: '1px solid #333',
             background: '#111',
@@ -28,111 +53,12 @@ export const TopBar: React.FC<TopBarProps> = ({ view, setView, onRefresh, onOpen
             </h1>
 
             <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                    onClick={() => setView('library')}
-                    disabled={view === 'library'}
-                    style={{
-                        padding: '6px 16px',
-                        background: view === 'library' ? '#333' : 'transparent',
-                        color: view === 'library' ? '#fff' : '#aaa',
-                        border: '1px solid #444',
-                        borderRadius: 4,
-                        cursor: view === 'library' ? 'default' : 'pointer'
-                    }}
-                >
-                    Library
-                </button>
-                <button
-                    onClick={() => setView('people')}
-                    disabled={view === 'people'}
-                    style={{
-                        padding: '6px 16px',
-                        background: view === 'people' ? '#333' : 'transparent',
-                        color: view === 'people' ? '#fff' : '#aaa',
-                        border: '1px solid #444',
-                        borderRadius: 4,
-                        cursor: view === 'people' ? 'default' : 'pointer'
-                    }}
-                >
-                    People
-                </button>
-                <button
-                    onClick={() => setView('albums')}
-                    disabled={view === 'albums'}
-                    style={{
-                        padding: '6px 16px',
-                        background: view === 'albums' ? '#333' : 'transparent',
-                        color: view === 'albums' ? '#fff' : '#aaa',
-                        border: '1px solid #444',
-                        borderRadius: 4,
-                        cursor: view === 'albums' ? 'default' : 'pointer'
-                    }}
-                >
-                    Albums
-                </button>
-                <button
-                    onClick={() => setView('dashboard')}
-                    disabled={view === 'dashboard'}
-                    style={{
-                        padding: '6px 16px',
-                        background: view === 'dashboard' ? '#333' : 'transparent',
-                        color: view === 'dashboard' ? '#fff' : '#aaa',
-                        border: '1px solid #444',
-                        borderRadius: 4,
-                        cursor: view === 'dashboard' ? 'default' : 'pointer'
-                    }}
-                >
-                    Dashboard
-                </button>
+                <ViewButton view="library" current={view} setView={setView} />
+                <ViewButton view="people" current={view} setView={setView} />
+                <ViewButton view="albums" current={view} setView={setView} />
+                <ViewButton view="dashboard" current={view} setView={setView} />
             </div>
 
-            <div style={{ width: 1, height: 24, background: '#444' }} />
-
-            <button
-                onClick={() => setShowFaces(!showFaces)}
-                style={{
-                    background: showFaces ? 'rgba(0, 255, 255, 0.2)' : 'transparent',
-                    border: '1px solid',
-                    borderColor: showFaces ? 'cyan' : 'transparent',
-                    borderRadius: '4px',
-                    color: showFaces ? 'cyan' : '#aaa',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    padding: '4px 8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    transition: 'all 0.2s',
-                    marginLeft: 'auto'
-                }}
-            >
-                <span style={{ fontSize: 16 }}>👤</span> Faces
-            </button>
-
-            <button onClick={onRefresh} style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '0.9rem' }}>
-                ↻ Refresh
-            </button>
-
-            <button
-                onClick={onOpenSettings}
-                style={{
-                    padding: '6px',
-                    background: 'transparent',
-                    color: '#aaa',
-                    border: '1px solid #444',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    marginLeft: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 32,
-                    height: 32
-                }}
-                title="Settings"
-            >
-                ⚙️
-            </button>
             <button
                 onClick={onOpenActions}
                 style={{

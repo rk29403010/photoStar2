@@ -37,10 +37,10 @@ aspectRatio = width / height
 ### Column behaviour (ratio-based only)
 
 | Aspect ratio (w/h) | Placement rule |
-|---|---|
+| --- | --- |
 | < 0.45 | Full-row span (very wide images) |
-| 0.45 – 0.75 | Eligible for 2-column span |
-| 0.75 – 1.30 | Standard single-column |
+| 0.45 - 0.75 | Eligible for 2-column span |
+| 0.75 - 1.30 | Standard single-column |
 | > 1.30 | Tall portrait (single column) |
 
 ### Hard constraints

@@ -89,6 +89,7 @@ export type JobFailed = {
     jobId: string;
     severity: "warning" | "error" | "fatal";
     reason: string;
+    pipelineStage?: string;
 };
 
 export type QuotaWarning = {

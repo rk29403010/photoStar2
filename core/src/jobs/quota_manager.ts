@@ -6,7 +6,7 @@
  *
  * Free-tier limits (approximate, as of 2026-03):
  *   gemini-3.1-pro-preview : 2 RPM,  ~50  RPD
- *   gemini-3-flash-preview  : 10 RPM, ~500 RPD
+ *   gemini-3-flash-preview : 10 RPM, ~500 RPD
  *   gemini-2.0-flash        : 15 RPM, 1500 RPD
  */
 
@@ -47,7 +47,7 @@ export function recordRequest(model: string): void {
 /** Is the daily quota marked as exceeded for this model? */
 export function isDailyQuotaExceeded(model: string): boolean {
     const s = getState(model);
-    if (!s.dailyExceededAt) return false;
+    if (!s.dailyExceededAt) {return false;}
     // Reset at UTC midnight
     const exceededDay = new Date(s.dailyExceededAt).toISOString().slice(0, 10);
     const today = new Date().toISOString().slice(0, 10);
@@ -61,7 +61,7 @@ export function isDailyQuotaExceeded(model: string): boolean {
 /** Is the model currently in a per-minute rate-limit state? */
 export function isRateLimited(model: string): boolean {
     const s = getState(model);
-    if (!s.rateLimitedUntilMs) return false;
+    if (!s.rateLimitedUntilMs) {return false;}
     if (Date.now() >= s.rateLimitedUntilMs) {
         s.rateLimitedUntilMs = null;
         console.log(`[QuotaManager] Rate limit cleared for ${model}`);
@@ -73,7 +73,7 @@ export function isRateLimited(model: string): boolean {
 /** How many ms until rate limit clears (0 if not limited) */
 export function msUntilRateLimitClears(model: string): number {
     const s = getState(model);
-    if (!s.rateLimitedUntilMs) return 0;
+    if (!s.rateLimitedUntilMs) {return 0;}
     return Math.max(0, s.rateLimitedUntilMs - Date.now());
 }
 
@@ -84,38 +84,48 @@ export function msUntilRateLimitClears(model: string): number {
  */
 export type QuotaErrorType = 'rate_limit' | 'daily_quota' | 'other';
 
+function normalizeErrorMessage(err: Error): string {
+    return (err.message || '').toLowerCase();
+}
+
+function isQuotaLimitMessage(message: string): boolean {
+    return message.includes('429') ||
+        message.includes('rate limit') ||
+        message.includes('resource_exhausted') ||
+        message.includes('quota exceeded');
+}
+
+function isDailyQuotaMessage(message: string): boolean {
+    return message.includes('daily') ||
+        message.includes('per_day') ||
+        message.includes('per day') ||
+        message.includes('day limit');
+}
+
+function getRetryWaitMs(message: string): number {
+    const retryMatch = new RegExp(/retry[_ -]?after[: ]+(\d+)/i).exec(message) ||
+        new RegExp(/(\d+)\s*seconds/i).exec(message);
+
+    if (!retryMatch) {
+        return RPM_WAIT_MS;
+    }
+
+    return (Number.parseInt(retryMatch[1], 10) + 5) * 1000;
+}
+
 export function classifyAndRecordError(model: string, err: Error): QuotaErrorType {
-    const msg = err.message || '';
-    const isRateLimit =
-        msg.includes('429') ||
-        msg.toLowerCase().includes('rate limit') ||
-        msg.toLowerCase().includes('resource_exhausted') ||
-        msg.toLowerCase().includes('quota exceeded');
+    const normalizedMessage = normalizeErrorMessage(err);
+    const isRateLimit = isQuotaLimitMessage(normalizedMessage);
 
-    if (!isRateLimit) return 'other';
+    if (!isRateLimit) {return 'other';}
 
-    // Distinguish daily quota from per-minute rate limit.
-    // Gemini daily quota messages contain "daily" or "per_day"
-    const isDaily =
-        msg.toLowerCase().includes('daily') ||
-        msg.toLowerCase().includes('per_day') ||
-        msg.toLowerCase().includes('per day') ||
-        msg.toLowerCase().includes('day limit');
-
-    if (isDaily) {
+    if (isDailyQuotaMessage(normalizedMessage)) {
         console.warn(`[QuotaManager] Daily quota exceeded for ${model}`);
         getState(model).dailyExceededAt = new Date().toISOString();
         return 'daily_quota';
     }
 
-    // Per-minute rate limit — try to extract retry-after from message
-    let waitMs = RPM_WAIT_MS;
-    const retryMatch = msg.match(/retry[_ -]?after[: ]+(\d+)/i) ||
-        msg.match(/(\d+)\s*seconds/i);
-    if (retryMatch) {
-        waitMs = (parseInt(retryMatch[1], 10) + 5) * 1000; // +5s buffer
-    }
-
+    const waitMs = getRetryWaitMs(normalizedMessage);
     console.warn(`[QuotaManager] Rate limit hit for ${model}. Will clear in ${Math.ceil(waitMs / 1000)}s`);
     getState(model).rateLimitedUntilMs = Date.now() + waitMs;
     return 'rate_limit';

@@ -132,7 +132,7 @@ Deliverable:
 
 ### 3. Local Face Detection (Required)
 
-#### Capabilities
+#### Embedding Capabilities
 
 - Detect faces in photos
 - Return bounding boxes

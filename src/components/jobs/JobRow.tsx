@@ -2,14 +2,66 @@ import React, { useState } from 'react';
 import type { BackgroundJob } from '../../../shared/types/jobs';
 import { ProgressBarSoft } from "./ProgressBarSoft";
 
+function StopJobButton({
+    canStop,
+    isStopping,
+    onStop
+}: {
+    canStop: boolean;
+    isStopping: boolean;
+    onStop: () => void;
+}) {
+    if (!canStop) {
+        return null;
+    }
+
+    return (
+        <button
+            disabled={isStopping}
+            onClick={onStop}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                isStopping
+                    ? 'bg-rose-100 text-rose-400 cursor-wait'
+                    : 'bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer'
+            }`}
+        >
+            {isStopping ? 'Stopping...' : 'Stop'}
+        </button>
+    );
+}
+
+function JobProgressStats({ job }: { job: BackgroundJob }) {
+    const { current, facesRecognised, indexed, message, warnings } = job.progress;
+
+    return (
+        <div className="text-xs text-gray-600 mt-1 flex gap-3">
+            {indexed != null && <span>{indexed} indexed</span>}
+            {facesRecognised != null && <span>{facesRecognised} faces</span>}
+            {warnings ? <span>{warnings} warnings</span> : null}
+            {message && !facesRecognised && <span>{message}</span>}
+            {current && <span className="truncate max-w-[150px]" title={current}>{current}</span>}
+        </div>
+    );
+}
+
 export function JobRow({ job, onStop }: { job: BackgroundJob, onStop?: (id: string) => void }) {
     const indeterminate = job.progress.overallPercent == null;
     const [isStopping, setIsStopping] = useState(false);
+    const canStop = job.state === 'running' && typeof onStop === 'function';
 
     // Reset when job changes state
     React.useEffect(() => {
-        if (job.state !== 'running') setIsStopping(false);
+        if (job.state !== 'running') {setIsStopping(false);}
     }, [job.state]);
+
+    const handleStop = () => {
+        if (!onStop) {
+            return;
+        }
+
+        setIsStopping(true);
+        onStop(job.id);
+    };
 
     return (
         <div className="border-b border-gray-200 py-3">
@@ -17,19 +69,7 @@ export function JobRow({ job, onStop }: { job: BackgroundJob, onStop?: (id: stri
                 <div className="font-medium">{job.title}</div>
                 <div className="flex items-center gap-2">
                     <div className="text-xs text-gray-500 capitalize">{job.state}</div>
-                    {job.state === 'running' && onStop && (
-                        <button 
-                            disabled={isStopping}
-                            onClick={() => { setIsStopping(true); onStop(job.id); }}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
-                                isStopping 
-                                ? 'bg-rose-100 text-rose-400 cursor-wait'
-                                : 'bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer'
-                            }`}
-                        >
-                            {isStopping ? 'Stopping...' : 'Stop'}
-                        </button>
-                    )}
+                    <StopJobButton canStop={canStop} isStopping={isStopping} onStop={handleStop} />
                 </div>
             </div>
 
@@ -38,22 +78,7 @@ export function JobRow({ job, onStop }: { job: BackgroundJob, onStop?: (id: stri
                 percent={job.progress.overallPercent}
             />
 
-            <div className="text-xs text-gray-600 mt-1 flex gap-3">
-                {job.progress.indexed != null && <span>{job.progress.indexed} indexed</span>}
-                {/* {job.progress.analysed != null && <span>{job.progress.analysed} analysed</span>} */}
-                {job.progress.facesRecognised != null && (
-                    <span>{job.progress.facesRecognised} faces</span>
-                )}
-                {job.progress.warnings ? <span>{job.progress.warnings} warnings</span> : null}
-
-                {/* Show backend message if available and no specific stats */}
-                {job.progress.message && !job.progress.facesRecognised && (
-                    <span>{job.progress.message}</span>
-                )}
-                {job.progress.current && (
-                    <span className="truncate max-w-[150px]" title={job.progress.current}>{job.progress.current}</span>
-                )}
-            </div>
+            <JobProgressStats job={job} />
         </div>
     );
 }

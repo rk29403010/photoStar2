@@ -19,7 +19,9 @@ export type PipelineStage =
     | "similarity_cluster"
     | "preview_generation"
     | "sensitive_scan"
-    | "ai_metadata";
+    | "ai_metadata"
+    | "ai_metadata_3f"
+    | "ai_metadata_31p";
 
 export interface JobIssue {
     id: string;
@@ -53,8 +55,8 @@ export interface JobProgress {
     warnings?: number;
     errors?: number;
     stages: StageProgress[];
-    message?: string; // Compatibility with existing backend
-    current?: string; // Compatibility with existing backend
+    message?: string;
+    current?: string;
     throughputIps?: number;
 }
 
@@ -75,4 +77,102 @@ export interface BackgroundJob {
     canPause?: boolean;
     canCancel?: boolean;
     canRetry?: boolean;
+}
+
+export interface JobErrorModuleSummary {
+    id: string;
+    label: string;
+    errorCount: number;
+}
+
+export interface JobErrorListItem {
+    id: string;
+    moduleId: string;
+    moduleLabel: string;
+    source: "processing_issue" | "failed_job";
+    severity: IssueSeverity;
+    message: string;
+    createdAt: string;
+    jobId?: string;
+    task?: string;
+    stage?: string;
+}
+
+export interface JobErrorSnapshot {
+    generatedAt: string;
+    page: number;
+    pageSize: number;
+    total: number;
+    moduleFilter: string | null;
+    availableModules: JobErrorModuleSummary[];
+    items: JobErrorListItem[];
+}
+
+export interface QueueStageStatus {
+    stage: string;
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+    total: number;
+    oldestPendingAt: string | null;
+    oldestProcessingAt: string | null;
+    processingMediaIds: string[];
+    runningJobs: number;
+}
+
+export interface QueueStatusSnapshot {
+    generatedAt: string;
+    totals: {
+        pending: number;
+        processing: number;
+        completed: number;
+        failed: number;
+        total: number;
+    };
+    stages: QueueStageStatus[];
+}
+
+export interface DataStatsSnapshot {
+    generatedAt: string;
+    totals: {
+        assets: number;
+        people: number;
+        photosWithAiMetadata: number;
+        photosWithDetectedFaces: number;
+        photosWithMatchedFaces: number;
+        pendingProAnalysis: number;
+    };
+    coverage: {
+        aiMetadataPercent: number;
+        faceMatchedPercent: number;
+    };
+    faces: {
+        detected: number;
+        matched: number;
+        unmatched: number;
+    };
+    aiMetadataQueues: {
+        freshPending: number;
+        freshProcessing: number;
+        freshFailed: number;
+        proPending: number;
+        proProcessing: number;
+        proFailed: number;
+        proCompleted: number;
+    };
+    lastAiMetadataQuotaBlock: {
+        createdAt: string;
+        model: string;
+        reason: 'rate_limit' | 'daily_quota';
+        fallbackModel: string;
+        affectedCount: number;
+    } | null;
+}
+
+export interface RecentEventSnapshot {
+    id: string;
+    type: string;
+    createdAt: string;
+    payload: unknown;
 }

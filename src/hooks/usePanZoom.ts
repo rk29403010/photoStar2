@@ -10,7 +10,7 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>, onReset?
     const resetPanZoom = useCallback(() => {
         setScale(1);
         setPan({ x: 0, y: 0 });
-        if (onReset) onReset();
+        if (onReset) {onReset();}
     }, [onReset]);
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {

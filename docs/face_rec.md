@@ -13,11 +13,11 @@
 
 ## 1. Face detection (humans)
 
-### Recommended model class
+### Recommended detector model class
 
 - **RetinaFace (ResNet-50 or equivalent, ONNX)**
 
-### Rationale
+### Detector rationale
 
 - Strong performance on:
   - extreme head poses (±90° profiles)
@@ -37,12 +37,12 @@
 
 ## 2. Face recognition (humans)
 
-### Recommended model class
+### Recommended recognition model class
 
 - **ArcFace (ResNet-100 preferred, ONNX)**
   - Fallback: ArcFace + ResNet-50 if memory constrained
 
-### Rationale
+### Recognition rationale
 
 - Best-performing open architecture for:
   - age-invariant identity (children ↔ elderly)

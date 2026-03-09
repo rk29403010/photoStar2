@@ -35,7 +35,7 @@ async function download() {
 
     // Using native fetch (Node 18+)
     const res = await fetch(MODEL_URL);
-    if (!res.ok) throw new Error(`HTTP error ${res.status} ${res.statusText}`);
+    if (!res.ok) {throw new Error(`HTTP error ${res.status} ${res.statusText}`);}
 
     const totalSize = Number(res.headers.get('content-length')) || 0;
     let downloaded = 0;
@@ -48,7 +48,7 @@ async function download() {
     let lastLog = Date.now();
     while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {break;}
 
         downloaded += value.length;
         fileStream.write(value);
@@ -72,7 +72,11 @@ download().catch(err => {
     console.error(`\n[ArcFaceModel] ❌ Download Failed:`, err);
     // Cleanup partial file to prevent corrupt state
     if (fs.existsSync(MODEL_FILE)) {
-        try { fs.unlinkSync(MODEL_FILE); } catch (e) { }
+        try { fs.unlinkSync(MODEL_FILE); } catch {
+            // Ignore cleanup failures for partial downloads.
+        }
     }
     process.exit(1);
 });
+
+

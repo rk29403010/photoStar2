@@ -44,7 +44,7 @@ export function estimateAffine(src: Point[], dst: Point[]): number[] {
         numB += srcCentered[i].x * dstCentered[i].y - srcCentered[i].y * dstCentered[i].x;
     }
 
-    if (denom === 0) return [1, 0, 0, 0, 1, 0]; // Identity fallback
+    if (denom === 0) {return [1, 0, 0, 0, 1, 0];} // Identity fallback
 
     const a = numA / denom; // s * cos(theta)
     const b = numB / denom; // s * sin(theta)
@@ -68,18 +68,18 @@ function getMean(points: Point[]) {
 
 export function dotProduct(a: number[], b: number[]) {
     let sum = 0;
-    for (let i = 0; i < a.length; i++) sum += a[i] * b[i];
+    for (let i = 0; i < a.length; i++) {sum += a[i] * b[i];}
     return sum;
 }
 
 export function magnitude(a: number[]) {
     let sum = 0;
-    for (let i = 0; i < a.length; i++) sum += a[i] * a[i];
+    for (let i = 0; i < a.length; i++) {sum += a[i] * a[i];}
     return Math.sqrt(sum);
 }
 
 export function cosineSimilarity(a: number[], b: number[]) {
-    if (a.length !== b.length) throw new Error("Vector length mismatch");
+    if (a.length !== b.length) {throw new Error("Vector length mismatch");}
     return dotProduct(a, b) / (magnitude(a) * magnitude(b));
 }
 
@@ -123,9 +123,9 @@ export async function dhashData(data: Buffer | Uint8Array, width: number, height
                 hash |= (1n << BigInt(63 - bitIndex));
             }
             bitIndex++;
-            if (bitIndex >= 64) break;
+            if (bitIndex >= 64) {break;}
         }
-        if (bitIndex >= 64) break;
+        if (bitIndex >= 64) {break;}
     }
 
     return hash.toString(16).padStart(16, '0');

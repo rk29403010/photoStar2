@@ -34,6 +34,9 @@ dist-ssr
 coverage/
 .nyc_output/
 
+# Generated Vite timestamp artifacts
+vite.config.ts.timestamp-*.mjs
+
 # AI model weights (large binaries — re-downloaded on first run or via postinstall)
 core/models/nsfwjs/
 core/models/*.onnx

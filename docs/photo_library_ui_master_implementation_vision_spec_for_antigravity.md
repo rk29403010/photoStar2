@@ -13,7 +13,7 @@ The intent is to enable confident implementation **without reinterpretation**.
 
 ---
 
-# Part A – Implementation Spec (Build Now)
+## Part A – Implementation Spec (Build Now)
 
 These features are approved, scoped, and expected to ship.
 
@@ -191,7 +191,7 @@ Feature classes:
 
 ---
 
-# Part B – Dreams Spec (Capture, Do Not Build Yet)
+## Part B – Dreams Spec (Capture, Do Not Build Yet)
 
 Everything in this section is **explicitly out of scope for now**.
 
@@ -262,7 +262,7 @@ Target audience: archivists and power users.
 
 ---
 
-# Part C – Handover Guardrails (What Not To Do)
+## Part C – Handover Guardrails (What Not To Do)
 
 This section exists to prevent accidental erosion of intent.
 
@@ -337,7 +337,7 @@ If the answer is no, don’t ship it.
 
 ---
 
-# Final note
+## Final note
 
 This document separates:
 

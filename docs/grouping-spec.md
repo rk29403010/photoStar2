@@ -538,4 +538,3 @@ When two groups become connected by new edges:
 3. Whether to treat **OCR/document similarity** as a first-class grouping type in v1.
 
 If you want, I can provide a “constants” block (single JSON object) that Antigrav can drop into config and version via `algorithm_version`, so rebuilds remain reproducible.
-

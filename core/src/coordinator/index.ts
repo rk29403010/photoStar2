@@ -1,15 +1,49 @@
-import { EventBus } from '../events/bus';
-import { DomainEvent } from '../events/types';
-import { DatabaseManager } from '../db';
+import type { EventBus } from '../events/bus';
+import type { DomainEvent } from '../events/types';
+import type { DatabaseManager } from '../db';
 import { SystemState } from '../state';
+import { getPausedDashboardModuleIds } from '../handlers/systemDashboardModules';
+import type {
+    QueueStage,
+    StageDispatch,
+    StagePolicy,
+    QueueTransitionRule,
+    QueueTransitionAction,
+    QueueTransitionCondition} from './workflows';
+import {
+    STAGE_POLICIES,
+    QUEUE_TRANSITION_RULES,
+    WORKFLOW_MODULES_SETTING,
+    WORKFLOW_STAGE_OVERRIDES_SETTING,
+    getQueueTransitionMediaId,
+    resolveWorkflowDefinitionFromSettings
+} from './workflows';
+
+type QueueTaskRow = { media_id: string; pipeline_stage: string };
+type DispatchPlan = {
+    mediaIdsByStage: Map<QueueStage, string[]>;
+    rowsToMarkProcessing: QueueTaskRow[];
+};
 
 export class Coordinator {
-    private eventBus: EventBus;
-    private db: DatabaseManager;
+    private readonly eventBus: EventBus;
+    private readonly db: DatabaseManager;
 
     private evaluateQueueTimeout: NodeJS.Timeout | null = null;
     private isEvaluating = false;
-    private aiJobSightingTimes: Record<string, number> = {};
+    private aiJobSightingTimes: Partial<Record<QueueStage, number>> = {};
+    private stagePolicies: StagePolicy[] = STAGE_POLICIES.map(policy => ({ ...policy, dispatch: { ...policy.dispatch } }));
+    private stagePolicyByName = new Map<QueueStage, StagePolicy>(
+        this.stagePolicies.map(policy => [policy.stage, policy] as [QueueStage, StagePolicy])
+    );
+    private queueTransitionRules: QueueTransitionRule[] = QUEUE_TRANSITION_RULES.map(rule => ({
+        ...rule,
+        actions: rule.actions.map(action => ({ ...action }))
+    }));
+    private pausedDashboardModuleIds = new Set<string>();
+    private lastStageOverrideRaw = '';
+    private lastModuleSettingRaw = '';
+    private lastPausedModulesRaw = '';
 
     constructor(eventBus: EventBus, db: DatabaseManager) {
         this.eventBus = eventBus;
@@ -26,13 +60,9 @@ export class Coordinator {
     }
 
     private registerReactors() {
-        this.eventBus.subscribe('MediaDiscovered', this.onMediaDiscovered.bind(this));
-
-        // Progression triggers
-        this.eventBus.subscribe('PreviewGenerated', this.onPreviewGenerated.bind(this));
-        this.eventBus.subscribe('FacesDetected', this.onFacesDetected.bind(this));
-        this.eventBus.subscribe('FaceEmbeddingGenerated', this.onFaceEmbeddingGenerated.bind(this));
-        this.eventBus.subscribe('SensitivityScored', this.onSensitivityScored.bind(this));
+        // Event->queue progression handled by declarative transition rules.
+        // subscribeAll keeps transitions dynamic when workflow modules/settings change at runtime.
+        this.eventBus.subscribeAll(this.onQueueTransitionEvent.bind(this));
 
         // Worker completion unblocks the queue
         this.eventBus.subscribe('JobCompleted', this.onJobCompleted.bind(this));
@@ -56,190 +86,262 @@ export class Coordinator {
 
     // --- Enqueueing Workflows ---
 
-    private onMediaDiscovered(event: DomainEvent) {
-        if (event.type !== 'MediaDiscovered') return;
+    private onQueueTransitionEvent(event: DomainEvent) {
+        const matchingRules = this.queueTransitionRules.filter(rule => rule.eventType === event.type);
+        if (matchingRules.length === 0) {return;}
 
-        const autoPreview = this.db.getSetting('workflow_generate_previews_on_ingest') !== 'false';
-
-        if (autoPreview) {
-            this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'previews')`).run(event.mediaId);
-        } else {
-            // Skip previews, go straight to detection
-            this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'detection')`).run(event.mediaId);
-        }
-        this.triggerEvaluateQueue();
-    }
-
-    private onPreviewGenerated(event: DomainEvent) {
-        if (event.type !== 'PreviewGenerated') return;
+        let shouldEvaluate = false;
         this.db.getDb().transaction(() => {
-            this.db.getDb().prepare(`UPDATE task_queue SET status = 'completed' WHERE media_id = ? AND pipeline_stage = 'previews'`).run(event.mediaId);
-            this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'detection')`).run(event.mediaId);
-            // Queue sensitivity scan as a low-priority background task
-            this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage, priority) VALUES (?, 'sensitive_scan', -10)`).run(event.mediaId);
-        })();
-        this.triggerEvaluateQueue();
-    }
-
-    private onFacesDetected(event: DomainEvent) {
-        if (event.type !== 'FacesDetected') return;
-        this.db.getDb().transaction(() => {
-            this.db.getDb().prepare(`UPDATE task_queue SET status = 'completed' WHERE media_id = ? AND pipeline_stage = 'detection'`).run(event.mediaId);
-            if (event.faceCount > 0) {
-                this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'recognition')`).run(event.mediaId);
+            for (const rule of matchingRules) {
+                const mediaId = getQueueTransitionMediaId(event, rule);
+                if (!mediaId) {continue;}
+                if (!this.matchesTransitionCondition(rule.condition || 'always', event)) {continue;}
+                for (const action of rule.actions) {
+                    this.applyQueueTransitionAction(mediaId, action);
+                }
+                if (rule.triggerEvaluate) {shouldEvaluate = true;}
             }
         })();
-        this.triggerEvaluateQueue();
+
+        if (shouldEvaluate) {
+            this.triggerEvaluateQueue();
+        }
     }
 
-    private onFaceEmbeddingGenerated(event: DomainEvent) {
-        if (event.type !== 'FaceEmbeddingGenerated') return;
-        // Mark recognition completed per face. Since we dispatch per image batch, it's safe to mark the 'recognition' item completed upon the first face's embedding (or all, the UPDATE is idempotent)
+    private matchesTransitionCondition(condition: QueueTransitionCondition, event: DomainEvent): boolean {
+        switch (condition) {
+            case 'always':
+                return true;
+            case 'auto_preview_on':
+                return this.db.getSetting('workflow_generate_previews_on_ingest') !== 'false';
+            case 'auto_preview_off':
+                return this.db.getSetting('workflow_generate_previews_on_ingest') === 'false';
+            case 'face_count_positive':
+                return event.type === 'FacesDetected' && event.faceCount > 0;
+            default:
+                return false;
+        }
+    }
+
+    private applyQueueTransitionAction(mediaId: string, action: QueueTransitionAction) {
+        switch (action.kind) {
+            case 'queue_upsert':
+                if (!this.stagePolicyByName.has(action.stage)) {return;}
+                if (typeof action.priority === 'number') {
+                    this.db.getDb().prepare(
+                        `INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage, priority) VALUES (?, ?, ?)`
+                    ).run(mediaId, action.stage, action.priority);
+                } else {
+                    this.db.getDb().prepare(
+                        `INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, ?)`
+                    ).run(mediaId, action.stage);
+                }
+                return;
+            case 'queue_complete':
+                this.db.getDb().prepare(
+                    `UPDATE task_queue SET status = 'completed' WHERE media_id = ? AND pipeline_stage = ?`
+                ).run(mediaId, action.stage);
+                return;
+        }
+    }
+
+    private shouldImmediatelyEvaluateOnCompletion(event: DomainEvent): boolean {
+        return event.type === 'JobCompleted' && event.pipelineStage === 'previews';
+    }
+
+    private finalizeAiMetadataTasks(event: DomainEvent) {
+        if (event.type !== 'JobCompleted' && event.type !== 'JobFailed') {
+            return;
+        }
+
+        const stage = event.pipelineStage;
+        if (stage !== 'ai_metadata' && stage !== 'ai_metadata_3f' && stage !== 'ai_metadata_31p') {
+            return;
+        }
+
+        if (event.type === 'JobCompleted') {
+            const completed = this.db.getDb().prepare(
+                `UPDATE task_queue SET status = 'completed' WHERE pipeline_stage = ? AND status = 'processing'`
+            ).run(stage);
+            if (completed.changes > 0) {
+                console.log(`[Coordinator] Finalized ${completed.changes} ${stage} task(s).`);
+            }
+            return;
+        }
+
+        if (event.type === 'JobFailed') {
+            const failed = this.db.getDb().prepare(
+                `UPDATE task_queue SET status = 'failed' WHERE pipeline_stage = ? AND status = 'processing'`
+            ).run(stage);
+            if (failed.changes > 0) {
+                console.warn(`[Coordinator] Marked ${failed.changes} ${stage} task(s) as failed.`);
+            }
+        }
+    }
+
+    private cleanupRecognitionTasks(event: DomainEvent) {
+        if (event.type !== 'JobCompleted' || event.pipelineStage !== 'recognition') {
+            return;
+        }
+
         this.db.getDb().transaction(() => {
-            this.db.getDb().prepare(`UPDATE task_queue SET status = 'completed' WHERE media_id = ? AND pipeline_stage = 'recognition'`).run(event.mediaId);
-            this.db.getDb().prepare(`INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'clustering')`).run(event.mediaId);
-        })();
-        this.triggerEvaluateQueue();
-    }
+            // Mark any remaining 'processing' recognition rows as completed
+            const stuck = this.db.getDb().prepare(
+                `UPDATE task_queue SET status = 'completed' WHERE pipeline_stage = 'recognition' AND status = 'processing'`
+            ).run();
 
-    private onSensitivityScored(event: DomainEvent) {
-        if (event.type !== 'SensitivityScored') return;
-        this.db.getDb().prepare(
-            `UPDATE task_queue SET status = 'completed' WHERE media_id = ? AND pipeline_stage = 'sensitive_scan'`
-        ).run(event.mediaId);
+            if (stuck.changes > 0) {
+                console.error(`[Coordinator] Cleaned up ${stuck.changes} stuck recognition task(s).`);
+            }
+
+            // Ensure at least one clustering row exists so evaluateQueue picks it up.
+            // Use the first asset that has recognition data as the trigger row.
+            const anyAsset = this.db.getDb().prepare(
+                `SELECT asset_id FROM derived_results WHERE task = 'face_recognition' LIMIT 1`
+            ).get() as { asset_id: string } | undefined;
+
+            if (anyAsset) {
+                this.db.getDb().prepare(
+                    `INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'clustering')`
+                ).run(anyAsset.asset_id);
+            }
+        })();
     }
 
     private onJobCompleted(event: DomainEvent) {
-        if (event.type === 'JobCompleted' && event.pipelineStage === 'previews') {
+        if (this.shouldImmediatelyEvaluateOnCompletion(event)) {
             this.triggerEvaluateQueue(true);
             return;
         }
 
-        // When recognition finishes, clean up any stuck 'processing' rows.
-        // These happen for images where FaceEmbeddingGenerated was never emitted
-        // (e.g. no detectable faces, landmark failure). Without this sweep they
-        // permanently block evaluateQueue from ever reaching the clustering stage.
-        if (event.type === 'JobCompleted' && event.pipelineStage === 'recognition') {
-            this.db.getDb().transaction(() => {
-                // Mark any remaining 'processing' recognition rows as completed
-                const stuck = this.db.getDb().prepare(
-                    `UPDATE task_queue SET status = 'completed' WHERE pipeline_stage = 'recognition' AND status = 'processing'`
-                ).run();
-
-                if (stuck.changes > 0) {
-                    console.error(`[Coordinator] Cleaned up ${stuck.changes} stuck recognition task(s).`);
-                }
-
-                // Ensure at least one clustering row exists so evaluateQueue picks it up.
-                // Use the first asset that has recognition data as the trigger row.
-                const anyAsset = this.db.getDb().prepare(
-                    `SELECT asset_id FROM derived_results WHERE task = 'face_recognition' LIMIT 1`
-                ).get() as { asset_id: string } | undefined;
-
-                if (anyAsset) {
-                    this.db.getDb().prepare(
-                        `INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'clustering')`
-                    ).run(anyAsset.asset_id);
-                }
-            })();
-        }
+        this.finalizeAiMetadataTasks(event);
+        this.cleanupRecognitionTasks(event);
 
         this.triggerEvaluateQueue();
+    }
+
+    private refreshWorkflowDefinitionFromSettings() {
+        const rawOverrides = this.db.getSetting(WORKFLOW_STAGE_OVERRIDES_SETTING) || '';
+        const rawModules = this.db.getSetting(WORKFLOW_MODULES_SETTING) || '';
+        const rawPausedModules = this.db.getSetting('dashboard_paused_modules_json') || '';
+        if (
+            rawOverrides === this.lastStageOverrideRaw &&
+            rawModules === this.lastModuleSettingRaw &&
+            rawPausedModules === this.lastPausedModulesRaw
+        ) {return;}
+
+        this.lastStageOverrideRaw = rawOverrides;
+        this.lastModuleSettingRaw = rawModules;
+        this.lastPausedModulesRaw = rawPausedModules;
+        this.pausedDashboardModuleIds = getPausedDashboardModuleIds(this.db);
+
+        const { policies, transitionRules, errors } = resolveWorkflowDefinitionFromSettings(rawOverrides, rawModules);
+        this.stagePolicies = policies;
+        this.queueTransitionRules = transitionRules;
+        this.stagePolicyByName = new Map<QueueStage, StagePolicy>(
+            this.stagePolicies.map(policy => [policy.stage, policy] as [QueueStage, StagePolicy])
+        );
+
+        if (errors.length > 0) {
+            console.warn(`[Coordinator] Workflow settings warnings:\n- ${errors.join('\n- ')}`);
+        } else {
+            console.log(`[Coordinator] Loaded workflow configuration. Active policies: ${this.stagePolicies.length}, transitions: ${this.queueTransitionRules.length}`);
+        }
     }
 
     // --- Smart Evaluation Loop ---
 
     private evaluateQueue() {
-        if (this.isEvaluating || SystemState.isPaused) return;
+        if (this.isEvaluating || SystemState.isPaused) {return;}
         this.isEvaluating = true;
         try {
-            // 1. High-Priority Jump (Single Photo View)
-            const highPriorityRows = this.db.getDb().prepare(`
-                SELECT media_id, pipeline_stage 
-                FROM task_queue
-                WHERE status = 'pending' AND priority > 0
-                ORDER BY priority DESC, created_at ASC
-                LIMIT 50
-            `).all() as { media_id: string, pipeline_stage: string }[];
+            this.refreshWorkflowDefinitionFromSettings();
 
+            const highPriorityRows = this.getPendingHighPriorityRows(50);
             if (highPriorityRows.length > 0) {
                 this.dispatchTasks(highPriorityRows);
-                return; // Return early, let high-priority finish before touching bulk
+                return;
             }
 
-            // 2. Strict Bulk Processing Sequence
-            // A. Previews (Highest Bulk Priority)
-            const activePreviews = this.db.getDb().prepare(`SELECT count(*) as count FROM task_queue WHERE status IN ('pending', 'processing') AND pipeline_stage = 'previews'`).get() as { count: number };
-            if (activePreviews.count > 0) {
-                const pendingBatch = this.db.getDb().prepare(`
-                    SELECT media_id, pipeline_stage FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'previews' ORDER BY created_at ASC LIMIT 100
-                `).all() as { media_id: string, pipeline_stage: string }[];
-                if (pendingBatch.length > 0) this.dispatchTasks(pendingBatch);
-                return; // BLOCK AI STAGES WHILE PREVIEWS PEND OR PROCESS
-            }
-
-            // B. Face Detection (Heavy Task)
-            const activeDetection = this.db.getDb().prepare(`SELECT count(*) as count FROM task_queue WHERE status IN ('pending', 'processing') AND pipeline_stage = 'detection'`).get() as { count: number };
-            if (activeDetection.count > 0) {
-                const pendingDetectionCount = this.db.getDb().prepare(`SELECT count(*) as count FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'detection'`).get() as { count: number };
-                if (pendingDetectionCount.count > 0 && this.shouldTriggerHeavyTask('detection', pendingDetectionCount.count)) {
-                    const batch = this.db.getDb().prepare(`
-                        SELECT media_id, pipeline_stage FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'detection' ORDER BY created_at ASC LIMIT 100
-                    `).all() as { media_id: string, pipeline_stage: string }[];
-                    this.dispatchTasks(batch);
-                }
-                return; // BLOCK RECOGNITION WHILE DETECTION PENDS OR PROCESSES
-            } else {
-                delete this.aiJobSightingTimes['detection'];
-            }
-
-            // C. Face Recognition (Heavy Task)
-            const activeRecognition = this.db.getDb().prepare(`SELECT count(*) as count FROM task_queue WHERE status IN ('pending', 'processing') AND pipeline_stage = 'recognition'`).get() as { count: number };
-            if (activeRecognition.count > 0) {
-                const pendingRecognitionCount = this.db.getDb().prepare(`SELECT count(*) as count FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'recognition'`).get() as { count: number };
-                if (pendingRecognitionCount.count > 0 && this.shouldTriggerHeavyTask('recognition', pendingRecognitionCount.count)) {
-                    const batch = this.db.getDb().prepare(`
-                        SELECT media_id, pipeline_stage FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'recognition' ORDER BY created_at ASC LIMIT 100
-                    `).all() as { media_id: string, pipeline_stage: string }[];
-                    this.dispatchTasks(batch);
-                }
-                return; // BLOCK CLUSTERING
-            } else {
-                delete this.aiJobSightingTimes['recognition'];
-            }
-
-            // D. Clustering
-            const activeClustering = this.db.getDb().prepare(`SELECT count(*) as count FROM jobs WHERE id LIKE 'cluster-%' AND status = 'running'`).get() as { count: number };
-            if (activeClustering.count === 0) {
-                const pendingClustering = this.db.getDb().prepare(`SELECT count(*) as count FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'clustering'`).get() as { count: number };
-                if (pendingClustering.count > 0) {
-                    this.db.getDb().prepare(`UPDATE task_queue SET status = 'completed' WHERE pipeline_stage = 'clustering'`).run();
-                    this.eventBus.emit({ type: 'FaceClusteringRequested' });
+            for (const policy of this.stagePolicies) {
+                if (this.evaluatePolicy(policy)) {
+                    return;
                 }
             }
-
-            // E. Sensitive Scan – low priority, runs when nothing else is active
-            const activeSensitive = this.db.getDb().prepare(`SELECT count(*) as count FROM jobs WHERE id LIKE 'sensitive-%' AND status = 'running'`).get() as { count: number };
-            if (activeSensitive.count === 0) {
-                const pendingSensitive = this.db.getDb().prepare(`SELECT count(*) as count FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'sensitive_scan'`).get() as { count: number };
-                if (pendingSensitive.count > 0 && this.shouldTriggerHeavyTask('sensitive_scan', pendingSensitive.count)) {
-                    const batch = this.db.getDb().prepare(`
-                        SELECT media_id, pipeline_stage FROM task_queue WHERE status = 'pending' AND pipeline_stage = 'sensitive_scan' ORDER BY created_at ASC LIMIT 200
-                    `).all() as { media_id: string, pipeline_stage: string }[];
-                    this.dispatchTasks(batch);
-                }
-            }
-
         } finally {
             this.isEvaluating = false;
         }
     }
 
-    private shouldTriggerHeavyTask(stage: string, count: number): boolean {
-        const BATCH_THRESHOLD = 5;  // Spin up model when ≥5 items queued
-        const MAX_WAIT_MS = 20000;  // OR if 20s have passed since the first item appeared
+    private evaluatePolicy(policy: StagePolicy): boolean {
+        if (this.isPolicyPaused(policy.stage)) {
+            return false;
+        }
 
-        if (count >= BATCH_THRESHOLD) return true;
+        const activeCount = this.getActiveCount(policy);
+        const pendingCount = this.getPendingCount(policy.stage);
+
+        this.resetHeavyBatchSightingIfIdle(policy, pendingCount, activeCount);
+        this.dispatchMediaBatchIfNeeded(policy, pendingCount);
+        this.dispatchSignalIfNeeded(policy, pendingCount, activeCount);
+
+        return this.shouldBlockOnPolicy(policy, activeCount);
+    }
+
+    private isPolicyPaused(stage: QueueStage): boolean {
+        const pausedStageMap: Partial<Record<QueueStage, string>> = {
+            previews: 'class-previews',
+            detection: 'class-detection',
+            recognition: 'class-mapping',
+            clustering: 'class-clustering',
+            sensitive_scan: 'class-sensitive',
+            ai_metadata_3f: 'class-aimetadata-3f',
+            ai_metadata_31p: 'class-aimetadata-31p',
+        };
+
+        const moduleId = pausedStageMap[stage];
+        return moduleId ? this.pausedDashboardModuleIds.has(moduleId) : false;
+    }
+
+    private resetHeavyBatchSightingIfIdle(policy: StagePolicy, pendingCount: number, activeCount: number) {
+        if (!policy.useHeavyBatching) {return;}
+        if (pendingCount !== 0 || activeCount !== 0) {return;}
+        delete this.aiJobSightingTimes[policy.stage];
+    }
+
+    private dispatchMediaBatchIfNeeded(policy: StagePolicy, pendingCount: number) {
+        if (policy.dispatch.kind !== 'media_batch') {return;}
+        if (pendingCount <= 0) {return;}
+        if (!this.shouldDispatchMediaBatch(policy, pendingCount)) {return;}
+
+        const batchRows = this.getPendingRows(policy.stage, policy.batchLimit || 100);
+        this.dispatchTasks(batchRows);
+    }
+
+    private shouldDispatchMediaBatch(policy: StagePolicy, pendingCount: number): boolean {
+        if (!policy.useHeavyBatching) {return true;}
+        return this.shouldTriggerHeavyTask(policy.stage, pendingCount);
+    }
+
+    private dispatchSignalIfNeeded(policy: StagePolicy, pendingCount: number, activeCount: number) {
+        if (policy.dispatch.kind !== 'signal') {return;}
+        if (pendingCount <= 0 || activeCount !== 0) {return;}
+
+        if (policy.dispatch.completePendingRowsBeforeEmit) {
+            this.markPendingRowsCompleted(policy.stage);
+        }
+        this.emitDispatchEvent(policy.dispatch);
+    }
+
+    private shouldBlockOnPolicy(policy: StagePolicy, activeCount: number): boolean {
+        return policy.gate === 'strict' && activeCount > 0;
+    }
+
+    private shouldTriggerHeavyTask(stage: QueueStage, count: number): boolean {
+        const BATCH_THRESHOLD = 3;  // Spin up model when >=3 items queued
+        const MAX_WAIT_MS = 2000;   // Or if 2s have passed since first sighting
+
+        if (count >= BATCH_THRESHOLD) {return true;}
 
         const now = Date.now();
         if (!this.aiJobSightingTimes[stage]) {
@@ -247,53 +349,165 @@ export class Coordinator {
             return false;
         }
 
-        if (now - this.aiJobSightingTimes[stage] >= MAX_WAIT_MS) {
+        if (now - (this.aiJobSightingTimes[stage] || 0) >= MAX_WAIT_MS) {
             return true;
         }
 
         return false;
     }
 
-    private dispatchTasks(rows: { media_id: string, pipeline_stage: string }[]) {
-        if (rows.length === 0) return;
+    private getPendingHighPriorityRows(limit: number): QueueTaskRow[] {
+        return this.db.getDb().prepare(`
+            SELECT media_id, pipeline_stage
+            FROM task_queue
+            WHERE status = 'pending' AND priority > 0
+            ORDER BY priority DESC, created_at ASC
+            LIMIT ?
+        `).all(limit) as QueueTaskRow[];
+    }
 
-        const mediaIdsByStage: Record<string, string[]> = {};
+    private getPendingRows(stage: QueueStage, limit: number): QueueTaskRow[] {
+        return this.db.getDb().prepare(`
+            SELECT media_id, pipeline_stage
+            FROM task_queue
+            WHERE status = 'pending' AND pipeline_stage = ?
+            ORDER BY created_at ASC
+            LIMIT ?
+        `).all(stage, limit) as QueueTaskRow[];
+    }
 
-        // Mark as processing atomically
+    private getPendingCount(stage: QueueStage): number {
+        const row = this.db.getDb().prepare(`
+            SELECT count(*) as count
+            FROM task_queue
+            WHERE status = 'pending' AND pipeline_stage = ?
+        `).get(stage) as { count: number };
+        return row.count;
+    }
+
+    private getQueueActiveCount(stage: QueueStage): number {
+        const row = this.db.getDb().prepare(`
+            SELECT count(*) as count
+            FROM task_queue
+            WHERE status IN ('pending', 'processing') AND pipeline_stage = ?
+        `).get(stage) as { count: number };
+        return row.count;
+    }
+
+    private getRunningJobCount(jobLike: string): number {
+        const row = this.db.getDb().prepare(`
+            SELECT count(*) as count
+            FROM jobs
+            WHERE id LIKE ? AND status = 'running'
+        `).get(jobLike) as { count: number };
+        return row.count;
+    }
+
+    private getActiveCount(policy: StagePolicy): number {
+        if (policy.activeCounter === 'task_queue') {
+            return this.getQueueActiveCount(policy.stage);
+        }
+        if (!policy.jobsRunningLike) {return 0;}
+        return this.getRunningJobCount(policy.jobsRunningLike);
+    }
+
+    private markPendingRowsCompleted(stage: QueueStage) {
+        this.db.getDb().prepare(`
+            UPDATE task_queue
+            SET status = 'completed'
+            WHERE pipeline_stage = ? AND status = 'pending'
+        `).run(stage);
+    }
+
+    private emitDispatchEvent(dispatch: StageDispatch, mediaIds: string[] = []) {
+        switch (dispatch.event) {
+            case 'PreviewRequested':
+                this.eventBus.emit({ type: 'PreviewRequested', mediaIds, reason: dispatch.reason });
+                return;
+            case 'FaceDetectionRequested':
+                this.eventBus.emit({ type: 'FaceDetectionRequested', mediaIds });
+                return;
+            case 'FaceRecognitionRequested':
+                this.eventBus.emit({ type: 'FaceRecognitionRequested', mediaIds });
+                return;
+            case 'SensitiveScanRequested':
+                this.eventBus.emit({ type: 'SensitiveScanRequested', mediaIds });
+                return;
+            case 'AiMetadataRequested':
+                this.eventBus.emit({ type: 'AiMetadataRequested', mediaIds, queueMode: dispatch.queueMode });
+                return;
+            case 'FaceClusteringRequested':
+                this.eventBus.emit({ type: 'FaceClusteringRequested' });
+                return;
+        }
+    }
+
+        private buildDispatchPlan(rows: QueueTaskRow[]): DispatchPlan {
+        const plan: DispatchPlan = {
+            mediaIdsByStage: new Map<QueueStage, string[]>(),
+            rowsToMarkProcessing: [],
+        };
+
+        for (const row of rows) {
+            this.addRowToDispatchPlan(plan, row);
+        }
+
+        return plan;
+    }
+
+    private addRowToDispatchPlan(plan: DispatchPlan, row: QueueTaskRow) {
+        const stage = row.pipeline_stage as QueueStage;
+        const mediaIds = plan.mediaIdsByStage.get(stage) ?? [];
+        mediaIds.push(row.media_id);
+        plan.mediaIdsByStage.set(stage, mediaIds);
+
+        const policy = this.stagePolicyByName.get(stage);
+        if (policy?.dispatch.kind === 'media_batch') {
+            plan.rowsToMarkProcessing.push(row);
+        }
+    }
+
+    private markRowsProcessing(rows: QueueTaskRow[]) {
+        if (rows.length === 0) {return;}
+
         const stmt = this.db.getDb().prepare(`UPDATE task_queue SET status = 'processing' WHERE media_id = ? AND pipeline_stage = ?`);
         this.db.getDb().transaction(() => {
             for (const row of rows) {
                 stmt.run(row.media_id, row.pipeline_stage);
-                if (!mediaIdsByStage[row.pipeline_stage]) mediaIdsByStage[row.pipeline_stage] = [];
-                mediaIdsByStage[row.pipeline_stage].push(row.media_id);
             }
         })();
+    }
 
-        // Dispatch requests to main.ts orchestrator logic
-        if (mediaIdsByStage['previews']) {
-            this.eventBus.emit({
-                type: 'PreviewRequested',
-                mediaIds: mediaIdsByStage['previews'],
-                reason: 'ingest'
-            });
-        }
-        if (mediaIdsByStage['detection']) {
-            this.eventBus.emit({
-                type: 'FaceDetectionRequested',
-                mediaIds: mediaIdsByStage['detection']
-            });
-        }
-        if (mediaIdsByStage['recognition']) {
-            this.eventBus.emit({
-                type: 'FaceRecognitionRequested',
-                mediaIds: mediaIdsByStage['recognition']
-            });
-        }
-        if (mediaIdsByStage['sensitive_scan']) {
-            this.eventBus.emit({
-                type: 'SensitiveScanRequested',
-                mediaIds: mediaIdsByStage['sensitive_scan']
-            } as unknown as DomainEvent);
+    private dispatchByStage(mediaIdsByStage: Map<QueueStage, string[]>) {
+        for (const [stage, mediaIds] of mediaIdsByStage.entries()) {
+            const policy = this.stagePolicyByName.get(stage);
+            if (!policy) {
+                console.warn(`[Coordinator] No policy for stage '${stage}', skipping dispatch.`);
+                continue;
+            }
+
+            if (policy.dispatch.kind === 'signal') {
+                if (policy.dispatch.completePendingRowsBeforeEmit) {
+                    this.markPendingRowsCompleted(policy.stage);
+                }
+                this.emitDispatchEvent(policy.dispatch);
+                continue;
+            }
+
+            this.emitDispatchEvent(policy.dispatch, mediaIds);
         }
     }
+
+    private dispatchTasks(rows: QueueTaskRow[]) {
+        if (rows.length === 0) {return;}
+
+        const plan = this.buildDispatchPlan(rows);
+        this.markRowsProcessing(plan.rowsToMarkProcessing);
+        this.dispatchByStage(plan.mediaIdsByStage);
+    }
 }
+
+
+
+
+

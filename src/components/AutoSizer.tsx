@@ -9,7 +9,7 @@ export default function AutoSizer({ children }: AutoSizerProps) {
     const [size, setSize] = useState({ height: 0, width: 0 });
 
     useEffect(() => {
-        if (!ref.current) return;
+        if (!ref.current) {return;}
 
         // Initial measure
         setSize({

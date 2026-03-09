@@ -1,461 +1,469 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import './App.css';
-import metadata from '../metadata.json';
-import { TaskDrawer } from './components/jobs/TaskDrawer';
-import { ActionPanel } from './components/ActionPanel';
-import { SettingsModal } from './components/SettingsModal';
-import { SinglePhotoView } from './components/SinglePhotoView';
+import { TopBar } from './components/TopBar';
+import { LoadingScreen } from './components/LoadingScreen';
+import { DevConsole } from './components/DevConsole';
 import { usePhotoLibrary } from './hooks/usePhotoLibrary';
 import { usePersistedState } from './hooks/usePersistedState';
-import { TopBar } from './components/TopBar';
-import { LibraryView } from './components/LibraryView';
-import { PeopleView } from './components/PeopleView';
-import { DashboardView } from './components/DashboardView';
-import { AlbumsView } from './components/AlbumsView';
-import { LoadingScreen } from './components/LoadingScreen';
-import { PERSON_COLORS } from '../shared/types/core';
-import { DevConsole } from './components/DevConsole';
+import { AppFilterBar } from './components/app/AppFilterBar';
+import { AppMainContent } from './components/app/AppMainContent';
+import { AppStatusBar } from './components/app/AppStatusBar';
+import { AppOverlays } from './components/app/AppOverlays';
+import { AppNotifications } from './components/app/AppNotifications';
+import { canUseNativeDirectoryPicker } from './config/backend';
+import type { LibraryFilter } from './hooks/usePhotoLibrary';
 
-function App() {
+type AppView = 'library' | 'people' | 'dashboard' | 'albums';
+type InfoTab = 'file' | 'analysis' | 'people' | 'json';
+
+interface AppActionHandlers {
+  shownAssetsCount: number;
+  resetLibraryUi: () => void;
+  handleViewChange: (next: AppView) => void;
+  handleRefresh: () => void;
+  handleDeclusterSelection: (personId: string) => void;
+  handleToggleRejected: (personId: string) => void;
+  handleFilterBack: () => void;
+  handleClearAllFilters: () => void;
+  handleUntagAsset: (assetId: string, personId: string) => void;
+  handlePeopleFilter: (filter: LibraryFilter) => void;
+  handleOpenAlbum: (albumId: string, albumTitle: string) => void;
+  handleScan: (specificPath?: string) => Promise<void>;
+  handleOverlayRefresh: () => void;
+  handleFaceClick: (personId: string, personName: string) => void;
+  handleOpenSettingsFromPhoto: () => void;
+}
+
+interface UseAppActionHandlersParams {
+  assets: ReturnType<typeof usePhotoLibrary>['assets'];
+  filterStack: LibraryFilter[];
+  showRejected: boolean;
+  setShowRejected: (showRejected: boolean | ((prev: boolean) => boolean)) => void;
+  librarySelection: Set<string>;
+  setLibrarySelection: (selection: Set<string>) => void;
+  declusteredAssets: Set<string>;
+  setDeclusteredAssets: Dispatch<SetStateAction<Set<string>>>;
+  actions: ReturnType<typeof usePhotoLibrary>['actions'];
+  setView: (view: AppView) => void;
+  setPeopleSelectionCount: (count: number) => void;
+  setSelectedAssetId: (assetId: string | null) => void;
+  setShowSettings: (show: boolean) => void;
+}
+
+interface UseLibraryFilterHandlersParams {
+  filterStack: LibraryFilter[];
+  showRejected: boolean;
+  setShowRejected: (showRejected: boolean | ((prev: boolean) => boolean)) => void;
+  librarySelection: Set<string>;
+  setLibrarySelection: (selection: Set<string>) => void;
+  declusteredAssets: Set<string>;
+  setDeclusteredAssets: Dispatch<SetStateAction<Set<string>>>;
+  actions: ReturnType<typeof usePhotoLibrary>['actions'];
+  setView: (view: AppView) => void;
+  setPeopleSelectionCount: (count: number) => void;
+}
+
+interface UseLibraryFilterStateResetParams {
+  actions: ReturnType<typeof usePhotoLibrary>['actions'];
+  declusteredAssets: Set<string>;
+  filterStack: LibraryFilter[];
+  librarySelection: Set<string>;
+  setDeclusteredAssets: Dispatch<SetStateAction<Set<string>>>;
+  setLibrarySelection: (selection: Set<string>) => void;
+  setPeopleSelectionCount: (count: number) => void;
+  setShowRejected: (showRejected: boolean | ((prev: boolean) => boolean)) => void;
+  setView: (view: AppView) => void;
+  showRejected: boolean;
+}
+
+async function requestScanPath(): Promise<string | null> {
+  if (canUseNativeDirectoryPicker()) {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ directory: true, multiple: false });
+    return selected && typeof selected === 'string' ? selected : null;
+  }
+
+  return window.prompt('Enter absolute path to scan (e.g. C:/Users/robin/Photos):');
+}
+
+function useSelectionRecovery(
+  assets: ReturnType<typeof usePhotoLibrary>['assets'],
+  selectedAssetId: string | null,
+  setSelectedAssetId: (assetId: string | null) => void,
+  setStatusMessage: Dispatch<SetStateAction<string | null>>
+) {
+  useEffect(() => {
+    if (!selectedAssetId || assets.length === 0) {return;}
+    if (assets.some((asset) => asset.id === selectedAssetId)) {return;}
+
+    setSelectedAssetId(null);
+    const showTimer = window.setTimeout(() => setStatusMessage('Previously selected photo is no longer available.'), 0);
+    const clearTimer = window.setTimeout(() => setStatusMessage(null), 5000);
+
+    return () => {
+      window.clearTimeout(showTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [assets, selectedAssetId, setSelectedAssetId, setStatusMessage]);
+}
+
+function useAppActionHandlers(params: UseAppActionHandlersParams): AppActionHandlers {
   const {
-    status,
-    error,
-    stats,
     assets,
-    people,
-    rejectedAssets,
-    jobs, // from useJobManager via usePhotoLibrary
-    systemJobs,
-    folderHistory,
-    isSystemPaused,
-    actions,
-    logs,
     filterStack,
-    notifications,
-    dismissNotification
-  } = usePhotoLibrary();
+    showRejected,
+    setShowRejected,
+    librarySelection,
+    setLibrarySelection,
+    declusteredAssets,
+    setDeclusteredAssets,
+    actions,
+    setView,
+    setPeopleSelectionCount,
+    setSelectedAssetId,
+    setShowSettings,
+  } = params;
 
-  // Persisted UI State
-  const [view, setView] = usePersistedState<'library' | 'people' | 'dashboard' | 'albums'>('ps_view', 'library');
+  const shownAssetsCount = useMemo(() => {
+    return filterStack.length > 0 ? assets.filter((asset) => Boolean(asset.preview_path)).length : -1;
+  }, [assets, filterStack]);
+  const filterHandlers = useLibraryFilterHandlers({
+    filterStack,
+    showRejected,
+    setShowRejected,
+    librarySelection,
+    setLibrarySelection,
+    declusteredAssets,
+    setDeclusteredAssets,
+    actions,
+    setView,
+    setPeopleSelectionCount,
+  });
+
+  const handleScan = useCallback(async (specificPath?: string) => {
+    const path = specificPath ?? await requestScanPath();
+    if (path) {
+      void actions.scanLibrary(path);
+    }
+  }, [actions]);
+
+  const handleOverlayRefresh = useCallback(() => {
+    actions.refreshLibrary();
+    actions.refreshPeople();
+  }, [actions]);
+
+  const handleFaceClick = useCallback((personId: string, personName: string) => {
+    actions.pushFilter({ type: 'person_any', personIds: [personId], description: personName });
+    setSelectedAssetId(null);
+    setView('library');
+  }, [actions, setSelectedAssetId, setView]);
+
+  const handleOpenSettingsFromPhoto = useCallback(() => {
+    setSelectedAssetId(null);
+    setShowSettings(true);
+  }, [setSelectedAssetId, setShowSettings]);
+
+  return {
+    shownAssetsCount,
+    ...filterHandlers,
+    handleScan,
+    handleOverlayRefresh,
+    handleFaceClick,
+    handleOpenSettingsFromPhoto,
+  };
+}
+
+function useLibraryFilterHandlers(params: UseLibraryFilterHandlersParams) {
+  const {
+    filterStack,
+    showRejected,
+    setShowRejected,
+    librarySelection,
+    setLibrarySelection,
+    declusteredAssets,
+    setDeclusteredAssets,
+    actions,
+    setView,
+    setPeopleSelectionCount,
+  } = params;
+
+  const stateResetHandlers = useLibraryFilterStateResetHandlers({
+    actions,
+    declusteredAssets,
+    filterStack,
+    librarySelection,
+    setDeclusteredAssets,
+    setLibrarySelection,
+    setPeopleSelectionCount,
+    setShowRejected,
+    setView,
+    showRejected,
+  });
+
+  const handleFilterBack = useCallback(() => {
+    if (filterStack.length <= 1) {
+      setView('people');
+      actions.clearFilters();
+    } else {
+      actions.popFilter();
+    }
+    stateResetHandlers.resetLibraryUi();
+  }, [actions, filterStack.length, setView, stateResetHandlers]);
+
+  const handleClearAllFilters = useCallback(() => {
+    actions.clearFilters();
+    setView('people');
+    stateResetHandlers.resetLibraryUi();
+  }, [actions, setView, stateResetHandlers]);
+
+  return {
+    ...stateResetHandlers,
+    handleFilterBack,
+    handleClearAllFilters,
+  };
+}
+
+function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetParams) {
+  const {
+    actions,
+    declusteredAssets,
+    librarySelection,
+    setDeclusteredAssets,
+    setLibrarySelection,
+    setPeopleSelectionCount,
+    setShowRejected,
+    setView,
+    showRejected,
+  } = params;
+
+  const resetLibraryUi = useCallback(() => {
+    setDeclusteredAssets(new Set());
+    setLibrarySelection(new Set());
+    setShowRejected(false);
+    actions.getRejectedAssetsForPerson(null);
+  }, [actions, setDeclusteredAssets, setLibrarySelection, setShowRejected]);
+
+  const handleViewChange = useCallback((next: AppView) => {
+    actions.clearFilters();
+    setDeclusteredAssets(next === 'library' ? new Set() : declusteredAssets);
+    setLibrarySelection(new Set());
+    setView(next);
+  }, [actions, declusteredAssets, setDeclusteredAssets, setLibrarySelection, setView]);
+
+  const handleRefresh = useCallback(() => {
+    setDeclusteredAssets(new Set());
+    setShowRejected(false);
+    actions.getRejectedAssetsForPerson(null);
+    actions.refreshLibrary();
+    actions.refreshPeople();
+  }, [actions, setDeclusteredAssets, setShowRejected]);
+
+  const handleDeclusterSelection = useCallback((personId: string) => {
+    Array.from(librarySelection).forEach((assetId) => {
+      void actions.isolatePersonAsset(assetId, personId);
+    });
+    setDeclusteredAssets((prev) => {
+      const next = new Set(prev);
+      librarySelection.forEach((id) => next.add(id));
+      return next;
+    });
+    setLibrarySelection(new Set());
+  }, [actions, librarySelection, setDeclusteredAssets, setLibrarySelection]);
+
+  const handleToggleRejected = useCallback((personId: string) => {
+    actions.getRejectedAssetsForPerson(showRejected ? null : personId);
+    setShowRejected((prev) => !prev);
+  }, [actions, setShowRejected, showRejected]);
+
+  const handleUntagAsset = useCallback((assetId: string, personId: string) => {
+    void actions.isolatePersonAsset(assetId, personId);
+    setDeclusteredAssets((prev) => new Set(prev).add(assetId));
+  }, [actions, setDeclusteredAssets]);
+
+  const handlePeopleFilter = useCallback((filter: LibraryFilter) => {
+    actions.pushFilter(filter);
+    setView('library');
+    setPeopleSelectionCount(0);
+  }, [actions, setPeopleSelectionCount, setView]);
+
+  const handleOpenAlbum = useCallback((albumId: string, albumTitle: string) => {
+    actions.pushFilter({ type: 'album', albumId, description: albumTitle, personIds: [] });
+    setView('library');
+  }, [actions, setView]);
+
+  return {
+    resetLibraryUi,
+    handleViewChange,
+    handleRefresh,
+    handleDeclusterSelection,
+    handleToggleRejected,
+    handleUntagAsset,
+    handlePeopleFilter,
+    handleOpenAlbum,
+  };
+}
+
+function ErrorBanner({ error }: { error: string }) {
+  return (
+    <div style={{ background: 'rgba(255, 68, 68, 0.1)', borderBottom: '1px solid #ff4444', color: '#ff4444', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '500', zIndex: 100 }}>
+      <span>{error}</span>
+      <button onClick={() => window.location.reload()} style={{ background: '#ff4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Retry Connection</button>
+    </div>
+  );
+}
+
+function ConnectionOverlay({
+  title,
+  status,
+  message,
+  tone,
+}: {
+  title: string;
+  status: string;
+  message: string;
+  tone: 'warning' | 'info';
+}) {
+  const accentColor = tone === 'warning' ? '#fca5a5' : '#93c5fd';
+  const borderColor = tone === 'warning' ? 'rgba(248, 113, 113, 0.4)' : 'rgba(96, 165, 250, 0.35)';
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(0, 0, 0, 0.48)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ width: 'min(520px, 100%)', border: `1px solid ${borderColor}`, background: 'rgba(12, 12, 12, 0.9)', borderRadius: 12, padding: 24, boxShadow: '0 24px 80px rgba(0, 0, 0, 0.45)' }}>
+        <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: accentColor, marginBottom: 10 }}>{title}</div>
+        <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f3f4f6', marginBottom: 8 }}>{status}</div>
+        <div style={{ color: '#cbd5e1', lineHeight: 1.5 }}>{message}</div>
+      </div>
+    </div>
+  );
+}
+
+function useAppAppearance(theme: string, animationsEnabled: boolean) {
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.classList.toggle('no-animations', !animationsEnabled);
+  }, [theme, animationsEnabled]);
+}
+
+function getShellStyle(uiBlocked: boolean) {
+  if (!uiBlocked) {
+    return { display: 'flex', flexDirection: 'column' as const, flex: 1, minHeight: 0 };
+  }
+
+  return {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    flex: 1,
+    minHeight: 0,
+    opacity: 0.38,
+    filter: 'grayscale(0.9)',
+    pointerEvents: 'none' as const,
+    userSelect: 'none' as const,
+  };
+}
+
+function getConnectionUiState(status: string, error: string | null) {
+  const backendReady = status.startsWith('Ready');
+  if (backendReady) {
+    return { backendReady, shellStyle: getShellStyle(false), connectionOverlay: null };
+  }
+
+  return {
+    backendReady,
+    shellStyle: getShellStyle(true),
+    connectionOverlay: {
+      title: error ? 'Sidecar Unavailable' : 'Refreshing Library',
+      message: error ?? 'Connection restored. Waiting for fresh data from the sidecar...',
+      tone: error ? 'warning' as const : 'info' as const,
+    },
+  };
+}
+
+function useStartupConsoleTimeline(status: string, error: string | null, hasCompletedInitialSync: boolean) {
+  const startedAtRef = useRef<number | null>(null);
+  const lastStatusRef = useRef<string | null>(null);
+  const lastErrorRef = useRef<string | null>(null);
+  const hasLoggedInitialSyncRef = useRef(false);
+
+  const getElapsedMs = useCallback(() => {
+    if (startedAtRef.current === null) {
+      startedAtRef.current = performance.now();
+      return 0;
+    }
+    return Math.round(performance.now() - startedAtRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (lastStatusRef.current === status) {return;}
+    lastStatusRef.current = status;
+    console.info(`[PhotoStar timeline +${getElapsedMs()}ms] ${status}`);
+  }, [getElapsedMs, status]);
+
+  useEffect(() => {
+    if (!error || lastErrorRef.current === error) {
+      lastErrorRef.current = error;
+      return;
+    }
+
+    lastErrorRef.current = error;
+    console.warn(`[PhotoStar timeline +${getElapsedMs()}ms] ${error}`);
+  }, [error, getElapsedMs]);
+
+  useEffect(() => {
+    if (!hasCompletedInitialSync || hasLoggedInitialSyncRef.current) {return;}
+    hasLoggedInitialSyncRef.current = true;
+    console.info(`[PhotoStar timeline +${getElapsedMs()}ms] Initial sync complete.`);
+  }, [getElapsedMs, hasCompletedInitialSync]);
+}
+
+export default function App() {
+  const photoLibrary = usePhotoLibrary();
+  const { status, error, hasCompletedInitialSync, hasMoreAssets, isLoadingMoreAssets, stats, assets, people, rejectedAssets, jobs, systemJobs, queueStatus, dataStats, recentEvents, folderHistory, isSystemPaused, actions, filterStack, notifications, dismissNotification } = photoLibrary;
+  const [view, setView] = usePersistedState<AppView>('ps_view', 'library');
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
-  const [showFaces, setShowFaces] = usePersistedState<boolean>('ps_show_faces', false);
   const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);
-  const [activeInfoTab, setActiveInfoTab] = usePersistedState<'file' | 'analysis' | 'people' | 'json'>('ps_info_tab', 'file');
+  const [activeInfoTab, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'file');
+  const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
+  const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
   const [showActions, setShowActions] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [peopleSelectionCount, setPeopleSelectionCount] = useState(0);
   const [librarySelection, setLibrarySelection] = useState<Set<string>>(new Set());
   const [declusteredAssets, setDeclusteredAssets] = useState<Set<string>>(new Set());
   const [showRejected, setShowRejected] = useState(false);
-
-  // UI Settings (applied globally)
-  const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
-  const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
-
-  // Transient status-bar override (clears after timeout)
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const showTransientStatus = (msg: string, durationMs = 5000) => {
-    setStatusMessage(msg);
-    setTimeout(() => setStatusMessage(null), durationMs);
-  };
+  useSelectionRecovery(assets, selectedAssetId, setSelectedAssetId, setStatusMessage);
+  const handlers = useAppActionHandlers({ assets, filterStack, showRejected, setShowRejected, librarySelection, setLibrarySelection, declusteredAssets, setDeclusteredAssets, actions, setView, setPeopleSelectionCount, setSelectedAssetId, setShowSettings });
 
-  // After assets load, validate the persisted selected asset still exists.
-  // If not, gracefully fall back to library view.
+  const loadAssetDetails = actions.loadAssetDetails;
+
   useEffect(() => {
-    if (!selectedAssetId || assets.length === 0) return;
-    const still = assets.find(a => a.id === selectedAssetId);
-    if (!still) {
-      setSelectedAssetId(null);
-      showTransientStatus('ℹ️ Previously selected photo is no longer available.');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assets]);
+    if (!selectedAssetId) {return;}
+    void loadAssetDetails(selectedAssetId);
+  }, [loadAssetDetails, selectedAssetId]);
 
-  // Apply UI Settings side-effects
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.body.classList.toggle('no-animations', !animationsEnabled);
-  }, [theme, animationsEnabled]);
+  useAppAppearance(theme, animationsEnabled);
+  useStartupConsoleTimeline(status, error, hasCompletedInitialSync);
 
+  if (!hasCompletedInitialSync) {return <LoadingScreen status={status} />;}
 
-  if (status.includes('Initializing')) {
-    return <LoadingScreen status={status} />;
-  }
+  const { backendReady, shellStyle, connectionOverlay } = getConnectionUiState(status, error);
 
   return (
-    <div className="container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: 0, background: '#000', color: '#eee' }}>
-
-      {/* 1. Top Navigation Bar */}
-      <TopBar
-        view={view}
-        setView={(newView) => {
-          actions.clearFilters();
-          setDeclusteredAssets(newView === 'library' ? new Set() : declusteredAssets);
-          setLibrarySelection(new Set());
-          setView(newView);
-        }}
-        onRefresh={() => {
-          setDeclusteredAssets(new Set());
-          setShowRejected(false);
-          actions.getRejectedAssetsForPerson(null);
-          actions.refreshLibrary();
-          actions.refreshPeople();
-        }}
-        onOpenActions={() => setShowActions(true)}
-        onOpenSettings={() => setShowSettings(true)}
-        showFaces={showFaces}
-        setShowFaces={setShowFaces}
-      />
-
-      {/* Active Filter Bar */}
-      {view === 'library' && filterStack.length > 0 && (
-        <div style={{ background: '#1e3a8a', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #1e40af' }}>
-          <span style={{ fontWeight: 'bold' }}>Filtered:</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {filterStack.map((f, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {i > 0 && <span style={{ color: '#60a5fa' }}>➜</span>}
-                <div style={{ background: '#2563eb', padding: '4px 10px', borderRadius: 16, fontSize: '0.9rem', fontWeight: 500, display: 'flex', gap: 6 }}>
-                  {f.persons && f.persons.length > 0 ? (
-                    <>
-                      {f.type === 'person_any' && f.persons.length > 1 && <span>Any:</span>}
-                      {f.type === 'person_all' && <span>All:</span>}
-                      {f.type === 'person_only' && <span>Only:</span>}
-                      {f.persons.map((p, pIdx) => (
-                        <span key={p.id} style={{ borderBottom: `3px solid ${PERSON_COLORS[pIdx % PERSON_COLORS.length]}` }}>
-                          {p.name}
-                        </span>
-                      ))}
-                    </>
-                  ) : (
-                    <span>{f.description || f.type}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ flex: 1 }} />
-
-          {/* Library Multi-Select Actions */}
-          {librarySelection.size > 0 && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginRight: '16px', borderRight: '1px solid #3b82f6', paddingRight: '16px' }}>
-              <span style={{ fontSize: '0.85rem', color: '#93c5fd', fontWeight: 600 }}>{librarySelection.size} Selected</span>
-
-              {/* Decluster button only appears when showing a single person filter */}
-              {filterStack[filterStack.length - 1]?.type === 'person_any' && filterStack[filterStack.length - 1]?.personIds.length === 1 && (
-                <button
-                  onClick={() => {
-                    const personId = filterStack[filterStack.length - 1].personIds[0];
-                    Array.from(librarySelection).forEach(assetId => {
-                      actions.isolatePersonAsset(assetId, personId);
-                    });
-
-                    setDeclusteredAssets(prev => {
-                      const next = new Set(prev);
-                      librarySelection.forEach(id => next.add(id));
-                      return next;
-                    });
-                    setLibrarySelection(new Set());
-                  }}
-                  style={{ background: '#ef4444', border: 'none', color: '#fff', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-                >
-                  Decluster
-                </button>
-              )}
-
-              <button
-                onClick={() => setLibrarySelection(new Set())}
-                style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-              >
-                Clear Selection
-              </button>
-            </div>
-          )}
-
-          {/* Show Rejected toggle — only when viewing a single person's gallery */}
-          {filterStack[filterStack.length - 1]?.type === 'person_any' && filterStack[filterStack.length - 1]?.personIds.length === 1 && (
-            <button
-              onClick={() => {
-                const personId = filterStack[filterStack.length - 1].personIds[0];
-                if (!showRejected) {
-                  actions.getRejectedAssetsForPerson(personId);
-                } else {
-                  actions.getRejectedAssetsForPerson(null);
-                }
-                setShowRejected(prev => !prev);
-              }}
-              style={{
-                background: showRejected ? 'rgba(239,68,68,0.2)' : 'transparent',
-                border: `1px solid ${showRejected ? '#ef4444' : '#3b82f6'}`,
-                color: showRejected ? '#ef4444' : '#93c5fd',
-                padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem'
-              }}
-            >
-              {showRejected ? '🚫 Hide Rejected' : '🚫 Show Rejected'}
-            </button>
-          )}
-
-          <button onClick={() => {
-            if (filterStack.length <= 1) {
-              setView('people');
-              actions.clearFilters();
-            } else {
-              actions.popFilter();
-            }
-            setDeclusteredAssets(new Set());
-            setLibrarySelection(new Set());
-            setShowRejected(false);
-            actions.getRejectedAssetsForPerson(null);
-          }} style={{ background: 'transparent', border: '1px solid #60a5fa', color: '#fff', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>Back</button>
-          <button onClick={() => {
-            actions.clearFilters();
-            setView('people');
-            setDeclusteredAssets(new Set());
-            setLibrarySelection(new Set());
-            setShowRejected(false);
-            actions.getRejectedAssetsForPerson(null);
-          }} style={{ background: 'transparent', border: 'none', color: '#93c5fd', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', textDecoration: 'underline' }}>Clear All</button>
+    <div className="container" style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', padding: 0, background: '#000', color: '#eee' }}>
+      {error && backendReady && <ErrorBanner error={error} />}
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={shellStyle}>
+          <TopBar view={view} setView={handlers.handleViewChange} onOpenActions={() => setShowActions(true)} />
+          <AppFilterBar view={view} filterStack={filterStack} librarySelection={librarySelection} showRejected={showRejected} onDeclusterSelection={handlers.handleDeclusterSelection} onClearSelection={() => setLibrarySelection(new Set())} onToggleRejected={handlers.handleToggleRejected} onBack={handlers.handleFilterBack} onClearAll={handlers.handleClearAllFilters} />
+          <AppMainContent view={view} assets={assets} libraryActive={view === 'library'} people={people} status={status} filterStack={filterStack} selectedAssetId={selectedAssetId} showFaces={false} librarySelection={librarySelection} declusteredAssets={declusteredAssets} showRejected={showRejected} rejectedAssets={rejectedAssets} jobs={jobs} systemJobs={systemJobs} queueStatus={queueStatus} dataStats={dataStats} recentEvents={recentEvents} isSystemPaused={isSystemPaused} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} onLoadMoreAssets={actions.loadMoreAssets} onAssetClick={setSelectedAssetId} onUntagAsset={handlers.handleUntagAsset} onSetSensitivity={actions.setSensitivity} onLibrarySelectionChange={setLibrarySelection} onPeopleFilter={handlers.handlePeopleFilter} onPeopleSelectionChange={setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onTogglePause={actions.toggleSystemPause} onStopJob={actions.stopJob} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onSetModulePaused={actions.setModulePaused} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={handlers.handleOpenAlbum} />
+          <AppStatusBar statusMessage={statusMessage} status={status} view={view} librarySelectionCount={librarySelection.size} shownAssetsCount={handlers.shownAssetsCount} peopleSelectionCount={peopleSelectionCount} totalPhotoCount={stats?.count || 0} peopleCount={people.length} rightSlot={<DevConsole />} />
+          <AppOverlays assets={assets} selectedAssetId={selectedAssetId} setSelectedAssetId={setSelectedAssetId} showActions={showActions} setShowActions={setShowActions} showSettings={showSettings} setShowSettings={setShowSettings} showInfoPanel={showInfoPanel} setShowInfoPanel={setShowInfoPanel} activeInfoTab={activeInfoTab} setActiveInfoTab={setActiveInfoTab} jobs={jobs} folderHistory={folderHistory} onScan={handlers.handleScan} onPreviews={actions.generatePreviews} onDetect={actions.detectFaces} onRecognise={actions.recogniseFaces} onCluster={actions.clusterFaces} onScanSensitive={actions.scanSensitive} onScanSensitiveAll={actions.scanSensitiveAll} onExtractAiMetadata={actions.extractAiMetadata} onRefresh={handlers.handleOverlayRefresh} onResetFaces={actions.resetFaces} onResetAll={actions.resetLibrary} onFactoryReset={actions.factoryResetLibrary} onStopScan={actions.stopScan} onBuildGroups={actions.buildGroups} onBuildBursts={actions.buildBursts} onGetSetting={actions.getSetting} onSetSetting={actions.setSetting} theme={theme} setTheme={setTheme} animationsEnabled={animationsEnabled} setAnimationsEnabled={setAnimationsEnabled} onPrioritize={actions.prioritizeAsset} onFaceClick={handlers.handleFaceClick} onIsolateFace={actions.isolateFace} onSetSensitivity={actions.setSensitivity} onOpenSettingsFromPhoto={handlers.handleOpenSettingsFromPhoto} onGetGroupOrbit={actions.getGroupOrbit} onSetCanonical={actions.setCanonical} onExplodeGroup={actions.explodeGroup} onStopJob={actions.stopJob} />
         </div>
-      )}
-
-      {error && (
-        <div style={{
-          background: 'rgba(255, 68, 68, 0.1)',
-          borderBottom: '1px solid #ff4444',
-          color: '#ff4444',
-          padding: '12px 20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontWeight: '500',
-          zIndex: 100
-        }}>
-          <span>⚠️ {error}</span>
-          <button
-            onClick={() => window.location.reload()}
-            style={{ background: '#ff4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            Retry Connection
-          </button>
-        </div>
-      )}
-
-      {/* 2. Main Content Area */}
-      <div style={{ flex: 1, minHeight: '0', position: 'relative' }}>
-        {view === 'library' && (
-          <LibraryView
-            assets={assets.filter(a => !!a.preview_path)}
-            loading={status.includes('Initializing')}
-            backendReady={status.startsWith('Ready')}
-            backendStatus={status}
-            onAssetClick={setSelectedAssetId}
-            selectedAssetId={selectedAssetId}
-            activeFilter={filterStack.length > 0 ? filterStack[filterStack.length - 1] : undefined}
-            showFaces={showFaces}
-            onUntagAsset={(assetId, personId) => {
-              actions.isolatePersonAsset(assetId, personId);
-              setDeclusteredAssets(prev => new Set(prev).add(assetId));
-            }}
-            onSetSensitivity={actions.setSensitivity}
-            librarySelection={librarySelection}
-            onLibrarySelectionChange={setLibrarySelection}
-            declusteredAssets={declusteredAssets}
-            showRejected={showRejected}
-            rejectedAssets={showRejected ? rejectedAssets : []}
-          />
-        )}
-        {view === 'people' && (
-          <PeopleView
-            people={people}
-            onFilter={(filter) => {
-              actions.pushFilter(filter);
-              setView('library');
-              setPeopleSelectionCount(0);
-            }}
-            onSelectionChange={setPeopleSelectionCount}
-            onRename={actions.renamePerson}
-            onMerge={actions.mergePeople}
-          />
-        )}
-        {view === 'dashboard' && (
-          <DashboardView
-            jobs={jobs}
-            systemJobs={systemJobs}
-            refreshSystemJobs={actions.refreshSystemJobs}
-            isSystemPaused={isSystemPaused}
-            onTogglePause={actions.toggleSystemPause}
-            onStopJob={actions.stopJob}
-            onClearErrors={actions.clearJobErrors}
-            loading={!status.startsWith('Ready')}
-          />
-        )}
-        {view === 'albums' && (
-          <AlbumsView
-            getAlbums={actions.getAlbums}
-            createAlbum={actions.createAlbum}
-            deleteAlbum={actions.deleteAlbum}
-            onOpenAlbum={(albumId, albumTitle) => {
-              actions.pushFilter({ type: 'album', albumId, description: albumTitle, personIds: [] });
-              setView('library');
-            }}
-          />
-        )}
+        {connectionOverlay && <ConnectionOverlay title={connectionOverlay.title} status={status} message={connectionOverlay.message} tone={connectionOverlay.tone} />}
       </div>
-
-      {/* 3. Status Bar */}
-      <div
-        style={{
-          height: '30px',
-          background: '#1a1a1a',
-          borderTop: '1px solid #333',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 10px',
-          fontSize: '12px',
-          color: '#888',
-          cursor: 'pointer',
-          flexShrink: 0
-        }}
-        onClick={() => {
-          console.log("Recent Logs:", logs.slice(-10));
-          alert("Logs printed to console (F12)");
-        }}
-      >
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-          <span style={{ marginRight: 8, color: statusMessage ? '#60a5fa' : (status.toLowerCase().includes('error') ? 'red' : 'green') }}>●</span>
-          <span style={{ color: statusMessage ? '#93c5fd' : undefined }}>{statusMessage ?? status}</span>
-        </div>
-        <div style={{ marginRight: 16 }}>
-          {view === 'library' && librarySelection.size > 0 && <span>{librarySelection.size} Selected | </span>}
-          {view === 'library' && filterStack.length > 0 && <span>{assets.filter(a => !!a.preview_path).length} Shown | </span>}
-          {view === 'people' && peopleSelectionCount > 0 && <span>{peopleSelectionCount} Selected | </span>}
-          {stats?.count || 0} Photos | {people.length} People
-        </div>
-        <div style={{ flexShrink: 0, opacity: 0.6 }}>
-          v{metadata.version}
-        </div>
-      </div>
-
-      {/* 4. Overlays */}
-      <ActionPanel
-        isOpen={showActions}
-        onClose={() => setShowActions(false)}
-        onScan={async (specificPath: string | undefined) => {
-          if (specificPath) {
-            actions.scanLibrary(specificPath);
-            return;
-          }
-
-          const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-
-          if (isTauri) {
-            const { open } = await import('@tauri-apps/plugin-dialog');
-            const selected = await open({ directory: true, multiple: false });
-            if (selected && typeof selected === 'string') {
-              actions.scanLibrary(selected);
-            }
-          } else {
-            const path = window.prompt("Enter absolute path to scan (e.g. C:/Users/robin/Photos):");
-            if (path) {
-              actions.scanLibrary(path);
-            }
-          }
-        }}
-        onPreviews={actions.generatePreviews}
-        onDetect={actions.detectFaces}
-        onRecognise={actions.recogniseFaces}
-        onCluster={actions.clusterFaces}
-        onScanSensitive={actions.scanSensitive}
-        onScanSensitiveAll={actions.scanSensitiveAll}
-        onExtractAiMetadata={actions.extractAiMetadata}
-        onRefresh={() => { actions.refreshLibrary(); actions.refreshPeople(); }}
-        onResetFaces={actions.resetFaces}
-        onResetAll={actions.resetLibrary}
-        onStopScan={actions.stopScan}
-        onBuildGroups={actions.buildGroups}
-        onBuildBursts={actions.buildBursts}
-        folderHistory={folderHistory}
-      />
-
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        getSetting={actions.getSetting}
-        setSetting={actions.setSetting}
-        theme={theme}
-        setTheme={setTheme}
-        animationsEnabled={animationsEnabled}
-        setAnimationsEnabled={setAnimationsEnabled}
-      />
-
-      {/* Photo Overlay */}
-      {selectedAssetId && assets.some(a => a.id === selectedAssetId) && (
-        <SinglePhotoView
-          assets={assets}
-          initialIndex={assets.findIndex(a => a.id === selectedAssetId)}
-          onClose={() => setSelectedAssetId(null)}
-          onPrioritize={actions.prioritizeAsset}
-          showInfoPanel={showInfoPanel}
-          onShowInfoPanelChange={setShowInfoPanel}
-          activeInfoTab={activeInfoTab}
-          onActiveInfoTabChange={setActiveInfoTab}
-          onFaceClick={(personId: string, personName: string) => {
-            actions.pushFilter({
-              type: 'person_any',
-              personIds: [personId],
-              description: personName
-            });
-            setSelectedAssetId(null);
-            setView('library');
-          }}
-          onIsolateFace={actions.isolateFace}
-          onSetSensitivity={actions.setSensitivity}
-          onExtractAiMetadata={actions.extractAiMetadata}
-          onOpenSettings={() => {
-            setSelectedAssetId(null);
-            setShowSettings(true);
-          }}
-          onGetGroupOrbit={actions.getGroupOrbit}
-          onSetCanonical={actions.setCanonical}
-          onExplodeGroup={actions.explodeGroup}
-          jobs={jobs}
-        />
-      )}
-
-      <TaskDrawer jobs={jobs} onStop={actions.stopJob} />
-      <DevConsole />
-
-      {/* Quota / System Notification Banners */}
-      {notifications.length > 0 && (
-        <div style={{
-          position: 'fixed', top: '52px', right: '12px', zIndex: 9990,
-          display: 'flex', flexDirection: 'column', gap: '8px',
-          maxWidth: '420px', width: 'calc(100vw - 24px)'
-        }}>
-          {notifications.map(n => (
-            <div key={n.id} style={{
-              background: n.type === 'warning' ? 'rgba(161,98,7,0.95)' : 'rgba(30,64,175,0.92)',
-              border: `1px solid ${n.type === 'warning' ? '#854d0e' : '#1d4ed8'}`,
-              borderRadius: '8px', padding: '10px 14px',
-              display: 'flex', alignItems: 'flex-start', gap: '10px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(8px)',
-              animation: 'fadeInOverlay 0.2s ease-out'
-            }}>
-              <span style={{ fontSize: '13px', color: '#fef3c7', flex: 1, lineHeight: 1.5 }}>{n.message}</span>
-              <button
-                onClick={() => dismissNotification(n.id)}
-                style={{ background: 'transparent', border: 'none', color: '#fde68a', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0, padding: '0 2px' }}
-                title="Dismiss"
-              >✕</button>
-            </div>
-          ))}
-        </div>
-      )}
+      <AppNotifications notifications={notifications} dismissNotification={dismissNotification} />
     </div>
   );
 }
-
-export default App;
-

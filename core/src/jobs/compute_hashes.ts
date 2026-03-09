@@ -1,5 +1,5 @@
-import { DatabaseManager } from '../db';
-import { EventBus } from '../events/bus';
+import type { DatabaseManager } from '../db';
+import type { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
 import { blockhashData, dhashData } from '../math-utils'; // Need to implement these or import a library
 import sharp from 'sharp';
@@ -14,7 +14,7 @@ export async function runComputeHashesJob(
 
     eventBus.emit({
         type: 'JobStarted',
-        jobId: jobId,
+        jobId,
         pipelineStage: 'similarity_cluster'
     });
 
@@ -28,7 +28,7 @@ export async function runComputeHashesJob(
     if (assets.length === 0) {
         eventBus.emit({
             type: 'JobCompleted',
-            jobId: jobId,
+            jobId,
             pipelineStage: 'similarity_cluster'
         });
         return;
@@ -43,7 +43,7 @@ export async function runComputeHashesJob(
     `);
 
     for (const asset of assets) {
-        if (signal?.aborted) break;
+        if (signal?.aborted) {break;}
         await waitIfPaused();
 
         try {
@@ -77,7 +77,7 @@ export async function runComputeHashesJob(
         if (processed % 10 === 0) {
             eventBus.emit({
                 type: 'JobProgress',
-                jobId: jobId,
+                jobId,
                 processedItems: processed,
                 totalItems: assets.length,
                 errorCount: errors
@@ -87,7 +87,7 @@ export async function runComputeHashesJob(
 
     eventBus.emit({
         type: 'JobCompleted',
-        jobId: jobId,
+        jobId,
         pipelineStage: 'similarity_cluster'
     });
 }

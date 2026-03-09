@@ -61,33 +61,53 @@ npm run tauri dev
 
 *Note: This runs `smart_build.js` which compiles and packages the Node sidecar before launching Tauri.*
 
-### Speeding up the Development Loop
+### Running the App (Desktop Dev Mode)
+
+```bash
+npm run dev:desktop
+```
+
+This launches the Tauri shell, the Vite frontend in `desktop-dev` mode, and the
+watched Node sidecar together. The UI still runs inside the Tauri window, but
+the frontend talks to the sidecar over `ws://localhost:5174` so backend changes
+do not require rebuilding the packaged sidecar binary on every edit.
+
+### Speeding up the Development Loop Further
 
 Packaging the Sidecar binary (`pkg`) on every change is slow. For rapid backend development:
 
-1. Open a terminal and run the React frontend:
+1. Start the browser/LAN dev loop:
 
    ```bash
    npm run dev
    ```
 
-2. Open another terminal for the Node sidecar, run the compiler in watch mode and execute:
-
-   ```bash
-   cd core
-   npm run build -- --watch
-   ```
-
-   Execute the sidecar directly with Node.js using the provided batch file:
-
-   ```bash
-   ./debug_sidecar.bat
-   ```
+2. Use `npm run dev:desktop` when you want the same watched sidecar, but hosted in the Tauri shell instead of a browser tab.
 
 ## Scripts Overview
 
-- `npm run dev`: Starts Vite frontend only.
+- `npm run dev`: Starts Vite frontend and watched core sidecar for browser/LAN development.
+- `npm run dev:desktop`: Starts the Tauri shell with Vite `desktop-dev` mode and the watched core sidecar.
 - `npm run build:core`: Uses `smart_build.js` to compile and package the Node sidecar to an executable.
 - `npm run tauri`: Tauri CLI wrapper.
 - `npm run lint`: ESLint check.
+- `npm run lint:fix`: ESLint autofix across the repo.
+- `npm run quality`: Main local quality gate (`lint` + app `typecheck` + core `typecheck` + `lint:md` + complexity report).
+- `npm run quality:staged`: Autofix and lint staged JS/TS files before commit.
+- `npm run complexity:report`: Local complexity report to catch AI-generated sprawl early.
+- `npm run complexity:staged`: Reject staged TS functions that exceed the local complexity/size thresholds.
+- `npm run typecheck`: Full TypeScript check when you want to pay down existing typing debt.
 - `npm run lint:md` / `fix:md`: Markdownlint check and fix.
+
+## Code Quality Guardrails
+
+This repo uses local, non-AI guardrails rather than paid scanning:
+
+- ESLint is the hard gate for TypeScript and React code.
+- `npm run quality` is the baseline check before shipping changes.
+- `npm run build` now uses the same baseline gate before producing the frontend build.
+- A git `pre-commit` hook resolves staged files with `git`, then passes that explicit file list into the staged lint and complexity checks.
+- `npm run complexity:report -- --top 20 --min-cyclomatic 10` gives a cheap Sonar-style smell report for sprawling functions.
+- `npm run typecheck`, `npm run typecheck:core`, and `npm run lint:md` are all part of the default gate.
+
+The repo-level AI instructions live in [AGENTS.md](/c:/Users/robin/Projects/photoStar2/AGENTS.md).

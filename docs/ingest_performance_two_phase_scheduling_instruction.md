@@ -111,10 +111,10 @@ Transition to `slow` only after Phase 1 exit condition.
 ### 3.2 Event handling changes
 
 | Event | Phase | Action |
-|---|---|---|
+| --- | --- | --- |
 | MediaDiscovered | fast | Enqueue preview only |
 | MediaDiscovered | slow | Enqueue preview + face detection |
-| FolderScanCompleted (internal signal) | fast → slow | Allow slow-path workflows |
+| FolderScanCompleted (internal signal) | fast -> slow | Allow slow-path workflows |
 
 **Note:** `FolderScanCompleted` is an **internal coordinator signal**, not a domain event.
 

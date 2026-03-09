@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Dispatch, FC, SetStateAction } from 'react';
 import type { Asset } from '../../shared/types/core';
 import type { BackgroundJob } from '../../shared/types/jobs';
-import { resolveImageUrl } from '../config/backend';
-import { usePanZoom } from '../hooks/usePanZoom';
-import { FaceOverlayMap } from './single-photo/FaceOverlayMap';
-import { ActionOverlays } from './single-photo/ActionOverlays';
 import { InfoPanel } from './single-photo/InfoPanel';
-import { VariantFilmstrip } from './single-photo/VariantFilmstrip';
+import { PhotoViewport } from './single-photo/PhotoViewport';
+import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
 
 interface SinglePhotoViewProps {
     assets: Asset[];
@@ -17,235 +15,422 @@ interface SinglePhotoViewProps {
     onIsolateFace?: (assetId: string, faceIndex: number) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
-    onGetGroupOrbit?: (groupId: string) => Promise<unknown[]>;
+    onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onOpenSettings?: () => void;
     jobs?: BackgroundJob[];
-    /** Controlled: persisted in App so panel survives navigating away + back */
     showInfoPanel?: boolean;
     onShowInfoPanelChange?: (v: boolean) => void;
     activeInfoTab?: 'file' | 'analysis' | 'people' | 'json';
     onActiveInfoTabChange?: (t: 'file' | 'analysis' | 'people' | 'json') => void;
 }
 
-const INFO_PANEL_WIDTH = 360;
+interface SinglePhotoOverlayProps {
+    asset: Asset;
+    assets: Asset[];
+    currentIndex: number;
+    showControls: boolean;
+    setShowControls: Dispatch<SetStateAction<boolean>>;
+    showFaces: boolean;
+    setShowFaces: Dispatch<SetStateAction<boolean>>;
+    showActionMenu: boolean;
+    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
+    hoveredFaceKey: string | null;
+    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    panelState: PanelState;
+    onClose: () => void;
+    onFaceClick?: (personId: string, personName: string) => void;
+    onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
+    onOpenSettings?: () => void;
+    onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
+    onChangeIndex: (delta: -1 | 1) => void;
+    onRevealControls: () => void;
+    analysis: AnalysisState;
+}
 
-export const SinglePhotoView: React.FC<SinglePhotoViewProps> = ({
-    assets, initialIndex, onClose, onPrioritize, onFaceClick, onIsolateFace,
-    onSetSensitivity, onExtractAiMetadata, onGetGroupOrbit, onSetCanonical, onExplodeGroup, onOpenSettings, jobs,
+type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
+type AnalysisUiBundle = {
+    analysisState: AnalysisUiState;
+    setAnalysisState: Dispatch<SetStateAction<AnalysisUiState>>;
+    analysisError: string | null;
+    setAnalysisError: Dispatch<SetStateAction<string | null>>;
+    analyzingAssetId: string | null;
+    setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>;
+    analyzingJobId: string | null;
+    setAnalyzingJobId: Dispatch<SetStateAction<string | null>>;
+};
+type ControlsState = {
+    currentIndex: number;
+    showControls: boolean;
+    setShowControls: Dispatch<SetStateAction<boolean>>;
+    showFaces: boolean;
+    setShowFaces: Dispatch<SetStateAction<boolean>>;
+    showActionMenu: boolean;
+    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
+    hoveredFaceKey: string | null;
+    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    revealControls: () => void;
+    onChangeIndex: (delta: -1 | 1) => void;
+};
+
+const INFO_PANEL_WIDTH = 360;
+const CONTROLS_IDLE_MS = 2500;
+
+function usePanelState({
     showInfoPanel: showInfoPanelProp,
     onShowInfoPanelChange,
     activeInfoTab: activeInfoTabProp,
-    onActiveInfoTabChange,
-}) => {
-    const [currentIndex, setCurrentIndex] = useState(initialIndex);
-    const [showControls, setShowControls] = useState(false);
-    const [showFaces, setShowFaces] = useState(false);
-    const [showActionMenu, setShowActionMenu] = useState(false);
-
-    // Info panel state — controlled from outside (persisted) when props provided,
-    // otherwise falls back to internal (transient) state.
+    onActiveInfoTabChange
+}: Pick<SinglePhotoViewProps, 'showInfoPanel' | 'onShowInfoPanelChange' | 'activeInfoTab' | 'onActiveInfoTabChange'>): PanelState & { setActiveInfoTab: (t: 'file' | 'analysis' | 'people' | 'json') => void } {
     const [showInfoPanelInternal, setShowInfoPanelInternal] = useState(false);
     const showInfoPanel = showInfoPanelProp ?? showInfoPanelInternal;
-    const setShowInfoPanel = useCallback((v: boolean) => {
-        setShowInfoPanelInternal(v);
-        onShowInfoPanelChange?.(v);
+
+    const setShowInfoPanel = useCallback((value: boolean) => {
+        setShowInfoPanelInternal(value);
+        onShowInfoPanelChange?.(value);
     }, [onShowInfoPanelChange]);
 
     const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<'file' | 'analysis' | 'people' | 'json'>('file');
     const activeInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
-    const setActiveInfoTab = useCallback((t: 'file' | 'analysis' | 'people' | 'json') => {
-        setActiveInfoTabInternal(t);
-        onActiveInfoTabChange?.(t);
+
+    const setActiveInfoTab = useCallback((tab: 'file' | 'analysis' | 'people' | 'json') => {
+        setActiveInfoTabInternal(tab);
+        onActiveInfoTabChange?.(tab);
     }, [onActiveInfoTabChange]);
 
-    const [hoveredFaceKey, setHoveredFaceKey] = useState<string | null>(null);
+    return { showInfoPanel, setShowInfoPanel, activeInfoTab, setActiveInfoTab };
+}
 
-    // Analysis State
+function useSinglePhotoControls(initialIndex: number, assetsLength: number): ControlsState {
+    const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    const [showControls, setShowControls] = useState(true);
+    const [showFaces, setShowFaces] = useState(false);
+    const [showActionMenu, setShowActionMenu] = useState(false);
+    const [hoveredFaceKey, setHoveredFaceKey] = useState<string | null>(null);
+    const controlsHideTimerRef = useRef<number | null>(null);
+
+    const clearControlsHideTimer = useCallback(() => {
+        if (controlsHideTimerRef.current !== null) {
+            window.clearTimeout(controlsHideTimerRef.current);
+            controlsHideTimerRef.current = null;
+        }
+    }, []);
+
+    const scheduleControlsHide = useCallback(() => {
+        clearControlsHideTimer();
+        controlsHideTimerRef.current = window.setTimeout(() => {
+            setShowControls(false);
+        }, CONTROLS_IDLE_MS);
+    }, [clearControlsHideTimer]);
+
+    const revealControls = useCallback(() => {
+        setShowControls(true);
+        if (!showActionMenu) {
+            scheduleControlsHide();
+        }
+    }, [scheduleControlsHide, showActionMenu]);
+
+    const onChangeIndex = useCallback((delta: -1 | 1) => {
+        setCurrentIndex((prev) => {
+            const next = prev + delta;
+            if (next < 0 || next >= assetsLength) {return prev;}
+            return next;
+        });
+    }, [assetsLength]);
+
+    useEffect(() => {
+        setCurrentIndex(initialIndex);
+    }, [initialIndex]);
+
+    useEffect(() => {
+        revealControls();
+    }, [currentIndex, revealControls]);
+
+    useEffect(() => {
+        if (showActionMenu) {
+            clearControlsHideTimer();
+            setShowControls(true);
+            return;
+        }
+
+        if (showControls) {
+            scheduleControlsHide();
+        }
+    }, [clearControlsHideTimer, scheduleControlsHide, showActionMenu, showControls]);
+
+    useEffect(() => {
+        return () => {
+            clearControlsHideTimer();
+        };
+    }, [clearControlsHideTimer]);
+
+    return {
+        currentIndex,
+        showControls,
+        setShowControls,
+        showFaces,
+        setShowFaces,
+        showActionMenu,
+        setShowActionMenu,
+        hoveredFaceKey,
+        setHoveredFaceKey,
+        revealControls,
+        onChangeIndex
+    };
+}
+
+function useAnalysisUiState(): AnalysisUiBundle {
     const [analyzingAssetId, setAnalyzingAssetId] = useState<string | null>(null);
     const [analyzingJobId, setAnalyzingJobId] = useState<string | null>(null);
-    const [analysisState, setAnalysisState] = useState<'idle' | 'analyzing' | 'cancelling' | 'error'>('idle');
+    const [analysisState, setAnalysisState] = useState<AnalysisUiState>('idle');
     const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-    const containerRef = useRef<HTMLDivElement>(null);
-    const { scale, setScale, pan, setPan, isDragging, handleMouseDown, resetPanZoom } = usePanZoom(containerRef);
+    return {
+        analysisState,
+        setAnalysisState,
+        analysisError,
+        setAnalysisError,
+        analyzingAssetId,
+        setAnalyzingAssetId,
+        analyzingJobId,
+        setAnalyzingJobId
+    };
+}
 
-    const asset = assets[currentIndex];
-
-    const imgSrc = resolveImageUrl(asset?.original_path || asset?.preview_path);
+function useAnalysisTracking(params: {
+    jobs?: BackgroundJob[];
+    analyzingJobId: string | null;
+    assetAiMetadata: Asset['ai_metadata'] | undefined;
+    setAnalysisError: Dispatch<SetStateAction<string | null>>;
+    setAnalysisState: Dispatch<SetStateAction<AnalysisUiState>>;
+    setAnalyzingJobId: Dispatch<SetStateAction<string | null>>;
+    setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>;
+    setShowInfoPanel: (v: boolean) => void;
+}) {
+    const {
+        jobs,
+        analyzingJobId,
+        assetAiMetadata,
+        setAnalysisError,
+        setAnalysisState,
+        setAnalyzingJobId,
+        setAnalyzingAssetId,
+        setShowInfoPanel
+    } = params;
 
     useEffect(() => {
-        if (asset?.id) onPrioritize(asset.id);
-    }, [asset?.id, onPrioritize]);
+        if (!analyzingJobId || !jobs) {return;}
+
+        const job = jobs.find((candidate) => candidate.id === analyzingJobId);
+        if (!job) {return;}
+
+        if (job.state === 'failed') {
+            setTimeout(() => {
+                const message = job.issues && job.issues.length > 0 ? job.issues[0].message : 'Analysis failed';
+                setAnalysisError(message);
+                setAnalysisState('error');
+                setAnalyzingJobId(null);
+            }, 0);
+            return;
+        }
+
+        if (job.state === 'completed' && assetAiMetadata) {
+            setTimeout(() => {
+                setAnalysisState('idle');
+                setAnalyzingAssetId(null);
+                setAnalyzingJobId(null);
+                setShowInfoPanel(true);
+            }, 0);
+        }
+    }, [
+        jobs,
+        analyzingJobId,
+        assetAiMetadata,
+        setAnalysisError,
+        setAnalysisState,
+        setAnalyzingJobId,
+        setAnalyzingAssetId,
+        setShowInfoPanel
+    ]);
+}
+
+function useAssetPrioritization(assetId: string | undefined, onPrioritize: (mediaId: string) => void) {
+    const lastPrioritizedAssetIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') { onClose(); }
-            else if (e.key === 'ArrowRight') { setCurrentIndex(prev => prev < assets.length - 1 ? prev + 1 : prev); resetPanZoom(); }
-            else if (e.key === 'ArrowLeft') { setCurrentIndex(prev => prev > 0 ? prev - 1 : prev); resetPanZoom(); }
-            else if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); resetPanZoom(); }
-            else if (e.key === 'i' || e.key === 'I') { setShowInfoPanel(!showInfoPanel); }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [assets.length, onClose, resetPanZoom, showInfoPanel, setShowInfoPanel]);
+        if (!assetId) {return;}
+        if (lastPrioritizedAssetIdRef.current === assetId) {return;}
+        lastPrioritizedAssetIdRef.current = assetId;
+        onPrioritize(assetId);
+    }, [assetId, onPrioritize]);
+}
 
-    // Track job completion
-    useEffect(() => {
-        if (analyzingJobId && jobs) {
-            const job = jobs.find(j => j.id === analyzingJobId);
-            if (job) {
-                if (job.state === 'failed') {
-                    setTimeout(() => {
-                        const rawMsg = job.issues && job.issues.length > 0 ? job.issues[0].message : 'Analysis failed';
-                        setAnalysisError(rawMsg);
-                        setAnalysisState('error');
-                        setAnalyzingJobId(null);
-                    }, 0);
-                } else if (job.state === 'completed' && asset?.ai_metadata) {
-                    setTimeout(() => {
-                        setAnalysisState('idle');
-                        setAnalyzingAssetId(null);
-                        setAnalyzingJobId(null);
-                        setShowInfoPanel(true); // Auto-open info panel on completion
-                    }, 0);
-                }
-            }
-        }
-    }, [jobs, analyzingJobId, asset?.ai_metadata, setShowInfoPanel]);
+function buildAnalysisState(bundle: AnalysisUiBundle): AnalysisState {
+    return {
+        analysisState: bundle.analysisState,
+        setAnalysisState: bundle.setAnalysisState,
+        analysisError: bundle.analysisError,
+        setAnalysisError: bundle.setAnalysisError,
+        analyzingAssetId: bundle.analyzingAssetId,
+        setAnalyzingAssetId: bundle.setAnalyzingAssetId,
+        setAnalyzingJobId: bundle.setAnalyzingJobId
+    };
+}
 
-    const handleSetCanonical = useCallback(async (groupId: string, newCanonicalId: string) => {
-        try {
-            if (onSetCanonical) await onSetCanonical(groupId, newCanonicalId);
-            onClose();
-        } catch (e) {
-            console.error('Failed to set canonical:', e);
-        }
-    }, [onSetCanonical, onClose]);
+const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
+    asset,
+    assets,
+    currentIndex,
+    showControls,
+    setShowControls,
+    showFaces,
+    setShowFaces,
+    showActionMenu,
+    setShowActionMenu,
+    hoveredFaceKey,
+    setHoveredFaceKey,
+    panelState,
+    onClose,
+    onFaceClick,
+    onIsolateFace,
+    onSetSensitivity,
+    onExtractAiMetadata,
+    onOpenSettings,
+    onGetGroupOrbit,
+    onSetCanonical,
+    onExplodeGroup,
+    onChangeIndex,
+    onRevealControls,
+    analysis
+}) => (
+    <div
+        style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: '#050505',
+            zIndex: 1000,
+            display: 'flex',
+            flexDirection: 'row',
+            overflow: 'hidden',
+            userSelect: 'none',
+            opacity: 0,
+            animation: 'fadeInOverlay 0.2s ease-out forwards'
+        }}
+    >
+        {panelState.showInfoPanel && (
+            <div style={{ width: INFO_PANEL_WIDTH, height: '100vh', flexShrink: 0, zIndex: 1002, animation: 'slideInFromLeft 0.22s ease-out' }}>
+                <InfoPanel
+                    asset={asset}
+                    width={INFO_PANEL_WIDTH}
+                    activeTab={panelState.activeInfoTab}
+                    onTabChange={panelState.setActiveInfoTab}
+                    hoveredFaceKey={hoveredFaceKey}
+                    onHoverFaceKey={setHoveredFaceKey}
+                />
+            </div>
+        )}
 
-    const handleExplodeGroup = useCallback(async (groupId: string) => {
-        try {
-            if (onExplodeGroup) await onExplodeGroup(groupId);
-            onClose();
-        } catch (e) {
-            console.error('Failed to explode group:', e);
-        }
-    }, [onExplodeGroup, onClose]);
+        <PhotoViewport
+            asset={asset}
+            assetsLength={assets.length}
+            currentIndex={currentIndex}
+            showControls={showControls}
+            setShowControls={setShowControls}
+            showFaces={showFaces}
+            setShowFaces={setShowFaces}
+            showActionMenu={showActionMenu}
+            setShowActionMenu={setShowActionMenu}
+            hoveredFaceKey={hoveredFaceKey}
+            setHoveredFaceKey={setHoveredFaceKey}
+            panelState={panelState}
+            onClose={onClose}
+            onFaceClick={onFaceClick}
+            onIsolateFace={onIsolateFace}
+            onSetSensitivity={onSetSensitivity}
+            onExtractAiMetadata={onExtractAiMetadata}
+            onOpenSettings={onOpenSettings}
+            onGetGroupOrbit={onGetGroupOrbit}
+            onSetCanonical={onSetCanonical}
+            onExplodeGroup={onExplodeGroup}
+            onChangeIndex={onChangeIndex}
+            onRevealControls={onRevealControls}
+            analysis={analysis}
+        />
+    </div>
+);
 
-    if (!asset) return null;
+export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
+    assets,
+    initialIndex,
+    onClose,
+    onPrioritize,
+    onFaceClick,
+    onIsolateFace,
+    onSetSensitivity,
+    onExtractAiMetadata,
+    onGetGroupOrbit,
+    onSetCanonical,
+    onExplodeGroup,
+    onOpenSettings,
+    jobs,
+    showInfoPanel,
+    onShowInfoPanelChange,
+    activeInfoTab,
+    onActiveInfoTabChange
+}) => {
+    const panelState = usePanelState({ showInfoPanel, onShowInfoPanelChange, activeInfoTab, onActiveInfoTabChange });
+    const controls = useSinglePhotoControls(initialIndex, assets.length);
+    const analysisUi = useAnalysisUiState();
+    const asset = assets[controls.currentIndex];
+
+    useAssetPrioritization(asset?.id, onPrioritize);
+    useAnalysisTracking({
+        jobs,
+        analyzingJobId: analysisUi.analyzingJobId,
+        assetAiMetadata: asset?.ai_metadata,
+        setAnalysisError: analysisUi.setAnalysisError,
+        setAnalysisState: analysisUi.setAnalysisState,
+        setAnalyzingJobId: analysisUi.setAnalyzingJobId,
+        setAnalyzingAssetId: analysisUi.setAnalyzingAssetId,
+        setShowInfoPanel: panelState.setShowInfoPanel
+    });
+
+    if (!asset) {return null;}
 
     return (
-        <div
-            style={{
-                position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                backgroundColor: '#050505', zIndex: 1000, display: 'flex',
-                flexDirection: 'row', overflow: 'hidden', userSelect: 'none',
-                opacity: 0, animation: 'fadeInOverlay 0.2s ease-out forwards'
-            }}
-        >
-            {/* ── Left: Info Panel (modeless, toggled) ── */}
-            {showInfoPanel && (
-                <div style={{
-                    width: INFO_PANEL_WIDTH, height: '100vh',
-                    flexShrink: 0, zIndex: 1002,
-                    animation: 'slideInFromLeft 0.22s ease-out'
-                }}>
-                    <InfoPanel
-                        asset={asset}
-                        width={INFO_PANEL_WIDTH}
-                        activeTab={activeInfoTab}
-                        onTabChange={setActiveInfoTab}
-                        hoveredFaceKey={hoveredFaceKey}
-                        onHoverFaceKey={setHoveredFaceKey}
-                    />
-                </div>
-            )}
-
-            {/* ── Right: Photo + controls ── */}
-            <div
-                ref={containerRef}
-                style={{
-                    flex: 1, height: '100vh', position: 'relative',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden'
-                }}
-                onClick={() => { setShowControls(!showControls); setShowActionMenu(false); }}
-            >
-                {imgSrc ? (
-                    <div
-                        onMouseDown={handleMouseDown}
-                        onClick={e => { e.stopPropagation(); setShowControls(!showControls); setShowActionMenu(false); }}
-                        style={{
-                            position: 'relative', display: 'flex',
-                            justifyContent: 'center', alignItems: 'center',
-                            maxWidth: '100%', maxHeight: '100vh',
-                            aspectRatio: (asset?.width && asset?.height) ? `${asset.width} / ${asset.height}` : 'auto',
-                            transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                            transition: isDragging ? 'none' : 'transform 0.15s ease-out',
-                            cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
-                            willChange: 'transform'
-                        }}
-                    >
-                        <img
-                            src={imgSrc} alt="Original"
-                            style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
-                            draggable={false}
-                        />
-                        <FaceOverlayMap
-                            asset={asset}
-                            showFaces={showFaces}
-                            alwaysShowForPanel={showInfoPanel && activeInfoTab === 'people'}
-                            hoveredFaceKey={hoveredFaceKey}
-                            onHoverFaceKey={setHoveredFaceKey}
-                            onFaceClick={onFaceClick}
-                            onIsolateFace={onIsolateFace}
-                        />
-                    </div>
-                ) : (
-                    <div style={{ color: '#666' }}>Image not found</div>
-                )}
-
-                <ActionOverlays
-                    asset={asset}
-                    assetsLength={assets.length}
-                    currentIndex={currentIndex}
-                    showControls={showControls}
-                    showActionMenu={showActionMenu}
-                    setShowActionMenu={setShowActionMenu}
-                    showFaces={showFaces}
-                    setShowFaces={setShowFaces}
-                    showInfoPanel={showInfoPanel}
-                    setShowInfoPanel={setShowInfoPanel}
-                    scale={scale}
-                    setScale={setScale}
-                    setPan={setPan}
-                    resetPanZoom={resetPanZoom}
-                    onClose={onClose}
-                    onPrevious={() => { if (currentIndex > 0) { setCurrentIndex(currentIndex - 1); resetPanZoom(); } }}
-                    onNext={() => { if (currentIndex < assets.length - 1) { setCurrentIndex(currentIndex + 1); resetPanZoom(); } }}
-                    onSetSensitivity={onSetSensitivity}
-                    onExtractAiMetadata={onExtractAiMetadata}
-                    onOpenSettings={onOpenSettings}
-                    analysisState={analysisState}
-                    setAnalysisState={setAnalysisState}
-                    analysisError={analysisError}
-                    setAnalysisError={setAnalysisError}
-                    analyzingAssetId={analyzingAssetId}
-                    setAnalyzingAssetId={setAnalyzingAssetId}
-                    setAnalyzingJobId={setAnalyzingJobId}
-                />
-
-                {asset.group_id && asset.stack_count && asset.stack_count > 1 && onGetGroupOrbit && (
-                    <VariantFilmstrip
-                        groupId={asset.group_id}
-                        canonicalAssetId={asset.id}
-                        onGetGroupOrbit={onGetGroupOrbit}
-                        onSetCanonical={handleSetCanonical}
-                        onExplodeGroup={handleExplodeGroup}
-                    />
-                )}
-            </div>
-        </div>
+        <SinglePhotoOverlay
+            asset={asset}
+            assets={assets}
+            currentIndex={controls.currentIndex}
+            showControls={controls.showControls}
+            setShowControls={controls.setShowControls}
+            showFaces={controls.showFaces}
+            setShowFaces={controls.setShowFaces}
+            showActionMenu={controls.showActionMenu}
+            setShowActionMenu={controls.setShowActionMenu}
+            hoveredFaceKey={controls.hoveredFaceKey}
+            setHoveredFaceKey={controls.setHoveredFaceKey}
+            panelState={panelState}
+            onClose={onClose}
+            onFaceClick={onFaceClick}
+            onIsolateFace={onIsolateFace}
+            onSetSensitivity={onSetSensitivity}
+            onExtractAiMetadata={onExtractAiMetadata}
+            onOpenSettings={onOpenSettings}
+            onGetGroupOrbit={onGetGroupOrbit}
+            onSetCanonical={onSetCanonical}
+            onExplodeGroup={onExplodeGroup}
+            onChangeIndex={controls.onChangeIndex}
+            onRevealControls={controls.revealControls}
+            analysis={buildAnalysisState(analysisUi)}
+        />
     );
 };
