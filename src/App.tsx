@@ -362,8 +362,20 @@ function getShellStyle(uiBlocked: boolean) {
   };
 }
 
+const CONNECTION_UNAVAILABLE_STATUS_PREFIXES = [
+  'Connecting to sidecar',
+  'Reconnecting to sidecar',
+  'Waiting for sidecar to start',
+  'Sidecar unavailable',
+  'Sidecar failed to start',
+] as const;
+
+function isConnectionUnavailableStatus(status: string) {
+  return CONNECTION_UNAVAILABLE_STATUS_PREFIXES.some((prefix) => status.startsWith(prefix));
+}
+
 function getConnectionUiState(status: string, error: string | null) {
-  const backendReady = status.startsWith('Ready');
+  const backendReady = !isConnectionUnavailableStatus(status);
   if (backendReady) {
     return { backendReady, shellStyle: getShellStyle(false), connectionOverlay: null };
   }
@@ -372,8 +384,8 @@ function getConnectionUiState(status: string, error: string | null) {
     backendReady,
     shellStyle: getShellStyle(true),
     connectionOverlay: {
-      title: error ? 'Sidecar Unavailable' : 'Refreshing Library',
-      message: error ?? 'Connection restored. Waiting for fresh data from the sidecar...',
+      title: 'Sidecar Unavailable',
+      message: error ?? 'Attempting to restore the sidecar connection...',
       tone: error ? 'warning' as const : 'info' as const,
     },
   };
@@ -457,7 +469,7 @@ export default function App() {
         <div style={shellStyle}>
           <TopBar view={view} setView={handlers.handleViewChange} onOpenActions={() => setShowActions(true)} />
           <AppFilterBar view={view} filterStack={filterStack} librarySelection={librarySelection} showRejected={showRejected} onDeclusterSelection={handlers.handleDeclusterSelection} onClearSelection={() => setLibrarySelection(new Set())} onToggleRejected={handlers.handleToggleRejected} onBack={handlers.handleFilterBack} onClearAll={handlers.handleClearAllFilters} />
-          <AppMainContent view={view} assets={assets} libraryActive={view === 'library'} people={people} status={status} filterStack={filterStack} selectedAssetId={selectedAssetId} showFaces={false} librarySelection={librarySelection} declusteredAssets={declusteredAssets} showRejected={showRejected} rejectedAssets={rejectedAssets} jobs={jobs} systemJobs={systemJobs} queueStatus={queueStatus} dataStats={dataStats} recentEvents={recentEvents} isSystemPaused={isSystemPaused} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} onLoadMoreAssets={actions.loadMoreAssets} onAssetClick={setSelectedAssetId} onUntagAsset={handlers.handleUntagAsset} onSetSensitivity={actions.setSensitivity} onLibrarySelectionChange={setLibrarySelection} onPeopleFilter={handlers.handlePeopleFilter} onPeopleSelectionChange={setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onTogglePause={actions.toggleSystemPause} onStopJob={actions.stopJob} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onSetModulePaused={actions.setModulePaused} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={handlers.handleOpenAlbum} />
+          <AppMainContent view={view} assets={assets} libraryActive={view === 'library'} people={people} status={status} backendReady={backendReady} filterStack={filterStack} selectedAssetId={selectedAssetId} showFaces={false} librarySelection={librarySelection} declusteredAssets={declusteredAssets} showRejected={showRejected} rejectedAssets={rejectedAssets} jobs={jobs} systemJobs={systemJobs} queueStatus={queueStatus} dataStats={dataStats} recentEvents={recentEvents} isSystemPaused={isSystemPaused} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} onLoadMoreAssets={actions.loadMoreAssets} onAssetClick={setSelectedAssetId} onUntagAsset={handlers.handleUntagAsset} onSetSensitivity={actions.setSensitivity} onLibrarySelectionChange={setLibrarySelection} onPeopleFilter={handlers.handlePeopleFilter} onPeopleSelectionChange={setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onTogglePause={actions.toggleSystemPause} onStopJob={actions.stopJob} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onSetModulePaused={actions.setModulePaused} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={handlers.handleOpenAlbum} />
           <AppStatusBar statusMessage={statusMessage} status={status} view={view} librarySelectionCount={librarySelection.size} shownAssetsCount={handlers.shownAssetsCount} peopleSelectionCount={peopleSelectionCount} totalPhotoCount={stats?.count || 0} peopleCount={people.length} rightSlot={<DevConsole />} />
           <AppOverlays assets={assets} selectedAssetId={selectedAssetId} setSelectedAssetId={setSelectedAssetId} showActions={showActions} setShowActions={setShowActions} showSettings={showSettings} setShowSettings={setShowSettings} showInfoPanel={showInfoPanel} setShowInfoPanel={setShowInfoPanel} activeInfoTab={activeInfoTab} setActiveInfoTab={setActiveInfoTab} jobs={jobs} folderHistory={folderHistory} onScan={handlers.handleScan} onPreviews={actions.generatePreviews} onDetect={actions.detectFaces} onRecognise={actions.recogniseFaces} onCluster={actions.clusterFaces} onScanSensitive={actions.scanSensitive} onScanSensitiveAll={actions.scanSensitiveAll} onExtractAiMetadata={actions.extractAiMetadata} onRefresh={handlers.handleOverlayRefresh} onResetFaces={actions.resetFaces} onResetAll={actions.resetLibrary} onFactoryReset={actions.factoryResetLibrary} onStopScan={actions.stopScan} onBuildGroups={actions.buildGroups} onBuildBursts={actions.buildBursts} onGetSetting={actions.getSetting} onSetSetting={actions.setSetting} theme={theme} setTheme={setTheme} animationsEnabled={animationsEnabled} setAnimationsEnabled={setAnimationsEnabled} onPrioritize={actions.prioritizeAsset} onFaceClick={handlers.handleFaceClick} onIsolateFace={actions.isolateFace} onSetSensitivity={actions.setSensitivity} onOpenSettingsFromPhoto={handlers.handleOpenSettingsFromPhoto} onGetGroupOrbit={actions.getGroupOrbit} onSetCanonical={actions.setCanonical} onExplodeGroup={actions.explodeGroup} onStopJob={actions.stopJob} />
         </div>

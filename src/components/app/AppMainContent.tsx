@@ -11,6 +11,7 @@ interface AppMainContentProps {
   assets: Asset[];
   people: Person[];
   status: string;
+  backendReady: boolean;
   filterStack: LibraryFilter[];
   selectedAssetId: string | null;
   libraryActive: boolean;
@@ -59,7 +60,7 @@ function getPanelStyle(active: boolean) {
 
 export function AppMainContent(props: AppMainContentProps) {
   const {
-    view, assets, people, status, filterStack, selectedAssetId, libraryActive, showFaces,
+    view, assets, people, status, backendReady, filterStack, selectedAssetId, libraryActive, showFaces,
     librarySelection, declusteredAssets, showRejected, rejectedAssets, jobs, systemJobs,
     queueStatus, dataStats, recentEvents, isSystemPaused, hasMoreAssets, isLoadingMoreAssets,
     onLoadMoreAssets, onAssetClick, onUntagAsset, onSetSensitivity, onLibrarySelectionChange,
@@ -76,7 +77,7 @@ export function AppMainContent(props: AppMainContentProps) {
         <LibraryView
           assets={assets.filter((asset) => Boolean(asset.preview_path))}
           loading={status.includes('Initializing')}
-          backendReady={status.startsWith('Ready')}
+          backendReady={backendReady}
           backendStatus={status}
           hasMoreAssets={hasMoreAssets}
           isLoadingMoreAssets={isLoadingMoreAssets}
@@ -120,7 +121,7 @@ export function AppMainContent(props: AppMainContentProps) {
           onGetEventPayloadRaw={onGetEventPayloadRaw}
           onGetJobErrors={onGetJobErrors}
           onSetModulePaused={onSetModulePaused}
-          loading={!status.startsWith('Ready')}
+          loading={!backendReady}
         />
       )}
 

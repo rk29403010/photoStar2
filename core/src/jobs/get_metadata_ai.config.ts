@@ -9,7 +9,7 @@ const SUPPORTED_MODELS = new Set([MODEL_PRO, MODEL_FLASH, LEGACY_FLASH_MODEL]);
 
 type QuotaReason = 'rate_limit' | 'daily_quota';
 type FreshStopReason = 'flash_daily_quota' | 'flash_rate_limit';
-type ProStopReason = 'pro_daily_quota' | 'pro_rate_limit';
+export type ProStopReason = 'pro_daily_quota' | 'pro_rate_limit';
 
 export type ModelConfig = { preferredModel: string; flashModel: string; csvContent: string; keyTrimmed: string };
 export type JobCounters = {

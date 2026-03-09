@@ -184,10 +184,9 @@ function useWorkflowActions(params: {
 
     const scanActions = useMemo(() => createScanActions({
         transport: state.transport,
-        setStatus: state.setStatus,
         addLog: state.addLog,
         lastScanId: state.lastScanId,
-    }), [state.addLog, state.lastScanId, state.setStatus, state.transport]);
+    }), [state.addLog, state.lastScanId, state.transport]);
 
     const pipelineActions = useMemo(() => createPipelineActions({ transport: state.transport, addJob }), [addJob, state.transport]);
 

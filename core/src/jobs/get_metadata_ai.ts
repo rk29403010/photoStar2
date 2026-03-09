@@ -10,9 +10,16 @@ import {
     emitAiJobProgress,
     getUnrecoverableAiReason,
 } from './ai_metadata_shared';
-import { prepareImagePayload, recordErrorIssue, saveAiMetadataResult } from './ai_metadata_job_support';
+import { existsSync, prepareImagePayload, recordErrorIssue, saveAiMetadataResult } from './ai_metadata_job_support';
 import { isDailyQuotaExceeded, isRateLimited } from './quota_manager';
-import { initCounters, resolveModelConfig, type JobCounters, type ModelConfig, validateApiKey } from './get_metadata_ai.config';
+import {
+    initCounters,
+    resolveModelConfig,
+    type JobCounters,
+    type ModelConfig,
+    type ProStopReason,
+    validateApiKey
+} from './get_metadata_ai.config';
 
 export { getPendingProAssetIds } from './ai_metadata_shared';
 

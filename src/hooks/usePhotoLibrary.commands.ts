@@ -21,7 +21,6 @@ type SharedWorkflowActionParams = {
 
 type ScanActionParams = {
     transport: BackendTransport | null;
-    setStatus: (status: string) => void;
     addLog: (message: string) => void;
     lastScanId: { current: string | null };
 };
@@ -59,13 +58,11 @@ export function useLibraryTransport(transport: BackendTransport | null, addLog: 
 }
 
 export function createScanActions(params: ScanActionParams) {
-    const { transport, setStatus, lastScanId, addLog } = params;
+    const { transport, lastScanId, addLog } = params;
 
     return {
         scanLibrary: async (path: string) => {
             if (!transport) {return;}
-
-            setStatus(`Scanning: ${path}`);
             const jobId = `scan-${Date.now()}`;
             lastScanId.current = jobId;
             await writeCommand(transport, jobId, 'scan_folder', { path });
