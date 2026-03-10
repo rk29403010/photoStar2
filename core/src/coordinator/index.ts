@@ -3,6 +3,7 @@ import type { DomainEvent } from '../events/types';
 import type { DatabaseManager } from '../db';
 import { SystemState } from '../state';
 import { getPausedDashboardModuleIds } from '../handlers/systemDashboardModules';
+import { v4 as uuidv4 } from 'uuid';
 import type {
     QueueStage,
     StageDispatch,
@@ -21,9 +22,11 @@ import {
 
 type QueueTaskRow = { media_id: string; pipeline_stage: string };
 type DispatchPlan = {
-    mediaIdsByStage: Map<QueueStage, string[]>;
-    rowsToMarkProcessing: QueueTaskRow[];
+    rowsByStage: Map<QueueStage, QueueTaskRow[]>;
 };
+type AiMetadataQueueMode = Extract<DomainEvent, { type: 'AiMetadataRequested' }>['queueMode'];
+type AiMetadataV2WorkerMode = Extract<DomainEvent, { type: 'AiMetadataV2Requested' }>['workerMode'];
+type AiMetadataV2Stage = Extract<DomainEvent, { type: 'AiMetadataV2Requested' }>['pipelineStage'];
 
 export class Coordinator {
     private readonly eventBus: EventBus;
@@ -139,7 +142,12 @@ export class Coordinator {
                 return;
             case 'queue_complete':
                 this.db.getDb().prepare(
-                    `UPDATE task_queue SET status = 'completed' WHERE media_id = ? AND pipeline_stage = ?`
+                    `UPDATE task_queue
+                     SET status = 'completed',
+                         claimed_by = NULL,
+                         claimed_at = NULL,
+                         last_error = NULL
+                     WHERE media_id = ? AND pipeline_stage = ?`
                 ).run(mediaId, action.stage);
                 return;
         }
@@ -149,7 +157,32 @@ export class Coordinator {
         return event.type === 'JobCompleted' && event.pipelineStage === 'previews';
     }
 
-    private finalizeAiMetadataTasks(event: DomainEvent) {
+    private finalizeOwnedBatchFailure(event: DomainEvent): boolean {
+        if (event.type !== 'JobFailed' || !event.pipelineStage || !event.jobId) {
+            return false;
+        }
+
+        const policy = this.stagePolicyByName.get(event.pipelineStage);
+        if (policy?.batchOwnership !== 'job_id') {
+            return false;
+        }
+
+        const failed = this.db.getDb().prepare(`
+            UPDATE task_queue
+            SET status = 'failed',
+                last_error = ?,
+                claimed_at = COALESCE(claimed_at, ?)
+            WHERE pipeline_stage = ? AND status = 'processing' AND claimed_by = ?
+        `).run(event.reason, new Date().toISOString(), event.pipelineStage, event.jobId);
+
+        if (failed.changes > 0) {
+            console.warn(`[Coordinator] Marked ${failed.changes} ${event.pipelineStage} task(s) as failed for ${event.jobId}.`);
+        }
+
+        return failed.changes > 0;
+    }
+
+    private finalizeLegacyAiMetadataTasks(event: DomainEvent) {
         if (event.type !== 'JobCompleted' && event.type !== 'JobFailed') {
             return;
         }
@@ -214,7 +247,9 @@ export class Coordinator {
             return;
         }
 
-        this.finalizeAiMetadataTasks(event);
+        if (!this.finalizeOwnedBatchFailure(event)) {
+            this.finalizeLegacyAiMetadataTasks(event);
+        }
         this.cleanupRecognitionTasks(event);
 
         this.triggerEvaluateQueue();
@@ -297,6 +332,8 @@ export class Coordinator {
             sensitive_scan: 'class-sensitive',
             ai_metadata_3f: 'class-aimetadata-3f',
             ai_metadata_31p: 'class-aimetadata-31p',
+            ai_metadata_v2_3f: 'class-aimetadata-3f',
+            ai_metadata_v2_31p: 'class-aimetadata-31p',
         };
 
         const moduleId = pausedStageMap[stage];
@@ -414,12 +451,27 @@ export class Coordinator {
     private markPendingRowsCompleted(stage: QueueStage) {
         this.db.getDb().prepare(`
             UPDATE task_queue
-            SET status = 'completed'
+            SET status = 'completed',
+                claimed_by = NULL,
+                claimed_at = NULL,
+                last_error = NULL
             WHERE pipeline_stage = ? AND status = 'pending'
         `).run(stage);
     }
 
-    private emitDispatchEvent(dispatch: StageDispatch, mediaIds: string[] = []) {
+    private emitAiMetadataRequested(mediaIds: string[], workerMode?: string, jobId?: string) {
+        this.eventBus.emit({ type: 'AiMetadataRequested', mediaIds, jobId, queueMode: workerMode as AiMetadataQueueMode });
+    }
+
+    private resolveAiMetadataV2WorkerMode(workerMode?: string): AiMetadataV2WorkerMode { return workerMode === 'pro_pending' ? 'pro_pending' : 'fresh'; }
+
+    private resolveAiMetadataV2Stage(pipelineStage?: QueueStage): AiMetadataV2Stage { return pipelineStage === 'ai_metadata_v2_31p' ? 'ai_metadata_v2_31p' : 'ai_metadata_v2_3f'; }
+
+    private emitAiMetadataV2Requested(mediaIds: string[], workerMode?: string, jobId?: string, pipelineStage?: QueueStage) {
+        this.eventBus.emit({ type: 'AiMetadataV2Requested', mediaIds, jobId: jobId ?? '', workerMode: this.resolveAiMetadataV2WorkerMode(workerMode), pipelineStage: this.resolveAiMetadataV2Stage(pipelineStage) });
+    }
+
+    private emitDispatchEvent(dispatch: StageDispatch, mediaIds: string[] = [], jobId?: string, pipelineStage?: QueueStage) {
         switch (dispatch.event) {
             case 'PreviewRequested':
                 this.eventBus.emit({ type: 'PreviewRequested', mediaIds, reason: dispatch.reason });
@@ -434,7 +486,10 @@ export class Coordinator {
                 this.eventBus.emit({ type: 'SensitiveScanRequested', mediaIds });
                 return;
             case 'AiMetadataRequested':
-                this.eventBus.emit({ type: 'AiMetadataRequested', mediaIds, queueMode: dispatch.queueMode });
+                this.emitAiMetadataRequested(mediaIds, dispatch.workerMode, jobId);
+                return;
+            case 'AiMetadataV2Requested':
+                this.emitAiMetadataV2Requested(mediaIds, dispatch.workerMode, jobId, pipelineStage);
                 return;
             case 'FaceClusteringRequested':
                 this.eventBus.emit({ type: 'FaceClusteringRequested' });
@@ -444,8 +499,7 @@ export class Coordinator {
 
         private buildDispatchPlan(rows: QueueTaskRow[]): DispatchPlan {
         const plan: DispatchPlan = {
-            mediaIdsByStage: new Map<QueueStage, string[]>(),
-            rowsToMarkProcessing: [],
+            rowsByStage: new Map<QueueStage, QueueTaskRow[]>(),
         };
 
         for (const row of rows) {
@@ -457,34 +511,60 @@ export class Coordinator {
 
     private addRowToDispatchPlan(plan: DispatchPlan, row: QueueTaskRow) {
         const stage = row.pipeline_stage as QueueStage;
-        const mediaIds = plan.mediaIdsByStage.get(stage) ?? [];
-        mediaIds.push(row.media_id);
-        plan.mediaIdsByStage.set(stage, mediaIds);
-
-        const policy = this.stagePolicyByName.get(stage);
-        if (policy?.dispatch.kind === 'media_batch') {
-            plan.rowsToMarkProcessing.push(row);
-        }
+        const rows = plan.rowsByStage.get(stage) ?? [];
+        rows.push(row);
+        plan.rowsByStage.set(stage, rows);
     }
 
-    private markRowsProcessing(rows: QueueTaskRow[]) {
+    private markRowsProcessing(rows: QueueTaskRow[], claimedBy?: string) {
         if (rows.length === 0) {return;}
 
-        const stmt = this.db.getDb().prepare(`UPDATE task_queue SET status = 'processing' WHERE media_id = ? AND pipeline_stage = ?`);
+        const stmt = claimedBy
+            ? this.db.getDb().prepare(`
+                UPDATE task_queue
+                SET status = 'processing',
+                    claimed_by = ?,
+                    claimed_at = ?,
+                    last_error = NULL
+                WHERE media_id = ? AND pipeline_stage = ?
+            `)
+            : this.db.getDb().prepare(`
+                UPDATE task_queue
+                SET status = 'processing',
+                    claimed_by = NULL,
+                    claimed_at = NULL,
+                    last_error = NULL
+                WHERE media_id = ? AND pipeline_stage = ?
+            `);
+
+        const claimedAt = new Date().toISOString();
         this.db.getDb().transaction(() => {
             for (const row of rows) {
-                stmt.run(row.media_id, row.pipeline_stage);
+                if (claimedBy) {
+                    stmt.run(claimedBy, claimedAt, row.media_id, row.pipeline_stage);
+                } else {
+                    stmt.run(row.media_id, row.pipeline_stage);
+                }
             }
         })();
     }
 
-    private dispatchByStage(mediaIdsByStage: Map<QueueStage, string[]>) {
-        for (const [stage, mediaIds] of mediaIdsByStage.entries()) {
+    private createOwnedJobId(policy: StagePolicy): string | undefined {
+        if (policy.batchOwnership !== 'job_id' || !policy.jobIdPrefix) {
+            return undefined;
+        }
+        return `${policy.jobIdPrefix}-${uuidv4()}`;
+    }
+
+    private dispatchByStage(rowsByStage: Map<QueueStage, QueueTaskRow[]>) {
+        for (const [stage, rows] of rowsByStage.entries()) {
             const policy = this.stagePolicyByName.get(stage);
             if (!policy) {
                 console.warn(`[Coordinator] No policy for stage '${stage}', skipping dispatch.`);
                 continue;
             }
+
+            const mediaIds = rows.map((row) => row.media_id);
 
             if (policy.dispatch.kind === 'signal') {
                 if (policy.dispatch.completePendingRowsBeforeEmit) {
@@ -494,7 +574,9 @@ export class Coordinator {
                 continue;
             }
 
-            this.emitDispatchEvent(policy.dispatch, mediaIds);
+            const jobId = this.createOwnedJobId(policy);
+            this.markRowsProcessing(rows, jobId);
+            this.emitDispatchEvent(policy.dispatch, mediaIds, jobId, stage);
         }
     }
 
@@ -502,8 +584,7 @@ export class Coordinator {
         if (rows.length === 0) {return;}
 
         const plan = this.buildDispatchPlan(rows);
-        this.markRowsProcessing(plan.rowsToMarkProcessing);
-        this.dispatchByStage(plan.mediaIdsByStage);
+        this.dispatchByStage(plan.rowsByStage);
     }
 }
 

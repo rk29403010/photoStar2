@@ -43,11 +43,12 @@ const SKELETON_SYSTEM_JOBS: BackgroundJob[] = [
     { id: 'class-detection', stage: 'analysis', title: 'Face Detection', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
     { id: 'class-mapping', stage: 'analysis', title: 'Face Recognition', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
     { id: 'class-clustering', stage: 'analysis', title: 'Face Clustering', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-aimetadata-3f', stage: 'ai_metadata_3f', title: 'AI Metadata (3F)', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-aimetadata-31p', stage: 'ai_metadata_31p', title: 'AI Metadata Upgrade (31P)', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-sensitive', stage: 'sensitive_scan', title: 'Sensitive Content Scan', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-aimetadata-3f', stage: 'ai_metadata_v2_3f', title: 'AI Metadata V2 (Gemini 3F)', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
+    { id: 'class-aimetadata-31p', stage: 'ai_metadata_v2_31p', title: 'AI Metadata V2 Upgrade (Gemini 31P)', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
 ];
 
-const SYSTEM_STAGES = ['onboarding', 'bulk_ingest', 'previews', 'preview_generation', 'analysis', 'face_analysis', 'scan', 'ai_metadata', 'ai_metadata_3f', 'ai_metadata_31p'];
+const SYSTEM_STAGES = ['onboarding', 'bulk_ingest', 'previews', 'preview_generation', 'analysis', 'face_analysis', 'scan', 'ai_metadata', 'ai_metadata_3f', 'ai_metadata_31p', 'ai_metadata_v2_3f', 'ai_metadata_v2_31p', 'sensitive_scan'];
 const DASHBOARD_STATE_PRIORITY: Record<BackgroundJob['state'], number> = {
     running: 0,
     starting: 0,

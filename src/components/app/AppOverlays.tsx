@@ -50,7 +50,9 @@ interface AppOverlaysProps {
   onGetGroupOrbit: (groupId: string) => Promise<Asset[]>;
   onSetCanonical: (groupId: string, assetId: string) => Promise<void>;
   onExplodeGroup: (groupId: string) => Promise<void>;
-  onStopJob: (id: string) => void;
+  onStopJob: (job: BackgroundJob) => void;
+  isTaskDrawerMinimized: boolean;
+  onTaskDrawerMinimizedChange: (minimized: boolean) => void;
 }
 
 export function AppOverlays(props: AppOverlaysProps) {
@@ -114,7 +116,12 @@ export function AppOverlays(props: AppOverlaysProps) {
         />
       )}
 
-      <TaskDrawer jobs={props.jobs} onStop={props.onStopJob} />
+      <TaskDrawer
+        jobs={props.jobs}
+        onStop={props.onStopJob}
+        isMinimized={props.isTaskDrawerMinimized}
+        onMinimize={props.onTaskDrawerMinimizedChange}
+      />
     </>
   );
 }

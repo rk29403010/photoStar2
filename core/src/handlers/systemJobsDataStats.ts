@@ -21,13 +21,13 @@ function toPercent(done: number, total: number): number {
 
 function getAiMetadataQueueStats(db: unknown) {
     return {
-        freshPending: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage = 'ai_metadata_3f' AND status = 'pending'"),
-        freshProcessing: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage = 'ai_metadata_3f' AND status = 'processing'"),
-        freshFailed: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage = 'ai_metadata_3f' AND status = 'failed'"),
-        proPending: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage = 'ai_metadata_31p' AND status = 'pending'"),
-        proProcessing: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage = 'ai_metadata_31p' AND status = 'processing'"),
-        proFailed: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage = 'ai_metadata_31p' AND status = 'failed'"),
-        proCompleted: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage = 'ai_metadata_31p' AND status = 'completed'"),
+        freshPending: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage IN ('ai_metadata_3f', 'ai_metadata_v2_3f') AND status = 'pending'"),
+        freshProcessing: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage IN ('ai_metadata_3f', 'ai_metadata_v2_3f') AND status = 'processing'"),
+        freshFailed: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage IN ('ai_metadata_3f', 'ai_metadata_v2_3f') AND status = 'failed'"),
+        proPending: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage IN ('ai_metadata_31p', 'ai_metadata_v2_31p') AND status = 'pending'"),
+        proProcessing: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage IN ('ai_metadata_31p', 'ai_metadata_v2_31p') AND status = 'processing'"),
+        proFailed: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage IN ('ai_metadata_31p', 'ai_metadata_v2_31p') AND status = 'failed'"),
+        proCompleted: getCount(db, "SELECT COUNT(*) as count FROM task_queue WHERE pipeline_stage IN ('ai_metadata_31p', 'ai_metadata_v2_31p') AND status = 'completed'"),
     };
 }
 

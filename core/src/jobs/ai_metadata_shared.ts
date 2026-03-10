@@ -129,7 +129,7 @@ Return JSON matching this schema exactly (no extra keys):
 }`;
 }
 
-export function queueForProAnalysis(db: ReturnType<DatabaseManager['getDb']>, assetId: string): void {
+export function ensureProPendingRecord(db: ReturnType<DatabaseManager['getDb']>, assetId: string): void {
     const existing = db.prepare(
         `SELECT id FROM derived_results WHERE asset_id = ? AND task = 'ai_metadata_pro_pending'`
     ).get(assetId);
@@ -139,7 +139,10 @@ export function queueForProAnalysis(db: ReturnType<DatabaseManager['getDb']>, as
             VALUES (?, ?, 'ai_metadata_pro_pending', 'google', ?, '{}')
         `).run(uuidv4(), assetId, MODEL_PRO);
     }
+}
 
+export function queueForProAnalysis(db: ReturnType<DatabaseManager['getDb']>, assetId: string): void {
+    ensureProPendingRecord(db, assetId);
     db.prepare(`
         INSERT INTO task_queue (media_id, pipeline_stage, status, priority)
         VALUES (?, 'ai_metadata_31p', 'pending', -30)
@@ -153,8 +156,12 @@ export function getPendingProAssetIds(db: ReturnType<DatabaseManager['getDb']>):
     ).all() as { asset_id: string }[]).map(r => r.asset_id);
 }
 
-export function clearProPending(db: ReturnType<DatabaseManager['getDb']>, assetId: string): void {
+export function clearProPendingRecord(db: ReturnType<DatabaseManager['getDb']>, assetId: string): void {
     db.prepare(`DELETE FROM derived_results WHERE asset_id = ? AND task = 'ai_metadata_pro_pending'`).run(assetId);
+}
+
+export function clearProPending(db: ReturnType<DatabaseManager['getDb']>, assetId: string): void {
+    clearProPendingRecord(db, assetId);
     db.prepare(`
         UPDATE task_queue
         SET status = 'completed'

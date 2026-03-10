@@ -88,7 +88,7 @@ function PipelineColumn(props: Pick<ActionPanelProps, 'onClose' | 'onPreviews' |
         { label: 'Cluster Faces', icon: '🧬', desc: 'Group similar faces into discovery clusters', border: 'hover:border-purple-500/50', onClick: onCluster },
         { label: 'Scan Sensitive Content', icon: '🔞', desc: 'Detect NSFW content locally (unscanned only)', border: 'hover:border-amber-500/50', onClick: onScanSensitive },
         { label: 'Force Re-scan All Images', icon: '🔁', desc: 'Clear existing scores & re-run on every asset', border: 'hover:border-orange-600/50', onClick: () => { if (window.confirm('This will clear and re-run the sensitive content scan over ALL images in the library. This may take a long time. Continue?')) {onScanSensitiveAll();} } },
-        { label: 'Extract AI Metadata', icon: '🧠', desc: 'Use Gemini to generate rich captions and detect semantic info', border: 'hover:border-indigo-500/50', onClick: onExtractAiMetadata }
+        { label: 'Run AI Metadata V2', icon: '🧠', desc: 'Use the Gemini replacement pipeline to generate rich captions and semantic metadata', border: 'hover:border-indigo-500/50', onClick: onExtractAiMetadata }
     ];
 
     return (

@@ -116,6 +116,34 @@ export type AiMetadataRequested = {
     queueMode?: 'fresh' | 'pro_pending' | 'all';
 };
 
+export type AiMetadataV2Requested = {
+    type: "AiMetadataV2Requested";
+    mediaIds?: string[];
+    jobId: string;
+    workerMode: 'fresh' | 'pro_pending';
+    pipelineStage: 'ai_metadata_v2_3f' | 'ai_metadata_v2_31p';
+};
+
+export type AiMetadataV2FreshCompleted = {
+    type: "AiMetadataV2FreshCompleted";
+    mediaId: string;
+    usedModel: string;
+    queuedProUpgrade: boolean;
+};
+
+export type AiMetadataV2ProCompleted = {
+    type: "AiMetadataV2ProCompleted";
+    mediaId: string;
+    usedModel: string;
+};
+
+export type AiMetadataV2UpgradeQueued = {
+    type: "AiMetadataV2UpgradeQueued";
+    mediaId: string;
+    reason: 'rate_limit' | 'daily_quota';
+    proModel: string;
+};
+
 export type SensitiveScanRequested = {
     type: "SensitiveScanRequested";
     mediaIds?: string[];
@@ -184,6 +212,10 @@ export type DomainEvent =
     | JobFailed
     | SensitivityScored
     | AiMetadataRequested
+    | AiMetadataV2Requested
+    | AiMetadataV2FreshCompleted
+    | AiMetadataV2ProCompleted
+    | AiMetadataV2UpgradeQueued
     | SensitiveScanRequested
     | AssetUpdated
     | QuotaWarning

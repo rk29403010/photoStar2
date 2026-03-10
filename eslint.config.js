@@ -31,6 +31,7 @@ export default defineConfig([
     'core/dist',
     'src-tauri/target',
     'src-tauri/binaries',
+    '.vscode/**',
     'vite.config.ts.timestamp-*.mjs',
   ]),
   {

@@ -7,6 +7,10 @@ Last reviewed: 2026-03-08
 This document is normative for adding a new workflow-managed module to the
 current codebase.
 
+This is the legacy `v1` authoring contract retained as a historical reference.
+For new module work and replacement-module design, use
+`docs/workflow-module-authoring-v2.md`.
+
 - It targets the code that exists today.
 - It is for trusted, repo-local modules added by editing this repository.
 - It is not a spec for downloadable third-party plugins yet.

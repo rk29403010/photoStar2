@@ -1,33 +1,43 @@
-import { useState } from "react";
 import type { BackgroundJob } from '../../../shared/types/jobs';
 import { JobRow } from "./JobRow";
 
-export function TaskDrawer({ jobs, onStop }: { jobs: BackgroundJob[], onStop?: (id: string) => void }) {
-    const [isMinimized, setIsMinimized] = useState(false);
-    const [isClosed, setIsClosed] = useState(false);
-
-    if (jobs.length === 0 || isClosed) {return null;}
+export function TaskDrawer({
+    jobs,
+    onStop,
+    isMinimized,
+    onMinimize,
+}: {
+    jobs: BackgroundJob[];
+    onStop?: (job: BackgroundJob) => void;
+    isMinimized: boolean;
+    onMinimize: (minimized: boolean) => void;
+}) {
+    if (jobs.length === 0) {return null;}
 
     return (
-        <div className="fixed bottom-0 right-0 w-96 max-h-[70vh] bg-white shadow-xl border-l border-t border-gray-200 z-50 flex flex-col transition-all">
+        <div className="fixed bottom-8 right-3 z-50 flex max-h-[70vh] w-[26rem] flex-col overflow-hidden rounded-t-xl border border-slate-800 bg-[#0f172a] shadow-2xl shadow-black/40 transition-all">
             <div
-                className="p-3 border-b font-semibold bg-gray-50 cursor-pointer select-none flex justify-between items-center"
-                onDoubleClick={() => setIsMinimized(!isMinimized)}
+                className="flex cursor-pointer select-none items-center justify-between border-b border-slate-800 bg-slate-950/90 px-4 py-3"
+                onDoubleClick={() => onMinimize(!isMinimized)}
                 title="Double click to minimize"
             >
-                <span>Background Tasks ({jobs.length})</span>
-                <button 
+                <div>
+                    <div className="text-sm font-semibold text-slate-100">Background Tasks ({jobs.length})</div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-cyan-300">Active task monitor</div>
+                </div>
+                <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        setIsClosed(true);
+                        onMinimize(true);
                     }}
-                    className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700 transition-colors"
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100"
+                    aria-label="Minimize tasks"
                 >
                     ✕
                 </button>
             </div>
             {!isMinimized && (
-                <div className="overflow-y-auto flex-1 p-3">
+                <div className="flex-1 overflow-y-auto bg-slate-900/95 p-3">
                     {jobs.map((job) => (
                         <JobRow key={job.id} job={job} onStop={onStop} />
                     ))}

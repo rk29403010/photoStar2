@@ -142,7 +142,12 @@ const BUILTIN_WORKFLOW_MODULES: WorkflowModuleDefinition[] = [
     {
         id: 'ai_metadata_pipeline',
         description: 'AI metadata extraction',
-        enabledByDefault: true,
+        enabledByDefault: false,
+        status: 'legacy',
+        replacedByModuleId: 'ai_metadata_v2_pipeline',
+        storageCompatibility: 'reuse_existing_results',
+        monitoringCompatibility: 'merge_legacy_and_replacement',
+        rateLimitStrategy: 'dynamic_tier',
         stagePolicies: [
             {
                 stage: 'ai_metadata_3f',
@@ -152,7 +157,7 @@ const BUILTIN_WORKFLOW_MODULES: WorkflowModuleDefinition[] = [
                 jobsRunningLike: 'ai_meta_3f-%',
                 batchLimit: 100,
                 useHeavyBatching: true,
-                dispatch: { kind: 'media_batch', event: 'AiMetadataRequested', queueMode: 'fresh' }
+                dispatch: { kind: 'media_batch', event: 'AiMetadataRequested', workerMode: 'fresh' }
             },
             {
                 stage: 'ai_metadata_31p',
@@ -162,7 +167,7 @@ const BUILTIN_WORKFLOW_MODULES: WorkflowModuleDefinition[] = [
                 jobsRunningLike: 'ai_meta_31p-%',
                 batchLimit: 50,
                 useHeavyBatching: true,
-                dispatch: { kind: 'media_batch', event: 'AiMetadataRequested', queueMode: 'pro_pending' }
+                dispatch: { kind: 'media_batch', event: 'AiMetadataRequested', workerMode: 'pro_pending' }
             }
         ],
         transitionRules: [
@@ -180,10 +185,82 @@ const BUILTIN_WORKFLOW_MODULES: WorkflowModuleDefinition[] = [
                 triggerEvaluate: true
             }
         ]
+    },
+    {
+        id: 'ai_metadata_v2_pipeline',
+        description: 'Replacement AI metadata extraction with owned batches and declarative completion',
+        enabledByDefault: true,
+        status: 'active',
+        replacesModuleIds: ['ai_metadata_pipeline'],
+        storageCompatibility: 'reuse_existing_results',
+        monitoringCompatibility: 'merge_legacy_and_replacement',
+        rateLimitStrategy: 'dynamic_tier',
+        stagePolicies: [
+            {
+                stage: 'ai_metadata_v2_3f',
+                order: 60,
+                gate: 'strict',
+                activeCounter: 'jobs_running',
+                jobsRunningLike: 'ai_meta_v2_3f-%',
+                batchLimit: 10,
+                useHeavyBatching: true,
+                batchOwnership: 'job_id',
+                jobIdPrefix: 'ai_meta_v2_3f',
+                dispatch: { kind: 'media_batch', event: 'AiMetadataV2Requested', workerMode: 'fresh' }
+            },
+            {
+                stage: 'ai_metadata_v2_31p',
+                order: 61,
+                gate: 'opportunistic',
+                activeCounter: 'jobs_running',
+                jobsRunningLike: 'ai_meta_v2_31p-%',
+                batchLimit: 5,
+                useHeavyBatching: true,
+                batchOwnership: 'job_id',
+                jobIdPrefix: 'ai_meta_v2_31p',
+                dispatch: { kind: 'media_batch', event: 'AiMetadataV2Requested', workerMode: 'pro_pending' }
+            }
+        ],
+        transitionRules: [
+            {
+                id: 'ai-meta-v2-no-preview',
+                eventType: 'MediaDiscovered',
+                condition: 'auto_preview_off',
+                actions: [{ kind: 'queue_upsert', stage: 'ai_metadata_v2_3f', priority: -20 }],
+                triggerEvaluate: true
+            },
+            {
+                id: 'ai-meta-v2-from-preview',
+                eventType: 'PreviewGenerated',
+                actions: [{ kind: 'queue_upsert', stage: 'ai_metadata_v2_3f', priority: -20 }],
+                triggerEvaluate: true
+            },
+            {
+                id: 'ai-meta-v2-upgrade-queued',
+                eventType: 'AiMetadataV2UpgradeQueued',
+                actions: [{ kind: 'queue_upsert', stage: 'ai_metadata_v2_31p', priority: -30 }],
+                triggerEvaluate: true
+            },
+            {
+                id: 'ai-meta-v2-fresh-complete',
+                eventType: 'AiMetadataV2FreshCompleted',
+                actions: [{ kind: 'queue_complete', stage: 'ai_metadata_v2_3f' }],
+                triggerEvaluate: true
+            },
+            {
+                id: 'ai-meta-v2-pro-complete',
+                eventType: 'AiMetadataV2ProCompleted',
+                actions: [{ kind: 'queue_complete', stage: 'ai_metadata_v2_31p' }],
+                triggerEvaluate: true
+            }
+        ]
     }
 ];
 
 const runtimeWorkflowModules = new Map<string, WorkflowModuleDefinition>();
+const LEGACY_WORKFLOW_MODULE_ALIASES = new Map<string, string>([
+    ['ai_metadata_pipeline', 'ai_metadata_v2_pipeline']
+]);
 
 function cloneDispatch(dispatch: WorkflowModuleDefinition['stagePolicies'][number]['dispatch']) {
     return { ...dispatch };
@@ -192,6 +269,7 @@ function cloneDispatch(dispatch: WorkflowModuleDefinition['stagePolicies'][numbe
 function cloneModule(module: WorkflowModuleDefinition): WorkflowModuleDefinition {
     return {
         ...module,
+        replacesModuleIds: module.replacesModuleIds ? [...module.replacesModuleIds] : undefined,
         stagePolicies: module.stagePolicies.map(policy => ({ ...policy, dispatch: cloneDispatch(policy.dispatch) })),
         transitionRules: module.transitionRules.map(rule => ({
             ...rule,
@@ -237,6 +315,14 @@ function parseStringArray(value: unknown, label: string, errors: string[]): stri
     return next;
 }
 
+function normalizeWorkflowModuleIds(moduleIds: string[] | null): string[] | null {
+    if (!moduleIds) {
+        return null;
+    }
+
+    return moduleIds.map((moduleId) => LEGACY_WORKFLOW_MODULE_ALIASES.get(moduleId) || moduleId);
+}
+
 function parseModuleSelection(
     rawSetting: string
 ): { onlyModules: string[] | null; enabledModules: string[] | null; disabledModules: string[] | null; errors: string[] } {
@@ -253,7 +339,7 @@ function parseModuleSelection(
 
     const errors: string[] = [];
     if (Array.isArray(parsed)) {
-        const onlyModules = parseStringArray(parsed, 'workflow modules array', errors);
+        const onlyModules = normalizeWorkflowModuleIds(parseStringArray(parsed, 'workflow modules array', errors));
         return { onlyModules, enabledModules: null, disabledModules: null, errors };
     }
 
@@ -263,9 +349,9 @@ function parseModuleSelection(
     }
 
     const source = parsed as Record<string, unknown>;
-    const onlyModules = parseStringArray(source.onlyModules, 'onlyModules', errors);
-    const enabledModules = parseStringArray(source.enabledModules, 'enabledModules', errors);
-    const disabledModules = parseStringArray(source.disabledModules, 'disabledModules', errors);
+    const onlyModules = normalizeWorkflowModuleIds(parseStringArray(source.onlyModules, 'onlyModules', errors));
+    const enabledModules = normalizeWorkflowModuleIds(parseStringArray(source.enabledModules, 'enabledModules', errors));
+    const disabledModules = normalizeWorkflowModuleIds(parseStringArray(source.disabledModules, 'disabledModules', errors));
     return { onlyModules, enabledModules, disabledModules, errors };
 }
 

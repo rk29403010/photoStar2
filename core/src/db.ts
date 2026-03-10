@@ -134,6 +134,9 @@ const SCHEMA_SQL = `
     pipeline_stage TEXT NOT NULL,
     status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
     priority INTEGER DEFAULT 0,
+    claimed_by TEXT,
+    claimed_at TEXT,
+    last_error TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(media_id, pipeline_stage),
     FOREIGN KEY(media_id) REFERENCES assets(id)
@@ -259,6 +262,9 @@ const MIGRATIONS = [
   "ALTER TABLE jobs ADD COLUMN current_item_path TEXT",
   "ALTER TABLE jobs ADD COLUMN throughput_ips REAL DEFAULT 0",
   "ALTER TABLE jobs ADD COLUMN last_error TEXT",
+  "ALTER TABLE task_queue ADD COLUMN claimed_by TEXT",
+  "ALTER TABLE task_queue ADD COLUMN claimed_at TEXT",
+  "ALTER TABLE task_queue ADD COLUMN last_error TEXT",
 ];
 
 function runMigration(db: Database.Database, sql: string): void {
@@ -285,6 +291,7 @@ export class DatabaseManager {
   private initSchema() {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
+    this.ensurePostMigrationIndexes();
     this.cleanupLegacyAiMetadataSplit();
 
     // Resume uncompleted tasks on application restart
@@ -322,6 +329,21 @@ export class DatabaseManager {
 
   public getDb() {
     return this.db;
+  }
+
+  private ensurePostMigrationIndexes() {
+    try {
+      this.db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_task_queue_stage_status_claimed
+        ON task_queue(pipeline_stage, status, claimed_by)
+      `);
+    } catch {
+      // ignore index creation failures so older schemas can still start and migrate
+    }
+  }
+
+  public close(): void {
+    this.db.close();
   }
 
   public getSetting(key: string): string {

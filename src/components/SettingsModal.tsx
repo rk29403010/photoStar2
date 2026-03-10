@@ -17,7 +17,7 @@ type SettingsMap = { [key: string]: string };
 const dbKeys = [
     'system_log_level', 'system_max_threads', 'workflow_auto_scan', 'workflow_generate_previews_on_ingest',
     'workflow_stage_overrides_json', 'workflow_modules_json',
-    'gemini_api_key', 'gemini_csv_path', 'job_cluster_threshold'
+    'ai_metadata_v2_api_key', 'gemini_api_key', 'gemini_csv_path', 'job_cluster_threshold'
 ];
 
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -105,7 +105,7 @@ function WorkflowsTab({ dbSettings, onChange }: { dbSettings: SettingsMap; onCha
                     <textarea
                         value={dbSettings.workflow_modules_json || ''}
                         onChange={(e) => onChange('workflow_modules_json', e.target.value)}
-                        placeholder='{"enabledModules":["ingest_previews","face_pipeline","safety_pipeline","ai_metadata_pipeline"]}'
+                        placeholder='{"enabledModules":["ingest_previews","face_pipeline","safety_pipeline","ai_metadata_v2_pipeline"]}'
                         className="w-full bg-[#111] border border-[#333] rounded px-3 py-2 text-xs font-mono outline-none focus:border-[#2a5] min-h-[88px]"
                     />
                     <p className="text-[10px] text-gray-300 mt-1">Controls enabled workflow modules. Supported keys: <code>onlyModules</code>, <code>enabledModules</code>, <code>disabledModules</code>.</p>
@@ -129,9 +129,14 @@ function AiJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onCha
     return (
         <div className="space-y-4 bg-[#242424] p-4 rounded-lg border border-[#333]">
             <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1 uppercase tracking-wider">Gemini API Key</label>
+                <label className="block text-xs font-medium text-gray-300 mb-1 uppercase tracking-wider">AI Metadata V2 API Key</label>
+                <input id="setting-ai-metadata-v2-api-key" type="password" value={dbSettings.ai_metadata_v2_api_key || ''} onChange={(e) => onChange('ai_metadata_v2_api_key', e.target.value)} placeholder="AIzaSy..." className="w-full bg-[#111] border border-[#333] rounded px-3 py-2 text-sm outline-none focus:border-purple-500" />
+                <p className="text-[10px] text-gray-300 mt-1">Preferred by the replacement AI metadata module. Falls back to the legacy Gemini key if left blank.</p>
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1 uppercase tracking-wider">Legacy Gemini API Key</label>
                 <input id="setting-gemini-api-key" type="password" value={dbSettings.gemini_api_key || ''} onChange={(e) => onChange('gemini_api_key', e.target.value)} placeholder="AIzaSy..." className="w-full bg-[#111] border border-[#333] rounded px-3 py-2 text-sm outline-none focus:border-purple-500" />
-                <p className="text-[10px] text-gray-300 mt-1">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">aistudio.google.com/apikey</a></p>
+                <p className="text-[10px] text-gray-300 mt-1">Compatibility fallback for the retired AI metadata pipeline. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">aistudio.google.com/apikey</a></p>
             </div>
             <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1 uppercase tracking-wider">Kinship Explorer CSV Path</label>
@@ -157,7 +162,7 @@ function ClusterJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; 
 function JobsTab({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange: (k: string, v: string) => void }) {
     return (
         <div className="space-y-8">
-            <div><h3 className="text-lg font-semibold border-b border-[#333] pb-2 text-purple-400 mb-4">Job: get_metadata_ai</h3><AiJobSection dbSettings={dbSettings} onChange={onChange} /></div>
+            <div><h3 className="text-lg font-semibold border-b border-[#333] pb-2 text-purple-400 mb-4">Job: get_metadata_ai_v2</h3><AiJobSection dbSettings={dbSettings} onChange={onChange} /></div>
             <div><h3 className="text-lg font-semibold border-b border-[#333] pb-2 text-purple-400 mb-4">Job: cluster_faces</h3><ClusterJobSection dbSettings={dbSettings} onChange={onChange} /></div>
         </div>
     );

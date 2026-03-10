@@ -118,7 +118,10 @@ export async function callWithFallback(
     imageBase64: string,
     mimeType: string,
     preferredModel: string,
-    db: ReturnType<DatabaseManager['getDb']>
+    db: ReturnType<DatabaseManager['getDb']>,
+    options?: {
+        onProPending?: (assetId: string, reason: ProPendingReason) => void;
+    }
 ): Promise<CallResult> {
     const imagePart = { inlineData: { data: imageBase64, mimeType } };
     const proRequested = preferredModel === MODEL_PRO;
@@ -132,8 +135,12 @@ export async function callWithFallback(
     const flashResult = await tryFlashModel(genAI, filename, exifDataString, imagePart, flashFallback);
     if (proRequested) {
         flashResult._pending_pro = true;
-        queueForProAnalysis(db, row.id);
         const proPendingReason: ProPendingReason = isDailyQuotaExceeded(MODEL_PRO) ? 'daily_quota' : 'rate_limit';
+        if (options?.onProPending) {
+            options.onProPending(row.id, proPendingReason);
+        } else {
+            queueForProAnalysis(db, row.id);
+        }
         return { result: flashResult, usedModel: flashFallback, proPendingReason };
     }
 

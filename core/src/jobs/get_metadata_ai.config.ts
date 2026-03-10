@@ -39,7 +39,7 @@ export function initCounters(): JobCounters {
 }
 
 export function validateApiKey(dbManager: DatabaseManager, eventBus: EventBus, jobId: string, pipelineStage: string): string | null {
-    const apiKey = dbManager.getSetting('gemini_api_key');
+    const apiKey = dbManager.getSetting('ai_metadata_v2_api_key') || dbManager.getSetting('gemini_api_key');
     const keyTrimmed = apiKey?.trim() ?? '';
     if (!keyTrimmed) {
         eventBus.emit({ type: 'JobFailed', jobId, pipelineStage, severity: 'fatal', reason: 'MISSING_API_KEY' });

@@ -12,6 +12,7 @@ type SendCommand = (command: string, payload?: Record<string, unknown>) => Promi
 type SharedWorkflowActionParams = {
     transport: BackendTransport | null;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
+    removeJob: (id: string) => void;
     sendCommand: SendCommand;
     request: RequestFn;
     refreshLibrary: () => void;
@@ -95,12 +96,12 @@ export function createPipelineActions(params: PipelineActionParams) {
         clusterFaces: () => launch('cluster', 'similarity_cluster', 'Cluster Faces', 'cluster_faces'),
         scanSensitive: () => launch('sensitive', 'sensitive_scan', 'Sensitive Content Scan', 'scan_sensitive'),
         scanSensitiveAll: () => launch('sensitive-force', 'sensitive_scan', 'Force Re-scan All (Sensitive)', 'scan_sensitive_force'),
-        extractAiMetadata: (mediaId?: string) => launch('ai_meta_3f', 'ai_metadata_3f', 'Extract AI Metadata', 'extract_ai_metadata', mediaId ? { mediaId } : {}),
+        extractAiMetadata: (mediaId?: string) => launch('ai_meta_v2_3f', 'ai_metadata_v2_3f', 'AI Metadata V2 (Gemini 3F)', 'extract_ai_metadata', mediaId ? { mediaId } : {}),
     };
 }
 
 export function createSystemActions(params: SystemActionParams) {
-    const { transport, sendCommand, setStatus, refreshLibrary, refreshPeople, refreshSystemJobs, isSystemPaused, setAssets, setPeople, setStats, request } = params;
+    const { transport, removeJob, sendCommand, setStatus, refreshLibrary, refreshPeople, refreshSystemJobs, isSystemPaused, setAssets, setPeople, setStats, request } = params;
 
     return {
         toggleSystemPause: () => {
@@ -109,6 +110,13 @@ export function createSystemActions(params: SystemActionParams) {
         stopJob: async (jobId: string) => {
             if (!transport) {return;}
             await writeCommand(transport, `cmd-stop-${Date.now()}`, 'stop_job', { jobId });
+            refreshSystemJobs();
+        },
+        removeQueuedJob: async (jobId: string) => {
+            if (!transport) {return;}
+            await writeCommand(transport, `cmd-remove-${Date.now()}`, 'stop_job', { jobId });
+            removeJob(jobId);
+            refreshSystemJobs();
         },
         clearJobErrors: async (task: string) => {
             if (!transport) {return;}

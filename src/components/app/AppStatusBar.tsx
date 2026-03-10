@@ -67,8 +67,8 @@ export function AppStatusBar({ statusMessage, status, view, librarySelectionCoun
         <span style={{ color: statusMessage ? '#93c5fd' : undefined }}>{statusMessage ?? status}</span>
       </div>
       <div style={{ marginRight: 16 }}>{summary}</div>
-      <div style={{ flexShrink: 0, opacity: 0.6 }}>v{metadata.version}</div>
       {rightSlot}
+      <div style={{ flexShrink: 0, opacity: 0.6 }}>v{metadata.version}</div>
     </div>
   );
 }

@@ -76,6 +76,24 @@ export function getImageSourceStrategy(): ImageSourceStrategy {
     return isTauriHost() && getBackendTransportKind() === 'ipc' ? 'asset' : 'http';
 }
 
+function getDefaultBackendHost(): string {
+    if (typeof window === 'undefined') {
+        return 'localhost';
+    }
+
+    const host = window.location.hostname.trim();
+    if (!host || host === '0.0.0.0') {
+        return '127.0.0.1';
+    }
+
+    // Tauri webviews use virtual localhost hostnames that do not resolve to the sidecar bridge.
+    if (isTauriHost() || host.endsWith('.localhost')) {
+        return '127.0.0.1';
+    }
+
+    return host;
+}
+
 /**
  * Returns the HTTP/WS origin for the backend server.
  * Only relevant when the runtime transport is WebSocket/HTTP.
@@ -86,8 +104,7 @@ export function getBackendOrigin(): string {
         return envUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
 
-    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    return `${host}:${BACKEND_PORT}`;
+    return `${getDefaultBackendHost()}:${BACKEND_PORT}`;
 }
 
 export function getBackendWsUrl(): string {

@@ -48,8 +48,8 @@ const DASHBOARD_MODULES: DashboardModuleDefinition[] = [
     { id: 'class-mapping', label: 'Face Recognition', pauseStage: 'recognition', canPause: true },
     { id: 'class-clustering', label: 'Face Clustering', pauseStage: 'clustering', canPause: true },
     { id: 'class-sensitive', label: 'Sensitive Content Scan', pauseStage: 'sensitive_scan', canPause: true },
-    { id: 'class-aimetadata-3f', label: 'Extract AI Metadata (3F)', pauseStage: 'ai_metadata_3f', canPause: true },
-    { id: 'class-aimetadata-31p', label: 'Upgrade AI Metadata (31P)', pauseStage: 'ai_metadata_31p', canPause: true },
+    { id: 'class-aimetadata-3f', label: 'AI Metadata V2 (Gemini 3F)', pauseStage: 'ai_metadata_v2_3f', canPause: true },
+    { id: 'class-aimetadata-31p', label: 'AI Metadata V2 Upgrade (Gemini 31P)', pauseStage: 'ai_metadata_v2_31p', canPause: true },
 ];
 
 const PROCESSING_ISSUE_MODULE_CASE = `
@@ -59,6 +59,8 @@ const PROCESSING_ISSUE_MODULE_CASE = `
         WHEN task = 'detection' THEN 'class-detection'
         WHEN task = 'recognition' THEN 'class-mapping'
         WHEN task = 'clustering' THEN 'class-clustering'
+        WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_v2_31p-%' THEN 'class-aimetadata-31p'
+        WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_v2_3f-%' THEN 'class-aimetadata-3f'
         WHEN task = 'sensitive_scan' THEN 'class-sensitive'
         WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_31p-%' THEN 'class-aimetadata-31p'
         WHEN task = 'ai_metadata' THEN 'class-aimetadata-3f'
@@ -74,6 +76,8 @@ const FAILED_JOB_MODULE_CASE = `
         WHEN id LIKE 'recog-%' THEN 'class-mapping'
         WHEN id LIKE 'cluster-%' THEN 'class-clustering'
         WHEN id LIKE 'sensitive-%' THEN 'class-sensitive'
+        WHEN id LIKE 'ai_meta_v2_31p-%' THEN 'class-aimetadata-31p'
+        WHEN id LIKE 'ai_meta_v2_3f-%' THEN 'class-aimetadata-3f'
         WHEN id LIKE 'ai_meta_31p-%' THEN 'class-aimetadata-31p'
         WHEN id LIKE 'ai_meta_3f-%' THEN 'class-aimetadata-3f'
         ELSE NULL

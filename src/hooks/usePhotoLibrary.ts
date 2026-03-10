@@ -174,13 +174,14 @@ function useCoreActions(params: {
 function useWorkflowActions(params: {
     state: PhotoLibraryState;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
+    removeJob: (id: string) => void;
     sendCommand: SendCommandFn;
     request: RequestFn;
     refreshLibrary: () => void;
     refreshPeople: () => void;
     refreshSystemJobs: () => void;
 }) {
-    const { state, addJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
+    const { state, addJob, removeJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
 
     const scanActions = useMemo(() => createScanActions({
         transport: state.transport,
@@ -193,6 +194,7 @@ function useWorkflowActions(params: {
     const systemActions = useMemo(() => createSystemActions({
         transport: state.transport,
         addJob,
+        removeJob,
         sendCommand,
         request,
         refreshLibrary,
@@ -205,6 +207,7 @@ function useWorkflowActions(params: {
         setStats: state.setStats,
     }), [
         addJob,
+        removeJob,
         refreshLibrary,
         refreshPeople,
         refreshSystemJobs,
@@ -227,7 +230,7 @@ function useWorkflowActions(params: {
     return useMemo(() => ({ ...scanActions, ...pipelineActions, ...systemActions, ...settingsActions }), [pipelineActions, scanActions, settingsActions, systemActions]);
 }
 
-function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage: PipelineStage, title: string) => void, sendCommand: SendCommandFn, request: RequestFn) {
+function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage: PipelineStage, title: string) => void, removeJob: (id: string) => void, sendCommand: SendCommandFn, request: RequestFn) {
     const refreshActions = useRefreshActions({
         assets: state.assets,
         filterStackRef: state.filterStackRef,
@@ -242,6 +245,7 @@ function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage
     const workflowActions = useWorkflowActions({
         state,
         addJob,
+        removeJob,
         sendCommand,
         request,
         refreshLibrary: refreshActions.refreshLibrary,
@@ -273,7 +277,7 @@ function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage
 
 export function usePhotoLibrary() {
     const state = usePhotoLibraryState();
-    const { jobs, addJob, updateJobProgress, processEvent } = useJobManager();
+    const { jobs, addJob, updateJobProgress, removeJob, processEvent } = useJobManager();
     const { sendCommand, request } = useLibraryTransport(state.transport, state.addLog);
 
     const connectionParams = useMemo(() => ({
@@ -326,7 +330,7 @@ export function usePhotoLibrary() {
 
     usePhotoLibraryConnection(connectionParams);
 
-    const actions = useComposedActions(state, addJob, sendCommand, request);
+    const actions = useComposedActions(state, addJob, removeJob, sendCommand, request);
 
     return {
         status: state.status,

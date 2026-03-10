@@ -15,6 +15,12 @@ interface AiMetadataWorkerOptions {
     queueStage: string;
 }
 
+interface AiMetadataV2WorkerOptions {
+    jobId?: string;
+    workerMode: 'fresh' | 'pro_pending';
+    pipelineStage: 'ai_metadata_v2_3f' | 'ai_metadata_v2_31p';
+}
+
 export async function runPreviewWorker(mediaIds: string[], context: WorkerContext) {
     const { runPreviewJob } = await import('./jobs/previews');
     await runPreviewJob(mediaIds, context.dbManager, context.eventBus);
@@ -69,6 +75,19 @@ export async function runAiMetadataWorker(
     await runAiMetadataJob(target, context.dbManager, context.eventBus, options.jobId, {
         queueMode: options.queueMode,
         queueStage: options.queueStage,
+    });
+}
+
+export async function runAiMetadataV2Worker(
+    target: string[] | 'auto',
+    context: WorkerContext,
+    options: AiMetadataV2WorkerOptions
+) {
+    const { runAiMetadataV2Job } = await import('./jobs/get_metadata_ai_v2');
+    await runAiMetadataV2Job(target, context.dbManager, context.eventBus, {
+        workerMode: options.workerMode,
+        pipelineStage: options.pipelineStage,
+        jobId: options.jobId,
     });
 }
 

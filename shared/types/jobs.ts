@@ -21,7 +21,9 @@ export type PipelineStage =
     | "sensitive_scan"
     | "ai_metadata"
     | "ai_metadata_3f"
-    | "ai_metadata_31p";
+    | "ai_metadata_31p"
+    | "ai_metadata_v2_3f"
+    | "ai_metadata_v2_31p";
 
 export interface JobIssue {
     id: string;

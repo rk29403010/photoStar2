@@ -15,7 +15,8 @@ type MediaBatchEvent =
     | 'FaceDetectionRequested'
     | 'FaceRecognitionRequested'
     | 'SensitiveScanRequested'
-    | 'AiMetadataRequested';
+    | 'AiMetadataRequested'
+    | 'AiMetadataV2Requested';
 
 type SignalEvent = 'FaceClusteringRequested';
 
@@ -23,7 +24,7 @@ type PreviewDispatch = { kind: 'media_batch'; event: 'PreviewRequested'; reason:
 type GenericMediaDispatch = {
     kind: 'media_batch';
     event: Exclude<MediaBatchEvent, 'PreviewRequested'>;
-    queueMode?: 'fresh' | 'pro_pending' | 'all';
+    workerMode?: string;
 };
 
 type MediaBatchDispatch = PreviewDispatch | GenericMediaDispatch;
@@ -44,6 +45,8 @@ export interface StagePolicy {
     jobsRunningLike?: string;
     batchLimit?: number;
     useHeavyBatching?: boolean;
+    batchOwnership?: 'job_id';
+    jobIdPrefix?: string;
     dispatch: StageDispatch;
 }
 
@@ -69,6 +72,12 @@ export interface WorkflowModuleDefinition {
     id: string;
     description: string;
     enabledByDefault?: boolean;
+    status?: 'active' | 'legacy';
+    replacedByModuleId?: string;
+    replacesModuleIds?: string[];
+    storageCompatibility?: 'reuse_existing_results' | 'write_versioned_results' | 'dual_write_transition';
+    monitoringCompatibility?: 'merge_legacy_and_replacement' | 'split_legacy_and_replacement';
+    rateLimitStrategy?: 'backoff_and_pause' | 'fail_fast' | 'dynamic_tier' | 'none';
     stagePolicies: StagePolicy[];
     transitionRules: QueueTransitionRule[];
 }
@@ -78,7 +87,8 @@ const MEDIA_BATCH_EVENTS = new Set<MediaBatchEvent>([
     'FaceDetectionRequested',
     'FaceRecognitionRequested',
     'SensitiveScanRequested',
-    'AiMetadataRequested'
+    'AiMetadataRequested',
+    'AiMetadataV2Requested',
 ]);
 
 const SIGNAL_EVENTS = new Set<SignalEvent>(['FaceClusteringRequested']);
@@ -234,7 +244,16 @@ function applyMediaBatchDispatchOverride(
     const event = parseMediaBatchEvent(raw, stage, errors, base.event);
 
     if (event !== 'PreviewRequested') {
-        return { kind: 'media_batch', event, queueMode: 'queueMode' in base ? base.queueMode : undefined };
+        const next: GenericMediaDispatch = { kind: 'media_batch', event };
+        if ('workerMode' in base) {
+            next.workerMode = base.workerMode;
+        }
+        if (hasDefinedField(raw, 'workerMode') && typeof raw.workerMode === 'string' && raw.workerMode.trim()) {
+            next.workerMode = raw.workerMode.trim();
+        } else if (hasDefinedField(raw, 'workerMode')) {
+            errors.push(`[${stage}] dispatch.workerMode must be a non-empty string`);
+        }
+        return next;
     }
 
     const fallbackReason: PreviewReason = base.event === 'PreviewRequested' ? base.reason : 'ingest';

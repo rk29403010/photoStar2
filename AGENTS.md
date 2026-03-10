@@ -6,6 +6,10 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 - Keep files reviewable. Prefer extracting helpers before a file approaches 500 lines.
 - Keep functions reviewable. Prefer extracting logic before a function approaches 90 lines or complexity 10.
+- Treat the complexity/file-size gates as hard constraints while generating code, not cleanup work for later.
+- Start extracting before the hard limits: if a changed TS/TSX function is likely to reach cyclomatic 8, cognitive 15, or 70 LOC, split logic into named helpers/components before adding more branches.
+- Start splitting files before the hard limit: if a changed file is likely to exceed ~450 lines, move UI sections, helpers, or orchestration logic into focused modules.
+- Do not assume `src/App.tsx` or other application TS/TSX files are generated; treat them as maintained source unless the file itself clearly says otherwise.
 - No `any` unless there is a documented boundary reason.
 - Prefer small, named helpers over nested conditionals.
 - Prefer object parameters once a function grows beyond a few positional arguments.
@@ -18,8 +22,8 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 1. Make the change.
 2. Run `npm run quality:staged` while iterating.
-3. Run `npm run quality` before handing over larger changes.
-4. Run `npm run complexity:staged` before commit if you touched heavier TS logic.
+3. If you touched branch-heavy TS/TSX, React render shells, coordinator/orchestration code, or added several boolean conditions, run `npm run complexity:staged` immediately, not just before commit.
+4. Run `npm run quality` before handing over larger changes.
 5. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
 
 ## Biases
@@ -27,3 +31,4 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Favour explicit names over clever abstractions.
 - Favour boring control flow over dense one-liners.
 - If a component or module is getting large, split by responsibility instead of adding comments to excuse it.
+- In React, keep the top-level component body mostly to state/hooks/wiring; move derived data and conditional UI fragments into helpers or child components before the render body becomes branch-heavy.

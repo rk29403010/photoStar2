@@ -11,6 +11,7 @@ import type { DomainEvent } from './events/types';
 import { startDevBridgeServer } from './devBridgeServer';
 import {
     runAiMetadataWorker,
+    runAiMetadataV2Worker,
     runAutoScanWorker,
     runBurstGroupingWorker,
     runComputeHashesWorker,
@@ -173,6 +174,7 @@ function performCleanup() {
 }
 
 type AiMetadataQueueMode = 'fresh' | 'pro_pending' | 'all';
+type AiMetadataV2WorkerMode = 'fresh' | 'pro_pending';
 
 function resolveAiMetadataQueueMode(mediaIds: string[], queueMode?: string): AiMetadataQueueMode {
     if (queueMode === 'pro_pending') {
@@ -212,6 +214,22 @@ function handleAiMetadataRequestedEvent(event: DomainEvent) {
         jobId: event.jobId,
         queueMode,
         queueStage
+    }).catch(console.error);
+}
+
+function handleAiMetadataV2RequestedEvent(event: DomainEvent) {
+    if (event.type !== 'AiMetadataV2Requested') {
+        return;
+    }
+
+    const mediaIds = event.mediaIds || [];
+    const workerTarget = mediaIds.length > 0 ? mediaIds : 'auto';
+
+    console.log(`[Worker] Starting AI Metadata v2 extraction for ${mediaIds.length} items | mode=${event.workerMode}`);
+    runAiMetadataV2Worker(workerTarget, { dbManager, eventBus }, {
+        jobId: event.jobId,
+        workerMode: event.workerMode as AiMetadataV2WorkerMode,
+        pipelineStage: event.pipelineStage
     }).catch(console.error);
 }
 
@@ -272,6 +290,9 @@ eventBus.subscribe('SensitiveScanRequested', (event) => {
 
 // 6. AI Metadata Extraction
 eventBus.subscribe('AiMetadataRequested', handleAiMetadataRequestedEvent);
+
+// 6b. AI Metadata Extraction (v2)
+eventBus.subscribe('AiMetadataV2Requested', handleAiMetadataV2RequestedEvent);
 
 // 7. Grouping
 eventBus.subscribe('ComputeHashesRequested', () => {

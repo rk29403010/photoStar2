@@ -13,7 +13,9 @@ const JOB_TITLE_BY_STAGE: Record<string, string> = {
     'similarity_cluster': 'Clustering Similar Faces',
     'reindex': 'Rebuilding Index',
     'ai_metadata_3f': 'Extracting AI Metadata (3F)',
-    'ai_metadata_31p': 'Upgrading AI Metadata (31P)'
+    'ai_metadata_31p': 'Upgrading AI Metadata (31P)',
+    'ai_metadata_v2_3f': 'Extracting AI Metadata (V2 3F)',
+    'ai_metadata_v2_31p': 'Upgrading AI Metadata (V2 31P)'
 };
 
 type JobUpdater = SetStateAction<BackgroundJob[]>;
@@ -210,11 +212,18 @@ function useUpdateJobProgress(setJobs: Dispatch<SetStateAction<BackgroundJob[]>>
     }, [setJobs]);
 }
 
+function useRemoveJob(setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
+    return useCallback((id: string) => {
+        setJobs((prev) => prev.filter((job) => job.id !== id));
+    }, [setJobs]);
+}
+
 export function useJobManager() {
     const [jobs, setJobs] = useState<BackgroundJob[]>([]);
     const addJob = useAddJob(setJobs);
     const updateJobState = useUpdateJobState(setJobs);
     const updateJobProgress = useUpdateJobProgress(setJobs);
+    const removeJob = useRemoveJob(setJobs);
 
     const processEventHandler = useMemo(
         () => createProcessEvent({ addJob, setJobs, updateJobState, updateJobProgress }),
@@ -230,6 +239,7 @@ export function useJobManager() {
         addJob,
         updateJobState,
         updateJobProgress,
+        removeJob,
         processEvent
     };
 }

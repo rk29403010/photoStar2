@@ -63,6 +63,8 @@ function getClassStats(db: unknown) {
                 WHEN id LIKE 'recog-%' THEN 'recog'
                 WHEN id LIKE 'cluster-%' THEN 'cluster'
                 WHEN id LIKE 'sensitive-%' THEN 'sensitive'
+                WHEN id LIKE 'ai_meta_v2_31p-%' THEN 'ai_meta_31p'
+                WHEN id LIKE 'ai_meta_v2_3f-%' THEN 'ai_meta_3f'
                 WHEN id LIKE 'ai_meta_31p-%' THEN 'ai_meta_31p'
                 WHEN id LIKE 'ai_meta_3f-%' THEN 'ai_meta_3f'
                 WHEN id LIKE 'ai_meta-%' THEN 'ai_meta'
@@ -84,6 +86,8 @@ function getClassStats(db: unknown) {
                 WHEN id LIKE 'recog-%' THEN 'recog'
                 WHEN id LIKE 'cluster-%' THEN 'cluster'
                 WHEN id LIKE 'sensitive-%' THEN 'sensitive'
+                WHEN id LIKE 'ai_meta_v2_31p-%' THEN 'ai_meta_31p'
+                WHEN id LIKE 'ai_meta_v2_3f-%' THEN 'ai_meta_3f'
                 WHEN id LIKE 'ai_meta_31p-%' THEN 'ai_meta_31p'
                 WHEN id LIKE 'ai_meta_3f-%' THEN 'ai_meta_3f'
                 WHEN id LIKE 'ai_meta-%' THEN 'ai_meta'
@@ -159,11 +163,13 @@ function getQueueStatus(db: unknown) {
         recognition: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'recog-%'"),
         clustering: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'cluster-%'"),
         sensitive_scan: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'sensitive-%'"),
-        ai_metadata_3f: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'ai_meta_3f-%'"),
-        ai_metadata_31p: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'ai_meta_31p-%'"),
+        ai_metadata_3f: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND (id LIKE 'ai_meta_v2_3f-%' OR id LIKE 'ai_meta_3f-%')"),
+        ai_metadata_31p: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND (id LIKE 'ai_meta_v2_31p-%' OR id LIKE 'ai_meta_31p-%')"),
+        ai_metadata_v2_3f: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'ai_meta_v2_3f-%'"),
+        ai_metadata_v2_31p: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'ai_meta_v2_31p-%'"),
     };
 
-    const stageOrder = ['previews', 'detection', 'recognition', 'clustering', 'sensitive_scan', 'ai_metadata_3f', 'ai_metadata_31p'];
+    const stageOrder = ['previews', 'detection', 'recognition', 'clustering', 'sensitive_scan', 'ai_metadata_v2_3f', 'ai_metadata_v2_31p', 'ai_metadata_3f', 'ai_metadata_31p'];
     const queueByStage = new Map(queueRows.map((row) => [row.pipeline_stage, row]));
     const allQueueStages = Array.from(new Set([...stageOrder, ...queueRows.map((row) => row.pipeline_stage)]));
 
@@ -327,8 +333,8 @@ function buildSensitiveCard(data: SystemJobBuildData) {
 function buildAiMetadata3FCard(data: SystemJobBuildData) {
     return createSystemJobCard({
         id: 'class-aimetadata-3f',
-        stage: 'ai_metadata_3f',
-        title: 'Extract AI Metadata (3F)',
+        stage: 'ai_metadata_v2_3f',
+        title: 'AI Metadata V2 (Gemini 3F)',
         active: data.classStats.aiMeta3FStats,
         done: data.doneAiMetadata,
         total: data.totalExpected,
@@ -341,8 +347,8 @@ function buildAiMetadata3FCard(data: SystemJobBuildData) {
 function buildAiMetadata31PCard(data: SystemJobBuildData) {
     return createSystemJobCard({
         id: 'class-aimetadata-31p',
-        stage: 'ai_metadata_31p',
-        title: 'Upgrade AI Metadata (31P)',
+        stage: 'ai_metadata_v2_31p',
+        title: 'AI Metadata V2 Upgrade (Gemini 31P)',
         active: data.classStats.aiMeta31PStats,
         done: data.doneAiMetadata31P,
         total: data.doneAiMetadata,
