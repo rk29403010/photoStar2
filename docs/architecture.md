@@ -61,20 +61,20 @@ out of both the UI and the core business logic.
 flowchart TB
     subgraph uiBand["UI band"]
         direction LR
-        ui["<b>UI layer</b><br/>React components, hooks, and app state in <code>src/</code>"]
+        ui["<b>UI layer</b><br/>React components, hooks, and app state in <code>src/ui/</code>"]
     end
 
     subgraph boundaryBand["Boundary band"]
         direction LR
-        shared["<b>Shared contracts</b><br/>Shared types and schemas in <code>shared/types</code>"]
-        adapters["<b>Runtime adapters and command boundary</b><br/><code>src/config/backend.ts</code><br/><code>src/hooks/usePhotoLibrary.*</code><br/><code>core/src/main.ts</code>"]
+        shared["<b>Shared contracts</b><br/>Shared types and schemas in <code>src/boundary/contracts</code>"]
+        adapters["<b>Runtime adapters and command boundary</b><br/><code>src/boundary/runtime/backend.ts</code><br/><code>src/boundary/runtime/usePhotoLibrary.*</code><br/><code>src/entrypoints/core/main.ts</code>"]
     end
 
     subgraph serviceBand["Services band"]
         direction LR
-        services["<b>Application services and orchestration</b><br/><code>core/src/handlers</code><br/><code>core/src/coordinator</code><br/><code>core/src/state.ts</code>"]
-        workers["<b>Background workers and pipelines</b><br/><code>core/src/jobs</code><br/><code>core/src/runtimeWorkers.ts</code>"]
-        data["<b>Data and event persistence</b><br/><code>core/src/db.ts</code><br/><code>core/src/events</code>"]
+        services["<b>Application services and orchestration</b><br/><code>src/services/handlers</code><br/><code>src/services/coordinator</code><br/><code>src/services/state/index.ts</code>"]
+        workers["<b>Background workers and pipelines</b><br/><code>src/services/jobs</code><br/><code>src/services/runtimeWorkers.ts</code>"]
+        data["<b>Data and event persistence</b><br/><code>src/data/db.ts</code><br/><code>src/services/events</code>"]
     end
 
     shared --> ui
@@ -88,12 +88,12 @@ flowchart TB
 
 | Band | Layer | Responsibility | Current implementation |
 | --- | --- | --- | --- |
-| UI | UI layer | Renders state, manages interaction state, and issues user intents. It should not perform filesystem access, database access, or workflow execution. | `src/components/`, `src/hooks/`, `src/App.tsx` |
-| Boundary | Shared contracts | Defines shared message shapes, domain types, and schemas used on both sides of the command boundary. | `shared/types/core.ts`, `shared/types/jobs.ts`, `shared/types/schemas.ts` |
-| Boundary | Runtime adapters and command boundary | Chooses transport, resolves image URLs, normalizes request/response handling, parses incoming commands, and routes work into backend handlers. | `src/config/backend.ts`, `src/hooks/usePhotoLibrary.connection.ts`, `src/hooks/usePhotoLibrary.transport.ts`, `core/src/main.ts`, `core/src/handlers.ts` |
-| Services | Application services and orchestration | Turns commands and events into queue mutations, workflow decisions, and backend behavior. | `core/src/handlers/*.ts`, `core/src/coordinator/*.ts`, `core/src/state.ts` |
-| Services | Background workers and pipelines | Performs scanning, preview generation, face workflows, grouping, safety analysis, and AI metadata work. | `core/src/jobs/*.ts`, `core/src/runtimeWorkers.ts` |
-| Services | Data and event persistence | Stores library state, queue state, job history, derived outputs, grouping state, albums, settings, and the event log. | `core/src/db.ts`, `core/src/events/bus.ts` |
+| UI | UI layer | Renders state, manages interaction state, and issues user intents. It should not perform filesystem access, database access, or workflow execution. | `src/ui/components/`, `src/ui/hooks/`, `src/ui/App.tsx` |
+| Boundary | Shared contracts | Defines shared message shapes, domain types, and schemas used on both sides of the command boundary. | `src/boundary/contracts/core.ts`, `src/boundary/contracts/jobs.ts`, `src/boundary/contracts/schemas.ts` |
+| Boundary | Runtime adapters and command boundary | Chooses transport, resolves image URLs, normalizes request/response handling, parses incoming commands, and routes work into backend handlers. | `src/boundary/runtime/backend.ts`, `src/boundary/runtime/usePhotoLibrary.connection.ts`, `src/boundary/transport/usePhotoLibrary.transport.ts`, `src/entrypoints/core/main.ts`, `src/services/handlers.ts` |
+| Services | Application services and orchestration | Turns commands and events into queue mutations, workflow decisions, and backend behavior. | `src/services/handlers/*.ts`, `src/services/coordinator/*.ts`, `src/services/state/index.ts` |
+| Services | Background workers and pipelines | Performs scanning, preview generation, face workflows, grouping, safety analysis, and AI metadata work. | `src/services/jobs/*.ts`, `src/services/runtimeWorkers.ts` |
+| Services | Data and event persistence | Stores library state, queue state, job history, derived outputs, grouping state, albums, settings, and the event log. | `src/data/db.ts`, `src/services/events/bus.ts` |
 
 ## Layer Boundaries
 
@@ -107,13 +107,13 @@ SQLite queries, or workflow execution.
 
 The boundary band is where deployment-specific concerns live:
 
-- `src/config/backend.ts` selects deployment mode, transport kind, backend
+- `src/boundary/runtime/backend.ts` selects deployment mode, transport kind, backend
   origin, and image URL strategy.
-- `src/hooks/usePhotoLibrary.connection.ts` chooses between a Tauri companion
+- `src/boundary/runtime/usePhotoLibrary.connection.ts` chooses between a Tauri companion
   process and a WebSocket backend connection.
-- `src/hooks/usePhotoLibrary.transport.ts` normalizes request/response handling
+- `src/boundary/transport/usePhotoLibrary.transport.ts` normalizes request/response handling
   across stdio and WebSocket transports.
-- `core/src/main.ts` parses inbound JSON commands and hands them off to backend
+- `src/entrypoints/core/main.ts` parses inbound JSON commands and hands them off to backend
   handlers.
 
 Most other frontend code should not care whether it is talking over child
@@ -126,7 +126,7 @@ whether the caller came from a Tauri desktop app, a LAN browser session, or a
 cloud deployment. They should operate in terms of commands, events, jobs, and
 persisted entities instead.
 
-Today the data layer is centered on SQLite via `core/src/db.ts`. That is the
+Today the data layer is centered on SQLite via `src/data/db.ts`. That is the
 current storage implementation, not the architectural boundary itself. A future
 cloud deployment can move some or all persistence into managed databases or
 object storage while preserving the same logical entities and service
@@ -178,7 +178,7 @@ feature logic.
 
 ## Current Data Model
 
-The current persistence implementation is defined in `core/src/db.ts`.
+The current persistence implementation is defined in `src/data/db.ts`.
 
 The key human-facing point is: photos are currently represented as rows in the
 `assets` table. `assets` is the top-level library catalog. The architecture

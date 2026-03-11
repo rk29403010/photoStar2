@@ -15,9 +15,9 @@
   },
   "ignorePatterns": [
     "dist/**",
-    "core/dist/**",
-    "src-tauri/target/**",
-    "src-tauri/binaries/**",
+    ".local/**",
+    "deployments/desktop/tauri/target/**",
+    "deployments/desktop/tauri/binaries/**",
     "vite.config.ts.timestamp-*.mjs"
   ],
   "rules": {
@@ -40,7 +40,11 @@
   "overrides": [
     {
       "files": [
-        "src/**/*.{ts,tsx,js,jsx}"
+        "src/ui/**/*.{ts,tsx,js,jsx}",
+        "src/boundary/runtime/**/*.{ts,tsx,js,jsx}",
+        "src/boundary/contracts/**/*.{ts,tsx,js,jsx}",
+        "src/boundary/transport/usePhotoLibrary.transport.ts",
+        "src/entrypoints/web/**/*.{ts,tsx,js,jsx}"
       ],
       "env": {
         "browser": true
@@ -49,8 +53,11 @@
     {
       "files": [
         "vite.config.ts",
-        "scripts/**/*.{js,mjs,cjs,ts}",
-        "core/**/*.{ts,js,mjs,cjs}"
+        "tooling/**/*.{js,mjs,cjs,ts}",
+        "src/data/**/*.{ts,js,mjs,cjs}",
+        "src/services/**/*.{ts,js,mjs,cjs}",
+        "src/entrypoints/core/**/*.{ts,js,mjs,cjs}",
+        "src/boundary/transport/devBridge*.ts"
       ],
       "env": {
         "node": true

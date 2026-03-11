@@ -10,7 +10,6 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
-const sharedDefaultProjectGlobs = ['shared/types/*.ts', 'shared/utils/*.ts']
 const reviewabilityRules = {
   // Keep files and functions reviewable for both humans and AI tools.
   'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
@@ -28,9 +27,9 @@ const correctnessRules = {
 export default defineConfig([
   globalIgnores([
     'dist',
-    'core/dist',
-    'src-tauri/target',
-    'src-tauri/binaries',
+    'deployments/desktop/tauri/target',
+    'deployments/desktop/tauri/binaries',
+    '.local/**',
     '.vscode/**',
     'vite.config.ts.timestamp-*.mjs',
   ]),
@@ -74,9 +73,7 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 'latest',
       parserOptions: {
-        projectService: {
-          allowDefaultProject: sharedDefaultProjectGlobs,
-        },
+        projectService: true,
         tsconfigRootDir: rootDir,
       },
     },
@@ -97,7 +94,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/ui/**/*.{ts,tsx}', 'src/entrypoints/web/**/*.{ts,tsx}'],
     extends: [
       react.configs.flat.recommended,
       react.configs.flat['jsx-runtime'],
@@ -107,9 +104,7 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
       parserOptions: {
-        projectService: {
-          allowDefaultProject: sharedDefaultProjectGlobs,
-        },
+        projectService: true,
         tsconfigRootDir: rootDir,
       },
     },
@@ -128,9 +123,22 @@ export default defineConfig([
   },
   {
     files: [
+      'src/boundary/runtime/**/*.{ts,tsx}',
+      'src/boundary/contracts/**/*.{ts,tsx}',
+      'src/boundary/transport/usePhotoLibrary.transport.ts',
+    ],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+  {
+    files: [
       'vite.config.ts',
-      'scripts/**/*.{js,mjs,cjs,ts}',
-      'core/**/*.{ts,js,mjs,cjs}',
+      'tooling/**/*.{js,mjs,cjs,ts}',
+      'src/data/**/*.{ts,js}',
+      'src/services/**/*.{ts,js}',
+      'src/entrypoints/core/**/*.{ts,js}',
+      'src/boundary/transport/devBridge*.ts',
     ],
     languageOptions: {
       globals: globals.node,

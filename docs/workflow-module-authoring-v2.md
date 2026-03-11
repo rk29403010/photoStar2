@@ -14,11 +14,11 @@ This document is the target authoring contract for new workflow-managed modules.
 Use this spec together with:
 
 - `docs/architecture.md`
-- `core/src/coordinator/workflows.ts`
-- `core/src/coordinator/workflowModules.ts`
-- `core/src/coordinator/index.ts`
-- `core/src/events/types.ts`
-- `core/src/main.ts`
+- `src/services/coordinator/workflows.ts`
+- `src/services/coordinator/workflowModules.ts`
+- `src/services/coordinator/index.ts`
+- `src/services/events/types.ts`
+- `src/entrypoints/core/main.ts`
 
 ## Goal
 
@@ -164,28 +164,28 @@ Most `v2` modules will touch these files.
 
 Always required:
 
-- `core/src/events/types.ts`
-- `core/src/main.ts`
-- one worker file in `core/src/jobs/`
-- `core/src/coordinator/workflowModules.ts`
+- `src/services/events/types.ts`
+- `src/entrypoints/core/main.ts`
+- one worker file in `src/services/jobs/`
+- `src/services/coordinator/workflowModules.ts`
 
 Required when the workflow contract needs expansion:
 
-- `core/src/coordinator/workflows.ts`
-- `core/src/coordinator/index.ts`
-- `core/src/db.ts`
+- `src/services/coordinator/workflows.ts`
+- `src/services/coordinator/index.ts`
+- `src/data/db.ts`
 
 Required when the module needs UI or dashboard visibility:
 
-- `shared/types/jobs.ts`
-- `src/types/events.ts`
-- `src/hooks/useJobManager.ts`
-- `core/src/handlers/systemJobsCommands.ts`
-- `core/src/handlers/systemDashboardModules.ts`
+- `src/boundary/contracts/jobs.ts`
+- `src/boundary/contracts/events.ts`
+- `src/ui/hooks/useJobManager.ts`
+- `src/services/handlers/systemJobsCommands.ts`
+- `src/services/handlers/systemDashboardModules.ts`
 
 Required when the module adds settings:
 
-- `src/components/SettingsModal.tsx`
+- `src/ui/components/SettingsModal.tsx`
 - settings bootstrapping in the database
 
 ## Authoring Rules
@@ -247,7 +247,7 @@ workflow-managed.
 ### Backend event definitions
 
 Every new or replacement module must add its event types to
-`core/src/events/types.ts`.
+`src/services/events/types.ts`.
 
 A normal `v2` per-media module usually needs:
 
@@ -265,7 +265,7 @@ That is how `getQueueTransitionMediaId(...)` resolves ownership.
 ### Frontend event definitions
 
 If the frontend receives the event stream, mirror the required event types in
-`src/types/events.ts`.
+`src/boundary/contracts/events.ts`.
 
 ### Job lifecycle events
 
@@ -284,7 +284,7 @@ Required fields:
 
 ## Worker Contract
 
-Create the worker in `core/src/jobs/<name>.ts`.
+Create the worker in `src/services/jobs/<name>.ts`.
 
 Workers should prefer an object parameter once the signature grows beyond a few
 fields.
@@ -305,7 +305,7 @@ The coordinator decides when to run it.
 
 ## Workflow Module Contract
 
-Add a `WorkflowModuleDefinition` in `core/src/coordinator/workflowModules.ts`.
+Add a `WorkflowModuleDefinition` in `src/services/coordinator/workflowModules.ts`.
 
 Each module contains:
 
@@ -337,10 +337,10 @@ Dispatch support is still explicit in coordinator code.
 
 If your module needs a new request event:
 
-1. add the event type to `core/src/events/types.ts`
-2. extend the dispatch union in `core/src/coordinator/workflows.ts`
-3. extend `emitDispatchEvent(...)` in `core/src/coordinator/index.ts`
-4. subscribe to the request event in `core/src/main.ts`
+1. add the event type to `src/services/events/types.ts`
+2. extend the dispatch union in `src/services/coordinator/workflows.ts`
+3. extend `emitDispatchEvent(...)` in `src/services/coordinator/index.ts`
+4. subscribe to the request event in `src/entrypoints/core/main.ts`
 
 ### Transition rules
 
