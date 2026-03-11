@@ -6,15 +6,14 @@ Last reviewed: 2026-03-10
 
 This document is the target authoring contract for new workflow-managed modules.
 
-- It supersedes `docs/workflow-module-authoring-v1.md` for new work.
+- `docs/architecture.md` is the canonical architecture and workflow reference.
 - It is still constrained by the current in-repo runtime, not by a future plugin system.
 - It applies to trusted, repo-local modules added by editing this repository.
 - It introduces replacement/retirement rules for built-in modules.
 
 Use this spec together with:
 
-- `docs/workflow-jobs-current-state.md`
-- `docs/workflow-module-authoring-v1.md`
+- `docs/architecture.md`
 - `core/src/coordinator/workflows.ts`
 - `core/src/coordinator/workflowModules.ts`
 - `core/src/coordinator/index.ts`

@@ -1,40 +1,481 @@
-# Photo Star 2 Architecture Protocol
+# PhotoStar Architecture
 
-## System Layers and Strict Boundaries
+## Purpose
 
-Photo Star 2 employs a strict "dumb UI, smart sidecar" architecture. Bypassing these boundaries is strictly forbidden.
+This document is the single canonical architecture reference for PhotoStar.
 
-### 1. The Presentation Layer (Pure UI)
+It separates two concerns that should not be mixed together:
 
-* **Location:** `src/` (Vite, React, Tailwind)
-* **Rule:** The UI is purely for requesting data, rendering data, and dispatching user intents.
-* **Constraint:** The UI must NEVER import `fs`, `path`, or `sqlite3`. It must never directly write to disk or query the database, even if OS-level APIs exist in Tauri. All interactions must go through the Node Sidecar.
-* **Component Structure:** Components should be highly modular. Avoid monolithic components (like the legacy 1000-line `SinglePhotoView`). Break complex views down into smaller, composable parts and custom hooks.
+1. the logical code layers in PhotoStar
+2. the deployment modes that package and connect those layers in a specific
+   runtime
 
-### 2. The Transport Layer (WebSocket/Tauri IPC)
+Most application logic should stay agnostic about where it is running and how
+messages move between layers. Deployment-specific branching should be isolated
+to runtime adapters, transport setup, and host-specific optimizations such as
+native file picking or local image URL resolution.
 
-* **Boundary:** This layer serves as the strict boundary between the UI and Sidecar.
-* **Validation:** All incoming requests from the UI DO NOT enter the Domain Layer until they pass strict `Zod` schema validation (`shared/types/schemas.ts`).
+## Design Principles
 
-### 3. The Transport Handlers
+- Keep the same logical layers across desktop, LAN, and cloud deployments.
+- Treat transport choice as an adapter concern, not an application concern.
+- Keep the UI focused on rendering state and dispatching user intent.
+- Centralize command parsing, response shaping, and transport selection.
+- Run long-lived or heavy work in backend workers and stream progress/events.
+- Let the data layer own persistence details so storage can evolve separately
+  from the rest of the application.
+- Keep one architecture source of truth in the repo. Delete stale duplicates
+  rather than letting them drift.
 
-* **Location:** `core/src/handlers/`
-* **Rule:** Handlers (e.g., `SystemHandler`, `AssetHandler`) consume validated payloads and orchestrate the Domain operations. They do not write SQL directly. They rely on Data Access Repositories.
+## Core Concepts
 
-### 4. The Domain / Service Layer
+| Term | Canonical meaning |
+| --- | --- |
+| `asset` | The technical persisted umbrella entity for any managed media file. The current schema stores library records in the `assets` table. |
+| `photo` | The current primary human-facing asset subtype. Users mostly experience PhotoStar as a photo library, even though the architecture keeps room for other asset types. |
+| `media` | The workflow and event term used for processing-oriented identifiers such as `mediaId`. |
+| `sidecar` | A deployment-specific term for the packaged Tauri desktop implementation where the app spawns a local Node companion process. It is not the generic name for the services layer. |
+| `backend` / `core service` | The generic runtime service layer across LAN, cloud, and other non-packaged deployments. |
+| `workflow` | A declarative set of stage policies and event reactions that describe what processing should happen next. |
+| `event` | An append-only fact or request in the workflow system, such as `MediaDiscovered`, `PreviewGenerated`, or `FaceDetectionRequested`. |
+| `job` | A runtime execution and monitoring concept used for progress reporting and lifecycle projection. |
+| `task` | A smaller unit of queued or batched work within a stage. In practice this is often tracked through `task_queue` rows plus worker-owned batches. |
+| `coordinator` | The orchestration component that reacts to events, updates queue state, and dispatches request events to workers. |
 
-* **Location:** `core/src/jobs/` and `core/src/coordinator.ts`
-* **Rule:** Any operation that takes longer than 100ms MUST be implemented as a background Job.
-* **Rule:** Jobs must never block the main thread blindly. They must periodically yield, check cancellation/pause state (`waitIfPaused()`), and emit progress metrics to the `EventBus`.
+## Logical Code Layers
 
-### 5. The Data Access Layer (Repositories)
+The architecture has three horizontal bands: UI, boundary/adapters, and
+services/data. The middle band exists to keep deployment and transport concerns
+out of both the UI and the core business logic.
 
-* **Location:** `core/src/db/repositories/`
-* **Rule:** Direct interaction with `better-sqlite3` must be abstracted inside a Repository class (e.g., `AssetRepository`, `JobRepository`). Handlers should call class methods, not `.prepare().run()`.
+```mermaid
+%%{init: {
+  "theme": "base",
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "nodeSpacing": 45,
+    "rankSpacing": 70
+  }
+}}%%
+flowchart TB
+    subgraph uiBand["UI band"]
+        direction LR
+        ui["<b>UI layer</b><br/>React components, hooks, and app state in <code>src/</code>"]
+    end
 
-## Anti-Pattern Guidelines for AI
+    subgraph boundaryBand["Boundary band"]
+        direction LR
+        shared["<b>Shared contracts</b><br/>Shared types and schemas in <code>shared/types</code>"]
+        adapters["<b>Runtime adapters and command boundary</b><br/><code>src/config/backend.ts</code><br/><code>src/hooks/usePhotoLibrary.*</code><br/><code>core/src/main.ts</code>"]
+    end
 
-* **No Catch-All Functions:** Do not use massive switch statements to route commands (like the legacy `main.ts`). Create specialized Handler classes.
-* **No Invisible State:** Use the centralized `SystemState` manager and `EventBus`.
-* **Prompts are Code:** AI model prompts (Gemini, etc.) should be maintained as variables or configuration, not hard-coded deeply inside operational logic. Treat them like SQL query strings.
-* **Maintain Dev Parity:** The application runs in both a Tauri Native context AND a Chrome Browser context via local port 5174. Fallbacks must exist if a Tauri-only API is missing during browser development.
+    subgraph serviceBand["Services band"]
+        direction LR
+        services["<b>Application services and orchestration</b><br/><code>core/src/handlers</code><br/><code>core/src/coordinator</code><br/><code>core/src/state.ts</code>"]
+        workers["<b>Background workers and pipelines</b><br/><code>core/src/jobs</code><br/><code>core/src/runtimeWorkers.ts</code>"]
+        data["<b>Data and event persistence</b><br/><code>core/src/db.ts</code><br/><code>core/src/events</code>"]
+    end
+
+    shared --> ui
+    shared --> adapters
+    ui --> adapters
+    adapters --> services
+    services --> workers
+    services --> data
+    workers --> data
+```
+
+| Band | Layer | Responsibility | Current implementation |
+| --- | --- | --- | --- |
+| UI | UI layer | Renders state, manages interaction state, and issues user intents. It should not perform filesystem access, database access, or workflow execution. | `src/components/`, `src/hooks/`, `src/App.tsx` |
+| Boundary | Shared contracts | Defines shared message shapes, domain types, and schemas used on both sides of the command boundary. | `shared/types/core.ts`, `shared/types/jobs.ts`, `shared/types/schemas.ts` |
+| Boundary | Runtime adapters and command boundary | Chooses transport, resolves image URLs, normalizes request/response handling, parses incoming commands, and routes work into backend handlers. | `src/config/backend.ts`, `src/hooks/usePhotoLibrary.connection.ts`, `src/hooks/usePhotoLibrary.transport.ts`, `core/src/main.ts`, `core/src/handlers.ts` |
+| Services | Application services and orchestration | Turns commands and events into queue mutations, workflow decisions, and backend behavior. | `core/src/handlers/*.ts`, `core/src/coordinator/*.ts`, `core/src/state.ts` |
+| Services | Background workers and pipelines | Performs scanning, preview generation, face workflows, grouping, safety analysis, and AI metadata work. | `core/src/jobs/*.ts`, `core/src/runtimeWorkers.ts` |
+| Services | Data and event persistence | Stores library state, queue state, job history, derived outputs, grouping state, albums, settings, and the event log. | `core/src/db.ts`, `core/src/events/bus.ts` |
+
+## Layer Boundaries
+
+### UI layer
+
+The UI is a client of the backend boundary. It can detect host capabilities, but
+it should not absorb backend responsibilities such as filesystem traversal,
+SQLite queries, or workflow execution.
+
+### Boundary band
+
+The boundary band is where deployment-specific concerns live:
+
+- `src/config/backend.ts` selects deployment mode, transport kind, backend
+  origin, and image URL strategy.
+- `src/hooks/usePhotoLibrary.connection.ts` chooses between a Tauri companion
+  process and a WebSocket backend connection.
+- `src/hooks/usePhotoLibrary.transport.ts` normalizes request/response handling
+  across stdio and WebSocket transports.
+- `core/src/main.ts` parses inbound JSON commands and hands them off to backend
+  handlers.
+
+Most other frontend code should not care whether it is talking over child
+process stdio, `ws://`, or `wss://`.
+
+### Services band
+
+Handlers, the coordinator, workers, and persistence should not need to know
+whether the caller came from a Tauri desktop app, a LAN browser session, or a
+cloud deployment. They should operate in terms of commands, events, jobs, and
+persisted entities instead.
+
+Today the data layer is centered on SQLite via `core/src/db.ts`. That is the
+current storage implementation, not the architectural boundary itself. A future
+cloud deployment can move some or all persistence into managed databases or
+object storage while preserving the same logical entities and service
+interfaces.
+
+## Deployment Modes
+
+Deployment modes describe how the same logical layers are split, packaged, and
+wired together for a specific environment.
+
+| Mode | Packaging and wiring | Transport and image strategy | Notes |
+| --- | --- | --- | --- |
+| Packaged desktop | React SPA runs inside a Tauri WebView. The backend runs as a bundled Node sidecar companion process. The current data store lives on the local machine. | JSON messages flow over sidecar stdio. Local images use Tauri `convertFileSrc()` and the native `asset://` path strategy. | This is the main case where the term `sidecar` is precise and useful. |
+| Desktop dev runtime | The UI still runs in the Tauri shell, but the backend is a watched local Node process during development. | Frontend connects over local WebSocket and uses the local HTTP `/image` endpoint. | Optimized for development speed rather than packaged fidelity. |
+| LAN or headless server | The UI runs in a browser while the same backend logic runs on a local machine, NAS, or always-on host with photo access. | Frontend uses `ws://` plus HTTP image requests to the backend host. | Good for multi-device access on the same network without changing the logical layers. |
+| Cloud target | The UI can be statically hosted while services run in Node on a VM or container. Data can stay in SQLite on attached storage for small installs or move to a cloud database and object storage for larger ones. | Frontend uses `wss://` and `https://`, with transport and origin selected by runtime config. | Host-specific features become optional adapters, not assumptions baked into the domain logic. |
+
+## Current Deployment Selection Rules
+
+The frontend runtime resolves deployment in one place:
+
+- Tauri host plus IPC transport resolves to `tauri` mode.
+- `VITE_BACKEND_URL` resolves to `cloud` mode.
+- Everything else falls back to `lan` mode.
+
+That decision then drives transport and image behavior:
+
+- `ipc` plus Tauri host uses a local companion process and `asset://` image
+  URLs.
+- `ws` uses backend origins derived from `VITE_BACKEND_URL` or
+  `window.location.hostname`.
+- Cloud transport upgrades to `wss://` and `https://`.
+
+This keeps deployment-aware logic centralized instead of scattering
+environment-specific branching across the UI and service code.
+
+## Host-Specific Exceptions
+
+The goal is deployment-agnostic code, but a few host-aware optimizations are
+expected:
+
+- native directory picking is only available in Tauri-hosted flows
+- local image resolution uses `convertFileSrc()` in Tauri IPC mode
+- local development can prefer WebSocket and HTTP bridges to avoid rebuilding
+  the packaged desktop companion on every backend change
+
+Those exceptions should stay isolated to adapters instead of leaking into
+feature logic.
+
+## Current Data Model
+
+The current persistence implementation is defined in `core/src/db.ts`.
+
+The key human-facing point is: photos are currently represented as rows in the
+`assets` table. `assets` is the top-level library catalog. The architecture
+keeps that entity broad enough to support future asset subtypes such as video,
+even though the current schema does not yet model typed sub-entities.
+
+The diagram below groups related tables by concern instead of raw SQL
+declaration order so the layout stays readable at document scale.
+
+```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontSize": "20px",
+    "fontFamily": "Trebuchet MS, Verdana, sans-serif",
+    "primaryTextColor": "#1f1f1f",
+    "lineColor": "#6f6f6f"
+  },
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "nodeSpacing": 55,
+    "rankSpacing": 80
+  }
+}}%%
+flowchart LR
+    subgraph Core["Library catalog and derived media state"]
+        direction TB
+        assets["assets"]
+        previews["previews"]
+        derived["derived_results"]
+        taskQueue["task_queue"]
+        issues["processing_issues"]
+        features["asset_features"]
+    end
+
+    subgraph People["People and manual decisions"]
+        direction TB
+        people["people"]
+        faces["face_assignments"]
+        identities["asset_identities"]
+        assetsManual["assets_manual"]
+        manualNames["manual_face_names"]
+        manualIsolations["manual_face_isolations"]
+    end
+
+    subgraph Organization["Groups and albums"]
+        direction TB
+        groups["asset_groups"]
+        members["asset_group_members"]
+        similarity["asset_similarity_edges"]
+        albums["albums"]
+        albumItems["album_items"]
+    end
+
+    subgraph Operations["Operational support"]
+        direction TB
+        jobs["jobs"]
+        events["events"]
+        folderHistory["folder_history"]
+        settings["settings"]
+    end
+
+    assets -->|has| previews
+    assets -->|produces| derived
+    assets -->|queued in| taskQueue
+    assets -->|may raise| issues
+    assets -->|has| features
+    assets -->|contains faces for| faces
+    people -->|labels| faces
+    assets -. maps by original path .-> identities
+    identities -->|overrides| assetsManual
+    manualNames -. names .-> faces
+    manualIsolations -. isolates .-> faces
+    groups -->|contains| members
+    assets -->|participates in| members
+    similarity -. links asset pairs .-> assets
+    albums -->|contains| albumItems
+    assets -->|appears in| albumItems
+    jobs -. may reference .-> issues
+
+    classDef core fill:#f6efe1,stroke:#8d7340,stroke-width:2px,color:#1f1f1f;
+    classDef peopleDef fill:#f7ece4,stroke:#a06a47,stroke-width:2px,color:#1f1f1f;
+    classDef org fill:#e8f3e8,stroke:#5c7a57,stroke-width:2px,color:#1f1f1f;
+    classDef ops fill:#edf2f5,stroke:#5a7485,stroke-width:2px,color:#1f1f1f;
+
+    class assets,previews,derived,taskQueue,issues,features core;
+    class people,faces,identities,assetsManual,manualNames,manualIsolations peopleDef;
+    class groups,members,similarity,albums,albumItems org;
+    class jobs,events,folderHistory,settings ops;
+```
+
+| Table | What it does |
+| --- | --- |
+| `assets` | Canonical library record for each discovered asset. Today these rows are effectively the photo catalog users browse. |
+| `asset_identities` | Stable identity map keyed by original path so manual decisions can survive resets or re-imports. |
+| `assets_manual` | Manual overrides for asset-level moderation state, keyed by `asset_identities.guid`. |
+| `events` | Persistent event log written by the event bus for auditing, debugging, and recent activity views. |
+| `jobs` | Runtime and historical record of long-running jobs, including progress, throughput, error counts, and timestamps. |
+| `previews` | Generated preview files for each asset and preview size. |
+| `derived_results` | Generic store for machine-generated outputs such as detections, recognition data, and AI metadata, versioned by task and provider. |
+| `people` | Known or inferred people entities used by face assignment and people views. |
+| `face_assignments` | Links a face index within an asset to a resolved person identity, including confidence. |
+| `folder_history` | Remembers previously scanned folders and their last scan times. |
+| `processing_issues` | Diagnostic records for asset-specific failures or warnings during pipeline work. |
+| `manual_face_names` | User-supplied face naming overrides keyed by original path and face index. |
+| `manual_face_isolations` | Records manual decisions to isolate a face from a previous person association. |
+| `task_queue` | Scheduler queue for pipeline stages per asset, including pending, processing, completed, and failed states. |
+| `settings` | Small key-value store for runtime flags, workflow settings, and operational preferences. |
+| `asset_groups` | Top-level grouping entities such as duplicates, near duplicates, burst sets, variant sets, and people-centric groups. |
+| `asset_group_members` | Membership table that connects assets to a group and records roles, rank, and evidence. |
+| `asset_similarity_edges` | Pairwise similarity graph between assets, including score, kind, and algorithm version. |
+| `asset_features` | Cached low-level asset fingerprints such as perceptual hashes used by grouping and similarity logic. |
+| `albums` | User-defined or rule-based albums, including optional cover assets and smart album rules. |
+| `album_items` | Membership table that connects assets to albums. |
+
+## Workflow, Jobs, And Events Subsystem
+
+The workflow subsystem is how PhotoStar keeps the library visible quickly while
+progressively enriching it in the background.
+
+Conceptually:
+
+- workflows define what should happen next
+- events capture facts and requests
+- the coordinator reacts to those events and updates queue state
+- workers do the heavy work
+- jobs are the execution and monitoring projection, not the architecture itself
+
+For adding new workflow-managed modules, see `docs/workflow-module-authoring-v2.md`.
+
+### Subsystem responsibilities
+
+| Part | Responsibility |
+| --- | --- |
+| `EventBus` | Persists emitted domain events and dispatches them to subscribers in-process. |
+| `Coordinator` | Reacts to events, applies stage policies and transition rules, updates `task_queue`, and emits request events for workers. |
+| Workers | Run the heavy processing stages, write results, and emit result events plus job lifecycle events. |
+| Frontend projections | Consume the pushed event stream and polled snapshots to show live progress, queue state, and library changes. |
+
+### Workflow state data model
+
+This diagram focuses on the workflow subsystem's control tables and the outputs
+those workflows produce.
+
+```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontSize": "18px",
+    "fontFamily": "Trebuchet MS, Verdana, sans-serif"
+  },
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "nodeSpacing": 45,
+    "rankSpacing": 70
+  }
+}}%%
+flowchart LR
+    subgraph Runtime["Runtime actors"]
+        direction TB
+        bus["EventBus"]
+        coord["Coordinator"]
+        workers["Workers"]
+        frontend["Frontend projections"]
+    end
+
+    subgraph Control["Workflow control state"]
+        direction TB
+        eventsTbl[("events")]
+        queueTbl[("task_queue")]
+        jobsTbl[("jobs")]
+        issuesTbl[("processing_issues")]
+        settingsTbl[("settings")]
+    end
+
+    subgraph Outputs["Workflow outputs"]
+        direction TB
+        assetsTbl[("assets")]
+        previewsTbl[("previews")]
+        derivedTbl[("derived_results")]
+        peopleTbl[("people")]
+        facesTbl[("face_assignments")]
+    end
+
+    workers -->|result events + job lifecycle| bus
+    bus -->|append facts| eventsTbl
+    bus -->|dispatch facts| coord
+    coord -->|read policy| settingsTbl
+    coord -->|upsert and complete rows| queueTbl
+    coord -->|emit request events| workers
+    bus -->|project job lifecycle| jobsTbl
+    workers -->|per-asset warnings and failures| issuesTbl
+    workers --> assetsTbl
+    workers --> previewsTbl
+    workers --> derivedTbl
+    workers --> peopleTbl
+    workers --> facesTbl
+    bus -->|push event stream| frontend
+    frontend -. snapshot queries .-> jobsTbl
+    frontend -. snapshot queries .-> queueTbl
+    frontend -. library reads .-> assetsTbl
+```
+
+### Full ingest example: traditional workflow view
+
+This diagram shows the intended main workflow in the common preview-first ingest
+path. Strict stages block later strict stages. Opportunistic stages can proceed
+without holding up the main path.
+
+```mermaid
+%%{init: {
+  "theme": "base",
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "nodeSpacing": 40,
+    "rankSpacing": 55
+  }
+}}%%
+flowchart LR
+    start["FolderScanRequested"] --> scan["scan worker"]
+    scan --> discovered["MediaDiscovered"]
+    discovered --> previews["previews<br/>(strict)"]
+    previews --> previewDone["PreviewGenerated"]
+
+    previewDone --> detection["detect_faces<br/>(strict)"]
+    previewDone --> safety["scan_sensitive<br/>(opportunistic)"]
+    previewDone --> metadata["ai_metadata<br/>(opportunistic)"]
+
+    detection --> faces["FacesDetected"]
+    faces --> recognition["recognise_faces<br/>(strict)"]
+    recognition --> embeddings["FaceEmbeddingGenerated"]
+    embeddings --> clustering["cluster_faces<br/>(opportunistic signal)"]
+
+    classDef strict fill:#f6efe1,stroke:#8d7340,stroke-width:2px,color:#1f1f1f;
+    classDef opp fill:#edf2f5,stroke:#5a7485,stroke-width:2px,color:#1f1f1f;
+
+    class previews,detection,recognition strict;
+    class safety,metadata,clustering opp;
+```
+
+### Full ingest example: event-driven controller view
+
+The same workflow looks different when drawn around the control loop. The
+coordinator and event bus are the center of the architecture; workers are
+activated by emitted request events and report progress back by emitting facts.
+
+```mermaid
+%%{init: {
+  "theme": "base",
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "nodeSpacing": 38,
+    "rankSpacing": 58
+  }
+}}%%
+flowchart LR
+    trigger["UI action or startup hook"] -->|FolderScanRequested| scan["scan worker"]
+    scan -->|MediaDiscovered| bus["EventBus"]
+
+    bus -->|persist facts| eventsTbl[("events")]
+    bus -->|dispatch facts| coord["Coordinator"]
+    coord -->|queue previews| queueTbl[("task_queue")]
+    coord -->|emit PreviewRequested| preview["preview worker"]
+
+    preview -->|PreviewGenerated + JobStarted/Progress/Completed| bus
+    coord -->|queue detection, sensitive_scan, ai_metadata| queueTbl
+    coord -->|emit request events| analysis["detection / safety / metadata workers"]
+
+    analysis -->|FacesDetected / SensitivityScored / AssetUpdated / Job*| bus
+    coord -->|queue recognition and clustering| queueTbl
+    coord -->|emit FaceRecognitionRequested / FaceClusteringRequested| face["recognition / clustering workers"]
+
+    face -->|FaceEmbeddingGenerated / FaceClusteringUpdated / Job*| bus
+    bus -->|project job lifecycle| jobsTbl[("jobs")]
+    bus -->|push event stream| frontend["Frontend job and library projections"]
+```
+
+### Current implementation notes
+
+- The diagrams above show the intended controller-led architecture for the main
+  ingest path.
+- In the current codebase, a few command paths still launch workers directly
+  instead of entering exclusively through the coordinator.
+- A small amount of legacy completion behavior is still handled imperatively in
+  the coordinator rather than purely through per-row declarative transitions.
+- `workflow_generate_previews_on_ingest` can change whether later stages begin
+  only after previews or directly from `MediaDiscovered`.
+
+## Summary
+
+PhotoStar should be designed once at the layer level and deployed many ways.
+The layers define responsibilities. Deployment modes define packaging,
+placement, transport, and runtime capabilities. The workflow subsystem then
+coordinates progressive enrichment within those layers. Keeping those ideas
+separate lets the same application logic move between desktop, LAN, and cloud
+contexts without rewriting the core of the system.
