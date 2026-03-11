@@ -169,7 +169,7 @@ export async function requestWithChannels<T>(
 ): Promise<T> {
     const id = `${idPrefix}_${Date.now()}`;
     if (!transport) {
-        throw new Error('Sidecar not ready');
+        throw new Error('Backend service not ready');
     }
 
     if (transport.kind === 'ws') {

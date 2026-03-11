@@ -1,6 +1,10 @@
 import type React from 'react';
 import type { DataStatsSnapshot } from '@contracts/jobs';
 
+const METRICS_GRID_STYLE = {
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+};
+
 function formatPercent(value: number): string {
     return `${Math.round(value)}%`;
 }
@@ -84,7 +88,7 @@ export const DataStatsPanel: React.FC<{ stats: DataStatsSnapshot | null; loading
             <div className="text-[10px] text-gray-400 font-mono tracking-wider">
                 UPDATED {new Date(values.generatedAt).toLocaleTimeString()}
             </div>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+            <div className="grid gap-4" style={METRICS_GRID_STYLE}>
                 <MetricCard title="Photos" value={values.totals.assets.toLocaleString()} />
                 <MetricCard title="People" value={values.totals.people.toLocaleString()} />
                 <MetricCard title="AI Metadata Coverage" value={`${values.totals.photosWithAiMetadata.toLocaleString()} (${formatPercent(values.coverage.aiMetadataPercent)})`} hint="photos with extended metadata" />

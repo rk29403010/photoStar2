@@ -26,6 +26,29 @@ interface DashboardViewProps {
 
 type DashboardTab = 'modules' | 'queues' | 'data' | 'events' | 'errors';
 type DashboardJobWithIndex = { job: BackgroundJob; index: number };
+const DASHBOARD_MODULE_GRID_STYLE = {
+    gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+};
+const ACTIVE_TAB_STYLE = {
+    backgroundColor: 'rgba(8, 145, 178, 0.2)',
+    borderColor: 'rgba(6, 182, 212, 0.4)',
+    color: '#67e8f9',
+};
+const INACTIVE_TAB_STYLE = {
+    backgroundColor: '#111827',
+    borderColor: '#374151',
+    color: '#d1d5db',
+};
+const PAUSE_ALL_STYLE = {
+    backgroundColor: '#1f2937',
+    borderColor: '#374151',
+    color: '#d1d5db',
+};
+const RESUME_ALL_STYLE = {
+    backgroundColor: 'rgba(120, 53, 15, 0.3)',
+    borderColor: 'rgba(180, 83, 9, 0.5)',
+    color: '#fbbf24',
+};
 
 type DashboardErrorsState = {
     snapshot: JobErrorSnapshot | null;
@@ -65,6 +88,7 @@ const TabButton: React.FC<{ label: string; active: boolean; onClick: () => void 
     <button
         onClick={onClick}
         className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${active ? 'border-cyan-500/40 bg-cyan-600/20 text-cyan-300' : 'border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800'}`}
+        style={active ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
     >
         {label}
     </button>
@@ -116,7 +140,11 @@ const DashboardHeader: React.FC<{
             <div className="font-mono text-[10px] tracking-widest text-gray-300">
                 {getActiveTabCount({ activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount })} {isSystemPaused ? 'PAUSED' : 'OPERATIONAL'}
             </div>
-            <button onClick={onTogglePause} className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${isSystemPaused ? 'border-amber-700/50 bg-amber-900/30 text-amber-400 hover:bg-amber-900/50' : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'}`}>
+            <button
+                onClick={onTogglePause}
+                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${isSystemPaused ? 'border-amber-700/50 bg-amber-900/30 text-amber-400 hover:bg-amber-900/50' : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                style={isSystemPaused ? RESUME_ALL_STYLE : PAUSE_ALL_STYLE}
+            >
                 {isSystemPaused ? <PlayCircle size={16} /> : <PauseCircle size={16} />}
                 {isSystemPaused ? 'RESUME ACTIVITY' : 'PAUSE ALL'}
             </button>
@@ -195,7 +223,7 @@ const DashboardModulesTab: React.FC<{
     }
 
     return (
-        <div className="grid auto-rows-max grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-4">
+        <div className="grid auto-rows-max gap-4" style={DASHBOARD_MODULE_GRID_STYLE}>
             {displayJobs.map((job) => (
                 <JobCard
                     key={job.id}

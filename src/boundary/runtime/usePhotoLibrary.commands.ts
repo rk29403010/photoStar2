@@ -43,7 +43,7 @@ type SettingsActionParams = Pick<SharedWorkflowActionParams, 'transport' | 'requ
 export function useLibraryTransport(transport: BackendTransport | null, addLog: (message: string) => void) {
     const sendCommand = useCallback(async (command: string, payload: Record<string, unknown> = {}) => {
         if (!transport) {
-            addLog('Cannot send command: Sidecar not ready');
+            addLog('Cannot send command: backend service not ready');
             return;
         }
 

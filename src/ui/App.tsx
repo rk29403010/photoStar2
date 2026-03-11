@@ -337,11 +337,11 @@ function getShellStyle(uiBlocked: boolean) {
 }
 
 const CONNECTION_UNAVAILABLE_STATUS_PREFIXES = [
-  'Connecting to sidecar',
-  'Reconnecting to sidecar',
-  'Waiting for sidecar to start',
-  'Sidecar unavailable',
-  'Sidecar failed to start',
+  'Connecting to backend service',
+  'Reconnecting to backend service',
+  'Waiting for backend service to become ready',
+  'Backend service unavailable',
+  'Backend service failed to start',
 ] as const;
 
 function isConnectionUnavailableStatus(status: string) {
@@ -358,8 +358,8 @@ function getConnectionUiState(status: string, error: string | null) {
     backendReady,
     shellStyle: getShellStyle(true),
     connectionOverlay: {
-      title: 'Sidecar Unavailable',
-      message: error ?? 'Attempting to restore the sidecar connection...',
+      title: 'Backend Service Unavailable',
+      message: error ?? 'Attempting to restore the backend service connection...',
       tone: error ? 'warning' as const : 'info' as const,
     },
   };

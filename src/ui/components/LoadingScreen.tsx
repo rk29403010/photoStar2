@@ -22,7 +22,7 @@ function LoadingIndicator({ failed }: { failed: boolean }) {
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ status }) => {
-    const failed = status.startsWith('Sidecar failed to start.');
+    const failed = status.startsWith('Backend service failed to start.');
 
     return (
         <div style={{

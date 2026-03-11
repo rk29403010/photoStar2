@@ -38,6 +38,7 @@ coverage/
 # Generated Vite timestamp artifacts
 vite.config.ts.timestamp-*.mjs
 .local/
+.playwright-cli/
 *.tsbuildinfo
 
 # AI model weights (large binaries — re-downloaded on first run or via postinstall)

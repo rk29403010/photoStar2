@@ -1,9 +1,9 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-// Target the compiled core entrypoint directly (simulating debug_sidecar.bat)
+// Target the compiled core entrypoint directly (simulating the packaged backend launch)
 const corePath = path.join(__dirname, '..', '..', 'dist', 'core', 'src', 'entrypoints', 'core', 'main.js');
-console.log('[TEST-DEV] Spawning sidecar at:', corePath);
+console.log('[TEST-DEV] Starting backend service at:', corePath);
 
 const child = spawn('node', [corePath], {
     stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr too
@@ -12,9 +12,9 @@ const child = spawn('node', [corePath], {
 
 child.stdout.on('data', (data) => {
     const str = data.toString();
-    console.log('[SIDECAR-OUT]', str.trim());
+    console.log('[BACKEND-OUT]', str.trim());
 
-    if (str.includes('Core sidecar started')) {
+    if (str.includes('Core backend service started')) {
         console.log('[TEST-DEV] Sending detect_faces command...');
         const command = JSON.stringify({
             id: 'test-dev-1',
@@ -32,7 +32,7 @@ child.stdout.on('data', (data) => {
 });
 
 child.stderr.on('data', (data) => {
-    console.log('[SIDECAR-ERR]', data.toString().trim());
+    console.log('[BACKEND-ERR]', data.toString().trim());
 });
 
 console.log('[TEST-DEV] Waiting for output...');

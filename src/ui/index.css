@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "./**/*.{ts,tsx}";
+@source "../entrypoints/web/**/*.{html,ts,tsx}";
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;

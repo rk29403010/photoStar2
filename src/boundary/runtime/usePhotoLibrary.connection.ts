@@ -19,6 +19,7 @@ const FAST_RECONNECT_WINDOW_MS = 5000;
 const INITIAL_STARTUP_TIMEOUT_MS = 10000;
 const FAST_RECONNECT_DELAYS_MS = [400, 900, 1600, 2500];
 const SLOW_RECONNECT_DELAY_MS = 6000;
+const BACKEND_SERVICE_LABEL = 'backend service';
 
 export interface ConnectionStateParams {
     hasCompletedInitialSync: boolean;
@@ -107,7 +108,7 @@ async function killChildProcess(child: Child | null) {
 }
 
 async function startWebSocketMode(deps: StartConnectionDeps) {
-    deps.paramsRef.current.addLog('Connecting via WebSocket backend...');
+    deps.paramsRef.current.addLog('Connecting to backend service via WebSocket...');
     const ws = new WebSocket(getBackendWsUrl());
     deps.activeJobs.ws = ws;
 
@@ -143,7 +144,7 @@ async function startWebSocketMode(deps: StartConnectionDeps) {
         deps.paramsRef.current.setTransport(null);
         if (deps.isSessionStale()) {return;}
 
-        deps.scheduleReconnect('Lost connection to backend server.', 'Sidecar unavailable');
+        deps.scheduleReconnect('Lost connection to backend server.', 'Backend service unavailable');
     };
 
     ws.onerror = () => {
@@ -154,7 +155,7 @@ async function startWebSocketMode(deps: StartConnectionDeps) {
 
 async function startTauriMode(deps: StartConnectionDeps) {
     try {
-        deps.paramsRef.current.addLog('Spawning sidecar...');
+        deps.paramsRef.current.addLog('Starting packaged backend service...');
         const command = Command.sidecar('binaries/core');
         const handleStdoutChunk = createStreamLineHandler(deps.handleBackendMessage);
         const handleStderrChunk = createStreamLineHandler((line) => deps.paramsRef.current.addLog(`CORE ERR: ${line}`));
@@ -169,7 +170,7 @@ async function startTauriMode(deps: StartConnectionDeps) {
             deps.paramsRef.current.setTransport(null);
             if (deps.isSessionStale()) {return;}
 
-            deps.scheduleReconnect('Backend sidecar terminated.', `Sidecar closed code ${data.code}`);
+            deps.scheduleReconnect('Backend service terminated.', `Backend service closed with code ${data.code}`);
         });
         command.on('error', (err) => {
             if (deps.activeJobs.child !== spawnedChild) {
@@ -180,7 +181,7 @@ async function startTauriMode(deps: StartConnectionDeps) {
             deps.paramsRef.current.setTransport(null);
             if (deps.isSessionStale()) {return;}
 
-            deps.scheduleReconnect('Backend sidecar error.', `Sidecar error: ${String(err)}`);
+            deps.scheduleReconnect('Backend service error.', `Backend service error: ${String(err)}`);
         });
 
         command.stdout.on('data', handleStdoutChunk);
@@ -195,7 +196,7 @@ async function startTauriMode(deps: StartConnectionDeps) {
 
         deps.activeJobs.child = process;
         deps.paramsRef.current.setTransport(createTauriBackendTransport(process, command.stdout));
-        deps.paramsRef.current.addLog('Sidecar spawned.');
+        deps.paramsRef.current.addLog('Packaged backend service started.');
         deps.onTransportConnected('Tauri');
 
         try {
@@ -206,7 +207,7 @@ async function startTauriMode(deps: StartConnectionDeps) {
         }
     } catch (error) {
         if (deps.isSessionStale()) {return;}
-        deps.scheduleReconnect('Sidecar start failed.', `Failed to spawn: ${String(error)}`);
+        deps.scheduleReconnect('Backend service start failed.', `Failed to launch packaged backend service: ${String(error)}`);
     }
 }
 
@@ -227,9 +228,9 @@ function getRetryState(paramsRef: ParamsRef, delayMs: number, message: string, s
     const delayText = formatReconnectDelay(delayMs);
     if (!paramsRef.current.hasCompletedInitialSync) {
         return {
-            status: `Waiting for sidecar to start... Retrying in ${delayText}...`,
+            status: `Waiting for ${BACKEND_SERVICE_LABEL} to become ready... Retrying in ${delayText}...`,
             error: null,
-            logMessage: `Sidecar not ready yet. Retrying in ${delayText}.`,
+            logMessage: `${BACKEND_SERVICE_LABEL} not ready yet. Retrying in ${delayText}.`,
         };
     }
 
@@ -266,7 +267,8 @@ function disposeActiveJobs(ctx: ConnectionLifecycleContext) {
 }
 
 function shouldFailStartup(ctx: ConnectionLifecycleContext): boolean {
-    return !ctx.state.cleaningUp
+    return getBackendTransportKind() === 'ipc'
+        && !ctx.state.cleaningUp
         && !ctx.state.startupFailed
         && !ctx.paramsRef.current.hasCompletedInitialSync
         && ctx.activeJobs.ws?.readyState !== WebSocket.OPEN
@@ -282,9 +284,9 @@ function markStartupFailure(ctx: ConnectionLifecycleContext) {
     ctx.state.connectionSessionId += 1;
     clearLifecycleReconnectTimeout(ctx.state);
     disposeActiveJobs(ctx);
-    ctx.paramsRef.current.setStatus('Sidecar failed to start.');
+    ctx.paramsRef.current.setStatus('Backend service failed to start.');
     ctx.paramsRef.current.setError('Backend service failed to start within 10s. Check the core logs, then refresh.');
-    ctx.paramsRef.current.addLog('Sidecar startup timed out after 10s.');
+    ctx.paramsRef.current.addLog('Backend service startup timed out after 10s.');
 }
 
 function createStartupFailureTimeout(ctx: ConnectionLifecycleContext) {
@@ -297,7 +299,11 @@ function beginConnectionAttempt(ctx: ConnectionLifecycleContext): number {
     clearLifecycleReconnectTimeout(ctx.state);
     ctx.state.connectionSessionId += 1;
     disposeActiveJobs(ctx);
-    ctx.paramsRef.current.setStatus(ctx.paramsRef.current.hasCompletedInitialSync ? 'Reconnecting to sidecar...' : 'Connecting to sidecar...');
+    ctx.paramsRef.current.setStatus(
+        ctx.paramsRef.current.hasCompletedInitialSync
+            ? 'Reconnecting to backend service...'
+            : 'Connecting to backend service...'
+    );
     return ctx.state.connectionSessionId;
 }
 

@@ -31,7 +31,7 @@ function LoadingState({ backendStatus, backendReady }: { backendStatus: string; 
             <div className="animate-pulse" style={{ fontSize: '2rem' }}>⌛</div>
             <div style={{ textAlign: 'center' }}>
                 <div>{backendStatus.includes('Error') ? backendStatus : 'Initialising photo library...'}</div>
-                {!backendReady && !backendStatus.includes('Error') && <div style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: 4 }}>Establishing connection to sidecar...</div>}
+                {!backendReady && !backendStatus.includes('Error') && <div style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: 4 }}>Establishing connection to backend service...</div>}
             </div>
         </div>
     );

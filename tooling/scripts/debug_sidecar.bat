@@ -1,9 +1,9 @@
 @echo off
 echo ==========================================
-echo PhotoStar Sidecar Debugger
+echo PhotoStar Backend Service Debugger
 echo ==========================================
 echo.
-echo This script runs the sidecar logic directly using your system Node.js.
+echo This script runs the backend service directly using your system Node.js.
 echo faster than packaging it with 'pkg'.
 echo.
 echo Ensure you have run 'npm install' in the repo root first.
@@ -15,7 +15,7 @@ if not exist node_modules (
     call npm install
 )
 
-echo Starting Sidecar in Watch Mode (if available) or Direct...
+echo Starting backend service in watch mode (if available) or direct...
 call node tooling\scripts\core\smart_build.cjs --compile-only
 if %errorlevel% neq 0 (
     echo Build failed. Exiting.
@@ -26,5 +26,5 @@ if %errorlevel% neq 0 (
 node dist\core\src\entrypoints\core\main.js
 
 echo.
-echo Sidecar exited.
+echo Backend service exited.
 pause

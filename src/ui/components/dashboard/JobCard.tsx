@@ -11,6 +11,16 @@ type EqualizerBarStyle = React.CSSProperties & {
     animationDelay: string;
 };
 type CurrentItemDetails = { displayName: string; fullPath: string };
+const RUNNING_ACCENT_BAR_STYLE: React.CSSProperties = {
+    backgroundImage: 'linear-gradient(to right, transparent, rgba(34, 211, 238, 0.8), transparent)',
+    animation: 'pulse 2s ease-in-out infinite',
+};
+const ERRORS_BUTTON_STYLE: React.CSSProperties = {
+    backgroundColor: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
+    padding: '0.25rem',
+};
 
 function getRuntimeString(startStr: string, endStr?: string) {
     try {
@@ -72,8 +82,8 @@ const CircularProgress: React.FC<{ percent: number; indeterminate?: boolean; col
                     </div>
                 ) : (
                     <div className="flex gap-1">
-                        <div className="h-1 w-1 animate-bounce rounded-full bg-cyan-400 [animation-delay:-0.3s]" />
-                        <div className="h-1 w-1 animate-bounce rounded-full bg-cyan-400 [animation-delay:-0.15s]" />
+                        <div className="h-1 w-1 animate-bounce rounded-full bg-cyan-400" style={{ animationDelay: '-0.3s' }} />
+                        <div className="h-1 w-1 animate-bounce rounded-full bg-cyan-400" style={{ animationDelay: '-0.15s' }} />
                         <div className="h-1 w-1 animate-bounce rounded-full bg-cyan-400" />
                     </div>
                 )}
@@ -189,7 +199,12 @@ const JobMetrics: React.FC<{
             <div className="flex h-24 flex-1 flex-col justify-center border-l border-gray-800/50 pl-6">
                 <Equalizer activeCount={activeCount} throughput={throughput} isRunning={isRunning} colorClass={accentColor} />
                 <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                    <button type="button" onClick={onViewErrors} className="flex flex-col items-start rounded-md px-1 py-1 text-left transition-colors hover:bg-rose-950/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500/40">
+                    <button
+                        type="button"
+                        onClick={onViewErrors}
+                        className="flex flex-col items-start rounded-md px-1 py-1 text-left transition-colors hover:bg-rose-950/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500/40"
+                        style={ERRORS_BUTTON_STYLE}
+                    >
                         <span className="text-[9px] uppercase tracking-widest text-gray-300">Errors</span>
                         <span className={`text-xs font-mono ${errorCount > 0 ? 'text-rose-500' : 'text-gray-400'}`}>{errorCount}</span>
                         <span className="text-[8px] uppercase tracking-widest text-gray-500">Open errors tab</span>
@@ -270,7 +285,7 @@ export const JobCard: React.FC<{
             />
             <JobCurrentItem currentItemPath={job.progress.current} isRunning={isRunning} accentColor={visuals.accentColor} />
             <JobFooter isClassJob={isClassJob} />
-            {isRunning && !isTogglingPause && <div className="absolute left-0 top-0 h-px w-full animate-[pulse_2s_ease-in-out_infinite] bg-linear-to-r from-transparent via-cyan-500/80 to-transparent" />}
+            {isRunning && !isTogglingPause && <div className="absolute left-0 top-0 h-px w-full" style={RUNNING_ACCENT_BAR_STYLE} />}
         </div>
     );
 };

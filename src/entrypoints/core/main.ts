@@ -40,7 +40,7 @@ if (!existsSync(LIB_DIR)) {
     mkdirSync(LIB_DIR, { recursive: true });
 }
 
-console.log(`Core sidecar started. Storage: ${LIB_DIR}`);
+console.log(`Core backend service started. Storage: ${LIB_DIR}`);
 
 const dbManager = new DatabaseManager(LIB_DIR);
 const eventBus = new EventBus(dbManager);
