@@ -14,10 +14,18 @@
     "es2020": true
   },
   "ignorePatterns": [
+    ".worktrees/**",
     "dist/**",
     ".local/**",
+    "core/dist/**",
+    "core/node_modules/**",
+    "core/models/nsfwjs/**",
     "deployments/desktop/tauri/target/**",
+    "deployments/desktop/tauri/gen/**",
     "deployments/desktop/tauri/binaries/**",
+    "src-tauri/target/**",
+    "src-tauri/gen/**",
+    "src-tauri/binaries/**",
     "vite.config.ts.timestamp-*.mjs"
   ],
   "rules": {

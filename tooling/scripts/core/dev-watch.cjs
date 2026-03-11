@@ -28,11 +28,19 @@ function shouldLogPath(filePath) {
     const normalizedPath = filePath.replace(/\\/g, '/');
     if (
         normalizedPath.includes('/dist/')
+        || normalizedPath.includes('/core/dist/')
+        || normalizedPath.includes('/core/node_modules/')
         || normalizedPath.includes('/node_modules/')
+        || normalizedPath.includes('/.worktrees/')
         || normalizedPath.includes('/.git/')
         || normalizedPath.includes('/.vscode/')
         || normalizedPath.includes('/.idea/')
+        || normalizedPath.includes('/src-tauri/target/')
+        || normalizedPath.includes('/src-tauri/gen/')
+        || normalizedPath.includes('/src-tauri/binaries/')
         || normalizedPath.includes('/deployments/desktop/tauri/target/')
+        || normalizedPath.includes('/deployments/desktop/tauri/gen/')
+        || normalizedPath.includes('/deployments/desktop/tauri/binaries/')
     ) {
         return false;
     }

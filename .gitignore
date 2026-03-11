@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.worktrees/
 dist
 dist-ssr
 *.local
@@ -45,4 +46,11 @@ deployments/common/models/nsfwjs/
 # Compiled Binaries
 deployments/desktop/tauri/binaries/*.exe
 deployments/desktop/tauri/target/
+deployments/desktop/tauri/gen/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/*.exe
+core/dist/
+core/node_modules/
+core/models/nsfwjs/
 *.exe

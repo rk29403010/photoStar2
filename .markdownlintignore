@@ -1,0 +1,10 @@
+node_modules/**
+.worktrees/**
+dist/**
+.local/**
+core/node_modules/**
+core/dist/**
+src-tauri/target/**
+src-tauri/gen/**
+deployments/desktop/tauri/target/**
+deployments/desktop/tauri/gen/**

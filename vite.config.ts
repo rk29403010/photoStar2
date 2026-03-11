@@ -65,7 +65,7 @@ export default defineConfig({
       typescript: true,
       eslint: {
         useFlatConfig: true,
-        lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
+        lintCommand: 'eslint "../../**/*.{ts,tsx}"',
       },
       overlay: false,
     })
@@ -96,7 +96,10 @@ export default defineConfig({
       },
       ignored: [
         '**/node_modules/**',
+        '**/.worktrees/**',
         '**/dist/**',
+        '**/core/dist/**',
+        '**/core/node_modules/**',
         '**/.git/**',
         '**/.idea/**',
         '**/.vscode/**',
@@ -104,7 +107,12 @@ export default defineConfig({
         '**/.agents/**',
         '**/.history/**',
         '**/docs/**',
-        '**/deployments/desktop/tauri/**',
+        '**/deployments/desktop/tauri/target/**',
+        '**/deployments/desktop/tauri/gen/**',
+        '**/deployments/desktop/tauri/binaries/**',
+        '**/src-tauri/target/**',
+        '**/src-tauri/gen/**',
+        '**/src-tauri/binaries/**',
         '**/*.md',
         '**/*.tmp',
         '**/*~',

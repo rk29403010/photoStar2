@@ -26,9 +26,17 @@ const correctnessRules = {
 
 export default defineConfig([
   globalIgnores([
+    '.worktrees',
     'dist',
+    'core/dist',
+    'core/node_modules',
+    'core/models/nsfwjs',
     'deployments/desktop/tauri/target',
+    'deployments/desktop/tauri/gen',
     'deployments/desktop/tauri/binaries',
+    'src-tauri/target',
+    'src-tauri/gen',
+    'src-tauri/binaries',
     '.local/**',
     '.vscode/**',
     'vite.config.ts.timestamp-*.mjs',

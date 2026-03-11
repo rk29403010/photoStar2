@@ -49,7 +49,7 @@
     "quality:staged": "npm run fix:fast:staged && npm run fix:staged && npm run lint:fast:staged && npm run lint:staged && npm run complexity:staged",
     "preview": "vite preview",
     "tauri": "tauri",
-    "lint:md": "markdownlint \"**/*.md\" --ignore node_modules --ignore deployments/desktop/tauri/target",
+    "lint:md": "markdownlint \"**/*.md\"",
     "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target"
   },
   "dependencies": {
