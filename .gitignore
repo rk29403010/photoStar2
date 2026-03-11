@@ -36,11 +36,13 @@ coverage/
 
 # Generated Vite timestamp artifacts
 vite.config.ts.timestamp-*.mjs
+.local/
+*.tsbuildinfo
 
 # AI model weights (large binaries — re-downloaded on first run or via postinstall)
-core/models/nsfwjs/
-core/models/*.onnx
+deployments/common/models/nsfwjs/
 
 # Compiled Binaries
-src-tauri/binaries/*.exe
+deployments/desktop/tauri/binaries/*.exe
+deployments/desktop/tauri/target/
 *.exe

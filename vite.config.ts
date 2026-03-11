@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import checker from 'vite-plugin-checker'
 
+const workspaceRoot = path.resolve(__dirname)
+const webRoot = path.resolve(workspaceRoot, 'src/entrypoints/web')
+
 const errorForwarderPlugin = (): Plugin => ({
   name: 'error-forwarder',
   configureServer(server) {
@@ -50,6 +53,8 @@ const hotUpdateLoggerPlugin = (): Plugin => ({
 
 // https://vite.dev/config/
 export default defineConfig({
+  root: webRoot,
+  publicDir: path.resolve(webRoot, 'public'),
   clearScreen: false,
   plugins: [
     react(),
@@ -65,7 +70,22 @@ export default defineConfig({
       overlay: false,
     })
   ],
+  resolve: {
+    alias: {
+      '@ui': path.resolve(workspaceRoot, 'src/ui'),
+      '@boundary': path.resolve(workspaceRoot, 'src/boundary'),
+      '@contracts': path.resolve(workspaceRoot, 'src/boundary/contracts'),
+      '@shared': path.resolve(workspaceRoot, 'src/shared'),
+    },
+  },
+  build: {
+    outDir: path.resolve(workspaceRoot, 'dist/web'),
+    emptyOutDir: true,
+  },
   server: {
+    fs: {
+      allow: [workspaceRoot],
+    },
     host: true,
     port: 5173,
     strictPort: true,
@@ -83,14 +103,11 @@ export default defineConfig({
         '**/.agent/**',
         '**/.agents/**',
         '**/.history/**',
-        '**/core/**',
         '**/docs/**',
-        '**/src-tauri/**',
+        '**/deployments/desktop/tauri/**',
         '**/*.md',
         '**/*.tmp',
         '**/*~',
-        '**/package.json',
-        '**/package-lock.json',
         '**/metadata.json',
         '**/updates.md',
       ]

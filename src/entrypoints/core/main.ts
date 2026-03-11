@@ -1,0 +1,472 @@
+
+import { join } from 'node:path';
+import { existsSync, mkdirSync } from 'node:fs';
+import { DatabaseManager } from '../../data/db';
+import { handleSystemCommand } from '../../services/handlers';
+import { EventBus } from '../../services/events/bus';
+import { Coordinator } from '../../services/coordinator';
+import type { WebSocket } from 'ws';
+import { z } from 'zod';
+import type { DomainEvent } from '../../services/events/types';
+import { startDevBridgeServer } from '../../boundary/transport/devBridgeServer';
+import {
+    runAiMetadataWorker,
+    runAiMetadataV2Worker,
+    runAutoScanWorker,
+    runBurstGroupingWorker,
+    runComputeHashesWorker,
+    runDuplicateGroupingWorker,
+    runFaceClusteringWorker,
+    runFaceDetectionWorker,
+    runFaceRecognitionWorker,
+    runPreviewWorker,
+    runSensitiveScanWorker,
+    runVariantGroupingWorker,
+} from '../../services/runtimeWorkers';
+
+process.on('uncaughtException', (_err) => {
+    console.error('[CRITICAL] Uncaught Exception:', _err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Constants
+const APP_DATA_DIR = process.env.APPDATA || process.env.HOME || '.';
+const LIB_DIR = join(APP_DATA_DIR, 'PhotoLibraryDesktop');
+
+if (!existsSync(LIB_DIR)) {
+    mkdirSync(LIB_DIR, { recursive: true });
+}
+
+console.log(`Core sidecar started. Storage: ${LIB_DIR}`);
+
+const dbManager = new DatabaseManager(LIB_DIR);
+const eventBus = new EventBus(dbManager);
+const coordinator = new Coordinator(eventBus, dbManager);
+
+// Apply system_log_level to suppress noisy info logs in production modes
+const logLevel = dbManager.getSetting('system_log_level') || 'info';
+if (logLevel === 'warn' || logLevel === 'error') {
+    // Suppress console.log (info-level) messages; console.error still flows for critical output
+    console.log = () => { /* silenced */ };
+}
+
+// workflow_auto_scan: if set to 'last_folder', re-scan the most recently used folder on startup
+const autoScan = dbManager.getSetting('workflow_auto_scan');
+if (autoScan === 'last_folder') {
+    const db = dbManager.getDb();
+    const lastFolder = db.prepare('SELECT path FROM folder_history ORDER BY last_scanned_at DESC LIMIT 1').get() as { path: string } | undefined;
+    if (lastFolder?.path) {
+        console.error(`[Startup] Auto-scan enabled. Resuming scan of: ${lastFolder.path}`);
+        // Defer slightly so all subscribers are registered first
+        setTimeout(() => {
+            eventBus.emit({ type: 'FolderScanRequested', folderId: lastFolder.path, scanSessionId: 'startup-autoscan' });
+            runAutoScanWorker('startup-autoscan', lastFolder.path, { dbManager, eventBus })
+                .catch(err => console.error('[Startup] Auto-scan failed:', err));
+        }, 1500);
+    }
+}
+
+function persistJobStarted(event: Extract<DomainEvent, { type: 'JobStarted' }>) {
+    const db = dbManager.getDb();
+    db.prepare(`
+        INSERT OR REPLACE INTO jobs (id, stage, status, started_at, created_at, total_items, last_error)
+        VALUES (?, ?, 'running', ?, ?, ?, NULL)
+    `).run(event.jobId, event.pipelineStage, new Date().toISOString(), new Date().toISOString(), event.totalItems || 0);
+}
+
+function persistJobProgress(event: Extract<DomainEvent, { type: 'JobProgress' }>) {
+    const db = dbManager.getDb();
+    db.prepare(`
+        UPDATE jobs SET 
+            processed_items = ?, 
+            total_items = ?, 
+            current_item_path = ?, 
+            throughput_ips = ?, 
+            error_count = ?,
+            status = 'running'
+        WHERE id = ?
+    `).run(
+        event.processedItems,
+        event.totalItems || 0,
+        event.currentItemPath || null,
+        event.throughputIps || 0,
+        event.errorCount || 0,
+        event.jobId
+    );
+}
+
+function persistJobCompleted(event: Extract<DomainEvent, { type: 'JobCompleted' }>) {
+    const db = dbManager.getDb();
+    db.prepare("UPDATE jobs SET status = 'completed', finished_at = ?, last_error = NULL WHERE id = ?")
+        .run(new Date().toISOString(), event.jobId);
+}
+
+function persistJobFailed(event: Extract<DomainEvent, { type: 'JobFailed' }>) {
+    const db = dbManager.getDb();
+    db.prepare(`
+        UPDATE jobs
+        SET status = 'failed',
+            finished_at = ?,
+            last_error = ?,
+            error_count = COALESCE(error_count, 0) + 1
+        WHERE id = ?
+    `).run(new Date().toISOString(), event.reason, event.jobId);
+}
+
+function persistJobEvent(event: DomainEvent) {
+    if (event.type === 'JobStarted') {
+        persistJobStarted(event);
+        return;
+    }
+
+    if (event.type === 'JobProgress') {
+        persistJobProgress(event);
+        return;
+    }
+
+    if (event.type === 'JobCompleted') {
+        persistJobCompleted(event);
+        return;
+    }
+
+    if (event.type === 'JobFailed') {
+        persistJobFailed(event);
+    }
+}
+
+function forwardEventToFrontend(event: DomainEvent) {
+    respond('event_stream', 'event', event);
+}
+
+function handleBroadcastEvent(event: DomainEvent) {
+    try {
+        persistJobEvent(event);
+    } catch (_err) {
+        console.error('Failed to persist job event:', _err);
+    }
+
+    forwardEventToFrontend(event);
+}
+
+// Wiring: Forward all events to frontend and persist job status
+eventBus.subscribeAll(handleBroadcastEvent);
+
+// Periodic Cleanup: Keep 30 days of history
+function performCleanup() {
+    console.log('[Cleanup] Running periodic cleanup of old jobs and events (30 day retention)');
+    try {
+        const db = dbManager.getDb();
+        // Delete jobs older than 30 days
+        const jobResult = db.prepare("DELETE FROM jobs WHERE created_at < date('now', '-30 days')").run();
+        // Delete events older than 30 days
+        const eventResult = db.prepare("DELETE FROM events WHERE created_at < date('now', '-30 days')").run();
+        // Delete issues older than 30 days? Maybe keep fatal ones longer? 
+        // For now let's just clean them too.
+        const issueResult = db.prepare("DELETE FROM processing_issues WHERE created_at < date('now', '-30 days')").run();
+
+        console.log(`[Cleanup] Removed ${jobResult.changes} old jobs, ${eventResult.changes} events, ${issueResult.changes} issues.`);
+    } catch (_err) {
+        console.error('[Cleanup] Failed:', _err);
+    }
+}
+
+type AiMetadataQueueMode = 'fresh' | 'pro_pending' | 'all';
+type AiMetadataV2WorkerMode = 'fresh' | 'pro_pending';
+
+function resolveAiMetadataQueueMode(mediaIds: string[], queueMode?: string): AiMetadataQueueMode {
+    if (queueMode === 'pro_pending') {
+        return 'pro_pending';
+    }
+
+    if (queueMode === 'fresh' || (mediaIds.length > 0 && !queueMode)) {
+        return 'fresh';
+    }
+
+    return 'all';
+}
+
+function resolveAiMetadataQueueStage(queueMode: AiMetadataQueueMode): 'ai_metadata' | 'ai_metadata_3f' | 'ai_metadata_31p' {
+    switch (queueMode) {
+        case 'pro_pending':
+            return 'ai_metadata_31p';
+        case 'fresh':
+            return 'ai_metadata_3f';
+        case 'all':
+            return 'ai_metadata';
+    }
+}
+
+function handleAiMetadataRequestedEvent(event: DomainEvent) {
+    if (event.type !== 'AiMetadataRequested') {
+        return;
+    }
+
+    const mediaIds = event.mediaIds || [];
+    const queueMode = resolveAiMetadataQueueMode(mediaIds, event.queueMode);
+    const queueStage = resolveAiMetadataQueueStage(queueMode);
+    const workerTarget = mediaIds.length > 0 ? mediaIds : 'auto';
+
+    console.log(`[Worker] Starting AI Metadata extraction for ${mediaIds.length} items | mode=${queueMode}`);
+    runAiMetadataWorker(workerTarget, { dbManager, eventBus }, {
+        jobId: event.jobId,
+        queueMode,
+        queueStage
+    }).catch(console.error);
+}
+
+function handleAiMetadataV2RequestedEvent(event: DomainEvent) {
+    if (event.type !== 'AiMetadataV2Requested') {
+        return;
+    }
+
+    const mediaIds = event.mediaIds || [];
+    const workerTarget = mediaIds.length > 0 ? mediaIds : 'auto';
+
+    console.log(`[Worker] Starting AI Metadata v2 extraction for ${mediaIds.length} items | mode=${event.workerMode}`);
+    runAiMetadataV2Worker(workerTarget, { dbManager, eventBus }, {
+        jobId: event.jobId,
+        workerMode: event.workerMode as AiMetadataV2WorkerMode,
+        pipelineStage: event.pipelineStage
+    }).catch(console.error);
+}
+
+// Wiring: Workers listening to events
+// 1. Preview Generation
+eventBus.subscribe('MediaDiscovered', () => {
+    // This event is handled by the coordinator, not directly by runPreviewJob
+    // The coordinator will emit PreviewRequested if needed.
+});
+
+eventBus.subscribe('PreviewRequested', (event) => {
+    console.log('[Worker] Event received: PreviewRequested'); // DEBUG LOG
+    if (event.type === 'PreviewRequested') {
+        console.log(`[Worker] Starting Previews for ${event.mediaIds.length} items`);
+        runPreviewWorker(event.mediaIds, { dbManager, eventBus }).catch(_err => console.error(_err));
+    }
+});
+
+// 2. Face Detection
+eventBus.subscribe('FaceDetectionRequested', (event) => {
+    if (event.type === 'FaceDetectionRequested') {
+        const ids = event.mediaIds || (event.mediaId ? [event.mediaId] : []);
+        if (ids.length > 0) {
+            console.log(`[Worker] Starting Face Detection for ${ids.length} items`);
+            runFaceDetectionWorker(ids, { dbManager, eventBus }).catch(console.error);
+        } else {
+            console.log(`[Worker] Starting General Face Detection sweep`);
+            runFaceDetectionWorker('auto', { dbManager, eventBus }).catch(console.error);
+        }
+    }
+});
+
+// 3. Face Recognition
+eventBus.subscribe('FaceRecognitionRequested', (event) => {
+    if (event.type === 'FaceRecognitionRequested') {
+        const ids = event.mediaIds || [];
+        console.log(`[Worker] Starting Face Recognition for ${ids.length} items`);
+        runFaceRecognitionWorker(ids, { dbManager, eventBus }).catch(console.error);
+    }
+});
+
+// 4. Face Clustering
+eventBus.subscribe('FaceClusteringRequested', (event) => {
+    if (event.type === 'FaceClusteringRequested') {
+        console.log('[Worker] Starting Face Clustering');
+        runFaceClusteringWorker({ dbManager, eventBus }).catch(console.error);
+    }
+});
+
+// 5. Sensitive Content Scan
+eventBus.subscribe('SensitiveScanRequested', (event) => {
+    if (event.type === 'SensitiveScanRequested') {
+        const ids: string[] = event.mediaIds || [];
+        console.log(`[Worker] Starting Sensitive Scan for ${ids.length} items`);
+        runSensitiveScanWorker(ids.length > 0 ? ids : 'auto', { dbManager, eventBus }).catch(console.error);
+    }
+});
+
+// 6. AI Metadata Extraction
+eventBus.subscribe('AiMetadataRequested', handleAiMetadataRequestedEvent);
+
+// 6b. AI Metadata Extraction (v2)
+eventBus.subscribe('AiMetadataV2Requested', handleAiMetadataV2RequestedEvent);
+
+// 7. Grouping
+eventBus.subscribe('ComputeHashesRequested', () => {
+    console.log('[Worker] Starting Hash Computation');
+    runComputeHashesWorker({ dbManager, eventBus }).catch(console.error);
+});
+
+eventBus.subscribe('DuplicateGroupingRequested', () => {
+    console.log('[Worker] Starting Duplicate Grouping');
+    runDuplicateGroupingWorker({ dbManager, eventBus }).catch(console.error);
+});
+
+eventBus.subscribe('VariantGroupingRequested', () => {
+    console.log('[Worker] Starting Variant Grouping');
+    runVariantGroupingWorker({ dbManager, eventBus }).catch(console.error);
+});
+
+eventBus.subscribe('BurstGroupingRequested', (event) => {
+    if (event.type === 'BurstGroupingRequested') {
+        console.log('[Worker] Starting Burst Grouping');
+        runBurstGroupingWorker(event.jobId, { dbManager, eventBus }).catch(console.error);
+    }
+});
+
+type AssetUpdatedRow = {
+    id: string;
+    original_path: string;
+    width: number;
+    height: number;
+    created_at: string;
+    preview_path: string | null;
+    faces_data: string | null;
+    rec_data: string | null;
+    people_data: string | null;
+    ai_metadata_data: string | null;
+    sensitivity_score: number | null;
+    sensitivity_status: string | null;
+};
+
+function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
+    const db = dbManager.getDb();
+    return db.prepare(`
+        SELECT a.id, a.original_path, a.width, a.height, a.created_at,
+               a.sensitivity_score,
+               am.sensitivity_status,
+               p.path as preview_path,
+               dr.data as faces_data,
+               fr.data as rec_data,
+               aim.data as ai_metadata_data,
+               (
+                   SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', fa.person_id, 'name', per.name))
+                   FROM face_assignments fa
+                   JOIN people per ON fa.person_id = per.id
+                   WHERE fa.asset_id = a.id
+               ) as people_data
+        FROM assets a
+        LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+        LEFT JOIN derived_results dr ON a.id = dr.asset_id AND dr.task = 'face_detection'
+        LEFT JOIN derived_results fr ON a.id = fr.asset_id AND fr.task = 'face_recognition'
+        LEFT JOIN derived_results aim ON a.id = aim.asset_id AND aim.task = 'ai_metadata'
+        LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
+        LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
+        WHERE a.id = ?
+    `).get(assetId) as AssetUpdatedRow | undefined;
+}
+
+function mergeFaceAssignments(row: AssetUpdatedRow) {
+    const faces = row.faces_data ? JSON.parse(row.faces_data).faces || [] : [];
+    const peopleData = row.people_data ? JSON.parse(row.people_data) : [];
+
+    faces.forEach((face: { person_id?: string; person_name?: string }, index: number) => {
+        const assignment = peopleData.find((person: { face_index: number; person_id: string; name: string }) => person.face_index === index);
+        if (assignment) {
+            face.person_id = assignment.person_id;
+            face.person_name = assignment.name;
+        }
+    });
+
+    return faces;
+}
+
+function buildUpdatedAsset(row: AssetUpdatedRow) {
+    const faces = mergeFaceAssignments(row);
+    const aiMeta = row.ai_metadata_data ? JSON.parse(row.ai_metadata_data) : undefined;
+
+    return {
+        ...row,
+        faces,
+        face_embeddings: row.rec_data ? JSON.parse(row.rec_data).embeddings : [],
+        ai_metadata: aiMeta,
+        caption: aiMeta?.caption || undefined
+    };
+}
+
+function handleAssetUpdatedEvent(event: DomainEvent) {
+    if (event.type !== 'AssetUpdated') {return;}
+
+    try {
+        const row = loadUpdatedAssetRow(event.assetId);
+        if (!row) {return;}
+
+        const asset = buildUpdatedAsset(row);
+        respond('event_stream', 'event', { type: 'AssetUpdated', asset });
+        console.log(`[AssetUpdated] Pushed refreshed asset \${event.assetId} to frontend`);
+    } catch (err) {
+        console.error('[AssetUpdated] Failed to re-query asset:', err);
+    }
+}
+
+// 8. Asset Updated — re-query the asset and push to frontend so UI reflects new metadata
+eventBus.subscribe('AssetUpdated', handleAssetUpdatedEvent);
+
+// Define the schema for incoming WebSocket commands
+const WsCommandSchema = z.object({
+    id: z.string(),
+    command: z.string(),
+    payload: z.any().optional(),
+});
+
+let buffer = '';
+
+function handleIncomingLine(line: string, originWs?: WebSocket) {
+    try {
+        const rawMsg = JSON.parse(line);
+        const msg = WsCommandSchema.parse(rawMsg);
+        handleMessage(msg, originWs);
+    } catch (_err) {
+        console.error('[DEBUG] Failed to parse message:', line, _err);
+    }
+}
+
+process.stdin.on('data', (chunk) => {
+    buffer += chunk.toString();
+
+    let lineEndIndex;
+    while ((lineEndIndex = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, lineEndIndex).trim();
+        buffer = buffer.slice(lineEndIndex + 1);
+
+        if (!line) {continue;}
+        handleIncomingLine(line);
+    }
+});
+
+// Track active jobs (Legacy support + Scan cancellation)
+const activeJobs = new Map<string, AbortController>();
+
+function handleMessage(msg: { id: string, command: string, payload?: unknown }, originWs?: WebSocket) {
+    const { id, command, payload } = msg;
+    try {
+
+        handleSystemCommand({
+            id,
+            command,
+            payload,
+            originWs,
+            dbManager,
+            eventBus,
+            coordinator,
+            activeJobs,
+            LIB_DIR,
+            respond
+        });
+    } catch (err: unknown) {
+        respond(id, 'error', null, err instanceof Error ? err.message : String(err), originWs);
+    }
+}
+
+const { respond } = startDevBridgeServer({
+    onMessage: handleIncomingLine,
+    onReady: () => {
+        performCleanup();
+        setInterval(performCleanup, 24 * 60 * 60 * 1000);
+    },
+});
+
+
