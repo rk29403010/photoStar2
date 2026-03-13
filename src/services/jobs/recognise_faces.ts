@@ -1,4 +1,4 @@
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
 import { existsSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import type { DatabaseManager } from '../../data/db';
@@ -6,14 +6,14 @@ import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import type { EventBus } from '../events/bus';
+import { resolveOnnxModelPath } from '../modelPaths';
 import { waitIfPaused } from '../state';
 
 const MODEL_FILENAME = 'w600k_r50.onnx';
-let MODEL_PATH = join(dirname(process.execPath), 'models', MODEL_FILENAME);
-
-if (!existsSync(MODEL_PATH)) {
-    MODEL_PATH = join(__dirname, '../../../../models', MODEL_FILENAME);
-}
+const MODEL_PATH = resolveOnnxModelPath({
+    modelFileName: MODEL_FILENAME,
+    moduleDir: __dirname,
+});
 
 class FaceRecogniser {
     private session: ort.InferenceSession | null = null;

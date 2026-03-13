@@ -6,14 +6,14 @@ import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import type { DatabaseManager } from '../../data/db';
 import type { EventBus } from '../events/bus';
+import { resolveOnnxModelPath } from '../modelPaths';
 import { waitIfPaused } from '../state';
 
 const MODEL_FILENAME = 'det_10g.onnx';
-let MODEL_PATH = join(dirname(process.execPath), 'models', MODEL_FILENAME);
-
-if (!existsSync(MODEL_PATH)) {
-    MODEL_PATH = join(__dirname, '../../../../models', MODEL_FILENAME);
-}
+const MODEL_PATH = resolveOnnxModelPath({
+    modelFileName: MODEL_FILENAME,
+    moduleDir: __dirname,
+});
 
 // RetinaFace / Buffalo_L Constants
 const INPUT_WIDTH = 640;

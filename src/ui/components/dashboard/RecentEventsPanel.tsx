@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import type { RecentEventSnapshot } from '@contracts/jobs';
 import { formatForEventLog } from '@shared/utils/eventLogSummary';
 
@@ -9,6 +10,16 @@ function formatTimestamp(value: string): string {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {return value;}
     return parsed.toLocaleTimeString();
+}
+
+function formatDate(value: string): string {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {return '';}
+    return parsed.toLocaleDateString(undefined, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
 }
 
 function getAvailableTypes(events: RecentEventSnapshot[]): string[] {
@@ -58,13 +69,19 @@ function CopyRawButton(props: {
     onCopy: (eventId: string) => void;
 }) {
     const { eventId, copiedEventId, copyingEventId, onCopy } = props;
+    const isCopied = copiedEventId === eventId;
+    const isCopying = copyingEventId === eventId;
+    const label = isCopied ? 'Raw payload copied' : isCopying ? 'Copying raw payload' : 'Copy raw payload';
+
     return (
         <button
             onClick={() => onCopy(eventId)}
-            disabled={copyingEventId === eventId}
-            className="rounded-md border border-gray-700 bg-[#161616] px-3 py-1.5 text-[10px] uppercase tracking-widest text-gray-200 hover:bg-[#1f1f1f] disabled:cursor-wait disabled:opacity-60"
+            disabled={isCopying}
+            aria-label={label}
+            title={label}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-700 bg-[#161616] text-gray-300 hover:bg-[#1f1f1f] hover:text-gray-100 disabled:cursor-wait disabled:opacity-60"
         >
-            {copiedEventId === eventId ? 'Copied' : copyingEventId === eventId ? 'Copying' : 'Copy Raw'}
+            {isCopied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
         </button>
     );
 }
@@ -82,23 +99,26 @@ function EventsTable(props: {
                 <table className="min-w-full text-sm">
                     <thead className="bg-[#151515] border-b border-gray-800">
                         <tr className="text-[10px] uppercase tracking-widest text-gray-400">
-                            <th className="text-left px-4 py-3">Time</th>
-                            <th className="text-left px-4 py-3">Type</th>
-                            <th className="text-left px-4 py-3">Payload</th>
-                            <th className="text-right px-4 py-3">Raw</th>
+                            <th className="text-left px-3 py-2">Time</th>
+                            <th className="text-left px-3 py-2">Type</th>
+                            <th className="text-left px-3 py-2">Payload</th>
+                            <th className="w-12 px-2 py-2 text-right">Raw</th>
                         </tr>
                     </thead>
                     <tbody>
                         {events.map((event) => (
                             <tr key={event.id} className="border-b border-gray-900/80 align-top">
-                                <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap font-mono">{formatTimestamp(event.createdAt)}</td>
-                                <td className="px-4 py-3 text-[11px] text-cyan-300 uppercase tracking-wide whitespace-nowrap">{event.type}</td>
-                                <td className="px-4 py-3">
-                                    <pre className="text-[11px] text-gray-200 whitespace-pre-wrap break-all font-mono">
+                                <td className="px-3 py-2 text-[11px] whitespace-nowrap font-mono">
+                                    <div className="text-gray-300">{formatTimestamp(event.createdAt)}</div>
+                                    <div className="mt-0.5 text-[10px] text-gray-500">{formatDate(event.createdAt)}</div>
+                                </td>
+                                <td className="px-3 py-2 text-[11px] text-cyan-300 uppercase tracking-wide whitespace-nowrap">{event.type}</td>
+                                <td className="px-3 py-2">
+                                    <pre className="text-[11px] leading-4 text-gray-200 whitespace-pre-wrap break-all font-mono">
                                         {formatForEventLog(event.payload)}
                                     </pre>
                                 </td>
-                                <td className="px-4 py-3 text-right">
+                                <td className="px-2 py-2 text-right">
                                     <CopyRawButton
                                         eventId={event.id}
                                         copiedEventId={copiedEventId}

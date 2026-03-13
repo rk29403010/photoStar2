@@ -319,6 +319,47 @@ For adding new workflow-managed modules, see `docs/workflow-module-authoring-v2.
 | Workers | Run the heavy processing stages, write results, and emit result events plus job lifecycle events. |
 | Frontend projections | Consume the pushed event stream and polled snapshots to show live progress, queue state, and library changes. |
 
+### Currently defined events
+
+The `events` table always stores the common envelope fields `id`, `type`,
+`payload`, and `created_at`. The `payload` column stores the full JSON event
+object emitted through `EventBus`, so the event-specific fields below are the
+fields recorded inside `payload`.
+
+| Event | Description | Recorded payload fields |
+| --- | --- | --- |
+| `FolderScanRequested` | Requests a scan of a specific folder and tags the scan session. | `type`, `folderId`, `scanSessionId` |
+| `MediaDiscovered` | Records that a media asset was found during scanning and is now eligible for downstream workflow stages. | `type`, `mediaId`, `filePath`, `width`, `height`, `scanSessionId` |
+| `PreviewRequested` | Requests preview generation for one or more assets. | `type`, `mediaIds`, `reason` |
+| `PreviewGenerated` | Records that a preview image was generated for an asset. | `type`, `mediaId`, `path` |
+| `PreviewFailed` | Records that preview generation failed for an asset. | `type`, `mediaId`, `severity` |
+| `FaceDetectionRequested` | Requests face detection for one asset or a batch of assets. | `type`, `mediaId?`, `mediaIds?` |
+| `FacesDetected` | Records the number of faces found in an asset. | `type`, `mediaId`, `faceCount` |
+| `FaceEmbeddingGenerated` | Records that a face embedding vector was generated for a detected face. | `type`, `mediaId`, `faceId` |
+| `FaceMatched` | Records a face-to-person match result. This type is still defined even though current workers do not appear to emit it in the default flow. | `type`, `mediaId`, `faceId`, `personId`, `confidence` |
+| `FaceClusteringUpdated` | Records that a face cluster was created or updated. | `type`, `clusterId` |
+| `FaceRecognitionRequested` | Requests face recognition over a batch of assets. | `type`, `mediaIds?` |
+| `FaceClusteringRequested` | Requests a clustering pass over recognized faces. | `type` |
+| `JobStarted` | Marks the start of a tracked background job. | `type`, `jobId`, `pipelineStage`, `totalItems?` |
+| `JobProgress` | Records in-flight progress for a tracked background job. | `type`, `jobId`, `processedItems`, `totalItems?`, `currentItemPath?`, `throughputIps?`, `errorCount?` |
+| `JobCompleted` | Marks successful completion of a tracked background job. | `type`, `jobId`, `pipelineStage?` |
+| `JobFailed` | Records a tracked job failure or warning outcome. | `type`, `jobId`, `severity`, `reason`, `pipelineStage?` |
+| `SensitivityScored` | Records a sensitive-content score and tier for an asset. | `type`, `mediaId`, `score`, `tier` |
+| `AiMetadataRequested` | Requests legacy AI metadata extraction work. The legacy module is still defined but replaced by the v2 workflow by default. | `type`, `mediaIds?`, `jobId?`, `queueMode?` |
+| `AiMetadataV2Requested` | Requests AI metadata v2 processing for either the fresh or pro-pending queue. | `type`, `mediaIds?`, `jobId`, `workerMode`, `pipelineStage` |
+| `AiMetadataV2FreshCompleted` | Records completion of the fresh-pass AI metadata stage for an asset. | `type`, `mediaId`, `usedModel`, `queuedProUpgrade` |
+| `AiMetadataV2ProCompleted` | Records completion of the pro-pass AI metadata stage for an asset. | `type`, `mediaId`, `usedModel` |
+| `AiMetadataV2UpgradeQueued` | Records that an asset was queued for the pro AI metadata follow-up stage. | `type`, `mediaId`, `reason`, `proModel` |
+| `SensitiveScanRequested` | Requests sensitive-content scanning for a batch of assets. | `type`, `mediaIds?` |
+| `AssetUpdated` | Signals that asset data should be reloaded and pushed to the frontend. | `type`, `assetId` |
+| `QuotaWarning` | Records quota or rate-limit degradation during AI metadata work, including the fallback model used. | `type`, `model`, `fallbackModel`, `reason`, `assetIds`, `pendingProCount` |
+| `ProAnalysisPending` | Records that assets are queued awaiting pro-model follow-up analysis. This type remains part of the contract even though current workers do not appear to emit it. | `type`, `assetIds`, `proModel` |
+| `SystemPausedStateChanged` | Records that background workflow execution was paused or resumed. | `type`, `isPaused` |
+| `ComputeHashesRequested` | Requests standalone hash computation for grouping workflows. This request type is defined and subscribed, but current command flows call the job directly instead of emitting it. | `type` |
+| `DuplicateGroupingRequested` | Requests standalone duplicate grouping. This request type is defined and subscribed, but current command flows call the job directly instead of emitting it. | `type` |
+| `VariantGroupingRequested` | Requests standalone variant grouping. This request type is defined and subscribed, but current command flows call the job directly instead of emitting it. | `type` |
+| `BurstGroupingRequested` | Requests burst grouping, optionally tied to a job id for tracking. | `type`, `jobId?` |
+
 ### Workflow state data model
 
 This diagram focuses on the workflow subsystem's control tables and the outputs
