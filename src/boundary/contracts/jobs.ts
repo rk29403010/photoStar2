@@ -178,3 +178,29 @@ export interface RecentEventSnapshot {
     createdAt: string;
     payload: unknown;
 }
+
+export interface WorkflowRunMilestoneSnapshot {
+    milestoneId: string;
+    label: string;
+    status: string;
+}
+
+export interface WorkflowRunListItem {
+    runId: string;
+    workflowId: string;
+    displayName: string;
+    status: string;
+    createdAt: string;
+    parameters: Record<string, unknown>;
+    totalItems: number;
+    completedItems: number;
+    failedItems: number;
+    milestones: WorkflowRunMilestoneSnapshot[];
+    stepSummaries: Array<{
+        nodeId: string;
+        status: string;
+        totalItems: number;
+        completedItems: number;
+        failedItems: number;
+    }>;
+}

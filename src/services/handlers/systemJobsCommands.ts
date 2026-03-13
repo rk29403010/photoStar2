@@ -2,6 +2,7 @@ import type { CommandHandlerMap } from './types';
 import { getRecentEventsSnapshot } from './systemEventLogCommands';
 import { MODEL_PRO } from '../jobs/ai_metadata_shared';
 import { getDataStats } from './systemJobsDataStats';
+import { getWorkflowRunsSnapshot } from './systemWorkflowRunSnapshot';
 import {
     getDashboardModuleErrorCounts,
     getJobErrorsSnapshot,
@@ -408,6 +409,7 @@ export const systemJobsCommandHandlers: CommandHandlerMap = {
                 queueStatus: getQueueStatus(db),
                 dataStats: getDataStats(db),
                 recentEvents: getRecentEventsSnapshot(db),
+                workflowRuns: getWorkflowRunsSnapshot(db),
             }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);

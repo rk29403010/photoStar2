@@ -38,6 +38,52 @@ const SCHEMA_SQL = `
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS workflow_runs (
+    id TEXT PRIMARY KEY,
+    workflow_id TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    input_subjects_json TEXT NOT NULL,
+    parameters_json TEXT NOT NULL DEFAULT '{}',
+    started_at TEXT,
+    finished_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS workflow_run_milestones (
+    workflow_run_id TEXT NOT NULL,
+    milestone_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (workflow_run_id, milestone_id),
+    FOREIGN KEY(workflow_run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS step_runs (
+    id TEXT PRIMARY KEY,
+    workflow_run_id TEXT NOT NULL,
+    node_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(workflow_run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS subject_executions (
+    id TEXT PRIMARY KEY,
+    workflow_run_id TEXT NOT NULL,
+    step_run_id TEXT NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(workflow_run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY(step_run_id) REFERENCES step_runs(id) ON DELETE CASCADE
+  );
+
 
   CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
@@ -156,6 +202,10 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_task_queue_status_priority ON task_queue(status, priority DESC);
   CREATE INDEX IF NOT EXISTS idx_task_queue_stage_status_created ON task_queue(pipeline_stage, status, created_at);
   CREATE INDEX IF NOT EXISTS idx_identities_path ON asset_identities(original_path);
+  CREATE INDEX IF NOT EXISTS idx_workflow_runs_status_created ON workflow_runs(status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_step_runs_run_status ON step_runs(workflow_run_id, status);
+  CREATE INDEX IF NOT EXISTS idx_subject_executions_run_status ON subject_executions(workflow_run_id, status);
+  CREATE INDEX IF NOT EXISTS idx_workflow_milestones_run_status ON workflow_run_milestones(workflow_run_id, status);
 
   CREATE TABLE IF NOT EXISTS settings (
     id TEXT PRIMARY KEY,
@@ -265,6 +315,7 @@ const MIGRATIONS = [
   "ALTER TABLE task_queue ADD COLUMN claimed_by TEXT",
   "ALTER TABLE task_queue ADD COLUMN claimed_at TEXT",
   "ALTER TABLE task_queue ADD COLUMN last_error TEXT",
+  "ALTER TABLE workflow_runs ADD COLUMN parameters_json TEXT DEFAULT '{}'",
 ];
 
 function runMigration(db: Database.Database, sql: string): void {

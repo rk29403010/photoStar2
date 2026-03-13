@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { Asset, LibraryStats, Person } from '@contracts/core';
-import type { BackgroundJob, QueueStatusSnapshot, DataStatsSnapshot, RecentEventSnapshot } from '@contracts/jobs';
+import type { BackgroundJob, QueueStatusSnapshot, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
 import type { BackendTransport } from '@boundary/transport/usePhotoLibrary.transport';
 import type { FolderHistoryItem, LibraryFilter, NotificationItem } from '@contracts/usePhotoLibrary.types';
 
@@ -78,6 +78,7 @@ export function usePhotoLibraryState() {
     const [queueStatus, setQueueStatus] = useState<QueueStatusSnapshot | null>(null);
     const [dataStats, setDataStats] = useState<DataStatsSnapshot | null>(null);
     const [recentEvents, setRecentEvents] = useState<RecentEventSnapshot[]>([]);
+    const [workflowRuns, setWorkflowRuns] = useState<WorkflowRunListItem[]>([]);
     const [folderHistory, setFolderHistory] = useState<FolderHistoryItem[]>([]);
     const [rejectedAssets, setRejectedAssets] = useState<Asset[]>([]);
 
@@ -114,6 +115,8 @@ export function usePhotoLibraryState() {
         setDataStats,
         recentEvents,
         setRecentEvents,
+        workflowRuns,
+        setWorkflowRuns,
         folderHistory,
         setFolderHistory,
         rejectedAssets,

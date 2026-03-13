@@ -41,6 +41,7 @@ native file picking or local image URL resolution.
 | `job` | A runtime execution and monitoring concept used for progress reporting and lifecycle projection. |
 | `task` | A smaller unit of queued or batched work within a stage. In practice this is often tracked through `task_queue` rows plus worker-owned batches. |
 | `coordinator` | The orchestration component that reacts to events, updates queue state, and dispatches request events to workers. |
+| `workflow runtime` | The newer explicit run-based orchestrator centered on `workflow_runs`, `step_runs`, and `subject_executions`. It now owns the main `folder_ingest_v1` runtime path. |
 
 ## Logical Code Layers
 
@@ -278,6 +279,10 @@ flowchart LR
 | `assets_manual` | Manual overrides for asset-level moderation state, keyed by `asset_identities.guid`. |
 | `events` | Persistent event log written by the event bus for auditing, debugging, and recent activity views. |
 | `jobs` | Runtime and historical record of long-running jobs, including progress, throughput, error counts, and timestamps. |
+| `workflow_runs` | Top-level persisted runtime executions for the new workflow runtime, including input subjects and run parameters. |
+| `workflow_run_milestones` | User-facing milestone state for workflow runtime executions such as `Library ready` and `Enrichment complete`. |
+| `step_runs` | Per-node execution records within a workflow runtime run. |
+| `subject_executions` | Per-subject execution records within a workflow runtime step. |
 | `previews` | Generated preview files for each asset and preview size. |
 | `derived_results` | Generic store for machine-generated outputs such as detections, recognition data, and AI metadata, versioned by task and provider. |
 | `people` | Known or inferred people entities used by face assignment and people views. |
@@ -300,6 +305,15 @@ flowchart LR
 The workflow subsystem is how PhotoStar keeps the library visible quickly while
 progressively enriching it in the background.
 
+At the moment there are two orchestration paths in the codebase:
+
+- the older coordinator and event/queue driven path
+- the newer explicit `workflowRuntime` path
+
+The runtime path is now the real implementation for `folder_ingest_v1`. The
+coordinator path still exists for older commands, legacy modules, and
+compatibility surfaces.
+
 Conceptually:
 
 - workflows define what should happen next
@@ -316,8 +330,9 @@ For adding new workflow-managed modules, see `docs/workflow-module-authoring-v2.
 | --- | --- |
 | `EventBus` | Persists emitted domain events and dispatches them to subscribers in-process. |
 | `Coordinator` | Reacts to events, applies stage policies and transition rules, updates `task_queue`, and emits request events for workers. |
+| `workflowRuntime` | Persists and executes typed workflow runs, step runs, subject executions, and user-facing milestone state. |
 | Workers | Run the heavy processing stages, write results, and emit result events plus job lifecycle events. |
-| Frontend projections | Consume the pushed event stream and polled snapshots to show live progress, queue state, and library changes. |
+| Frontend projections | Consume the pushed event stream and polled snapshots to show live progress, queue state, workflow runs, and library changes. |
 
 ### Currently defined events
 
@@ -393,6 +408,10 @@ flowchart LR
         eventsTbl[("events")]
         queueTbl[("task_queue")]
         jobsTbl[("jobs")]
+        workflowRunsTbl[("workflow_runs")]
+        milestonesTbl[("workflow_run_milestones")]
+        stepRunsTbl[("step_runs")]
+        subjectExecTbl[("subject_executions")]
         issuesTbl[("processing_issues")]
         settingsTbl[("settings")]
     end
@@ -413,6 +432,10 @@ flowchart LR
     coord -->|upsert and complete rows| queueTbl
     coord -->|emit request events| workers
     bus -->|project job lifecycle| jobsTbl
+    workers -->|run-based orchestration| workflowRunsTbl
+    workflowRunsTbl --> milestonesTbl
+    workflowRunsTbl --> stepRunsTbl
+    stepRunsTbl --> subjectExecTbl
     workers -->|per-asset warnings and failures| issuesTbl
     workers --> assetsTbl
     workers --> previewsTbl
@@ -422,8 +445,56 @@ flowchart LR
     bus -->|push event stream| frontend
     frontend -. snapshot queries .-> jobsTbl
     frontend -. snapshot queries .-> queueTbl
+    frontend -. workflow run snapshots .-> workflowRunsTbl
     frontend -. library reads .-> assetsTbl
 ```
+
+### Full ingest example: runtime-native `folder_ingest_v1`
+
+This is the implemented runtime-native ingest path.
+
+```mermaid
+%%{init: {
+  "theme": "base",
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "nodeSpacing": 40,
+    "rankSpacing": 55
+  }
+}}%%
+flowchart LR
+    folder["folder input"] --> scan["scan_folder"]
+    scan --> emit["emit asset subjects"]
+    emit --> previews["generate_previews"]
+    previews --> libraryReady["Library ready"]
+
+    previews --> faces["detect_faces"]
+    faces --> vectors["generate_face_vectors"]
+    vectors --> peopleCollect["collect"]
+    vectors --> similarCollect["collect"]
+    vectors --> safety["detect_sensitive_content"]
+
+    peopleCollect --> people["resolve_people"]
+    similarCollect --> groups["group_similar_photos"]
+    safety --> aiMeta["generate_ai_metadata<br/>(mock | live | off)"]
+
+    people --> enrichDone["Enrichment complete"]
+    groups --> enrichDone
+    aiMeta --> enrichDone
+```
+
+Current runtime notes for this path:
+
+- entry command is `start_folder_ingest`
+- run parameters are `folderPath`, `traversalMode`, and `aiMode`
+- the runtime persists `workflow_runs`, `workflow_run_milestones`,
+  `step_runs`, and `subject_executions`
+- the dashboard now includes a workflow-runs panel sourced from
+  `get_system_jobs`
+- `mock` and `off` are real runtime behaviors
+- `live` is currently wired as a deterministic placeholder write, not the final
+  paid Gemini call path yet
 
 ### Full ingest example: traditional workflow view
 
@@ -503,14 +574,19 @@ flowchart LR
 
 ### Current implementation notes
 
-- The diagrams above show the intended controller-led architecture for the main
-  ingest path.
+- `folder_ingest_v1` is now implemented on `src/services/workflowRuntime/` and
+  is started through `start_folder_ingest`.
+- The older coordinator-led pipeline still exists for legacy commands and older
+  workflow-managed module paths.
+- The dashboard's `get_system_jobs` snapshot now includes both the older job
+  cards and a workflow-runs projection built from `workflow_runs`,
+  `workflow_run_milestones`, `step_runs`, and `subject_executions`.
 - In the current codebase, a few command paths still launch workers directly
-  instead of entering exclusively through the coordinator.
+  instead of entering exclusively through one orchestration path.
 - A small amount of legacy completion behavior is still handled imperatively in
   the coordinator rather than purely through per-row declarative transitions.
-- `workflow_generate_previews_on_ingest` can change whether later stages begin
-  only after previews or directly from `MediaDiscovered`.
+- `workflow_generate_previews_on_ingest` still affects the older coordinator
+  path; it is not the control surface for `folder_ingest_v1`.
 
 ## Summary
 

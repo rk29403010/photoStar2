@@ -1,12 +1,13 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PauseCircle, PlayCircle } from 'lucide-react';
-import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSnapshot, RecentEventSnapshot } from '@contracts/jobs';
+import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
 import { DataStatsPanel } from './dashboard/DataStatsPanel';
 import { JobCard } from './dashboard/JobCard';
 import { QueueStatusTable } from './dashboard/QueueStatusTable';
 import { RecentEventsPanel } from './dashboard/RecentEventsPanel';
 import { SystemErrorsPanel } from './dashboard/SystemErrorsPanel';
+import { WorkflowRunsPanel } from './dashboard/WorkflowRunsPanel';
 
 interface DashboardViewProps {
     jobs: BackgroundJob[];
@@ -14,6 +15,7 @@ interface DashboardViewProps {
     queueStatus: QueueStatusSnapshot | null;
     dataStats: DataStatsSnapshot | null;
     recentEvents: RecentEventSnapshot[];
+    workflowRuns: WorkflowRunListItem[];
     refreshSystemJobs: () => void;
     isSystemPaused: boolean;
     onTogglePause: () => void;
@@ -213,26 +215,37 @@ function useDashboardErrors(activeTab: DashboardTab, onGetJobErrors: DashboardVi
 
 const DashboardModulesTab: React.FC<{
     displayJobs: BackgroundJob[];
+    workflowRuns: WorkflowRunListItem[];
     loading?: boolean;
     onStopJob: (jobId: string) => void;
     onViewModuleErrors: (moduleId: string) => void;
     onSetModulePaused: (moduleId: string, paused: boolean) => void;
-}> = ({ displayJobs, loading, onStopJob, onViewModuleErrors, onSetModulePaused }) => {
+}> = ({ displayJobs, workflowRuns, loading, onStopJob, onViewModuleErrors, onSetModulePaused }) => {
     if (displayJobs.length === 0 && !loading) {
-        return <div className="flex h-full items-center justify-center bg-[#0a0a0a] text-gray-300"><p>No background jobs running or completed yet.</p></div>;
+        return (
+            <div className="flex flex-col gap-4">
+                <WorkflowRunsPanel runs={workflowRuns} />
+                <div className="flex h-full items-center justify-center bg-[#0a0a0a] text-gray-300">
+                    <p>No background jobs running or completed yet.</p>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="grid auto-rows-max gap-4" style={DASHBOARD_MODULE_GRID_STYLE}>
-            {displayJobs.map((job) => (
-                <JobCard
-                    key={job.id}
-                    job={job}
-                    onStop={onStopJob}
-                    onViewErrors={onViewModuleErrors}
-                    onTogglePause={onSetModulePaused}
-                />
-            ))}
+        <div className="flex flex-col gap-4">
+            <WorkflowRunsPanel runs={workflowRuns} />
+            <div className="grid auto-rows-max gap-4" style={DASHBOARD_MODULE_GRID_STYLE}>
+                {displayJobs.map((job) => (
+                    <JobCard
+                        key={job.id}
+                        job={job}
+                        onStop={onStopJob}
+                        onViewErrors={onViewModuleErrors}
+                        onTogglePause={onSetModulePaused}
+                    />
+                ))}
+            </div>
         </div>
     );
 };
@@ -244,13 +257,14 @@ const DashboardBody: React.FC<{
     queueLastUpdated?: string;
     dataStats: DataStatsSnapshot | null;
     recentEvents: RecentEventSnapshot[];
+    workflowRuns: WorkflowRunListItem[];
     onGetEventPayloadRaw: (eventId: string) => Promise<string>;
     displayJobs: BackgroundJob[];
     onStopJob: (jobId: string) => void;
     onViewModuleErrors: (moduleId: string) => void;
     onSetModulePaused: (moduleId: string, paused: boolean) => void;
     errorsState: DashboardErrorsState;
-}> = ({ activeTab, loading, queueRows, queueLastUpdated, dataStats, recentEvents, onGetEventPayloadRaw, displayJobs, onStopJob, onViewModuleErrors, onSetModulePaused, errorsState }) => {
+}> = ({ activeTab, loading, queueRows, queueLastUpdated, dataStats, recentEvents, workflowRuns, onGetEventPayloadRaw, displayJobs, onStopJob, onViewModuleErrors, onSetModulePaused, errorsState }) => {
     if (activeTab === 'queues') {
         return (
             <>
@@ -276,6 +290,7 @@ const DashboardBody: React.FC<{
     return (
         <DashboardModulesTab
             displayJobs={displayJobs}
+            workflowRuns={workflowRuns}
             loading={loading}
             onStopJob={onStopJob}
             onViewModuleErrors={onViewModuleErrors}
@@ -290,6 +305,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     queueStatus,
     dataStats,
     recentEvents,
+    workflowRuns,
     refreshSystemJobs,
     isSystemPaused,
     onTogglePause,
@@ -339,6 +355,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 queueLastUpdated={queueStatus?.generatedAt}
                 dataStats={dataStats}
                 recentEvents={recentEvents}
+                workflowRuns={workflowRuns}
                 onGetEventPayloadRaw={onGetEventPayloadRaw}
                 displayJobs={displayJobs}
                 onStopJob={onStopJob}

@@ -6,9 +6,11 @@ import { peopleCommandHandlers } from './handlers/peopleCommands';
 import { systemCommandHandlers } from './handlers/systemCommands';
 import { systemEventLogCommandHandlers } from './handlers/systemEventLogCommands';
 import { systemJobsCommandHandlers } from './handlers/systemJobsCommands';
+import { systemWorkflowRuntimeCommandHandlers } from './handlers/systemWorkflowRuntimeCommands';
 
 const COMMAND_ROUTES = [
     systemCommandHandlers,
+    systemWorkflowRuntimeCommandHandlers,
     systemEventLogCommandHandlers,
     peopleCommandHandlers,
     collectionCommandHandlers,

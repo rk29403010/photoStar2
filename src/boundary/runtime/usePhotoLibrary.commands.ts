@@ -64,9 +64,13 @@ export function createScanActions(params: ScanActionParams) {
     return {
         scanLibrary: async (path: string) => {
             if (!transport) {return;}
-            const jobId = `scan-${Date.now()}`;
+            const jobId = `folder-ingest-${Date.now()}`;
             lastScanId.current = jobId;
-            await writeCommand(transport, jobId, 'scan_folder', { path });
+            await writeCommand(transport, jobId, 'start_folder_ingest', {
+                folderPath: path,
+                traversalMode: 'recursive',
+                aiMode: 'mock',
+            });
         },
         stopScan: async () => {
             if (!transport || !lastScanId.current) {return;}

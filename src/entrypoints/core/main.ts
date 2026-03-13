@@ -23,6 +23,22 @@ import {
     runSensitiveScanWorker,
     runVariantGroupingWorker,
 } from '../../services/runtimeWorkers';
+import { createPreviewAdapterModule } from '../../services/workflowRuntime/modules/previewAdapterModule';
+import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
+import { createDetectSensitiveContentModule } from '../../services/workflowRuntime/modules/detectSensitiveContentModule';
+import { createGenerateAiMetadataModule } from '../../services/workflowRuntime/modules/generateAiMetadataModule';
+import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
+import { createGeneratePreviewsModule } from '../../services/workflowRuntime/modules/generatePreviewsModule';
+import { createGroupSimilarPhotosModule } from '../../services/workflowRuntime/modules/groupSimilarPhotosModule';
+import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
+import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
+import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
+import { folderIngestWorkflowDefinition } from '../../services/workflowRuntime/workflows/folderIngestWorkflow';
+import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
+import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
+import { SubjectRegistry } from '../../services/workflowRuntime/subjectRegistry';
+import { WorkflowRegistry } from '../../services/workflowRuntime/workflowRegistry';
+import { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orchestrator';
 
 process.on('uncaughtException', (_err) => {
     console.error('[CRITICAL] Uncaught Exception:', _err);
@@ -45,6 +61,57 @@ console.log(`Core backend service started. Storage: ${LIB_DIR}`);
 const dbManager = new DatabaseManager(LIB_DIR);
 const eventBus = new EventBus(dbManager);
 const coordinator = new Coordinator(eventBus, dbManager);
+const workflowRuntimeStore = new ExecutionStore(dbManager);
+const workflowRuntimeSubjects = new SubjectRegistry();
+const workflowRuntimeModules = new ModuleRegistry();
+const workflowRuntimeWorkflows = new WorkflowRegistry({
+    subjects: workflowRuntimeSubjects,
+    modules: workflowRuntimeModules,
+});
+
+workflowRuntimeSubjects.register({
+    id: 'folder',
+    version: 1,
+    durable: false,
+    summary: { titleField: 'path', thumbnailStrategy: 'none' },
+    progressSemantics: 'aggregate',
+    relations: [],
+    ui: { detailSections: ['overview'] },
+    labels: { singular: 'folder', plural: 'folders' },
+});
+workflowRuntimeSubjects.register({
+    id: 'asset',
+    version: 1,
+    durable: true,
+    summary: { titleField: 'id', thumbnailStrategy: 'asset' },
+    progressSemantics: 'per_subject',
+    relations: [],
+    ui: { detailSections: ['overview'] },
+    labels: { singular: 'file', plural: 'files' },
+});
+workflowRuntimeModules.register(createScanFolderModule({ dbManager }));
+workflowRuntimeModules.register(createGeneratePreviewsModule({ dbManager }));
+workflowRuntimeModules.register(createDetectFacesModule({ dbManager }));
+workflowRuntimeModules.register(createGenerateFaceVectorsModule({ dbManager }));
+workflowRuntimeModules.register(createResolvePeopleModule({ dbManager }));
+workflowRuntimeModules.register(createGroupSimilarPhotosModule({ dbManager }));
+workflowRuntimeModules.register(createDetectSensitiveContentModule({ dbManager }));
+workflowRuntimeModules.register(createGenerateAiMetadataModule({ dbManager }));
+workflowRuntimeModules.register(createPreviewAdapterModule({
+    runPreview: async (mediaIds) => {
+        await runPreviewWorker(mediaIds, { dbManager, eventBus });
+    },
+}));
+workflowRuntimeWorkflows.register(folderIngestWorkflowDefinition);
+workflowRuntimeWorkflows.register(assetPreviewWorkflowDefinition);
+const workflowRuntime = {
+    store: workflowRuntimeStore,
+    orchestrator: new WorkflowRuntimeOrchestrator({
+        store: workflowRuntimeStore,
+        workflows: workflowRuntimeWorkflows,
+        modules: workflowRuntimeModules,
+    }),
+};
 
 // Apply system_log_level to suppress noisy info logs in production modes
 const logLevel = dbManager.getSetting('system_log_level') || 'info';
@@ -454,6 +521,7 @@ function handleMessage(msg: { id: string, command: string, payload?: unknown }, 
             coordinator,
             activeJobs,
             LIB_DIR,
+            workflowRuntime,
             respond
         });
     } catch (err: unknown) {

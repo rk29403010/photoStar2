@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Command, type Child } from '@tauri-apps/plugin-shell';
 import type { Asset, LibraryStats, Person } from '@contracts/core';
-import type { BackgroundJob, DataStatsSnapshot, QueueStatusSnapshot, RecentEventSnapshot } from '@contracts/jobs';
+import type { BackgroundJob, DataStatsSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
 import { getBackendTransportKind, getBackendWsUrl } from '@boundary/runtime/backend';
 import type { DomainEvent } from '@contracts/events';
 import {
@@ -36,6 +36,7 @@ export interface ConnectionStateParams {
     setQueueStatus: Dispatch<SetStateAction<QueueStatusSnapshot | null>>;
     setDataStats: Dispatch<SetStateAction<DataStatsSnapshot | null>>;
     setRecentEvents: Dispatch<SetStateAction<RecentEventSnapshot[]>>;
+    setWorkflowRuns: Dispatch<SetStateAction<WorkflowRunListItem[]>>;
     setFolderHistory: Dispatch<SetStateAction<FolderHistoryItem[]>>;
     setRejectedAssets: Dispatch<SetStateAction<Asset[]>>;
     setIsSystemPaused: (value: boolean) => void;

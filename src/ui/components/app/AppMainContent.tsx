@@ -1,5 +1,5 @@
 import type { Asset, Person, Album } from '@contracts/core';
-import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSnapshot, RecentEventSnapshot } from '@contracts/jobs';
+import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { LibraryView } from '../LibraryView';
 import { PeopleView } from '../PeopleView';
@@ -25,6 +25,7 @@ interface AppMainContentProps {
   queueStatus: QueueStatusSnapshot | null;
   dataStats: DataStatsSnapshot | null;
   recentEvents: RecentEventSnapshot[];
+  workflowRuns: WorkflowRunListItem[];
   isSystemPaused: boolean;
   hasMoreAssets: boolean;
   isLoadingMoreAssets: boolean;
@@ -62,7 +63,7 @@ export function AppMainContent(props: AppMainContentProps) {
   const {
     view, assets, people, status, backendReady, filterStack, selectedAssetId, libraryActive, showFaces,
     librarySelection, declusteredAssets, showRejected, rejectedAssets, jobs, systemJobs,
-    queueStatus, dataStats, recentEvents, isSystemPaused, hasMoreAssets, isLoadingMoreAssets,
+    queueStatus, dataStats, recentEvents, workflowRuns, isSystemPaused, hasMoreAssets, isLoadingMoreAssets,
     onLoadMoreAssets, onAssetClick, onUntagAsset, onSetSensitivity, onLibrarySelectionChange,
     onPeopleFilter, onPeopleSelectionChange, onRenamePerson, onMergePeople, onRefreshSystemJobs,
     onTogglePause, onStopJob, onGetEventPayloadRaw, onGetJobErrors, onSetModulePaused,
@@ -114,6 +115,7 @@ export function AppMainContent(props: AppMainContentProps) {
           queueStatus={queueStatus}
           dataStats={dataStats}
           recentEvents={recentEvents}
+          workflowRuns={workflowRuns}
           refreshSystemJobs={onRefreshSystemJobs}
           isSystemPaused={isSystemPaused}
           onTogglePause={onTogglePause}

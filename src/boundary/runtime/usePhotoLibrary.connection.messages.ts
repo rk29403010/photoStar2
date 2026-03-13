@@ -1,5 +1,5 @@
 import type { Asset, Person } from '@contracts/core';
-import type { BackgroundJob, DataStatsSnapshot, QueueStatusSnapshot, RecentEventSnapshot } from '@contracts/jobs';
+import type { BackgroundJob, DataStatsSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
 import type { WsResponse } from '@contracts/schemas';
 import { WsResponseSchema } from '@contracts/schemas';
 import type { DomainEvent } from '@contracts/events';
@@ -47,6 +47,7 @@ function applySnapshotPayload(data: Record<string, unknown>, params: ConnectionS
     if (data.queueStatus) {params.setQueueStatus(data.queueStatus as QueueStatusSnapshot);}
     if (data.dataStats) {params.setDataStats(data.dataStats as DataStatsSnapshot);}
     if (data.recentEvents) {params.setRecentEvents(data.recentEvents as RecentEventSnapshot[]);}
+    if (data.workflowRuns) {params.setWorkflowRuns(data.workflowRuns as WorkflowRunListItem[]);}
     if (data.folderHistory) {params.setFolderHistory(data.folderHistory as FolderHistoryItem[]);}
 }
 

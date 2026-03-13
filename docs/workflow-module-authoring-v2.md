@@ -10,6 +10,12 @@ This document is the target authoring contract for new workflow-managed modules.
 - It is still constrained by the current in-repo runtime, not by a future plugin system.
 - It applies to trusted, repo-local modules added by editing this repository.
 - It introduces replacement/retirement rules for built-in modules.
+- The new `src/services/workflowRuntime/` foundation is now active in the
+  codebase and owns `folder_ingest_v1`.
+- This document still describes the older coordinator-managed `v2` module path
+  only.
+- Do not use this document as the authoring contract for new
+  `workflowRuntime` modules.
 
 Use this spec together with:
 
@@ -19,6 +25,11 @@ Use this spec together with:
 - `src/services/coordinator/index.ts`
 - `src/services/events/types.ts`
 - `src/entrypoints/core/main.ts`
+
+If you are changing the runtime-native ingest path, also read:
+
+- `docs/superpowers/specs/2026-03-13-folder-ingest-v1-design.md`
+- `src/services/workflowRuntime/`
 
 ## Goal
 
@@ -51,21 +62,41 @@ This spec does not cover:
 - self-describing settings UIs
 - frontend bundles shipped by modules
 
+It also does not cover:
+
+- `workflowRuntime` module contracts
+- `workflow_runs` / `step_runs` / `subject_executions`
+- runtime-native milestone presentation
+- `start_folder_ingest`
+- the dashboard workflow-runs panel
+
 Those belong to a later packaging/plugin spec.
 
 ## Current Runtime Truth
 
-The codebase now supports more than `v1`, but it still has hard limits.
+The codebase now supports both the older coordinator path and the newer
+`workflowRuntime` path.
+
+This document is only about the coordinator side.
 
 Design within these limits:
 
-- Workflow modules are still defined in code as `WorkflowModuleDefinition`.
+- Coordinator workflow modules are still defined in code as `WorkflowModuleDefinition`.
 - Runtime registration exists, but persisted installed modules do not.
 - Dispatch event support is still explicit in coordinator code.
 - Transition actions are still intentionally narrow.
 - Queue rows can now be claimed by a dispatched job, but the queue is not a full execution-run model.
 - Dashboard aggregation is still largely based on stable job ID families and stage names.
 - Some older manual commands still bypass the workflow path.
+
+The main ingest path is no longer coordinator-led:
+
+- `folder_ingest_v1` lives under `src/services/workflowRuntime/`
+- its execution is persisted in workflow runtime tables
+- its user-facing projection is shown in the dashboard workflow-runs panel
+
+So for any new central ingest work, prefer the runtime-native path instead of
+adding more coordinator `v2` modules.
 
 Because of that, every new or replacement module must be explicit about:
 
