@@ -1,7 +1,9 @@
 import { execSync } from 'child_process';
 import os from 'os';
+import { resolveDevRuntimePorts } from './dev-runtime-config.js';
 
-const ports = [5173, 5174];
+const { webPort, backendPort } = resolveDevRuntimePorts(process.env);
+const ports = [webPort, backendPort];
 
 function clearStartupOutput() {
     if (!process.stdout.isTTY && !process.stderr.isTTY) {

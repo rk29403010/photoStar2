@@ -26,6 +26,16 @@ These rules exist because generated code drifts toward noise unless the repo pus
 4. Run `npm run quality` before handing over larger changes.
 5. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
 
+## Fast loop defaults
+
+- Default to the fastest safe path for local edits, bugfixes, refactors, and small behavior changes.
+- Do not require formal design docs or multi-step planning unless the user asks for them or the task is ambiguous, architectural, or spans multiple subsystems.
+- Keep exploration tight: read the directly relevant files first instead of reloading broad repo context by default.
+- During iteration, prefer targeted verification plus `npm run quality:staged`; reserve `npm run quality` for handoff, larger changes, or when config/runtime wiring changed.
+- Treat a feature as one vertical slice even when it spans UI, boundary, services, and data; use separate worktrees only for independent tasks or interruptions.
+- Do not recommend restarting the dev runtime unless the changed files or tooling indicate it is required. Use `npm run dev:impact` when needed.
+- Assume the main workspace uses the default dev ports and worktrees use automatic stable offsets unless `VITE_PORT` or `VITE_BACKEND_PORT` explicitly override them.
+
 ## Biases
 
 - Favour explicit names over clever abstractions.

@@ -21,7 +21,17 @@ export type FrontendHost = 'tauri' | 'browser';
 export type BackendTransportKind = 'ipc' | 'ws';
 export type ImageSourceStrategy = 'asset' | 'http';
 
-const BACKEND_PORT = 5174;
+const DEFAULT_BACKEND_PORT = 5174;
+
+function getBackendPort(): number {
+    const rawValue = import.meta.env.VITE_BACKEND_PORT as string | undefined;
+    if (!rawValue || !/^\d+$/.test(rawValue.trim())) {
+        return DEFAULT_BACKEND_PORT;
+    }
+
+    const parsedPort = Number.parseInt(rawValue, 10);
+    return parsedPort >= 1 && parsedPort <= 65_535 ? parsedPort : DEFAULT_BACKEND_PORT;
+}
 
 function hasTauriHost(): boolean {
     return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -104,7 +114,7 @@ export function getBackendOrigin(): string {
         return envUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
 
-    return `${getDefaultBackendHost()}:${BACKEND_PORT}`;
+    return `${getDefaultBackendHost()}:${getBackendPort()}`;
 }
 
 export function getBackendWsUrl(): string {

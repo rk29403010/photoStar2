@@ -3,9 +3,11 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import checker from 'vite-plugin-checker'
+import { resolveDevRuntimePorts } from './tooling/scripts/repo/dev-runtime-config.js'
 
 const workspaceRoot = path.resolve(__dirname)
 const webRoot = path.resolve(workspaceRoot, 'src/entrypoints/web')
+const { webPort } = resolveDevRuntimePorts(process.env)
 
 const errorForwarderPlugin = (): Plugin => ({
   name: 'error-forwarder',
@@ -87,7 +89,7 @@ export default defineConfig({
       allow: [workspaceRoot],
     },
     host: true,
-    port: 5173,
+    port: webPort,
     strictPort: true,
     watch: {
       awaitWriteFinish: {

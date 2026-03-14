@@ -17,6 +17,7 @@
     "predev:desktop-runtime:debug": "node tooling/scripts/repo/kill-ports.js",
     "dev:desktop-runtime:debug": "concurrently --names web,core --prefix-colors cyan.bold,magenta.bold \"npm run dev:web:debug\" \"npm run dev:core\"",
     "dev:fast-loop": "npm run dev:desktop-runtime:debug",
+    "dev:impact": "node tooling/scripts/repo/dev-runtime-impact.js --changed",
     "dev:desktop": "tauri dev --config deployments/desktop/tauri/tauri.desktop-dev.conf.json",
     "build": "npm run quality && npm run build:web",
     "build:web": "vite build",

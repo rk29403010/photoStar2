@@ -6,13 +6,23 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { closeSupersededUiConnections, getOpenUiConnectionCount, type DevBridgeWebSocket } from './devBridgeWebSocket';
 import { summarizeForEventLog } from '../../shared/utils/eventLogSummary';
 
-const WS_PORT = 5174;
+const DEFAULT_WS_PORT = 5174;
 
 type BridgeStatus = 'ok' | 'error' | 'event';
 
 interface StartDevBridgeServerOptions {
     onMessage: (line: string, originWs?: WebSocket) => void;
     onReady?: () => void;
+}
+
+function getBridgePort(): number {
+    const rawValue = process.env.VITE_BACKEND_PORT;
+    if (!rawValue || !/^\d+$/.test(rawValue.trim())) {
+        return DEFAULT_WS_PORT;
+    }
+
+    const parsedPort = Number.parseInt(rawValue, 10);
+    return parsedPort >= 1 && parsedPort <= 65_535 ? parsedPort : DEFAULT_WS_PORT;
 }
 
 function parsePidList(output: string): number[] {
@@ -22,8 +32,9 @@ function parsePidList(output: string): number[] {
 }
 
 function killForeignProcesses(pids: number[]) {
+    const port = getBridgePort();
     for (const pid of pids) {
-        console.error(`[Dev] Port 5174 held by alien PID ${pid}. Executing targeted kill...`);
+        console.error(`[Dev] Port ${port} held by alien PID ${pid}. Executing targeted kill...`);
         try {
             process.kill(pid, 9);
         } catch {
@@ -123,11 +134,12 @@ function createPortRetryHandler(server: Server) {
 }
 
 function registerServerLifecycle(server: Server, wss: WebSocketServer, onReady?: () => void) {
+    const bridgePort = getBridgePort();
     const handlePortInUseError = createPortRetryHandler(server);
 
     server.on('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'EADDRINUSE') {
-            handlePortInUseError(WS_PORT);
+            handlePortInUseError(bridgePort);
             return;
         }
         console.error('[CRITICAL] Server error:', err);
@@ -139,8 +151,8 @@ function registerServerLifecycle(server: Server, wss: WebSocketServer, onReady?:
         }
     });
 
-    server.listen(WS_PORT, '0.0.0.0', () => {
-        console.error(`[Dev] HTTP / WebSocket Bridge listening on port ${WS_PORT} (all interfaces)`);
+    server.listen(bridgePort, '0.0.0.0', () => {
+        console.error(`[Dev] HTTP / WebSocket Bridge listening on port ${bridgePort} (all interfaces)`);
         onReady?.();
     });
 
