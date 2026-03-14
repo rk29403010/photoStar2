@@ -12,10 +12,10 @@ interface LayoutEngineProps {
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
     librarySelection?: Set<string>;
     onLibrarySelectionChange?: (selection: Set<string>) => void;
     declusteredAssets?: Set<string>;
+    onHoverAssetChange?: (asset: Asset | null) => void;
 }
 
 type LayoutItem = { asset: Asset; intent: TileIntent; spanW: number; spanH: number };
@@ -37,13 +37,13 @@ interface LayoutTileProps {
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
     onAssetClick?: (id: string) => void;
     librarySelection?: Set<string>;
     onLibrarySelectionChange?: (selection: Set<string>) => void;
     declusteredAssets?: Set<string>;
     selection: SelectionState;
     prioritizeImage: boolean;
+    onHoverAssetChange?: (asset: Asset | null) => void;
 }
 
 const PRIORITY_TILE_COUNT = 60;
@@ -243,13 +243,13 @@ function LayoutTile({
     activeFilter,
     showFaces,
     onUntagAsset,
-    onSetSensitivity,
     onAssetClick,
     librarySelection,
     onLibrarySelectionChange,
     declusteredAssets,
     selection,
     prioritizeImage,
+    onHoverAssetChange,
 }: LayoutTileProps) {
     const isSelected = librarySelection?.has(item.asset.id) || selectedAssetId === item.asset.id;
     const isDeclustered = declusteredAssets?.has(item.asset.id);
@@ -292,7 +292,7 @@ function LayoutTile({
                 activeFilter={activeFilter}
                 showFaces={showFaces}
                 onUntagAsset={onUntagAsset}
-                onSetSensitivity={onSetSensitivity}
+                onHoverAssetChange={onHoverAssetChange}
                 imageLoading={prioritizeImage ? 'eager' : 'lazy'}
                 imageFetchPriority={prioritizeImage ? 'high' : 'auto'}
             />
@@ -302,8 +302,8 @@ function LayoutTile({
 
 export function LayoutEngine({
     assets, debug = false, onAssetClick, selectedAssetId,
-    activeFilter, showFaces, onUntagAsset, onSetSensitivity,
-    librarySelection, onLibrarySelectionChange, declusteredAssets
+    activeFilter, showFaces, onUntagAsset,
+    librarySelection, onLibrarySelectionChange, declusteredAssets, onHoverAssetChange
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(assets), [assets]);
     const selection = useSelectionInteractions(layoutItems, librarySelection, onLibrarySelectionChange);
@@ -328,13 +328,13 @@ export function LayoutEngine({
                         activeFilter={activeFilter}
                         showFaces={showFaces}
                         onUntagAsset={onUntagAsset}
-                        onSetSensitivity={onSetSensitivity}
                         onAssetClick={onAssetClick}
                         librarySelection={librarySelection}
                         onLibrarySelectionChange={onLibrarySelectionChange}
                         declusteredAssets={declusteredAssets}
                         selection={selection}
                         prioritizeImage={i < PRIORITY_TILE_COUNT}
+                        onHoverAssetChange={onHoverAssetChange}
                     />
                 );
             })}

@@ -12,31 +12,16 @@ interface TileProps {
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onHoverAssetChange?: (asset: Asset | null) => void;
     imageLoading?: 'eager' | 'lazy';
     imageFetchPriority?: 'high' | 'auto';
 }
-
-type HoverZone = 'info' | 'caption' | null;
 
 type SensitivityBadge = {
     label: string;
     color: string;
     bg: string;
 };
-
-type SensitivityStatus = 'safe' | 'review' | 'unsafe';
-
-interface SensitivityAction {
-    key: SensitivityStatus;
-    title: string;
-    label: string;
-    activeBg: string;
-    inactiveBg: string;
-    activeColor: string;
-    inactiveColor: string;
-    border: string;
-}
 
 interface FaceOverlayVisuals {
     highlightColor: string;
@@ -50,39 +35,6 @@ interface TileMediaProps {
     fetchPriority: 'high' | 'auto';
 }
 
-const SENSITIVITY_ACTIONS: SensitivityAction[] = [
-    {
-        key: 'safe',
-        title: 'Mark Safe',
-        label: '✓ Safe',
-        activeBg: 'rgba(34,197,94,0.9)',
-        inactiveBg: 'rgba(0,0,0,0.7)',
-        activeColor: '#fff',
-        inactiveColor: '#4ade80',
-        border: '#16a34a55'
-    },
-    {
-        key: 'review',
-        title: 'Mark Requires Review',
-        label: '⚠ Review',
-        activeBg: 'rgba(245,158,11,0.9)',
-        inactiveBg: 'rgba(0,0,0,0.7)',
-        activeColor: '#fff',
-        inactiveColor: '#fbbf24',
-        border: '#d9770655'
-    },
-    {
-        key: 'unsafe',
-        title: 'Mark Unsafe',
-        label: '🔞 Unsafe',
-        activeBg: 'rgba(239,68,68,0.9)',
-        inactiveBg: 'rgba(0,0,0,0.7)',
-        activeColor: '#fff',
-        inactiveColor: '#f87171',
-        border: '#ef444455'
-    }
-];
-
 function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
     const manualStatus = asset.sensitivity_status;
     if (manualStatus === 'unsafe') {return { label: '🔞 Unsafe', color: '#ef4444', bg: 'rgba(127,29,29,0.9)' };}
@@ -94,16 +46,6 @@ function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
     if (score >= 75) {return { label: `🔞 ${score}%`, color: '#ef4444', bg: 'rgba(127,29,29,0.85)' };}
     if (score >= 25) {return { label: `⚠ ${score}%`, color: '#f59e0b', bg: 'rgba(120,53,15,0.85)' };}
     return null;
-}
-
-function getFilename(asset: Asset): string {
-    if (!asset.original_path) {return '';}
-    return asset.original_path.replace(/\\/g, '/').split('/').pop() ?? asset.original_path;
-}
-
-function getDims(asset: Asset): string | null {
-    if (!asset.width || !asset.height) {return null;}
-    return `${asset.width} × ${asset.height}`;
 }
 
 function getBorder(selected: boolean): string {
@@ -197,60 +139,6 @@ const SensitivityBadgeView: React.FC<{ badge: SensitivityBadge | null }> = ({ ba
     );
 };
 
-const SensitivityButton: React.FC<{
-    action: SensitivityAction;
-    isActive: boolean;
-    onClick: () => void;
-}> = ({ action, isActive, onClick }) => (
-    <button
-        title={action.title}
-        onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-        }}
-        style={{
-            background: isActive ? action.activeBg : action.inactiveBg,
-            color: isActive ? action.activeColor : action.inactiveColor,
-            border: `1px solid ${action.border}`,
-            borderRadius: 3,
-            padding: '2px 6px',
-            fontSize: 10,
-            fontWeight: 700,
-            cursor: 'pointer',
-        }}
-    >
-        {action.label}
-    </button>
-);
-
-const SensitivityControls: React.FC<{
-    visible: boolean;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    asset: Asset;
-}> = ({ visible, onSetSensitivity, asset }) => {
-    if (!visible || !onSetSensitivity) {return null;}
-
-    return (
-        <div
-            style={{ position: 'absolute', bottom: 6, left: 6, display: 'flex', gap: 3, zIndex: 20, animation: 'fadeIn 0.15s ease-in forwards' }}
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-        >
-            {SENSITIVITY_ACTIONS.map((action) => {
-                const isActive = asset.sensitivity_status === action.key;
-                return (
-                    <SensitivityButton
-                        key={action.key}
-                        action={action}
-                        isActive={isActive}
-                        onClick={() => onSetSensitivity(asset.id, isActive ? null : action.key)}
-                    />
-                );
-            })}
-        </div>
-    );
-};
-
 const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) => {
     if (count == null || count <= 1) {return null;}
 
@@ -261,17 +149,6 @@ const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) =
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
             {count}
-        </div>
-    );
-};
-
-const TechnicalOverlay: React.FC<{ show: boolean; filename: string; dims: string | null }> = ({ show, filename, dims }) => {
-    if (!show) {return null;}
-
-    return (
-        <div style={{ position: 'absolute', top: 0, right: 0, left: 0, bottom: 0, background: 'linear-gradient(225deg, rgba(0,0,0,0.85) 45%, transparent 45%)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'flex-start', padding: '6px 8px', gap: 2, pointerEvents: 'none', animation: 'fadeIn 0.15s ease-in forwards' }}>
-            <span style={{ fontSize: '0.65rem', color: '#e2e8f0', fontWeight: 600, fontFamily: 'monospace', textAlign: 'right', lineHeight: 1.4 }}>{filename}</span>
-            {dims && <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontFamily: 'monospace' }}>{dims}px</span>}
         </div>
     );
 };
@@ -362,29 +239,25 @@ export const Tile: React.FC<TileProps> = ({
     activeFilter,
     showFaces = false,
     onUntagAsset,
-    onSetSensitivity,
+    onHoverAssetChange,
     imageLoading = 'lazy',
     imageFetchPriority = 'auto'
 }) => {
-    const [hoverZone, setHoverZone] = useState<HoverZone>(null);
-
-    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const inTopRight = x > rect.width * 0.65 && y < rect.height * 0.35;
-        setHoverZone(inTopRight ? 'info' : 'caption');
-    }, []);
+    const [isHovered, setIsHovered] = useState(false);
 
     const imgSrc = resolveImageUrl(asset.preview_path);
-    const filename = getFilename(asset);
-    const dims = getDims(asset);
     const sensitivityBadge = getSensitivityDisplay(asset);
 
     return (
         <div
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHoverZone(null)}
+            onMouseEnter={() => {
+                setIsHovered(true);
+                onHoverAssetChange?.(asset);
+            }}
+            onMouseLeave={() => {
+                setIsHovered(false);
+                onHoverAssetChange?.(null);
+            }}
             style={{
                 width: '100%',
                 height: '100%',
@@ -400,11 +273,9 @@ export const Tile: React.FC<TileProps> = ({
         >
             <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} />
             <SensitivityBadgeView badge={sensitivityBadge} />
-            <SensitivityControls visible={hoverZone !== null} onSetSensitivity={onSetSensitivity} asset={asset} />
             <StackBadge count={asset.stack_count} />
-            <TechnicalOverlay show={hoverZone === 'info'} filename={filename} dims={dims} />
-            <CaptionOverlay show={hoverZone === 'caption'} caption={asset.caption} />
-            <DeclusterButton visible={hoverZone !== null} activeFilter={activeFilter} assetId={asset.id} onUntagAsset={onUntagAsset} />
+            <CaptionOverlay show={isHovered} caption={asset.caption} />
+            <DeclusterButton visible={isHovered} activeFilter={activeFilter} assetId={asset.id} onUntagAsset={onUntagAsset} />
             <FaceBoxes asset={asset} showFaces={showFaces} activeFilter={activeFilter} />
             <DebugIntent debug={debug} intent={intent} />
             <style>{`
@@ -416,4 +287,3 @@ export const Tile: React.FC<TileProps> = ({
         </div>
     );
 };
-
