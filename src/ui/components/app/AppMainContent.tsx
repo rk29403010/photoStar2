@@ -37,7 +37,6 @@ interface AppMainContentProps {
   onLoadMoreAssets: () => Promise<void>;
   onAssetClick: (id: string | null) => void;
   onUntagAsset: (assetId: string, personId: string) => void;
-  onSetSensitivity: (assetId: string, status: string | null) => void;
   onLibrarySelectionChange: (selection: Set<string>) => void;
   onPeopleFilter: (filter: LibraryFilter) => void;
   onPeopleSelectionChange: (count: number) => void;
@@ -53,6 +52,7 @@ interface AppMainContentProps {
   onCreateAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
   onDeleteAlbum: (id: string) => Promise<void>;
   onOpenAlbum: (albumId: string, title: string) => void;
+  onHoverLibraryAssetChange: (asset: Asset | null) => void;
 }
 
 function getPanelStyle(active: boolean) {
@@ -81,10 +81,10 @@ export function AppMainContent(props: AppMainContentProps) {
     librarySelection, declusteredAssets, showRejected, rejectedAssets, jobs, systemJobs,
     queueStatus, dataStats, recentEvents, workflowRuns, isSystemPaused, hasMoreAssets, isLoadingMoreAssets,
     uiFeedEntries, ingestStatusMessage,
-    onLoadMoreAssets, onAssetClick, onUntagAsset, onSetSensitivity, onLibrarySelectionChange,
+    onLoadMoreAssets, onAssetClick, onUntagAsset, onLibrarySelectionChange,
     onPeopleFilter, onPeopleSelectionChange, onRenamePerson, onMergePeople, onRefreshSystemJobs,
     onTogglePause, onStopJob, onGetEventPayloadRaw, onGetJobErrors, onSetModulePaused,
-    onGetAlbums, onCreateAlbum, onDeleteAlbum, onOpenAlbum,
+    onGetAlbums, onCreateAlbum, onDeleteAlbum, onOpenAlbum, onHoverLibraryAssetChange,
   } = props;
 
   const activeFilter = filterStack.length > 0 ? filterStack[filterStack.length - 1] : undefined;
@@ -107,12 +107,12 @@ export function AppMainContent(props: AppMainContentProps) {
           activeFilter={activeFilter}
           showFaces={showFaces}
           onUntagAsset={onUntagAsset}
-          onSetSensitivity={onSetSensitivity}
           librarySelection={librarySelection}
           onLibrarySelectionChange={onLibrarySelectionChange}
           declusteredAssets={declusteredAssets}
           showRejected={showRejected}
           rejectedAssets={showRejected ? rejectedAssets : []}
+          onHoverAssetChange={onHoverLibraryAssetChange}
         />
       </div>
 

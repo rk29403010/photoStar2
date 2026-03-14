@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, type UIEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 'react';
 import type { Asset } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { LayoutEngine } from './layout/LayoutEngine';
+import { sortAssetsForGallery, type LibrarySortMode } from '@shared/utils/libraryGallery';
 
 interface LibraryViewProps {
     assets: Asset[];
@@ -17,12 +18,12 @@ interface LibraryViewProps {
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
     librarySelection?: Set<string>;
     onLibrarySelectionChange?: (selection: Set<string>) => void;
     declusteredAssets?: Set<string>;
     showRejected?: boolean;
     rejectedAssets?: Asset[];
+    onHoverAssetChange?: (asset: Asset | null) => void;
 }
 
 function LoadingState({ backendStatus, backendReady }: { backendStatus: string; backendReady: boolean }) {
@@ -79,7 +80,6 @@ function RejectedSection({
                     activeFilter={undefined}
                     showFaces={false}
                     onUntagAsset={undefined}
-                    onSetSensitivity={undefined}
                     librarySelection={undefined}
                     onLibrarySelectionChange={undefined}
                     declusteredAssets={undefined}
@@ -134,14 +134,19 @@ function shouldShowEmptyState(assetCount: number, rejectedAssetCount: number) {
     return assetCount === 0 && rejectedAssetCount === 0;
 }
 
-function useDisplayAssets(assets: Asset[], declusteredAssets?: Set<string>) {
+function useDisplayAssets(assets: Asset[], declusteredAssets: Set<string> | undefined, sortMode: LibrarySortMode) {
     return useMemo(() => {
-        if (!declusteredAssets || declusteredAssets.size === 0) {return assets;}
+        if (!declusteredAssets || declusteredAssets.size === 0) {
+            return sortAssetsForGallery(assets, sortMode);
+        }
 
         const normalAssets = assets.filter((asset) => !declusteredAssets.has(asset.id));
         const trailingAssets = assets.filter((asset) => declusteredAssets.has(asset.id));
-        return [...normalAssets, ...trailingAssets];
-    }, [assets, declusteredAssets]);
+        return [
+            ...sortAssetsForGallery(normalAssets, sortMode),
+            ...sortAssetsForGallery(trailingAssets, sortMode),
+        ];
+    }, [assets, declusteredAssets, sortMode]);
 }
 
 function useLibraryPaging(params: {
@@ -174,6 +179,31 @@ function useLibraryPaging(params: {
     return { scrollRef, handleScroll };
 }
 
+function LibraryToolbar({
+    sortMode,
+    onSortModeChange,
+}: {
+    sortMode: LibrarySortMode;
+    onSortModeChange: (mode: LibrarySortMode) => void;
+}) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'linear-gradient(180deg, rgba(18,18,18,0.92), rgba(10,10,10,0.92))' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                <span>Sort</span>
+                <select
+                    aria-label="Sort gallery"
+                    value={sortMode}
+                    onChange={(event) => onSortModeChange(event.target.value as LibrarySortMode)}
+                    style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 999, padding: '6px 10px', fontSize: '0.78rem', outline: 'none' }}
+                >
+                    <option value="date">Date</option>
+                    <option value="filename">Filename</option>
+                </select>
+            </label>
+        </div>
+    );
+}
+
 export function LibraryView({
     assets,
     loading,
@@ -188,14 +218,15 @@ export function LibraryView({
     activeFilter,
     showFaces,
     onUntagAsset,
-    onSetSensitivity,
     librarySelection,
     onLibrarySelectionChange,
     declusteredAssets,
     showRejected,
     rejectedAssets,
+    onHoverAssetChange,
 }: LibraryViewProps) {
-    const displayAssets = useDisplayAssets(assets, declusteredAssets);
+    const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
+    const displayAssets = useDisplayAssets(assets, declusteredAssets, sortMode);
     const rejectedAssetCount = getRejectedAssetCount(showRejected, rejectedAssets);
     const { scrollRef, handleScroll } = useLibraryPaging({
         active,
@@ -218,6 +249,7 @@ export function LibraryView({
             onScroll={handleScroll}
             style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#0a0a0a' }}
         >
+            <LibraryToolbar sortMode={sortMode} onSortModeChange={setSortMode} />
             <LayoutEngine
                 assets={displayAssets}
                 debug={false}
@@ -226,10 +258,10 @@ export function LibraryView({
                 activeFilter={activeFilter}
                 showFaces={showFaces}
                 onUntagAsset={onUntagAsset}
-                onSetSensitivity={onSetSensitivity}
                 librarySelection={librarySelection}
                 onLibrarySelectionChange={onLibrarySelectionChange}
                 declusteredAssets={declusteredAssets}
+                onHoverAssetChange={onHoverAssetChange}
             />
             <RejectedSection
                 showRejected={showRejected}

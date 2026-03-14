@@ -14,6 +14,7 @@ import { AppStatusRightSlot, ConnectionOverlayLayer, ErrorBanner } from './compo
 import { canUseNativeDirectoryPicker } from '@boundary/runtime/backend';
 import type { LibraryFilter } from './hooks/usePhotoLibrary';
 import type { BackgroundJob } from '@contracts/jobs';
+import { buildCurrentPhotoStatus, type CurrentPhotoStatus } from '@shared/utils/libraryGallery';
 
 type AppView = 'library' | 'people' | 'dashboard' | 'albums';
 type InfoTab = 'file' | 'analysis' | 'people' | 'json';
@@ -423,6 +424,7 @@ export default function App() {
   const [showRejected, setShowRejected] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isTaskDrawerMinimized, setIsTaskDrawerMinimized] = useState(false);
+  const [hoveredLibraryPhoto, setHoveredLibraryPhoto] = useState<CurrentPhotoStatus | null>(null);
 
   useSelectionRecovery(assets, selectedAssetId, setSelectedAssetId, setStatusMessage);
   const handlers = useAppActionHandlers({ assets, filterStack, showRejected, setShowRejected, librarySelection, setLibrarySelection, declusteredAssets, setDeclusteredAssets, actions, setView, setPeopleSelectionCount, setSelectedAssetId, setShowSettings });
@@ -464,7 +466,7 @@ export default function App() {
         <div style={shellStyle}>
           <TopBar view={view} setView={handlers.handleViewChange} onOpenActions={() => setShowActions(true)} />
           <AppFilterBar view={view} filterStack={filterStack} librarySelection={librarySelection} showRejected={showRejected} onDeclusterSelection={handlers.handleDeclusterSelection} onClearSelection={() => setLibrarySelection(new Set())} onToggleRejected={handlers.handleToggleRejected} onBack={handlers.handleFilterBack} onClearAll={handlers.handleClearAllFilters} />
-          <AppMainContent view={view} assets={assets} libraryActive={view === 'library'} people={people} status={status} backendReady={backendReady} filterStack={filterStack} selectedAssetId={selectedAssetId} showFaces={false} librarySelection={librarySelection} declusteredAssets={declusteredAssets} showRejected={showRejected} rejectedAssets={rejectedAssets} jobs={jobs} systemJobs={systemJobs} queueStatus={queueStatus} dataStats={dataStats} recentEvents={recentEvents} workflowRuns={workflowRuns} uiFeedEntries={uiFeedEntries} ingestStatusMessage={ingestStatusMessage} isSystemPaused={isSystemPaused} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} onLoadMoreAssets={actions.loadMoreAssets} onAssetClick={setSelectedAssetId} onUntagAsset={handlers.handleUntagAsset} onSetSensitivity={actions.setSensitivity} onLibrarySelectionChange={setLibrarySelection} onPeopleFilter={handlers.handlePeopleFilter} onPeopleSelectionChange={setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onTogglePause={actions.toggleSystemPause} onStopJob={actions.stopJob} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onSetModulePaused={actions.setModulePaused} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={handlers.handleOpenAlbum} />
+          <AppMainContent view={view} assets={assets} libraryActive={view === 'library'} people={people} status={status} backendReady={backendReady} filterStack={filterStack} selectedAssetId={selectedAssetId} showFaces={false} librarySelection={librarySelection} declusteredAssets={declusteredAssets} showRejected={showRejected} rejectedAssets={rejectedAssets} jobs={jobs} systemJobs={systemJobs} queueStatus={queueStatus} dataStats={dataStats} recentEvents={recentEvents} workflowRuns={workflowRuns} uiFeedEntries={uiFeedEntries} ingestStatusMessage={ingestStatusMessage} isSystemPaused={isSystemPaused} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} onLoadMoreAssets={actions.loadMoreAssets} onAssetClick={setSelectedAssetId} onUntagAsset={handlers.handleUntagAsset} onLibrarySelectionChange={setLibrarySelection} onPeopleFilter={handlers.handlePeopleFilter} onPeopleSelectionChange={setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onTogglePause={actions.toggleSystemPause} onStopJob={actions.stopJob} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onSetModulePaused={actions.setModulePaused} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={handlers.handleOpenAlbum} onHoverLibraryAssetChange={(asset) => setHoveredLibraryPhoto(asset ? buildCurrentPhotoStatus(asset) : null)} />
           <AppStatusBar
             statusMessage={statusMessage}
             activityMessage={ingestStatusMessage}
@@ -475,6 +477,7 @@ export default function App() {
             peopleSelectionCount={peopleSelectionCount}
             totalPhotoCount={totalPhotoCount}
             peopleCount={people.length}
+            currentPhoto={view === 'library' ? hoveredLibraryPhoto : null}
             rightSlot={
               <AppStatusRightSlot
                 isTaskDrawerMinimized={isTaskDrawerMinimized}
