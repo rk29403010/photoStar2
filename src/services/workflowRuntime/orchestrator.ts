@@ -78,8 +78,21 @@ export class WorkflowRuntimeOrchestrator {
     }
 
     public async start(input: CreateWorkflowRunInput): Promise<string> {
-        const workflow = this.deps.workflows.get(input.workflowId);
         const runId = this.deps.store.createWorkflowRun(input);
+        await this.executeRun(runId, input);
+        return runId;
+    }
+
+    public startDetached(input: CreateWorkflowRunInput): string {
+        const runId = this.deps.store.createWorkflowRun(input);
+        void this.executeRun(runId, input).catch((error) => {
+            console.error(`Workflow run '${runId}' failed:`, error);
+        });
+        return runId;
+    }
+
+    private async executeRun(runId: string, input: CreateWorkflowRunInput): Promise<void> {
+        const workflow = this.deps.workflows.get(input.workflowId);
         let activeSubjects: SubjectRef[] = [...input.inputSubjects];
 
         this.telemetry.runStarted(runId, workflow.id);
@@ -101,7 +114,6 @@ export class WorkflowRuntimeOrchestrator {
 
         this.deps.store.updateWorkflowRunStatus(runId, 'completed');
         this.telemetry.runCompleted(runId, workflow.id);
-        return runId;
     }
 
     private async executeModuleNode(
@@ -129,6 +141,7 @@ export class WorkflowRuntimeOrchestrator {
             workflowRunId: runId,
             nodeId: node.id,
             status: 'running',
+            expectedItems: subjects.length,
         });
         const module = this.deps.modules.get(node.moduleId);
         const emittedSubjects: SubjectRef[] = [];
@@ -186,6 +199,7 @@ export class WorkflowRuntimeOrchestrator {
             workflowRunId: runId,
             nodeId: node.id,
             status: 'running',
+            expectedItems: subjects.length,
         });
         const module = this.deps.modules.get(node.moduleId);
         const primarySubject = subjects[0] ?? {

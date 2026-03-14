@@ -6,6 +6,13 @@ import type { DomainEvent } from '@contracts/events';
 import { applyQuotaNotifications } from '@boundary/runtime/usePhotoLibrary.connection.notifications';
 import type { FolderHistoryItem, LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import type { ConnectionStateParams, ParamsRef } from '@boundary/runtime/usePhotoLibrary.connection';
+import { mergeRefreshedAssetPage } from '@shared/utils/libraryAssetRefresh';
+import { buildEventFeedDetail, countPreviewAssets } from '@shared/utils/libraryUiDiagnostics';
+import {
+    isAssetPageResponseId,
+    isAssetResponseId,
+    shouldUpdatePagingStateFromAssetResponse,
+} from '@shared/utils/libraryPagingState';
 
 const INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init', 'people-init', 'system-jobs-init', 'pause-state-init'] as const;
 const INITIAL_SYNC_REQUEST_ID_SET = new Set<string>(INITIAL_SYNC_REQUEST_IDS);
@@ -29,16 +36,30 @@ export function currentFilter(filterStackRef: { current: LibraryFilter[] }): Lib
     return stack.length > 0 ? stack[stack.length - 1] : undefined;
 }
 
-function isAssetResponseId(id: string | undefined) {
-    return typeof id === 'string' && (id === 'assets-init' || id.startsWith('get_assets-') || id.startsWith('get_assets_page_'));
-}
-
-function isAssetPageResponse(id: string | undefined) {
-    return typeof id === 'string' && id.startsWith('get_assets_page_');
-}
-
 function appendAssets(existingAssets: Asset[], incomingAssets: Asset[]) {
     return dedupeAssetsById([...existingAssets, ...incomingAssets]);
+}
+
+function createUiFeedId(prefix: string) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function summarizeAssetIds(assets: Asset[]): string {
+    return assets.slice(0, 5).map((asset) => asset.id).join(',');
+}
+
+function summarizePreviewAssetIds(assets: Asset[]): string {
+    return assets.filter((asset) => Boolean(asset.preview_path)).slice(0, 5).map((asset) => asset.id).join(',');
+}
+
+function getAssetResponseLabel(id: string | undefined, hasCompletedInitialSync: boolean): string {
+    if (isAssetPageResponseId(id)) {
+        return 'Assets page response';
+    }
+    if (id === 'assets-init') {
+        return hasCompletedInitialSync ? 'Assets re-sync response' : 'Assets initial sync';
+    }
+    return 'Assets refresh response';
 }
 
 function applySnapshotPayload(data: Record<string, unknown>, params: ConnectionStateParams) {
@@ -57,18 +78,51 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
         return;
     }
 
-    if (isAssetPageResponse(msg.id)) {
-        params.setAssets((previousAssets) => appendAssets(previousAssets, assets));
+    let previousAssetCount = 0;
+    let nextAssetCount = 0;
+    let nextPreviewCount = 0;
+    const incomingPreviewCount = countPreviewAssets(assets);
+
+    if (isAssetPageResponseId(msg.id)) {
+        params.setAssets((previousAssets) => {
+            previousAssetCount = previousAssets.length;
+            const nextAssets = appendAssets(previousAssets, assets);
+            nextAssetCount = nextAssets.length;
+            nextPreviewCount = countPreviewAssets(nextAssets);
+            return nextAssets;
+        });
         params.setIsLoadingMoreAssets(false);
-        return;
+    } else if (msg.id === 'assets-init' && params.hasCompletedInitialSync) {
+        params.setAssets((previousAssets) => {
+            previousAssetCount = previousAssets.length;
+            const nextAssets = appendAssets(previousAssets, assets);
+            nextAssetCount = nextAssets.length;
+            nextPreviewCount = countPreviewAssets(nextAssets);
+            return nextAssets;
+        });
+    } else {
+        params.setAssets((previousAssets) => {
+            previousAssetCount = previousAssets.length;
+            const nextAssets = mergeRefreshedAssetPage(previousAssets, assets);
+            nextAssetCount = nextAssets.length;
+            nextPreviewCount = countPreviewAssets(nextAssets);
+            return nextAssets;
+        });
     }
 
-    if (msg.id === 'assets-init' && params.hasCompletedInitialSync) {
-        params.setAssets((previousAssets) => appendAssets(previousAssets, assets));
-        return;
-    }
-
-    params.setAssets(() => assets);
+    params.addUiFeedEntry({
+        id: createUiFeedId('asset-response'),
+        timestamp: new Date().toISOString(),
+        source: 'asset_response',
+        label: getAssetResponseLabel(msg.id, params.hasCompletedInitialSync),
+        detail: `incoming=${assets.length}; incomingPreviews=${incomingPreviewCount}; pageIds=[${summarizeAssetIds(assets)}]; previewIds=[${summarizePreviewAssetIds(assets)}]; next=${nextAssetCount}; nextPreviews=${nextPreviewCount}`,
+        requestId: msg.id,
+        assetCount: assets.length,
+        previewCount: incomingPreviewCount,
+        previousAssetCount,
+        nextAssetCount,
+        applied: true,
+    });
 }
 
 function handleOkMessage(msg: WsResponse, params: ConnectionStateParams) {
@@ -83,17 +137,28 @@ function handleOkMessage(msg: WsResponse, params: ConnectionStateParams) {
     const assets = dedupeAssetsById(data.assets as Asset[]);
     applyOkAssetPayload(msg, params, assets);
 
-    if (isAssetResponseId(msg.id) && data.hasMore !== undefined) {
+    if (shouldUpdatePagingStateFromAssetResponse(msg.id) && data.hasMore !== undefined) {
         params.setHasMoreAssets(Boolean(data.hasMore));
     }
 }
 
 function handleErrorMessage(msg: WsResponse, params: ConnectionStateParams) {
-    if (isAssetPageResponse(msg.id)) {
+    if (isAssetPageResponseId(msg.id)) {
         params.setIsLoadingMoreAssets(false);
     }
     if (!msg.error) {return;}
     params.addLog(`Command ${msg.id ?? 'unknown'} failed: ${msg.error}`);
+    if (isAssetResponseId(msg.id)) {
+        params.addUiFeedEntry({
+            id: createUiFeedId('asset-response-error'),
+            timestamp: new Date().toISOString(),
+            source: 'asset_response',
+            label: 'Assets response failed',
+            detail: msg.error,
+            requestId: msg.id,
+            applied: false,
+        });
+    }
 }
 
 function applyMediaDiscoveredEvent(event: Record<string, unknown>, params: ConnectionStateParams) {
@@ -138,7 +203,7 @@ function applyEventAssetUpdates(event: Record<string, unknown>, params: Connecti
         return;
     }
 
-    if (event.type === 'PreviewGenerated') {
+    if (event.type === 'PreviewGenerated' || event.type === 'WorkflowPreviewGenerated') {
         applyMappedAssetUpdate(event.mediaId, params, (asset) => ({ ...asset, preview_path: String(event.path) }));
         return;
     }
@@ -169,6 +234,15 @@ function handleEventMessage(msg: WsResponse, params: ConnectionStateParams) {
     }
 
     const event = msg.data as Record<string, unknown>;
+    params.addUiFeedEntry({
+        id: createUiFeedId('event'),
+        timestamp: new Date().toISOString(),
+        source: 'event',
+        label: String(event.type ?? 'UnknownEvent'),
+        detail: buildEventFeedDetail(event),
+        requestId: msg.id,
+        applied: true,
+    });
     if (event.type === 'SystemPausedStateChanged') {
         params.setIsSystemPaused(Boolean(event.isPaused));
         return;

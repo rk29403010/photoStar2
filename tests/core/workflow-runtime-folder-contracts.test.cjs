@@ -109,3 +109,24 @@ test('execution store persists parameters and milestones for folder ingest runs'
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('folder ingest workflow gates enrichment behind preview batch completion', async () => {
+    const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
+
+    const previewStep = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-previews');
+    const previewCollect = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'collect-previewed-assets');
+    const enrichmentFanout = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'enrichment-each');
+    const detectFaces = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-faces');
+
+    assert.ok(previewStep);
+    assert.deepEqual(previewStep.outputsTo, ['collect-previewed-assets']);
+    assert.ok(previewCollect);
+    assert.equal(previewCollect.kind, 'control');
+    assert.equal(previewCollect.controlType, 'collect');
+    assert.deepEqual(previewCollect.outputsTo, ['enrichment-each']);
+    assert.ok(enrichmentFanout);
+    assert.equal(enrichmentFanout.kind, 'control');
+    assert.equal(enrichmentFanout.controlType, 'for_each');
+    assert.deepEqual(enrichmentFanout.outputsTo, ['detect-faces']);
+    assert.ok(detectFaces);
+});

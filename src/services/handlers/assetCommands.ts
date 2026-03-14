@@ -23,6 +23,7 @@ type AssetRow = {
 
 type AssetFilter = { personIds?: string[]; type?: string; albumId?: string };
 type AssetDetailLevel = 'gallery' | 'full';
+type AssetGalleryOrder = 'default' | 'previewed_first';
 type AssetQueryPayload = {
     assetId?: string;
     offset?: number;
@@ -30,6 +31,7 @@ type AssetQueryPayload = {
     withGroupCounts?: boolean;
     filter?: AssetFilter;
     detailLevel?: AssetDetailLevel;
+    galleryOrder?: AssetGalleryOrder;
 };
 
 type AssetQueryParts = {
@@ -46,6 +48,19 @@ type DetailFragments = {
 
 function getDetailLevel(payload: AssetQueryPayload | undefined): AssetDetailLevel {
     return payload?.detailLevel === 'gallery' ? 'gallery' : 'full';
+}
+
+function getGalleryOrder(payload: AssetQueryPayload | undefined): AssetGalleryOrder {
+    return payload?.galleryOrder === 'previewed_first' ? 'previewed_first' : 'default';
+}
+
+function buildOrderClause(params: { galleryOrder: AssetGalleryOrder; defaultDirection: 'ASC' | 'DESC' }) {
+    const { galleryOrder, defaultDirection } = params;
+    if (galleryOrder === 'previewed_first') {
+        return "CASE WHEN p.path IS NULL THEN 1 ELSE 0 END ASC, a.created_at ASC";
+    }
+
+    return `a.created_at ${defaultDirection}`;
 }
 
 function buildDetailFragments(params: {
@@ -112,7 +127,14 @@ function buildFilterSubquery(filter: AssetFilter | undefined, params: (string | 
     return '';
 }
 
-function buildFilteredAssetsQuery(filterSubquery: string, params: (string | number)[], limit: number, offset: number, detailLevel: AssetDetailLevel): AssetQueryParts {
+function buildFilteredAssetsQuery(
+    filterSubquery: string,
+    params: (string | number)[],
+    limit: number,
+    offset: number,
+    detailLevel: AssetDetailLevel,
+    galleryOrder: AssetGalleryOrder,
+): AssetQueryParts {
     const detail = buildDetailFragments({
         detailLevel,
         recAlias: 'fr',
@@ -146,14 +168,19 @@ function buildFilteredAssetsQuery(filterSubquery: string, params: (string | numb
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
             WHERE 1=1 ${filterSubquery}
-            ORDER BY a.created_at ASC
+            ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'ASC' })}
             LIMIT ? OFFSET ?
         `,
         params,
     };
 }
 
-function buildGroupedAssetsQuery(limit: number, offset: number, detailLevel: AssetDetailLevel): AssetQueryParts {
+function buildGroupedAssetsQuery(
+    limit: number,
+    offset: number,
+    detailLevel: AssetDetailLevel,
+    galleryOrder: AssetGalleryOrder,
+): AssetQueryParts {
     const detail = buildDetailFragments({
         detailLevel,
         recAlias: 'r_rec',
@@ -192,14 +219,19 @@ function buildGroupedAssetsQuery(limit: number, offset: number, detailLevel: Ass
             LEFT JOIN GroupCounts gc ON m.group_id = gc.group_id
             WHERE (m.group_id IS NULL OR m.role = 'canonical')
             GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data, m.group_id, m.role, gc.stack_count${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
-            ORDER BY a.created_at DESC
+            ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
         params: [limit, offset],
     };
 }
 
-function buildUngroupedAssetsQuery(limit: number, offset: number, detailLevel: AssetDetailLevel): AssetQueryParts {
+function buildUngroupedAssetsQuery(
+    limit: number,
+    offset: number,
+    detailLevel: AssetDetailLevel,
+    galleryOrder: AssetGalleryOrder,
+): AssetQueryParts {
     const detail = buildDetailFragments({
         detailLevel,
         recAlias: 'r_rec',
@@ -228,7 +260,7 @@ function buildUngroupedAssetsQuery(limit: number, offset: number, detailLevel: A
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
             GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
-            ORDER BY a.created_at DESC
+            ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
         params: [limit, offset],
@@ -359,12 +391,13 @@ function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
     const limit = payload.limit || 500;
     const withGroupCounts = payload.withGroupCounts ?? true;
     const detailLevel = getDetailLevel(payload);
+    const galleryOrder = getGalleryOrder(payload);
     const params: (string | number)[] = [];
     const filterSubquery = buildFilterSubquery(payload.filter, params);
 
-    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, params, limit, offset, detailLevel);}
-    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, detailLevel);}
-    return buildUngroupedAssetsQuery(limit, offset, detailLevel);
+    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, params, limit, offset, detailLevel, galleryOrder);}
+    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, detailLevel, galleryOrder);}
+    return buildUngroupedAssetsQuery(limit, offset, detailLevel, galleryOrder);
 }
 
 function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {

@@ -90,8 +90,8 @@ workflowRuntimeSubjects.register({
     labels: { singular: 'file', plural: 'files' },
 });
 workflowRuntimeModules.register(createScanFolderModule({ dbManager }));
-workflowRuntimeModules.register(createGeneratePreviewsModule({ dbManager }));
-workflowRuntimeModules.register(createDetectFacesModule({ dbManager }));
+workflowRuntimeModules.register(createGeneratePreviewsModule({ dbManager, eventBus }));
+workflowRuntimeModules.register(createDetectFacesModule({ dbManager, eventBus }));
 workflowRuntimeModules.register(createGenerateFaceVectorsModule({ dbManager }));
 workflowRuntimeModules.register(createResolvePeopleModule({ dbManager }));
 workflowRuntimeModules.register(createGroupSimilarPhotosModule({ dbManager }));

@@ -7,7 +7,9 @@ import { JobCard } from './dashboard/JobCard';
 import { QueueStatusTable } from './dashboard/QueueStatusTable';
 import { RecentEventsPanel } from './dashboard/RecentEventsPanel';
 import { SystemErrorsPanel } from './dashboard/SystemErrorsPanel';
+import { UiFeedPanel } from './dashboard/UiFeedPanel';
 import { WorkflowRunsPanel } from './dashboard/WorkflowRunsPanel';
+import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 
 interface DashboardViewProps {
     jobs: BackgroundJob[];
@@ -16,6 +18,7 @@ interface DashboardViewProps {
     dataStats: DataStatsSnapshot | null;
     recentEvents: RecentEventSnapshot[];
     workflowRuns: WorkflowRunListItem[];
+    uiFeedEntries: UiFeedEntry[];
     refreshSystemJobs: () => void;
     isSystemPaused: boolean;
     onTogglePause: () => void;
@@ -26,7 +29,7 @@ interface DashboardViewProps {
     loading?: boolean;
 }
 
-type DashboardTab = 'modules' | 'queues' | 'data' | 'events' | 'errors';
+type DashboardTab = 'modules' | 'queues' | 'data' | 'events' | 'errors' | 'ui';
 type DashboardJobWithIndex = { job: BackgroundJob; index: number };
 const DASHBOARD_MODULE_GRID_STYLE = {
     gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
@@ -103,12 +106,14 @@ function getActiveTabCount(params: {
     dataCount: number;
     eventCount: number;
     errorCount: number;
+    uiCount: number;
 }) {
-    const { activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount } = params;
+    const { activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount, uiCount } = params;
     if (activeTab === 'modules') {return `${moduleCount} MODULES`;}
     if (activeTab === 'queues') {return `${queueCount} QUEUES`;}
     if (activeTab === 'data') {return `${dataCount} METRICS`;}
     if (activeTab === 'events') {return `${eventCount} EVENTS`;}
+    if (activeTab === 'ui') {return `${uiCount} UI ENTRIES`;}
     return `${errorCount} ERRORS`;
 }
 
@@ -122,8 +127,9 @@ const DashboardHeader: React.FC<{
     dataCount: number;
     eventCount: number;
     errorCount: number;
+    uiCount: number;
     onSelectTab: (tab: DashboardTab) => void;
-}> = ({ loading, isSystemPaused, onTogglePause, activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount, onSelectTab }) => (
+}> = ({ loading, isSystemPaused, onTogglePause, activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
     <div className="flex flex-col gap-4 border-b border-gray-800 pb-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-4">
@@ -134,13 +140,14 @@ const DashboardHeader: React.FC<{
                     <TabButton label="Queues" active={activeTab === 'queues'} onClick={() => onSelectTab('queues')} />
                     <TabButton label="Data" active={activeTab === 'data'} onClick={() => onSelectTab('data')} />
                     <TabButton label="Events" active={activeTab === 'events'} onClick={() => onSelectTab('events')} />
+                    <TabButton label="UI Feed" active={activeTab === 'ui'} onClick={() => onSelectTab('ui')} />
                     <TabButton label="Errors" active={activeTab === 'errors'} onClick={() => onSelectTab('errors')} />
                 </div>
             </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 xl:justify-end">
             <div className="font-mono text-[10px] tracking-widest text-gray-300">
-                {getActiveTabCount({ activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount })} {isSystemPaused ? 'PAUSED' : 'OPERATIONAL'}
+                {getActiveTabCount({ activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount, uiCount })} {isSystemPaused ? 'PAUSED' : 'OPERATIONAL'}
             </div>
             <button
                 onClick={onTogglePause}
@@ -258,13 +265,14 @@ const DashboardBody: React.FC<{
     dataStats: DataStatsSnapshot | null;
     recentEvents: RecentEventSnapshot[];
     workflowRuns: WorkflowRunListItem[];
+    uiFeedEntries: UiFeedEntry[];
     onGetEventPayloadRaw: (eventId: string) => Promise<string>;
     displayJobs: BackgroundJob[];
     onStopJob: (jobId: string) => void;
     onViewModuleErrors: (moduleId: string) => void;
     onSetModulePaused: (moduleId: string, paused: boolean) => void;
     errorsState: DashboardErrorsState;
-}> = ({ activeTab, loading, queueRows, queueLastUpdated, dataStats, recentEvents, workflowRuns, onGetEventPayloadRaw, displayJobs, onStopJob, onViewModuleErrors, onSetModulePaused, errorsState }) => {
+}> = ({ activeTab, loading, queueRows, queueLastUpdated, dataStats, recentEvents, workflowRuns, uiFeedEntries, onGetEventPayloadRaw, displayJobs, onStopJob, onViewModuleErrors, onSetModulePaused, errorsState }) => {
     if (activeTab === 'queues') {
         return (
             <>
@@ -275,6 +283,7 @@ const DashboardBody: React.FC<{
     }
     if (activeTab === 'data') {return <DataStatsPanel stats={dataStats} loading={loading} />;}
     if (activeTab === 'events') {return <RecentEventsPanel events={recentEvents} loading={loading} onGetEventPayloadRaw={onGetEventPayloadRaw} />;}
+    if (activeTab === 'ui') {return <UiFeedPanel entries={uiFeedEntries} />;}
     if (activeTab === 'errors') {
         return (
             <SystemErrorsPanel
@@ -306,6 +315,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     dataStats,
     recentEvents,
     workflowRuns,
+    uiFeedEntries,
     refreshSystemJobs,
     isSystemPaused,
     onTogglePause,
@@ -322,6 +332,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const dataMetricCount = 10;
     const eventCount = recentEvents.length;
     const errorCount = displayJobs.reduce((sum, job) => sum + (job.progress.errors || 0), 0);
+    const uiCount = uiFeedEntries.length;
     const refreshIntervalMs = useMemo(
         () => displayJobs.some((job) => job.state === 'running') ? 1000 : 3000,
         [displayJobs]
@@ -345,6 +356,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 dataCount={dataMetricCount}
                 eventCount={eventCount}
                 errorCount={errorCount}
+                uiCount={uiCount}
                 onSelectTab={setActiveTab}
             />
 
@@ -356,6 +368,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 dataStats={dataStats}
                 recentEvents={recentEvents}
                 workflowRuns={workflowRuns}
+                uiFeedEntries={uiFeedEntries}
                 onGetEventPayloadRaw={onGetEventPayloadRaw}
                 displayJobs={displayJobs}
                 onStopJob={onStopJob}

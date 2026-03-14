@@ -25,6 +25,12 @@ export type PreviewGenerated = {
     path: string; // Added
 };
 
+export type WorkflowPreviewGenerated = {
+    type: "WorkflowPreviewGenerated";
+    mediaId: string;
+    path: string;
+};
+
 export type PreviewFailed = {
     type: "PreviewFailed";
     mediaId: string;
@@ -144,7 +150,8 @@ export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
     | PreviewRequested
-    | PreviewGenerated
+| PreviewGenerated
+| WorkflowPreviewGenerated
     | PreviewFailed
     | FaceDetectionRequested
     | FacesDetected

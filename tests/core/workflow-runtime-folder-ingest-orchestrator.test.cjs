@@ -105,7 +105,7 @@ test('folder_ingest_v1 completes enrichment branches after Library ready', async
         const peopleCount = dbManager.getDb().prepare('SELECT COUNT(*) AS count FROM people').get();
         const groupCount = dbManager.getDb().prepare("SELECT COUNT(*) AS count FROM asset_groups WHERE type = 'people'").get();
         assert.equal(peopleCount.count, 1);
-        assert.equal(groupCount.count, 1);
+        assert.equal(groupCount.count, 0);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

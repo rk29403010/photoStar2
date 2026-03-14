@@ -2,7 +2,6 @@ import { extname, join } from 'node:path';
 import { readdirSync, statSync } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../data/db';
-import { getExifData, hashFile } from '../../file-utils';
 import type { ModuleDefinition } from '../contracts';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic']);
@@ -52,7 +51,6 @@ async function upsertAsset(
     }
 
     const fileStats = statSync(originalPath);
-    const exif = await getExifData(originalPath);
     const assetId = uuidv4();
     db.prepare(`
         INSERT INTO assets (
@@ -68,11 +66,11 @@ async function upsertAsset(
     `).run(
         assetId,
         originalPath,
-        await hashFile(originalPath),
+        null,
         fileStats.size,
-        exif?.width ?? 0,
-        exif?.height ?? 0,
-        fileStats.birthtime.toISOString(),
+        0,
+        0,
+        null,
         new Date().toISOString(),
     );
     return assetId;

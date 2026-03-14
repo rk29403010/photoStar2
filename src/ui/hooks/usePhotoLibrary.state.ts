@@ -2,7 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 import type { Asset, LibraryStats, Person } from '@contracts/core';
 import type { BackgroundJob, QueueStatusSnapshot, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
 import type { BackendTransport } from '@boundary/transport/usePhotoLibrary.transport';
-import type { FolderHistoryItem, LibraryFilter, NotificationItem } from '@contracts/usePhotoLibrary.types';
+import type { FolderHistoryItem, LibraryFilter, NotificationItem, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
+import { appendUiFeedEntry } from '@shared/utils/libraryUiDiagnostics';
 
 function loadPersistedPauseState(): boolean {
     try {
@@ -62,6 +63,15 @@ function useLogState() {
     return { logs, addLog };
 }
 
+function useUiFeedState() {
+    const [uiFeedEntries, setUiFeedEntries] = useState<UiFeedEntry[]>([]);
+    const addUiFeedEntry = useCallback((entry: UiFeedEntry) => {
+        setUiFeedEntries((previousEntries) => appendUiFeedEntry(previousEntries, entry));
+    }, []);
+
+    return { uiFeedEntries, addUiFeedEntry };
+}
+
 export function usePhotoLibraryState() {
     const [status, setStatus] = useState('Initializing...');
     const [error, setError] = useState<string | null>(null);
@@ -85,7 +95,11 @@ export function usePhotoLibraryState() {
     const notificationState = useNotificationState();
     const filterState = useFilterStackState();
     const logState = useLogState();
+    const uiFeedState = useUiFeedState();
     const lastScanId = useRef<string | null>(null);
+    const activeWorkflowRunId = useRef<string | null>(null);
+    const workflowRefreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [ingestStatusMessage, setIngestStatusMessage] = useState<string | null>(null);
 
     return {
         status,
@@ -123,7 +137,12 @@ export function usePhotoLibraryState() {
         setRejectedAssets,
         ...notificationState,
         ...filterState,
+        ...uiFeedState,
         lastScanId,
+        activeWorkflowRunId,
+        workflowRefreshTimeout,
         ...logState,
+        ingestStatusMessage,
+        setIngestStatusMessage,
     };
 }

@@ -102,6 +102,99 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
             "SELECT COUNT(DISTINCT asset_id) AS count FROM previews WHERE size = 'thumbnail'"
         ).get();
         assert.equal(previewCount.count, 2);
+
+        const assetRows = dbManager.getDb().prepare(
+            'SELECT file_hash, width, height FROM assets ORDER BY created_at ASC'
+        ).all();
+        assert.equal(assetRows.length, 2);
+        assert.deepEqual(assetRows.map((row) => row.file_hash), [null, null]);
+        assert.deepEqual(assetRows.map((row) => [row.width, row.height]), [[0, 0], [0, 0]]);
+    } finally {
+        dbManager?.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('folder_ingest_v1 emits preview-generated events for workflow-runtime previews', async () => {
+    const tempDir = createTempDir();
+    const folderPath = createFixtureFolder(tempDir);
+    const emittedEvents = [];
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
+    const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
+    const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
+    const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
+    let dbManager;
+
+    try {
+        dbManager = new DatabaseManager(tempDir);
+        const subjects = new runtime.SubjectRegistry();
+        const modules = new runtime.ModuleRegistry();
+        const workflows = new runtime.WorkflowRegistry({ subjects, modules });
+        const store = new runtime.ExecutionStore(dbManager);
+
+        subjects.register({
+            id: 'folder',
+            version: 1,
+            durable: false,
+            summary: { titleField: 'path', thumbnailStrategy: 'none' },
+            progressSemantics: 'aggregate',
+            relations: [],
+            ui: { detailSections: ['overview'] },
+            labels: { singular: 'folder', plural: 'folders' },
+        });
+        subjects.register({
+            id: 'asset',
+            version: 1,
+            durable: true,
+            summary: { titleField: 'id', thumbnailStrategy: 'asset' },
+            progressSemantics: 'per_subject',
+            relations: [],
+            ui: { detailSections: ['overview'] },
+            labels: { singular: 'file', plural: 'files' },
+        });
+
+        modules.register(createScanFolderModule({ dbManager }));
+        modules.register(createGeneratePreviewsModule({
+            dbManager,
+            eventBus: {
+                emit(event) {
+                    emittedEvents.push(event);
+                },
+            },
+        }));
+        workflows.register({
+            ...folderIngestWorkflowDefinition,
+            nodes: [
+                folderIngestWorkflowDefinition.nodes[0],
+                folderIngestWorkflowDefinition.nodes[1],
+                {
+                    ...folderIngestWorkflowDefinition.nodes[2],
+                    outputsTo: [],
+                },
+            ],
+        });
+
+        const orchestrator = new runtime.WorkflowRuntimeOrchestrator({
+            store,
+            workflows,
+            modules,
+        });
+
+        await orchestrator.start({
+            workflowId: 'folder_ingest_v1',
+            triggerType: 'manual',
+            inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
+            parameters: {
+                folderPath,
+                traversalMode: 'folder_only',
+                aiMode: 'off',
+            },
+        });
+
+        const previewEvents = emittedEvents.filter((event) => event.type === 'WorkflowPreviewGenerated');
+        assert.equal(previewEvents.length, 2);
+        assert.ok(previewEvents.every((event) => event.path.endsWith('-thumbnail.webp')));
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

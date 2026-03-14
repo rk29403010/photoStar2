@@ -89,19 +89,36 @@ function RejectedSection({
     );
 }
 
-function LoadMoreState({ hasMoreAssets, isLoadingMoreAssets }: { hasMoreAssets?: boolean; isLoadingMoreAssets?: boolean }) {
-    if (isLoadingMoreAssets) {
-        return <div style={{ padding: '18px 24px 28px', color: '#64748b', textAlign: 'center', fontSize: '0.85rem' }}>Loading more photos...</div>;
-    }
-    if (hasMoreAssets === false) {
-        return <div style={{ padding: '18px 24px 28px', color: '#475569', textAlign: 'center', fontSize: '0.8rem' }}>End of loaded library results.</div>;
-    }
-    return null;
-}
-
 function shouldLoadMore(element: HTMLDivElement) {
     const remaining = element.scrollHeight - element.scrollTop - element.clientHeight;
     return remaining < 720;
+}
+
+function canRequestMoreAssets(params: {
+    active: boolean;
+    hasMoreAssets?: boolean;
+    isLoadingMoreAssets?: boolean;
+    onLoadMoreAssets?: () => Promise<void>;
+}) {
+    return Boolean(
+        params.active
+        && params.hasMoreAssets
+        && !params.isLoadingMoreAssets
+        && params.onLoadMoreAssets
+    );
+}
+
+function shouldAutoRequestMoreAssets(params: {
+    active: boolean;
+    container: HTMLDivElement | null;
+    displayAssetCount: number;
+}) {
+    return Boolean(
+        params.active
+        && params.container
+        && params.displayAssetCount > 0
+        && shouldLoadMore(params.container)
+    );
 }
 
 function getRejectedAssetCount(showRejected?: boolean, rejectedAssets?: Asset[]) {
@@ -138,8 +155,8 @@ function useLibraryPaging(params: {
     const scrollRef = useRef<HTMLDivElement | null>(null);
 
     const requestMoreAssets = useCallback(() => {
-        if (!active || !hasMoreAssets || isLoadingMoreAssets || !onLoadMoreAssets) {return;}
-        void onLoadMoreAssets();
+        if (!canRequestMoreAssets({ active, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets })) {return;}
+        void onLoadMoreAssets?.();
     }, [active, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets]);
 
     const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
@@ -150,10 +167,8 @@ function useLibraryPaging(params: {
 
     useEffect(() => {
         const container = scrollRef.current;
-        if (!active || !container || displayAssetCount === 0) {return;}
-        if (shouldLoadMore(container)) {
-            requestMoreAssets();
-        }
+        if (!shouldAutoRequestMoreAssets({ active, container, displayAssetCount })) {return;}
+        requestMoreAssets();
     }, [active, displayAssetCount, requestMoreAssets]);
 
     return { scrollRef, handleScroll };
@@ -216,7 +231,6 @@ export function LibraryView({
                 onLibrarySelectionChange={onLibrarySelectionChange}
                 declusteredAssets={declusteredAssets}
             />
-            <LoadMoreState hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} />
             <RejectedSection
                 showRejected={showRejected}
                 rejectedAssets={rejectedAssets}

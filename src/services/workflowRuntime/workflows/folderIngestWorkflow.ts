@@ -33,8 +33,20 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-previews',
             kind: 'module',
             moduleId: 'runtime.generate_previews',
-            outputsTo: ['detect-faces'],
+            outputsTo: ['collect-previewed-assets'],
             completesMilestones: ['library_ready'],
+        },
+        {
+            id: 'collect-previewed-assets',
+            kind: 'control',
+            controlType: 'collect',
+            outputsTo: ['enrichment-each'],
+        },
+        {
+            id: 'enrichment-each',
+            kind: 'control',
+            controlType: 'for_each',
+            outputsTo: ['detect-faces'],
         },
         {
             id: 'detect-faces',

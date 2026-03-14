@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 
 const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS assets (
@@ -66,6 +66,7 @@ const SCHEMA_SQL = `
     workflow_run_id TEXT NOT NULL,
     node_id TEXT NOT NULL,
     status TEXT NOT NULL,
+    expected_items INTEGER,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(workflow_run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
@@ -316,6 +317,7 @@ const MIGRATIONS = [
   "ALTER TABLE task_queue ADD COLUMN claimed_at TEXT",
   "ALTER TABLE task_queue ADD COLUMN last_error TEXT",
   "ALTER TABLE workflow_runs ADD COLUMN parameters_json TEXT DEFAULT '{}'",
+  "ALTER TABLE step_runs ADD COLUMN expected_items INTEGER",
 ];
 
 function runMigration(db: Database.Database, sql: string): void {
@@ -327,16 +329,22 @@ function runMigration(db: Database.Database, sql: string): void {
 }
 
 export class DatabaseManager {
-  private readonly db: Database.Database;
+  private db: Database.Database;
+  private readonly dbPath: string;
 
   constructor(storagePath: string) {
     if (!existsSync(storagePath)) {
       mkdirSync(storagePath, { recursive: true });
     }
-    const dbPath = join(storagePath, 'library.db');
-    this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
+    this.dbPath = join(storagePath, 'library.db');
+    this.db = this.openDatabase();
     this.initSchema();
+  }
+
+  private openDatabase(): Database.Database {
+    const db = new Database(this.dbPath);
+    db.pragma('journal_mode = WAL');
+    return db;
   }
 
   private initSchema() {
@@ -380,6 +388,111 @@ export class DatabaseManager {
 
   public getDb() {
     return this.db;
+  }
+
+  private recreateFromSchema(): void {
+    this.db.close();
+    for (const pathToDelete of [this.dbPath, `${this.dbPath}-wal`, `${this.dbPath}-shm`]) {
+      if (!existsSync(pathToDelete)) {
+        continue;
+      }
+      rmSync(pathToDelete, { force: true });
+    }
+
+    this.db = this.openDatabase();
+    this.initSchema();
+  }
+
+  private loadRows<RowType>(sql: string): RowType[] {
+    return this.db.prepare(sql).all() as RowType[];
+  }
+
+  private snapshotSoftResetState() {
+    return {
+      assetIdentities: this.loadRows<{ guid: string; original_path: string; created_at: string }>(
+        'SELECT guid, original_path, created_at FROM asset_identities ORDER BY created_at ASC, guid ASC'
+      ),
+      assetsManual: this.loadRows<{ identity_guid: string; sensitivity_status: string | null; updated_at: string }>(
+        'SELECT identity_guid, sensitivity_status, updated_at FROM assets_manual ORDER BY identity_guid ASC'
+      ),
+      manualFaceNames: this.loadRows<{ original_path: string; face_index: number; name: string; created_at: string }>(
+        'SELECT original_path, face_index, name, created_at FROM manual_face_names ORDER BY original_path ASC, face_index ASC'
+      ),
+      manualFaceIsolations: this.loadRows<{ original_path: string; face_index: number; from_person_id: string | null; created_at: string }>(
+        'SELECT original_path, face_index, from_person_id, created_at FROM manual_face_isolations ORDER BY original_path ASC, face_index ASC'
+      ),
+      folderHistory: this.loadRows<{ path: string; last_scanned_at: string }>(
+        'SELECT path, last_scanned_at FROM folder_history ORDER BY path ASC'
+      ),
+      settings: this.loadRows<{ id: string; value: string }>(
+        'SELECT id, value FROM settings ORDER BY id ASC'
+      ),
+    };
+  }
+
+  private restoreSoftResetState(snapshot: ReturnType<DatabaseManager['snapshotSoftResetState']>): void {
+    const restore = this.db.transaction(() => {
+      const insertAssetIdentity = this.db.prepare(`
+        INSERT INTO asset_identities (guid, original_path, created_at)
+        VALUES (?, ?, ?)
+      `);
+      for (const row of snapshot.assetIdentities) {
+        insertAssetIdentity.run(row.guid, row.original_path, row.created_at);
+      }
+
+      const insertAssetManual = this.db.prepare(`
+        INSERT INTO assets_manual (identity_guid, sensitivity_status, updated_at)
+        VALUES (?, ?, ?)
+      `);
+      for (const row of snapshot.assetsManual) {
+        insertAssetManual.run(row.identity_guid, row.sensitivity_status, row.updated_at);
+      }
+
+      const insertManualFaceName = this.db.prepare(`
+        INSERT INTO manual_face_names (original_path, face_index, name, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const row of snapshot.manualFaceNames) {
+        insertManualFaceName.run(row.original_path, row.face_index, row.name, row.created_at);
+      }
+
+      const insertManualFaceIsolation = this.db.prepare(`
+        INSERT INTO manual_face_isolations (original_path, face_index, from_person_id, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const row of snapshot.manualFaceIsolations) {
+        insertManualFaceIsolation.run(row.original_path, row.face_index, row.from_person_id, row.created_at);
+      }
+
+      const insertFolderHistory = this.db.prepare(`
+        INSERT INTO folder_history (path, last_scanned_at)
+        VALUES (?, ?)
+      `);
+      for (const row of snapshot.folderHistory) {
+        insertFolderHistory.run(row.path, row.last_scanned_at);
+      }
+
+      const insertSetting = this.db.prepare(`
+        INSERT OR REPLACE INTO settings (id, value)
+        VALUES (?, ?)
+      `);
+      for (const row of snapshot.settings) {
+        insertSetting.run(row.id, row.value);
+      }
+    });
+
+    restore();
+  }
+
+  public resetToFactorySchema(): void {
+    // Factory reset must always delete the DB files and rebuild from schema.
+    this.recreateFromSchema();
+  }
+
+  public resetPreservingManualData(): void {
+    const snapshot = this.snapshotSoftResetState();
+    this.recreateFromSchema();
+    this.restoreSoftResetState(snapshot);
   }
 
   private ensurePostMigrationIndexes() {

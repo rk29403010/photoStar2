@@ -11,7 +11,7 @@ import {
     createWebSocketBackendTransport,
     type BackendTransport,
 } from '@boundary/transport/usePhotoLibrary.transport';
-import type { FolderHistoryItem, LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { createMessageHandler, createSnapshotSyncController, currentFilter } from '@boundary/runtime/usePhotoLibrary.connection.messages';
 
@@ -40,6 +40,7 @@ export interface ConnectionStateParams {
     setFolderHistory: Dispatch<SetStateAction<FolderHistoryItem[]>>;
     setRejectedAssets: Dispatch<SetStateAction<Asset[]>>;
     setIsSystemPaused: (value: boolean) => void;
+    addUiFeedEntry: (entry: UiFeedEntry) => void;
     addNotification: (type: 'warning' | 'info', message: string) => void;
     addLog: (message: string) => void;
     processEvent: (event: DomainEvent) => void;

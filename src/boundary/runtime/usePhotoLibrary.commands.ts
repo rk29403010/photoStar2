@@ -1,13 +1,26 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Asset, LibraryStats, Person } from '@contracts/core';
-import type { JobErrorSnapshot, PipelineStage } from '@contracts/jobs';
+import type {
+    BackgroundJob,
+    DataStatsSnapshot,
+    JobErrorSnapshot,
+    PipelineStage,
+    QueueStatusSnapshot,
+    RecentEventSnapshot,
+    WorkflowRunListItem,
+} from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
-import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
+import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
+type RefreshLibraryOptions = {
+    galleryOrder?: 'default' | 'previewed_first';
+    preservePagingState?: boolean;
+};
 
 type SharedWorkflowActionParams = {
     transport: BackendTransport | null;
@@ -15,7 +28,7 @@ type SharedWorkflowActionParams = {
     removeJob: (id: string) => void;
     sendCommand: SendCommand;
     request: RequestFn;
-    refreshLibrary: () => void;
+    refreshLibrary: (options?: RefreshLibraryOptions) => void;
     refreshPeople: () => void;
     refreshSystemJobs: () => void;
 };
@@ -23,7 +36,15 @@ type SharedWorkflowActionParams = {
 type ScanActionParams = {
     transport: BackendTransport | null;
     addLog: (message: string) => void;
+    addUiFeedEntry: (entry: UiFeedEntry) => void;
     lastScanId: { current: string | null };
+    activeWorkflowRunId: { current: string | null };
+    workflowRefreshTimeout: { current: ReturnType<typeof setTimeout> | null };
+    setIngestStatusMessage: (message: string | null) => void;
+    request: RequestFn;
+    refreshLibrary: (options?: RefreshLibraryOptions) => void;
+    refreshPeople: () => void;
+    refreshSystemJobs: () => void;
 };
 
 type PipelineActionParams = Pick<SharedWorkflowActionParams, 'transport' | 'addJob'>;
@@ -34,11 +55,191 @@ type SystemActionParams = SharedWorkflowActionParams & {
     setAssets: Dispatch<SetStateAction<Asset[]>>;
     setPeople: Dispatch<SetStateAction<Person[]>>;
     setStats: Dispatch<SetStateAction<LibraryStats | null>>;
+    setSystemJobs: Dispatch<SetStateAction<BackgroundJob[]>>;
+    setQueueStatus: Dispatch<SetStateAction<QueueStatusSnapshot | null>>;
+    setDataStats: Dispatch<SetStateAction<DataStatsSnapshot | null>>;
+    setRecentEvents: Dispatch<SetStateAction<RecentEventSnapshot[]>>;
+    setWorkflowRuns: Dispatch<SetStateAction<WorkflowRunListItem[]>>;
+    setFolderHistory: Dispatch<SetStateAction<FolderHistoryItem[]>>;
+    setRejectedAssets: Dispatch<SetStateAction<Asset[]>>;
 };
 
 type SettingsActionParams = Pick<SharedWorkflowActionParams, 'transport' | 'request'> & {
     setAssets: Dispatch<SetStateAction<Asset[]>>;
 };
+
+function refreshLibrarySnapshots(
+    params: Pick<SharedWorkflowActionParams, 'refreshLibrary' | 'refreshPeople' | 'refreshSystemJobs'>,
+    options?: RefreshLibraryOptions,
+) {
+    params.refreshLibrary(options);
+    params.refreshPeople();
+    params.refreshSystemJobs();
+}
+
+function clearWorkflowRefreshLoop(workflowRefreshTimeout: ScanActionParams['workflowRefreshTimeout']) {
+    if (workflowRefreshTimeout.current !== null) {
+        clearTimeout(workflowRefreshTimeout.current);
+        workflowRefreshTimeout.current = null;
+    }
+}
+
+type WorkflowRunDetailResponse = {
+    summary?: {
+        status?: string;
+    };
+    steps?: Array<{
+        nodeId: string;
+        status: string;
+        totalItems: number;
+        completedItems: number;
+    }>;
+};
+
+function createUiFeedEntry(source: UiFeedEntry['source'], label: string, detail: string, requestId?: string): UiFeedEntry {
+    return {
+        id: `${source}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: new Date().toISOString(),
+        source,
+        label,
+        detail,
+        requestId,
+    };
+}
+
+async function getWorkflowRunDetail(request: RequestFn, runId: string): Promise<WorkflowRunDetailResponse> {
+    return request<WorkflowRunDetailResponse>({
+        idPrefix: `workflow_run_status_${runId}`,
+        command: 'get_workflow_run_detail',
+        payload: { runId },
+        timeoutMs: 10000,
+        select: (data) => data as WorkflowRunDetailResponse,
+    });
+}
+
+function scheduleWorkflowRefresh(params: Pick<
+    ScanActionParams,
+    'activeWorkflowRunId' | 'workflowRefreshTimeout' | 'request' | 'addLog' | 'addUiFeedEntry' | 'setIngestStatusMessage' | 'refreshLibrary' | 'refreshPeople' | 'refreshSystemJobs'
+>, runId: string) {
+    params.activeWorkflowRunId.current = runId;
+    clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
+    params.setIngestStatusMessage('Scanning folder...');
+    params.addUiFeedEntry(createUiFeedEntry('workflow_poll', 'Folder ingest started', 'Waiting for workflow detail.', runId));
+
+    const poll = async () => {
+        if (params.activeWorkflowRunId.current !== runId) {
+            return;
+        }
+
+        refreshLibrarySnapshots(params, {
+            galleryOrder: 'previewed_first',
+            preservePagingState: true,
+        });
+
+        try {
+            const detail = await getWorkflowRunDetail(params.request, runId);
+            const status = String(detail.summary?.status || '');
+            params.setIngestStatusMessage(buildIngestStatusMessage(detail));
+            params.addUiFeedEntry(createUiFeedEntry('workflow_poll', 'Workflow detail', buildWorkflowPollDetail(detail), runId));
+            if (status === 'completed' || status === 'failed') {
+                params.activeWorkflowRunId.current = null;
+                clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
+                params.setIngestStatusMessage(null);
+                refreshLibrarySnapshots(params);
+                return;
+            }
+        } catch (error) {
+            params.activeWorkflowRunId.current = null;
+            clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
+            params.setIngestStatusMessage(null);
+            params.addLog(`Folder ingest refresh stopped: ${String(error)}`);
+            params.addUiFeedEntry(createUiFeedEntry('workflow_poll', 'Workflow detail failed', String(error), runId));
+            return;
+        }
+
+        params.workflowRefreshTimeout.current = setTimeout(() => {
+            void poll();
+        }, 1500);
+    };
+
+    params.workflowRefreshTimeout.current = setTimeout(() => {
+        void poll();
+    }, 1500);
+}
+
+async function startFolderIngestRun(request: RequestFn, path: string): Promise<string> {
+    return request<string>({
+        idPrefix: 'start_folder_ingest',
+        command: 'start_folder_ingest',
+        payload: {
+            folderPath: path,
+            traversalMode: 'recursive',
+            aiMode: 'mock',
+        },
+        timeoutMs: 10000,
+        select: (data) => String(data?.runId || ''),
+    });
+}
+
+function clearLibrarySnapshotsBeforeReset(params: Pick<
+    SystemActionParams,
+    | 'setAssets'
+    | 'setPeople'
+    | 'setStats'
+    | 'setSystemJobs'
+    | 'setQueueStatus'
+    | 'setDataStats'
+    | 'setRecentEvents'
+    | 'setWorkflowRuns'
+    | 'setFolderHistory'
+    | 'setRejectedAssets'
+>) {
+    clearLibrarySnapshots(params);
+}
+
+function schedulePostResetRefresh(
+    params: Pick<SystemActionParams, 'refreshLibrary' | 'refreshPeople' | 'refreshSystemJobs' | 'setStatus'>,
+    message: string
+) {
+    setTimeout(() => {
+        refreshLibrarySnapshots(params);
+        params.setStatus(message);
+    }, 1000);
+}
+
+function getResetActions(params: Pick<
+    SystemActionParams,
+    | 'sendCommand'
+    | 'setStatus'
+    | 'setAssets'
+    | 'setPeople'
+    | 'setStats'
+    | 'setSystemJobs'
+    | 'setQueueStatus'
+    | 'setDataStats'
+    | 'setRecentEvents'
+    | 'setWorkflowRuns'
+    | 'setFolderHistory'
+    | 'setRejectedAssets'
+    | 'refreshLibrary'
+    | 'refreshPeople'
+    | 'refreshSystemJobs'
+>) {
+    return {
+        resetLibrary: async () => {
+            clearLibrarySnapshotsBeforeReset(params);
+            params.setStatus('Resetting library data (manual data preserved)...');
+            await params.sendCommand('reset_library', { mode: 'soft' });
+            schedulePostResetRefresh(params, 'Library reset.');
+        },
+        factoryResetLibrary: async () => {
+            clearLibrarySnapshotsBeforeReset(params);
+            params.setStatus('Factory-resetting library and manual data...');
+            await params.sendCommand('reset_library', { mode: 'factory' });
+            schedulePostResetRefresh(params, 'Factory reset complete.');
+        },
+    };
+}
 
 export function useLibraryTransport(transport: BackendTransport | null, addLog: (message: string) => void) {
     const sendCommand = useCallback(async (command: string, payload: Record<string, unknown> = {}) => {
@@ -59,24 +260,27 @@ export function useLibraryTransport(transport: BackendTransport | null, addLog: 
 }
 
 export function createScanActions(params: ScanActionParams) {
-    const { transport, lastScanId, addLog } = params;
-
     return {
         scanLibrary: async (path: string) => {
-            if (!transport) {return;}
-            const jobId = `folder-ingest-${Date.now()}`;
-            lastScanId.current = jobId;
-            await writeCommand(transport, jobId, 'start_folder_ingest', {
-                folderPath: path,
-                traversalMode: 'recursive',
-                aiMode: 'mock',
+            if (!params.transport) {return;}
+            const runId = await startFolderIngestRun(params.request, path);
+            params.lastScanId.current = runId;
+            refreshLibrarySnapshots(params, {
+                galleryOrder: 'previewed_first',
+                preservePagingState: true,
             });
+            if (runId) {
+                scheduleWorkflowRefresh(params, runId);
+            }
         },
         stopScan: async () => {
-            if (!transport || !lastScanId.current) {return;}
+            clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
+            params.activeWorkflowRunId.current = null;
+            params.setIngestStatusMessage(null);
+            if (!params.transport || !params.lastScanId.current) {return;}
 
-            addLog(`Aborting job ${lastScanId.current}`);
-            await writeCommand(transport, 'cmd-abort', 'abort_job', { jobId: lastScanId.current });
+            params.addLog(`Aborting job ${params.lastScanId.current}`);
+            await writeCommand(params.transport, 'cmd-abort', 'abort_job', { jobId: params.lastScanId.current });
         },
     };
 }
@@ -104,8 +308,71 @@ export function createPipelineActions(params: PipelineActionParams) {
     };
 }
 
+function clearLibrarySnapshots(params: Pick<
+    SystemActionParams,
+    | 'setAssets'
+    | 'setPeople'
+    | 'setStats'
+    | 'setSystemJobs'
+    | 'setQueueStatus'
+    | 'setDataStats'
+    | 'setRecentEvents'
+    | 'setWorkflowRuns'
+    | 'setFolderHistory'
+    | 'setRejectedAssets'
+>) {
+    params.setAssets([]);
+    params.setPeople([]);
+    params.setStats({ count: 0 });
+    params.setSystemJobs([]);
+    params.setQueueStatus(null);
+    params.setDataStats(null);
+    params.setRecentEvents([]);
+    params.setWorkflowRuns([]);
+    params.setFolderHistory([]);
+    params.setRejectedAssets([]);
+}
+
 export function createSystemActions(params: SystemActionParams) {
-    const { transport, removeJob, sendCommand, setStatus, refreshLibrary, refreshPeople, refreshSystemJobs, isSystemPaused, setAssets, setPeople, setStats, request } = params;
+    const {
+        transport,
+        removeJob,
+        sendCommand,
+        setStatus,
+        refreshLibrary,
+        refreshPeople,
+        refreshSystemJobs,
+        isSystemPaused,
+        setAssets,
+        setPeople,
+        setStats,
+        request,
+        setSystemJobs,
+        setQueueStatus,
+        setDataStats,
+        setRecentEvents,
+        setWorkflowRuns,
+        setFolderHistory,
+        setRejectedAssets,
+    } = params;
+
+    const resetActions = getResetActions({
+        sendCommand,
+        setStatus,
+        setAssets,
+        setPeople,
+        setStats,
+        setSystemJobs,
+        setQueueStatus,
+        setDataStats,
+        setRecentEvents,
+        setWorkflowRuns,
+        setFolderHistory,
+        setRejectedAssets,
+        refreshLibrary,
+        refreshPeople,
+        refreshSystemJobs,
+    });
 
     return {
         toggleSystemPause: () => {
@@ -150,28 +417,8 @@ export function createSystemActions(params: SystemActionParams) {
                 setStatus('Faces reset.');
             }, 1000);
         },
-        resetLibrary: async () => {
-            setAssets([]);
-            setPeople([]);
-            setStats({ count: 0 });
-            setStatus('Resetting library data (manual data preserved)...');
-            await sendCommand('reset_library', { mode: 'soft' });
-            setTimeout(() => {
-                refreshLibrary();
-                setStatus('Library reset.');
-            }, 1000);
-        },
-        factoryResetLibrary: async () => {
-            setAssets([]);
-            setPeople([]);
-            setStats({ count: 0 });
-            setStatus('Factory-resetting library and manual data...');
-            await sendCommand('reset_library', { mode: 'factory' });
-            setTimeout(() => {
-                refreshLibrary();
-                setStatus('Factory reset complete.');
-            }, 1000);
-        },
+        resetLibrary: resetActions.resetLibrary,
+        factoryResetLibrary: resetActions.factoryResetLibrary,
     };
 }
 
@@ -207,11 +454,17 @@ export function createSettingsActions(params: SettingsActionParams) {
 
 export function createRefreshActions(sendCommand: SendCommand, filterStackRef: { current: LibraryFilter[] }) {
     return {
-        refreshLibrary: () => {
+        refreshLibrary: (options: RefreshLibraryOptions = {}) => {
             void sendCommand('get_stats');
             const stack = filterStackRef.current;
             const currentFilter = stack.length > 0 ? stack[stack.length - 1] : undefined;
-            void sendCommand('get_assets', { limit: ASSET_PAGE_SIZE, offset: 0, filter: currentFilter, detailLevel: 'gallery' });
+            void sendCommand('get_assets', {
+                limit: ASSET_PAGE_SIZE,
+                offset: 0,
+                filter: currentFilter,
+                detailLevel: 'gallery',
+                galleryOrder: options.galleryOrder ?? 'default',
+            });
         },
         refreshPeople: () => {
             void sendCommand('get_people');

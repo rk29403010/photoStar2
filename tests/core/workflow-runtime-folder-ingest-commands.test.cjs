@@ -101,6 +101,18 @@ async function createCommandHarness(tempDir) {
     return { dbManager, collector, store, orchestrator };
 }
 
+async function waitForWorkflowRunStatus(harness, runId, expectedStatuses) {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+        const detail = harness.store.getRunDetail(runId);
+        if (expectedStatuses.includes(detail.summary.status)) {
+            return detail;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    throw new Error(`workflow run '${runId}' did not reach one of: ${expectedStatuses.join(', ')}`);
+}
+
 test('start_folder_ingest starts folder_ingest_v1 with parameters and milestone-aware detail', async () => {
     const tempDir = createTempDir();
     const folderPath = createFixtureFolder(tempDir);
@@ -143,7 +155,25 @@ test('start_folder_ingest starts folder_ingest_v1 with parameters and milestone-
         const detailResponse = await harness.collector.takeLast();
         assert.equal(detailResponse.status, 'ok');
         assert.equal(detailResponse.data.parameters.aiMode, 'mock');
-        assert.ok(detailResponse.data.milestones.some((milestone) => milestone.milestoneId === 'library_ready'));
+        await waitForWorkflowRunStatus(harness, startResponse.data.runId, ['completed', 'failed']);
+
+        handleSystemCommand({
+            id: 'cmd-3',
+            command: 'get_workflow_run_detail',
+            payload: { runId: startResponse.data.runId },
+            dbManager: harness.dbManager,
+            eventBus: {},
+            coordinator: {},
+            activeJobs: new Map(),
+            LIB_DIR: tempDir,
+            respond: harness.collector.respond,
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator },
+        });
+
+        const completedDetailResponse = await harness.collector.takeLast();
+        assert.equal(completedDetailResponse.status, 'ok');
+        assert.equal(completedDetailResponse.data.parameters.aiMode, 'mock');
+        assert.ok(completedDetailResponse.data.milestones.some((milestone) => milestone.milestoneId === 'library_ready'));
     } finally {
         harness?.dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -171,7 +201,8 @@ test('get_system_jobs includes step-level workflow run counts for ingest-centric
             respond: harness.collector.respond,
             workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator },
         });
-        await harness.collector.takeLast();
+        const startResponse = await harness.collector.takeLast();
+        await waitForWorkflowRunStatus(harness, startResponse.data.runId, ['completed', 'failed']);
 
         handleSystemCommand({
             id: 'cmd-2',
@@ -199,4 +230,92 @@ test('get_system_jobs includes step-level workflow run counts for ingest-centric
         harness?.dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
+});
+
+test('completed folder ingest still returns gallery assets and does not hide them behind synthetic groups', async () => {
+    const tempDir = createTempDir();
+    const folderPath = createFixtureFolder(tempDir);
+    const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
+    let harness;
+
+    try {
+        harness = await createCommandHarness(tempDir);
+
+        handleSystemCommand({
+            id: 'cmd-1',
+            command: 'start_folder_ingest',
+            payload: { folderPath, traversalMode: 'recursive', aiMode: 'off' },
+            dbManager: harness.dbManager,
+            eventBus: {},
+            coordinator: {},
+            activeJobs: new Map(),
+            LIB_DIR: tempDir,
+            respond: harness.collector.respond,
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator },
+        });
+
+        const startResponse = await harness.collector.takeLast();
+        await waitForWorkflowRunStatus(harness, startResponse.data.runId, ['completed']);
+
+        handleSystemCommand({
+            id: 'cmd-2',
+            command: 'get_assets',
+            payload: { limit: 50, offset: 0, detailLevel: 'gallery' },
+            dbManager: harness.dbManager,
+            eventBus: {},
+            coordinator: {},
+            activeJobs: new Map(),
+            LIB_DIR: tempDir,
+            respond: harness.collector.respond,
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator },
+        });
+
+        const assetsResponse = await harness.collector.takeLast();
+        assert.equal(assetsResponse.status, 'ok');
+        assert.equal(assetsResponse.data.assets.length, 1);
+        assert.equal(assetsResponse.data.assets[0].preview_path.endsWith('-thumbnail.webp'), true);
+
+        const syntheticPeopleGroupCount = harness.dbManager.getDb()
+            .prepare("SELECT COUNT(*) AS count FROM asset_groups WHERE type = 'people'")
+            .get()
+            .count;
+        assert.equal(syntheticPeopleGroupCount, 0);
+    } finally {
+        harness?.dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('start_folder_ingest dispatches detached execution and returns the run id immediately', async () => {
+    const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
+    const collector = createResponseCollector();
+    const startCalls = [];
+
+    handleSystemCommand({
+        id: 'cmd-detached',
+        command: 'start_folder_ingest',
+        payload: { folderPath: 'C:/photos', traversalMode: 'recursive', aiMode: 'mock' },
+        dbManager: {},
+        eventBus: {},
+        coordinator: {},
+        activeJobs: new Map(),
+        LIB_DIR: 'C:/tmp',
+        respond: collector.respond,
+        workflowRuntime: {
+            store: {},
+            orchestrator: {
+                startDetached(input) {
+                    startCalls.push(input);
+                    return 'run-detached-1';
+                },
+            },
+        },
+    });
+
+    const response = await collector.takeLast();
+    assert.equal(response.status, 'ok');
+    assert.equal(response.data.runId, 'run-detached-1');
+    assert.equal(startCalls.length, 1);
+    assert.equal(startCalls[0].workflowId, 'folder_ingest_v1');
+    assert.deepEqual(startCalls[0].inputSubjects, [{ subjectType: 'folder', subjectId: 'C:/photos' }]);
 });

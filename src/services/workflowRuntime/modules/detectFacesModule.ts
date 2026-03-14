@@ -1,9 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../data/db';
+import type { FacesDetected } from '@contracts/events';
 import type { ModuleDefinition } from '../contracts';
 
 export interface DetectFacesModuleOptions {
     dbManager: DatabaseManager;
+    eventBus?: {
+        emit: (event: FacesDetected) => void;
+    };
 }
 
 export function createDetectFacesModule(options: DetectFacesModuleOptions): ModuleDefinition {
@@ -34,6 +38,11 @@ export function createDetectFacesModule(options: DetectFacesModuleOptions): Modu
                     ],
                 }),
             );
+            options.eventBus?.emit({
+                type: 'FacesDetected',
+                mediaId: context.subject.subjectId,
+                faceCount: 1,
+            });
             return { outputs: [{ kind: 'artifact', artifactType: 'face_detection', subjectType: 'asset' }] };
         },
     };

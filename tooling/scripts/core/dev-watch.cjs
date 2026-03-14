@@ -6,7 +6,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const LOG_PREFIX = '\x1b[35m[core-watch]\x1b[0m';
 const DEDUPE_WINDOW_MS = 300;
 const CLEAN_BUILD_MESSAGE = 'Found 0 errors. Watching for file changes.';
-const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*m/g;
+const ANSI_ESCAPE_PATTERN = new RegExp(String.raw`\u001b\[[0-9;]*m`, 'g');
 const WATCH_ROOTS = [
     resolve(REPO_ROOT, 'src', 'boundary', 'contracts'),
     resolve(REPO_ROOT, 'src', 'boundary', 'transport'),

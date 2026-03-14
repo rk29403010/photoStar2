@@ -2,6 +2,7 @@ import { dirname, join } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import sharp from 'sharp';
 import type { DatabaseManager } from '../../../data/db';
+import type { WorkflowPreviewGenerated } from '@contracts/events';
 import type { ModuleDefinition } from '../contracts';
 
 const PREVIEW_SIZES = {
@@ -23,7 +24,8 @@ async function writePreviewVariants(
     db: ReturnType<DatabaseManager['getDb']>,
     previewsDir: string,
     asset: { id: string; original_path: string },
-): Promise<void> {
+): Promise<string> {
+    let thumbnailPath = '';
     for (const [sizeName, width] of Object.entries(PREVIEW_SIZES)) {
         const outputPath = join(previewsDir, `${asset.id}-${sizeName}.webp`);
         await sharp(asset.original_path)
@@ -36,11 +38,18 @@ async function writePreviewVariants(
             INSERT OR REPLACE INTO previews (asset_id, size, path, version)
             VALUES (?, ?, ?, ?)
         `).run(asset.id, sizeName, outputPath, CURRENT_PREVIEW_VERSION);
+        if (sizeName === 'thumbnail') {
+            thumbnailPath = outputPath;
+        }
     }
+    return thumbnailPath;
 }
 
 export interface GeneratePreviewsModuleOptions {
     dbManager: DatabaseManager;
+    eventBus?: {
+        emit: (event: WorkflowPreviewGenerated) => void;
+    };
 }
 
 export function createGeneratePreviewsModule(options: GeneratePreviewsModuleOptions): ModuleDefinition {
@@ -60,7 +69,14 @@ export function createGeneratePreviewsModule(options: GeneratePreviewsModuleOpti
                 throw new Error(`Unknown asset '${context.subject.subjectId}'`);
             }
 
-            await writePreviewVariants(db, ensurePreviewsDir(db), asset);
+            const thumbnailPath = await writePreviewVariants(db, ensurePreviewsDir(db), asset);
+            if (thumbnailPath) {
+                options.eventBus?.emit({
+                    type: 'WorkflowPreviewGenerated',
+                    mediaId: asset.id,
+                    path: thumbnailPath,
+                });
+            }
             return { outputs: [{ kind: 'artifact', artifactType: 'preview', subjectType: 'asset' }] };
         },
     };

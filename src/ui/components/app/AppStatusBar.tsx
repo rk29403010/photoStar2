@@ -3,6 +3,7 @@ import metadata from '../../../../metadata.json';
 
 interface AppStatusBarProps {
   statusMessage: string | null;
+  activityMessage?: string | null;
   status: string;
   view: 'library' | 'people' | 'dashboard' | 'albums';
   librarySelectionCount: number;
@@ -48,8 +49,9 @@ function buildStatusSummary(view: AppStatusBarProps['view'], counts: {
   return summary.join(' | ');
 }
 
-export function AppStatusBar({ statusMessage, status, view, librarySelectionCount, shownAssetsCount, peopleSelectionCount, totalPhotoCount, peopleCount, rightSlot }: AppStatusBarProps) {
-  const dotColor = getStatusDotColor(statusMessage, status);
+export function AppStatusBar({ statusMessage, activityMessage, status, view, librarySelectionCount, shownAssetsCount, peopleSelectionCount, totalPhotoCount, peopleCount, rightSlot }: AppStatusBarProps) {
+  const displayedStatus = statusMessage ?? activityMessage ?? status;
+  const dotColor = getStatusDotColor(displayedStatus === status ? null : displayedStatus, status);
   const summary = buildStatusSummary(view, {
     librarySelectionCount,
     shownAssetsCount,
@@ -64,7 +66,7 @@ export function AppStatusBar({ statusMessage, status, view, librarySelectionCoun
     >
       <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
         <span style={{ marginRight: 8, color: dotColor }}>●</span>
-        <span style={{ color: statusMessage ? '#93c5fd' : undefined }}>{statusMessage ?? status}</span>
+        <span style={{ color: displayedStatus !== status ? '#93c5fd' : undefined }}>{displayedStatus}</span>
       </div>
       <div style={{ marginRight: 16 }}>{summary}</div>
       {rightSlot}

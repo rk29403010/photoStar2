@@ -78,7 +78,7 @@ function loadStepRows(db: DbLike, placeholders: string, runIds: string[]): Workf
             sr.workflow_run_id,
             sr.node_id,
             sr.status,
-            COUNT(se.id) AS total_items,
+            COALESCE(MAX(sr.expected_items), COUNT(se.id)) AS total_items,
             SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) AS completed_items,
             SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) AS failed_items
         FROM step_runs sr

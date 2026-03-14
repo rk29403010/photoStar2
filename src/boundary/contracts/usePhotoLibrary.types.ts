@@ -22,4 +22,20 @@ export type FolderHistoryItem = {
     last_scanned_at: string;
 };
 
+export type UiFeedEntrySource = 'asset_response' | 'workflow_poll' | 'event';
+
+export interface UiFeedEntry {
+    id: string;
+    timestamp: string;
+    source: UiFeedEntrySource;
+    label: string;
+    detail: string;
+    requestId?: string;
+    assetCount?: number;
+    previewCount?: number;
+    previousAssetCount?: number;
+    nextAssetCount?: number;
+    applied?: boolean;
+}
+
 export type UpdateAssetState = Dispatch<SetStateAction<Asset[]>>;

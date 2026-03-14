@@ -18,6 +18,7 @@ export interface RecordStepRunInput {
     workflowRunId: string;
     nodeId: string;
     status: string;
+    expectedItems?: number;
 }
 
 export interface RecordSubjectExecutionInput {
@@ -141,17 +142,20 @@ export class ExecutionStore {
                 workflow_run_id,
                 node_id,
                 status,
+                expected_items,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 status = excluded.status,
+                expected_items = COALESCE(excluded.expected_items, step_runs.expected_items),
                 updated_at = excluded.updated_at
         `).run(
             stepRunId,
             input.workflowRunId,
             input.nodeId,
             input.status,
+            input.expectedItems ?? null,
             toIsoNow(),
             toIsoNow(),
         );
@@ -262,7 +266,7 @@ export class ExecutionStore {
                 sr.id AS step_run_id,
                 sr.node_id,
                 sr.status,
-                COUNT(se.id) AS total_items,
+                COALESCE(MAX(sr.expected_items), COUNT(se.id)) AS total_items,
                 SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) AS completed_items,
                 SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) AS failed_items
             FROM step_runs sr

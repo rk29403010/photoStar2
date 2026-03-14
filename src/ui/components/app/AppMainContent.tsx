@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import type { Asset, Person, Album } from '@contracts/core';
 import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
+import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
+import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
 import { LibraryView } from '../LibraryView';
 import { PeopleView } from '../PeopleView';
 import { DashboardView } from '../DashboardView';
@@ -26,6 +29,8 @@ interface AppMainContentProps {
   dataStats: DataStatsSnapshot | null;
   recentEvents: RecentEventSnapshot[];
   workflowRuns: WorkflowRunListItem[];
+  uiFeedEntries: UiFeedEntry[];
+  ingestStatusMessage: string | null;
   isSystemPaused: boolean;
   hasMoreAssets: boolean;
   isLoadingMoreAssets: boolean;
@@ -59,11 +64,23 @@ function getPanelStyle(active: boolean) {
   };
 }
 
+function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | null) {
+  const ingestActive = Boolean(ingestStatusMessage);
+  const [visibleAssets, setVisibleAssets] = useState<Asset[]>(() => buildStablePreviewAssets([], assets, ingestActive));
+
+  useEffect(() => {
+    setVisibleAssets((previousAssets) => buildStablePreviewAssets(previousAssets, assets, ingestActive));
+  }, [assets, ingestActive]);
+
+  return visibleAssets;
+}
+
 export function AppMainContent(props: AppMainContentProps) {
   const {
     view, assets, people, status, backendReady, filterStack, selectedAssetId, libraryActive, showFaces,
     librarySelection, declusteredAssets, showRejected, rejectedAssets, jobs, systemJobs,
     queueStatus, dataStats, recentEvents, workflowRuns, isSystemPaused, hasMoreAssets, isLoadingMoreAssets,
+    uiFeedEntries, ingestStatusMessage,
     onLoadMoreAssets, onAssetClick, onUntagAsset, onSetSensitivity, onLibrarySelectionChange,
     onPeopleFilter, onPeopleSelectionChange, onRenamePerson, onMergePeople, onRefreshSystemJobs,
     onTogglePause, onStopJob, onGetEventPayloadRaw, onGetJobErrors, onSetModulePaused,
@@ -71,12 +88,13 @@ export function AppMainContent(props: AppMainContentProps) {
   } = props;
 
   const activeFilter = filterStack.length > 0 ? filterStack[filterStack.length - 1] : undefined;
+  const visibleLibraryAssets = useVisibleLibraryAssets(assets, ingestStatusMessage);
 
   return (
     <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
       <div style={getPanelStyle(view === 'library')}>
         <LibraryView
-          assets={assets.filter((asset) => Boolean(asset.preview_path))}
+          assets={visibleLibraryAssets}
           loading={status.includes('Initializing')}
           backendReady={backendReady}
           backendStatus={status}
@@ -116,6 +134,7 @@ export function AppMainContent(props: AppMainContentProps) {
           dataStats={dataStats}
           recentEvents={recentEvents}
           workflowRuns={workflowRuns}
+          uiFeedEntries={uiFeedEntries}
           refreshSystemJobs={onRefreshSystemJobs}
           isSystemPaused={isSystemPaused}
           onTogglePause={onTogglePause}

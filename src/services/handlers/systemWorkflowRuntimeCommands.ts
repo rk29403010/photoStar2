@@ -15,7 +15,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             triggerType: string;
             inputSubjects: Array<{ subjectType: string; subjectId: string }>;
         };
-        const runId = await workflowRuntime.orchestrator.start(payload);
+        const runId = workflowRuntime.orchestrator.startDetached(payload);
         ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
     },
     start_folder_ingest: async (ctx) => {
@@ -25,7 +25,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             traversalMode?: 'folder_only' | 'recursive';
             aiMode?: 'mock' | 'live' | 'off';
         };
-        const runId = await workflowRuntime.orchestrator.start({
+        const runId = workflowRuntime.orchestrator.startDetached({
             workflowId: 'folder_ingest_v1',
             triggerType: 'manual',
             inputSubjects: [{ subjectType: 'folder', subjectId: payload.folderPath }],

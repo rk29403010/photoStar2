@@ -210,13 +210,6 @@ function setModulePausedState(ctx: CommandContext, moduleId: string, paused: boo
 
 type ResetMode = 'soft' | 'factory';
 
-function clearTables(ctx: CommandContext, tableNames: string[]) {
-    const db = ctx.dbManager.getDb();
-    for (const tableName of tableNames) {
-        db.prepare(`DELETE FROM ${tableName}`).run();
-    }
-}
-
 function vacuumDatabase(ctx: CommandContext) {
     const db = ctx.dbManager.getDb();
     try {
@@ -233,35 +226,6 @@ function resetLibrary(ctx: CommandContext, mode: ResetMode) {
         ctx.activeJobs.delete(jobId);
     }
 
-    clearTables(ctx, [
-        'events',
-        'derived_results',
-        'face_assignments',
-        'people',
-        'task_queue',
-        'previews',
-        'jobs',
-        'processing_issues',
-        'asset_group_members',
-        'asset_groups',
-        'asset_similarity_edges',
-        'asset_features',
-        'album_items',
-        'albums',
-        'assets',
-    ]);
-
-    if (mode === 'factory') {
-        clearTables(ctx, [
-            'manual_face_isolations',
-            'manual_face_names',
-            'assets_manual',
-            'asset_identities',
-            'folder_history',
-            'settings',
-        ]);
-    }
-
     const previewsDir = join(ctx.LIB_DIR, 'previews');
     if (existsSync(previewsDir)) {
         try {
@@ -271,10 +235,16 @@ function resetLibrary(ctx: CommandContext, mode: ResetMode) {
         }
     }
 
+    if (mode === 'factory') {
+        ctx.dbManager.resetToFactorySchema();
+    } else {
+        ctx.dbManager.resetPreservingManualData();
+    }
+
     vacuumDatabase(ctx);
     const message = mode === 'factory'
-        ? 'Factory reset complete. Manual data and settings removed.'
-        : 'Library reset complete. Manual data preserved.';
+        ? 'Factory reset complete. Database recreated from schema.'
+        : 'Library reset complete. Manual data, settings, and folder history restored.';
     ctx.respond(ctx.id, 'ok', { message, mode }, null, ctx.originWs);
 }
 

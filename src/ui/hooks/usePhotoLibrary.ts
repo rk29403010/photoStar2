@@ -21,21 +21,73 @@ export type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 type PhotoLibraryState = ReturnType<typeof usePhotoLibraryState>;
 type RequestFn = ReturnType<typeof useLibraryTransport>['request'];
 type SendCommandFn = (command: string, payload?: Record<string, unknown>) => Promise<void>;
+type RefreshLibraryOptions = {
+    galleryOrder?: 'default' | 'previewed_first';
+    preservePagingState?: boolean;
+};
 
 function getCurrentFilter(filterStackRef: PhotoLibraryState['filterStackRef']) {
     const stack = filterStackRef.current;
     return stack.length > 0 ? stack[stack.length - 1] : undefined;
 }
 
-function useRefreshActions(params: {
+function buildAssetRefreshPayload(
+    filterStackRef: PhotoLibraryState['filterStackRef'],
+    options: RefreshLibraryOptions,
+) {
+    return {
+        limit: ASSET_PAGE_SIZE,
+        offset: 0,
+        filter: getCurrentFilter(filterStackRef),
+        detailLevel: 'gallery' as const,
+        galleryOrder: options.galleryOrder ?? 'default',
+    };
+}
+
+function requestBackgroundAssetRefresh(request: RequestFn, payload: ReturnType<typeof buildAssetRefreshPayload>) {
+    void request<void>({
+        idPrefix: 'get_assets-preserve',
+        command: 'get_assets',
+        payload,
+        timeoutMs: 10000,
+        select: () => undefined,
+    });
+}
+
+function useLibraryRefreshAction(params: {
+    filterStackRef: PhotoLibraryState['filterStackRef'];
+    request: RequestFn;
+    sendCommand: SendCommandFn;
+    setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
+    setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
+}) {
+    const { filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets } = params;
+
+    return useCallback((options: RefreshLibraryOptions = {}) => {
+        const payload = buildAssetRefreshPayload(filterStackRef, options);
+
+        if (!options.preservePagingState) {
+            setHasMoreAssets(true);
+            setIsLoadingMoreAssets(false);
+        }
+
+        void sendCommand('get_stats');
+        if (options.preservePagingState) {
+            requestBackgroundAssetRefresh(request, payload);
+            return;
+        }
+
+        void sendCommand('get_assets', payload);
+    }, [filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets]);
+}
+
+function useAssetLoadingActions(params: {
     assets: PhotoLibraryState['assets'];
     filterStackRef: PhotoLibraryState['filterStackRef'];
     hasMoreAssets: boolean;
     isLoadingMoreAssets: boolean;
     request: RequestFn;
-    sendCommand: SendCommandFn;
     setAssets: PhotoLibraryState['setAssets'];
-    setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
 }) {
     const {
@@ -44,31 +96,9 @@ function useRefreshActions(params: {
         hasMoreAssets,
         isLoadingMoreAssets,
         request,
-        sendCommand,
         setAssets,
-        setHasMoreAssets,
         setIsLoadingMoreAssets,
     } = params;
-
-    const refreshLibrary = useCallback(() => {
-        setHasMoreAssets(true);
-        setIsLoadingMoreAssets(false);
-        void sendCommand('get_stats');
-        void sendCommand('get_assets', {
-            limit: ASSET_PAGE_SIZE,
-            offset: 0,
-            filter: getCurrentFilter(filterStackRef),
-            detailLevel: 'gallery',
-        });
-    }, [filterStackRef, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets]);
-
-    const refreshPeople = useCallback(() => {
-        void sendCommand('get_people');
-    }, [sendCommand]);
-
-    const refreshSystemJobs = useCallback(() => {
-        void sendCommand('get_system_jobs');
-    }, [sendCommand]);
 
     const loadMoreAssets = useCallback(async () => {
         if (isLoadingMoreAssets || !hasMoreAssets) {return;}
@@ -106,6 +136,58 @@ function useRefreshActions(params: {
         )));
     }, [request, setAssets]);
 
+    return { loadMoreAssets, loadAssetDetails };
+}
+
+function useRefreshActions(params: {
+    assets: PhotoLibraryState['assets'];
+    filterStackRef: PhotoLibraryState['filterStackRef'];
+    hasMoreAssets: boolean;
+    isLoadingMoreAssets: boolean;
+    request: RequestFn;
+    sendCommand: SendCommandFn;
+    setAssets: PhotoLibraryState['setAssets'];
+    setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
+    setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
+}) {
+    const {
+        assets,
+        filterStackRef,
+        hasMoreAssets,
+        isLoadingMoreAssets,
+        request,
+        sendCommand,
+        setAssets,
+        setHasMoreAssets,
+        setIsLoadingMoreAssets,
+    } = params;
+
+    const refreshLibrary = useLibraryRefreshAction({
+        filterStackRef,
+        request,
+        sendCommand,
+        setHasMoreAssets,
+        setIsLoadingMoreAssets,
+    });
+
+    const refreshPeople = useCallback(() => {
+        void sendCommand('get_people');
+    }, [sendCommand]);
+
+    const refreshSystemJobs = useCallback(() => {
+        void sendCommand('get_system_jobs');
+    }, [sendCommand]);
+
+    const { loadMoreAssets, loadAssetDetails } = useAssetLoadingActions({
+        assets,
+        filterStackRef,
+        hasMoreAssets,
+        isLoadingMoreAssets,
+        request,
+        setAssets,
+        setIsLoadingMoreAssets,
+    });
+
     return useMemo(() => ({
         refreshLibrary,
         refreshPeople,
@@ -122,16 +204,17 @@ function useCoreActions(params: {
     setRejectedAssets: PhotoLibraryState['setRejectedAssets'];
     setFilterStack: PhotoLibraryState['setFilterStack'];
     filterStackRef: PhotoLibraryState['filterStackRef'];
-    refreshLibrary: () => void;
+    refreshLibrary: (options?: RefreshLibraryOptions) => void;
 }) {
     const { transport, sendCommand, setAssets, setRejectedAssets, setFilterStack, filterStackRef, refreshLibrary } = params;
 
     const updateFilterStack = useCallback((newStack: LibraryFilter[]) => {
         setFilterStack(newStack);
         if (transport) {
+            setAssets([]);
             refreshLibrary();
         }
-    }, [refreshLibrary, setFilterStack, transport]);
+    }, [refreshLibrary, setAssets, setFilterStack, transport]);
 
     const getRejectedAssetsForPerson = useCallback((personId: string | null) => {
         if (!personId) {
@@ -171,7 +254,43 @@ function useCoreActions(params: {
     }), [clearFilters, getRejectedAssetsForPerson, popFilter, pushFilter, sendCommand, setAssets]);
 }
 
-function useWorkflowActions(params: {
+function useScanWorkflowActions(params: {
+    state: PhotoLibraryState;
+    request: RequestFn;
+    refreshLibrary: () => void;
+    refreshPeople: () => void;
+    refreshSystemJobs: () => void;
+}) {
+    const { state, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
+
+    return useMemo(() => createScanActions({
+        transport: state.transport,
+        addLog: state.addLog,
+        addUiFeedEntry: state.addUiFeedEntry,
+        lastScanId: state.lastScanId,
+        activeWorkflowRunId: state.activeWorkflowRunId,
+        workflowRefreshTimeout: state.workflowRefreshTimeout,
+        setIngestStatusMessage: state.setIngestStatusMessage,
+        request,
+        refreshLibrary,
+        refreshPeople,
+        refreshSystemJobs,
+    }), [
+        state.addUiFeedEntry,
+        refreshLibrary,
+        refreshPeople,
+        refreshSystemJobs,
+        request,
+        state.activeWorkflowRunId,
+        state.addLog,
+        state.lastScanId,
+        state.setIngestStatusMessage,
+        state.transport,
+        state.workflowRefreshTimeout,
+    ]);
+}
+
+function useSystemWorkflowActions(params: {
     state: PhotoLibraryState;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
     removeJob: (id: string) => void;
@@ -183,15 +302,7 @@ function useWorkflowActions(params: {
 }) {
     const { state, addJob, removeJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
 
-    const scanActions = useMemo(() => createScanActions({
-        transport: state.transport,
-        addLog: state.addLog,
-        lastScanId: state.lastScanId,
-    }), [state.addLog, state.lastScanId, state.transport]);
-
-    const pipelineActions = useMemo(() => createPipelineActions({ transport: state.transport, addJob }), [addJob, state.transport]);
-
-    const systemActions = useMemo(() => createSystemActions({
+    return useMemo(() => createSystemActions({
         transport: state.transport,
         addJob,
         removeJob,
@@ -205,6 +316,13 @@ function useWorkflowActions(params: {
         setAssets: state.setAssets,
         setPeople: state.setPeople,
         setStats: state.setStats,
+        setSystemJobs: state.setSystemJobs,
+        setQueueStatus: state.setQueueStatus,
+        setDataStats: state.setDataStats,
+        setRecentEvents: state.setRecentEvents,
+        setWorkflowRuns: state.setWorkflowRuns,
+        setFolderHistory: state.setFolderHistory,
+        setRejectedAssets: state.setRejectedAssets,
     }), [
         addJob,
         removeJob,
@@ -215,11 +333,52 @@ function useWorkflowActions(params: {
         sendCommand,
         state.isSystemPaused,
         state.setAssets,
+        state.setDataStats,
+        state.setFolderHistory,
         state.setPeople,
+        state.setQueueStatus,
+        state.setRecentEvents,
+        state.setRejectedAssets,
         state.setStats,
         state.setStatus,
         state.transport,
+        state.setSystemJobs,
+        state.setWorkflowRuns,
     ]);
+}
+
+function useWorkflowActions(params: {
+    state: PhotoLibraryState;
+    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    removeJob: (id: string) => void;
+    sendCommand: SendCommandFn;
+    request: RequestFn;
+    refreshLibrary: () => void;
+    refreshPeople: () => void;
+    refreshSystemJobs: () => void;
+}) {
+    const { state, addJob, removeJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
+
+    const scanActions = useScanWorkflowActions({
+        state,
+        request,
+        refreshLibrary,
+        refreshPeople,
+        refreshSystemJobs,
+    });
+
+    const pipelineActions = useMemo(() => createPipelineActions({ transport: state.transport, addJob }), [addJob, state.transport]);
+
+    const systemActions = useSystemWorkflowActions({
+        state,
+        addJob,
+        removeJob,
+        sendCommand,
+        request,
+        refreshLibrary,
+        refreshPeople,
+        refreshSystemJobs,
+    });
 
     const settingsActions = useMemo(() => createSettingsActions({
         transport: state.transport,
@@ -299,6 +458,7 @@ export function usePhotoLibrary() {
         setFolderHistory: state.setFolderHistory,
         setRejectedAssets: state.setRejectedAssets,
         setIsSystemPaused: state.setIsSystemPaused,
+        addUiFeedEntry: state.addUiFeedEntry,
         addNotification: state.addNotification,
         addLog: state.addLog,
         processEvent,
@@ -307,6 +467,7 @@ export function usePhotoLibrary() {
     }), [
         processEvent,
         state.addLog,
+        state.addUiFeedEntry,
         state.addNotification,
         state.filterStackRef,
         state.hasCompletedInitialSync,
@@ -353,6 +514,8 @@ export function usePhotoLibrary() {
         recentEvents: state.recentEvents,
         workflowRuns: state.workflowRuns,
         folderHistory: state.folderHistory,
+        uiFeedEntries: state.uiFeedEntries,
+        ingestStatusMessage: state.ingestStatusMessage,
         actions,
         filterStack: state.filterStack,
         notifications: state.notifications,
