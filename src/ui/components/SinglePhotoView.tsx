@@ -325,19 +325,6 @@ const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
             animation: 'fadeInOverlay 0.2s ease-out forwards'
         }}
     >
-        {panelState.showInfoPanel && (
-            <div style={{ width: INFO_PANEL_WIDTH, height: '100vh', flexShrink: 0, zIndex: 1002, animation: 'slideInFromLeft 0.22s ease-out' }}>
-                <InfoPanel
-                    asset={asset}
-                    width={INFO_PANEL_WIDTH}
-                    activeTab={panelState.activeInfoTab}
-                    onTabChange={panelState.setActiveInfoTab}
-                    hoveredFaceKey={hoveredFaceKey}
-                    onHoverFaceKey={setHoveredFaceKey}
-                />
-            </div>
-        )}
-
         <PhotoViewport
             asset={asset}
             assetsLength={assets.length}
@@ -364,6 +351,19 @@ const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
             onRevealControls={onRevealControls}
             analysis={analysis}
         />
+
+        {panelState.showInfoPanel && (
+            <div style={{ width: INFO_PANEL_WIDTH, height: '100vh', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
+                <InfoPanel
+                    asset={asset}
+                    width={INFO_PANEL_WIDTH}
+                    activeTab={panelState.activeInfoTab}
+                    onTabChange={panelState.setActiveInfoTab}
+                    hoveredFaceKey={hoveredFaceKey}
+                    onHoverFaceKey={setHoveredFaceKey}
+                />
+            </div>
+        )}
     </div>
 );
 

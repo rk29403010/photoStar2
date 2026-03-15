@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
+import { getNextZoomScale } from './zoomMath';
 
 export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
 
@@ -303,9 +304,9 @@ const NavButtons: React.FC<{ currentIndex: number; assetsLength: number; onPrevi
 
 const ZoomBar: React.FC<{ scale: number; setScale: (s: number) => void; setPan: (pan: { x: number; y: number }) => void; resetPanZoom: () => void; showFaces: boolean; setShowFaces: (show: boolean) => void; showInfoPanel: boolean; setShowInfoPanel: (show: boolean) => void; controlsVisible: boolean }> = ({ scale, setScale, setPan, resetPanZoom, showFaces, setShowFaces, showInfoPanel, setShowInfoPanel, controlsVisible }) => (
     <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '8px', background: 'rgba(15,15,25,0.85)', padding: '6px 14px', borderRadius: '30px', zIndex: 1001, backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', alignItems: 'center', ...getOverlayVisibilityStyle(controlsVisible) }} onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => { const nextScale = Math.max(1, scale - 0.5); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} style={zoomBtnStyle} title="Zoom out">−</button>
+        <button onClick={() => { const nextScale = getNextZoomScale(scale, -1); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} style={zoomBtnStyle} title="Zoom out">−</button>
         <div style={{ color: '#94a3b8', fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(scale * 100)}%</div>
-        <button onClick={() => setScale(scale + 0.5)} style={zoomBtnStyle} title="Zoom in">+</button>
+        <button onClick={() => setScale(getNextZoomScale(scale, 1))} style={zoomBtnStyle} title="Zoom in">+</button>
         <div style={dividerStyle} />
         <button onClick={resetPanZoom} style={{ ...zoomBtnStyle, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }} title="Reset zoom"><span style={{ fontSize: 14 }}>⟲</span> Reset</button>
         <div style={dividerStyle} />

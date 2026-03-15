@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { RefObject } from 'react';
+import { clampZoomScale } from '../components/single-photo/zoomMath';
 
 export function usePanZoom(containerRef: RefObject<HTMLElement | null>, onReset?: () => void) {
     const [scale, setScale] = useState(1);
@@ -49,10 +50,10 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>, onReset?
             e.preventDefault(); // Need to prevent default to stop page scroll when zooming
             const zoomSensitivity = 0.05;
             const newScale = scale - e.deltaY * zoomSensitivity;
-            const finalScale = Math.max(1, Math.min(newScale, 10)); // Max 10x zoom
+            const finalScale = clampZoomScale(newScale);
             setScale(finalScale);
 
-            // Reset pan if scaled back to 1
+            // Reset pan once the image is back at or below the natural size.
             if (finalScale <= 1) {
                 setPan({ x: 0, y: 0 });
             }

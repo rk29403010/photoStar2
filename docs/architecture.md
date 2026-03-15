@@ -322,7 +322,8 @@ Conceptually:
 - workers do the heavy work
 - jobs are the execution and monitoring projection, not the architecture itself
 
-For adding new workflow-managed modules, see `docs/workflow-module-authoring-v2.md`.
+For adding new workflow-managed modules, see
+`docs/workflow-module-authoring-v3.md`.
 
 ### Subsystem responsibilities
 

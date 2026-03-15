@@ -1,6 +1,7 @@
 const MAX_DEPTH = 5;
 const MAX_STRING_LENGTH = 180;
 const MAX_ARRAY_SAMPLE = 6;
+const ARRAY_EDGE_SAMPLE = 2;
 const JSON_PARSE_MIN_LENGTH = 80;
 
 const LARGE_COLLECTION_KEYS = new Set([
@@ -31,6 +32,13 @@ const LARGE_TEXT_KEYS = new Set([
 type SummaryContext = {
     depth: number;
     key?: string;
+};
+
+type EventLogEnvelope = {
+    id: string;
+    status: string;
+    data: unknown;
+    error: unknown;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,29 +84,33 @@ function summarizeVectorLike(value: unknown): unknown {
     };
 }
 
+function getCollapsedArrayMarker(omittedCount: number): string {
+    return `... ${omittedCount} omitted ...`;
+}
+
 function summarizeLargeCollection(value: unknown[], context: SummaryContext): unknown {
-    const sample = value
-        .slice(0, MAX_ARRAY_SAMPLE)
+    const head = value
+        .slice(0, ARRAY_EDGE_SAMPLE)
         .map((item) => summarizeForEventLog(item, { ...context, depth: context.depth + 1 }));
+    const tail = value
+        .slice(-ARRAY_EDGE_SAMPLE)
+        .map((item) => summarizeForEventLog(item, { ...context, depth: context.depth + 1 }));
+    const omittedCount = value.length - (ARRAY_EDGE_SAMPLE * 2);
 
-    if (value.length <= MAX_ARRAY_SAMPLE) {
-        return sample;
-    }
-
-    return {
-        count: value.length,
-        sample,
-        omitted: value.length - MAX_ARRAY_SAMPLE,
-    };
+    return [
+        ...head,
+        getCollapsedArrayMarker(omittedCount),
+        ...tail,
+    ];
 }
 
 function summarizeArray(value: unknown[], context: SummaryContext): unknown {
-    if (context.key && (LARGE_COLLECTION_KEYS.has(context.key) || value.length > MAX_ARRAY_SAMPLE)) {
-        return summarizeLargeCollection(value, context);
-    }
-
     if (value.length <= MAX_ARRAY_SAMPLE) {
         return value.map((item) => summarizeForEventLog(item, { ...context, depth: context.depth + 1 }));
+    }
+
+    if (context.key && (LARGE_COLLECTION_KEYS.has(context.key) || context.key === 'ids' || context.key.endsWith('Ids') || context.key.endsWith('_ids'))) {
+        return summarizeLargeCollection(value, context);
     }
 
     return summarizeLargeCollection(value, context);
@@ -182,4 +194,13 @@ export function formatForEventLog(value: unknown): string {
     } catch {
         return String(value);
     }
+}
+
+export function buildEventLogEnvelope(envelope: EventLogEnvelope): EventLogEnvelope {
+    return {
+        id: envelope.id,
+        status: envelope.status,
+        data: summarizeForEventLog(envelope.data),
+        error: summarizeForEventLog(envelope.error),
+    };
 }

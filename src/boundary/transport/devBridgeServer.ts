@@ -4,7 +4,7 @@ import { createServer, type Server } from 'node:http';
 import * as os from 'node:os';
 import { WebSocketServer, WebSocket } from 'ws';
 import { closeSupersededUiConnections, getOpenUiConnectionCount, type DevBridgeWebSocket } from './devBridgeWebSocket';
-import { summarizeForEventLog } from '../../shared/utils/eventLogSummary';
+import { buildEventLogEnvelope } from '../../shared/utils/eventLogSummary';
 
 const DEFAULT_WS_PORT = 5174;
 
@@ -226,16 +226,11 @@ function createResponder(wss: WebSocketServer) {
         targetWs?: WebSocket
     ) => {
         const payloadStr = JSON.stringify({ id, status, data, error });
-        const shouldUseSummaryOutput = process.stdout.isTTY && (status === 'event' || payloadStr.length > 20000);
+        const shouldUseSummaryOutput = status === 'event' || payloadStr.length > 20000;
 
         if (!targetWs) {
             if (shouldUseSummaryOutput) {
-                console.log(JSON.stringify({
-                    id,
-                    status,
-                    data: summarizeForEventLog(data),
-                    error,
-                }));
+                console.log(JSON.stringify(buildEventLogEnvelope({ id, status, data, error })));
             } else {
                 console.log(payloadStr);
             }

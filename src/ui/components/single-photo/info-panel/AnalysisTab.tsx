@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
-import { Section, StarRating } from './shared';
+import { Field, Section, StarRating, Tag } from './shared';
+import { buildAnalysisDetails } from './analysisTabModel';
 
 function getSensitivityColor(score: number | undefined): string {
   if (score == null) {return '#4b5563';}
@@ -69,19 +70,61 @@ const EnhancementsSection: React.FC<{ enhancements?: unknown }> = ({ enhancement
   );
 };
 
+const AnalysisSummarySection: React.FC<{ asset: Asset }> = ({ asset }) => {
+  const details = buildAnalysisDetails(asset);
+  const hasDetails = Boolean(details.mode || details.caption || details.notes || details.tags.length > 0);
+  if (!hasDetails) {return null;}
+
+  return (
+    <Section emoji="🧠" title="Analysis Summary">
+      <Field label="Mode" value={details.mode} />
+      {details.caption && (
+        <div style={{ paddingBottom: 10 }}>
+          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Caption</div>
+          <div style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.6, fontStyle: 'italic' }}>&ldquo;{details.caption}&rdquo;</div>
+        </div>
+      )}
+      {details.notes && (
+        <div style={{ paddingBottom: 10 }}>
+          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Notes</div>
+          <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.6 }}>{details.notes}</div>
+        </div>
+      )}
+      {details.tags.length > 0 && (
+        <div>
+          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Tags</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {details.tags.map((tag) => <Tag key={tag} text={tag} />)}
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+};
+
 export const AnalysisTab: React.FC<{ asset: Asset }> = ({ asset }) => {
   const ai = asset.ai_metadata;
   const quality = ai?.quality as Record<string, unknown> | undefined;
   const auth = ai?.authenticity as Record<string, unknown> | undefined;
+  const analysisDetails = buildAnalysisDetails(asset);
+  const hasAnalysisContent = Boolean(
+    ai
+    || asset.sensitivity_score != null
+    || analysisDetails.mode
+    || analysisDetails.caption
+    || analysisDetails.notes
+    || analysisDetails.tags.length > 0
+  );
 
   return (
     <div>
+      <AnalysisSummarySection asset={asset} />
       <QualitySection quality={quality} />
       <AuthenticitySection auth={auth} />
       <SensitivitySection asset={asset} />
       <EnhancementsSection enhancements={ai?.recommended_enhancements} />
 
-      {!ai && !asset.sensitivity_score && (
+      {!hasAnalysisContent && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: '#374151' }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>🤔</div>
           <div style={{ fontSize: 13 }}>No analysis yet</div>
