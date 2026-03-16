@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "🚀 Web Dev (Vite UI + Core + Chrome Debug)",
+            "name": "🚀 Web Dev (Vite UI + Core + Edge Debug)",
             "type": "node",
             "request": "launch",
             "runtimeExecutable": "npm",
@@ -13,7 +13,7 @@
             "console": "integratedTerminal",
             "internalConsoleOptions": "openOnSessionStart",
             "serverReadyAction": {
-                "action": "debugWithChrome",
+                "action": "debugWithEdge",
                 "killOnServerStop": true,
                 "pattern": "Local:\\s+(https?://\\S+)",
                 "webRoot": "${workspaceFolder}"
@@ -34,7 +34,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "🧩 Desktop Runtime (UI + Core + Chrome Debug)",
+            "name": "🧩 Desktop Runtime (UI + Core + Edge Debug)",
             "type": "node",
             "request": "launch",
             "runtimeExecutable": "npm",
@@ -45,7 +45,7 @@
             "console": "integratedTerminal",
             "internalConsoleOptions": "openOnSessionStart",
             "serverReadyAction": {
-                "action": "debugWithChrome",
+                "action": "debugWithEdge",
                 "killOnServerStop": true,
                 "pattern": "Local:\\s+(https?://\\S+)",
                 "webRoot": "${workspaceFolder}"
@@ -66,7 +66,7 @@
             "console": "integratedTerminal",
             "internalConsoleOptions": "openOnSessionStart",
             "serverReadyAction": {
-                "action": "debugWithChrome",
+                "action": "debugWithEdge",
                 "killOnServerStop": true,
                 "pattern": "Local:\\s+(https?://\\S+)",
                 "webRoot": "${workspaceFolder}"
