@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { formatForEventLog } from '@shared/utils/eventLogSummary';
+import {
+    createUnreadConsoleCounts,
+    getConsoleToggleTone,
+    getNextUnreadConsoleCounts,
+    type ConsoleEntryLevel,
+    type UnreadConsoleCounts,
+} from './devConsoleModel';
 
 interface ConsoleEntry {
     id: number;
-    level: 'log' | 'warn' | 'error' | 'info';
+    level: ConsoleEntryLevel;
     message: string;
     timestamp: string;
 }
@@ -14,9 +21,9 @@ let entryId = 0;
 
 function useConsoleCapture() {
     const [entries, setEntries] = useState<ConsoleEntry[]>([]);
-    const [unreadErrors, setUnreadErrors] = useState(0);
+    const [unreadCounts, setUnreadCounts] = useState<UnreadConsoleCounts>(createUnreadConsoleCounts);
 
-    const addEntry = useCallback((level: ConsoleEntry['level'], args: unknown[]) => {
+    const addEntry = useCallback((level: ConsoleEntryLevel, args: unknown[]) => {
         const message = args.map((arg) => formatForEventLog(arg)).join(' ');
 
         const entry: ConsoleEntry = {
@@ -32,7 +39,7 @@ function useConsoleCapture() {
             const next = [...prev, entry];
             return next.length > 500 ? next.slice(-500) : next;
         });
-        if (level === 'error' || level === 'warn') {setUnreadErrors(prev => prev + 1);}
+        setUnreadCounts((prev) => getNextUnreadConsoleCounts(prev, level));
     }, []);
 
     useEffect(() => {
@@ -54,16 +61,25 @@ function useConsoleCapture() {
         };
     }, [addEntry]);
 
-    return { entries, unreadErrors, setUnreadErrors, clearEntries: () => setEntries([]) };
+    const clearEntries = useCallback(() => {
+        setEntries([]);
+        setUnreadCounts(createUnreadConsoleCounts());
+    }, []);
+
+    return { entries, unreadCounts, setUnreadCounts, clearEntries };
 }
 
 function DevConsoleToggle({
-    isOpen, unreadErrors, onClick
+    isOpen, unreadCounts, onClick
 }: {
     isOpen: boolean;
-    unreadErrors: number;
+    unreadCounts: UnreadConsoleCounts;
     onClick: () => void;
 }) {
+    const tone = getConsoleToggleTone(unreadCounts);
+    const borderColor = tone === 'error' ? '#ef4444' : tone === 'warning' ? '#f59e0b' : '#334155';
+    const textColor = tone === 'error' ? '#f87171' : tone === 'warning' ? '#fbbf24' : '#94a3b8';
+
     return (
         <button
             id="dev-console-toggle"
@@ -71,8 +87,8 @@ function DevConsoleToggle({
             title="Toggle Dev Console"
             style={{
                 background: isOpen ? '#1e293b' : 'rgba(15,23,42,0.9)',
-                border: `1px solid ${unreadErrors > 0 ? '#ef4444' : '#334155'}`,
-                borderRadius: '6px', color: unreadErrors > 0 ? '#f87171' : '#94a3b8',
+                border: `1px solid ${borderColor}`,
+                borderRadius: '6px', color: textColor,
                 padding: '3px 8px', fontSize: '11px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace',
                 backdropFilter: 'blur(8px)', transition: 'all 0.2s',
@@ -80,9 +96,14 @@ function DevConsoleToggle({
             }}
         >
             <span style={{ fontSize: '14px' }}>🖥️</span>
-            {unreadErrors > 0 && (
+            {unreadCounts.errors > 0 && (
                 <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: 700 }}>
-                    {unreadErrors}
+                    E {unreadCounts.errors}
+                </span>
+            )}
+            {unreadCounts.warnings > 0 && (
+                <span style={{ background: '#f59e0b', color: '#111827', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: 700 }}>
+                    W {unreadCounts.warnings}
                 </span>
             )}
             {isOpen ? 'Hide Console' : 'Console'}
@@ -234,7 +255,7 @@ function DevConsolePanel({
 }
 
 export function DevConsole() {
-    const { entries, unreadErrors, setUnreadErrors, clearEntries } = useConsoleCapture();
+    const { entries, unreadCounts, setUnreadCounts, clearEntries } = useConsoleCapture();
     const [isOpen, setIsOpen] = useState(false);
     const [filter, setFilter] = useState<ConsoleFilter>('all');
     const bottomRef = useRef<HTMLDivElement>(null);
@@ -245,7 +266,7 @@ export function DevConsole() {
 
     const handleOpen = () => {
         setIsOpen(open => !open);
-        setUnreadErrors(0);
+        setUnreadCounts(createUnreadConsoleCounts());
     };
 
     const handleClose = () => {
@@ -254,7 +275,7 @@ export function DevConsole() {
 
     return (
         <>
-            <DevConsoleToggle isOpen={isOpen} unreadErrors={unreadErrors} onClick={handleOpen} />
+            <DevConsoleToggle isOpen={isOpen} unreadCounts={unreadCounts} onClick={handleOpen} />
             {isOpen && (
                 <DevConsolePanel
                     entries={entries}

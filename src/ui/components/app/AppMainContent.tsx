@@ -8,9 +8,11 @@ import { LibraryView } from '../LibraryView';
 import { PeopleView } from '../PeopleView';
 import { DashboardView } from '../DashboardView';
 import { AlbumsView } from '../AlbumsView';
+import { WorkflowWorkspace } from '../workflows/WorkflowWorkspace';
+import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 
 interface AppMainContentProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums';
+  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
   assets: Asset[];
   people: Person[];
   status: string;
@@ -48,6 +50,7 @@ interface AppMainContentProps {
   onGetEventPayloadRaw: (eventId: string) => Promise<string>;
   onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
   onSetModulePaused: (moduleId: string, paused: boolean) => void;
+  onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
   onGetAlbums: () => Promise<Album[]>;
   onCreateAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
   onDeleteAlbum: (id: string) => Promise<void>;
@@ -84,7 +87,7 @@ export function AppMainContent(props: AppMainContentProps) {
     onLoadMoreAssets, onAssetClick, onUntagAsset, onLibrarySelectionChange,
     onPeopleFilter, onPeopleSelectionChange, onRenamePerson, onMergePeople, onRefreshSystemJobs,
     onTogglePause, onStopJob, onGetEventPayloadRaw, onGetJobErrors, onSetModulePaused,
-    onGetAlbums, onCreateAlbum, onDeleteAlbum, onOpenAlbum, onHoverLibraryAssetChange,
+    onGetWorkflowVisualiser, onGetAlbums, onCreateAlbum, onDeleteAlbum, onOpenAlbum, onHoverLibraryAssetChange,
   } = props;
 
   const activeFilter = filterStack.length > 0 ? filterStack[filterStack.length - 1] : undefined;
@@ -152,6 +155,13 @@ export function AppMainContent(props: AppMainContentProps) {
           createAlbum={onCreateAlbum}
           deleteAlbum={onDeleteAlbum}
           onOpenAlbum={onOpenAlbum}
+        />
+      )}
+
+      {view === 'workflows' && (
+        <WorkflowWorkspace
+          workflowId="folder_ingest_v1"
+          onGetWorkflowVisualiser={onGetWorkflowVisualiser}
         />
       )}
     </div>

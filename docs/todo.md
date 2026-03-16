@@ -107,3 +107,11 @@ I see workflows evolving in several directions:
 1. Specific tasks like retrieving text from gravestones, or handwriting on documents, or identifying specific uniform types, or specific car models, etc. These could be triggered automatically by the detected media type or manually by the user.
 2. The use case for family history research, is quite distinct to a general media library. Its likely we need different workflows for different use cases.
 3. Oppertunity for other people to develop drop in replacement modules for specific tasks, that are more performant, or cheaper or more accurate than the standard modules. e.g. use a different ai or different prompts, or better trained models. This will allow the community to develop and share workflows, and for users to choose the best workflow for their needs. It also allows for experimentation and innovation.
+
+### Specific Modules
+
+#### Frame Detection
+
+Detect frames around images.
+Define a rectangle that is the maximum rectangle that sits fully within the frame (e.g. a photo 200x200px with a polaroid style frame 10px top, left and right and 50px bottom would be {10,10,180,140}. If the image has no border {0,0,200,200}).
+Also identify the primary colour used in the border to allow blending into background.

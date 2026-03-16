@@ -41,4 +41,8 @@ export class WorkflowRegistry {
         }
         return definition;
     }
+
+    public list(): WorkflowDefinition[] {
+        return [...this.workflows.values()];
+    }
 }

@@ -22,12 +22,21 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             kind: 'module',
             moduleId: 'runtime.scan_folder',
             outputsTo: ['preview-each'],
+            presentation: {
+                label: 'Scan folder',
+                countNoun: { singular: 'folder', plural: 'folders' },
+                artifactNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'preview-each',
             kind: 'control',
             controlType: 'for_each',
             outputsTo: ['generate-previews'],
+            presentation: {
+                label: 'Preview each',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'generate-previews',
@@ -35,66 +44,115 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             moduleId: 'runtime.generate_previews',
             outputsTo: ['collect-previewed-assets'],
             completesMilestones: ['library_ready'],
+            presentation: {
+                label: 'Generate previews',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'preview', plural: 'previews' },
+            },
         },
         {
             id: 'collect-previewed-assets',
             kind: 'control',
             controlType: 'collect',
             outputsTo: ['enrichment-each'],
+            presentation: {
+                label: 'Collect previewed images',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'enrichment-each',
             kind: 'control',
             controlType: 'for_each',
             outputsTo: ['detect-faces'],
+            presentation: {
+                label: 'Enrich each image',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'detect-faces',
             kind: 'module',
             moduleId: 'runtime.detect_faces',
             outputsTo: ['generate-face-vectors'],
+            presentation: {
+                label: 'Detect faces',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'face', plural: 'faces' },
+            },
         },
         {
             id: 'generate-face-vectors',
             kind: 'module',
             moduleId: 'runtime.generate_face_vectors',
             outputsTo: ['collect-people', 'collect-similar', 'detect-sensitive-content'],
+            presentation: {
+                label: 'Generate face vectors',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'collect-people',
             kind: 'control',
             controlType: 'collect',
             outputsTo: ['resolve-people'],
+            presentation: {
+                label: 'Collect people candidates',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'resolve-people',
             kind: 'module',
             moduleId: 'runtime.resolve_people',
             runMode: 'once_per_batch',
+            presentation: {
+                label: 'Resolve people',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'person', plural: 'people' },
+            },
         },
         {
             id: 'collect-similar',
             kind: 'control',
             controlType: 'collect',
             outputsTo: ['group-similar-photos'],
+            presentation: {
+                label: 'Collect similar-photo candidates',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'group-similar-photos',
             kind: 'module',
             moduleId: 'runtime.group_similar_photos',
             runMode: 'once_per_batch',
+            presentation: {
+                label: 'Group similar photos',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'group', plural: 'groups' },
+            },
         },
         {
             id: 'detect-sensitive-content',
             kind: 'module',
             moduleId: 'runtime.detect_sensitive_content',
             outputsTo: ['generate-ai-metadata'],
+            presentation: {
+                label: 'Detect sensitive content',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
         },
         {
             id: 'generate-ai-metadata',
             kind: 'module',
             moduleId: 'runtime.generate_ai_metadata',
             completesMilestones: ['enrichment_complete'],
+            presentation: {
+                label: 'Generate AI metadata',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
+            },
         },
     ],
 };

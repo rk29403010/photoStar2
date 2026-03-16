@@ -45,6 +45,7 @@ export interface WorkflowModuleNodeDefinition {
     runMode?: 'per_subject' | 'once_per_batch';
     completesMilestones?: string[];
     outputsTo?: string[];
+    presentation?: WorkflowNodePresentationDefinition;
 }
 
 export interface WorkflowControlNodeDefinition {
@@ -52,6 +53,7 @@ export interface WorkflowControlNodeDefinition {
     kind: 'control';
     controlType: 'for_each' | 'batch' | 'collect' | 'approval_gate';
     outputsTo?: string[];
+    presentation?: WorkflowNodePresentationDefinition;
 }
 
 export type WorkflowNodeDefinition = WorkflowModuleNodeDefinition | WorkflowControlNodeDefinition;
@@ -68,6 +70,17 @@ export interface WorkflowParameterDefinition {
 export interface WorkflowMilestoneDefinition {
     id: string;
     label: string;
+}
+
+export interface WorkflowCountNounDefinition {
+    singular: string;
+    plural: string;
+}
+
+export interface WorkflowNodePresentationDefinition {
+    label?: string;
+    countNoun?: WorkflowCountNounDefinition;
+    artifactNoun?: WorkflowCountNounDefinition;
 }
 
 export interface WorkflowPresentationDefinition {
@@ -201,6 +214,26 @@ function assertWorkflowMilestoneDefinition(
     assertNonEmptyString(value.label, `${fieldName}.label`);
 }
 
+function assertWorkflowCountNounDefinition(value: WorkflowCountNounDefinition, fieldName: string): void {
+    assertNonEmptyString(value.singular, `${fieldName}.singular`);
+    assertNonEmptyString(value.plural, `${fieldName}.plural`);
+}
+
+function assertWorkflowNodePresentationDefinition(
+    value: WorkflowNodePresentationDefinition,
+    fieldName: string,
+): void {
+    if (value.label !== undefined) {
+        assertNonEmptyString(value.label, `${fieldName}.label`);
+    }
+    if (value.countNoun !== undefined) {
+        assertWorkflowCountNounDefinition(value.countNoun, `${fieldName}.countNoun`);
+    }
+    if (value.artifactNoun !== undefined) {
+        assertWorkflowCountNounDefinition(value.artifactNoun, `${fieldName}.artifactNoun`);
+    }
+}
+
 function assertWorkflowPresentationDefinition(
     value: WorkflowPresentationDefinition,
     fieldName: string,
@@ -285,6 +318,9 @@ function assertModuleNode(node: WorkflowModuleNodeDefinition): void {
     if (node.outputsTo !== undefined) {
         assertStringArray(node.outputsTo, `workflow node '${node.id}' outputsTo`);
     }
+    if (node.presentation !== undefined) {
+        assertWorkflowNodePresentationDefinition(node.presentation, `workflow node '${node.id}' presentation`);
+    }
 }
 
 function assertControlNode(node: WorkflowControlNodeDefinition): void {
@@ -293,6 +329,9 @@ function assertControlNode(node: WorkflowControlNodeDefinition): void {
     }
     if (node.outputsTo !== undefined) {
         assertStringArray(node.outputsTo, `workflow node '${node.id}' outputsTo`);
+    }
+    if (node.presentation !== undefined) {
+        assertWorkflowNodePresentationDefinition(node.presentation, `workflow node '${node.id}' presentation`);
     }
 }
 

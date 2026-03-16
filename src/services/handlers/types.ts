@@ -4,10 +4,12 @@ import type { EventBus } from '../events/bus';
 import type { Coordinator } from '../coordinator';
 import type { ExecutionStore } from '../workflowRuntime/executionStore';
 import type { WorkflowRuntimeOrchestrator } from '../workflowRuntime/orchestrator';
+import type { WorkflowRegistry } from '../workflowRuntime/workflowRegistry';
 
 export interface WorkflowRuntimeFacade {
     store: ExecutionStore;
     orchestrator: WorkflowRuntimeOrchestrator;
+    workflows: WorkflowRegistry;
 }
 
 export interface CommandContext {

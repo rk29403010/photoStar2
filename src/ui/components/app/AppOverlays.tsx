@@ -37,6 +37,7 @@ interface AppOverlaysProps {
   onBuildBursts: () => void;
   onGetSetting: (key: string) => Promise<string>;
   onSetSetting: (key: string, value: string) => Promise<void>;
+  onOpenWorkflowVisualiser: () => void;
   theme: string;
   setTheme: (theme: string) => void;
   animationsEnabled: boolean;
@@ -78,6 +79,7 @@ export function AppOverlays(props: AppOverlaysProps) {
         onBuildGroups={props.onBuildGroups}
         onBuildBursts={props.onBuildBursts}
         onOpenSettings={() => props.setShowSettings(true)}
+        onOpenWorkflowVisualiser={props.onOpenWorkflowVisualiser}
         folderHistory={props.folderHistory}
       />
 
@@ -123,4 +125,3 @@ export function AppOverlays(props: AppOverlaysProps) {
     </>
   );
 }
-

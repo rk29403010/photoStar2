@@ -1,4 +1,6 @@
 import { DevConsole } from '../DevConsole';
+import type { DevRuntimeImpact } from '@contracts/devRuntime';
+import { getDevRuntimeImpactIndicator } from './devRuntimeImpactModel';
 
 export type AppConnectionOverlayState = {
   title: string;
@@ -50,16 +52,41 @@ export function AppStatusRightSlot({
   isTaskDrawerMinimized,
   activeOverlayJobCount,
   onRestoreTaskDrawer,
+  devRuntimeImpact,
 }: {
   isTaskDrawerMinimized: boolean;
   activeOverlayJobCount: number;
   onRestoreTaskDrawer: () => void;
+  devRuntimeImpact: DevRuntimeImpact | null;
 }) {
   const visibleJobCount = isTaskDrawerMinimized ? activeOverlayJobCount : 0;
+  const indicator = getDevRuntimeImpactIndicator(devRuntimeImpact);
 
   return (
     <>
       <TaskDrawerStatusButton jobCount={visibleJobCount} onRestore={onRestoreTaskDrawer} />
+      {indicator ? (
+        <div
+          title={indicator.title}
+          style={{
+            border: `1px solid ${indicator.tone === 'error' ? '#ef4444' : indicator.tone === 'warning' ? '#f59e0b' : '#0ea5e9'}`,
+            background: indicator.tone === 'error'
+              ? 'rgba(127, 29, 29, 0.75)'
+              : indicator.tone === 'warning'
+                ? 'rgba(120, 53, 15, 0.8)'
+                : 'rgba(8, 47, 73, 0.8)',
+            color: indicator.tone === 'error' ? '#fecaca' : indicator.tone === 'warning' ? '#fde68a' : '#bae6fd',
+            borderRadius: 999,
+            padding: '2px 10px',
+            fontSize: '11px',
+            fontWeight: 700,
+            marginRight: 8,
+            flexShrink: 0,
+          }}
+        >
+          {indicator.shortLabel}
+        </div>
+      ) : null}
       <DevConsole />
     </>
   );

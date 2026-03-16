@@ -105,6 +105,7 @@ workflowRuntimeWorkflows.register(folderIngestWorkflowDefinition);
 workflowRuntimeWorkflows.register(assetPreviewWorkflowDefinition);
 const workflowRuntime = {
     store: workflowRuntimeStore,
+    workflows: workflowRuntimeWorkflows,
     orchestrator: new WorkflowRuntimeOrchestrator({
         store: workflowRuntimeStore,
         workflows: workflowRuntimeWorkflows,
@@ -526,5 +527,4 @@ const { respond } = startDevBridgeServer({
         setInterval(performCleanup, 24 * 60 * 60 * 1000);
     },
 });
-
 
