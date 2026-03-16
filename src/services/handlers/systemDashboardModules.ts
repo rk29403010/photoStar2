@@ -7,7 +7,6 @@ export type DashboardModuleId =
     | 'class-onboarding'
     | 'class-previews'
     | 'class-detection'
-    | 'class-mapping'
     | 'class-clustering'
     | 'class-sensitive'
     | 'class-aimetadata-3f'
@@ -45,7 +44,6 @@ const DASHBOARD_MODULES: DashboardModuleDefinition[] = [
     { id: 'class-onboarding', label: 'Photo Onboarding', canPause: false },
     { id: 'class-previews', label: 'Thumbnail Generation', pauseStage: 'previews', canPause: true },
     { id: 'class-detection', label: 'Face Detection', pauseStage: 'detection', canPause: true },
-    { id: 'class-mapping', label: 'Face Recognition', pauseStage: 'recognition', canPause: true },
     { id: 'class-clustering', label: 'Face Clustering', pauseStage: 'clustering', canPause: true },
     { id: 'class-sensitive', label: 'Sensitive Content Scan', pauseStage: 'sensitive_scan', canPause: true },
     { id: 'class-aimetadata-3f', label: 'AI Metadata V2 (Gemini 3F)', pauseStage: 'ai_metadata_v2_3f', canPause: true },
@@ -57,7 +55,6 @@ const PROCESSING_ISSUE_MODULE_CASE = `
         WHEN task IN ('scan', 'ingest') THEN 'class-onboarding'
         WHEN task = 'preview' THEN 'class-previews'
         WHEN task = 'detection' THEN 'class-detection'
-        WHEN task = 'recognition' THEN 'class-mapping'
         WHEN task = 'clustering' THEN 'class-clustering'
         WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_v2_31p-%' THEN 'class-aimetadata-31p'
         WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_v2_3f-%' THEN 'class-aimetadata-3f'
@@ -73,7 +70,6 @@ const FAILED_JOB_MODULE_CASE = `
         WHEN id LIKE 'scan-%' THEN 'class-onboarding'
         WHEN id LIKE 'previews-%' THEN 'class-previews'
         WHEN id LIKE 'detect-%' THEN 'class-detection'
-        WHEN id LIKE 'recog-%' THEN 'class-mapping'
         WHEN id LIKE 'cluster-%' THEN 'class-clustering'
         WHEN id LIKE 'sensitive-%' THEN 'class-sensitive'
         WHEN id LIKE 'ai_meta_v2_31p-%' THEN 'class-aimetadata-31p'

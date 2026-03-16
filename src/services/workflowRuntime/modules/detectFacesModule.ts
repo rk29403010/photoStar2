@@ -42,6 +42,7 @@ export function createDetectFacesModule(options: DetectFacesModuleOptions): Modu
                 type: 'FacesDetected',
                 mediaId: context.subject.subjectId,
                 faceCount: 1,
+                source: 'workflow_runtime',
             });
             return { outputs: [{ kind: 'artifact', artifactType: 'face_detection', subjectType: 'asset' }] };
         },

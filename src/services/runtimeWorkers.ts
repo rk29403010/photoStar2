@@ -31,11 +31,6 @@ export async function runFaceDetectionWorker(target: string[] | 'auto', context:
     await runFaceDetectionJob(target, context.dbManager, context.eventBus);
 }
 
-export async function runFaceRecognitionWorker(target: string[], context: WorkerContext) {
-    const { runFaceRecognitionJob } = await import('./jobs/recognise_faces');
-    await runFaceRecognitionJob(target, context.dbManager, context.eventBus);
-}
-
 export async function runFaceClusteringWorker(context: WorkerContext) {
     const { runFaceClusteringJob } = await import('./jobs/cluster_faces');
     await runFaceClusteringJob('cluster-sweep', context.dbManager, context.eventBus);

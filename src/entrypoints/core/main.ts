@@ -18,7 +18,6 @@ import {
     runDuplicateGroupingWorker,
     runFaceClusteringWorker,
     runFaceDetectionWorker,
-    runFaceRecognitionWorker,
     runPreviewWorker,
     runSensitiveScanWorker,
     runVariantGroupingWorker,
@@ -329,16 +328,7 @@ eventBus.subscribe('FaceDetectionRequested', (event) => {
     }
 });
 
-// 3. Face Recognition
-eventBus.subscribe('FaceRecognitionRequested', (event) => {
-    if (event.type === 'FaceRecognitionRequested') {
-        const ids = event.mediaIds || [];
-        console.log(`[Worker] Starting Face Recognition for ${ids.length} items`);
-        runFaceRecognitionWorker(ids, { dbManager, eventBus }).catch(console.error);
-    }
-});
-
-// 4. Face Clustering
+// 3. Face Clustering
 eventBus.subscribe('FaceClusteringRequested', (event) => {
     if (event.type === 'FaceClusteringRequested') {
         console.log('[Worker] Starting Face Clustering');
@@ -346,7 +336,7 @@ eventBus.subscribe('FaceClusteringRequested', (event) => {
     }
 });
 
-// 5. Sensitive Content Scan
+// 4. Sensitive Content Scan
 eventBus.subscribe('SensitiveScanRequested', (event) => {
     if (event.type === 'SensitiveScanRequested') {
         const ids: string[] = event.mediaIds || [];
@@ -355,13 +345,13 @@ eventBus.subscribe('SensitiveScanRequested', (event) => {
     }
 });
 
-// 6. AI Metadata Extraction
+// 5. AI Metadata Extraction
 eventBus.subscribe('AiMetadataRequested', handleAiMetadataRequestedEvent);
 
-// 6b. AI Metadata Extraction (v2)
+// 5b. AI Metadata Extraction (v2)
 eventBus.subscribe('AiMetadataV2Requested', handleAiMetadataV2RequestedEvent);
 
-// 7. Grouping
+// 6. Grouping
 eventBus.subscribe('ComputeHashesRequested', () => {
     console.log('[Worker] Starting Hash Computation');
     runComputeHashesWorker({ dbManager, eventBus }).catch(console.error);

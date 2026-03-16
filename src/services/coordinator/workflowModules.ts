@@ -33,7 +33,7 @@ const BUILTIN_WORKFLOW_MODULES: WorkflowModuleDefinition[] = [
     },
     {
         id: 'face_pipeline',
-        description: 'Face detection, recognition, and clustering',
+        description: 'Face detection and clustering',
         enabledByDefault: true,
         stagePolicies: [
             {
@@ -46,17 +46,8 @@ const BUILTIN_WORKFLOW_MODULES: WorkflowModuleDefinition[] = [
                 dispatch: { kind: 'media_batch', event: 'FaceDetectionRequested' }
             },
             {
-                stage: 'recognition',
-                order: 30,
-                gate: 'strict',
-                activeCounter: 'task_queue',
-                batchLimit: 100,
-                useHeavyBatching: true,
-                dispatch: { kind: 'media_batch', event: 'FaceRecognitionRequested' }
-            },
-            {
                 stage: 'clustering',
-                order: 40,
+                order: 30,
                 gate: 'opportunistic',
                 activeCounter: 'jobs_running',
                 jobsRunningLike: 'cluster-%',
@@ -84,17 +75,9 @@ const BUILTIN_WORKFLOW_MODULES: WorkflowModuleDefinition[] = [
                 triggerEvaluate: true
             },
             {
-                id: 'recognition-only-when-faces',
-                eventType: 'FacesDetected',
-                condition: 'face_count_positive',
-                actions: [{ kind: 'queue_upsert', stage: 'recognition' }],
-                triggerEvaluate: true
-            },
-            {
-                id: 'embedding-progression',
+                id: 'clustering-from-detection',
                 eventType: 'FaceEmbeddingGenerated',
                 actions: [
-                    { kind: 'queue_complete', stage: 'recognition' },
                     { kind: 'queue_upsert', stage: 'clustering' }
                 ],
                 triggerEvaluate: true

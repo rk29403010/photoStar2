@@ -276,7 +276,7 @@ async function processDetectionAsset(
             VALUES(?, ?, 'face_detection', 'onnx_retina_10g', '1.0', ?)
         `).run(uuidv4(), asset.id, resultData);
 
-        eventBus.emit({ type: 'FacesDetected', mediaId: asset.id, faceCount: faces.length });
+        eventBus.emit({ type: 'FacesDetected', mediaId: asset.id, faceCount: faces.length, source: 'legacy_pipeline' });
         return { errors: 0, currentPath: asset.original_path };
     } catch (err: unknown) {
         const e = err as Error;

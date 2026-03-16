@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { SystemState } from '../state';
 import { runScanJob } from '../jobs/scan';
 import { runFaceDetectionJob } from '../jobs/detect_faces';
-import { runFaceRecognitionJob } from '../jobs/recognise_faces';
 import { runFaceClusteringJob } from '../jobs/cluster_faces';
 import { runSensitiveScanJob } from '../jobs/scan_sensitive';
 import { runDuplicateGroupingJob } from '../jobs/build_duplicate_groups';
@@ -88,7 +87,6 @@ function abortByClassOrId(ctx: CommandContext, jobId: string) {
             'class-onboarding': ['scan-'],
             'class-previews': ['previews-'],
             'class-detection': ['detect-'],
-            'class-mapping': ['recog-'],
             'class-clustering': ['cluster-'],
             'class-aimetadata-3f': ['ai_meta_v2_3f-', 'ai_meta_3f-'],
             'class-aimetadata-31p': ['ai_meta_v2_31p-', 'ai_meta_31p-'],
@@ -153,7 +151,7 @@ function clearJobErrors(ctx: CommandContext, task: string) {
     const taskMap: Record<string, string[]> = {
         onboarding: ['scan', 'ingest'],
         previews: ['preview'],
-        analysis: ['detection', 'recognition', 'clustering', 'ai_metadata'],
+        analysis: ['detection', 'clustering', 'ai_metadata'],
         safety: ['sensitive_scan'],
         ai_metadata: ['ai_metadata'],
         ai_metadata_3f: ['ai_metadata'],
@@ -163,7 +161,6 @@ function clearJobErrors(ctx: CommandContext, task: string) {
         'class-onboarding': ['scan', 'ingest'],
         'class-previews': ['preview'],
         'class-detection': ['detection'],
-        'class-mapping': ['recognition'],
         'class-clustering': ['clustering'],
         'class-aimetadata-3f': ['ai_metadata'],
         'class-aimetadata-31p': ['ai_metadata'],
@@ -281,13 +278,6 @@ export const systemCommandHandlers: CommandHandlerMap = {
         ctx.respond(ctx.id, 'ok', { message: 'Face detection started' }, null, ctx.originWs);
         launchTrackedJob(ctx, async (controller) => {
             await runFaceDetectionJob('auto', ctx.dbManager, ctx.eventBus, controller.signal, ctx.id);
-        });
-    },
-
-    recognise_faces: (ctx) => {
-        ctx.respond(ctx.id, 'ok', { message: 'Face recognition started' }, null, ctx.originWs);
-        launchTrackedJob(ctx, async (controller) => {
-            await runFaceRecognitionJob('auto', ctx.dbManager, ctx.eventBus, controller.signal, ctx.id);
         });
     },
 

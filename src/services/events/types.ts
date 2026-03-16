@@ -47,6 +47,7 @@ export type FacesDetected = {
     type: "FacesDetected";
     mediaId: string;
     faceCount: number;
+    source?: 'legacy_pipeline' | 'workflow_runtime';
 };
 
 export type FaceEmbeddingGenerated = {
@@ -66,11 +67,6 @@ export type FaceMatched = {
 export type FaceClusteringUpdated = {
     type: "FaceClusteringUpdated";
     clusterId: string;
-};
-
-export type FaceRecognitionRequested = {
-    type: "FaceRecognitionRequested";
-    mediaIds?: string[];
 };
 
 export type FaceClusteringRequested = {
@@ -211,8 +207,7 @@ export type DomainEvent =
     | FaceEmbeddingGenerated
     | FaceMatched
     | FaceClusteringUpdated
-    | FaceRecognitionRequested
-    | FaceClusteringRequested
+| FaceClusteringRequested
     | JobStarted
     | JobProgress
     | JobCompleted

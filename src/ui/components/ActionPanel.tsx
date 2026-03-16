@@ -6,7 +6,6 @@ interface ActionPanelProps {
     onScan: (path?: string) => void;
     onPreviews: () => void;
     onDetect: () => void;
-    onRecognise: () => void;
     onCluster: () => void;
     onExtractAiMetadata: () => void;
     onScanSensitive: () => void;
@@ -79,12 +78,11 @@ function IngestionColumn(props: Pick<ActionPanelProps, 'onScan' | 'onClose' | 'f
     );
 }
 
-function PipelineColumn(props: Pick<ActionPanelProps, 'onClose' | 'onPreviews' | 'onDetect' | 'onRecognise' | 'onCluster' | 'onScanSensitive' | 'onScanSensitiveAll' | 'onExtractAiMetadata'>) {
-    const { onClose, onPreviews, onDetect, onRecognise, onCluster, onScanSensitive, onScanSensitiveAll, onExtractAiMetadata } = props;
+function PipelineColumn(props: Pick<ActionPanelProps, 'onClose' | 'onPreviews' | 'onDetect' | 'onCluster' | 'onScanSensitive' | 'onScanSensitiveAll' | 'onExtractAiMetadata'>) {
+    const { onClose, onPreviews, onDetect, onCluster, onScanSensitive, onScanSensitiveAll, onExtractAiMetadata } = props;
     const actions = [
         { label: 'Generate Previews', icon: '🖼️', desc: 'Optimize images for fast gallery browsing', border: 'hover:border-purple-500/50', onClick: onPreviews },
         { label: 'Detect Faces', icon: '🎯', desc: 'Locate people within your photo collection', border: 'hover:border-purple-500/50', onClick: onDetect },
-        { label: 'Recognise Faces', icon: '👤', desc: 'Identify known individuals across library', border: 'hover:border-purple-500/50', onClick: onRecognise },
         { label: 'Cluster Faces', icon: '🧬', desc: 'Group similar faces into discovery clusters', border: 'hover:border-purple-500/50', onClick: onCluster },
         { label: 'Scan Sensitive Content', icon: '🔞', desc: 'Detect NSFW content locally (unscanned only)', border: 'hover:border-amber-500/50', onClick: onScanSensitive },
         { label: 'Force Re-scan All Images', icon: '🔁', desc: 'Clear existing scores & re-run on every asset', border: 'hover:border-orange-600/50', onClick: () => { if (window.confirm('This will clear and re-run the sensitive content scan over ALL images in the library. This may take a long time. Continue?')) {onScanSensitiveAll();} } },
@@ -160,7 +158,7 @@ export function ActionPanel(props: ActionPanelProps) {
                 <PanelHeader onClose={onClose} />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     <IngestionColumn onScan={props.onScan} onClose={props.onClose} folderHistory={props.folderHistory} onStopScan={props.onStopScan} />
-                    <PipelineColumn onClose={props.onClose} onPreviews={props.onPreviews} onDetect={props.onDetect} onRecognise={props.onRecognise} onCluster={props.onCluster} onScanSensitive={props.onScanSensitive} onScanSensitiveAll={props.onScanSensitiveAll} onExtractAiMetadata={props.onExtractAiMetadata} />
+                    <PipelineColumn onClose={props.onClose} onPreviews={props.onPreviews} onDetect={props.onDetect} onCluster={props.onCluster} onScanSensitive={props.onScanSensitive} onScanSensitiveAll={props.onScanSensitiveAll} onExtractAiMetadata={props.onExtractAiMetadata} />
                     <AnalysisAndMaintenanceColumn onClose={props.onClose} onBuildGroups={props.onBuildGroups} onBuildBursts={props.onBuildBursts} onRefresh={props.onRefresh} onResetFaces={props.onResetFaces} onResetAll={props.onResetAll} onFactoryReset={props.onFactoryReset} onOpenSettings={props.onOpenSettings} />
                 </div>
             </div>

@@ -300,7 +300,6 @@ export function createPipelineActions(params: PipelineActionParams) {
     return {
         generatePreviews: () => launch('previews', 'preview_generation', 'Generate Previews', 'generate_previews'),
         detectFaces: () => launch('detect', 'face_analysis', 'Detect Faces', 'detect_faces'),
-        recogniseFaces: () => launch('recog', 'face_analysis', 'Recognise Faces', 'recognise_faces'),
         clusterFaces: () => launch('cluster', 'similarity_cluster', 'Cluster Faces', 'cluster_faces'),
         scanSensitive: () => launch('sensitive', 'sensitive_scan', 'Sensitive Content Scan', 'scan_sensitive'),
         scanSensitiveAll: () => launch('sensitive-force', 'sensitive_scan', 'Force Re-scan All (Sensitive)', 'scan_sensitive_force'),

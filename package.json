@@ -26,7 +26,7 @@
     "package:core": "pkg dist/core/src/entrypoints/core/main.js --targets node18-win-x64 --output deployments/desktop/tauri/binaries/core-x86_64-pc-windows-msvc",
     "build:desktop:prep": "npm run build:web && npm run build:core && npm run package:core",
     "build:desktop": "tauri build --config deployments/desktop/tauri/tauri.conf.json",
-    "download:models": "node tooling/scripts/core/download_nsfw_model.cjs && node tooling/scripts/core/download_arcface_model.cjs",
+    "download:models": "node tooling/scripts/core/download_nsfw_model.cjs",
     "start:core": "node dist/core/src/entrypoints/core/main.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

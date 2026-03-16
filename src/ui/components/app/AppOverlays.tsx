@@ -24,7 +24,6 @@ interface AppOverlaysProps {
   onScan: (specificPath?: string) => Promise<void>;
   onPreviews: () => void;
   onDetect: () => void;
-  onRecognise: () => void;
   onCluster: () => void;
   onScanSensitive: () => void;
   onScanSensitiveAll: () => void;
@@ -67,7 +66,6 @@ export function AppOverlays(props: AppOverlaysProps) {
         onScan={props.onScan}
         onPreviews={props.onPreviews}
         onDetect={props.onDetect}
-        onRecognise={props.onRecognise}
         onCluster={props.onCluster}
         onScanSensitive={props.onScanSensitive}
         onScanSensitiveAll={props.onScanSensitiveAll}

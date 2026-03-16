@@ -7,7 +7,7 @@ type ResolveOnnxModelPathOptions = {
     execPath?: string;
 };
 
-function buildModelPathCandidates({ modelFileName, moduleDir, execPath = process.execPath }: ResolveOnnxModelPathOptions): string[] {
+export function listOnnxModelPathCandidates({ modelFileName, moduleDir, execPath = process.execPath }: ResolveOnnxModelPathOptions): string[] {
     return [
         join(dirname(execPath), 'models', modelFileName),
         join(moduleDir, '../../../../../deployments/common/models', modelFileName),
@@ -16,6 +16,7 @@ function buildModelPathCandidates({ modelFileName, moduleDir, execPath = process
 }
 
 export function resolveOnnxModelPath(options: ResolveOnnxModelPathOptions): string {
-    const matchingPath = buildModelPathCandidates(options).find((candidatePath) => existsSync(candidatePath));
-    return matchingPath ?? buildModelPathCandidates(options)[0];
+    const candidatePaths = listOnnxModelPathCandidates(options);
+    const matchingPath = candidatePaths.find((candidatePath) => existsSync(candidatePath));
+    return matchingPath ?? candidatePaths[0];
 }

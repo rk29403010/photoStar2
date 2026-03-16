@@ -13,7 +13,6 @@ export type ActiveCounterMode = 'task_queue' | 'jobs_running';
 type MediaBatchEvent =
     | 'PreviewRequested'
     | 'FaceDetectionRequested'
-    | 'FaceRecognitionRequested'
     | 'SensitiveScanRequested'
     | 'AiMetadataRequested'
     | 'AiMetadataV2Requested';
@@ -85,7 +84,6 @@ export interface WorkflowModuleDefinition {
 const MEDIA_BATCH_EVENTS = new Set<MediaBatchEvent>([
     'PreviewRequested',
     'FaceDetectionRequested',
-    'FaceRecognitionRequested',
     'SensitiveScanRequested',
     'AiMetadataRequested',
     'AiMetadataV2Requested',

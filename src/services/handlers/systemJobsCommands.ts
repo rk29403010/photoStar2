@@ -36,7 +36,6 @@ type SystemJobBuildData = {
     doneScored: number;
     donePreviews: number;
     doneDetection: number;
-    doneRecognition: number;
     doneAiMetadata: number;
     doneAiMetadata31P: number;
     moduleErrorCounts: Record<string, number>;
@@ -61,7 +60,6 @@ function getClassStats(db: unknown) {
                 WHEN id LIKE 'scan-%' THEN 'scan'
                 WHEN id LIKE 'previews-%' THEN 'previews'
                 WHEN id LIKE 'detect-%' THEN 'detect'
-                WHEN id LIKE 'recog-%' THEN 'recog'
                 WHEN id LIKE 'cluster-%' THEN 'cluster'
                 WHEN id LIKE 'sensitive-%' THEN 'sensitive'
                 WHEN id LIKE 'ai_meta_v2_31p-%' THEN 'ai_meta_31p'
@@ -84,7 +82,6 @@ function getClassStats(db: unknown) {
                 WHEN id LIKE 'scan-%' THEN 'scan'
                 WHEN id LIKE 'previews-%' THEN 'previews'
                 WHEN id LIKE 'detect-%' THEN 'detect'
-                WHEN id LIKE 'recog-%' THEN 'recog'
                 WHEN id LIKE 'cluster-%' THEN 'cluster'
                 WHEN id LIKE 'sensitive-%' THEN 'sensitive'
                 WHEN id LIKE 'ai_meta_v2_31p-%' THEN 'ai_meta_31p'
@@ -121,7 +118,6 @@ function getClassStats(db: unknown) {
         scanStats: getFast('scan'),
         previewStats: getFast('previews'),
         detectStats: getFast('detect'),
-        recogStats: getFast('recog'),
         clusterStats: getFast('cluster'),
         aiMeta3FStats: getFast('ai_meta_3f'),
         aiMeta31PStats: getFast('ai_meta_31p'),
@@ -161,7 +157,6 @@ function getQueueStatus(db: unknown) {
     const runningByStage = {
         previews: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'previews-%'"),
         detection: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'detect-%'"),
-        recognition: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'recog-%'"),
         clustering: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'cluster-%'"),
         sensitive_scan: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'sensitive-%'"),
         ai_metadata_3f: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND (id LIKE 'ai_meta_v2_3f-%' OR id LIKE 'ai_meta_3f-%')"),
@@ -170,7 +165,7 @@ function getQueueStatus(db: unknown) {
         ai_metadata_v2_31p: getCount(typedDb, "SELECT COUNT(*) as count FROM jobs WHERE status = 'running' AND id LIKE 'ai_meta_v2_31p-%'"),
     };
 
-    const stageOrder = ['previews', 'detection', 'recognition', 'clustering', 'sensitive_scan', 'ai_metadata_v2_3f', 'ai_metadata_v2_31p', 'ai_metadata_3f', 'ai_metadata_31p'];
+    const stageOrder = ['previews', 'detection', 'clustering', 'sensitive_scan', 'ai_metadata_v2_3f', 'ai_metadata_v2_31p', 'ai_metadata_3f', 'ai_metadata_31p'];
     const queueByStage = new Map(queueRows.map((row) => [row.pipeline_stage, row]));
     const allQueueStages = Array.from(new Set([...stageOrder, ...queueRows.map((row) => row.pipeline_stage)]));
 
@@ -289,20 +284,6 @@ function buildDetectionCard(data: SystemJobBuildData) {
     });
 }
 
-function buildRecognitionCard(data: SystemJobBuildData) {
-    return createSystemJobCard({
-        id: 'class-mapping',
-        stage: 'analysis',
-        title: 'Face Recognition',
-        active: data.classStats.recogStats,
-        done: data.doneRecognition,
-        total: data.doneDetection,
-        isPaused: data.pausedModuleIds.has('class-mapping'),
-        errorCount: data.moduleErrorCounts['class-mapping'] || 0,
-        canPause: true,
-    });
-}
-
 function buildClusteringCard(data: SystemJobBuildData) {
     return createSystemJobCard({
         id: 'class-clustering',
@@ -310,7 +291,7 @@ function buildClusteringCard(data: SystemJobBuildData) {
         title: 'Face Clustering',
         active: data.classStats.clusterStats,
         done: 0,
-        total: data.doneRecognition,
+        total: 0,
         isPaused: data.pausedModuleIds.has('class-clustering'),
         errorCount: data.moduleErrorCounts['class-clustering'] || 0,
         canPause: true,
@@ -364,7 +345,6 @@ function buildSystemJobs(data: SystemJobBuildData) {
         buildOnboardingCard(data),
         buildPreviewCard(data),
         buildDetectionCard(data),
-        buildRecognitionCard(data),
         buildClusteringCard(data),
         buildSensitiveCard(data),
         buildAiMetadata3FCard(data),
@@ -396,7 +376,6 @@ export const systemJobsCommandHandlers: CommandHandlerMap = {
                 doneScored,
                 donePreviews,
                 doneDetection: derivedCounts.face_detection || 0,
-                doneRecognition: derivedCounts.face_recognition || 0,
                 doneAiMetadata: derivedCounts.ai_metadata || 0,
                 doneAiMetadata31P,
                 moduleErrorCounts: getDashboardModuleErrorCounts(db),

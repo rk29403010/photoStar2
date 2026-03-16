@@ -120,7 +120,9 @@ export class Coordinator {
             case 'auto_preview_off':
                 return this.db.getSetting('workflow_generate_previews_on_ingest') === 'false';
             case 'face_count_positive':
-                return event.type === 'FacesDetected' && event.faceCount > 0;
+                return event.type === 'FacesDetected'
+                    && event.faceCount > 0
+                    && event.source !== 'workflow_runtime';
             default:
                 return false;
         }
@@ -212,35 +214,6 @@ export class Coordinator {
         }
     }
 
-    private cleanupRecognitionTasks(event: DomainEvent) {
-        if (event.type !== 'JobCompleted' || event.pipelineStage !== 'recognition') {
-            return;
-        }
-
-        this.db.getDb().transaction(() => {
-            // Mark any remaining 'processing' recognition rows as completed
-            const stuck = this.db.getDb().prepare(
-                `UPDATE task_queue SET status = 'completed' WHERE pipeline_stage = 'recognition' AND status = 'processing'`
-            ).run();
-
-            if (stuck.changes > 0) {
-                console.error(`[Coordinator] Cleaned up ${stuck.changes} stuck recognition task(s).`);
-            }
-
-            // Ensure at least one clustering row exists so evaluateQueue picks it up.
-            // Use the first asset that has recognition data as the trigger row.
-            const anyAsset = this.db.getDb().prepare(
-                `SELECT asset_id FROM derived_results WHERE task = 'face_recognition' LIMIT 1`
-            ).get() as { asset_id: string } | undefined;
-
-            if (anyAsset) {
-                this.db.getDb().prepare(
-                    `INSERT OR IGNORE INTO task_queue (media_id, pipeline_stage) VALUES (?, 'clustering')`
-                ).run(anyAsset.asset_id);
-            }
-        })();
-    }
-
     private onJobCompleted(event: DomainEvent) {
         if (this.shouldImmediatelyEvaluateOnCompletion(event)) {
             this.triggerEvaluateQueue(true);
@@ -250,7 +223,6 @@ export class Coordinator {
         if (!this.finalizeOwnedBatchFailure(event)) {
             this.finalizeLegacyAiMetadataTasks(event);
         }
-        this.cleanupRecognitionTasks(event);
 
         this.triggerEvaluateQueue();
     }
@@ -327,7 +299,6 @@ export class Coordinator {
         const pausedStageMap: Partial<Record<QueueStage, string>> = {
             previews: 'class-previews',
             detection: 'class-detection',
-            recognition: 'class-mapping',
             clustering: 'class-clustering',
             sensitive_scan: 'class-sensitive',
             ai_metadata_3f: 'class-aimetadata-3f',
@@ -478,9 +449,6 @@ export class Coordinator {
                 return;
             case 'FaceDetectionRequested':
                 this.eventBus.emit({ type: 'FaceDetectionRequested', mediaIds });
-                return;
-            case 'FaceRecognitionRequested':
-                this.eventBus.emit({ type: 'FaceRecognitionRequested', mediaIds });
                 return;
             case 'SensitiveScanRequested':
                 this.eventBus.emit({ type: 'SensitiveScanRequested', mediaIds });

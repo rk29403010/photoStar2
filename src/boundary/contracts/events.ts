@@ -46,6 +46,7 @@ export type FacesDetected = {
     type: "FacesDetected";
     mediaId: string;
     faceCount: number;
+    source?: 'legacy_pipeline' | 'workflow_runtime';
 };
 
 export type FaceEmbeddingGenerated = {
