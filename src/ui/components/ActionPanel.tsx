@@ -19,6 +19,7 @@ interface ActionPanelProps {
     onBuildGroups: () => void;
     onBuildBursts: () => void;
     onOpenSettings: () => void;
+    onOpenWorkflowVisualiser: () => void;
     folderHistory?: { path: string, last_scanned_at: string }[];
 }
 
@@ -110,8 +111,8 @@ function PipelineColumn(props: Pick<ActionPanelProps, 'onClose' | 'onPreviews' |
     );
 }
 
-function AnalysisAndMaintenanceColumn(props: Pick<ActionPanelProps, 'onClose' | 'onBuildGroups' | 'onBuildBursts' | 'onRefresh' | 'onResetFaces' | 'onResetAll' | 'onFactoryReset' | 'onOpenSettings'>) {
-    const { onClose, onBuildGroups, onBuildBursts, onRefresh, onResetFaces, onResetAll, onFactoryReset, onOpenSettings } = props;
+function AnalysisAndMaintenanceColumn(props: Pick<ActionPanelProps, 'onClose' | 'onBuildGroups' | 'onBuildBursts' | 'onRefresh' | 'onResetFaces' | 'onResetAll' | 'onFactoryReset' | 'onOpenSettings' | 'onOpenWorkflowVisualiser'>) {
+    const { onClose, onBuildGroups, onBuildBursts, onRefresh, onResetFaces, onResetAll, onFactoryReset, onOpenSettings, onOpenWorkflowVisualiser } = props;
     return (
         <div className="space-y-8">
             <section>
@@ -124,6 +125,7 @@ function AnalysisAndMaintenanceColumn(props: Pick<ActionPanelProps, 'onClose' | 
 
             <section>
                 <h3 className="text-xs font-bold text-gray-300 uppercase tracking-[0.2em] mb-4 flex items-center"><span className="w-1.5 h-1.5 bg-gray-300 rounded-full mr-2" />Maintenance</h3>
+                <button onClick={() => { onOpenWorkflowVisualiser(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] rounded-lg transition-all group mb-3"><div className="flex items-center justify-between mb-1"><span className="font-medium">Workflow Visualiser</span><span className="text-lg">🗺️</span></div><p className="text-[10px] text-gray-300 leading-relaxed">Open the dedicated workflow workspace for runtime-native orchestration</p></button>
                 <button onClick={() => { onOpenSettings(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] rounded-lg transition-all group mb-3"><div className="flex items-center justify-between mb-1"><span className="font-medium">Application Settings</span><span className="text-lg">⚙️</span></div><p className="text-[10px] text-gray-300 leading-relaxed">Open the settings dialog for UI and database configuration</p></button>
                 <button onClick={() => { onRefresh(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] rounded-lg transition-all group"><div className="flex items-center justify-between mb-1"><span className="font-medium">Refresh Library</span><span className="text-lg">🔄</span></div><p className="text-[10px] text-gray-300 leading-relaxed">Sync database with filesystem changes</p></button>
             </section>
@@ -161,7 +163,7 @@ export function ActionPanel(props: ActionPanelProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     <IngestionColumn onScan={props.onScan} onClose={props.onClose} folderHistory={props.folderHistory} onStopScan={props.onStopScan} />
                     <PipelineColumn onClose={props.onClose} onPreviews={props.onPreviews} onDetect={props.onDetect} onRecognise={props.onRecognise} onCluster={props.onCluster} onScanSensitive={props.onScanSensitive} onScanSensitiveAll={props.onScanSensitiveAll} onExtractAiMetadata={props.onExtractAiMetadata} />
-                    <AnalysisAndMaintenanceColumn onClose={props.onClose} onBuildGroups={props.onBuildGroups} onBuildBursts={props.onBuildBursts} onRefresh={props.onRefresh} onResetFaces={props.onResetFaces} onResetAll={props.onResetAll} onFactoryReset={props.onFactoryReset} onOpenSettings={props.onOpenSettings} />
+                    <AnalysisAndMaintenanceColumn onClose={props.onClose} onBuildGroups={props.onBuildGroups} onBuildBursts={props.onBuildBursts} onRefresh={props.onRefresh} onResetFaces={props.onResetFaces} onResetAll={props.onResetAll} onFactoryReset={props.onFactoryReset} onOpenSettings={props.onOpenSettings} onOpenWorkflowVisualiser={props.onOpenWorkflowVisualiser} />
                 </div>
             </div>
         </div>

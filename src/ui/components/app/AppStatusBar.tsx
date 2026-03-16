@@ -6,7 +6,7 @@ interface AppStatusBarProps {
   statusMessage: string | null;
   activityMessage?: string | null;
   status: string;
-  view: 'library' | 'people' | 'dashboard' | 'albums';
+  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
   librarySelectionCount: number;
   shownAssetsCount: number;
   peopleSelectionCount: number;

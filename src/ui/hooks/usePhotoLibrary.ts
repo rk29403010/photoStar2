@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import type { Asset } from '@contracts/core';
+import type { DevRuntimeImpact } from '@contracts/devRuntime';
 import type { PipelineStage } from '@contracts/jobs';
+import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import { useJobManager } from './useJobManager';
 import { usePhotoLibraryState } from './usePhotoLibrary.state';
 import { usePhotoLibraryConnection } from '@boundary/runtime/usePhotoLibrary.connection';
@@ -200,13 +202,14 @@ function useRefreshActions(params: {
 function useCoreActions(params: {
     transport: PhotoLibraryState['transport'];
     sendCommand: SendCommandFn;
+    request: RequestFn;
     setAssets: PhotoLibraryState['setAssets'];
     setRejectedAssets: PhotoLibraryState['setRejectedAssets'];
     setFilterStack: PhotoLibraryState['setFilterStack'];
     filterStackRef: PhotoLibraryState['filterStackRef'];
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
 }) {
-    const { transport, sendCommand, setAssets, setRejectedAssets, setFilterStack, filterStackRef, refreshLibrary } = params;
+    const { transport, sendCommand, request, setAssets, setRejectedAssets, setFilterStack, filterStackRef, refreshLibrary } = params;
 
     const updateFilterStack = useCallback((newStack: LibraryFilter[]) => {
         setFilterStack(newStack);
@@ -248,10 +251,23 @@ function useCoreActions(params: {
         isolatePersonAsset: (assetId: string, personId: string) => sendCommand('isolate_person_asset', { assetId, personId }),
         getRejectedAssetsForPerson,
         updateAsset: (id: string, partial: Partial<Asset>) => setAssets((prev) => prev.map((asset) => asset.id === id ? { ...asset, ...partial } : asset)),
+        getWorkflowVisualiser: (workflowId: string, runId?: string | null): Promise<WorkflowVisualiserModel> => request<WorkflowVisualiserModel>({
+            idPrefix: `get_workflow_visualiser_${workflowId}_${runId === undefined ? 'default' : runId === null ? 'definition' : runId}`,
+            command: 'get_workflow_visualiser',
+            payload: runId === undefined ? { workflowId } : { workflowId, runId },
+            timeoutMs: 10000,
+            select: (data) => data as unknown as WorkflowVisualiserModel,
+        }),
+        getDevRuntimeImpact: (): Promise<DevRuntimeImpact> => request<DevRuntimeImpact>({
+            idPrefix: 'get_dev_runtime_impact',
+            command: 'get_dev_runtime_impact',
+            timeoutMs: 10000,
+            select: (data) => data as unknown as DevRuntimeImpact,
+        }),
         pushFilter,
         popFilter,
         clearFilters,
-    }), [clearFilters, getRejectedAssetsForPerson, popFilter, pushFilter, sendCommand, setAssets]);
+    }), [clearFilters, getRejectedAssetsForPerson, popFilter, pushFilter, request, sendCommand, setAssets]);
 }
 
 function useScanWorkflowActions(params: {
@@ -414,6 +430,7 @@ function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage
     const coreActions = useCoreActions({
         transport: state.transport,
         sendCommand,
+        request,
         setAssets: state.setAssets,
         setRejectedAssets: state.setRejectedAssets,
         setFilterStack: state.setFilterStack,

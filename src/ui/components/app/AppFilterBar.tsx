@@ -2,7 +2,7 @@ import { PERSON_COLORS } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 
 interface AppFilterBarProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums';
+  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
   filterStack: LibraryFilter[];
   librarySelection: Set<string>;
   showRejected: boolean;

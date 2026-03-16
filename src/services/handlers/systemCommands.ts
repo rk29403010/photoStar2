@@ -16,6 +16,7 @@ import {
     getPausedDashboardModuleIds,
     setPausedDashboardModuleIds,
 } from './systemDashboardModules';
+import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
 
 function respondError(ctx: CommandContext, error: unknown) {
     ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
@@ -251,6 +252,14 @@ function resetLibrary(ctx: CommandContext, mode: ResetMode) {
 export const systemCommandHandlers: CommandHandlerMap = {
     ping: (ctx) => {
         ctx.respond(ctx.id, 'ok', { message: 'pong', timestamp: Date.now() }, null, ctx.originWs);
+    },
+    get_dev_runtime_impact: (ctx) => {
+        try {
+            const impact = getDevRuntimeImpact();
+            ctx.respond(ctx.id, 'ok', impact, null, ctx.originWs);
+        } catch (error) {
+            respondError(ctx, error);
+        }
     },
 
     scan_folder: (ctx) => {

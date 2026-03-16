@@ -1,3 +1,6 @@
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
 const DEFAULT_WEB_PORT = 5173;
 const DEFAULT_BACKEND_PORT = 5174;
 const MAX_PORT = 65_535;
@@ -10,6 +13,19 @@ const LEVEL_WEIGHT = {
   'manual-restart': 3,
   reinstall: 4,
 };
+const DEPENDENCY_PACKAGE_KEYS = [
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies',
+  'peerDependencies',
+  'bundleDependencies',
+  'bundledDependencies',
+  'overrides',
+  'resolutions',
+  'packageManager',
+  'engines',
+  'volta',
+];
 
 function parsePort(rawValue, fallbackPort) {
   if (typeof rawValue !== 'string') {
@@ -71,17 +87,84 @@ function createImpact(level, summary, reason) {
   };
 }
 
-function getImpactForPath(filePath) {
+function safeParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function readPackageJsonFromHead(cwd) {
+  const result = spawnSync('git', ['show', 'HEAD:package.json'], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: true,
+  });
+
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+
+  return safeParseJson(result.stdout || '');
+}
+
+function readCurrentPackageJson(cwd) {
+  try {
+    return safeParseJson(readFileSync(`${cwd}/package.json`, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function packageFieldChanged(previousPackageJson, currentPackageJson, field) {
+  return JSON.stringify(previousPackageJson?.[field] ?? null) !== JSON.stringify(currentPackageJson?.[field] ?? null);
+}
+
+function packageJsonNeedsReinstall(cwd) {
+  const previousPackageJson = readPackageJsonFromHead(cwd);
+  const currentPackageJson = readCurrentPackageJson(cwd);
+
+  if (!previousPackageJson || !currentPackageJson) {
+    return true;
+  }
+
+  return DEPENDENCY_PACKAGE_KEYS.some((field) => packageFieldChanged(previousPackageJson, currentPackageJson, field));
+}
+
+function isDependencyMetadataPath(normalizedPath, cwd) {
+  if (normalizedPath === 'package-lock.json') {
+    return true;
+  }
+
+  if (normalizedPath !== 'package.json') {
+    return false;
+  }
+
+  return packageJsonNeedsReinstall(cwd);
+}
+
+function isPackageMetadataPath(normalizedPath) {
+  return normalizedPath === 'package.json';
+}
+
+function getImpactForPath(filePath, cwd = process.cwd()) {
   const normalizedPath = normalizePath(filePath);
 
-  if (
-    normalizedPath === 'package-lock.json'
-    || normalizedPath === 'package.json'
-  ) {
+  if (isDependencyMetadataPath(normalizedPath, cwd)) {
     return createImpact(
       'reinstall',
       'Reinstall dependencies, then restart the dev runtime.',
       'Dependency metadata changed.'
+    );
+  }
+
+  if (isPackageMetadataPath(normalizedPath)) {
+    return createImpact(
+      'manual-restart',
+      'Restart the dev runtime to reload package script and tool metadata changes.',
+      'Package metadata changed.'
     );
   }
 
@@ -157,7 +240,7 @@ export function resolveDevRuntimePorts(env = process.env, cwd = process.cwd()) {
   };
 }
 
-export function classifyRestartImpact(filePaths) {
+export function classifyRestartImpact(filePaths, cwd = process.cwd()) {
   const uniquePaths = [...new Set((filePaths ?? []).filter(Boolean).map((filePath) => String(filePath)))];
   if (uniquePaths.length === 0) {
     return {
@@ -177,7 +260,7 @@ export function classifyRestartImpact(filePaths) {
   const reasons = new Set();
 
   for (const filePath of uniquePaths) {
-    const impact = getImpactForPath(filePath);
+    const impact = getImpactForPath(filePath, cwd);
     reasons.add(impact.reason);
 
     if (LEVEL_WEIGHT[impact.level] > LEVEL_WEIGHT[selectedImpact.level]) {

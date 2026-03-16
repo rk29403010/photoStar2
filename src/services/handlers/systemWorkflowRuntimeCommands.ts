@@ -1,4 +1,5 @@
 import type { CommandHandlerMap, CommandContext } from './types';
+import { getWorkflowVisualiserModel } from './systemWorkflowVisualiser';
 
 function getWorkflowRuntime(ctx: CommandContext) {
     if (!ctx.workflowRuntime) {
@@ -42,5 +43,17 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         const payload = ctx.payload as { runId: string };
         const detail = workflowRuntime.store.getRunDetail(payload.runId);
         ctx.respond(ctx.id, 'ok', detail, null, ctx.originWs);
+    },
+    get_workflow_visualiser: (ctx) => {
+        const workflowRuntime = getWorkflowRuntime(ctx);
+        const payload = ctx.payload as { workflowId: string; runId?: string | null } | undefined;
+        const workflowDefinition = workflowRuntime.workflows.get(String(payload?.workflowId ?? ''));
+        const model = getWorkflowVisualiserModel({
+            db: ctx.dbManager.getDb(),
+            workflowDefinition,
+            getRunDetail: (runId) => workflowRuntime.store.getRunDetail(runId),
+            requestedRunId: payload?.runId,
+        });
+        ctx.respond(ctx.id, 'ok', model, null, ctx.originWs);
     },
 };
