@@ -66,6 +66,24 @@ function loadVariantEligibleAssets(db: DbHandle): GroupingSimilarityAsset[] {
     `).all() as GroupingSimilarityAsset[];
 }
 
+function isVariantMatch(
+    left: Pick<GroupingSimilarityAsset, 'phash64' | 'dhash64'>,
+    right: Pick<GroupingSimilarityAsset, 'phash64' | 'dhash64'>,
+    threshold: number,
+): { distance: number; matches: boolean } {
+    const perceptualDistance = hammingDistance(left.phash64, right.phash64);
+    if (perceptualDistance > threshold) {
+        return { distance: perceptualDistance, matches: false };
+    }
+
+    const differenceDistance = hammingDistance(left.dhash64, right.dhash64);
+    if (differenceDistance > threshold) {
+        return { distance: perceptualDistance, matches: false };
+    }
+
+    return { distance: perceptualDistance, matches: true };
+}
+
 function collectReachableVariantAssetIds(
     assets: GroupingSimilarityAsset[],
     changedAssetIds: string[],
@@ -97,8 +115,8 @@ function collectReachableVariantAssetIds(
             if (candidate.id === current.id) {
                 continue;
             }
-            const distance = hammingDistance(current.phash64, candidate.phash64);
-            if (distance > threshold) {
+            const match = isVariantMatch(current, candidate, threshold);
+            if (!match.matches) {
                 continue;
             }
             if (visited.has(candidate.id)) {
@@ -119,8 +137,8 @@ function buildVariantEdges(assets: GroupingSimilarityAsset[], threshold: number)
         const current = assets[index];
         for (let candidateIndex = index + 1; candidateIndex < assets.length; candidateIndex += 1) {
             const candidate = assets[candidateIndex];
-            const distance = hammingDistance(current.phash64, candidate.phash64);
-            if (distance > threshold) {
+            const match = isVariantMatch(current, candidate, threshold);
+            if (!match.matches) {
                 continue;
             }
             const [leftId, rightId] = current.id.localeCompare(candidate.id) <= 0
@@ -129,8 +147,8 @@ function buildVariantEdges(assets: GroupingSimilarityAsset[], threshold: number)
             edges.push({
                 leftId,
                 rightId,
-                distance,
-                score: 1 - (distance / 64),
+                distance: match.distance,
+                score: 1 - (match.distance / 64),
             });
         }
     }

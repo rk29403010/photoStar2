@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { formatForEventLog } from '@shared/utils/eventLogSummary';
 import {
+    createConsoleEntryIdFactory,
     createUnreadConsoleCounts,
     getConsoleToggleTone,
     getNextUnreadConsoleCounts,
+    normalizeConsoleMessage,
     type ConsoleEntryLevel,
     type UnreadConsoleCounts,
 } from './devConsoleModel';
@@ -16,18 +18,19 @@ interface ConsoleEntry {
 }
 
 type ConsoleFilter = 'all' | 'log' | 'warn' | 'error';
-
-let entryId = 0;
+const WARN_AMBER = '#f59e0b';
+const TIMESTAMP_COLOR = '#94a3b8';
 
 function useConsoleCapture() {
     const [entries, setEntries] = useState<ConsoleEntry[]>([]);
     const [unreadCounts, setUnreadCounts] = useState<UnreadConsoleCounts>(createUnreadConsoleCounts);
+    const nextEntryIdRef = useRef(createConsoleEntryIdFactory());
 
     const addEntry = useCallback((level: ConsoleEntryLevel, args: unknown[]) => {
-        const message = args.map((arg) => formatForEventLog(arg)).join(' ');
+        const message = normalizeConsoleMessage(args.map((arg) => formatForEventLog(arg)).join(' '));
 
         const entry: ConsoleEntry = {
-            id: ++entryId,
+            id: nextEntryIdRef.current(),
             level,
             message,
             timestamp: new Date().toLocaleTimeString('en-GB', {
@@ -77,8 +80,8 @@ function DevConsoleToggle({
     onClick: () => void;
 }) {
     const tone = getConsoleToggleTone(unreadCounts);
-    const borderColor = tone === 'error' ? '#ef4444' : tone === 'warning' ? '#f59e0b' : '#334155';
-    const textColor = tone === 'error' ? '#f87171' : tone === 'warning' ? '#fbbf24' : '#94a3b8';
+    const borderColor = tone === 'error' ? '#ef4444' : tone === 'warning' ? WARN_AMBER : '#334155';
+    const textColor = tone === 'error' ? '#f87171' : tone === 'warning' ? WARN_AMBER : '#94a3b8';
 
     return (
         <button
@@ -102,7 +105,7 @@ function DevConsoleToggle({
                 </span>
             )}
             {unreadCounts.warnings > 0 && (
-                <span style={{ background: '#f59e0b', color: '#111827', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: 700 }}>
+                <span style={{ background: WARN_AMBER, color: '#111827', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: 700 }}>
                     W {unreadCounts.warnings}
                 </span>
             )}
@@ -114,14 +117,14 @@ function DevConsoleToggle({
 const LEVEL_COLOR: Record<ConsoleEntry['level'], string> = {
     log: '#94a3b8',
     info: '#60a5fa',
-    warn: '#fbbf24',
+    warn: WARN_AMBER,
     error: '#f87171'
 };
 
 const LEVEL_BACKGROUND: Record<ConsoleEntry['level'], string> = {
     log: 'transparent',
     info: 'transparent',
-    warn: 'rgba(251,191,36,0.05)',
+    warn: 'rgba(245,158,11,0.08)',
     error: 'rgba(248,113,113,0.07)'
 };
 
@@ -154,7 +157,7 @@ function FilterButton({
                 background: active ? '#1e293b' : 'transparent',
                 border: `1px solid ${active ? '#334155' : 'transparent'}`,
                 borderRadius: '4px',
-                color: level === 'error' ? '#f87171' : level === 'warn' ? '#fbbf24' : '#64748b',
+                color: level === 'error' ? '#f87171' : level === 'warn' ? WARN_AMBER : '#64748b',
                 padding: '2px 8px',
                 cursor: 'pointer',
                 fontSize: '10px',
@@ -173,13 +176,13 @@ function ConsoleEntryRow({ entry }: { entry: ConsoleEntry }) {
             display: 'flex', gap: '8px', padding: '2px 12px', borderBottom: '1px solid rgba(255,255,255,0.02)',
             background: LEVEL_BACKGROUND[entry.level], alignItems: 'flex-start'
         }}>
-            <span style={{ color: '#334155', flexShrink: 0, fontSize: '10px', paddingTop: '1px', userSelect: 'none' }}>{entry.timestamp}</span>
+            <span style={{ color: TIMESTAMP_COLOR, flexShrink: 0, fontSize: '10px', paddingTop: '1px', userSelect: 'none' }}>{entry.timestamp}</span>
             <span style={{
                 color: LEVEL_COLOR[entry.level], flexShrink: 0, width: '36px', fontSize: '10px',
                 fontWeight: 600, paddingTop: '1px', userSelect: 'none', textTransform: 'uppercase'
             }}>{entry.level}</span>
             <span style={{
-                color: entry.level === 'error' ? '#fca5a5' : entry.level === 'warn' ? '#fde68a' : '#cbd5e1',
+                color: entry.level === 'error' ? '#fca5a5' : entry.level === 'warn' ? WARN_AMBER : '#cbd5e1',
                 wordBreak: 'break-all', whiteSpace: 'pre-wrap', lineHeight: 1.5
             }}>{entry.message}</span>
         </div>

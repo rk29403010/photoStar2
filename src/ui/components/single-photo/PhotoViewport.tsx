@@ -6,9 +6,10 @@ import { usePanZoom } from '../../hooks/usePanZoom';
 import { FaceOverlayMap } from './FaceOverlayMap';
 import { ActionOverlays } from './ActionOverlays';
 import { VariantFilmstrip } from './VariantFilmstrip';
+import { shouldShowVariantFilmstrip } from './variantFilmstripModel';
 export interface PanelState { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json') => void }
 export interface AnalysisState { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
-interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
+interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>; onOrbitLoaded: (assets: Asset[]) => void; onSelectAsset: (assetId: string) => void; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
 
 type GroupActionHandlers = {
     handleSetCanonical: (groupId: string, newCanonicalId: string) => Promise<void>;
@@ -56,24 +57,22 @@ function useKeyboardNavigation(params: {
     }, [assetsLength, onClose, onChangeIndex, resetPanZoom, setShowInfoPanel, showInfoPanel]);
 }
 
-function useViewportGroupActions(onClose: () => void, onSetCanonical?: PhotoViewportProps['onSetCanonical'], onExplodeGroup?: PhotoViewportProps['onExplodeGroup']): GroupActionHandlers {
+function useViewportGroupActions(onSetCanonical?: PhotoViewportProps['onSetCanonical'], onExplodeGroup?: PhotoViewportProps['onExplodeGroup']): GroupActionHandlers {
     const handleSetCanonical = useCallback(async (groupId: string, newCanonicalId: string) => {
         try {
             if (onSetCanonical) {await onSetCanonical(groupId, newCanonicalId);}
-            onClose();
         } catch (e) {
             console.error('Failed to set canonical:', e);
         }
-    }, [onClose, onSetCanonical]);
+    }, [onSetCanonical]);
 
     const handleExplodeGroup = useCallback(async (groupId: string) => {
         try {
             if (onExplodeGroup) {await onExplodeGroup(groupId);}
-            onClose();
         } catch (e) {
             console.error('Failed to explode group:', e);
         }
-    }, [onClose, onExplodeGroup]);
+    }, [onExplodeGroup]);
 
     return { handleSetCanonical, handleExplodeGroup };
 }
@@ -127,7 +126,7 @@ const ZoomableStage: FC<{
                 justifyContent: 'center',
                 alignItems: 'center',
                 maxWidth: '100%',
-                maxHeight: '100vh',
+                maxHeight: '100%',
                 aspectRatio: (asset?.width && asset?.height) ? `${asset.width} / ${asset.height}` : 'auto',
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
                 transition: isDragging ? 'none' : 'transform 0.15s ease-out',
@@ -166,6 +165,8 @@ const ViewportActions: FC<{
     onClose: () => void;
     onChangeIndex: (delta: -1 | 1) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     analysis: AnalysisState;
@@ -186,6 +187,8 @@ const ViewportActions: FC<{
     onClose,
     onChangeIndex,
     onSetSensitivity,
+    onSetCanonical,
+    onExplodeGroup,
     onExtractAiMetadata,
     onOpenSettings,
     analysis
@@ -209,6 +212,8 @@ const ViewportActions: FC<{
         onPrevious={() => onChangeIndex(-1)}
         onNext={() => onChangeIndex(1)}
         onSetSensitivity={onSetSensitivity}
+        onSetCanonical={onSetCanonical}
+        onExplodeGroup={onExplodeGroup}
         onExtractAiMetadata={onExtractAiMetadata}
         onOpenSettings={onOpenSettings}
         analysisState={analysis.analysisState}
@@ -224,18 +229,18 @@ const ViewportActions: FC<{
 const VariantFilmstripOverlay: FC<{
     asset: Asset;
     onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
-    handleSetCanonical: (groupId: string, newCanonicalId: string) => Promise<void>;
-    handleExplodeGroup: (groupId: string) => Promise<void>;
-}> = ({ asset, onGetGroupOrbit, handleSetCanonical, handleExplodeGroup }) => {
-    if (!(asset.group_id && asset.stack_count && asset.stack_count > 1 && onGetGroupOrbit)) {return null;}
+    onOrbitLoaded: (assets: Asset[]) => void;
+    onSelectAsset: (assetId: string) => void;
+}> = ({ asset, onGetGroupOrbit, onOrbitLoaded, onSelectAsset }) => {
+    if (!shouldShowVariantFilmstrip({ groupId: asset.group_id, hasOrbitLoader: Boolean(onGetGroupOrbit) })) {return null;}
 
     return (
         <VariantFilmstrip
-            groupId={asset.group_id}
-            canonicalAssetId={asset.id}
-            onGetGroupOrbit={onGetGroupOrbit}
-            onSetCanonical={handleSetCanonical}
-            onExplodeGroup={handleExplodeGroup}
+            groupId={asset.group_id!}
+            selectedAssetId={asset.id}
+            onGetGroupOrbit={onGetGroupOrbit!}
+            onOrbitLoaded={onOrbitLoaded}
+            onSelectAsset={onSelectAsset}
         />
     );
 };
@@ -267,18 +272,20 @@ type PhotoViewportFrameProps = {
     onClose: () => void;
     onChangeIndex: (delta: -1 | 1) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     analysis: AnalysisState;
     onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
-    handleSetCanonical: (groupId: string, newCanonicalId: string) => Promise<void>;
-    handleExplodeGroup: (groupId: string) => Promise<void>;
+    onOrbitLoaded: (assets: Asset[]) => void;
+    onSelectAsset: (assetId: string) => void;
     onRevealControls: () => void;
 };
 
-const frameStyle = { flex: 1, height: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' } as const;
+const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' } as const;
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'handleSetCanonical' | 'handleExplodeGroup'>> = ({
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'>> = ({
     asset,
     assetsLength,
     currentIndex,
@@ -295,12 +302,14 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
     onClose,
     onChangeIndex,
     onSetSensitivity,
+    onSetCanonical,
+    onExplodeGroup,
     onExtractAiMetadata,
     onOpenSettings,
     analysis,
     onGetGroupOrbit,
-    handleSetCanonical,
-    handleExplodeGroup,
+    onOrbitLoaded,
+    onSelectAsset,
 }) => (
     <>
         <ViewportActions
@@ -320,6 +329,8 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
             onClose={onClose}
             onChangeIndex={onChangeIndex}
             onSetSensitivity={onSetSensitivity}
+            onSetCanonical={onSetCanonical}
+            onExplodeGroup={onExplodeGroup}
             onExtractAiMetadata={onExtractAiMetadata}
             onOpenSettings={onOpenSettings}
             analysis={analysis}
@@ -328,11 +339,22 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
         <VariantFilmstripOverlay
             asset={asset}
             onGetGroupOrbit={onGetGroupOrbit}
-            handleSetCanonical={handleSetCanonical}
-            handleExplodeGroup={handleExplodeGroup}
+            onOrbitLoaded={onOrbitLoaded}
+            onSelectAsset={onSelectAsset}
         />
     </>
 );
+
+function buildFrameClickHandler(
+    showControls: boolean,
+    setShowControls: Dispatch<SetStateAction<boolean>>,
+    setShowActionMenu: Dispatch<SetStateAction<boolean>>
+) {
+    return () => {
+        setShowControls(!showControls);
+        setShowActionMenu(false);
+    };
+}
 
 const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
     containerRef,
@@ -361,19 +383,18 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
     onClose,
     onChangeIndex,
     onSetSensitivity,
+    onSetCanonical,
+    onExplodeGroup,
     onExtractAiMetadata,
     onOpenSettings,
     analysis,
     onGetGroupOrbit,
-    handleSetCanonical,
-    handleExplodeGroup,
+    onOrbitLoaded,
+    onSelectAsset,
     onRevealControls
 }) => {
     const alwaysShowForPanel = panelState.showInfoPanel && panelState.activeInfoTab === 'people';
-    const handleFrameClick = () => {
-        setShowControls(!showControls);
-        setShowActionMenu(false);
-    };
+    const handleFrameClick = buildFrameClickHandler(showControls, setShowControls, setShowActionMenu);
 
     return (
         <div ref={containerRef} style={frameStyle} onMouseMove={onRevealControls} onClick={handleFrameClick}>
@@ -394,7 +415,6 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
                 onFaceClick={onFaceClick}
                 onIsolateFace={onIsolateFace}
             />
-
             <ViewportDecorations
                 asset={asset}
                 assetsLength={assetsLength}
@@ -412,12 +432,14 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
                 onClose={onClose}
                 onChangeIndex={onChangeIndex}
                 onSetSensitivity={onSetSensitivity}
+                onSetCanonical={onSetCanonical}
+                onExplodeGroup={onExplodeGroup}
                 onExtractAiMetadata={onExtractAiMetadata}
                 onOpenSettings={onOpenSettings}
                 analysis={analysis}
                 onGetGroupOrbit={onGetGroupOrbit}
-                handleSetCanonical={handleSetCanonical}
-                handleExplodeGroup={handleExplodeGroup}
+                onOrbitLoaded={onOrbitLoaded}
+                onSelectAsset={onSelectAsset}
             />
         </div>
     );
@@ -427,7 +449,7 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scale, setScale, pan, setPan, isDragging, handleMouseDown, resetPanZoom } = usePanZoom(containerRef);
     const imgSrc = resolveImageUrl(props.asset?.original_path || props.asset?.preview_path);
-    const groupActions = useViewportGroupActions(props.onClose, props.onSetCanonical, props.onExplodeGroup);
+    const groupActions = useViewportGroupActions(props.onSetCanonical, props.onExplodeGroup);
 
     useKeyboardNavigation({
         assetsLength: props.assetsLength,
@@ -466,12 +488,14 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             onClose={props.onClose}
             onChangeIndex={props.onChangeIndex}
             onSetSensitivity={props.onSetSensitivity}
+            onSetCanonical={groupActions.handleSetCanonical}
+            onExplodeGroup={groupActions.handleExplodeGroup}
             onExtractAiMetadata={props.onExtractAiMetadata}
             onOpenSettings={props.onOpenSettings}
             analysis={props.analysis}
             onGetGroupOrbit={props.onGetGroupOrbit}
-            handleSetCanonical={groupActions.handleSetCanonical}
-            handleExplodeGroup={groupActions.handleExplodeGroup}
+            onOrbitLoaded={props.onOrbitLoaded}
+            onSelectAsset={props.onSelectAsset}
             onRevealControls={props.onRevealControls}
         />
     );

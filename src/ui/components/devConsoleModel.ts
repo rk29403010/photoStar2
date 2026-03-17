@@ -5,8 +5,22 @@ export interface UnreadConsoleCounts {
     errors: number;
 }
 
+const PHOTOSTAR_TIMELINE_PREFIX = /^\[PhotoStar timeline \+\d+ms\]\s*/;
+
+export function createConsoleEntryIdFactory(): () => number {
+    let nextId = 0;
+    return () => {
+        nextId += 1;
+        return nextId;
+    };
+}
+
 export function createUnreadConsoleCounts(): UnreadConsoleCounts {
     return { warnings: 0, errors: 0 };
+}
+
+export function normalizeConsoleMessage(message: string): string {
+    return message.replace(PHOTOSTAR_TIMELINE_PREFIX, '');
 }
 
 export function getNextUnreadConsoleCounts(

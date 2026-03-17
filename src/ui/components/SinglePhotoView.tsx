@@ -5,6 +5,7 @@ import type { BackgroundJob } from '@contracts/jobs';
 import { InfoPanel } from './single-photo/InfoPanel';
 import { PhotoViewport } from './single-photo/PhotoViewport';
 import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
+import { applyStarSelection, clearGroupMembership, dedupeSinglePhotoAssets, mergeSinglePhotoAssets, resolveSinglePhotoAssetIndex } from './single-photo/singlePhotoAssetModel';
 
 interface SinglePhotoViewProps {
     assets: Asset[];
@@ -46,6 +47,8 @@ interface SinglePhotoOverlayProps {
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
+    onOrbitLoaded: (assets: Asset[]) => void;
+    onSelectAsset: (assetId: string) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onChangeIndex: (delta: -1 | 1) => void;
@@ -66,6 +69,7 @@ type AnalysisUiBundle = {
 };
 type ControlsState = {
     currentIndex: number;
+    setCurrentIndex: Dispatch<SetStateAction<number>>;
     showControls: boolean;
     setShowControls: Dispatch<SetStateAction<boolean>>;
     showFaces: boolean;
@@ -80,6 +84,7 @@ type ControlsState = {
 
 const INFO_PANEL_WIDTH = 360;
 const CONTROLS_IDLE_MS = 2500;
+const APP_STATUS_BAR_HEIGHT = 30;
 
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
@@ -171,6 +176,7 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
 
     return {
         currentIndex,
+        setCurrentIndex,
         showControls,
         setShowControls,
         showFaces,
@@ -282,6 +288,39 @@ function buildAnalysisState(bundle: AnalysisUiBundle): AnalysisState {
     };
 }
 
+function useSinglePhotoAssetState(params: {
+    assets: Asset[];
+    initialIndex: number;
+    onSetCanonical?: (groupId: string, assetId: string, asset: Asset) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
+}) {
+    const { assets, initialIndex, onSetCanonical, onExplodeGroup } = params;
+    const [orbitAssets, setOrbitAssets] = useState<Asset[]>([]);
+    const viewAssets = mergeSinglePhotoAssets(assets, orbitAssets);
+    const initialAssetId = assets[initialIndex]?.id ?? null;
+    const initialViewIndex = initialAssetId ? Math.max(resolveSinglePhotoAssetIndex(viewAssets, initialAssetId), 0) : initialIndex;
+    const handleOrbitLoaded = useCallback((nextOrbitAssets: Asset[]) => {
+        setOrbitAssets(dedupeSinglePhotoAssets(nextOrbitAssets));
+    }, []);
+
+    const handleSetCanonical = useCallback(async (groupId: string, assetId: string) => {
+        const selectedAsset = viewAssets.find((asset) => asset.id === assetId);
+        if (!selectedAsset) {
+            return;
+        }
+
+        await onSetCanonical?.(groupId, assetId, selectedAsset);
+        setOrbitAssets((previousOrbitAssets) => applyStarSelection(previousOrbitAssets, groupId, assetId));
+    }, [onSetCanonical, viewAssets]);
+
+    const handleExplodeGroup = useCallback(async (groupId: string) => {
+        await onExplodeGroup?.(groupId);
+        setOrbitAssets((previousOrbitAssets) => clearGroupMembership(previousOrbitAssets, groupId));
+    }, [onExplodeGroup]);
+
+    return { viewAssets, initialViewIndex, handleOrbitLoaded, handleSetCanonical, handleExplodeGroup };
+}
+
 const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
     asset,
     assets,
@@ -302,6 +341,8 @@ const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
     onExtractAiMetadata,
     onOpenSettings,
     onGetGroupOrbit,
+    onOrbitLoaded,
+    onSelectAsset,
     onSetCanonical,
     onExplodeGroup,
     onChangeIndex,
@@ -314,7 +355,7 @@ const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
             top: 0,
             left: 0,
             width: '100vw',
-            height: '100vh',
+            bottom: APP_STATUS_BAR_HEIGHT,
             backgroundColor: '#050505',
             zIndex: 1000,
             display: 'flex',
@@ -345,6 +386,8 @@ const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
             onExtractAiMetadata={onExtractAiMetadata}
             onOpenSettings={onOpenSettings}
             onGetGroupOrbit={onGetGroupOrbit}
+            onOrbitLoaded={onOrbitLoaded}
+            onSelectAsset={onSelectAsset}
             onSetCanonical={onSetCanonical}
             onExplodeGroup={onExplodeGroup}
             onChangeIndex={onChangeIndex}
@@ -353,7 +396,7 @@ const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
         />
 
         {panelState.showInfoPanel && (
-            <div style={{ width: INFO_PANEL_WIDTH, height: '100vh', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
+            <div style={{ width: INFO_PANEL_WIDTH, height: '100%', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
                 <InfoPanel
                     asset={asset}
                     width={INFO_PANEL_WIDTH}
@@ -387,9 +430,22 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     onActiveInfoTabChange
 }) => {
     const panelState = usePanelState({ showInfoPanel, onShowInfoPanelChange, activeInfoTab, onActiveInfoTabChange });
-    const controls = useSinglePhotoControls(initialIndex, assets.length);
+    const {
+        viewAssets,
+        initialViewIndex,
+        handleOrbitLoaded,
+        handleSetCanonical,
+        handleExplodeGroup
+    } = useSinglePhotoAssetState({ assets, initialIndex, onSetCanonical, onExplodeGroup });
+    const controls = useSinglePhotoControls(initialViewIndex, viewAssets.length);
     const analysisUi = useAnalysisUiState();
-    const asset = assets[controls.currentIndex];
+    const asset = viewAssets[controls.currentIndex];
+    const setCurrentIndex = controls.setCurrentIndex;
+    const handleSelectAsset = useCallback((assetId: string) => {
+        const nextIndex = resolveSinglePhotoAssetIndex(viewAssets, assetId);
+        if (nextIndex < 0) {return;}
+        setCurrentIndex(nextIndex);
+    }, [setCurrentIndex, viewAssets]);
 
     useAssetPrioritization(asset?.id, onPrioritize);
     useAnalysisTracking({
@@ -408,7 +464,7 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     return (
         <SinglePhotoOverlay
             asset={asset}
-            assets={assets}
+            assets={viewAssets}
             currentIndex={controls.currentIndex}
             showControls={controls.showControls}
             setShowControls={controls.setShowControls}
@@ -426,8 +482,10 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
             onExtractAiMetadata={onExtractAiMetadata}
             onOpenSettings={onOpenSettings}
             onGetGroupOrbit={onGetGroupOrbit}
-            onSetCanonical={onSetCanonical}
-            onExplodeGroup={onExplodeGroup}
+            onOrbitLoaded={handleOrbitLoaded}
+            onSelectAsset={handleSelectAsset}
+            onSetCanonical={handleSetCanonical}
+            onExplodeGroup={handleExplodeGroup}
             onChangeIndex={controls.onChangeIndex}
             onRevealControls={controls.revealControls}
             analysis={buildAnalysisState(analysisUi)}

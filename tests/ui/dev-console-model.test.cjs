@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 test('dev console unread counts split warnings from errors and only mark error tone for errors', async () => {
     const {
+        createConsoleEntryIdFactory,
         createUnreadConsoleCounts,
         getConsoleToggleTone,
         getNextUnreadConsoleCounts,
@@ -17,4 +18,11 @@ test('dev console unread counts split warnings from errors and only mark error t
     assert.equal(getConsoleToggleTone(createUnreadConsoleCounts()), 'neutral');
     assert.equal(getConsoleToggleTone(withWarning), 'warning');
     assert.equal(getConsoleToggleTone(withError), 'error');
+
+    const nextEntryId = createConsoleEntryIdFactory();
+    assert.equal(nextEntryId(), 1);
+    assert.equal(nextEntryId(), 2);
+
+    const secondGenerator = createConsoleEntryIdFactory();
+    assert.equal(secondGenerator(), 1);
 });

@@ -482,3 +482,69 @@ test('runtime variant grouping replaces stale proposed groups for impacted asset
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('runtime variant grouping rejects phash-only bridge matches when dhash disagrees', async () => {
+    const tempDir = createTempDir();
+    const fixtureDir = path.join(tempDir, 'fixtures');
+    const firstPath = path.join(fixtureDir, 'one.png');
+    const secondPath = path.join(fixtureDir, 'two.png');
+    createFixtureImage(firstPath);
+    createFixtureImage(secondPath);
+
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    let dbManager;
+
+    try {
+        dbManager = new DatabaseManager(tempDir);
+        const firstId = uuidv4();
+        const secondId = uuidv4();
+
+        seedAsset(dbManager, {
+            id: firstId,
+            originalPath: firstPath,
+            fileHash: 'hash-a',
+            fileSize: 10,
+            width: 400,
+            height: 300,
+            exifDate: '2026-01-01T12:00:00.000Z',
+        });
+        seedAsset(dbManager, {
+            id: secondId,
+            originalPath: secondPath,
+            fileHash: 'hash-b',
+            fileSize: 11,
+            width: 401,
+            height: 301,
+            exifDate: '2026-01-01T12:00:01.000Z',
+        });
+
+        seedAssetFeatures(dbManager, {
+            assetId: firstId,
+            fileHash: 'hash-a',
+            phash64: '0000000000000000',
+            dhash64: '0000000000000000',
+        });
+        seedAssetFeatures(dbManager, {
+            assetId: secondId,
+            fileHash: 'hash-b',
+            phash64: '00000000000003ff',
+            dhash64: 'ffffffffffffffff',
+        });
+
+        await runGroupingWorkflow({
+            dbManager,
+            inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
+        });
+
+        const variantGroupCount = dbManager.getDb().prepare(`
+            SELECT COUNT(*) AS count
+            FROM asset_groups
+            WHERE type = 'variant_set'
+        `).get();
+
+        assert.equal(variantGroupCount.count, 0);
+    } finally {
+        dbManager?.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});

@@ -4,6 +4,7 @@ import type { PipelineStage } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import { replaceGroupRepresentative } from '@ui/components/single-photo/singlePhotoAssetModel';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
 
@@ -25,6 +26,8 @@ interface AlbumActionParams {
 
 interface GroupActionParams {
     request: RequestFn;
+    refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
+    setAssets: SetAssets;
 }
 
 interface BuildActionParams {
@@ -105,7 +108,7 @@ export function createAlbumActions(params: AlbumActionParams) {
 }
 
 export function createGroupActions(params: GroupActionParams) {
-    const { request } = params;
+    const { request, refreshLibrary, setAssets } = params;
 
     return {
         getGroupOrbit: (groupId: string): Promise<Asset[]> => request({
@@ -114,12 +117,20 @@ export function createGroupActions(params: GroupActionParams) {
             payload: { groupId },
             select: (data) => (data?.orbit as Asset[]) || [],
         }),
-        setCanonical: (groupId: string, assetId: string): Promise<void> => request<void>({
-            idPrefix: 'set_canonical',
-            command: 'set_canonical',
-            payload: { groupId, assetId },
-            select: () => undefined,
-        }),
+        setCanonical: async (groupId: string, assetId: string, replacementAsset?: Asset): Promise<void> => {
+            await request<void>({
+                idPrefix: 'set_canonical',
+                command: 'set_canonical',
+                payload: { groupId, assetId },
+                select: () => undefined,
+            });
+
+            if (replacementAsset) {
+                setAssets((previousAssets) => replaceGroupRepresentative(previousAssets, groupId, replacementAsset));
+            }
+
+            refreshLibrary({ preservePagingState: true });
+        },
         explodeGroup: (groupId: string): Promise<void> => request<void>({
             idPrefix: 'explode_group',
             command: 'explode_group',

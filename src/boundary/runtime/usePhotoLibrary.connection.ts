@@ -14,13 +14,12 @@ import {
 import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { createMessageHandler, createSnapshotSyncController, currentFilter } from '@boundary/runtime/usePhotoLibrary.connection.messages';
+import { getRetryState } from '@boundary/runtime/usePhotoLibrary.connection.retry';
 
 const FAST_RECONNECT_WINDOW_MS = 5000;
 const INITIAL_STARTUP_TIMEOUT_MS = 10000;
 const FAST_RECONNECT_DELAYS_MS = [400, 900, 1600, 2500];
 const SLOW_RECONNECT_DELAY_MS = 6000;
-const BACKEND_SERVICE_LABEL = 'backend service';
-
 export interface ConnectionStateParams {
     hasCompletedInitialSync: boolean;
     setHasCompletedInitialSync: (value: boolean) => void;
@@ -213,10 +212,6 @@ async function startTauriMode(deps: StartConnectionDeps) {
     }
 }
 
-function formatReconnectDelay(delayMs: number): string {
-    return delayMs < 1000 ? `${delayMs}ms` : `${(delayMs / 1000).toFixed(delayMs % 1000 === 0 ? 0 : 1)}s`;
-}
-
 function getReconnectDelayMs(disconnectedAt: number, attempt: number): number {
     const elapsedMs = Date.now() - disconnectedAt;
     if (elapsedMs < FAST_RECONNECT_WINDOW_MS) {
@@ -224,23 +219,6 @@ function getReconnectDelayMs(disconnectedAt: number, attempt: number): number {
         return FAST_RECONNECT_DELAYS_MS[fastIndex];
     }
     return SLOW_RECONNECT_DELAY_MS;
-}
-
-function getRetryState(paramsRef: ParamsRef, delayMs: number, message: string, status: string) {
-    const delayText = formatReconnectDelay(delayMs);
-    if (!paramsRef.current.hasCompletedInitialSync) {
-        return {
-            status: `Waiting for ${BACKEND_SERVICE_LABEL} to become ready... Retrying in ${delayText}...`,
-            error: null,
-            logMessage: `${BACKEND_SERVICE_LABEL} not ready yet. Retrying in ${delayText}.`,
-        };
-    }
-
-    return {
-        status,
-        error: `${message} Reconnecting in ${delayText}...`,
-        logMessage: `${message} Reconnecting in ${delayText}.`,
-    };
 }
 
 function isLifecycleStopped(state: ConnectionLifecycleState): boolean {

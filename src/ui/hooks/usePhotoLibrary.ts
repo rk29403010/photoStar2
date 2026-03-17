@@ -438,7 +438,11 @@ function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage
         refreshLibrary: refreshActions.refreshLibrary,
     });
     const albumActions = useMemo(() => createAlbumActions({ request }), [request]);
-    const groupActions = useMemo(() => createGroupActions({ request }), [request]);
+    const groupActions = useMemo(() => createGroupActions({
+        request,
+        refreshLibrary: refreshActions.refreshLibrary,
+        setAssets: state.setAssets,
+    }), [refreshActions.refreshLibrary, request, state.setAssets]);
     const buildActions = useMemo(() => createBuildActions({ transport: state.transport, addJob }), [addJob, state.transport]);
 
     return useMemo(() => ({

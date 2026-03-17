@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { CommandHandlerMap } from './types';
+import { toAssetPayload } from './assetPayloadModel';
 
 type AssetRow = {
     id: string;
@@ -18,6 +19,8 @@ type AssetRow = {
     sensitivity_status: string | null;
     member_group_id?: string | null;
     member_role?: string | null;
+    member_rank?: number | null;
+    member_match_evidence?: string | null;
     stack_count?: number | null;
 };
 
@@ -158,7 +161,7 @@ function buildFilteredAssetsQuery(
                     JOIN people per ON fa.person_id = per.id
                     WHERE fa.asset_id = a.id
                 ) as people_data,
-                null as member_group_id, null as member_role, null as stack_count
+                null as member_group_id, null as member_role, null as member_rank, null as member_match_evidence, null as stack_count
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             LEFT JOIN derived_results dr_new ON a.id = dr_new.asset_id AND dr_new.task = 'face_detection'
@@ -202,6 +205,8 @@ function buildGroupedAssetsQuery(
                 p.path as preview_path,
                 m.group_id as member_group_id,
                 m.role as member_role,
+                m.rank as member_rank,
+                m.evidence_json as member_match_evidence,
                 gc.stack_count,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
@@ -250,7 +255,7 @@ function buildUngroupedAssetsQuery(
                 ${detail.recSelect}
                 ${detail.aiSelect}
                 json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
-                null as member_group_id, null as member_role, null as stack_count
+                null as member_group_id, null as member_role, null as member_rank, null as member_match_evidence, null as stack_count
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
@@ -282,6 +287,8 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
                 p.path as preview_path,
                 m.group_id as member_group_id,
                 m.role as member_role,
+                m.rank as member_rank,
+                m.evidence_json as member_match_evidence,
                 gc.stack_count,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 r_rec.data as rec_data,
@@ -311,73 +318,8 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
     };
 }
 
-function parseFaces(row: AssetRow) {
-    try {
-        return row.faces_data ? JSON.parse(row.faces_data).faces || [] : [];
-    } catch {
-        return [];
-    }
-}
-
-function parsePeopleAssignments(row: AssetRow) {
-    if (!row.people_data) {return [];}
-    try {
-        return JSON.parse(row.people_data).filter((person: { person_id: string | null }) => person.person_id !== null) as Array<{ face_index: number; person_id: string; name: string }>;
-    } catch {
-        return [];
-    }
-}
-
-function applyPeopleAssignments(faces: Array<{ person_id?: string; person_name?: string }>, peopleData: Array<{ face_index: number; person_id: string; name: string }>) {
-    faces.forEach((face, index) => {
-        const assignment = peopleData.find((person) => person.face_index === index);
-        if (!assignment) {return;}
-        face.person_id = assignment.person_id;
-        face.person_name = assignment.name;
-    });
-}
-
-function parseAiMetadata(row: AssetRow) {
-    if (!row.ai_metadata_data) {return undefined;}
-    try {
-        return JSON.parse(row.ai_metadata_data) as Record<string, unknown>;
-    } catch {
-        return undefined;
-    }
-}
-
-function parseFaceEmbeddings(row: AssetRow) {
-    if (!row.rec_data) {return [];}
-    try {
-        return JSON.parse(row.rec_data).embeddings || [];
-    } catch {
-        return [];
-    }
-}
-
 function toAsset(row: AssetRow) {
-    const faces = parseFaces(row);
-    applyPeopleAssignments(faces, parsePeopleAssignments(row));
-    const aiMeta = parseAiMetadata(row);
-
-    return {
-        id: row.id,
-        original_path: row.original_path,
-        width: row.width,
-        height: row.height,
-        file_size: row.file_size,
-        created_at: row.created_at,
-        preview_path: row.preview_path,
-        faces,
-        face_embeddings: parseFaceEmbeddings(row),
-        ai_metadata: aiMeta,
-        caption: row.caption || aiMeta?.caption || undefined,
-        sensitivity_score: row.sensitivity_score,
-        sensitivity_status: row.sensitivity_status,
-        group_id: row.member_group_id,
-        group_role: row.member_role,
-        stack_count: row.stack_count,
-    };
+    return toAssetPayload(row);
 }
 
 function dedupeAssetsById(assets: ReturnType<typeof toAsset>[]) {

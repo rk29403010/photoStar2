@@ -29,6 +29,9 @@ These rules exist because generated code drifts toward noise unless the repo pus
 ## Fast loop defaults
 
 - Default to the fastest safe path for local edits, bugfixes, refactors, and small behavior changes.
+- If the user says `just do it` or `JDI`, treat that as an explicit instruction to skip superpowers/skill workflows and take the fastest safe execution path for the current request.
+- The `just do it` / `JDI` shortcut applies only to small, low-risk work in this repository. Do not use it for architectural changes, large multi-step features, risky migrations, security-sensitive work, or anything that would normally need design clarification.
+- Even in `just do it` / `JDI` mode, still follow the quality and verification expectations in this file, keep exploration tight, and ask a brief question if a risky ambiguity would otherwise force a guess.
 - Do not require formal design docs or multi-step planning unless the user asks for them or the task is ambiguous, architectural, or spans multiple subsystems.
 - Keep exploration tight: read the directly relevant files first instead of reloading broad repo context by default.
 - During iteration, prefer targeted verification plus `npm run quality:staged`; reserve `npm run quality` for handoff, larger changes, or when config/runtime wiring changed.

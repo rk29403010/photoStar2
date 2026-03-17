@@ -55,6 +55,24 @@
             ]
         },
         {
+            "name": "🌐 PhotoStar (Chrome Debug)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}",
+            "userDataDir": "${workspaceFolder}\\.vscode\\chrome-debug-profile",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "🌐 PhotoStar (Edge Debug)",
+            "type": "msedge",
+            "request": "launch",
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}",
+            "userDataDir": "${workspaceFolder}\\.vscode\\edge-debug-profile",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
             "name": "🧪 Desktop Runtime (Verbose HMR Logs)",
             "type": "node",
             "request": "launch",

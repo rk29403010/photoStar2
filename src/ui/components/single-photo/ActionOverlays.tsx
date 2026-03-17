@@ -21,6 +21,8 @@ interface ActionOverlaysProps {
     onPrevious: () => void;
     onNext: () => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     analysisState: AnalysisUiState;
@@ -51,6 +53,8 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
     onPrevious,
     onNext,
     onSetSensitivity,
+    onSetCanonical,
+    onExplodeGroup,
     onExtractAiMetadata,
     onOpenSettings,
     analysisState,
@@ -80,6 +84,8 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
             onPrevious={onPrevious}
             onNext={onNext}
             onSetSensitivity={onSetSensitivity}
+            onSetCanonical={onSetCanonical}
+            onExplodeGroup={onExplodeGroup}
             onExtractAiMetadata={onExtractAiMetadata}
             analysisState={analysisState}
             setAnalysisState={setAnalysisState}

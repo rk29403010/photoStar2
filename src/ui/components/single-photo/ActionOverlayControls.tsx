@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
 import { getNextZoomScale } from './zoomMath';
+import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
 
 export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
 
@@ -20,6 +21,8 @@ interface ControlsOverlayProps {
     onPrevious: () => void;
     onNext: () => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     analysisState: AnalysisUiState;
     setAnalysisState: (state: AnalysisUiState) => void;
@@ -42,6 +45,8 @@ interface ActionMenuProps {
     setAnalyzingJobId: (id: string | null) => void;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
     setShowActionMenu: (show: boolean) => void;
 }
 
@@ -165,6 +170,36 @@ function handleSensitivityClick(
     closeActionMenu(setShowActionMenu);
 }
 
+async function handleSelectAsStarClick(
+    event: React.MouseEvent<HTMLButtonElement>,
+    asset: Asset,
+    onSetCanonical: (groupId: string, assetId: string) => Promise<void>,
+    setShowActionMenu: (show: boolean) => void
+) {
+    event.stopPropagation();
+    if (!asset.group_id) {
+        return;
+    }
+
+    await onSetCanonical(asset.group_id, asset.id);
+    closeActionMenu(setShowActionMenu);
+}
+
+async function handleExplodeGroupClick(
+    event: React.MouseEvent<HTMLButtonElement>,
+    asset: Asset,
+    onExplodeGroup: (groupId: string) => Promise<void>,
+    setShowActionMenu: (show: boolean) => void
+) {
+    event.stopPropagation();
+    if (!asset.group_id) {
+        return;
+    }
+
+    await onExplodeGroup(asset.group_id);
+    closeActionMenu(setShowActionMenu);
+}
+
 function MenuItem({
     color,
     active,
@@ -228,6 +263,40 @@ function SensitivityMenuItems({ asset, onSetSensitivity, setShowActionMenu }: Pi
     );
 }
 
+function GroupMenuItems(props: Pick<ActionMenuProps, 'asset' | 'onSetCanonical' | 'onExplodeGroup' | 'setShowActionMenu'>) {
+    const { asset, onSetCanonical, onExplodeGroup, setShowActionMenu } = props;
+    const showSelectAsStar = onSetCanonical && canSelectAsStar(asset);
+    const showExplodeGroup = onExplodeGroup && canExplodeGroup(asset);
+
+    if (!showSelectAsStar && !showExplodeGroup) {
+        return null;
+    }
+
+    return (
+        <>
+            <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
+            {showSelectAsStar && (
+                <MenuItem
+                    color="#facc15"
+                    active={false}
+                    icon="⭐"
+                    label={getSelectAsStarLabel()}
+                    onClick={(event) => handleSelectAsStarClick(event, asset, onSetCanonical, setShowActionMenu)}
+                />
+            )}
+            {showExplodeGroup && (
+                <MenuItem
+                    color="#ef4444"
+                    active={false}
+                    icon="💥"
+                    label={getExplodeGroupLabel()}
+                    onClick={(event) => handleExplodeGroupClick(event, asset, onExplodeGroup, setShowActionMenu)}
+                />
+            )}
+        </>
+    );
+}
+
 const AnalysisStatus: React.FC<{ analysisState: AnalysisUiState; analyzingAssetId: string | null; asset: Asset }> = ({ analysisState, analyzingAssetId, asset }) => {
     const isTargetAsset = analyzingAssetId === asset.id && !asset.ai_metadata;
     if (!isTargetAsset) {return null;}
@@ -249,6 +318,7 @@ const ActionMenu: React.FC<ActionMenuProps> = (props) => {
     return (
         <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: '#111827', border: '1px solid #1f2937', borderRadius: '10px', padding: '6px', minWidth: '200px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <AiActionMenuItem {...props} />
+            <GroupMenuItems asset={props.asset} onSetCanonical={props.onSetCanonical} onExplodeGroup={props.onExplodeGroup} setShowActionMenu={props.setShowActionMenu} />
             <SensitivityMenuItems asset={props.asset} onSetSensitivity={props.onSetSensitivity} setShowActionMenu={props.setShowActionMenu} />
         </div>
     );
@@ -269,8 +339,10 @@ const TopBar: React.FC<{
     setAnalyzingJobId: (id: string | null) => void;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
     controlsVisible: boolean;
-}> = ({ asset, assetsLength, currentIndex, showActionMenu, setShowActionMenu, analysisState, analyzingAssetId, onClose, setAnalysisState, setAnalysisError, setAnalyzingAssetId, setAnalyzingJobId, onExtractAiMetadata, onSetSensitivity, controlsVisible }) => (
+}> = ({ asset, assetsLength, currentIndex, showActionMenu, setShowActionMenu, analysisState, analyzingAssetId, onClose, setAnalysisState, setAnalysisError, setAnalyzingAssetId, setAnalyzingJobId, onExtractAiMetadata, onSetSensitivity, onSetCanonical, onExplodeGroup, controlsVisible }) => (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)', color: 'white', zIndex: 1001, ...getOverlayVisibilityStyle(controlsVisible) }} onClick={(e) => { e.stopPropagation(); closeActionMenu(setShowActionMenu); }}>
         <div style={{ fontSize: '13px', opacity: 0.6, display: 'flex', alignItems: 'center' }}>{currentIndex + 1} / {assetsLength}</div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -287,6 +359,8 @@ const TopBar: React.FC<{
                     setAnalyzingJobId={setAnalyzingJobId}
                     onExtractAiMetadata={onExtractAiMetadata}
                     onSetSensitivity={onSetSensitivity}
+                    onSetCanonical={onSetCanonical}
+                    onExplodeGroup={onExplodeGroup}
                     setShowActionMenu={setShowActionMenu}
                 />
             </div>
@@ -332,6 +406,8 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     onPrevious,
     onNext,
     onSetSensitivity,
+    onSetCanonical,
+    onExplodeGroup,
     onExtractAiMetadata,
     analysisState,
     setAnalysisState,
@@ -359,6 +435,8 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             setAnalyzingJobId={setAnalyzingJobId}
             onExtractAiMetadata={onExtractAiMetadata}
             onSetSensitivity={onSetSensitivity}
+            onSetCanonical={onSetCanonical}
+            onExplodeGroup={onExplodeGroup}
             controlsVisible={controlsVisible}
         />
         <NavButtons currentIndex={currentIndex} assetsLength={assetsLength} onPrevious={onPrevious} onNext={onNext} controlsVisible={controlsVisible} />
