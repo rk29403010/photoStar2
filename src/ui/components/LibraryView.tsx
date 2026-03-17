@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 
 import type { Asset } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { LayoutEngine } from './layout/LayoutEngine';
-import { sortAssetsForGallery, type LibrarySortMode } from '@shared/utils/libraryGallery';
+import type { LibrarySortMode } from '@shared/utils/libraryGallery';
+import { buildVisibleGalleryItems } from '@shared/utils/libraryGallerySelection';
+import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 interface LibraryViewProps {
     assets: Asset[];
@@ -18,8 +21,10 @@ interface LibraryViewProps {
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    librarySelection?: Set<string>;
-    onLibrarySelectionChange?: (selection: Set<string>) => void;
+    librarySelection?: LibrarySelectionState;
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    groupSimilarPhotos: boolean;
+    onGroupSimilarPhotosChange: (enabled: boolean) => void;
     declusteredAssets?: Set<string>;
     showRejected?: boolean;
     rejectedAssets?: Asset[];
@@ -73,14 +78,17 @@ function RejectedSection({
             </div>
             <div style={{ opacity: 0.45, filter: 'grayscale(40%)' }}>
                 <LayoutEngine
-                    assets={rejectedAssets}
+                    items={buildVisibleGalleryItems(rejectedAssets, {
+                        groupSimilarPhotos: false,
+                        sortMode: 'date',
+                    })}
                     debug={false}
                     onAssetClick={onAssetClick}
                     selectedAssetId={selectedAssetId}
                     activeFilter={undefined}
                     showFaces={false}
                     onUntagAsset={undefined}
-                    librarySelection={undefined}
+                    librarySelection={createEmptyLibrarySelectionState()}
                     onLibrarySelectionChange={undefined}
                     declusteredAssets={undefined}
                 />
@@ -134,19 +142,19 @@ function shouldShowEmptyState(assetCount: number, rejectedAssetCount: number) {
     return assetCount === 0 && rejectedAssetCount === 0;
 }
 
-function useDisplayAssets(assets: Asset[], declusteredAssets: Set<string> | undefined, sortMode: LibrarySortMode) {
+function useDisplayAssets(
+    assets: Asset[],
+    declusteredAssets: Set<string> | undefined,
+    sortMode: LibrarySortMode,
+    groupSimilarPhotos: boolean,
+) {
     return useMemo(() => {
-        if (!declusteredAssets || declusteredAssets.size === 0) {
-            return sortAssetsForGallery(assets, sortMode);
-        }
-
-        const normalAssets = assets.filter((asset) => !declusteredAssets.has(asset.id));
-        const trailingAssets = assets.filter((asset) => declusteredAssets.has(asset.id));
-        return [
-            ...sortAssetsForGallery(normalAssets, sortMode),
-            ...sortAssetsForGallery(trailingAssets, sortMode),
-        ];
-    }, [assets, declusteredAssets, sortMode]);
+        return buildVisibleGalleryItems(assets, {
+            declusteredAssetIds: declusteredAssets,
+            sortMode,
+            groupSimilarPhotos,
+        });
+    }, [assets, declusteredAssets, groupSimilarPhotos, sortMode]);
 }
 
 function useLibraryPaging(params: {
@@ -182,12 +190,33 @@ function useLibraryPaging(params: {
 function LibraryToolbar({
     sortMode,
     onSortModeChange,
+    groupSimilarPhotos,
+    onGroupSimilarPhotosChange,
 }: {
     sortMode: LibrarySortMode;
     onSortModeChange: (mode: LibrarySortMode) => void;
+    groupSimilarPhotos: boolean;
+    onGroupSimilarPhotosChange: (enabled: boolean) => void;
 }) {
     return (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'linear-gradient(180deg, rgba(18,18,18,0.92), rgba(10,10,10,0.92))' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 14px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'linear-gradient(180deg, rgba(18,18,18,0.92), rgba(10,10,10,0.92))' }}>
+            <button
+                type="button"
+                aria-pressed={groupSimilarPhotos}
+                onClick={() => onGroupSimilarPhotosChange(!groupSimilarPhotos)}
+                style={{
+                    background: groupSimilarPhotos ? 'rgba(37,99,235,0.22)' : 'rgba(148,163,184,0.08)',
+                    color: groupSimilarPhotos ? '#bfdbfe' : '#cbd5e1',
+                    border: `1px solid ${groupSimilarPhotos ? 'rgba(96,165,250,0.75)' : 'rgba(148,163,184,0.2)'}`,
+                    borderRadius: 999,
+                    padding: '6px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                }}
+            >
+                Group similar photos
+            </button>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                 <span>Sort</span>
                 <select
@@ -220,17 +249,19 @@ export function LibraryView({
     onUntagAsset,
     librarySelection,
     onLibrarySelectionChange,
+    groupSimilarPhotos,
+    onGroupSimilarPhotosChange,
     declusteredAssets,
     showRejected,
     rejectedAssets,
     onHoverAssetChange,
 }: LibraryViewProps) {
     const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
-    const displayAssets = useDisplayAssets(assets, declusteredAssets, sortMode);
+    const displayItems = useDisplayAssets(assets, declusteredAssets, sortMode, groupSimilarPhotos);
     const rejectedAssetCount = getRejectedAssetCount(showRejected, rejectedAssets);
     const { scrollRef, handleScroll } = useLibraryPaging({
         active,
-        displayAssetCount: displayAssets.length,
+        displayAssetCount: displayItems.length,
         hasMoreAssets,
         isLoadingMoreAssets,
         onLoadMoreAssets,
@@ -249,16 +280,21 @@ export function LibraryView({
             onScroll={handleScroll}
             style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#0a0a0a' }}
         >
-            <LibraryToolbar sortMode={sortMode} onSortModeChange={setSortMode} />
+            <LibraryToolbar
+                sortMode={sortMode}
+                onSortModeChange={setSortMode}
+                groupSimilarPhotos={groupSimilarPhotos}
+                onGroupSimilarPhotosChange={onGroupSimilarPhotosChange}
+            />
             <LayoutEngine
-                assets={displayAssets}
+                items={displayItems}
                 debug={false}
                 onAssetClick={onAssetClick}
                 selectedAssetId={selectedAssetId}
                 activeFilter={activeFilter}
                 showFaces={showFaces}
                 onUntagAsset={onUntagAsset}
-                librarySelection={librarySelection}
+                librarySelection={librarySelection ?? createEmptyLibrarySelectionState()}
                 onLibrarySelectionChange={onLibrarySelectionChange}
                 declusteredAssets={declusteredAssets}
                 onHoverAssetChange={onHoverAssetChange}

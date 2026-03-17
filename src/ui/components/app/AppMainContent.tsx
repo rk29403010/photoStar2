@@ -4,6 +4,7 @@ import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSna
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
+import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { LibraryView } from '../LibraryView';
 import { PeopleView } from '../PeopleView';
 import { DashboardView } from '../DashboardView';
@@ -21,7 +22,8 @@ interface AppMainContentProps {
   selectedAssetId: string | null;
   libraryActive: boolean;
   showFaces: boolean;
-  librarySelection: Set<string>;
+  librarySelection: LibrarySelectionState;
+  groupSimilarPhotos: boolean;
   declusteredAssets: Set<string>;
   showRejected: boolean;
   rejectedAssets: Asset[];
@@ -39,7 +41,8 @@ interface AppMainContentProps {
   onLoadMoreAssets: () => Promise<void>;
   onAssetClick: (id: string | null) => void;
   onUntagAsset: (assetId: string, personId: string) => void;
-  onLibrarySelectionChange: (selection: Set<string>) => void;
+  onLibrarySelectionChange: (selection: LibrarySelectionState) => void;
+  onGroupSimilarPhotosChange: (enabled: boolean) => void;
   onPeopleFilter: (filter: LibraryFilter) => void;
   onPeopleSelectionChange: (count: number) => void;
   onRenamePerson: (id: string, name: string) => void;
@@ -79,89 +82,80 @@ function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | 
 }
 
 export function AppMainContent(props: AppMainContentProps) {
-  const {
-    view, assets, people, status, backendReady, filterStack, selectedAssetId, libraryActive, showFaces,
-    librarySelection, declusteredAssets, showRejected, rejectedAssets, jobs, systemJobs,
-    queueStatus, dataStats, recentEvents, workflowRuns, isSystemPaused, hasMoreAssets, isLoadingMoreAssets,
-    uiFeedEntries, ingestStatusMessage,
-    onLoadMoreAssets, onAssetClick, onUntagAsset, onLibrarySelectionChange,
-    onPeopleFilter, onPeopleSelectionChange, onRenamePerson, onMergePeople, onRefreshSystemJobs,
-    onTogglePause, onStopJob, onGetEventPayloadRaw, onGetJobErrors, onSetModulePaused,
-    onGetWorkflowVisualiser, onGetAlbums, onCreateAlbum, onDeleteAlbum, onOpenAlbum, onHoverLibraryAssetChange,
-  } = props;
-
-  const activeFilter = filterStack.length > 0 ? filterStack[filterStack.length - 1] : undefined;
-  const visibleLibraryAssets = useVisibleLibraryAssets(assets, ingestStatusMessage);
+  const activeFilter = props.filterStack.length > 0 ? props.filterStack[props.filterStack.length - 1] : undefined;
+  const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestStatusMessage);
 
   return (
     <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-      <div style={getPanelStyle(view === 'library')}>
+      <div style={getPanelStyle(props.view === 'library')}>
         <LibraryView
           assets={visibleLibraryAssets}
-          loading={status.includes('Initializing')}
-          backendReady={backendReady}
-          backendStatus={status}
-          hasMoreAssets={hasMoreAssets}
-          isLoadingMoreAssets={isLoadingMoreAssets}
-          onLoadMoreAssets={onLoadMoreAssets}
-          active={libraryActive}
-          onAssetClick={onAssetClick}
-          selectedAssetId={selectedAssetId}
+          loading={props.status.includes('Initializing')}
+          backendReady={props.backendReady}
+          backendStatus={props.status}
+          hasMoreAssets={props.hasMoreAssets}
+          isLoadingMoreAssets={props.isLoadingMoreAssets}
+          onLoadMoreAssets={props.onLoadMoreAssets}
+          active={props.libraryActive}
+          onAssetClick={props.onAssetClick}
+          selectedAssetId={props.selectedAssetId}
           activeFilter={activeFilter}
-          showFaces={showFaces}
-          onUntagAsset={onUntagAsset}
-          librarySelection={librarySelection}
-          onLibrarySelectionChange={onLibrarySelectionChange}
-          declusteredAssets={declusteredAssets}
-          showRejected={showRejected}
-          rejectedAssets={showRejected ? rejectedAssets : []}
-          onHoverAssetChange={onHoverLibraryAssetChange}
+          showFaces={props.showFaces}
+          onUntagAsset={props.onUntagAsset}
+          librarySelection={props.librarySelection}
+          groupSimilarPhotos={props.groupSimilarPhotos}
+          onLibrarySelectionChange={props.onLibrarySelectionChange}
+          onGroupSimilarPhotosChange={props.onGroupSimilarPhotosChange}
+          declusteredAssets={props.declusteredAssets}
+          showRejected={props.showRejected}
+          rejectedAssets={props.showRejected ? props.rejectedAssets : []}
+          onHoverAssetChange={props.onHoverLibraryAssetChange}
         />
       </div>
 
-      {view === 'people' && (
+      {props.view === 'people' && (
         <PeopleView
-          people={people}
-          onFilter={onPeopleFilter}
-          onSelectionChange={onPeopleSelectionChange}
-          onRename={onRenamePerson}
-          onMerge={onMergePeople}
+          people={props.people}
+          onFilter={props.onPeopleFilter}
+          onSelectionChange={props.onPeopleSelectionChange}
+          onRename={props.onRenamePerson}
+          onMerge={props.onMergePeople}
         />
       )}
 
-      {view === 'dashboard' && (
+      {props.view === 'dashboard' && (
         <DashboardView
-          jobs={jobs}
-          systemJobs={systemJobs}
-          queueStatus={queueStatus}
-          dataStats={dataStats}
-          recentEvents={recentEvents}
-          workflowRuns={workflowRuns}
-          uiFeedEntries={uiFeedEntries}
-          refreshSystemJobs={onRefreshSystemJobs}
-          isSystemPaused={isSystemPaused}
-          onTogglePause={onTogglePause}
-          onStopJob={onStopJob}
-          onGetEventPayloadRaw={onGetEventPayloadRaw}
-          onGetJobErrors={onGetJobErrors}
-          onSetModulePaused={onSetModulePaused}
-          loading={!backendReady}
+          jobs={props.jobs}
+          systemJobs={props.systemJobs}
+          queueStatus={props.queueStatus}
+          dataStats={props.dataStats}
+          recentEvents={props.recentEvents}
+          workflowRuns={props.workflowRuns}
+          uiFeedEntries={props.uiFeedEntries}
+          refreshSystemJobs={props.onRefreshSystemJobs}
+          isSystemPaused={props.isSystemPaused}
+          onTogglePause={props.onTogglePause}
+          onStopJob={props.onStopJob}
+          onGetEventPayloadRaw={props.onGetEventPayloadRaw}
+          onGetJobErrors={props.onGetJobErrors}
+          onSetModulePaused={props.onSetModulePaused}
+          loading={!props.backendReady}
         />
       )}
 
-      {view === 'albums' && (
+      {props.view === 'albums' && (
         <AlbumsView
-          getAlbums={onGetAlbums}
-          createAlbum={onCreateAlbum}
-          deleteAlbum={onDeleteAlbum}
-          onOpenAlbum={onOpenAlbum}
+          getAlbums={props.onGetAlbums}
+          createAlbum={props.onCreateAlbum}
+          deleteAlbum={props.onDeleteAlbum}
+          onOpenAlbum={props.onOpenAlbum}
         />
       )}
 
-      {view === 'workflows' && (
+      {props.view === 'workflows' && (
         <WorkflowWorkspace
           workflowId="folder_ingest_v1"
-          onGetWorkflowVisualiser={onGetWorkflowVisualiser}
+          onGetWorkflowVisualiser={props.onGetWorkflowVisualiser}
         />
       )}
     </div>

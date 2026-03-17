@@ -1,36 +1,47 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MutableRefObject, PointerEvent } from 'react';
-import type { Asset, TileIntent } from '@contracts/core';
+import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
+import type { TileIntent } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
+import {
+    createEmptyLibrarySelectionState,
+    getLibrarySelectionCount,
+    hasLibrarySelection,
+    isItemSelected,
+    updateLibrarySelection,
+    type LibrarySelectableItem,
+    type LibrarySelectionState,
+} from '@shared/utils/librarySelectionState';
 
 interface LayoutEngineProps {
-    assets: Asset[];
+    items: LibrarySelectableItem[];
     debug?: boolean;
     onAssetClick?: (id: string) => void;
     selectedAssetId?: string | null;
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    librarySelection?: Set<string>;
-    onLibrarySelectionChange?: (selection: Set<string>) => void;
+    librarySelection: LibrarySelectionState;
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
     declusteredAssets?: Set<string>;
-    onHoverAssetChange?: (asset: Asset | null) => void;
+    onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
 }
 
-type LayoutItem = { asset: Asset; intent: TileIntent; spanW: number; spanH: number };
+type LayoutItem = { item: LibrarySelectableItem; intent: TileIntent; spanW: number; spanH: number };
 
-interface SelectionState {
+interface SelectionInteractionState {
+    dragSelectionRef: MutableRefObject<{
+        active: boolean;
+        anchorIndex: number | null;
+    }>;
     isSelecting: boolean;
     setIsSelecting: (value: boolean) => void;
-    lastSelectedIdx: number | null;
-    setLastSelectedIdx: (value: number | null) => void;
     pressTimer: MutableRefObject<number | null>;
-    toggleSelection: (id: string, index: number, shiftKey: boolean) => void;
+    stopDragging: () => void;
 }
 
 interface LayoutTileProps {
-    item: LayoutItem;
+    layoutItem: LayoutItem;
     index: number;
     debug: boolean;
     selectedAssetId?: string | null;
@@ -38,136 +49,107 @@ interface LayoutTileProps {
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
     onAssetClick?: (id: string) => void;
-    librarySelection?: Set<string>;
-    onLibrarySelectionChange?: (selection: Set<string>) => void;
+    librarySelection: LibrarySelectionState;
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
     declusteredAssets?: Set<string>;
-    selection: SelectionState;
+    selectionState: SelectionInteractionState;
     prioritizeImage: boolean;
-    onHoverAssetChange?: (asset: Asset | null) => void;
+    onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
+    layoutItems: LayoutItem[];
 }
 
 const PRIORITY_TILE_COUNT = 60;
+const LONG_PRESS_MS = 420;
 
-const computeLayout = (assets: Asset[]): LayoutItem[] => assets.map((asset) => {
-    const h = asset.height || 1;
-    const w = asset.width || 1;
+const computeLayout = (items: LibrarySelectableItem[]): LayoutItem[] => items.map((item) => {
+    const h = item.asset.height || 1;
+    const w = item.asset.width || 1;
     const ratio = w / h;
     const targetRatios = [
         { ratio: 1, spanW: 3, spanH: 3 }, { ratio: 4 / 3, spanW: 4, spanH: 3 }, { ratio: 3 / 4, spanW: 3, spanH: 4 },
-        { ratio: 3 / 2, spanW: 3, spanH: 2 }, { ratio: 2 / 3, spanW: 2, spanH: 3 }, { ratio: 16 / 9, spanW: 4, spanH: 2 }
+        { ratio: 3 / 2, spanW: 3, spanH: 2 }, { ratio: 2 / 3, spanW: 2, spanH: 3 }, { ratio: 16 / 9, spanW: 4, spanH: 2 },
     ];
 
     let bestTarget = targetRatios[0];
     let minDiff = Infinity;
     for (const target of targetRatios) {
         const diff = Math.abs(ratio - target.ratio);
-        if (diff < minDiff) { minDiff = diff; bestTarget = target; }
+        if (diff < minDiff) {
+            minDiff = diff;
+            bestTarget = target;
+        }
     }
 
     let { spanW, spanH } = bestTarget;
     let intent: TileIntent = 'normal';
-    const isHero = asset.manualState?.forceHero || (asset.processingPhase === 2 && asset.layoutCapabilities?.heroEligible);
+    const isHero = item.asset.manualState?.forceHero || (item.asset.processingPhase === 2 && item.asset.layoutCapabilities?.heroEligible);
     if (isHero) {
         intent = 'hero';
         spanW = Math.min(Math.round(spanW * 2), 24);
         spanH = Math.round(spanH * 2);
     }
-    return { asset, intent, spanW, spanH };
+
+    return { item, intent, spanW, spanH };
 });
-
-function useSelectionInteractions(
-    layoutItems: LayoutItem[],
-    librarySelection?: Set<string>,
-    onLibrarySelectionChange?: (selection: Set<string>) => void
-) {
-    const [isSelecting, setIsSelecting] = useState(false);
-    const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null);
-    const pressTimer = useRef<number | null>(null);
-
-    useSelectAllShortcut(layoutItems, onLibrarySelectionChange, setIsSelecting);
-
-    const toggleSelection = useCallback((id: string, index: number, shiftKey: boolean) => {
-        const next = getNextSelection({
-            id,
-            index,
-            shiftKey,
-            lastSelectedIdx,
-            layoutItems,
-            librarySelection,
-        });
-        if (!next || !onLibrarySelectionChange) {return;}
-        setLastSelectedIdx(index);
-        onLibrarySelectionChange(next);
-    }, [lastSelectedIdx, layoutItems, librarySelection, onLibrarySelectionChange]);
-
-    return { isSelecting, setIsSelecting, lastSelectedIdx, setLastSelectedIdx, pressTimer, toggleSelection };
-}
-
-function useSelectAllShortcut(
-    layoutItems: LayoutItem[],
-    onLibrarySelectionChange: ((selection: Set<string>) => void) | undefined,
-    setIsSelecting: (value: boolean) => void
-) {
-    useEffect(() => {
-        const handleMouseUp = () => setIsSelecting(false);
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!(e.ctrlKey || e.metaKey) || e.key !== 'a') {return;}
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {return;}
-            if (!onLibrarySelectionChange) {return;}
-            e.preventDefault();
-            onLibrarySelectionChange(new Set(layoutItems.map((item) => item.asset.id)));
-        };
-
-        window.addEventListener('mouseup', handleMouseUp);
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('mouseup', handleMouseUp);
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [layoutItems, onLibrarySelectionChange, setIsSelecting]);
-}
-
-function getNextSelection(params: {
-    id: string;
-    index: number;
-    shiftKey: boolean;
-    lastSelectedIdx: number | null;
-    layoutItems: LayoutItem[];
-    librarySelection?: Set<string>;
-}) {
-    const { id, index, shiftKey, lastSelectedIdx, layoutItems, librarySelection } = params;
-    if (!librarySelection) {return null;}
-
-    const next = new Set(librarySelection);
-    if (shiftKey && lastSelectedIdx !== null) {
-        applyRangeSelection(next, layoutItems, lastSelectedIdx, index, !next.has(id));
-        return next;
-    }
-
-    if (next.has(id)) {next.delete(id);}
-    else {next.add(id);}
-    return next;
-}
-
-function applyRangeSelection(
-    selection: Set<string>,
-    layoutItems: LayoutItem[],
-    startIndex: number,
-    endIndex: number,
-    isAdding: boolean
-) {
-    const start = Math.min(startIndex, endIndex);
-    const end = Math.max(startIndex, endIndex);
-    for (let i = start; i <= end; i++) {
-        if (isAdding) {selection.add(layoutItems[i].asset.id);}
-        else {selection.delete(layoutItems[i].asset.id);}
-    }
-}
 
 function clearPressTimer(pressTimer: MutableRefObject<number | null>) {
     if (!pressTimer.current) {return;}
     clearTimeout(pressTimer.current);
     pressTimer.current = null;
+}
+
+function buildSelectAllSelection(layoutItems: LayoutItem[]) {
+    return updateLibrarySelection(
+        layoutItems.map((layoutItem) => layoutItem.item),
+        createEmptyLibrarySelectionState(),
+        { mode: 'select_all' },
+    );
+}
+
+function useSelectAllShortcut(
+    layoutItems: LayoutItem[],
+    onLibrarySelectionChange: ((selection: LibrarySelectionState) => void) | undefined,
+    setIsSelecting: (value: boolean) => void,
+) {
+    useEffect(() => {
+        const handlePointerUp = () => setIsSelecting(false);
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') {return;}
+            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {return;}
+            if (!onLibrarySelectionChange) {return;}
+            event.preventDefault();
+            onLibrarySelectionChange(buildSelectAllSelection(layoutItems));
+        };
+
+        window.addEventListener('mouseup', handlePointerUp);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('mouseup', handlePointerUp);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [layoutItems, onLibrarySelectionChange, setIsSelecting]);
+}
+
+function useSelectionInteractions(
+    layoutItems: LayoutItem[],
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
+): SelectionInteractionState {
+    const [isSelecting, setIsSelecting] = useState(false);
+    const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({
+        active: false,
+        anchorIndex: null,
+    });
+    const pressTimer = useRef<number | null>(null);
+    const stopDragging = useCallback(() => {
+        dragSelectionRef.current = {
+            ...dragSelectionRef.current,
+            active: false,
+        };
+    }, []);
+
+    useSelectAllShortcut(layoutItems, onLibrarySelectionChange, setIsSelecting);
+
+    return { dragSelectionRef, isSelecting, setIsSelecting, pressTimer, stopDragging };
 }
 
 function getTileShellStyle(isDeclustered: boolean | undefined, isSelected: boolean) {
@@ -178,65 +160,85 @@ function getTileShellStyle(isDeclustered: boolean | undefined, isSelected: boole
         filter: isDeclustered ? 'grayscale(80%)' : 'none',
         position: 'relative' as const,
         userSelect: 'none' as const,
-        transform: isSelected ? 'scale(0.95)' : 'none',
-        transition: 'transform 0.2s',
-        boxShadow: isSelected ? '0 0 0 3px #3b82f6' : 'none',
-        borderRadius: '4px',
+        transform: isSelected ? 'scale(0.97)' : 'none',
+        transition: 'transform 0.18s ease-out',
+        borderRadius: '6px',
         overflow: 'hidden',
     };
 }
 
-function beginSelection(
-    e: PointerEvent<HTMLDivElement>,
-    item: LayoutItem,
-    index: number,
-    librarySelection: Set<string> | undefined,
-    onLibrarySelectionChange: ((selection: Set<string>) => void) | undefined,
-    selection: SelectionState
+function applySelectionChange(
+    layoutItems: LayoutItem[],
+    librarySelection: LibrarySelectionState,
+    onLibrarySelectionChange: ((selection: LibrarySelectionState) => void) | undefined,
+    action: Parameters<typeof updateLibrarySelection>[2],
 ) {
-    if (e.button !== 0) {return;}
-    if (librarySelection && librarySelection.size > 0) {
-        selection.setIsSelecting(true);
-        selection.toggleSelection(item.asset.id, index, e.shiftKey);
+    if (!onLibrarySelectionChange) {return;}
+    const nextSelection = updateLibrarySelection(layoutItems.map((layoutItem) => layoutItem.item), librarySelection, action);
+    onLibrarySelectionChange(nextSelection);
+}
+
+function beginSelection(params: {
+    event: ReactPointerEvent<HTMLDivElement>;
+    index: number;
+    layoutItems: LayoutItem[];
+    librarySelection: LibrarySelectionState;
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    selectionState: SelectionInteractionState;
+}) {
+    const { event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState } = params;
+    if (event.button !== 0) {return;}
+
+    const modifierToggle = event.ctrlKey || event.metaKey;
+    const modifierRange = event.shiftKey;
+    if (modifierToggle || modifierRange || hasLibrarySelection(librarySelection)) {
+        clearPressTimer(selectionState.pressTimer);
+        selectionState.setIsSelecting(true);
+        selectionState.dragSelectionRef.current = { active: false, anchorIndex: index };
+        applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, {
+            mode: modifierRange ? 'range' : modifierToggle ? 'toggle' : 'replace',
+            index,
+        });
         return;
     }
 
-    selection.pressTimer.current = window.setTimeout(() => {
-        if (!onLibrarySelectionChange) {return;}
-        selection.setIsSelecting(true);
-        selection.setLastSelectedIdx(index);
-        onLibrarySelectionChange(new Set([item.asset.id]));
-    }, 500);
+    selectionState.pressTimer.current = window.setTimeout(() => {
+        selectionState.setIsSelecting(true);
+        selectionState.dragSelectionRef.current = { active: true, anchorIndex: index };
+        applySelectionChange(layoutItems, createEmptyLibrarySelectionState(), onLibrarySelectionChange, {
+            mode: 'replace',
+            index,
+        });
+    }, LONG_PRESS_MS);
 }
 
-function extendSelection(
-    item: LayoutItem,
-    index: number,
-    librarySelection: Set<string> | undefined,
-    onLibrarySelectionChange: ((selection: Set<string>) => void) | undefined,
-    selection: SelectionState
-) {
-    if (!selection.isSelecting || !librarySelection || !onLibrarySelectionChange) {return;}
-    const next = new Set(librarySelection);
-    next.add(item.asset.id);
-    onLibrarySelectionChange(next);
-    selection.setLastSelectedIdx(index);
+function extendSelection(params: {
+    event: ReactPointerEvent<HTMLDivElement>;
+    index: number;
+    layoutItems: LayoutItem[];
+    librarySelection: LibrarySelectionState;
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    selectionState: SelectionInteractionState;
+}) {
+    const { event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState } = params;
+    if (!selectionState.dragSelectionRef.current.active || event.buttons !== 1) {return;}
+    applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, { mode: 'range', index });
 }
 
 function handleTileClick(
-    item: LayoutItem,
-    librarySelection: Set<string> | undefined,
+    layoutItem: LayoutItem,
+    librarySelection: LibrarySelectionState,
     onAssetClick: ((id: string) => void) | undefined,
-    selection: SelectionState
+    selectionState: SelectionInteractionState,
 ) {
-    clearPressTimer(selection.pressTimer);
-    if (!(librarySelection && librarySelection.size > 0)) {
-        onAssetClick?.(item.asset.id);
+    clearPressTimer(selectionState.pressTimer);
+    if (getLibrarySelectionCount(librarySelection) === 0) {
+        onAssetClick?.(layoutItem.item.asset.id);
     }
 }
 
 function LayoutTile({
-    item,
+    layoutItem,
     index,
     debug,
     selectedAssetId,
@@ -247,46 +249,61 @@ function LayoutTile({
     librarySelection,
     onLibrarySelectionChange,
     declusteredAssets,
-    selection,
+    selectionState,
     prioritizeImage,
     onHoverAssetChange,
+    layoutItems,
 }: LayoutTileProps) {
-    const isSelected = librarySelection?.has(item.asset.id) || selectedAssetId === item.asset.id;
-    const isDeclustered = declusteredAssets?.has(item.asset.id);
+    const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
+    const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
     const shellStyle = useMemo(() => ({
         ...getTileShellStyle(isDeclustered, isSelected),
-        gridColumn: `span ${item.spanW}`,
-        gridRow: `span ${item.spanH}`,
-    }), [isDeclustered, isSelected, item.spanH, item.spanW]);
+        gridColumn: `span ${layoutItem.spanW}`,
+        gridRow: `span ${layoutItem.spanH}`,
+    }), [isDeclustered, isSelected, layoutItem.spanH, layoutItem.spanW]);
 
-    const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-        beginSelection(e, item, index, librarySelection, onLibrarySelectionChange, selection);
-    }, [index, item, librarySelection, onLibrarySelectionChange, selection]);
+    const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        beginSelection({
+            event,
+            index,
+            layoutItems,
+            librarySelection,
+            onLibrarySelectionChange,
+            selectionState,
+        });
+    }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
 
-    const onPointerEnter = useCallback(() => {
-        extendSelection(item, index, librarySelection, onLibrarySelectionChange, selection);
-    }, [index, item, librarySelection, onLibrarySelectionChange, selection]);
+    const onPointerEnter = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        extendSelection({
+            event,
+            index,
+            layoutItems,
+            librarySelection,
+            onLibrarySelectionChange,
+            selectionState,
+        });
+    }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
 
     const onClick = useCallback(() => {
-        handleTileClick(item, librarySelection, onAssetClick, selection);
-    }, [item, librarySelection, onAssetClick, selection]);
+        handleTileClick(layoutItem, librarySelection, onAssetClick, selectionState);
+    }, [layoutItem, librarySelection, onAssetClick, selectionState]);
 
     return (
         <div
-            key={item.asset.id || index}
+            key={layoutItem.item.selectionKey}
             style={shellStyle}
             onPointerDown={onPointerDown}
-            onPointerUp={() => clearPressTimer(selection.pressTimer)}
-            onPointerLeave={() => clearPressTimer(selection.pressTimer)}
+            onPointerUp={() => {
+                clearPressTimer(selectionState.pressTimer);
+                selectionState.stopDragging();
+            }}
+            onPointerLeave={() => clearPressTimer(selectionState.pressTimer)}
             onPointerEnter={onPointerEnter}
             onClick={onClick}
         >
-            {isSelected && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(59, 130, 246, 0.2)', zIndex: 5, pointerEvents: 'none' }} />
-            )}
             <Tile
-                asset={item.asset}
-                intent={item.intent}
+                asset={layoutItem.item.asset}
+                intent={layoutItem.intent}
                 debug={debug}
                 selected={isSelected}
                 activeFilter={activeFilter}
@@ -295,49 +312,63 @@ function LayoutTile({
                 onHoverAssetChange={onHoverAssetChange}
                 imageLoading={prioritizeImage ? 'eager' : 'lazy'}
                 imageFetchPriority={prioritizeImage ? 'high' : 'auto'}
+                isGroupRepresentative={layoutItem.item.entityType === 'group'}
             />
         </div>
     );
 }
 
 export function LayoutEngine({
-    assets, debug = false, onAssetClick, selectedAssetId,
-    activeFilter, showFaces, onUntagAsset,
-    librarySelection, onLibrarySelectionChange, declusteredAssets, onHoverAssetChange
+    items,
+    debug = false,
+    onAssetClick,
+    selectedAssetId,
+    activeFilter,
+    showFaces,
+    onUntagAsset,
+    librarySelection,
+    onLibrarySelectionChange,
+    declusteredAssets,
+    onHoverAssetChange,
 }: LayoutEngineProps) {
-    const layoutItems = useMemo(() => computeLayout(assets), [assets]);
-    const selection = useSelectionInteractions(layoutItems, librarySelection, onLibrarySelectionChange);
+    const layoutItems = useMemo(() => computeLayout(items), [items]);
+    const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
 
     return (
         <div
             className="layout-grid"
             style={{
-                display: 'grid', gridTemplateColumns: 'repeat(24, 1fr)', gridAutoFlow: 'dense',
-                gridAutoRows: 'min(75px, 4.1vw)', gap: '2px', padding: '2px', width: '100%',
-                maxWidth: '1800px', margin: '0 auto',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(24, 1fr)',
+                gridAutoFlow: 'dense',
+                gridAutoRows: 'min(75px, 4.1vw)',
+                gap: '2px',
+                padding: '2px',
+                width: '100%',
+                maxWidth: '1800px',
+                margin: '0 auto',
             }}
         >
-            {layoutItems.map((item, i) => {
-                return (
-                    <LayoutTile
-                        key={item.asset.id || i}
-                        item={item}
-                        index={i}
-                        debug={debug}
-                        selectedAssetId={selectedAssetId}
-                        activeFilter={activeFilter}
-                        showFaces={showFaces}
-                        onUntagAsset={onUntagAsset}
-                        onAssetClick={onAssetClick}
-                        librarySelection={librarySelection}
-                        onLibrarySelectionChange={onLibrarySelectionChange}
-                        declusteredAssets={declusteredAssets}
-                        selection={selection}
-                        prioritizeImage={i < PRIORITY_TILE_COUNT}
-                        onHoverAssetChange={onHoverAssetChange}
-                    />
-                );
-            })}
+            {layoutItems.map((layoutItem, index) => (
+                <LayoutTile
+                    key={layoutItem.item.selectionKey}
+                    layoutItem={layoutItem}
+                    index={index}
+                    debug={debug}
+                    selectedAssetId={selectedAssetId}
+                    activeFilter={activeFilter}
+                    showFaces={showFaces}
+                    onUntagAsset={onUntagAsset}
+                    onAssetClick={onAssetClick}
+                    librarySelection={librarySelection}
+                    onLibrarySelectionChange={onLibrarySelectionChange}
+                    declusteredAssets={declusteredAssets}
+                    selectionState={selectionState}
+                    prioritizeImage={index < PRIORITY_TILE_COUNT}
+                    onHoverAssetChange={onHoverAssetChange}
+                    layoutItems={layoutItems}
+                />
+            ))}
         </div>
     );
 }

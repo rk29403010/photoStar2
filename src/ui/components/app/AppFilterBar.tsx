@@ -1,10 +1,11 @@
 import { PERSON_COLORS } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
+import { getLibrarySelectionCount, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 interface AppFilterBarProps {
   view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
   filterStack: LibraryFilter[];
-  librarySelection: Set<string>;
+  librarySelection: LibrarySelectionState;
   showRejected: boolean;
   onDeclusterSelection: (personId: string) => void;
   onClearSelection: () => void;
@@ -152,7 +153,7 @@ function FilterBarContent({
       <FilterTrail filterStack={filterStack} />
       <div style={{ flex: 1 }} />
       <SelectionActions
-        selectionCount={librarySelection.size}
+        selectionCount={getLibrarySelectionCount(librarySelection)}
         singlePersonId={singlePersonId}
         onDeclusterSelection={onDeclusterSelection}
         onClearSelection={onClearSelection}

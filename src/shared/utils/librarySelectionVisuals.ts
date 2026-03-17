@@ -1,0 +1,2 @@
+export const LIBRARY_SELECTION_FRAME_COLOR = '#60a5fa';
+export const LIBRARY_SELECTION_STAR_COLOR = '#60a5fa';

@@ -100,6 +100,7 @@ export function usePhotoLibraryState() {
     const activeWorkflowRunId = useRef<string | null>(null);
     const workflowRefreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [ingestStatusMessage, setIngestStatusMessage] = useState<string | null>(null);
+    const groupSimilarPhotosRef = useRef(true);
 
     return {
         status,
@@ -141,6 +142,7 @@ export function usePhotoLibraryState() {
         lastScanId,
         activeWorkflowRunId,
         workflowRefreshTimeout,
+        groupSimilarPhotosRef,
         ...logState,
         ingestStatusMessage,
         setIngestStatusMessage,

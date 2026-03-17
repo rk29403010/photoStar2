@@ -20,6 +20,7 @@ const FAST_RECONNECT_WINDOW_MS = 5000;
 const INITIAL_STARTUP_TIMEOUT_MS = 10000;
 const FAST_RECONNECT_DELAYS_MS = [400, 900, 1600, 2500];
 const SLOW_RECONNECT_DELAY_MS = 6000;
+
 export interface ConnectionStateParams {
     hasCompletedInitialSync: boolean;
     setHasCompletedInitialSync: (value: boolean) => void;
@@ -45,6 +46,7 @@ export interface ConnectionStateParams {
     processEvent: (event: DomainEvent) => void;
     updateJobProgress: (jobId: string, payload: { processed?: number; total?: number; message?: string; current?: string; status?: string }) => void;
     filterStackRef: { current: LibraryFilter[] };
+    groupSimilarPhotosRef: { current: boolean };
 }
 
 export type ParamsRef = { current: ConnectionStateParams };
@@ -75,10 +77,14 @@ type ConnectionLifecycleContext = {
     state: ConnectionLifecycleState;
 };
 
-async function sendInitialRequests(write: (payload: string) => void | Promise<void>, filter: LibraryFilter | undefined) {
+async function sendInitialRequests(
+    write: (payload: string) => void | Promise<void>,
+    filter: LibraryFilter | undefined,
+    withGroupCounts: boolean,
+) {
     await write(JSON.stringify({ id: '1', command: 'ping', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'stats-init', command: 'get_stats', payload: {} }) + '\n');
-    await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: ASSET_PAGE_SIZE, offset: 0, filter, detailLevel: 'gallery' } }) + '\n');
+    await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: ASSET_PAGE_SIZE, offset: 0, filter, detailLevel: 'gallery', withGroupCounts } }) + '\n');
     await write(JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'system-jobs-init', command: 'get_system_jobs', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'pause-state-init', command: 'get_pause_state', payload: {} }) + '\n');
@@ -124,7 +130,11 @@ async function startWebSocketMode(deps: StartConnectionDeps) {
         deps.onTransportConnected('WS');
 
         try {
-            await sendInitialRequests((payload) => ws.send(payload), currentFilter(deps.paramsRef.current.filterStackRef));
+            await sendInitialRequests(
+                (payload) => ws.send(payload),
+                currentFilter(deps.paramsRef.current.filterStackRef),
+                deps.paramsRef.current.groupSimilarPhotosRef.current,
+            );
         } catch (error) {
             if (deps.isSessionStale()) {return;}
             deps.scheduleReconnect('Failed to request initial library data.', `Initial sync failed: ${String(error)}`);
@@ -201,7 +211,11 @@ async function startTauriMode(deps: StartConnectionDeps) {
         deps.onTransportConnected('Tauri');
 
         try {
-            await sendInitialRequests((payload) => process.write(payload), currentFilter(deps.paramsRef.current.filterStackRef));
+            await sendInitialRequests(
+                (payload) => process.write(payload),
+                currentFilter(deps.paramsRef.current.filterStackRef),
+                deps.paramsRef.current.groupSimilarPhotosRef.current,
+            );
         } catch (error) {
             if (deps.isSessionStale()) {return;}
             deps.scheduleReconnect('Failed to request initial library data.', `Initial sync failed: ${String(error)}`);

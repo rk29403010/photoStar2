@@ -3,6 +3,7 @@ import type { Asset, TileIntent } from '@contracts/core';
 import { PERSON_COLORS } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
+import { LIBRARY_SELECTION_FRAME_COLOR, LIBRARY_SELECTION_STAR_COLOR } from '@shared/utils/librarySelectionVisuals';
 
 interface TileProps {
     asset: Asset;
@@ -15,6 +16,7 @@ interface TileProps {
     onHoverAssetChange?: (asset: Asset | null) => void;
     imageLoading?: 'eager' | 'lazy';
     imageFetchPriority?: 'high' | 'auto';
+    isGroupRepresentative?: boolean;
 }
 
 type SensitivityBadge = {
@@ -49,7 +51,7 @@ function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
 }
 
 function getBorder(selected: boolean): string {
-    return selected ? '3px solid gold' : '0px solid transparent';
+    return selected ? `2px solid ${LIBRARY_SELECTION_FRAME_COLOR}` : '0px solid transparent';
 }
 
 function getFaceVisuals(facePersonId: string | undefined, activeFilter: LibraryFilter | undefined, showFaces: boolean): FaceOverlayVisuals {
@@ -153,6 +155,60 @@ const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) =
     );
 };
 
+const SelectedStarBadge: React.FC = () => {
+    return (
+        <div
+            style={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                width: 26,
+                height: 26,
+                borderRadius: 999,
+                background: 'rgba(15,23,42,0.88)',
+                color: LIBRARY_SELECTION_STAR_COLOR,
+                border: `1px solid ${LIBRARY_SELECTION_FRAME_COLOR}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.95rem',
+                zIndex: 18,
+                pointerEvents: 'none',
+                boxShadow: '0 4px 12px rgba(2,6,23,0.45)',
+            }}
+        >
+            ★
+        </div>
+    );
+};
+
+const GroupModeBadge: React.FC<{ show: boolean }> = ({ show }) => {
+    if (!show) {return null;}
+
+    return (
+        <div
+            style={{
+                position: 'absolute',
+                bottom: 8,
+                right: 8,
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: 'rgba(15,23,42,0.82)',
+                border: '1px solid rgba(148,163,184,0.25)',
+                color: '#dbeafe',
+                fontSize: '0.62rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                zIndex: 15,
+                pointerEvents: 'none',
+            }}
+        >
+            Group
+        </div>
+    );
+};
+
 const CaptionOverlay: React.FC<{ show: boolean; caption?: string }> = ({ show, caption }) => {
     if (!show || !caption) {return null;}
 
@@ -241,7 +297,8 @@ export const Tile: React.FC<TileProps> = ({
     onUntagAsset,
     onHoverAssetChange,
     imageLoading = 'lazy',
-    imageFetchPriority = 'auto'
+    imageFetchPriority = 'auto',
+    isGroupRepresentative = false,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -272,8 +329,10 @@ export const Tile: React.FC<TileProps> = ({
             }}
         >
             <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} />
+            {selected && <SelectedStarBadge />}
             <SensitivityBadgeView badge={sensitivityBadge} />
             <StackBadge count={asset.stack_count} />
+            <GroupModeBadge show={isGroupRepresentative} />
             <CaptionOverlay show={isHovered} caption={asset.caption} />
             <DeclusterButton visible={isHovered} activeFilter={activeFilter} assetId={asset.id} onUntagAsset={onUntagAsset} />
             <FaceBoxes asset={asset} showFaces={showFaces} activeFilter={activeFilter} />

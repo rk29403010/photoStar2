@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "🚀 Web Dev (Vite UI + Core + Edge Debug)",
+            "name": "🚀 Web Dev (Vite UI + Core + Browser Open)",
             "type": "node",
             "request": "launch",
             "runtimeExecutable": "npm",
@@ -13,10 +13,9 @@
             "console": "integratedTerminal",
             "internalConsoleOptions": "openOnSessionStart",
             "serverReadyAction": {
-                "action": "debugWithEdge",
+                "action": "openExternally",
                 "killOnServerStop": true,
-                "pattern": "Local:\\s+(https?://\\S+)",
-                "webRoot": "${workspaceFolder}"
+                "pattern": "Local:\\s+(https?://\\S+)"
             },
             "skipFiles": [
                 "<node_internals>/**"
@@ -34,7 +33,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "🧩 Desktop Runtime (UI + Core + Edge Debug)",
+            "name": "🧩 Desktop Runtime (UI + Core + Browser Open)",
             "type": "node",
             "request": "launch",
             "runtimeExecutable": "npm",
@@ -45,32 +44,13 @@
             "console": "integratedTerminal",
             "internalConsoleOptions": "openOnSessionStart",
             "serverReadyAction": {
-                "action": "debugWithEdge",
+                "action": "openExternally",
                 "killOnServerStop": true,
-                "pattern": "Local:\\s+(https?://\\S+)",
-                "webRoot": "${workspaceFolder}"
+                "pattern": "Local:\\s+(https?://\\S+)"
             },
             "skipFiles": [
                 "<node_internals>/**"
             ]
-        },
-        {
-            "name": "🌐 PhotoStar (Chrome Debug)",
-            "type": "chrome",
-            "request": "launch",
-            "url": "http://localhost:5173",
-            "webRoot": "${workspaceFolder}",
-            "userDataDir": "${workspaceFolder}\\.vscode\\chrome-debug-profile",
-            "internalConsoleOptions": "openOnSessionStart"
-        },
-        {
-            "name": "🌐 PhotoStar (Edge Debug)",
-            "type": "msedge",
-            "request": "launch",
-            "url": "http://localhost:5173",
-            "webRoot": "${workspaceFolder}",
-            "userDataDir": "${workspaceFolder}\\.vscode\\edge-debug-profile",
-            "internalConsoleOptions": "openOnSessionStart"
         },
         {
             "name": "🧪 Desktop Runtime (Verbose HMR Logs)",
@@ -84,10 +64,9 @@
             "console": "integratedTerminal",
             "internalConsoleOptions": "openOnSessionStart",
             "serverReadyAction": {
-                "action": "debugWithEdge",
+                "action": "openExternally",
                 "killOnServerStop": true,
-                "pattern": "Local:\\s+(https?://\\S+)",
-                "webRoot": "${workspaceFolder}"
+                "pattern": "Local:\\s+(https?://\\S+)"
             },
             "skipFiles": [
                 "<node_internals>/**"

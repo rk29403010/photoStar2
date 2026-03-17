@@ -19,22 +19,21 @@ test('VS Code launch config avoids deprecated Chrome debugger entries and stale 
     assert.equal(launch.configurations.some((entry) => entry.name === 'Start Desktop App (Tauri)'), false);
 });
 
-test('VS Code node launchers use debugWithChrome so they attach to the URL reported by Vite', () => {
+test('VS Code node launchers open the reported Vite URL externally instead of relying on implicit browser attach', () => {
     const launch = readJson('.vscode/launch.json');
     const nodeLaunchers = launch.configurations.filter((entry) => entry.type === 'node' && entry.serverReadyAction);
 
     assert.ok(nodeLaunchers.length >= 1, 'expected node launchers with serverReadyAction');
     for (const launcher of nodeLaunchers) {
-        assert.equal(launcher.serverReadyAction.action, 'debugWithChrome');
+        assert.equal(launcher.serverReadyAction.action, 'openExternally');
         assert.equal(launcher.serverReadyAction.pattern, 'Local:\\s+(https?://\\S+)');
-        assert.equal(launcher.serverReadyAction.webRoot, '${workspaceFolder}');
     }
 });
 
 test('VS Code default web and desktop runtime launchers use the quiet scripts and keep a separate verbose HMR option', () => {
     const launch = readJson('.vscode/launch.json');
-    const webLauncher = launch.configurations.find((entry) => entry.name === '🚀 Web Dev (Vite UI + Core + Chrome Debug)');
-    const desktopRuntimeLauncher = launch.configurations.find((entry) => entry.name === '🧩 Desktop Runtime (UI + Core + Chrome Debug)');
+    const webLauncher = launch.configurations.find((entry) => entry.name === '🚀 Web Dev (Vite UI + Core + Browser Open)');
+    const desktopRuntimeLauncher = launch.configurations.find((entry) => entry.name === '🧩 Desktop Runtime (UI + Core + Browser Open)');
     const verboseLauncher = launch.configurations.find((entry) => entry.name === '🧪 Desktop Runtime (Verbose HMR Logs)');
     const killPortsLauncher = launch.configurations.find((entry) => entry.name === '🧹 Kill Dev Ports');
 
