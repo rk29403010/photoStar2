@@ -241,10 +241,65 @@ function lineOf(node, sourceFile) {
     return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 }
 
+function getLineStarts(text) {
+    const starts = [0];
+
+    for (let index = 0; index < text.length; index += 1) {
+        if (text[index] === '\n') {
+            starts.push(index + 1);
+        }
+    }
+
+    return starts;
+}
+
+function findLineIndex(lineStarts, position) {
+    let low = 0;
+    let high = lineStarts.length - 1;
+
+    while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const lineStart = lineStarts[mid];
+        const nextLineStart = mid + 1 < lineStarts.length ? lineStarts[mid + 1] : Number.POSITIVE_INFINITY;
+
+        if (position < lineStart) {
+            high = mid - 1;
+            continue;
+        }
+
+        if (position >= nextLineStart) {
+            low = mid + 1;
+            continue;
+        }
+
+        return mid;
+    }
+
+    return Math.max(0, lineStarts.length - 1);
+}
+
+export function countSubstantiveLines(text, languageVariant = ts.LanguageVariant.Standard) {
+    const scanner = ts.createScanner(ts.ScriptTarget.Latest, true, languageVariant, text);
+    const lineStarts = getLineStarts(text);
+    const substantiveLines = new Set();
+
+    for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken; token = scanner.scan()) {
+        const tokenStart = scanner.getTokenPos();
+        const tokenEnd = Math.max(tokenStart, scanner.getTextPos() - 1);
+        const startLine = findLineIndex(lineStarts, tokenStart);
+        const endLine = findLineIndex(lineStarts, tokenEnd);
+
+        for (let lineIndex = startLine; lineIndex <= endLine; lineIndex += 1) {
+            substantiveLines.add(lineIndex);
+        }
+    }
+
+    return Math.max(1, substantiveLines.size);
+}
+
 function locOf(node, sourceFile) {
-    const startLine = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
-    const endLine = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
-    return Math.max(1, endLine - startLine + 1);
+    const functionText = sourceFile.text.slice(node.getStart(sourceFile), node.getEnd());
+    return countSubstantiveLines(functionText, sourceFile.languageVariant);
 }
 
 export function scanFunctions(filePath, repoRoot) {

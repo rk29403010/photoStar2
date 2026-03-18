@@ -1,8 +1,8 @@
 import type React from 'react';
 
 interface TopBarProps {
-    view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
-    setView: (view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows') => void;
+    view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
+    setView: (view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics') => void;
     onOpenActions: () => void;
 }
 

@@ -14,9 +14,11 @@ interface ActionPanelProps {
     onResetFaces: () => void;
     onResetAll: () => void;
     onFactoryReset: () => void;
+    onResetGroupingData: () => void;
     onStopScan: () => void;
     onBuildGroups: () => void;
     onBuildBursts: () => void;
+    onOpenGroupDiagnostics: () => void;
     onOpenSettings: () => void;
     onOpenWorkflowVisualiser: () => void;
     folderHistory?: { path: string, last_scanned_at: string }[];
@@ -109,8 +111,8 @@ function PipelineColumn(props: Pick<ActionPanelProps, 'onClose' | 'onPreviews' |
     );
 }
 
-function AnalysisAndMaintenanceColumn(props: Pick<ActionPanelProps, 'onClose' | 'onBuildGroups' | 'onBuildBursts' | 'onRefresh' | 'onResetFaces' | 'onResetAll' | 'onFactoryReset' | 'onOpenSettings' | 'onOpenWorkflowVisualiser'>) {
-    const { onClose, onBuildGroups, onBuildBursts, onRefresh, onResetFaces, onResetAll, onFactoryReset, onOpenSettings, onOpenWorkflowVisualiser } = props;
+function AnalysisAndMaintenanceColumn(props: Pick<ActionPanelProps, 'onClose' | 'onBuildGroups' | 'onBuildBursts' | 'onRefresh' | 'onResetFaces' | 'onResetAll' | 'onFactoryReset' | 'onResetGroupingData' | 'onOpenSettings' | 'onOpenWorkflowVisualiser' | 'onOpenGroupDiagnostics'>) {
+    const { onClose, onBuildGroups, onBuildBursts, onRefresh, onResetFaces, onResetAll, onFactoryReset, onResetGroupingData, onOpenSettings, onOpenWorkflowVisualiser, onOpenGroupDiagnostics } = props;
     return (
         <div className="space-y-8">
             <section>
@@ -118,6 +120,8 @@ function AnalysisAndMaintenanceColumn(props: Pick<ActionPanelProps, 'onClose' | 
                 <div className="space-y-3">
                     <button onClick={() => { onBuildGroups(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-teal-500/50 rounded-lg transition-all group"><div className="flex items-center justify-between mb-1"><span className="font-medium">Group Duplicates & Variants</span><span className="text-lg">👯</span></div><p className="text-[10px] text-gray-300 leading-relaxed">Automatically stack identical files and similar versions (variants)</p></button>
                     <button onClick={() => { onBuildBursts(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-teal-500/50 rounded-lg transition-all group"><div className="flex items-center justify-between mb-1"><span className="font-medium">Group Bursts & Sequences</span><span className="text-lg">📸</span></div><p className="text-[10px] text-gray-300 leading-relaxed">Automatically group rapid-fire photo sequences</p></button>
+                    <button onClick={() => { onOpenGroupDiagnostics(); onClose(); }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-cyan-500/50 rounded-lg transition-all group"><div className="flex items-center justify-between mb-1"><span className="font-medium">Grouping Diagnostics Report</span><span className="text-lg">🧪</span></div><p className="text-[10px] text-gray-300 leading-relaxed">Inspect suspicious overlaps, collapse inflation, and group structure</p></button>
+                    <button onClick={() => { if (window.confirm('This will remove automatic grouping results and manual grouping decisions so grouping can be rerun from scratch. Continue?')) { onResetGroupingData(); onClose(); } }} className="w-full text-left px-4 py-4 bg-[#242424] hover:bg-[#2d2d2d] border border-[#333] hover:border-amber-500/50 rounded-lg transition-all group"><div className="flex items-center justify-between mb-1"><span className="font-medium">Reset All Grouping Data</span><span className="text-lg">♻️</span></div><p className="text-[10px] text-gray-300 leading-relaxed">Clear automatic groups, manual canonical picks, and exploded-group history</p></button>
                 </div>
             </section>
 
@@ -161,7 +165,7 @@ export function ActionPanel(props: ActionPanelProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     <IngestionColumn onScan={props.onScan} onClose={props.onClose} folderHistory={props.folderHistory} onStopScan={props.onStopScan} />
                     <PipelineColumn onClose={props.onClose} onPreviews={props.onPreviews} onDetect={props.onDetect} onCluster={props.onCluster} onScanSensitive={props.onScanSensitive} onScanSensitiveAll={props.onScanSensitiveAll} onExtractAiMetadata={props.onExtractAiMetadata} />
-                    <AnalysisAndMaintenanceColumn onClose={props.onClose} onBuildGroups={props.onBuildGroups} onBuildBursts={props.onBuildBursts} onRefresh={props.onRefresh} onResetFaces={props.onResetFaces} onResetAll={props.onResetAll} onFactoryReset={props.onFactoryReset} onOpenSettings={props.onOpenSettings} onOpenWorkflowVisualiser={props.onOpenWorkflowVisualiser} />
+                    <AnalysisAndMaintenanceColumn onClose={props.onClose} onBuildGroups={props.onBuildGroups} onBuildBursts={props.onBuildBursts} onRefresh={props.onRefresh} onResetFaces={props.onResetFaces} onResetAll={props.onResetAll} onFactoryReset={props.onFactoryReset} onResetGroupingData={props.onResetGroupingData} onOpenGroupDiagnostics={props.onOpenGroupDiagnostics} onOpenSettings={props.onOpenSettings} onOpenWorkflowVisualiser={props.onOpenWorkflowVisualiser} />
                 </div>
             </div>
         </div>

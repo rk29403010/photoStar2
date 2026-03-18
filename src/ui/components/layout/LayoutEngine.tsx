@@ -25,6 +25,7 @@ interface LayoutEngineProps {
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
     declusteredAssets?: Set<string>;
     onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
+    showGroupIds?: boolean;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: TileIntent; spanW: number; spanH: number };
@@ -56,6 +57,7 @@ interface LayoutTileProps {
     prioritizeImage: boolean;
     onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
     layoutItems: LayoutItem[];
+    showGroupIds?: boolean;
 }
 
 const PRIORITY_TILE_COUNT = 60;
@@ -253,6 +255,7 @@ function LayoutTile({
     prioritizeImage,
     onHoverAssetChange,
     layoutItems,
+    showGroupIds,
 }: LayoutTileProps) {
     const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
     const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
@@ -313,6 +316,7 @@ function LayoutTile({
                 imageLoading={prioritizeImage ? 'eager' : 'lazy'}
                 imageFetchPriority={prioritizeImage ? 'high' : 'auto'}
                 isGroupRepresentative={layoutItem.item.entityType === 'group'}
+                showGroupIds={showGroupIds}
             />
         </div>
     );
@@ -330,6 +334,7 @@ export function LayoutEngine({
     onLibrarySelectionChange,
     declusteredAssets,
     onHoverAssetChange,
+    showGroupIds,
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(items), [items]);
     const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
@@ -367,6 +372,7 @@ export function LayoutEngine({
                     prioritizeImage={index < PRIORITY_TILE_COUNT}
                     onHoverAssetChange={onHoverAssetChange}
                     layoutItems={layoutItems}
+                    showGroupIds={showGroupIds}
                 />
             ))}
         </div>

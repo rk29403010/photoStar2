@@ -17,7 +17,19 @@ export type AssetPayloadRow = {
     member_role?: string | null;
     member_rank?: number | null;
     member_match_evidence?: string | null;
+    member_group_type?: string | null;
     stack_count?: number | null;
+    group_memberships_json?: string | null;
+};
+
+type RawGroupMembership = {
+    groupId?: string;
+    groupRole?: string | null;
+    stackCount?: number | null;
+    role?: string | null;
+    rank?: number | null;
+    matchEvidence?: Record<string, unknown> | string | null;
+    groupType?: string | null;
 };
 
 function parseFaces(row: AssetPayloadRow) {
@@ -88,6 +100,7 @@ function buildAssetFileFields(row: AssetPayloadRow) {
 }
 
 function buildGroupFields(row: AssetPayloadRow) {
+    const groupMemberships = parseGroupMemberships(row);
     return {
         group_id: row.member_group_id ?? null,
         group_role: row.member_role ?? null,
@@ -95,7 +108,54 @@ function buildGroupFields(row: AssetPayloadRow) {
         role: row.member_role ?? null,
         rank: row.member_rank ?? null,
         match_evidence: parseMatchEvidence(row.member_match_evidence),
+        group_memberships: groupMemberships,
     };
+}
+
+function buildFallbackGroupMembership(row: AssetPayloadRow) {
+    if (!row.member_group_id) {return [];}
+
+    return [{
+        group_id: row.member_group_id,
+        group_role: row.member_role ?? null,
+        stack_count: row.stack_count ?? null,
+        role: row.member_role ?? null,
+        rank: row.member_rank ?? null,
+        match_evidence: parseMatchEvidence(row.member_match_evidence),
+        group_type: row.member_group_type ?? null,
+    }];
+}
+
+function isValidGroupMembership(membership: RawGroupMembership) {
+    return typeof membership.groupId === 'string' && membership.groupId.length > 0;
+}
+
+function toGroupMembership(membership: RawGroupMembership) {
+    return {
+        group_id: membership.groupId!,
+        group_role: membership.groupRole ?? null,
+        stack_count: membership.stackCount ?? null,
+        role: membership.role ?? null,
+        rank: membership.rank ?? null,
+        match_evidence: membership.matchEvidence ?? null,
+        group_type: membership.groupType ?? null,
+    };
+}
+
+function parseGroupMembershipsJson(groupMembershipsJson: string) {
+    try {
+        return JSON.parse(groupMembershipsJson) as RawGroupMembership[];
+    } catch {
+        return [];
+    }
+}
+
+function parseGroupMemberships(row: AssetPayloadRow) {
+    if (!row.group_memberships_json) {return buildFallbackGroupMembership(row);}
+
+    return parseGroupMembershipsJson(row.group_memberships_json)
+        .filter(isValidGroupMembership)
+        .map(toGroupMembership);
 }
 
 function resolveCaption(row: AssetPayloadRow, aiMeta: Record<string, unknown> | undefined) {

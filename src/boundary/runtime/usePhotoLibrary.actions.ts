@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { Asset, Album } from '@contracts/core';
+import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import type { PipelineStage } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
@@ -32,6 +33,7 @@ interface GroupActionParams {
 
 interface BuildActionParams {
     transport: BackendTransport | null;
+    request: RequestFn;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
 }
 
@@ -117,6 +119,12 @@ export function createGroupActions(params: GroupActionParams) {
             payload: { groupId },
             select: (data) => (data?.orbit as Asset[]) || [],
         }),
+        getGroupDiagnosticsReport: (): Promise<GroupDiagnosticsReport> => request({
+            idPrefix: 'get_group_diagnostics_report',
+            command: 'get_group_diagnostics_report',
+            payload: {},
+            select: (data) => data?.report as GroupDiagnosticsReport,
+        }),
         setCanonical: async (groupId: string, assetId: string, replacementAsset?: Asset): Promise<void> => {
             await request<void>({
                 idPrefix: 'set_canonical',
@@ -141,13 +149,23 @@ export function createGroupActions(params: GroupActionParams) {
 }
 
 export function createBuildActions(params: BuildActionParams) {
-    const { transport, addJob } = params;
+    const { transport, request, addJob } = params;
 
     return {
-        buildGroups: async () => {
-            const jobId = 'build-groups-' + Date.now();
-            addJob(jobId, 'similarity_cluster', 'Analyze Relationships (Duplicates & Variants)');
-            await writeCommand(transport, jobId, 'build_groups', {});
+        resetGroupingData: async () => {
+            const jobId = 'reset-grouping-' + Date.now();
+            await writeCommand(transport, jobId, 'reset_grouping_data', {});
+        },
+        buildGroups: async (): Promise<string> => {
+            const localJobId = 'build-groups-' + Date.now();
+            addJob(localJobId, 'similarity_cluster', 'Runtime Grouping (Duplicates, Variants & Bursts)');
+            return request<string>({
+                idPrefix: 'start_library_grouping',
+                command: 'start_library_grouping',
+                payload: {},
+                timeoutMs: 10000,
+                select: (data) => String(data?.runId || ''),
+            });
         },
         buildBursts: async () => {
             const jobId = 'build-bursts-' + Date.now();

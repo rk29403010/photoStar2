@@ -11,9 +11,11 @@ import { DashboardView } from '../DashboardView';
 import { AlbumsView } from '../AlbumsView';
 import { WorkflowWorkspace } from '../workflows/WorkflowWorkspace';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
+import { GroupingDiagnosticsView } from '../group-diagnostics/GroupingDiagnosticsView';
 
 interface AppMainContentProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
+  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
   assets: Asset[];
   people: Person[];
   status: string;
@@ -24,6 +26,9 @@ interface AppMainContentProps {
   showFaces: boolean;
   librarySelection: LibrarySelectionState;
   groupSimilarPhotos: boolean;
+  showGroupIds: boolean;
+  groupDiagnosticsReport: GroupDiagnosticsReport | null;
+  isLoadingGroupDiagnostics: boolean;
   declusteredAssets: Set<string>;
   showRejected: boolean;
   rejectedAssets: Asset[];
@@ -43,6 +48,8 @@ interface AppMainContentProps {
   onUntagAsset: (assetId: string, personId: string) => void;
   onLibrarySelectionChange: (selection: LibrarySelectionState) => void;
   onGroupSimilarPhotosChange: (enabled: boolean) => void;
+  onShowGroupIdsChange: (enabled: boolean) => void;
+  onRefreshGroupDiagnostics: () => void;
   onPeopleFilter: (filter: LibraryFilter) => void;
   onPeopleSelectionChange: (count: number) => void;
   onRenamePerson: (id: string, name: string) => void;
@@ -84,7 +91,6 @@ function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | 
 export function AppMainContent(props: AppMainContentProps) {
   const activeFilter = props.filterStack.length > 0 ? props.filterStack[props.filterStack.length - 1] : undefined;
   const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestStatusMessage);
-
   return (
     <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
       <div style={getPanelStyle(props.view === 'library')}>
@@ -104,8 +110,10 @@ export function AppMainContent(props: AppMainContentProps) {
           onUntagAsset={props.onUntagAsset}
           librarySelection={props.librarySelection}
           groupSimilarPhotos={props.groupSimilarPhotos}
+          showGroupIds={props.showGroupIds}
           onLibrarySelectionChange={props.onLibrarySelectionChange}
           onGroupSimilarPhotosChange={props.onGroupSimilarPhotosChange}
+          onShowGroupIdsChange={props.onShowGroupIdsChange}
           declusteredAssets={props.declusteredAssets}
           showRejected={props.showRejected}
           rejectedAssets={props.showRejected ? props.rejectedAssets : []}
@@ -156,6 +164,15 @@ export function AppMainContent(props: AppMainContentProps) {
         <WorkflowWorkspace
           workflowId="folder_ingest_v1"
           onGetWorkflowVisualiser={props.onGetWorkflowVisualiser}
+        />
+      )}
+
+      {props.view === 'groupDiagnostics' && (
+        <GroupingDiagnosticsView
+          report={props.groupDiagnosticsReport}
+          loading={props.isLoadingGroupDiagnostics}
+          onRefresh={props.onRefreshGroupDiagnostics}
+          onAssetClick={(assetId) => props.onAssetClick(assetId)}
         />
       )}
     </div>

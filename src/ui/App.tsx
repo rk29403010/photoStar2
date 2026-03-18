@@ -13,6 +13,7 @@ import { AppStatusRightSlot, ConnectionOverlayLayer, ErrorBanner } from './compo
 import { canUseNativeDirectoryPicker } from '@boundary/runtime/backend';
 import type { LibraryFilter } from './hooks/usePhotoLibrary';
 import type { BackgroundJob } from '@contracts/jobs';
+import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import { buildCurrentPhotoStatus } from '@shared/utils/libraryGallery';
 import {
   clearLibrarySelection,
@@ -21,6 +22,7 @@ import {
   type LibrarySelectionState,
 } from '@shared/utils/librarySelectionState';
 import { useAppUiState, type AppView } from './hooks/useAppRuntimeUi';
+import { useGroupDiagnosticsView } from './hooks/useGroupDiagnosticsView';
 
 const ACTIVE_OVERLAY_JOB_STATES = new Set<BackgroundJob['state']>([
   'queued',
@@ -340,13 +342,7 @@ function getShellStyle(uiBlocked: boolean) {
   };
 }
 
-const CONNECTION_UNAVAILABLE_STATUS_PREFIXES = [
-  'Connecting to backend service',
-  'Reconnecting to backend service',
-  'Waiting for backend service to become ready',
-  'Backend service unavailable',
-  'Backend service failed to start',
-] as const;
+const CONNECTION_UNAVAILABLE_STATUS_PREFIXES = ['Connecting to backend service', 'Reconnecting to backend service', 'Waiting for backend service to become ready', 'Backend service unavailable', 'Backend service failed to start'] as const;
 
 function isConnectionUnavailableStatus(status: string) {
   return CONNECTION_UNAVAILABLE_STATUS_PREFIXES.some((prefix) => status.startsWith(prefix));
@@ -354,9 +350,7 @@ function isConnectionUnavailableStatus(status: string) {
 
 function getConnectionUiState(status: string, error: string | null) {
   const backendReady = !isConnectionUnavailableStatus(status);
-  if (backendReady) {
-    return { backendReady, shellStyle: getShellStyle(false), connectionOverlay: null };
-  }
+  if (backendReady) {return { backendReady, shellStyle: getShellStyle(false), connectionOverlay: null };}
 
   return {
     backendReady,
@@ -417,6 +411,10 @@ interface LoadedAppShellProps {
   activeOverlayJobs: BackgroundJob[];
   handleOverlayStopJob: (job: BackgroundJob) => void;
   connectionUiState: ReturnType<typeof getConnectionUiState>;
+  groupDiagnosticsReport: GroupDiagnosticsReport | null;
+  isLoadingGroupDiagnostics: boolean;
+  onOpenGroupDiagnostics: () => void;
+  onRefreshGroupDiagnostics: () => void;
   uiState: ReturnType<typeof useAppUiState>;
 }
 
@@ -427,6 +425,10 @@ function LoadedAppShell({
   activeOverlayJobs,
   handleOverlayStopJob,
   connectionUiState,
+  groupDiagnosticsReport,
+  isLoadingGroupDiagnostics,
+  onOpenGroupDiagnostics,
+  onRefreshGroupDiagnostics,
   uiState,
 }: LoadedAppShellProps) {
   const {
@@ -461,9 +463,9 @@ function LoadedAppShell({
         <div style={shellStyle}>
           <TopBar view={uiState.view} setView={handlers.handleViewChange} onOpenActions={() => uiState.setShowActions(true)} />
           <AppFilterBar view={uiState.view} filterStack={filterStack} librarySelection={uiState.librarySelection} showRejected={uiState.showRejected} onDeclusterSelection={handlers.handleDeclusterSelection} onClearSelection={() => uiState.setLibrarySelection(clearLibrarySelection())} onToggleRejected={handlers.handleToggleRejected} onBack={handlers.handleFilterBack} onClearAll={handlers.handleClearAllFilters} />
-          <AppMainContent view={uiState.view} assets={assets} libraryActive={uiState.view === 'library'} people={people} status={status} backendReady={backendReady} filterStack={filterStack} selectedAssetId={uiState.selectedAssetId} showFaces={false} librarySelection={uiState.librarySelection} groupSimilarPhotos={uiState.groupSimilarPhotos} declusteredAssets={uiState.declusteredAssets} showRejected={uiState.showRejected} rejectedAssets={rejectedAssets} jobs={jobs} systemJobs={systemJobs} queueStatus={queueStatus} dataStats={dataStats} recentEvents={recentEvents} workflowRuns={workflowRuns} uiFeedEntries={uiFeedEntries} ingestStatusMessage={ingestStatusMessage} isSystemPaused={isSystemPaused} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} onLoadMoreAssets={actions.loadMoreAssets} onAssetClick={uiState.setSelectedAssetId} onUntagAsset={handlers.handleUntagAsset} onLibrarySelectionChange={uiState.setLibrarySelection} onGroupSimilarPhotosChange={uiState.setGroupSimilarPhotos} onPeopleFilter={handlers.handlePeopleFilter} onPeopleSelectionChange={uiState.setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onTogglePause={actions.toggleSystemPause} onStopJob={actions.stopJob} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onSetModulePaused={actions.setModulePaused} onGetWorkflowVisualiser={actions.getWorkflowVisualiser} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={handlers.handleOpenAlbum} onHoverLibraryAssetChange={(asset) => uiState.setHoveredLibraryPhoto(asset ? buildCurrentPhotoStatus(asset) : null)} />
+          <AppMainContent view={uiState.view} assets={assets} libraryActive={uiState.view === 'library'} people={people} status={status} backendReady={backendReady} filterStack={filterStack} selectedAssetId={uiState.selectedAssetId} showFaces={false} librarySelection={uiState.librarySelection} groupSimilarPhotos={uiState.groupSimilarPhotos} showGroupIds={uiState.showGroupIds} groupDiagnosticsReport={groupDiagnosticsReport} isLoadingGroupDiagnostics={isLoadingGroupDiagnostics} declusteredAssets={uiState.declusteredAssets} showRejected={uiState.showRejected} rejectedAssets={rejectedAssets} jobs={jobs} systemJobs={systemJobs} queueStatus={queueStatus} dataStats={dataStats} recentEvents={recentEvents} workflowRuns={workflowRuns} uiFeedEntries={uiFeedEntries} ingestStatusMessage={ingestStatusMessage} isSystemPaused={isSystemPaused} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} onLoadMoreAssets={actions.loadMoreAssets} onAssetClick={uiState.setSelectedAssetId} onUntagAsset={handlers.handleUntagAsset} onLibrarySelectionChange={uiState.setLibrarySelection} onGroupSimilarPhotosChange={uiState.setGroupSimilarPhotos} onShowGroupIdsChange={uiState.setShowGroupIds} onRefreshGroupDiagnostics={onRefreshGroupDiagnostics} onPeopleFilter={handlers.handlePeopleFilter} onPeopleSelectionChange={uiState.setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onTogglePause={actions.toggleSystemPause} onStopJob={actions.stopJob} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onSetModulePaused={actions.setModulePaused} onGetWorkflowVisualiser={actions.getWorkflowVisualiser} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={handlers.handleOpenAlbum} onHoverLibraryAssetChange={(asset) => uiState.setHoveredLibraryPhoto(asset ? buildCurrentPhotoStatus(asset) : null)} />
           <AppStatusBar statusMessage={uiState.statusMessage} activityMessage={ingestStatusMessage} status={status} view={uiState.view} librarySelectionCount={getLibrarySelectionCount(uiState.librarySelection)} shownAssetsCount={handlers.shownAssetsCount} peopleSelectionCount={uiState.peopleSelectionCount} totalPhotoCount={totalPhotoCount} peopleCount={people.length} currentPhoto={uiState.view === 'library' ? uiState.hoveredLibraryPhoto : null} rightSlot={<AppStatusRightSlot isTaskDrawerMinimized={uiState.isTaskDrawerMinimized} activeOverlayJobCount={activeOverlayJobs.length} onRestoreTaskDrawer={() => uiState.setIsTaskDrawerMinimized(false)} devRuntimeImpact={uiState.devRuntimeImpact} />} />
-          <AppOverlays assets={assets} selectedAssetId={uiState.selectedAssetId} setSelectedAssetId={uiState.setSelectedAssetId} showActions={uiState.showActions} setShowActions={uiState.setShowActions} showSettings={uiState.showSettings} setShowSettings={uiState.setShowSettings} showInfoPanel={uiState.showInfoPanel} setShowInfoPanel={uiState.setShowInfoPanel} activeInfoTab={uiState.activeInfoTab} setActiveInfoTab={uiState.setActiveInfoTab} jobs={activeOverlayJobs} folderHistory={folderHistory} onScan={handlers.handleScan} onPreviews={actions.generatePreviews} onDetect={actions.detectFaces} onCluster={actions.clusterFaces} onScanSensitive={actions.scanSensitive} onScanSensitiveAll={actions.scanSensitiveAll} onExtractAiMetadata={actions.extractAiMetadata} onRefresh={handlers.handleOverlayRefresh} onResetFaces={actions.resetFaces} onResetAll={actions.resetLibrary} onFactoryReset={actions.factoryResetLibrary} onStopScan={actions.stopScan} onBuildGroups={actions.buildGroups} onBuildBursts={actions.buildBursts} onGetSetting={actions.getSetting} onSetSetting={actions.setSetting} onOpenWorkflowVisualiser={() => uiState.setView('workflows')} theme={uiState.theme} setTheme={uiState.setTheme} animationsEnabled={uiState.animationsEnabled} setAnimationsEnabled={uiState.setAnimationsEnabled} onPrioritize={actions.prioritizeAsset} onFaceClick={handlers.handleFaceClick} onIsolateFace={actions.isolateFace} onSetSensitivity={actions.setSensitivity} onOpenSettingsFromPhoto={handlers.handleOpenSettingsFromPhoto} onGetGroupOrbit={actions.getGroupOrbit} onSetCanonical={actions.setCanonical} onExplodeGroup={actions.explodeGroup} onStopJob={handleOverlayStopJob} isTaskDrawerMinimized={uiState.isTaskDrawerMinimized} onTaskDrawerMinimizedChange={uiState.setIsTaskDrawerMinimized} />
+            <AppOverlays assets={assets} selectedAssetId={uiState.selectedAssetId} setSelectedAssetId={uiState.setSelectedAssetId} showActions={uiState.showActions} setShowActions={uiState.setShowActions} showSettings={uiState.showSettings} setShowSettings={uiState.setShowSettings} showInfoPanel={uiState.showInfoPanel} setShowInfoPanel={uiState.setShowInfoPanel} activeInfoTab={uiState.activeInfoTab} setActiveInfoTab={uiState.setActiveInfoTab} jobs={activeOverlayJobs} folderHistory={folderHistory} onScan={handlers.handleScan} onPreviews={actions.generatePreviews} onDetect={actions.detectFaces} onCluster={actions.clusterFaces} onScanSensitive={actions.scanSensitive} onScanSensitiveAll={actions.scanSensitiveAll} onExtractAiMetadata={actions.extractAiMetadata} onRefresh={handlers.handleOverlayRefresh} onResetFaces={actions.resetFaces} onResetAll={actions.resetLibrary} onFactoryReset={actions.factoryResetLibrary} onResetGroupingData={actions.resetGroupingData} onStopScan={actions.stopScan} onBuildGroups={actions.buildGroups} onBuildBursts={actions.buildBursts} onOpenGroupDiagnostics={onOpenGroupDiagnostics} onGetSetting={actions.getSetting} onSetSetting={actions.setSetting} onOpenWorkflowVisualiser={() => uiState.setView('workflows')} theme={uiState.theme} setTheme={uiState.setTheme} animationsEnabled={uiState.animationsEnabled} setAnimationsEnabled={uiState.setAnimationsEnabled} onPrioritize={actions.prioritizeAsset} onFaceClick={handlers.handleFaceClick} onIsolateFace={actions.isolateFace} onSetSensitivity={actions.setSensitivity} onOpenSettingsFromPhoto={handlers.handleOpenSettingsFromPhoto} onGetGroupOrbit={actions.getGroupOrbit} onSetCanonical={actions.setCanonical} onExplodeGroup={actions.explodeGroup} onStopJob={handleOverlayStopJob} isTaskDrawerMinimized={uiState.isTaskDrawerMinimized} onTaskDrawerMinimizedChange={uiState.setIsTaskDrawerMinimized} />
         </div>
         <ConnectionOverlayLayer connectionOverlay={connectionOverlay} status={status} />
       </div>
@@ -495,6 +497,10 @@ export default function App() {
     setIsTaskDrawerMinimized,
   } = uiState;
   const syncGroupSimilarPhotos = actions.setGroupSimilarPhotos;
+  const { groupDiagnosticsReport, isLoadingGroupDiagnostics, loadGroupDiagnosticsReport } = useGroupDiagnosticsView({
+    getGroupDiagnosticsReport: actions.getGroupDiagnosticsReport,
+    view: uiState.view,
+  });
 
   useSelectionRecovery(assets, selectedAssetId, setSelectedAssetId, setStatusMessage);
   const handlers = useAppActionHandlers({ assets, filterStack, showRejected, setShowRejected, librarySelection, setLibrarySelection, declusteredAssets, setDeclusteredAssets, actions, setView, setPeopleSelectionCount, setSelectedAssetId, setShowSettings });
@@ -537,6 +543,15 @@ export default function App() {
     activeOverlayJobs={activeOverlayJobs}
     handleOverlayStopJob={handleOverlayStopJob}
     connectionUiState={getConnectionUiState(status, error)}
+    groupDiagnosticsReport={groupDiagnosticsReport}
+    isLoadingGroupDiagnostics={isLoadingGroupDiagnostics}
+    onOpenGroupDiagnostics={() => {
+      uiState.setView('groupDiagnostics');
+      void loadGroupDiagnosticsReport();
+    }}
+    onRefreshGroupDiagnostics={() => {
+      void loadGroupDiagnosticsReport();
+    }}
     uiState={uiState}
   />;
 }

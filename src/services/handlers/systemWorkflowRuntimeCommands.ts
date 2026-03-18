@@ -38,6 +38,24 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         });
         ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
     },
+    start_library_grouping: async (ctx) => {
+        const workflowRuntime = getWorkflowRuntime(ctx);
+        const assetRows = ctx.dbManager.getDb().prepare(`
+            SELECT id
+            FROM assets
+            ORDER BY created_at ASC, id ASC
+        `).all() as Array<{ id: string }>;
+        const inputSubjects = assetRows.map((row) => ({
+            subjectType: 'asset',
+            subjectId: row.id,
+        }));
+        const runId = workflowRuntime.orchestrator.startDetached({
+            workflowId: 'library_grouping_v1',
+            triggerType: 'manual',
+            inputSubjects,
+        });
+        ctx.respond(ctx.id, 'ok', { runId, assetCount: inputSubjects.length }, null, ctx.originWs);
+    },
     get_workflow_run_detail: (ctx) => {
         const workflowRuntime = getWorkflowRuntime(ctx);
         const payload = ctx.payload as { runId: string };

@@ -17,6 +17,16 @@ export interface FaceBox {
     person_name?: string;
 }
 
+export interface AssetGroupMembership {
+    group_id: string;
+    group_role: string | null;
+    stack_count: number | null;
+    role: string | null;
+    rank: number | null;
+    match_evidence: Record<string, unknown> | string | null;
+    group_type: string | null;
+}
+
 export interface Asset {
     id: string;
     original_path: string; // Added this
@@ -42,6 +52,7 @@ export interface Asset {
     group_id?: string | null;
     group_role?: string | null;
     stack_count?: number | null;
+    group_memberships?: AssetGroupMembership[];
 
     // Progressive Enhancement State (Masonry Gallery)
     processingPhase?: 0 | 1 | 2;

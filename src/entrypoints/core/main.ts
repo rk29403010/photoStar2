@@ -33,6 +33,7 @@ import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/w
 import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
 import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
 import { folderIngestWorkflowDefinition } from '../../services/workflowRuntime/workflows/folderIngestWorkflow';
+import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryGroupingWorkflow';
 import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
 import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
 import { SubjectRegistry } from '../../services/workflowRuntime/subjectRegistry';
@@ -102,6 +103,7 @@ workflowRuntimeModules.register(createPreviewAdapterModule({
     },
 }));
 workflowRuntimeWorkflows.register(folderIngestWorkflowDefinition);
+workflowRuntimeWorkflows.register(libraryGroupingWorkflowDefinition);
 workflowRuntimeWorkflows.register(assetPreviewWorkflowDefinition);
 const workflowRuntime = {
     store: workflowRuntimeStore,
@@ -527,4 +529,3 @@ const { respond } = startDevBridgeServer({
         setInterval(performCleanup, 24 * 60 * 60 * 1000);
     },
 });
-

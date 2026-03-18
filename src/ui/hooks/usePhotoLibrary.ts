@@ -433,7 +433,7 @@ function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage
         refreshLibrary: refreshActions.refreshLibrary,
         setAssets: state.setAssets,
     }), [refreshActions.refreshLibrary, request, state.setAssets]);
-    const buildActions = useMemo(() => createBuildActions({ transport: state.transport, addJob }), [addJob, state.transport]);
+    const buildActions = useMemo(() => createBuildActions({ transport: state.transport, request, addJob }), [addJob, request, state.transport]);
 
     return useMemo(() => ({
         ...workflowActions,

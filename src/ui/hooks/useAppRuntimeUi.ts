@@ -7,7 +7,7 @@ import {
 } from '@shared/utils/librarySelectionState';
 import { usePersistedState } from './usePersistedState';
 
-export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
+export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
 export type InfoTab = 'file' | 'analysis' | 'people' | 'json';
 
 function useDevRuntimeImpact(
@@ -61,6 +61,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [peopleSelectionCount, setPeopleSelectionCount] = useState(0);
   const [librarySelection, setLibrarySelection] = useState<LibrarySelectionState>(createEmptyLibrarySelectionState());
   const [groupSimilarPhotos, setGroupSimilarPhotos] = usePersistedState<boolean>('ps_group_similar_photos', true);
+  const [showGroupIds, setShowGroupIds] = usePersistedState<boolean>('ps_show_group_ids', false);
   const [declusteredAssets, setDeclusteredAssets] = useState<Set<string>>(new Set());
   const [showRejected, setShowRejected] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -91,6 +92,8 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
     setLibrarySelection,
     groupSimilarPhotos,
     setGroupSimilarPhotos,
+    showGroupIds,
+    setShowGroupIds,
     declusteredAssets,
     setDeclusteredAssets,
     showRejected,

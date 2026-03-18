@@ -4,6 +4,7 @@ import { PERSON_COLORS } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import { LIBRARY_SELECTION_FRAME_COLOR, LIBRARY_SELECTION_STAR_COLOR } from '@shared/utils/librarySelectionVisuals';
+import { buildGroupIdPillModels } from './tileGroupIdModel';
 
 interface TileProps {
     asset: Asset;
@@ -17,6 +18,7 @@ interface TileProps {
     imageLoading?: 'eager' | 'lazy';
     imageFetchPriority?: 'high' | 'auto';
     isGroupRepresentative?: boolean;
+    showGroupIds?: boolean;
 }
 
 type SensitivityBadge = {
@@ -209,6 +211,53 @@ const GroupModeBadge: React.FC<{ show: boolean }> = ({ show }) => {
     );
 };
 
+const GroupIdPills: React.FC<{ memberships: Asset['group_memberships']; show: boolean }> = ({ memberships, show }) => {
+    if (!show || !memberships || memberships.length === 0) {return null;}
+
+    const pills = buildGroupIdPillModels(memberships);
+    if (pills.length === 0) {return null;}
+
+    return (
+        <div
+            style={{
+                position: 'absolute',
+                bottom: 8,
+                left: 8,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 4,
+                maxWidth: '70%',
+                zIndex: 15,
+                pointerEvents: 'none',
+            }}
+        >
+            {pills.map((pill) => (
+                <span
+                    key={pill.key}
+                    title={pill.title}
+                    style={{
+                        padding: '3px 7px',
+                        borderRadius: 999,
+                        background: pill.background,
+                        border: `1px solid ${pill.borderColor}`,
+                        color: pill.textColor,
+                        fontSize: '0.6rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.04em',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.28)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                    }}
+                >
+                    <span style={{ opacity: 0.95 }}>{pill.symbol}</span>
+                    <span>{pill.label}</span>
+                </span>
+            ))}
+        </div>
+    );
+};
+
 const CaptionOverlay: React.FC<{ show: boolean; caption?: string }> = ({ show, caption }) => {
     if (!show || !caption) {return null;}
 
@@ -299,6 +348,7 @@ export const Tile: React.FC<TileProps> = ({
     imageLoading = 'lazy',
     imageFetchPriority = 'auto',
     isGroupRepresentative = false,
+    showGroupIds = false,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -333,6 +383,7 @@ export const Tile: React.FC<TileProps> = ({
             <SensitivityBadgeView badge={sensitivityBadge} />
             <StackBadge count={asset.stack_count} />
             <GroupModeBadge show={isGroupRepresentative} />
+            <GroupIdPills memberships={asset.group_memberships} show={showGroupIds} />
             <CaptionOverlay show={isHovered} caption={asset.caption} />
             <DeclusterButton visible={isHovered} activeFilter={activeFilter} assetId={asset.id} onUntagAsset={onUntagAsset} />
             <FaceBoxes asset={asset} showFaces={showFaces} activeFilter={activeFilter} />

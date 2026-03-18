@@ -18,8 +18,9 @@ test('default dev scripts do not pre-kill ports before starting watchers', () =>
     assert.equal('predev' in scripts, false);
     assert.equal('predev:desktop-runtime' in scripts, false);
     assert.equal('predev:desktop-runtime:debug' in scripts, false);
-    assert.equal(scripts['dev:desktop-runtime'], 'concurrently --names web,core --prefix-colors cyan.bold,magenta.bold "npm run dev:web:desktop" "npm run dev:core"');
-    assert.equal(scripts['dev:desktop-runtime:debug'], 'concurrently --names web,core --prefix-colors cyan.bold,magenta.bold "npm run dev:web:debug" "npm run dev:core"');
+    assert.equal(scripts.dev, 'node tooling/scripts/repo/dev-session.js run dev');
+    assert.equal(scripts['dev:desktop-runtime'], 'node tooling/scripts/repo/dev-session.js run dev:desktop-runtime');
+    assert.equal(scripts['dev:desktop-runtime:debug'], 'node tooling/scripts/repo/dev-session.js run dev:desktop-runtime:debug');
 });
 
 test('manual recovery script keeps the port-kill behavior available on demand', () => {
@@ -27,4 +28,6 @@ test('manual recovery script keeps the port-kill behavior available on demand', 
     const scripts = packageJson.scripts ?? {};
 
     assert.equal(scripts['dev:kill-ports'], 'node tooling/scripts/repo/kill-ports.js');
+    assert.equal(scripts['dev:pause'], 'node tooling/scripts/repo/dev-session.js pause');
+    assert.equal(scripts['dev:resume'], 'node tooling/scripts/repo/dev-session.js resume');
 });

@@ -3,7 +3,7 @@ import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { getLibrarySelectionCount, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 interface AppFilterBarProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows';
+  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
   filterStack: LibraryFilter[];
   librarySelection: LibrarySelectionState;
   showRejected: boolean;

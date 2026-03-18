@@ -246,6 +246,16 @@ function resetLibrary(ctx: CommandContext, mode: ResetMode) {
     ctx.respond(ctx.id, 'ok', { message, mode }, null, ctx.originWs);
 }
 
+function resetGroupingData(ctx: CommandContext) {
+    const db = ctx.dbManager.getDb();
+    db.transaction(() => {
+        db.prepare('DELETE FROM asset_group_members').run();
+        db.prepare('DELETE FROM asset_groups').run();
+        db.prepare("DELETE FROM asset_similarity_edges WHERE kind IN ('visual', 'time', 'metadata', 'hybrid')").run();
+    })();
+    ctx.respond(ctx.id, 'ok', { message: 'Grouping data reset.' }, null, ctx.originWs);
+}
+
 export const systemCommandHandlers: CommandHandlerMap = {
     ping: (ctx) => {
         ctx.respond(ctx.id, 'ok', { message: 'pong', timestamp: Date.now() }, null, ctx.originWs);
@@ -430,6 +440,13 @@ export const systemCommandHandlers: CommandHandlerMap = {
             const payload = (ctx.payload || {}) as { mode?: ResetMode };
             const mode: ResetMode = payload.mode === 'factory' ? 'factory' : 'soft';
             resetLibrary(ctx, mode);
+        } catch (error) {
+            respondError(ctx, error);
+        }
+    },
+    reset_grouping_data: (ctx) => {
+        try {
+            resetGroupingData(ctx);
         } catch (error) {
             respondError(ctx, error);
         }

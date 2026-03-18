@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
+import { buildGroupFieldFragments } from './assetGroupingQueryFragments';
 
 type AssetRow = {
     id: string;
@@ -21,7 +22,9 @@ type AssetRow = {
     member_role?: string | null;
     member_rank?: number | null;
     member_match_evidence?: string | null;
+    member_group_type?: string | null;
     stack_count?: number | null;
+    group_memberships_json?: string | null;
 };
 
 type AssetFilter = { personIds?: string[]; type?: string; albumId?: string };
@@ -144,10 +147,16 @@ function buildFilteredAssetsQuery(
         aiNewAlias: 'aim_new',
         aiLegacyAlias: 'aim_legacy',
     });
+    const groupFields = buildGroupFieldFragments('a');
     params.push(limit, offset);
 
     return {
         sql: `
+            WITH GroupCounts AS (
+                SELECT group_id, COUNT(asset_id) as stack_count
+                FROM asset_group_members
+                GROUP BY group_id
+            )
             SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
                 a.caption, a.sensitivity_score,
                 am.sensitivity_status,
@@ -161,7 +170,14 @@ function buildFilteredAssetsQuery(
                     JOIN people per ON fa.person_id = per.id
                     WHERE fa.asset_id = a.id
                 ) as people_data,
-                null as member_group_id, null as member_role, null as member_rank, null as member_match_evidence, null as stack_count
+                ${groupFields.memberGroupIdSelect}
+                ${groupFields.memberRoleSelect}
+                ${groupFields.memberRankSelect}
+                ${groupFields.memberMatchEvidenceSelect}
+                ${groupFields.memberGroupTypeSelect}
+                ${groupFields.stackCountSelect}
+                ${groupFields.groupMembershipsSelect}
+                1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             LEFT JOIN derived_results dr_new ON a.id = dr_new.asset_id AND dr_new.task = 'face_detection'
@@ -190,6 +206,7 @@ function buildGroupedAssetsQuery(
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
     });
+    const groupFields = buildGroupFieldFragments('a');
 
     return {
         sql: `
@@ -203,15 +220,18 @@ function buildGroupedAssetsQuery(
                 a.caption, a.sensitivity_score,
                 null as sensitivity_status,
                 p.path as preview_path,
-                m.group_id as member_group_id,
-                m.role as member_role,
-                m.rank as member_rank,
-                m.evidence_json as member_match_evidence,
-                gc.stack_count,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
-                json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data
+                json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
+                ${groupFields.memberGroupIdSelect}
+                ${groupFields.memberRoleSelect}
+                ${groupFields.memberRankSelect}
+                ${groupFields.memberMatchEvidenceSelect}
+                ${groupFields.memberGroupTypeSelect}
+                ${groupFields.stackCountSelect}
+                ${groupFields.groupMembershipsSelect}
+                1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
@@ -220,10 +240,17 @@ function buildGroupedAssetsQuery(
             ${detail.aiJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
-            LEFT JOIN asset_group_members m ON a.id = m.asset_id
-            LEFT JOIN GroupCounts gc ON m.group_id = gc.group_id
-            WHERE (m.group_id IS NULL OR m.role = 'canonical')
-            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data, m.group_id, m.role, gc.stack_count${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM asset_group_members gm_hidden
+                WHERE gm_hidden.asset_id = a.id
+            ) OR EXISTS (
+                SELECT 1
+                FROM asset_group_members gm_visible
+                WHERE gm_visible.asset_id = a.id
+                  AND gm_visible.role = 'canonical'
+            )
+            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
@@ -243,9 +270,15 @@ function buildUngroupedAssetsQuery(
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
     });
+    const groupFields = buildGroupFieldFragments('a');
 
     return {
         sql: `
+            WITH GroupCounts AS (
+                SELECT group_id, COUNT(asset_id) as stack_count
+                FROM asset_group_members
+                GROUP BY group_id
+            )
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
                 a.caption, a.sensitivity_score,
@@ -255,7 +288,14 @@ function buildUngroupedAssetsQuery(
                 ${detail.recSelect}
                 ${detail.aiSelect}
                 json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
-                null as member_group_id, null as member_role, null as member_rank, null as member_match_evidence, null as stack_count
+                ${groupFields.memberGroupIdSelect}
+                ${groupFields.memberRoleSelect}
+                ${groupFields.memberRankSelect}
+                ${groupFields.memberMatchEvidenceSelect}
+                ${groupFields.memberGroupTypeSelect}
+                ${groupFields.stackCountSelect}
+                ${groupFields.groupMembershipsSelect}
+                1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
@@ -273,6 +313,8 @@ function buildUngroupedAssetsQuery(
 }
 
 function buildAssetDetailQuery(assetId: string): AssetQueryParts {
+    const groupFields = buildGroupFieldFragments('a');
+
     return {
         sql: `
             WITH GroupCounts AS (
@@ -285,11 +327,6 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
                 a.caption, a.sensitivity_score,
                 am.sensitivity_status,
                 p.path as preview_path,
-                m.group_id as member_group_id,
-                m.role as member_role,
-                m.rank as member_rank,
-                m.evidence_json as member_match_evidence,
-                gc.stack_count,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 r_rec.data as rec_data,
                 COALESCE(r_ai_new.data, r_ai_legacy.data) as ai_metadata_data,
@@ -298,7 +335,15 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
                     FROM face_assignments fa
                     JOIN people per ON fa.person_id = per.id
                     WHERE fa.asset_id = a.id
-                ) as people_data
+                ) as people_data,
+                ${groupFields.memberGroupIdSelect}
+                ${groupFields.memberRoleSelect}
+                ${groupFields.memberRankSelect}
+                ${groupFields.memberMatchEvidenceSelect}
+                ${groupFields.memberGroupTypeSelect}
+                ${groupFields.stackCountSelect}
+                ${groupFields.groupMembershipsSelect}
+                1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
             LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
@@ -306,12 +351,9 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
             LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
             LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
             LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
-            LEFT JOIN asset_group_members m ON a.id = m.asset_id
-            LEFT JOIN GroupCounts gc ON m.group_id = gc.group_id
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
             WHERE a.id = ?
-            ORDER BY CASE WHEN m.role = 'canonical' THEN 0 ELSE 1 END, a.created_at DESC
             LIMIT 1
         `,
         params: [assetId],

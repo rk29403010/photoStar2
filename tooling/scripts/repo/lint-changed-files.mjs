@@ -112,7 +112,12 @@ const linterArgs = tool === "oxlint"
       ...filesToLint,
     ];
 
-console.log(`[lint-changed] Running ${toolLabel} on ${filesToLint.length} file(s).`);
+const phaseLabel = fix
+  ? restage || mode === "staged"
+    ? "autofix + restage"
+    : "autofix"
+  : "verify";
+console.log(`[lint-changed] Running ${toolLabel} ${phaseLabel} on ${filesToLint.length} file(s).`);
 
 const result = spawnSync("npx", linterArgs, {
   stdio: "inherit",

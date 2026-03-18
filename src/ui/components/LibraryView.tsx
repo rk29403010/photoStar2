@@ -25,6 +25,8 @@ interface LibraryViewProps {
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
     groupSimilarPhotos: boolean;
     onGroupSimilarPhotosChange: (enabled: boolean) => void;
+    showGroupIds: boolean;
+    onShowGroupIdsChange: (enabled: boolean) => void;
     declusteredAssets?: Set<string>;
     showRejected?: boolean;
     rejectedAssets?: Asset[];
@@ -91,6 +93,7 @@ function RejectedSection({
                     librarySelection={createEmptyLibrarySelectionState()}
                     onLibrarySelectionChange={undefined}
                     declusteredAssets={undefined}
+                    showGroupIds={false}
                 />
             </div>
         </div>
@@ -192,31 +195,54 @@ function LibraryToolbar({
     onSortModeChange,
     groupSimilarPhotos,
     onGroupSimilarPhotosChange,
+    showGroupIds,
+    onShowGroupIdsChange,
 }: {
     sortMode: LibrarySortMode;
     onSortModeChange: (mode: LibrarySortMode) => void;
     groupSimilarPhotos: boolean;
     onGroupSimilarPhotosChange: (enabled: boolean) => void;
+    showGroupIds: boolean;
+    onShowGroupIdsChange: (enabled: boolean) => void;
 }) {
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 14px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'linear-gradient(180deg, rgba(18,18,18,0.92), rgba(10,10,10,0.92))' }}>
-            <button
-                type="button"
-                aria-pressed={groupSimilarPhotos}
-                onClick={() => onGroupSimilarPhotosChange(!groupSimilarPhotos)}
-                style={{
-                    background: groupSimilarPhotos ? 'rgba(37,99,235,0.22)' : 'rgba(148,163,184,0.08)',
-                    color: groupSimilarPhotos ? '#bfdbfe' : '#cbd5e1',
-                    border: `1px solid ${groupSimilarPhotos ? 'rgba(96,165,250,0.75)' : 'rgba(148,163,184,0.2)'}`,
-                    borderRadius: 999,
-                    padding: '6px 12px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                }}
-            >
-                Group similar photos
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                    type="button"
+                    aria-pressed={groupSimilarPhotos}
+                    onClick={() => onGroupSimilarPhotosChange(!groupSimilarPhotos)}
+                    style={{
+                        background: groupSimilarPhotos ? 'rgba(37,99,235,0.22)' : 'rgba(148,163,184,0.08)',
+                        color: groupSimilarPhotos ? '#bfdbfe' : '#cbd5e1',
+                        border: `1px solid ${groupSimilarPhotos ? 'rgba(96,165,250,0.75)' : 'rgba(148,163,184,0.2)'}`,
+                        borderRadius: 999,
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                    }}
+                >
+                    Group similar photos
+                </button>
+                <button
+                    type="button"
+                    aria-pressed={showGroupIds}
+                    onClick={() => onShowGroupIdsChange(!showGroupIds)}
+                    style={{
+                        background: showGroupIds ? 'rgba(8,145,178,0.22)' : 'rgba(148,163,184,0.08)',
+                        color: showGroupIds ? '#a5f3fc' : '#cbd5e1',
+                        border: `1px solid ${showGroupIds ? 'rgba(34,211,238,0.65)' : 'rgba(148,163,184,0.2)'}`,
+                        borderRadius: 999,
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                    }}
+                >
+                    Show group IDs
+                </button>
+            </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                 <span>Sort</span>
                 <select
@@ -251,6 +277,8 @@ export function LibraryView({
     onLibrarySelectionChange,
     groupSimilarPhotos,
     onGroupSimilarPhotosChange,
+    showGroupIds,
+    onShowGroupIdsChange,
     declusteredAssets,
     showRejected,
     rejectedAssets,
@@ -285,6 +313,8 @@ export function LibraryView({
                 onSortModeChange={setSortMode}
                 groupSimilarPhotos={groupSimilarPhotos}
                 onGroupSimilarPhotosChange={onGroupSimilarPhotosChange}
+                showGroupIds={showGroupIds}
+                onShowGroupIdsChange={onShowGroupIdsChange}
             />
             <LayoutEngine
                 items={displayItems}
@@ -298,6 +328,7 @@ export function LibraryView({
                 onLibrarySelectionChange={onLibrarySelectionChange}
                 declusteredAssets={declusteredAssets}
                 onHoverAssetChange={onHoverAssetChange}
+                showGroupIds={showGroupIds}
             />
             <RejectedSection
                 showRejected={showRejected}
