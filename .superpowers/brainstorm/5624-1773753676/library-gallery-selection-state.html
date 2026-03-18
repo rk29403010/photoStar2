@@ -1,0 +1,79 @@
+<h2>Selection Mode Feel</h2>
+<p class="subtitle">Next question: once long-press activates selection, which selected-state treatment feels right?</p>
+
+<div class="cards">
+  <div class="card" data-choice="star-overlay" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option A: Blue Star Overlay</div>
+        <div class="mockup-body">
+          <div style="margin-bottom:10px;padding:8px 12px;border:1px solid rgba(96,165,250,0.45);border-radius:12px;background:rgba(15,23,42,0.8);display:flex;justify-content:space-between;">
+            <span>Select mode • 7 selected</span>
+            <span>Grouped</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+            <div class="placeholder" style="height:96px;position:relative;background:linear-gradient(135deg,#334155,#1e293b);color:#fff;">★</div>
+            <div class="placeholder" style="height:96px;">Photo</div>
+            <div class="placeholder" style="height:96px;position:relative;background:linear-gradient(135deg,#334155,#1e293b);color:#fff;">★</div>
+            <div class="placeholder" style="height:96px;">Group</div>
+          </div>
+          <p style="margin:10px 0 0;font-size:0.85rem;color:#cbd5e1;">Selected items keep their usual tile look, but get a blue star badge.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Blue star only</h3>
+      <p>Selection stays lightweight and works the same for grouped covers and individual photos.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="star-plus-tint" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option B: Blue Star + Soft Tint</div>
+        <div class="mockup-body">
+          <div style="margin-bottom:10px;padding:8px 12px;border:1px solid rgba(96,165,250,0.45);border-radius:12px;background:rgba(15,23,42,0.8);display:flex;justify-content:space-between;">
+            <span>Select mode • 7 selected</span>
+            <span>Grouped</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+            <div class="placeholder" style="height:96px;position:relative;background:linear-gradient(135deg,rgba(37,99,235,0.35),#1e293b);color:#fff;">★</div>
+            <div class="placeholder" style="height:96px;">Photo</div>
+            <div class="placeholder" style="height:96px;position:relative;background:linear-gradient(135deg,rgba(37,99,235,0.35),#1e293b);color:#fff;">★</div>
+            <div class="placeholder" style="height:96px;">Group</div>
+          </div>
+          <p style="margin:10px 0 0;font-size:0.85rem;color:#cbd5e1;">Adds a subtle blue wash so selected runs are easier to scan during drag selection.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Star plus tint</h3>
+      <p>Still uses the requested blue star, but gives the eye more help during multi-row drag selection.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="selection-frame" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option C: Blue Star + Framed Tile</div>
+        <div class="mockup-body">
+          <div style="margin-bottom:10px;padding:8px 12px;border:1px solid rgba(96,165,250,0.45);border-radius:12px;background:rgba(15,23,42,0.8);display:flex;justify-content:space-between;">
+            <span>Select mode • 7 selected</span>
+            <span>Grouped</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+            <div class="placeholder" style="height:96px;position:relative;border:2px solid #60a5fa;background:#1e293b;color:#fff;">★</div>
+            <div class="placeholder" style="height:96px;">Photo</div>
+            <div class="placeholder" style="height:96px;position:relative;border:2px solid #60a5fa;background:#1e293b;color:#fff;">★</div>
+            <div class="placeholder" style="height:96px;">Group</div>
+          </div>
+          <p style="margin:10px 0 0;font-size:0.85rem;color:#cbd5e1;">Higher contrast, but more visually assertive.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Star plus frame</h3>
+      <p>Strongest clarity, though it changes the gallery’s look more aggressively in select mode.</p>
+    </div>
+  </div>
+</div>

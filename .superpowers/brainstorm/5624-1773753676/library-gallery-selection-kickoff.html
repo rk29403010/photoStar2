@@ -1,0 +1,78 @@
+<h2>Library Gallery Selection Model</h2>
+<p class="subtitle">First question: where should the "Group similar photos" control live in the gallery?</p>
+
+<div class="cards">
+  <div class="card" data-choice="toolbar-toggle" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option A: Toolbar Toggle</div>
+        <div class="mockup-body">
+          <div class="mock-nav" style="display:flex;justify-content:space-between;gap:12px;">
+            <span>Sort: Date</span>
+            <span style="padding:4px 10px;border-radius:999px;border:1px solid #60a5fa;background:rgba(37,99,235,0.18);">Group similar photos: On</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
+            <div class="placeholder" style="height:90px;">Group cover</div>
+            <div class="placeholder" style="height:90px;">Single</div>
+            <div class="placeholder" style="height:90px;">Single</div>
+            <div class="placeholder" style="height:90px;">Group cover</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Toolbar toggle</h3>
+      <p>Keeps grouping as a gallery-wide display mode next to Sort.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="selection-bar-toggle" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option B: Selection Bar Toggle</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Sort: Date</div>
+          <div style="margin-top:10px;padding:8px 12px;border:1px solid rgba(96,165,250,0.45);border-radius:12px;background:rgba(15,23,42,0.75);display:flex;justify-content:space-between;">
+            <span>Select mode • 12 photos</span>
+            <span style="padding:4px 10px;border-radius:999px;border:1px solid #60a5fa;background:rgba(37,99,235,0.18);">Group similar photos</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
+            <div class="placeholder" style="height:90px;">Group cover</div>
+            <div class="placeholder" style="height:90px;">Single</div>
+            <div class="placeholder" style="height:90px;">Single</div>
+            <div class="placeholder" style="height:90px;">Group cover</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Selection bar toggle</h3>
+      <p>Only surfaces grouping when selection is active, so the gallery toolbar stays lighter.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="filter-chip-toggle" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option C: Filter Chip</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Sort: Date</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+            <span style="padding:4px 10px;border-radius:999px;background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.25);">Grouped</span>
+            <span style="padding:4px 10px;border-radius:999px;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.18);">Date desc</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
+            <div class="placeholder" style="height:90px;">Group cover</div>
+            <div class="placeholder" style="height:90px;">Single</div>
+            <div class="placeholder" style="height:90px;">Single</div>
+            <div class="placeholder" style="height:90px;">Group cover</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Filter chip row</h3>
+      <p>Makes grouping feel like a reversible display filter rather than a primary toolbar control.</p>
+    </div>
+  </div>
+</div>
