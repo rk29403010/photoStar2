@@ -87,7 +87,6 @@ test('start_library_grouping launches the runtime grouping workflow across the f
             payload: {},
             dbManager,
             eventBus: {},
-            coordinator: {},
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: collector.respond,

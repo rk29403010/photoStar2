@@ -1,5 +1,5 @@
 import type { Asset, Person } from '@contracts/core';
-import type { BackgroundJob, DataStatsSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
+import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { WsResponse } from '@contracts/schemas';
 import { WsResponseSchema } from '@contracts/schemas';
 import type { DomainEvent } from '@contracts/events';
@@ -14,7 +14,7 @@ import {
     shouldUpdatePagingStateFromAssetResponse,
 } from '@shared/utils/libraryPagingState';
 
-const INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init', 'people-init', 'system-jobs-init', 'pause-state-init'] as const;
+const INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init', 'people-init', 'system-jobs-init'] as const;
 const INITIAL_SYNC_REQUEST_ID_SET = new Set<string>(INITIAL_SYNC_REQUEST_IDS);
 
 function dedupeAssetsById(assets: Asset[]): Asset[] {
@@ -65,7 +65,7 @@ function getAssetResponseLabel(id: string | undefined, hasCompletedInitialSync: 
 function applySnapshotPayload(data: Record<string, unknown>, params: ConnectionStateParams) {
     if (data.people) {params.setPeople(data.people as Person[]);}
     if (data.jobs) {params.setSystemJobs(data.jobs as BackgroundJob[]);}
-    if (data.queueStatus) {params.setQueueStatus(data.queueStatus as QueueStatusSnapshot);}
+    if (data.workflowStatus) {params.setWorkflowStatus(data.workflowStatus as WorkflowStatusSnapshot);}
     if (data.dataStats) {params.setDataStats(data.dataStats as DataStatsSnapshot);}
     if (data.recentEvents) {params.setRecentEvents(data.recentEvents as RecentEventSnapshot[]);}
     if (data.workflowRuns) {params.setWorkflowRuns(data.workflowRuns as WorkflowRunListItem[]);}
@@ -129,7 +129,6 @@ function handleOkMessage(msg: WsResponse, params: ConnectionStateParams) {
     const data = msg.data;
     if (!data) {return;}
     if (data.message === 'pong') {params.addLog('Pong received');}
-    if (data.isPaused !== undefined) {params.setIsSystemPaused(data.isPaused);}
     if (data.count !== undefined) {params.setStats(data);}
     applySnapshotPayload(data, params);
     if (!data.assets) {return;}
@@ -243,10 +242,6 @@ function handleEventMessage(msg: WsResponse, params: ConnectionStateParams) {
         requestId: msg.id,
         applied: true,
     });
-    if (event.type === 'SystemPausedStateChanged') {
-        params.setIsSystemPaused(Boolean(event.isPaused));
-        return;
-    }
 
     params.processEvent(event as DomainEvent);
     applyQuotaNotifications(event, params.addNotification);

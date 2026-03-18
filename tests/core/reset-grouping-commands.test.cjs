@@ -67,7 +67,6 @@ test('reset_grouping_data removes automatic and manual grouping state without to
             payload: {},
             dbManager,
             eventBus: {},
-            coordinator: {},
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: collector.respond,

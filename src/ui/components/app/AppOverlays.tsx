@@ -29,13 +29,12 @@ interface AppOverlaysProps {
   onScanSensitiveAll: () => void;
   onExtractAiMetadata: (assetId?: string) => Promise<string | undefined>;
   onRefresh: () => void;
-    onResetFaces: () => void;
-    onResetAll: () => void;
-    onFactoryReset: () => void;
-    onResetGroupingData: () => void;
+  onResetFaces: () => void;
+  onResetAll: () => void;
+  onFactoryReset: () => void;
+  onResetGroupingData: () => void;
   onStopScan: () => void;
   onBuildGroups: () => void;
-  onBuildBursts: () => void;
   onOpenGroupDiagnostics: () => void;
   onGetSetting: (key: string) => Promise<string>;
   onSetSetting: (key: string, value: string) => Promise<void>;
@@ -74,13 +73,12 @@ export function AppOverlays(props: AppOverlaysProps) {
         onScanSensitiveAll={props.onScanSensitiveAll}
         onExtractAiMetadata={props.onExtractAiMetadata}
         onRefresh={props.onRefresh}
-                onResetFaces={props.onResetFaces}
-                onResetAll={props.onResetAll}
-                onFactoryReset={props.onFactoryReset}
-                onResetGroupingData={props.onResetGroupingData}
-                onStopScan={props.onStopScan}
+        onResetFaces={props.onResetFaces}
+        onResetAll={props.onResetAll}
+        onFactoryReset={props.onFactoryReset}
+        onResetGroupingData={props.onResetGroupingData}
+        onStopScan={props.onStopScan}
         onBuildGroups={props.onBuildGroups}
-        onBuildBursts={props.onBuildBursts}
         onOpenGroupDiagnostics={props.onOpenGroupDiagnostics}
         onOpenSettings={() => props.setShowSettings(true)}
         onOpenWorkflowVisualiser={props.onOpenWorkflowVisualiser}
@@ -116,7 +114,6 @@ export function AppOverlays(props: AppOverlaysProps) {
           onGetGroupOrbit={props.onGetGroupOrbit}
           onSetCanonical={props.onSetCanonical}
           onExplodeGroup={props.onExplodeGroup}
-          jobs={props.jobs}
         />
       )}
 

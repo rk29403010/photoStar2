@@ -50,7 +50,7 @@ export function createCoreActions(params: CoreActionParams) {
     };
 
     return {
-        prioritizeAsset: (mediaId: string) => sendCommand('prioritize_asset_processing', { mediaId }),
+        prioritizeAsset: (_mediaId: string) => undefined,
         renamePerson: (personId: string, newName: string) => sendCommand('rename_person', { personId, newName }),
         mergePeople: (personIds: string[], targetName: string) => sendCommand('merge_people', { personIds, targetName }),
         isolateFace: (assetId: string, faceIndex: number) => sendCommand('isolate_face', { assetId, faceIndex }),
@@ -166,11 +166,6 @@ export function createBuildActions(params: BuildActionParams) {
                 timeoutMs: 10000,
                 select: (data) => String(data?.runId || ''),
             });
-        },
-        buildBursts: async () => {
-            const jobId = 'build-bursts-' + Date.now();
-            addJob(jobId, 'similarity_cluster', 'Analyze Relationships (Bursts & Sequences)');
-            await writeCommand(transport, jobId, 'build_bursts', {});
         },
     };
 }

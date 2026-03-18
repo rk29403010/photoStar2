@@ -67,7 +67,6 @@ test('get_group_diagnostics_report summarizes overlap inflation and lower-level 
             payload: {},
             dbManager,
             eventBus: {},
-            coordinator: {},
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: collector.respond,

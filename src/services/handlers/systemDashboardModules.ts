@@ -1,23 +1,4 @@
-import type { DatabaseManager } from '../../data/db';
 import type { JobErrorListItem, JobErrorModuleSummary, JobErrorSnapshot } from '../../boundary/contracts/jobs';
-
-export const DASHBOARD_PAUSED_MODULES_SETTING = 'dashboard_paused_modules_json';
-
-export type DashboardModuleId =
-    | 'class-onboarding'
-    | 'class-previews'
-    | 'class-detection'
-    | 'class-clustering'
-    | 'class-sensitive'
-    | 'class-aimetadata-3f'
-    | 'class-aimetadata-31p';
-
-type DashboardModuleDefinition = {
-    id: DashboardModuleId;
-    label: string;
-    pauseStage?: string;
-    canPause: boolean;
-};
 
 type DbLike = {
     prepare: (sql: string) => {
@@ -31,7 +12,7 @@ type CountRow = { count: number };
 type ErrorSourceRow = {
     id: string;
     source: 'processing_issue' | 'failed_job';
-    moduleId: DashboardModuleId | null;
+    moduleId: string | null;
     severity: string;
     message: string;
     createdAt: string;
@@ -40,42 +21,39 @@ type ErrorSourceRow = {
     stage: string | null;
 };
 
-const DASHBOARD_MODULES: DashboardModuleDefinition[] = [
-    { id: 'class-onboarding', label: 'Photo Onboarding', canPause: false },
-    { id: 'class-previews', label: 'Thumbnail Generation', pauseStage: 'previews', canPause: true },
-    { id: 'class-detection', label: 'Face Detection', pauseStage: 'detection', canPause: true },
-    { id: 'class-clustering', label: 'Face Clustering', pauseStage: 'clustering', canPause: true },
-    { id: 'class-sensitive', label: 'Sensitive Content Scan', pauseStage: 'sensitive_scan', canPause: true },
-    { id: 'class-aimetadata-3f', label: 'AI Metadata V2 (Gemini 3F)', pauseStage: 'ai_metadata_v2_3f', canPause: true },
-    { id: 'class-aimetadata-31p', label: 'AI Metadata V2 Upgrade (Gemini 31P)', pauseStage: 'ai_metadata_v2_31p', canPause: true },
-];
+const MODULE_LABELS: Record<string, string> = {
+    scan: 'Folder ingest',
+    ingest: 'Folder ingest',
+    preview: 'Preview generation',
+    detection: 'Face detection',
+    clustering: 'Grouping',
+    sensitive_scan: 'Sensitive scan',
+    ai_metadata: 'AI metadata',
+    face_analysis: 'Face analysis',
+    preview_generation: 'Preview generation',
+    similarity_cluster: 'Grouping',
+};
 
 const PROCESSING_ISSUE_MODULE_CASE = `
     CASE
-        WHEN task IN ('scan', 'ingest') THEN 'class-onboarding'
-        WHEN task = 'preview' THEN 'class-previews'
-        WHEN task = 'detection' THEN 'class-detection'
-        WHEN task = 'clustering' THEN 'class-clustering'
-        WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_v2_31p-%' THEN 'class-aimetadata-31p'
-        WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_v2_3f-%' THEN 'class-aimetadata-3f'
-        WHEN task = 'sensitive_scan' THEN 'class-sensitive'
-        WHEN task = 'ai_metadata' AND job_id LIKE 'ai_meta_31p-%' THEN 'class-aimetadata-31p'
-        WHEN task = 'ai_metadata' THEN 'class-aimetadata-3f'
+        WHEN task IN ('scan', 'ingest') THEN 'scan'
+        WHEN task = 'preview' THEN 'preview'
+        WHEN task = 'detection' THEN 'detection'
+        WHEN task = 'clustering' THEN 'clustering'
+        WHEN task = 'sensitive_scan' THEN 'sensitive_scan'
+        WHEN task = 'ai_metadata' THEN 'ai_metadata'
         ELSE NULL
     END
 `;
 
 const FAILED_JOB_MODULE_CASE = `
     CASE
-        WHEN id LIKE 'scan-%' THEN 'class-onboarding'
-        WHEN id LIKE 'previews-%' THEN 'class-previews'
-        WHEN id LIKE 'detect-%' THEN 'class-detection'
-        WHEN id LIKE 'cluster-%' THEN 'class-clustering'
-        WHEN id LIKE 'sensitive-%' THEN 'class-sensitive'
-        WHEN id LIKE 'ai_meta_v2_31p-%' THEN 'class-aimetadata-31p'
-        WHEN id LIKE 'ai_meta_v2_3f-%' THEN 'class-aimetadata-3f'
-        WHEN id LIKE 'ai_meta_31p-%' THEN 'class-aimetadata-31p'
-        WHEN id LIKE 'ai_meta_3f-%' THEN 'class-aimetadata-3f'
+        WHEN stage IN ('bulk_ingest', 'scan', 'onboarding') THEN 'scan'
+        WHEN stage IN ('previews', 'preview_generation') THEN 'preview'
+        WHEN stage IN ('analysis', 'face_analysis') THEN 'detection'
+        WHEN stage = 'similarity_cluster' THEN 'clustering'
+        WHEN stage = 'sensitive_scan' THEN 'sensitive_scan'
+                WHEN stage = 'ai_metadata' THEN 'ai_metadata'
         ELSE NULL
     END
 `;
@@ -131,6 +109,13 @@ function toSeverity(value: string): JobErrorListItem['severity'] {
     return 'error';
 }
 
+function getModuleLabel(moduleId: string | null) {
+    if (!moduleId) {
+        return 'Unknown Module';
+    }
+    return MODULE_LABELS[moduleId] ?? moduleId;
+}
+
 function getJobErrorModuleSummaries(db: unknown): JobErrorModuleSummary[] {
     const typedDb = asDbLike(db);
     const unionSql = buildErrorUnionSql();
@@ -139,26 +124,14 @@ function getJobErrorModuleSummaries(db: unknown): JobErrorModuleSummary[] {
         FROM (${unionSql})
         WHERE moduleId IS NOT NULL
         GROUP BY moduleId
-    `).all() as Array<{ moduleId: DashboardModuleId; count: number }>;
+        ORDER BY moduleId ASC
+    `).all() as Array<{ moduleId: string; count: number }>;
 
-    const countsByModule = new Map(rows.map((row) => [row.moduleId, row.count]));
-    return DASHBOARD_MODULES.map((module) => ({
-        id: module.id,
-        label: module.label,
-        errorCount: countsByModule.get(module.id) ?? 0,
+    return rows.map((row) => ({
+        id: row.moduleId,
+        label: getModuleLabel(row.moduleId),
+        errorCount: row.count,
     }));
-}
-
-export function getDashboardModules() {
-    return DASHBOARD_MODULES;
-}
-
-export function getDashboardModuleById(moduleId: string) {
-    return DASHBOARD_MODULES.find((module) => module.id === moduleId);
-}
-
-export function getDashboardModuleErrorCounts(db: unknown): Record<string, number> {
-    return Object.fromEntries(getJobErrorModuleSummaries(db).map((module) => [module.id, module.errorCount]));
 }
 
 function normalizeSnapshotPaging(options: { page?: number; pageSize?: number }) {
@@ -176,7 +149,7 @@ function countJobErrors(
     typedDb: DbLike,
     unionSql: string,
     whereSql: string,
-    params: unknown[]
+    params: unknown[],
 ): number {
     return ((typedDb.prepare(`
         SELECT COUNT(*) AS count
@@ -191,7 +164,7 @@ function loadJobErrorRows(
     whereSql: string,
     params: unknown[],
     pageSize: number,
-    offset: number
+    offset: number,
 ): ErrorSourceRow[] {
     return typedDb.prepare(`
         SELECT id, source, moduleId, severity, message, createdAt, jobId, task, stage
@@ -202,14 +175,11 @@ function loadJobErrorRows(
     `).all(...params, pageSize, offset) as ErrorSourceRow[];
 }
 
-function mapJobErrorItem(
-    row: ErrorSourceRow,
-    moduleMap: Map<DashboardModuleId, DashboardModuleDefinition>
-): JobErrorListItem {
+function mapJobErrorItem(row: ErrorSourceRow): JobErrorListItem {
     return {
         id: `${row.source}:${row.id}`,
-        moduleId: row.moduleId ?? 'class-onboarding',
-        moduleLabel: row.moduleId ? (moduleMap.get(row.moduleId)?.label ?? row.moduleId) : 'Unknown Module',
+        moduleId: row.moduleId ?? 'unknown',
+        moduleLabel: getModuleLabel(row.moduleId),
         source: row.source,
         severity: toSeverity(row.severity),
         message: row.message,
@@ -222,16 +192,15 @@ function mapJobErrorItem(
 
 export function getJobErrorsSnapshot(
     db: unknown,
-    options: { moduleId?: string | null; page?: number; pageSize?: number } = {}
+    options: { moduleId?: string | null; page?: number; pageSize?: number } = {},
 ): JobErrorSnapshot {
     const typedDb = asDbLike(db);
     const { page, pageSize, offset } = normalizeSnapshotPaging(options);
     const unionSql = buildErrorUnionSql();
-    const moduleMap = new Map(DASHBOARD_MODULES.map((module) => [module.id, module]));
     const { whereSql, params } = createModuleFilterWhere(options.moduleId);
     const total = countJobErrors(typedDb, unionSql, whereSql, params);
     const rows = loadJobErrorRows(typedDb, unionSql, whereSql, params, pageSize, offset);
-    const items = rows.map((row) => mapJobErrorItem(row, moduleMap));
+    const items = rows.map((row) => mapJobErrorItem(row));
 
     return {
         generatedAt: new Date().toISOString(),
@@ -242,28 +211,4 @@ export function getJobErrorsSnapshot(
         availableModules: getJobErrorModuleSummaries(db),
         items,
     };
-}
-
-export function getPausedDashboardModuleIds(dbManager: DatabaseManager): Set<string> {
-    const raw = dbManager.getSetting(DASHBOARD_PAUSED_MODULES_SETTING).trim();
-    if (!raw) {
-        return new Set();
-    }
-
-    try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (!Array.isArray(parsed)) {
-            return new Set();
-        }
-
-        return new Set(parsed.filter((value): value is string => typeof value === 'string'));
-    } catch {
-        return new Set();
-    }
-}
-
-export function setPausedDashboardModuleIds(dbManager: DatabaseManager, moduleIds: Iterable<string>): void {
-    const nextIds = Array.from(new Set(moduleIds));
-    nextIds.sort((left, right) => left.localeCompare(right));
-    dbManager.setSetting(DASHBOARD_PAUSED_MODULES_SETTING, JSON.stringify(nextIds));
 }

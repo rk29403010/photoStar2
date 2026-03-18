@@ -7,27 +7,29 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 const sessionFilePath = path.join(workspaceRoot, '.local', 'dev-session.json');
-const concurrentlyExecutable = path.resolve(
+const concurrentlyScript = path.resolve(
     workspaceRoot,
     'node_modules',
-    '.bin',
-    process.platform === 'win32' ? 'concurrently.cmd' : 'concurrently',
+    'concurrently',
+    'dist',
+    'bin',
+    'concurrently.js',
 );
 const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const defaultResumeScript = 'dev:desktop-runtime';
 
 const MANAGED_DEV_SCRIPTS = {
     dev: {
-        command: concurrentlyExecutable,
-        args: ['--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web', 'npm run dev:core'],
+        command: process.execPath,
+        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web', 'npm run dev:core'],
     },
     'dev:desktop-runtime': {
-        command: concurrentlyExecutable,
-        args: ['--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:desktop', 'npm run dev:core'],
+        command: process.execPath,
+        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:desktop', 'npm run dev:core'],
     },
     'dev:desktop-runtime:debug': {
-        command: concurrentlyExecutable,
-        args: ['--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:debug', 'npm run dev:core'],
+        command: process.execPath,
+        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:debug', 'npm run dev:core'],
     },
 };
 
@@ -76,17 +78,61 @@ export function getResumeScript(session) {
     return isManagedScript(lastScript) ? lastScript : defaultResumeScript;
 }
 
+export function getManagedSpawnOptions({
+    stdio,
+    detached = false,
+    platform = process.platform,
+} = {}) {
+    return {
+        cwd: workspaceRoot,
+        env: process.env,
+        stdio,
+        detached,
+        shell: false,
+        windowsHide: platform === 'win32',
+    };
+}
+
+function quoteWindowsShellArgument(value) {
+    const normalized = String(value);
+    return /[\s"&^<>|()]/.test(normalized)
+        ? `"${normalized.replace(/"/g, '""')}"`
+        : normalized;
+}
+
+export function buildManagedSpawnInvocation({
+    command,
+    args,
+    stdio,
+    detached = false,
+    platform = process.platform,
+}) {
+    const options = getManagedSpawnOptions({ stdio, detached, platform });
+    const needsCmdWrapping = platform === 'win32' && /\.(cmd|bat)$/i.test(command);
+    if (!needsCmdWrapping) {
+        return { command, args, options };
+    }
+
+    const commandLine = [command, ...args].map(quoteWindowsShellArgument).join(' ');
+    return {
+        command: 'cmd.exe',
+        args: ['/d', '/s', '/c', commandLine],
+        options,
+    };
+}
+
 function spawnManagedScript(scriptName) {
     const scriptConfig = MANAGED_DEV_SCRIPTS[scriptName];
     if (!scriptConfig) {
         throw new Error(`Unsupported managed dev script: ${scriptName}`);
     }
 
-    return spawn(scriptConfig.command, scriptConfig.args, {
-        cwd: workspaceRoot,
-        env: process.env,
+    const invocation = buildManagedSpawnInvocation({
+        command: scriptConfig.command,
+        args: scriptConfig.args,
         stdio: 'inherit',
     });
+    return spawn(invocation.command, invocation.args, invocation.options);
 }
 
 function runManagedScript(scriptName) {
@@ -162,14 +208,13 @@ function resumeManagedSession(requestedScript) {
 
     updateSession({ lastScript: scriptToRun });
 
-    const child = spawn(npmExecutable, ['run', scriptToRun], {
-        cwd: workspaceRoot,
-        env: process.env,
+    const invocation = buildManagedSpawnInvocation({
+        command: npmExecutable,
+        args: ['run', scriptToRun],
         stdio: 'ignore',
         detached: true,
-        windowsHide: true,
-        shell: process.platform === 'win32',
     });
+    const child = spawn(invocation.command, invocation.args, invocation.options);
 
     child.unref();
     console.log(`[dev-session] Resumed ${scriptToRun} in the background.`);

@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../data/db';
+import type { AssetUpdated } from '../../events/types';
 import type { ModuleDefinition } from '../contracts';
 
 function buildMetadataPayload(assetId: string, mode: 'mock' | 'live'): Record<string, unknown> {
@@ -13,6 +14,9 @@ function buildMetadataPayload(assetId: string, mode: 'mock' | 'live'): Record<st
 
 export interface GenerateAiMetadataModuleOptions {
     dbManager: DatabaseManager;
+    eventBus?: {
+        emit: (event: AssetUpdated) => void;
+    };
 }
 
 export function createGenerateAiMetadataModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
@@ -42,6 +46,10 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
                 context.subject.subjectId,
                 JSON.stringify(buildMetadataPayload(context.subject.subjectId, aiMode)),
             );
+            options.eventBus?.emit({
+                type: 'AssetUpdated',
+                assetId: context.subject.subjectId,
+            });
             return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
         },
     };

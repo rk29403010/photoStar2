@@ -498,7 +498,7 @@ git commit -m "feat: add workflow visualiser"
 
 ## Execution Notes
 
-- Keep the visualiser runtime-native only. Do not add legacy coordinator adapters.
+- Keep the visualiser runtime-native only. Do not add legacy workflow adapters.
 - Do not let the graph tab become the source of truth. The shared projection model remains canonical.
 - Prefer extracting small helpers if any React file starts drifting toward the repo size and complexity guardrails.
 - If graph-library evaluation does not clearly beat a custom SVG or flex/SVG hybrid, choose the custom path.

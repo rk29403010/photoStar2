@@ -54,7 +54,6 @@ function createResetContext({ dbManager, respond, libDir, activeJobs }) {
         payload: {},
         dbManager,
         eventBus: {},
-        coordinator: {},
         activeJobs,
         LIB_DIR: libDir,
         respond,

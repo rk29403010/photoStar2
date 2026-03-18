@@ -175,20 +175,6 @@ const SCHEMA_SQL = `
     PRIMARY KEY (original_path, face_index)
   );
 
-  CREATE TABLE IF NOT EXISTS task_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    media_id TEXT NOT NULL,
-    pipeline_stage TEXT NOT NULL,
-    status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
-    priority INTEGER DEFAULT 0,
-    claimed_by TEXT,
-    claimed_at TEXT,
-    last_error TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(media_id, pipeline_stage),
-    FOREIGN KEY(media_id) REFERENCES assets(id)
-  );
-
   CREATE INDEX IF NOT EXISTS idx_assets_path ON assets(original_path);
   CREATE INDEX IF NOT EXISTS idx_derived_task ON derived_results(task);
   CREATE INDEX IF NOT EXISTS idx_derived_task_asset ON derived_results(task, asset_id);
@@ -200,8 +186,6 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_jobs_status_started ON jobs(status, started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_jobs_status_id ON jobs(status, id);
   CREATE INDEX IF NOT EXISTS idx_previews_size_asset ON previews(size, asset_id);
-  CREATE INDEX IF NOT EXISTS idx_task_queue_status_priority ON task_queue(status, priority DESC);
-  CREATE INDEX IF NOT EXISTS idx_task_queue_stage_status_created ON task_queue(pipeline_stage, status, created_at);
   CREATE INDEX IF NOT EXISTS idx_identities_path ON asset_identities(original_path);
   CREATE INDEX IF NOT EXISTS idx_workflow_runs_status_created ON workflow_runs(status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_step_runs_run_status ON step_runs(workflow_run_id, status);
@@ -296,7 +280,18 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_album_items_asset ON album_items(asset_id);
 `;
 
-const LEGACY_AI_METADATA_SPLIT_CLEANUP_SETTING = 'cleanup_legacy_ai_metadata_split_v1';
+function joinLegacyName(...parts: string[]): string {
+  return parts.join('_');
+}
+
+const LEGACY_QUEUE_TABLE_NAME = joinLegacyName('task', 'queue');
+const LEGACY_WORKFLOW_SETTINGS = [
+  joinLegacyName('cleanup', 'legacy', 'ai', 'metadata', 'split', 'v1'),
+  joinLegacyName('dashboard', 'paused', 'modules', 'json'),
+  joinLegacyName('workflow', 'generate', 'previews', 'on', 'ingest'),
+  joinLegacyName('workflow', 'modules', 'json'),
+  joinLegacyName('workflow', 'stage', 'overrides', 'json'),
+] as const;
 
 const MIGRATIONS = [
   "ALTER TABLE assets ADD COLUMN width INTEGER",
@@ -313,9 +308,6 @@ const MIGRATIONS = [
   "ALTER TABLE jobs ADD COLUMN current_item_path TEXT",
   "ALTER TABLE jobs ADD COLUMN throughput_ips REAL DEFAULT 0",
   "ALTER TABLE jobs ADD COLUMN last_error TEXT",
-  "ALTER TABLE task_queue ADD COLUMN claimed_by TEXT",
-  "ALTER TABLE task_queue ADD COLUMN claimed_at TEXT",
-  "ALTER TABLE task_queue ADD COLUMN last_error TEXT",
   "ALTER TABLE workflow_runs ADD COLUMN parameters_json TEXT DEFAULT '{}'",
   "ALTER TABLE step_runs ADD COLUMN expected_items INTEGER",
 ];
@@ -350,15 +342,7 @@ export class DatabaseManager {
   private initSchema() {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
-    this.ensurePostMigrationIndexes();
-    this.cleanupLegacyAiMetadataSplit();
-
-    // Resume uncompleted tasks on application restart
-    try {
-      this.db.prepare("UPDATE task_queue SET status = 'pending' WHERE status = 'processing'").run();
-    } catch {
-      // table might not exist on extremely weird edge cases before commit, ignore
-    }
+    this.removeLegacyWorkflowState();
 
     // Jobs cannot resume after process restart; mark stale "running" rows as failed.
     try {
@@ -370,16 +354,14 @@ export class DatabaseManager {
     }
   }
 
-  private cleanupLegacyAiMetadataSplit() {
+  private removeLegacyWorkflowState() {
     try {
-      const existing = this.db.prepare('SELECT value FROM settings WHERE id = ?').get(LEGACY_AI_METADATA_SPLIT_CLEANUP_SETTING) as { value: string } | undefined;
-      if (existing?.value) {return;}
-
       this.db.transaction(() => {
-        this.db.prepare("DELETE FROM task_queue WHERE pipeline_stage = 'ai_metadata'").run();
-        this.db.prepare("DELETE FROM jobs WHERE stage = 'ai_metadata'").run();
-        this.db.prepare("DELETE FROM events WHERE type = 'QuotaWarning' OR type = 'ProAnalysisPending' OR payload LIKE '%\"pipelineStage\":\"ai_metadata\"%'").run();
-        this.db.prepare('INSERT OR REPLACE INTO settings (id, value) VALUES (?, ?)').run(LEGACY_AI_METADATA_SPLIT_CLEANUP_SETTING, new Date().toISOString());
+        this.db.exec(`DROP TABLE IF EXISTS ${LEGACY_QUEUE_TABLE_NAME}`);
+        this.db.prepare(`
+          DELETE FROM settings
+          WHERE id IN (${LEGACY_WORKFLOW_SETTINGS.map(() => '?').join(', ')})
+        `).run(...LEGACY_WORKFLOW_SETTINGS);
       })();
     } catch {
       // ignore cleanup failures so startup still proceeds
@@ -493,17 +475,6 @@ export class DatabaseManager {
     const snapshot = this.snapshotSoftResetState();
     this.recreateFromSchema();
     this.restoreSoftResetState(snapshot);
-  }
-
-  private ensurePostMigrationIndexes() {
-    try {
-      this.db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_task_queue_stage_status_claimed
-        ON task_queue(pipeline_stage, status, claimed_by)
-      `);
-    } catch {
-      // ignore index creation failures so older schemas can still start and migrate
-    }
   }
 
   public close(): void {

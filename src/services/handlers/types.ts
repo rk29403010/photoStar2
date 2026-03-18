@@ -1,7 +1,6 @@
 import type { WebSocket } from 'ws';
 import type { DatabaseManager } from '../../data/db';
 import type { EventBus } from '../events/bus';
-import type { Coordinator } from '../coordinator';
 import type { ExecutionStore } from '../workflowRuntime/executionStore';
 import type { WorkflowRuntimeOrchestrator } from '../workflowRuntime/orchestrator';
 import type { WorkflowRegistry } from '../workflowRuntime/workflowRegistry';
@@ -19,7 +18,6 @@ export interface CommandContext {
     originWs?: WebSocket;
     dbManager: DatabaseManager;
     eventBus: EventBus;
-    coordinator: Coordinator;
     activeJobs: Map<string, AbortController>;
     LIB_DIR: string;
     workflowRuntime?: WorkflowRuntimeFacade;

@@ -19,11 +19,7 @@ export type PipelineStage =
     | "similarity_cluster"
     | "preview_generation"
     | "sensitive_scan"
-    | "ai_metadata"
-    | "ai_metadata_3f"
-    | "ai_metadata_31p"
-    | "ai_metadata_v2_3f"
-    | "ai_metadata_v2_31p";
+    | "ai_metadata";
 
 export interface JobIssue {
     id: string;
@@ -110,29 +106,27 @@ export interface JobErrorSnapshot {
     items: JobErrorListItem[];
 }
 
-export interface QueueStageStatus {
-    stage: string;
-    pending: number;
-    processing: number;
+export interface WorkflowStatusListItem {
+    workflowId: string;
+    displayName: string;
+    totalRuns: number;
+    running: number;
     completed: number;
     failed: number;
-    total: number;
-    oldestPendingAt: string | null;
-    oldestProcessingAt: string | null;
-    processingMediaIds: string[];
-    runningJobs: number;
+    latestRunId: string | null;
+    latestStatus: string | null;
+    latestCreatedAt: string | null;
 }
 
-export interface QueueStatusSnapshot {
+export interface WorkflowStatusSnapshot {
     generatedAt: string;
     totals: {
-        pending: number;
-        processing: number;
+        running: number;
         completed: number;
         failed: number;
-        total: number;
+        totalRuns: number;
     };
-    stages: QueueStageStatus[];
+    workflows: WorkflowStatusListItem[];
 }
 
 export interface DataStatsSnapshot {
@@ -143,7 +137,6 @@ export interface DataStatsSnapshot {
         photosWithAiMetadata: number;
         photosWithDetectedFaces: number;
         photosWithMatchedFaces: number;
-        pendingProAnalysis: number;
     };
     coverage: {
         aiMetadataPercent: number;
@@ -154,22 +147,6 @@ export interface DataStatsSnapshot {
         matched: number;
         unmatched: number;
     };
-    aiMetadataQueues: {
-        freshPending: number;
-        freshProcessing: number;
-        freshFailed: number;
-        proPending: number;
-        proProcessing: number;
-        proFailed: number;
-        proCompleted: number;
-    };
-    lastAiMetadataQuotaBlock: {
-        createdAt: string;
-        model: string;
-        reason: 'rate_limit' | 'daily_quota';
-        fallbackModel: string;
-        affectedCount: number;
-    } | null;
 }
 
 export interface RecentEventSnapshot {

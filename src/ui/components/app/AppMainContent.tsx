@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Asset, Person, Album } from '@contracts/core';
-import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
+import type { DataStatsSnapshot, JobErrorSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
@@ -32,15 +32,12 @@ interface AppMainContentProps {
   declusteredAssets: Set<string>;
   showRejected: boolean;
   rejectedAssets: Asset[];
-  jobs: BackgroundJob[];
-  systemJobs: BackgroundJob[];
-  queueStatus: QueueStatusSnapshot | null;
+  workflowStatus: WorkflowStatusSnapshot | null;
   dataStats: DataStatsSnapshot | null;
   recentEvents: RecentEventSnapshot[];
   workflowRuns: WorkflowRunListItem[];
   uiFeedEntries: UiFeedEntry[];
   ingestStatusMessage: string | null;
-  isSystemPaused: boolean;
   hasMoreAssets: boolean;
   isLoadingMoreAssets: boolean;
   onLoadMoreAssets: () => Promise<void>;
@@ -55,11 +52,8 @@ interface AppMainContentProps {
   onRenamePerson: (id: string, name: string) => void;
   onMergePeople: (ids: string[], targetName: string) => void;
   onRefreshSystemJobs: () => void;
-  onTogglePause: () => void;
-  onStopJob: (id: string) => void;
   onGetEventPayloadRaw: (eventId: string) => Promise<string>;
   onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
-  onSetModulePaused: (moduleId: string, paused: boolean) => void;
   onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
   onGetAlbums: () => Promise<Album[]>;
   onCreateAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
@@ -91,6 +85,7 @@ function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | 
 export function AppMainContent(props: AppMainContentProps) {
   const activeFilter = props.filterStack.length > 0 ? props.filterStack[props.filterStack.length - 1] : undefined;
   const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestStatusMessage);
+
   return (
     <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
       <div style={getPanelStyle(props.view === 'library')}>
@@ -133,20 +128,14 @@ export function AppMainContent(props: AppMainContentProps) {
 
       {props.view === 'dashboard' && (
         <DashboardView
-          jobs={props.jobs}
-          systemJobs={props.systemJobs}
-          queueStatus={props.queueStatus}
+          workflowStatus={props.workflowStatus}
           dataStats={props.dataStats}
           recentEvents={props.recentEvents}
           workflowRuns={props.workflowRuns}
           uiFeedEntries={props.uiFeedEntries}
           refreshSystemJobs={props.onRefreshSystemJobs}
-          isSystemPaused={props.isSystemPaused}
-          onTogglePause={props.onTogglePause}
-          onStopJob={props.onStopJob}
           onGetEventPayloadRaw={props.onGetEventPayloadRaw}
           onGetJobErrors={props.onGetJobErrors}
-          onSetModulePaused={props.onSetModulePaused}
           loading={!props.backendReady}
         />
       )}

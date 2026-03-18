@@ -1,31 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import type { Asset, LibraryStats, Person } from '@contracts/core';
-import type { BackgroundJob, QueueStatusSnapshot, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
+import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { BackendTransport } from '@boundary/transport/usePhotoLibrary.transport';
 import type { FolderHistoryItem, LibraryFilter, NotificationItem, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { appendUiFeedEntry } from '@shared/utils/libraryUiDiagnostics';
-
-function loadPersistedPauseState(): boolean {
-    try {
-        return JSON.parse(localStorage.getItem('ps_system_paused') ?? 'false');
-    } catch {
-        return false;
-    }
-}
-
-function usePauseState() {
-    const [isSystemPausedState, setIsSystemPausedState] = useState<boolean>(loadPersistedPauseState);
-    const setIsSystemPaused = useCallback((isPaused: boolean) => {
-        try {
-            localStorage.setItem('ps_system_paused', JSON.stringify(isPaused));
-        } catch {
-            // ignore storage failures
-        }
-        setIsSystemPausedState(isPaused);
-    }, []);
-
-    return { isSystemPaused: isSystemPausedState, setIsSystemPaused };
-}
 
 function useNotificationState() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -79,13 +57,12 @@ export function usePhotoLibraryState() {
     const [hasCompletedInitialSync, setHasCompletedInitialSync] = useState(false);
     const [hasMoreAssets, setHasMoreAssets] = useState(true);
     const [isLoadingMoreAssets, setIsLoadingMoreAssets] = useState(false);
-    const pauseState = usePauseState();
 
     const [stats, setStats] = useState<LibraryStats | null>(null);
     const [assets, setAssets] = useState<Asset[]>([]);
     const [people, setPeople] = useState<Person[]>([]);
     const [systemJobs, setSystemJobs] = useState<BackgroundJob[]>([]);
-    const [queueStatus, setQueueStatus] = useState<QueueStatusSnapshot | null>(null);
+    const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatusSnapshot | null>(null);
     const [dataStats, setDataStats] = useState<DataStatsSnapshot | null>(null);
     const [recentEvents, setRecentEvents] = useState<RecentEventSnapshot[]>([]);
     const [workflowRuns, setWorkflowRuns] = useState<WorkflowRunListItem[]>([]);
@@ -115,7 +92,6 @@ export function usePhotoLibraryState() {
         setHasMoreAssets,
         isLoadingMoreAssets,
         setIsLoadingMoreAssets,
-        ...pauseState,
         stats,
         setStats,
         assets,
@@ -124,8 +100,8 @@ export function usePhotoLibraryState() {
         setPeople,
         systemJobs,
         setSystemJobs,
-        queueStatus,
-        setQueueStatus,
+        workflowStatus,
+        setWorkflowStatus,
         dataStats,
         setDataStats,
         recentEvents,

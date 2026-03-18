@@ -6,9 +6,9 @@ import type {
     DataStatsSnapshot,
     JobErrorSnapshot,
     PipelineStage,
-    QueueStatusSnapshot,
     RecentEventSnapshot,
     WorkflowRunListItem,
+    WorkflowStatusSnapshot,
 } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
@@ -47,16 +47,15 @@ type ScanActionParams = {
     refreshSystemJobs: () => void;
 };
 
-type PipelineActionParams = Pick<SharedWorkflowActionParams, 'transport' | 'addJob'>;
+type PipelineActionParams = Pick<SharedWorkflowActionParams, 'request'>;
 
 type SystemActionParams = SharedWorkflowActionParams & {
-    isSystemPaused: boolean;
     setStatus: (status: string) => void;
     setAssets: Dispatch<SetStateAction<Asset[]>>;
     setPeople: Dispatch<SetStateAction<Person[]>>;
     setStats: Dispatch<SetStateAction<LibraryStats | null>>;
     setSystemJobs: Dispatch<SetStateAction<BackgroundJob[]>>;
-    setQueueStatus: Dispatch<SetStateAction<QueueStatusSnapshot | null>>;
+    setWorkflowStatus: Dispatch<SetStateAction<WorkflowStatusSnapshot | null>>;
     setDataStats: Dispatch<SetStateAction<DataStatsSnapshot | null>>;
     setRecentEvents: Dispatch<SetStateAction<RecentEventSnapshot[]>>;
     setWorkflowRuns: Dispatch<SetStateAction<WorkflowRunListItem[]>>;
@@ -187,7 +186,7 @@ function clearLibrarySnapshotsBeforeReset(params: Pick<
     | 'setPeople'
     | 'setStats'
     | 'setSystemJobs'
-    | 'setQueueStatus'
+    | 'setWorkflowStatus'
     | 'setDataStats'
     | 'setRecentEvents'
     | 'setWorkflowRuns'
@@ -215,7 +214,7 @@ function getResetActions(params: Pick<
     | 'setPeople'
     | 'setStats'
     | 'setSystemJobs'
-    | 'setQueueStatus'
+    | 'setWorkflowStatus'
     | 'setDataStats'
     | 'setRecentEvents'
     | 'setWorkflowRuns'
@@ -286,24 +285,28 @@ export function createScanActions(params: ScanActionParams) {
 }
 
 export function createPipelineActions(params: PipelineActionParams) {
-    const { transport, addJob } = params;
+    const { request } = params;
 
-    const launch = async (idPrefix: string, task: PipelineStage, title: string, command: string, payload: Record<string, unknown> = {}) => {
-        const jobId = `${idPrefix}-${Date.now()}`;
-        addJob(jobId, task, title);
-        if (transport) {
-            await writeCommand(transport, jobId, command, payload);
-        }
-        return jobId;
+    const startWorkflow = async (idPrefix: string, command: string, payload: Record<string, unknown> = {}) => {
+        return request<string>({
+            idPrefix: `${idPrefix}_${Date.now()}`,
+            command,
+            payload,
+            timeoutMs: 10000,
+            select: (data) => String(data?.runId || ''),
+        });
     };
 
     return {
-        generatePreviews: () => launch('previews', 'preview_generation', 'Generate Previews', 'generate_previews'),
-        detectFaces: () => launch('detect', 'face_analysis', 'Detect Faces', 'detect_faces'),
-        clusterFaces: () => launch('cluster', 'similarity_cluster', 'Cluster Faces', 'cluster_faces'),
-        scanSensitive: () => launch('sensitive', 'sensitive_scan', 'Sensitive Content Scan', 'scan_sensitive'),
-        scanSensitiveAll: () => launch('sensitive-force', 'sensitive_scan', 'Force Re-scan All (Sensitive)', 'scan_sensitive_force'),
-        extractAiMetadata: (mediaId?: string) => launch('ai_meta_v2_3f', 'ai_metadata_v2_3f', 'AI Metadata V2 (Gemini 3F)', 'extract_ai_metadata', mediaId ? { mediaId } : {}),
+        generatePreviews: () => startWorkflow('start_library_previews', 'start_library_preview_workflow'),
+        detectFaces: () => startWorkflow('start_library_face', 'start_library_face_workflow'),
+        clusterFaces: () => startWorkflow('start_library_grouping_from_faces', 'start_library_grouping'),
+        scanSensitive: () => startWorkflow('start_library_sensitive', 'start_library_sensitive_scan_workflow'),
+        scanSensitiveAll: () => startWorkflow('start_library_sensitive_force', 'start_library_sensitive_scan_workflow'),
+        extractAiMetadata: (mediaId?: string) => startWorkflow('start_library_ai_metadata', 'start_library_ai_metadata_workflow', {
+            aiMode: 'mock',
+            ...(mediaId ? { mediaId } : {}),
+        }),
     };
 }
 
@@ -313,7 +316,7 @@ function clearLibrarySnapshots(params: Pick<
     | 'setPeople'
     | 'setStats'
     | 'setSystemJobs'
-    | 'setQueueStatus'
+    | 'setWorkflowStatus'
     | 'setDataStats'
     | 'setRecentEvents'
     | 'setWorkflowRuns'
@@ -324,7 +327,7 @@ function clearLibrarySnapshots(params: Pick<
     params.setPeople([]);
     params.setStats({ count: 0 });
     params.setSystemJobs([]);
-    params.setQueueStatus(null);
+    params.setWorkflowStatus(null);
     params.setDataStats(null);
     params.setRecentEvents([]);
     params.setWorkflowRuns([]);
@@ -341,13 +344,12 @@ export function createSystemActions(params: SystemActionParams) {
         refreshLibrary,
         refreshPeople,
         refreshSystemJobs,
-        isSystemPaused,
         setAssets,
         setPeople,
         setStats,
         request,
         setSystemJobs,
-        setQueueStatus,
+        setWorkflowStatus,
         setDataStats,
         setRecentEvents,
         setWorkflowRuns,
@@ -362,7 +364,7 @@ export function createSystemActions(params: SystemActionParams) {
         setPeople,
         setStats,
         setSystemJobs,
-        setQueueStatus,
+        setWorkflowStatus,
         setDataStats,
         setRecentEvents,
         setWorkflowRuns,
@@ -374,9 +376,6 @@ export function createSystemActions(params: SystemActionParams) {
     });
 
     return {
-        toggleSystemPause: () => {
-            void sendCommand(isSystemPaused ? 'resume_jobs' : 'pause_jobs');
-        },
         stopJob: async (jobId: string) => {
             if (!transport) {return;}
             await writeCommand(transport, `cmd-stop-${Date.now()}`, 'stop_job', { jobId });
@@ -392,12 +391,6 @@ export function createSystemActions(params: SystemActionParams) {
             if (!transport) {return;}
 
             await writeCommand(transport, `cmd-clear-${Date.now()}`, 'clear_job_errors', { task });
-            refreshSystemJobs();
-        },
-        setModulePaused: async (moduleId: string, paused: boolean) => {
-            if (!transport) {return;}
-
-            await writeCommand(transport, `cmd-module-pause-${Date.now()}`, 'set_module_paused', { moduleId, paused });
             refreshSystemJobs();
         },
         getJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }): Promise<JobErrorSnapshot> => request<JobErrorSnapshot>({

@@ -4,23 +4,13 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { DatabaseManager } from '../../data/db';
 import { handleSystemCommand } from '../../services/handlers';
 import { EventBus } from '../../services/events/bus';
-import { Coordinator } from '../../services/coordinator';
 import type { WebSocket } from 'ws';
 import { z } from 'zod';
 import type { DomainEvent } from '../../services/events/types';
 import { startDevBridgeServer } from '../../boundary/transport/devBridgeServer';
 import {
-    runAiMetadataWorker,
-    runAiMetadataV2Worker,
     runAutoScanWorker,
-    runBurstGroupingWorker,
-    runComputeHashesWorker,
-    runDuplicateGroupingWorker,
-    runFaceClusteringWorker,
-    runFaceDetectionWorker,
     runPreviewWorker,
-    runSensitiveScanWorker,
-    runVariantGroupingWorker,
 } from '../../services/runtimeWorkers';
 import { createPreviewAdapterModule } from '../../services/workflowRuntime/modules/previewAdapterModule';
 import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
@@ -32,8 +22,12 @@ import { createGroupSimilarPhotosModule } from '../../services/workflowRuntime/m
 import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
 import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
 import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
+import { libraryAiMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryAiMetadataWorkflow';
+import { libraryFaceWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryFaceWorkflow';
 import { folderIngestWorkflowDefinition } from '../../services/workflowRuntime/workflows/folderIngestWorkflow';
 import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryGroupingWorkflow';
+import { libraryPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPreviewWorkflow';
+import { librarySensitiveScanWorkflowDefinition } from '../../services/workflowRuntime/workflows/librarySensitiveScanWorkflow';
 import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
 import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
 import { SubjectRegistry } from '../../services/workflowRuntime/subjectRegistry';
@@ -60,7 +54,6 @@ console.log(`Core backend service started. Storage: ${LIB_DIR}`);
 
 const dbManager = new DatabaseManager(LIB_DIR);
 const eventBus = new EventBus(dbManager);
-const coordinator = new Coordinator(eventBus, dbManager);
 const workflowRuntimeStore = new ExecutionStore(dbManager);
 const workflowRuntimeSubjects = new SubjectRegistry();
 const workflowRuntimeModules = new ModuleRegistry();
@@ -95,8 +88,8 @@ workflowRuntimeModules.register(createDetectFacesModule({ dbManager, eventBus })
 workflowRuntimeModules.register(createGenerateFaceVectorsModule({ dbManager }));
 workflowRuntimeModules.register(createResolvePeopleModule({ dbManager }));
 workflowRuntimeModules.register(createGroupSimilarPhotosModule({ dbManager }));
-workflowRuntimeModules.register(createDetectSensitiveContentModule({ dbManager }));
-workflowRuntimeModules.register(createGenerateAiMetadataModule({ dbManager }));
+workflowRuntimeModules.register(createDetectSensitiveContentModule({ dbManager, eventBus }));
+workflowRuntimeModules.register(createGenerateAiMetadataModule({ dbManager, eventBus }));
 workflowRuntimeModules.register(createPreviewAdapterModule({
     runPreview: async (mediaIds) => {
         await runPreviewWorker(mediaIds, { dbManager, eventBus });
@@ -105,6 +98,10 @@ workflowRuntimeModules.register(createPreviewAdapterModule({
 workflowRuntimeWorkflows.register(folderIngestWorkflowDefinition);
 workflowRuntimeWorkflows.register(libraryGroupingWorkflowDefinition);
 workflowRuntimeWorkflows.register(assetPreviewWorkflowDefinition);
+workflowRuntimeWorkflows.register(libraryPreviewWorkflowDefinition);
+workflowRuntimeWorkflows.register(libraryFaceWorkflowDefinition);
+workflowRuntimeWorkflows.register(librarySensitiveScanWorkflowDefinition);
+workflowRuntimeWorkflows.register(libraryAiMetadataWorkflowDefinition);
 const workflowRuntime = {
     store: workflowRuntimeStore,
     workflows: workflowRuntimeWorkflows,
@@ -242,141 +239,6 @@ function performCleanup() {
     }
 }
 
-type AiMetadataQueueMode = 'fresh' | 'pro_pending' | 'all';
-type AiMetadataV2WorkerMode = 'fresh' | 'pro_pending';
-
-function resolveAiMetadataQueueMode(mediaIds: string[], queueMode?: string): AiMetadataQueueMode {
-    if (queueMode === 'pro_pending') {
-        return 'pro_pending';
-    }
-
-    if (queueMode === 'fresh' || (mediaIds.length > 0 && !queueMode)) {
-        return 'fresh';
-    }
-
-    return 'all';
-}
-
-function resolveAiMetadataQueueStage(queueMode: AiMetadataQueueMode): 'ai_metadata' | 'ai_metadata_3f' | 'ai_metadata_31p' {
-    switch (queueMode) {
-        case 'pro_pending':
-            return 'ai_metadata_31p';
-        case 'fresh':
-            return 'ai_metadata_3f';
-        case 'all':
-            return 'ai_metadata';
-    }
-}
-
-function handleAiMetadataRequestedEvent(event: DomainEvent) {
-    if (event.type !== 'AiMetadataRequested') {
-        return;
-    }
-
-    const mediaIds = event.mediaIds || [];
-    const queueMode = resolveAiMetadataQueueMode(mediaIds, event.queueMode);
-    const queueStage = resolveAiMetadataQueueStage(queueMode);
-    const workerTarget = mediaIds.length > 0 ? mediaIds : 'auto';
-
-    console.log(`[Worker] Starting AI Metadata extraction for ${mediaIds.length} items | mode=${queueMode}`);
-    runAiMetadataWorker(workerTarget, { dbManager, eventBus }, {
-        jobId: event.jobId,
-        queueMode,
-        queueStage
-    }).catch(console.error);
-}
-
-function handleAiMetadataV2RequestedEvent(event: DomainEvent) {
-    if (event.type !== 'AiMetadataV2Requested') {
-        return;
-    }
-
-    const mediaIds = event.mediaIds || [];
-    const workerTarget = mediaIds.length > 0 ? mediaIds : 'auto';
-
-    console.log(`[Worker] Starting AI Metadata v2 extraction for ${mediaIds.length} items | mode=${event.workerMode}`);
-    runAiMetadataV2Worker(workerTarget, { dbManager, eventBus }, {
-        jobId: event.jobId,
-        workerMode: event.workerMode as AiMetadataV2WorkerMode,
-        pipelineStage: event.pipelineStage
-    }).catch(console.error);
-}
-
-// Wiring: Workers listening to events
-// 1. Preview Generation
-eventBus.subscribe('MediaDiscovered', () => {
-    // This event is handled by the coordinator, not directly by runPreviewJob
-    // The coordinator will emit PreviewRequested if needed.
-});
-
-eventBus.subscribe('PreviewRequested', (event) => {
-    console.log('[Worker] Event received: PreviewRequested'); // DEBUG LOG
-    if (event.type === 'PreviewRequested') {
-        console.log(`[Worker] Starting Previews for ${event.mediaIds.length} items`);
-        runPreviewWorker(event.mediaIds, { dbManager, eventBus }).catch(_err => console.error(_err));
-    }
-});
-
-// 2. Face Detection
-eventBus.subscribe('FaceDetectionRequested', (event) => {
-    if (event.type === 'FaceDetectionRequested') {
-        const ids = event.mediaIds || (event.mediaId ? [event.mediaId] : []);
-        if (ids.length > 0) {
-            console.log(`[Worker] Starting Face Detection for ${ids.length} items`);
-            runFaceDetectionWorker(ids, { dbManager, eventBus }).catch(console.error);
-        } else {
-            console.log(`[Worker] Starting General Face Detection sweep`);
-            runFaceDetectionWorker('auto', { dbManager, eventBus }).catch(console.error);
-        }
-    }
-});
-
-// 3. Face Clustering
-eventBus.subscribe('FaceClusteringRequested', (event) => {
-    if (event.type === 'FaceClusteringRequested') {
-        console.log('[Worker] Starting Face Clustering');
-        runFaceClusteringWorker({ dbManager, eventBus }).catch(console.error);
-    }
-});
-
-// 4. Sensitive Content Scan
-eventBus.subscribe('SensitiveScanRequested', (event) => {
-    if (event.type === 'SensitiveScanRequested') {
-        const ids: string[] = event.mediaIds || [];
-        console.log(`[Worker] Starting Sensitive Scan for ${ids.length} items`);
-        runSensitiveScanWorker(ids.length > 0 ? ids : 'auto', { dbManager, eventBus }).catch(console.error);
-    }
-});
-
-// 5. AI Metadata Extraction
-eventBus.subscribe('AiMetadataRequested', handleAiMetadataRequestedEvent);
-
-// 5b. AI Metadata Extraction (v2)
-eventBus.subscribe('AiMetadataV2Requested', handleAiMetadataV2RequestedEvent);
-
-// 6. Grouping
-eventBus.subscribe('ComputeHashesRequested', () => {
-    console.log('[Worker] Starting Hash Computation');
-    runComputeHashesWorker({ dbManager, eventBus }).catch(console.error);
-});
-
-eventBus.subscribe('DuplicateGroupingRequested', () => {
-    console.log('[Worker] Starting Duplicate Grouping');
-    runDuplicateGroupingWorker({ dbManager, eventBus }).catch(console.error);
-});
-
-eventBus.subscribe('VariantGroupingRequested', () => {
-    console.log('[Worker] Starting Variant Grouping');
-    runVariantGroupingWorker({ dbManager, eventBus }).catch(console.error);
-});
-
-eventBus.subscribe('BurstGroupingRequested', (event) => {
-    if (event.type === 'BurstGroupingRequested') {
-        console.log('[Worker] Starting Burst Grouping');
-        runBurstGroupingWorker(event.jobId, { dbManager, eventBus }).catch(console.error);
-    }
-});
-
 type AssetUpdatedRow = {
     id: string;
     original_path: string;
@@ -511,7 +373,6 @@ function handleMessage(msg: { id: string, command: string, payload?: unknown }, 
             originWs,
             dbManager,
             eventBus,
-            coordinator,
             activeJobs,
             LIB_DIR,
             workflowRuntime,

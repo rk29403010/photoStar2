@@ -13,12 +13,6 @@ export type MediaDiscovered = {
     scanSessionId: string;
 };
 
-export type PreviewRequested = {
-    type: "PreviewRequested";
-    mediaIds: string[];
-    reason: "ingest" | "repair" | "rebuild";
-};
-
 export type PreviewGenerated = {
     type: "PreviewGenerated";
     mediaId: string;
@@ -35,11 +29,6 @@ export type PreviewFailed = {
     type: "PreviewFailed";
     mediaId: string;
     severity: "warning" | "error";
-};
-
-export type FaceDetectionRequested = {
-    type: "FaceDetectionRequested";
-    mediaId: string;
 };
 
 export type FacesDetected = {
@@ -114,14 +103,6 @@ export type ProAnalysisPending = {
     proModel: string;
 };
 
-export type AiMetadataV2Requested = {
-    type: "AiMetadataV2Requested";
-    mediaIds?: string[];
-    jobId: string;
-    workerMode: 'fresh' | 'pro_pending';
-    pipelineStage: 'ai_metadata_v2_3f' | 'ai_metadata_v2_31p';
-};
-
 export type AiMetadataV2FreshCompleted = {
     type: "AiMetadataV2FreshCompleted";
     mediaId: string;
@@ -150,11 +131,9 @@ export type AssetUpdated = {
 export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
-    | PreviewRequested
-| PreviewGenerated
-| WorkflowPreviewGenerated
+    | PreviewGenerated
+    | WorkflowPreviewGenerated
     | PreviewFailed
-    | FaceDetectionRequested
     | FacesDetected
     | FaceEmbeddingGenerated
     | FaceMatched
@@ -166,7 +145,6 @@ export type DomainEvent =
     | AssetUpdated
     | QuotaWarning
     | ProAnalysisPending
-    | AiMetadataV2Requested
     | AiMetadataV2FreshCompleted
     | AiMetadataV2ProCompleted
     | AiMetadataV2UpgradeQueued;

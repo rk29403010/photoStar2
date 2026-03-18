@@ -13,12 +13,6 @@ export type MediaDiscovered = {
     scanSessionId: string;
 };
 
-export type PreviewRequested = {
-    type: "PreviewRequested";
-    mediaIds: string[];
-    reason: "ingest" | "repair" | "rebuild";
-};
-
 export type PreviewGenerated = {
     type: "PreviewGenerated";
     mediaId: string;
@@ -35,12 +29,6 @@ export type PreviewFailed = {
     type: "PreviewFailed";
     mediaId: string;
     severity: "warning" | "error";
-};
-
-export type FaceDetectionRequested = {
-    type: "FaceDetectionRequested";
-    mediaId?: string;
-    mediaIds?: string[];
 };
 
 export type FacesDetected = {
@@ -67,10 +55,6 @@ export type FaceMatched = {
 export type FaceClusteringUpdated = {
     type: "FaceClusteringUpdated";
     clusterId: string;
-};
-
-export type FaceClusteringRequested = {
-    type: "FaceClusteringRequested";
 };
 
 export type JobStarted = {
@@ -111,21 +95,6 @@ export type SensitivityScored = {
     tier: 'safe' | 'review' | 'unsafe';
 };
 
-export type AiMetadataRequested = {
-    type: "AiMetadataRequested";
-    mediaIds?: string[];
-    jobId?: string;
-    queueMode?: 'fresh' | 'pro_pending' | 'all';
-};
-
-export type AiMetadataV2Requested = {
-    type: "AiMetadataV2Requested";
-    mediaIds?: string[];
-    jobId: string;
-    workerMode: 'fresh' | 'pro_pending';
-    pipelineStage: 'ai_metadata_v2_3f' | 'ai_metadata_v2_31p';
-};
-
 export type AiMetadataV2FreshCompleted = {
     type: "AiMetadataV2FreshCompleted";
     mediaId: string;
@@ -144,11 +113,6 @@ export type AiMetadataV2UpgradeQueued = {
     mediaId: string;
     reason: 'rate_limit' | 'daily_quota';
     proModel: string;
-};
-
-export type SensitiveScanRequested = {
-    type: "SensitiveScanRequested";
-    mediaIds?: string[];
 };
 
 export type AssetUpdated = {
@@ -178,54 +142,27 @@ export type SystemPausedStateChanged = {
     isPaused: boolean;
 };
 
-export type ComputeHashesRequested = {
-    type: "ComputeHashesRequested";
-};
-
-export type DuplicateGroupingRequested = {
-    type: "DuplicateGroupingRequested";
-};
-
-export type VariantGroupingRequested = {
-    type: "VariantGroupingRequested";
-};
-
-export type BurstGroupingRequested = {
-    type: "BurstGroupingRequested";
-    jobId?: string;
-};
-
 export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
-    | PreviewRequested
-| PreviewGenerated
-| WorkflowPreviewGenerated
+    | PreviewGenerated
+    | WorkflowPreviewGenerated
     | PreviewFailed
-    | FaceDetectionRequested
     | FacesDetected
     | FaceEmbeddingGenerated
     | FaceMatched
     | FaceClusteringUpdated
-| FaceClusteringRequested
     | JobStarted
     | JobProgress
     | JobCompleted
     | JobFailed
     | SensitivityScored
-    | AiMetadataRequested
-    | AiMetadataV2Requested
     | AiMetadataV2FreshCompleted
     | AiMetadataV2ProCompleted
     | AiMetadataV2UpgradeQueued
-    | SensitiveScanRequested
     | AssetUpdated
     | QuotaWarning
     | ProAnalysisPending
-    | SystemPausedStateChanged
-    | ComputeHashesRequested
-    | DuplicateGroupingRequested
-    | VariantGroupingRequested
-    | BurstGroupingRequested;
+    | SystemPausedStateChanged;
 
 export type EventType = DomainEvent['type'];

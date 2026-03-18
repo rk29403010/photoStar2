@@ -1,59 +1,27 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PauseCircle, PlayCircle } from 'lucide-react';
-import type { BackgroundJob, DataStatsSnapshot, JobErrorSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
+import type { DataStatsSnapshot, JobErrorSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import { DataStatsPanel } from './dashboard/DataStatsPanel';
-import { JobCard } from './dashboard/JobCard';
-import { QueueStatusTable } from './dashboard/QueueStatusTable';
 import { RecentEventsPanel } from './dashboard/RecentEventsPanel';
 import { SystemErrorsPanel } from './dashboard/SystemErrorsPanel';
 import { UiFeedPanel } from './dashboard/UiFeedPanel';
 import { WorkflowRunsPanel } from './dashboard/WorkflowRunsPanel';
+import { WorkflowStatusPanel } from './dashboard/WorkflowStatusPanel';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 
 interface DashboardViewProps {
-    jobs: BackgroundJob[];
-    systemJobs: BackgroundJob[];
-    queueStatus: QueueStatusSnapshot | null;
+    workflowStatus: WorkflowStatusSnapshot | null;
     dataStats: DataStatsSnapshot | null;
     recentEvents: RecentEventSnapshot[];
     workflowRuns: WorkflowRunListItem[];
     uiFeedEntries: UiFeedEntry[];
     refreshSystemJobs: () => void;
-    isSystemPaused: boolean;
-    onTogglePause: () => void;
-    onStopJob: (jobId: string) => void;
     onGetEventPayloadRaw: (eventId: string) => Promise<string>;
     onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
-    onSetModulePaused: (moduleId: string, paused: boolean) => void;
     loading?: boolean;
 }
 
-type DashboardTab = 'modules' | 'queues' | 'data' | 'events' | 'errors' | 'ui';
-type DashboardJobWithIndex = { job: BackgroundJob; index: number };
-const DASHBOARD_MODULE_GRID_STYLE = {
-    gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
-};
-const ACTIVE_TAB_STYLE = {
-    backgroundColor: 'rgba(8, 145, 178, 0.2)',
-    borderColor: 'rgba(6, 182, 212, 0.4)',
-    color: '#67e8f9',
-};
-const INACTIVE_TAB_STYLE = {
-    backgroundColor: '#111827',
-    borderColor: '#374151',
-    color: '#d1d5db',
-};
-const PAUSE_ALL_STYLE = {
-    backgroundColor: '#1f2937',
-    borderColor: '#374151',
-    color: '#d1d5db',
-};
-const RESUME_ALL_STYLE = {
-    backgroundColor: 'rgba(120, 53, 15, 0.3)',
-    borderColor: 'rgba(180, 83, 9, 0.5)',
-    color: '#fbbf24',
-};
+type DashboardTab = 'workflows' | 'data' | 'events' | 'errors' | 'ui';
 
 type DashboardErrorsState = {
     snapshot: JobErrorSnapshot | null;
@@ -62,30 +30,18 @@ type DashboardErrorsState = {
     page: number;
     setModuleFilter: (moduleId: string | null) => void;
     setPage: (page: number) => void;
-    openForModule: (moduleId: string) => void;
 };
 
-const SKELETON_SYSTEM_JOBS: BackgroundJob[] = [
-    { id: 'class-onboarding', stage: 'onboarding', title: 'Photo Onboarding', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-previews', stage: 'previews', title: 'Thumbnail Generation', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-detection', stage: 'analysis', title: 'Face Detection', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-clustering', stage: 'analysis', title: 'Face Clustering', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-sensitive', stage: 'sensitive_scan', title: 'Sensitive Content Scan', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-aimetadata-3f', stage: 'ai_metadata_v2_3f', title: 'AI Metadata V2 (Gemini 3F)', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-    { id: 'class-aimetadata-31p', stage: 'ai_metadata_v2_31p', title: 'AI Metadata V2 Upgrade (Gemini 31P)', state: 'idle', createdAt: new Date().toISOString(), trigger: 'system', issues: [], progress: { overallDone: 0, overallTotal: 0, overallPercent: 0, errors: 0, stages: [] } },
-];
+const ACTIVE_TAB_STYLE = {
+    backgroundColor: 'rgba(8, 145, 178, 0.2)',
+    borderColor: 'rgba(6, 182, 212, 0.4)',
+    color: '#67e8f9',
+};
 
-const SYSTEM_STAGES = ['onboarding', 'bulk_ingest', 'previews', 'preview_generation', 'analysis', 'face_analysis', 'scan', 'ai_metadata', 'ai_metadata_3f', 'ai_metadata_31p', 'ai_metadata_v2_3f', 'ai_metadata_v2_31p', 'sensitive_scan'];
-const DASHBOARD_STATE_PRIORITY: Record<BackgroundJob['state'], number> = {
-    running: 0,
-    starting: 0,
-    retrying: 0,
-    queued: 1,
-    paused: 2,
-    idle: 3,
-    completed: 4,
-    failed: 5,
-    cancelled: 5,
+const INACTIVE_TAB_STYLE = {
+    backgroundColor: '#111827',
+    borderColor: '#374151',
+    color: '#d1d5db',
 };
 
 const TabButton: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({ label, active, onClick }) => (
@@ -100,16 +56,14 @@ const TabButton: React.FC<{ label: string; active: boolean; onClick: () => void 
 
 function getActiveTabCount(params: {
     activeTab: DashboardTab;
-    moduleCount: number;
-    queueCount: number;
+    workflowCount: number;
     dataCount: number;
     eventCount: number;
     errorCount: number;
     uiCount: number;
 }) {
-    const { activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount, uiCount } = params;
-    if (activeTab === 'modules') {return `${moduleCount} MODULES`;}
-    if (activeTab === 'queues') {return `${queueCount} QUEUES`;}
+    const { activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount } = params;
+    if (activeTab === 'workflows') {return `${workflowCount} WORKFLOWS`;}
     if (activeTab === 'data') {return `${dataCount} METRICS`;}
     if (activeTab === 'events') {return `${eventCount} EVENTS`;}
     if (activeTab === 'ui') {return `${uiCount} UI ENTRIES`;}
@@ -118,25 +72,21 @@ function getActiveTabCount(params: {
 
 const DashboardHeader: React.FC<{
     loading?: boolean;
-    isSystemPaused: boolean;
-    onTogglePause: () => void;
     activeTab: DashboardTab;
-    moduleCount: number;
-    queueCount: number;
+    workflowCount: number;
     dataCount: number;
     eventCount: number;
     errorCount: number;
     uiCount: number;
     onSelectTab: (tab: DashboardTab) => void;
-}> = ({ loading, isSystemPaused, onTogglePause, activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
+}> = ({ loading, activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
     <div className="flex flex-col gap-4 border-b border-gray-800 pb-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-4">
                 <h2 className="text-2xl font-light uppercase tracking-wide text-gray-100">System Dashboard</h2>
                 {loading && <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] tracking-widest text-cyan-500 animate-pulse">INITIALISING DATA...</span>}
                 <div className="flex flex-wrap items-center gap-2">
-                    <TabButton label="Modules" active={activeTab === 'modules'} onClick={() => onSelectTab('modules')} />
-                    <TabButton label="Queues" active={activeTab === 'queues'} onClick={() => onSelectTab('queues')} />
+                    <TabButton label="Workflows" active={activeTab === 'workflows'} onClick={() => onSelectTab('workflows')} />
                     <TabButton label="Data" active={activeTab === 'data'} onClick={() => onSelectTab('data')} />
                     <TabButton label="Events" active={activeTab === 'events'} onClick={() => onSelectTab('events')} />
                     <TabButton label="UI Feed" active={activeTab === 'ui'} onClick={() => onSelectTab('ui')} />
@@ -144,38 +94,11 @@ const DashboardHeader: React.FC<{
                 </div>
             </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 xl:justify-end">
-            <div className="font-mono text-[10px] tracking-widest text-gray-300">
-                {getActiveTabCount({ activeTab, moduleCount, queueCount, dataCount, eventCount, errorCount, uiCount })} {isSystemPaused ? 'PAUSED' : 'OPERATIONAL'}
-            </div>
-            <button
-                onClick={onTogglePause}
-                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${isSystemPaused ? 'border-amber-700/50 bg-amber-900/30 text-amber-400 hover:bg-amber-900/50' : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-                style={isSystemPaused ? RESUME_ALL_STYLE : PAUSE_ALL_STYLE}
-            >
-                {isSystemPaused ? <PlayCircle size={16} /> : <PauseCircle size={16} />}
-                {isSystemPaused ? 'RESUME ACTIVITY' : 'PAUSE ALL'}
-            </button>
+        <div className="font-mono text-[10px] tracking-widest text-gray-300">
+            {getActiveTabCount({ activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount })} RUNTIME
         </div>
     </div>
 );
-
-function useDisplayJobs(jobs: BackgroundJob[], systemJobs: BackgroundJob[], loading?: boolean): BackgroundJob[] {
-    return useMemo(() => {
-        const activeJobIds = new Set(jobs.filter((job) => job.state === 'running' || job.state === 'queued').map((job) => job.id));
-        const baseSystemJobs = (loading && systemJobs.length === 0) ? SKELETON_SYSTEM_JOBS : systemJobs;
-        const extraJobs = jobs.filter((job) => !job.id.startsWith('system-') && activeJobIds.has(job.id) && !SYSTEM_STAGES.includes(job.stage));
-        const prioritizedJobs: DashboardJobWithIndex[] = [...baseSystemJobs, ...extraJobs].map((job, index) => ({ job, index }));
-
-        return prioritizedJobs
-            .sort((left, right) => {
-                const leftPriority = DASHBOARD_STATE_PRIORITY[left.job.state] ?? Number.MAX_SAFE_INTEGER;
-                const rightPriority = DASHBOARD_STATE_PRIORITY[right.job.state] ?? Number.MAX_SAFE_INTEGER;
-                return leftPriority === rightPriority ? left.index - right.index : leftPriority - rightPriority;
-            })
-            .map(({ job }) => job);
-    }, [jobs, systemJobs, loading]);
-}
 
 function useDashboardErrors(activeTab: DashboardTab, onGetJobErrors: DashboardViewProps['onGetJobErrors']): DashboardErrorsState {
     const [snapshot, setSnapshot] = useState<JobErrorSnapshot | null>(null);
@@ -212,72 +135,26 @@ function useDashboardErrors(activeTab: DashboardTab, onGetJobErrors: DashboardVi
             setPage(1);
         },
         setPage,
-        openForModule: (moduleId: string) => {
-            setModuleFilterState(moduleId.startsWith('class-') ? moduleId : null);
-            setPage(1);
-        },
     };
 }
-
-const DashboardModulesTab: React.FC<{
-    displayJobs: BackgroundJob[];
-    workflowRuns: WorkflowRunListItem[];
-    loading?: boolean;
-    onStopJob: (jobId: string) => void;
-    onViewModuleErrors: (moduleId: string) => void;
-    onSetModulePaused: (moduleId: string, paused: boolean) => void;
-}> = ({ displayJobs, workflowRuns, loading, onStopJob, onViewModuleErrors, onSetModulePaused }) => {
-    if (displayJobs.length === 0 && !loading) {
-        return (
-            <div className="flex flex-col gap-4">
-                <WorkflowRunsPanel runs={workflowRuns} />
-                <div className="flex h-full items-center justify-center bg-[#0a0a0a] text-gray-300">
-                    <p>No background jobs running or completed yet.</p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col gap-4">
-            <WorkflowRunsPanel runs={workflowRuns} />
-            <div className="grid auto-rows-max gap-4" style={DASHBOARD_MODULE_GRID_STYLE}>
-                {displayJobs.map((job) => (
-                    <JobCard
-                        key={job.id}
-                        job={job}
-                        onStop={onStopJob}
-                        onViewErrors={onViewModuleErrors}
-                        onTogglePause={onSetModulePaused}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-};
 
 const DashboardBody: React.FC<{
     activeTab: DashboardTab;
     loading?: boolean;
-    queueRows: QueueStatusSnapshot['stages'];
-    queueLastUpdated?: string;
+    workflowStatus: WorkflowStatusSnapshot | null;
     dataStats: DataStatsSnapshot | null;
     recentEvents: RecentEventSnapshot[];
     workflowRuns: WorkflowRunListItem[];
     uiFeedEntries: UiFeedEntry[];
     onGetEventPayloadRaw: (eventId: string) => Promise<string>;
-    displayJobs: BackgroundJob[];
-    onStopJob: (jobId: string) => void;
-    onViewModuleErrors: (moduleId: string) => void;
-    onSetModulePaused: (moduleId: string, paused: boolean) => void;
     errorsState: DashboardErrorsState;
-}> = ({ activeTab, loading, queueRows, queueLastUpdated, dataStats, recentEvents, workflowRuns, uiFeedEntries, onGetEventPayloadRaw, displayJobs, onStopJob, onViewModuleErrors, onSetModulePaused, errorsState }) => {
-    if (activeTab === 'queues') {
+}> = ({ activeTab, loading, workflowStatus, dataStats, recentEvents, workflowRuns, uiFeedEntries, onGetEventPayloadRaw, errorsState }) => {
+    if (activeTab === 'workflows') {
         return (
-            <>
-                {queueLastUpdated && <div className="text-[10px] font-mono tracking-wider text-gray-400">UPDATED {new Date(queueLastUpdated).toLocaleTimeString()}</div>}
-                <QueueStatusTable rows={queueRows} loading={loading} />
-            </>
+            <div className="flex flex-col gap-4">
+                <WorkflowStatusPanel snapshot={workflowStatus} loading={loading} />
+                <WorkflowRunsPanel runs={workflowRuns} />
+            </div>
         );
     }
     if (activeTab === 'data') {return <DataStatsPanel stats={dataStats} loading={loading} />;}
@@ -294,47 +171,29 @@ const DashboardBody: React.FC<{
             />
         );
     }
-
-    return (
-        <DashboardModulesTab
-            displayJobs={displayJobs}
-            workflowRuns={workflowRuns}
-            loading={loading}
-            onStopJob={onStopJob}
-            onViewModuleErrors={onViewModuleErrors}
-            onSetModulePaused={onSetModulePaused}
-        />
-    );
+    return null;
 };
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-    jobs,
-    systemJobs,
-    queueStatus,
+    workflowStatus,
     dataStats,
     recentEvents,
     workflowRuns,
     uiFeedEntries,
     refreshSystemJobs,
-    isSystemPaused,
-    onTogglePause,
-    onStopJob,
     onGetEventPayloadRaw,
     onGetJobErrors,
-    onSetModulePaused,
     loading,
 }) => {
-    const [activeTab, setActiveTab] = useState<DashboardTab>('modules');
-    const displayJobs = useDisplayJobs(jobs, systemJobs, loading);
+    const [activeTab, setActiveTab] = useState<DashboardTab>('workflows');
     const errorsState = useDashboardErrors(activeTab, onGetJobErrors);
-    const queueRows = queueStatus?.stages || [];
     const dataMetricCount = 10;
     const eventCount = recentEvents.length;
-    const errorCount = displayJobs.reduce((sum, job) => sum + (job.progress.errors || 0), 0);
+    const errorCount = errorsState.snapshot?.total ?? 0;
     const uiCount = uiFeedEntries.length;
     const refreshIntervalMs = useMemo(
-        () => displayJobs.some((job) => job.state === 'running') ? 1000 : 3000,
-        [displayJobs]
+        () => workflowRuns.some((run) => run.status === 'running') ? 1000 : 3000,
+        [workflowRuns]
     );
 
     useEffect(() => {
@@ -347,11 +206,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="mx-auto flex h-full w-full flex-col space-y-6 overflow-y-auto bg-[#0a0a0a] p-6">
             <DashboardHeader
                 loading={loading}
-                isSystemPaused={isSystemPaused}
-                onTogglePause={onTogglePause}
                 activeTab={activeTab}
-                moduleCount={displayJobs.length}
-                queueCount={queueRows.length}
+                workflowCount={workflowStatus?.workflows.length ?? 0}
                 dataCount={dataMetricCount}
                 eventCount={eventCount}
                 errorCount={errorCount}
@@ -362,20 +218,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <DashboardBody
                 activeTab={activeTab}
                 loading={loading}
-                queueRows={queueRows}
-                queueLastUpdated={queueStatus?.generatedAt}
+                workflowStatus={workflowStatus}
                 dataStats={dataStats}
                 recentEvents={recentEvents}
                 workflowRuns={workflowRuns}
                 uiFeedEntries={uiFeedEntries}
                 onGetEventPayloadRaw={onGetEventPayloadRaw}
-                displayJobs={displayJobs}
-                onStopJob={onStopJob}
-                onViewModuleErrors={(moduleId) => {
-                    errorsState.openForModule(moduleId);
-                    setActiveTab('errors');
-                }}
-                onSetModulePaused={onSetModulePaused}
                 errorsState={errorsState}
             />
         </div>

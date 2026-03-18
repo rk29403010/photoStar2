@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Dispatch, FC, SetStateAction } from 'react';
 import type { Asset } from '@contracts/core';
-import type { BackgroundJob } from '@contracts/jobs';
 import { InfoPanel } from './single-photo/InfoPanel';
 import { PhotoViewport } from './single-photo/PhotoViewport';
 import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
@@ -20,7 +19,6 @@ interface SinglePhotoViewProps {
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onOpenSettings?: () => void;
-    jobs?: BackgroundJob[];
     showInfoPanel?: boolean;
     onShowInfoPanelChange?: (v: boolean) => void;
     activeInfoTab?: 'file' | 'analysis' | 'people' | 'json';
@@ -209,8 +207,8 @@ function useAnalysisUiState(): AnalysisUiBundle {
 }
 
 function useAnalysisTracking(params: {
-    jobs?: BackgroundJob[];
-    analyzingJobId: string | null;
+    analyzingAssetId: string | null;
+    currentAssetId: string | undefined;
     assetAiMetadata: Asset['ai_metadata'] | undefined;
     setAnalysisError: Dispatch<SetStateAction<string | null>>;
     setAnalysisState: Dispatch<SetStateAction<AnalysisUiState>>;
@@ -219,8 +217,8 @@ function useAnalysisTracking(params: {
     setShowInfoPanel: (v: boolean) => void;
 }) {
     const {
-        jobs,
-        analyzingJobId,
+        analyzingAssetId,
+        currentAssetId,
         assetAiMetadata,
         setAnalysisError,
         setAnalysisState,
@@ -230,32 +228,22 @@ function useAnalysisTracking(params: {
     } = params;
 
     useEffect(() => {
-        if (!analyzingJobId || !jobs) {return;}
+        if (!analyzingAssetId || currentAssetId !== analyzingAssetId) {return;}
 
-        const job = jobs.find((candidate) => candidate.id === analyzingJobId);
-        if (!job) {return;}
-
-        if (job.state === 'failed') {
-            setTimeout(() => {
-                const message = job.issues && job.issues.length > 0 ? job.issues[0].message : 'Analysis failed';
-                setAnalysisError(message);
-                setAnalysisState('error');
-                setAnalyzingJobId(null);
-            }, 0);
+        if (!assetAiMetadata) {
             return;
         }
 
-        if (job.state === 'completed' && assetAiMetadata) {
-            setTimeout(() => {
-                setAnalysisState('idle');
-                setAnalyzingAssetId(null);
-                setAnalyzingJobId(null);
-                setShowInfoPanel(true);
-            }, 0);
-        }
+        setTimeout(() => {
+            setAnalysisError(null);
+            setAnalysisState('idle');
+            setAnalyzingAssetId(null);
+            setAnalyzingJobId(null);
+            setShowInfoPanel(true);
+        }, 0);
     }, [
-        jobs,
-        analyzingJobId,
+        analyzingAssetId,
+        currentAssetId,
         assetAiMetadata,
         setAnalysisError,
         setAnalysisState,
@@ -423,7 +411,6 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     onSetCanonical,
     onExplodeGroup,
     onOpenSettings,
-    jobs,
     showInfoPanel,
     onShowInfoPanelChange,
     activeInfoTab,
@@ -449,8 +436,8 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
 
     useAssetPrioritization(asset?.id, onPrioritize);
     useAnalysisTracking({
-        jobs,
-        analyzingJobId: analysisUi.analyzingJobId,
+        analyzingAssetId: analysisUi.analyzingAssetId,
+        currentAssetId: asset?.id,
         assetAiMetadata: asset?.ai_metadata,
         setAnalysisError: analysisUi.setAnalysisError,
         setAnalysisState: analysisUi.setAnalysisState,

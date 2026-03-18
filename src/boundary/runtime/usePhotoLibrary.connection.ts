@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Command, type Child } from '@tauri-apps/plugin-shell';
 import type { Asset, LibraryStats, Person } from '@contracts/core';
-import type { BackgroundJob, DataStatsSnapshot, QueueStatusSnapshot, RecentEventSnapshot, WorkflowRunListItem } from '@contracts/jobs';
+import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import { getBackendTransportKind, getBackendWsUrl } from '@boundary/runtime/backend';
 import type { DomainEvent } from '@contracts/events';
 import {
@@ -33,13 +33,12 @@ export interface ConnectionStateParams {
     setAssets: Dispatch<SetStateAction<Asset[]>>;
     setPeople: Dispatch<SetStateAction<Person[]>>;
     setSystemJobs: Dispatch<SetStateAction<BackgroundJob[]>>;
-    setQueueStatus: Dispatch<SetStateAction<QueueStatusSnapshot | null>>;
+    setWorkflowStatus: Dispatch<SetStateAction<WorkflowStatusSnapshot | null>>;
     setDataStats: Dispatch<SetStateAction<DataStatsSnapshot | null>>;
     setRecentEvents: Dispatch<SetStateAction<RecentEventSnapshot[]>>;
     setWorkflowRuns: Dispatch<SetStateAction<WorkflowRunListItem[]>>;
     setFolderHistory: Dispatch<SetStateAction<FolderHistoryItem[]>>;
     setRejectedAssets: Dispatch<SetStateAction<Asset[]>>;
-    setIsSystemPaused: (value: boolean) => void;
     addUiFeedEntry: (entry: UiFeedEntry) => void;
     addNotification: (type: 'warning' | 'info', message: string) => void;
     addLog: (message: string) => void;
@@ -87,11 +86,6 @@ async function sendInitialRequests(
     await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: ASSET_PAGE_SIZE, offset: 0, filter, detailLevel: 'gallery', withGroupCounts } }) + '\n');
     await write(JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'system-jobs-init', command: 'get_system_jobs', payload: {} }) + '\n');
-    await write(JSON.stringify({ id: 'pause-state-init', command: 'get_pause_state', payload: {} }) + '\n');
-
-    if (localStorage.getItem('ps_system_paused') === 'true') {
-        await write(JSON.stringify({ id: 'rehydrate-pause', command: 'pause_jobs', payload: {} }) + '\n');
-    }
 }
 
 function clearSocketHandlers(ws: WebSocket) {

@@ -12,10 +12,7 @@ const JOB_TITLE_BY_STAGE: Record<string, string> = {
     'face_analysis': 'Analysing Faces',
     'similarity_cluster': 'Clustering Similar Faces',
     'reindex': 'Rebuilding Index',
-    'ai_metadata_3f': 'Extracting AI Metadata (3F)',
-    'ai_metadata_31p': 'Upgrading AI Metadata (31P)',
-    'ai_metadata_v2_3f': 'Extracting AI Metadata (V2 3F)',
-    'ai_metadata_v2_31p': 'Upgrading AI Metadata (V2 31P)'
+    'ai_metadata': 'Generating AI Metadata'
 };
 
 type JobUpdater = SetStateAction<BackgroundJob[]>;
