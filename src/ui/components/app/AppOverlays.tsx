@@ -1,4 +1,4 @@
-import type { Asset } from '@contracts/core';
+import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { BackgroundJob } from '@contracts/jobs';
 import { TaskDrawer } from '../jobs/TaskDrawer';
 import { ActionPanel } from '../ActionPanel';
@@ -48,7 +48,7 @@ interface AppOverlaysProps {
   onIsolateFace: (assetId: string, faceIndex: number) => void;
   onSetSensitivity: (assetId: string, status: string | null) => void;
   onOpenSettingsFromPhoto: () => void;
-  onGetGroupOrbit: (groupId: string) => Promise<Asset[]>;
+  onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
   onSetCanonical: (groupId: string, assetId: string) => Promise<void>;
   onExplodeGroup: (groupId: string) => Promise<void>;
   onStopJob: (job: BackgroundJob) => void;

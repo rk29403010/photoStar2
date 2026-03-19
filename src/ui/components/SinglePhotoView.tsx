@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Dispatch, FC, SetStateAction } from 'react';
-import type { Asset } from '@contracts/core';
+import type { Asset, SimilarityOrbit } from '@contracts/core';
 import { InfoPanel } from './single-photo/InfoPanel';
 import { PhotoViewport } from './single-photo/PhotoViewport';
 import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
@@ -15,7 +15,7 @@ interface SinglePhotoViewProps {
     onIsolateFace?: (assetId: string, faceIndex: number) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
-    onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
+    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onOpenSettings?: () => void;
@@ -44,7 +44,7 @@ interface SinglePhotoOverlayProps {
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
-    onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
+    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onOrbitLoaded: (assets: Asset[]) => void;
     onSelectAsset: (assetId: string) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;

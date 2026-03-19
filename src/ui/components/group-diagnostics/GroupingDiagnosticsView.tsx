@@ -66,14 +66,55 @@ function GroupDiagnosticsRow(props: {
                 <div>
                     <div style={{ fontWeight: 700 }}>{group.groupId.slice(-4)} <span style={{ color: '#7dd3fc', fontWeight: 500 }}>({group.groupType})</span></div>
                     <div style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: 4 }}>{group.summary}</div>
+                    {group.representativeAssetId && (
+                        <div style={{ color: '#64748b', fontSize: '0.8rem', marginTop: 4 }}>
+                            Representative: {group.representativeAssetId}
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{group.fileCount} files</span>
+                    <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{group.fileCount} direct files</span>
+                    <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{group.descendantFileCount} descendant files</span>
+                    <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{group.directChildGroupCount} child groups</span>
                     <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{group.underlyingImageEstimate} est. images</span>
                 </div>
             </button>
             {expanded && (
                 <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                    {group.children.length > 0 && (
+                        <div style={{ display: 'grid', gap: 8 }}>
+                            {group.children.map((child) => (
+                                <div
+                                    key={child.groupId}
+                                    style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        gap: 12,
+                                        padding: '10px 12px',
+                                        borderRadius: 8,
+                                        border: '1px solid rgba(56,189,248,0.18)',
+                                        background: 'rgba(15,23,42,0.75)',
+                                        color: '#e2e8f0',
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ fontWeight: 600 }}>
+                                            {child.groupId.slice(-4)} <span style={{ color: '#7dd3fc' }}>({child.groupType})</span>
+                                        </div>
+                                        {child.representativeAssetId && (
+                                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: 4 }}>
+                                                Representative: {child.representativeAssetId}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                                        {child.descendantFileCount} descendant files
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     {group.assets.map((asset) => (
                         <button
                             key={asset.assetId}

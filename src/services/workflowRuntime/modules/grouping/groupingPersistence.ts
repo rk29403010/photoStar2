@@ -1,7 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../../data/db';
 import type { PreparedGroupingAsset } from './groupingAssetPrep';
-import type { BurstGroupingAsset, GroupingSimilarityAsset, GroupingSimilarityEdge } from './groupingQueries';
+import type { GroupingSimilarityEdge } from './groupingQueries';
+import type { SimilarityGroupingUnit } from './groupingUnits';
+import {
+    selectBurstRepresentative,
+    selectDuplicateRepresentative,
+    selectNearDuplicateRepresentative,
+    selectVariantRepresentative,
+} from './groupingHierarchy';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -14,10 +21,15 @@ type GroupableAsset = {
 };
 
 type DuplicateAssetRow = PreparedGroupingAsset;
-type VariantAssetRow = GroupingSimilarityAsset;
-type BurstAssetRow = BurstGroupingAsset;
+type NearDuplicateUnitRow = SimilarityGroupingUnit;
+type VariantUnitRow = SimilarityGroupingUnit;
+type BurstUnitRow = SimilarityGroupingUnit;
 
-type GroupType = 'duplicate' | 'variant_set' | 'burst';
+type GroupType = 'duplicate' | 'near_duplicate' | 'variant_set' | 'burst';
+type ChildGroupRecord = {
+    groupId: string;
+    assetIds: string[];
+};
 
 function sortByCanonicalPriority<T extends GroupableAsset>(assets: T[]): T[] {
     return [...assets].sort((left, right) => {
@@ -116,17 +128,27 @@ function loadImpactedDuplicateSets(db: DbHandle, changedAssetIds: string[]): Dup
 
 function insertDuplicateGroup(db: DbHandle, assets: DuplicateAssetRow[]): void {
     const groupId = uuidv4();
+    const canonicalAsset = selectDuplicateRepresentative(assets);
     db.prepare(`
         INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
         VALUES (?, 'duplicate', 'confirmed', ?, '1.0', ?)
-    `).run(groupId, assets[0].id, JSON.stringify({ strategy: 'file_hash' }));
+    `).run(groupId, canonicalAsset.id, JSON.stringify({ strategy: 'file_hash' }));
 
     const insertMember = db.prepare(`
         INSERT INTO asset_group_members (group_id, asset_id, role, rank)
         VALUES (?, ?, ?, ?)
     `);
 
-    for (const [index, asset] of assets.entries()) {
+    const orderedAssets = sortByCanonicalPriority(assets);
+    const canonicalIndex = orderedAssets.findIndex((asset) => asset.id === canonicalAsset.id);
+    if (canonicalIndex > 0) {
+        const [selectedCanonical] = orderedAssets.splice(canonicalIndex, 1);
+        if (selectedCanonical) {
+            orderedAssets.unshift(selectedCanonical);
+        }
+    }
+
+    for (const [index, asset] of orderedAssets.entries()) {
         insertMember.run(groupId, asset.id, index === 0 ? 'canonical' : 'member', index);
     }
 }
@@ -165,42 +187,137 @@ function insertVariantEdges(db: DbHandle, edges: GroupingSimilarityEdge[]): void
     }
 }
 
-function insertVariantGroup(db: DbHandle, assets: VariantAssetRow[], threshold: number): void {
+function insertVariantGroup(db: DbHandle, units: VariantUnitRow[], threshold: number): void {
     insertSimilarityGroup(db, {
+        canonicalAssetId: selectVariantRepresentative(units.map((unit) => ({
+            id: unit.representativeAssetId,
+            originalPath: unit.originalPath,
+            fileSize: unit.fileSize,
+            width: unit.width,
+            height: unit.height,
+            exifDatetime: unit.exifDatetime,
+        }))).id,
+        childGroups: units
+            .filter((unit) => unit.sourceGroupId)
+            .map((unit) => ({
+                groupId: unit.sourceGroupId!,
+                assetIds: unit.memberAssetIds,
+            })),
         type: 'variant_set',
-        assets,
+        assets: units
+            .filter((unit) => unit.sourceGroupId === null)
+            .map((unit) => ({
+                id: unit.representativeAssetId,
+                fileSize: unit.fileSize,
+                width: unit.width,
+                height: unit.height,
+                exifDatetime: unit.exifDatetime,
+            })),
         paramsJson: { threshold },
     });
 }
 
-function insertBurstGroup(db: DbHandle, assets: BurstAssetRow[], maxSeconds: number, maxDistance: number): void {
+function insertNearDuplicateGroup(db: DbHandle, units: NearDuplicateUnitRow[], threshold: number): void {
     insertSimilarityGroup(db, {
+        canonicalAssetId: selectNearDuplicateRepresentative(units.map((unit) => ({
+            id: unit.representativeAssetId,
+            originalPath: unit.originalPath,
+            fileSize: unit.fileSize,
+            width: unit.width,
+            height: unit.height,
+            exifDatetime: unit.exifDatetime,
+        }))).id,
+        childGroups: units
+            .filter((unit) => unit.sourceGroupId)
+            .map((unit) => ({
+                groupId: unit.sourceGroupId!,
+                assetIds: unit.memberAssetIds,
+            })),
+        type: 'near_duplicate',
+        assets: units
+            .filter((unit) => unit.sourceGroupId === null)
+            .map((unit) => ({
+                id: unit.representativeAssetId,
+                fileSize: unit.fileSize,
+                width: unit.width,
+                height: unit.height,
+                exifDatetime: unit.exifDatetime,
+            })),
+        paramsJson: { threshold },
+    });
+}
+
+function insertBurstGroup(db: DbHandle, units: BurstUnitRow[], maxSeconds: number, maxDistance: number): void {
+    insertSimilarityGroup(db, {
+        canonicalAssetId: selectBurstRepresentative(units.map((unit) => ({
+            id: unit.representativeAssetId,
+            originalPath: unit.originalPath,
+            fileSize: unit.fileSize,
+            width: unit.width,
+            height: unit.height,
+            exifDatetime: unit.exifDatetime,
+        }))).id,
+        childGroups: units
+            .filter((unit) => unit.sourceGroupId)
+            .map((unit) => ({
+                groupId: unit.sourceGroupId!,
+                assetIds: unit.memberAssetIds,
+            })),
         type: 'burst',
-        assets,
+        assets: units
+            .filter((unit) => unit.sourceGroupId === null)
+            .map((unit) => ({
+                id: unit.representativeAssetId,
+                fileSize: unit.fileSize,
+                width: unit.width,
+                height: unit.height,
+                exifDatetime: unit.exifDatetime,
+            })),
         paramsJson: { t_burst: maxSeconds, phashThreshold: maxDistance },
     });
 }
 
 function insertSimilarityGroup<T extends GroupableAsset>(db: DbHandle, params: {
-    type: 'variant_set' | 'burst';
+    canonicalAssetId: string;
+    childGroups: ChildGroupRecord[];
+    type: 'near_duplicate' | 'variant_set' | 'burst';
     assets: T[];
     paramsJson: Record<string, number>;
 }): void {
     const orderedAssets = sortByCanonicalPriority(params.assets);
     const groupId = uuidv4();
+    const childAssetIds = new Set(params.childGroups.flatMap((childGroup) => childGroup.assetIds));
 
     db.prepare(`
         INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
         VALUES (?, ?, 'proposed', ?, '1.0', ?)
-    `).run(groupId, params.type, orderedAssets[0].id, JSON.stringify(params.paramsJson));
+    `).run(groupId, params.type, params.canonicalAssetId, JSON.stringify(params.paramsJson));
 
     const insertMember = db.prepare(`
         INSERT INTO asset_group_members (group_id, asset_id, role, rank)
         VALUES (?, ?, ?, ?)
     `);
+    const insertChild = db.prepare(`
+        INSERT INTO asset_group_children (parent_group_id, child_group_id, rank)
+        VALUES (?, ?, ?)
+    `);
 
-    for (const [index, asset] of orderedAssets.entries()) {
+    const directAssets = orderedAssets.filter((asset) => !childAssetIds.has(asset.id));
+
+    const canonicalIndex = directAssets.findIndex((asset) => asset.id === params.canonicalAssetId);
+    if (canonicalIndex > 0) {
+        const [selectedCanonical] = directAssets.splice(canonicalIndex, 1);
+        if (selectedCanonical) {
+            directAssets.unshift(selectedCanonical);
+        }
+    }
+
+    for (const [index, asset] of directAssets.entries()) {
         insertMember.run(groupId, asset.id, index === 0 ? 'canonical' : 'member', index);
+    }
+
+    for (const [index, childGroup] of params.childGroups.entries()) {
+        insertChild.run(groupId, childGroup.groupId, index);
     }
 }
 
@@ -229,33 +346,94 @@ export function rebuildImpactedDuplicateGroups(params: {
 
 export function rebuildImpactedVariantGroups(params: {
     db: DbHandle;
-    assets: VariantAssetRow[];
+    units: VariantUnitRow[];
     edges: GroupingSimilarityEdge[];
     components: string[][];
     threshold: number;
 }): number {
-    if (params.assets.length === 0) {
+    if (params.units.length === 0) {
         return 0;
     }
 
-    const assetIds = params.assets.map((asset) => asset.id);
-    const assetById = new Map(params.assets.map((asset) => [asset.id, asset]));
+    const assetIds = [...new Set(params.units.flatMap((unit) => unit.memberAssetIds))];
+    const unitById = new Map(params.units.map((unit) => [unit.unitId, unit]));
     clearExistingImpactedGroups(params.db, 'variant_set', assetIds);
     clearVariantEdges(params.db, assetIds);
-    insertVariantEdges(params.db, params.edges);
+    insertVariantEdges(params.db, params.edges.flatMap((edge) => {
+        const leftUnit = unitById.get(edge.leftId);
+        const rightUnit = unitById.get(edge.rightId);
+        if (!leftUnit || !rightUnit) {
+            return [];
+        }
+
+        return [{
+            ...edge,
+            leftId: leftUnit.representativeAssetId,
+            rightId: rightUnit.representativeAssetId,
+        }];
+    }));
 
     let insertedCount = 0;
     for (const component of params.components) {
-        if (findLockedGroup(params.db, 'variant_set', component)) {
+        const componentUnits = component
+            .map((unitId) => unitById.get(unitId))
+            .filter((unit): unit is VariantUnitRow => Boolean(unit));
+        const componentAssetIds = [...new Set(componentUnits.flatMap((unit) => unit.memberAssetIds))];
+        if (findLockedGroup(params.db, 'variant_set', componentAssetIds)) {
             continue;
         }
-        const componentAssets = component
-            .map((assetId) => assetById.get(assetId))
-            .filter((asset): asset is VariantAssetRow => Boolean(asset));
-        if (componentAssets.length < 2) {
+        if (componentUnits.length < 2) {
             continue;
         }
-        insertVariantGroup(params.db, componentAssets, params.threshold);
+        insertVariantGroup(params.db, componentUnits, params.threshold);
+        insertedCount += 1;
+    }
+
+    return insertedCount;
+}
+
+export function rebuildImpactedNearDuplicateGroups(params: {
+    db: DbHandle;
+    units: NearDuplicateUnitRow[];
+    edges: GroupingSimilarityEdge[];
+    components: string[][];
+    threshold: number;
+}): number {
+    if (params.units.length === 0) {
+        return 0;
+    }
+
+    const assetIds = [...new Set(params.units.flatMap((unit) => unit.memberAssetIds))];
+    const unitById = new Map(params.units.map((unit) => [unit.unitId, unit]));
+    clearExistingImpactedGroups(params.db, 'near_duplicate', assetIds);
+    clearVariantEdges(params.db, assetIds);
+    insertVariantEdges(params.db, params.edges.flatMap((edge) => {
+        const leftUnit = unitById.get(edge.leftId);
+        const rightUnit = unitById.get(edge.rightId);
+        if (!leftUnit || !rightUnit) {
+            return [];
+        }
+
+        return [{
+            ...edge,
+            leftId: leftUnit.representativeAssetId,
+            rightId: rightUnit.representativeAssetId,
+        }];
+    }));
+
+    let insertedCount = 0;
+    for (const component of params.components) {
+        const componentUnits = component
+            .map((unitId) => unitById.get(unitId))
+            .filter((unit): unit is NearDuplicateUnitRow => Boolean(unit));
+        const componentAssetIds = [...new Set(componentUnits.flatMap((unit) => unit.memberAssetIds))];
+        if (findLockedGroup(params.db, 'near_duplicate', componentAssetIds)) {
+            continue;
+        }
+        if (componentUnits.length < 2) {
+            continue;
+        }
+        insertNearDuplicateGroup(params.db, componentUnits, params.threshold);
         insertedCount += 1;
     }
 
@@ -264,31 +442,32 @@ export function rebuildImpactedVariantGroups(params: {
 
 export function rebuildImpactedBurstGroups(params: {
     db: DbHandle;
-    assets: BurstAssetRow[];
+    units: BurstUnitRow[];
     components: string[][];
     maxSeconds: number;
     maxDistance: number;
 }): number {
-    if (params.assets.length === 0) {
+    if (params.units.length === 0) {
         return 0;
     }
 
-    const assetIds = params.assets.map((asset) => asset.id);
-    const assetById = new Map(params.assets.map((asset) => [asset.id, asset]));
+    const assetIds = [...new Set(params.units.flatMap((unit) => unit.memberAssetIds))];
+    const unitById = new Map(params.units.map((unit) => [unit.unitId, unit]));
     clearExistingImpactedGroups(params.db, 'burst', assetIds);
 
     let insertedCount = 0;
     for (const component of params.components) {
-        if (findLockedGroup(params.db, 'burst', component)) {
+        const componentUnits = component
+            .map((unitId) => unitById.get(unitId))
+            .filter((unit): unit is BurstUnitRow => Boolean(unit));
+        const componentAssetIds = [...new Set(componentUnits.flatMap((unit) => unit.memberAssetIds))];
+        if (findLockedGroup(params.db, 'burst', componentAssetIds)) {
             continue;
         }
-        const componentAssets = component
-            .map((assetId) => assetById.get(assetId))
-            .filter((asset): asset is BurstAssetRow => Boolean(asset));
-        if (componentAssets.length < 2) {
+        if (componentUnits.length < 2) {
             continue;
         }
-        insertBurstGroup(params.db, componentAssets, params.maxSeconds, params.maxDistance);
+        insertBurstGroup(params.db, componentUnits, params.maxSeconds, params.maxDistance);
         insertedCount += 1;
     }
 

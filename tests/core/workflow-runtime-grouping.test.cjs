@@ -11,8 +11,75 @@ const {
     seedAsset,
     seedAssetFeatures,
     seedDuplicateGroup,
-    seedSimilarityGroup,
 } = require('./workflow-runtime-grouping.helpers.cjs');
+
+test('database schema includes direct child-group links for similarity hierarchy', async () => {
+    const tempDir = createTempDir();
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const dbManager = new DatabaseManager(tempDir);
+
+    try {
+        const childTable = dbManager.getDb().prepare(`
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'asset_group_children'
+        `).get();
+
+        assert.deepEqual(childTable, { name: 'asset_group_children' });
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('grouping hierarchy helpers prefer quality for duplicates and recency for variants', async () => {
+    const {
+        selectDuplicateRepresentative,
+        selectVariantRepresentative,
+    } = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingHierarchy.js');
+
+    const duplicateRepresentative = selectDuplicateRepresentative([
+        {
+            id: 'asset-low',
+            originalPath: 'C:/photos/low.jpg',
+            fileSize: 2_000,
+            width: 1200,
+            height: 900,
+            exifDatetime: '2026-01-01T10:00:00.000Z',
+        },
+        {
+            id: 'asset-high',
+            originalPath: 'C:/photos/high.png',
+            fileSize: 6_000,
+            width: 2400,
+            height: 1800,
+            exifDatetime: '2026-01-01T09:00:00.000Z',
+        },
+    ]);
+    const variantRepresentative = selectVariantRepresentative([
+        {
+            id: 'asset-old',
+            originalPath: 'C:/photos/edit-old.jpg',
+            fileSize: 5_000,
+            width: 2000,
+            height: 1500,
+            exifDatetime: '2026-01-01T09:00:00.000Z',
+            createdAt: '2026-01-01T09:00:00.000Z',
+        },
+        {
+            id: 'asset-new',
+            originalPath: 'C:/photos/edit-new.jpg',
+            fileSize: 4_000,
+            width: 1800,
+            height: 1400,
+            exifDatetime: '2026-01-01T11:00:00.000Z',
+            createdAt: '2026-01-01T11:00:00.000Z',
+        },
+    ]);
+
+    assert.equal(duplicateRepresentative.id, 'asset-high');
+    assert.equal(variantRepresentative.id, 'asset-new');
+});
 
 test('runtime grouping writes duplicate groups for changed assets', async () => {
     const tempDir = createTempDir();
@@ -208,15 +275,13 @@ test('runtime duplicate grouping matches changed assets against older library as
     }
 });
 
-test('runtime variant grouping merges transitive visual neighbors into one group', async () => {
+test('runtime grouping persists near-duplicate groups for same-content assets with different file identities', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
-    const firstPath = path.join(fixtureDir, 'one.png');
-    const secondPath = path.join(fixtureDir, 'two.png');
-    const thirdPath = path.join(fixtureDir, 'three.png');
+    const firstPath = path.join(fixtureDir, 'near-one.png');
+    const secondPath = path.join(fixtureDir, 'near-two.png');
     createFixtureImage(firstPath);
     createFixtureImage(secondPath);
-    createFixtureImage(thirdPath);
 
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     let dbManager;
@@ -225,53 +290,37 @@ test('runtime variant grouping merges transitive visual neighbors into one group
         dbManager = new DatabaseManager(tempDir);
         const firstId = uuidv4();
         const secondId = uuidv4();
-        const thirdId = uuidv4();
 
         seedAsset(dbManager, {
             id: firstId,
             originalPath: firstPath,
-            fileHash: 'hash-a',
-            fileSize: 10,
-            width: 400,
-            height: 300,
+            fileHash: 'near-hash-a',
+            fileSize: 2_000,
+            width: 1200,
+            height: 900,
             exifDate: '2026-01-01T12:00:00.000Z',
         });
         seedAsset(dbManager, {
             id: secondId,
             originalPath: secondPath,
-            fileHash: 'hash-b',
-            fileSize: 11,
-            width: 401,
-            height: 301,
+            fileHash: 'near-hash-b',
+            fileSize: 6_000,
+            width: 2400,
+            height: 1800,
             exifDate: '2026-01-01T12:00:01.000Z',
-        });
-        seedAsset(dbManager, {
-            id: thirdId,
-            originalPath: thirdPath,
-            fileHash: 'hash-c',
-            fileSize: 12,
-            width: 402,
-            height: 302,
-            exifDate: '2026-01-01T12:00:02.000Z',
         });
 
         seedAssetFeatures(dbManager, {
             assetId: firstId,
-            fileHash: 'hash-a',
-            phash64: '0000000000000000',
-            dhash64: '0000000000000000',
+            fileHash: 'near-hash-a',
+            phash64: '0000000000000001',
+            dhash64: '0000000000000001',
         });
         seedAssetFeatures(dbManager, {
             assetId: secondId,
-            fileHash: 'hash-b',
-            phash64: '00000000000003ff',
-            dhash64: '00000000000003ff',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: thirdId,
-            fileHash: 'hash-c',
-            phash64: '0000000000000fff',
-            dhash64: '0000000000000fff',
+            fileHash: 'near-hash-b',
+            phash64: '0000000000000001',
+            dhash64: '0000000000000001',
         });
 
         await runGroupingWorkflow({
@@ -279,270 +328,20 @@ test('runtime variant grouping merges transitive visual neighbors into one group
             inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
         });
 
-        const variantMembers = dbManager.getDb().prepare(`
-            SELECT m.asset_id
+        const nearDuplicateMembers = dbManager.getDb().prepare(`
+            SELECT g.canonical_asset_id AS canonical_asset_id, m.asset_id
             FROM asset_groups g
             JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'variant_set'
+            WHERE g.type = 'near_duplicate'
             ORDER BY m.rank ASC
         `).all();
 
+        assert.equal(nearDuplicateMembers.length, 2);
+        assert.equal(nearDuplicateMembers[0].canonical_asset_id, secondId);
         assert.deepEqual(
-            variantMembers.map((row) => row.asset_id),
-            [thirdId, secondId, firstId],
+            nearDuplicateMembers.map((row) => row.asset_id).sort(),
+            [firstId, secondId].sort(),
         );
-    } finally {
-        dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-});
-
-test('runtime burst grouping merges transitive time-neighbours into one group', async () => {
-    const tempDir = createTempDir();
-    const fixtureDir = path.join(tempDir, 'fixtures');
-    const firstPath = path.join(fixtureDir, 'one.png');
-    const secondPath = path.join(fixtureDir, 'two.png');
-    const thirdPath = path.join(fixtureDir, 'three.png');
-    createFixtureImage(firstPath);
-    createFixtureImage(secondPath);
-    createFixtureImage(thirdPath);
-
-    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    let dbManager;
-
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const firstId = uuidv4();
-        const secondId = uuidv4();
-        const thirdId = uuidv4();
-
-        seedAsset(dbManager, {
-            id: firstId,
-            originalPath: firstPath,
-            fileHash: 'burst-hash-a',
-            fileSize: 10,
-            width: 400,
-            height: 300,
-            exifDate: '2026-01-01T12:00:00.000Z',
-        });
-        seedAsset(dbManager, {
-            id: secondId,
-            originalPath: secondPath,
-            fileHash: 'burst-hash-b',
-            fileSize: 11,
-            width: 401,
-            height: 301,
-            exifDate: '2026-01-01T12:00:02.000Z',
-        });
-        seedAsset(dbManager, {
-            id: thirdId,
-            originalPath: thirdPath,
-            fileHash: 'burst-hash-c',
-            fileSize: 12,
-            width: 402,
-            height: 302,
-            exifDate: '2026-01-01T12:00:04.000Z',
-        });
-
-        seedAssetFeatures(dbManager, {
-            assetId: firstId,
-            fileHash: 'burst-hash-a',
-            phash64: '0000000000000000',
-            dhash64: '0000000000000000',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: secondId,
-            fileHash: 'burst-hash-b',
-            phash64: '00000000000003ff',
-            dhash64: '00000000000003ff',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: thirdId,
-            fileHash: 'burst-hash-c',
-            phash64: '0000000000000fff',
-            dhash64: '0000000000000fff',
-        });
-
-        await runGroupingWorkflow({
-            dbManager,
-            inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
-        });
-
-        const burstMembers = dbManager.getDb().prepare(`
-            SELECT m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'burst'
-            ORDER BY m.rank ASC
-        `).all();
-
-        assert.deepEqual(
-            burstMembers.map((row) => row.asset_id),
-            [thirdId, secondId, firstId],
-        );
-    } finally {
-        dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-});
-
-test('runtime variant grouping replaces stale proposed groups for impacted assets', async () => {
-    const tempDir = createTempDir();
-    const fixtureDir = path.join(tempDir, 'fixtures');
-    const firstPath = path.join(fixtureDir, 'one.png');
-    const secondPath = path.join(fixtureDir, 'two.png');
-    const thirdPath = path.join(fixtureDir, 'three.png');
-    createFixtureImage(firstPath);
-    createFixtureImage(secondPath);
-    createFixtureImage(thirdPath);
-
-    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    let dbManager;
-
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const firstId = uuidv4();
-        const secondId = uuidv4();
-        const thirdId = uuidv4();
-
-        seedAsset(dbManager, {
-            id: firstId,
-            originalPath: firstPath,
-            fileHash: 'stale-hash-a',
-            fileSize: 10,
-            width: 400,
-            height: 300,
-            exifDate: '2026-01-01T12:00:00.000Z',
-        });
-        seedAsset(dbManager, {
-            id: secondId,
-            originalPath: secondPath,
-            fileHash: 'stale-hash-b',
-            fileSize: 11,
-            width: 401,
-            height: 301,
-            exifDate: '2026-01-01T12:00:01.000Z',
-        });
-        seedAsset(dbManager, {
-            id: thirdId,
-            originalPath: thirdPath,
-            fileHash: 'stale-hash-c',
-            fileSize: 12,
-            width: 402,
-            height: 302,
-            exifDate: '2026-01-01T12:00:02.000Z',
-        });
-
-        seedAssetFeatures(dbManager, {
-            assetId: firstId,
-            fileHash: 'stale-hash-a',
-            phash64: '0000000000000000',
-            dhash64: '0000000000000000',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: secondId,
-            fileHash: 'stale-hash-b',
-            phash64: '00000000000003ff',
-            dhash64: '00000000000003ff',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: thirdId,
-            fileHash: 'stale-hash-c',
-            phash64: '0000000000000fff',
-            dhash64: '0000000000000fff',
-        });
-        seedSimilarityGroup(dbManager, {
-            groupId: uuidv4(),
-            type: 'variant_set',
-            status: 'proposed',
-            canonicalAssetId: firstId,
-            assetIds: [firstId, thirdId],
-            paramsJson: { threshold: 10 },
-        });
-
-        await runGroupingWorkflow({
-            dbManager,
-            inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
-        });
-
-        const variantGroups = dbManager.getDb().prepare(`
-            SELECT g.id, m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'variant_set'
-            ORDER BY g.id ASC, m.rank ASC
-        `).all();
-
-        assert.deepEqual(
-            variantGroups.map((row) => row.asset_id),
-            [thirdId, secondId, firstId],
-        );
-    } finally {
-        dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-});
-
-test('runtime variant grouping rejects phash-only bridge matches when dhash disagrees', async () => {
-    const tempDir = createTempDir();
-    const fixtureDir = path.join(tempDir, 'fixtures');
-    const firstPath = path.join(fixtureDir, 'one.png');
-    const secondPath = path.join(fixtureDir, 'two.png');
-    createFixtureImage(firstPath);
-    createFixtureImage(secondPath);
-
-    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    let dbManager;
-
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const firstId = uuidv4();
-        const secondId = uuidv4();
-
-        seedAsset(dbManager, {
-            id: firstId,
-            originalPath: firstPath,
-            fileHash: 'hash-a',
-            fileSize: 10,
-            width: 400,
-            height: 300,
-            exifDate: '2026-01-01T12:00:00.000Z',
-        });
-        seedAsset(dbManager, {
-            id: secondId,
-            originalPath: secondPath,
-            fileHash: 'hash-b',
-            fileSize: 11,
-            width: 401,
-            height: 301,
-            exifDate: '2026-01-01T12:00:01.000Z',
-        });
-
-        seedAssetFeatures(dbManager, {
-            assetId: firstId,
-            fileHash: 'hash-a',
-            phash64: '0000000000000000',
-            dhash64: '0000000000000000',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: secondId,
-            fileHash: 'hash-b',
-            phash64: '00000000000003ff',
-            dhash64: 'ffffffffffffffff',
-        });
-
-        await runGroupingWorkflow({
-            dbManager,
-            inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
-        });
-
-        const variantGroupCount = dbManager.getDb().prepare(`
-            SELECT COUNT(*) AS count
-            FROM asset_groups
-            WHERE type = 'variant_set'
-        `).get();
-
-        assert.equal(variantGroupCount.count, 0);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

@@ -10,15 +10,26 @@ export interface GroupDiagnosticsAssetRow {
     groupIds: string[];
 }
 
+export interface GroupDiagnosticsChildRow {
+    groupId: string;
+    groupType: string;
+    representativeAssetId: string | null;
+    descendantFileCount: number;
+}
+
 export interface GroupDiagnosticsGroupRow {
     groupId: string;
     groupType: string;
+    representativeAssetId: string | null;
     fileCount: number;
+    descendantFileCount: number;
+    directChildGroupCount: number;
     overlapCount: number;
     underlyingImageEstimate: number;
     flags: GroupDiagnosticsFlag[];
     summary: string;
     assets: GroupDiagnosticsAssetRow[];
+    children: GroupDiagnosticsChildRow[];
 }
 
 export interface GroupDiagnosticsSummary {

@@ -51,14 +51,16 @@ test('get_group_diagnostics_report summarizes overlap inflation and lower-level 
         db.prepare(`
             INSERT INTO asset_group_members (group_id, asset_id, role, rank)
             VALUES
-                ('group-f882', 'asset-1', 'canonical', 0),
-                ('group-f882', 'asset-2', 'member', 1),
-                ('group-f882', 'asset-3', 'member', 2),
-                ('group-f882', 'asset-4', 'member', 3),
                 ('group-0b5a', 'asset-1', 'canonical', 0),
                 ('group-0b5a', 'asset-2', 'member', 1),
                 ('group-afed', 'asset-3', 'canonical', 0),
                 ('group-afed', 'asset-4', 'member', 1)
+        `).run();
+        db.prepare(`
+            INSERT INTO asset_group_children (parent_group_id, child_group_id, rank)
+            VALUES
+                ('group-f882', 'group-0b5a', 0),
+                ('group-f882', 'group-afed', 1)
         `).run();
 
         handleSystemCommand({
@@ -75,22 +77,25 @@ test('get_group_diagnostics_report summarizes overlap inflation and lower-level 
         const response = collector.takeLast();
         assert.equal(response.status, 'ok');
         assert.equal(response.data.report.summary.totalAssets, 4);
-        assert.equal(response.data.report.summary.totalMemberships, 8);
-        assert.equal(response.data.report.summary.overlappingAssetCount, 4);
+        assert.equal(response.data.report.summary.totalMemberships, 4);
+        assert.equal(response.data.report.summary.overlappingAssetCount, 0);
 
         const burstGroup = response.data.report.groups.find((group) => group.groupId === 'group-f882');
         assert.ok(burstGroup);
         assert.equal(burstGroup.groupType, 'burst');
-        assert.equal(burstGroup.fileCount, 4);
+        assert.equal(burstGroup.fileCount, 0);
+        assert.equal(burstGroup.descendantFileCount, 4);
+        assert.equal(burstGroup.directChildGroupCount, 2);
+        assert.equal(burstGroup.representativeAssetId, 'asset-1');
         assert.equal(burstGroup.underlyingImageEstimate, 2);
-        assert.match(burstGroup.summary, /4 files/i);
+        assert.match(burstGroup.summary, /4 descendant files/i);
         assert.match(burstGroup.summary, /2 underlying/i);
         assert.ok(burstGroup.flags.includes('overcount_on_collapse'));
-        assert.ok(burstGroup.flags.includes('multi_group_overlap'));
-        assert.equal(burstGroup.assets.length, 4);
+        assert.equal(burstGroup.assets.length, 0);
+        assert.equal(burstGroup.children.length, 2);
         assert.deepEqual(
-            burstGroup.assets.map((asset) => asset.membershipCount),
-            [2, 2, 2, 2],
+            burstGroup.children.map((child) => child.groupId),
+            ['group-0b5a', 'group-afed'],
         );
     } finally {
         dbManager.close();

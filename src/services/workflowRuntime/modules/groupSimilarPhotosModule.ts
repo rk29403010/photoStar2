@@ -4,9 +4,14 @@ import { ensureGroupingPrerequisites } from './grouping/groupingAssetPrep';
 import {
     rebuildImpactedBurstGroups,
     rebuildImpactedDuplicateGroups,
+    rebuildImpactedNearDuplicateGroups,
     rebuildImpactedVariantGroups,
 } from './grouping/groupingPersistence';
-import { buildBurstGroupingGraph, buildVariantGroupingGraph } from './grouping/groupingQueries';
+import {
+    buildBurstGroupingGraph,
+    buildNearDuplicateGroupingGraph,
+    buildVariantGroupingGraph,
+} from './grouping/groupingQueries';
 
 export interface GroupSimilarPhotosModuleOptions {
     dbManager: DatabaseManager;
@@ -35,6 +40,32 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
                 db,
                 changedAssetIds: preparedAssets.map((asset) => asset.id),
             });
+            const nearDuplicateThreshold = 2;
+            const nearDuplicateGraph = buildNearDuplicateGroupingGraph({
+                db,
+                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                threshold: nearDuplicateThreshold,
+            });
+            rebuildImpactedNearDuplicateGroups({
+                db,
+                units: nearDuplicateGraph.units,
+                edges: nearDuplicateGraph.edges,
+                components: nearDuplicateGraph.components,
+                threshold: nearDuplicateThreshold,
+            });
+            const variantThreshold = 6;
+            const variantGraph = buildVariantGroupingGraph({
+                db,
+                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                threshold: variantThreshold,
+            });
+            rebuildImpactedVariantGroups({
+                db,
+                units: variantGraph.units,
+                edges: variantGraph.edges,
+                components: variantGraph.components,
+                threshold: variantThreshold,
+            });
             const burstGraph = buildBurstGroupingGraph({
                 db,
                 changedAssetIds: preparedAssets.map((asset) => asset.id),
@@ -43,23 +74,10 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
             });
             rebuildImpactedBurstGroups({
                 db,
-                assets: burstGraph.assets,
+                units: burstGraph.units,
                 components: burstGraph.components,
                 maxSeconds: 3,
                 maxDistance: 12,
-            });
-            const variantThreshold = 10;
-            const variantGraph = buildVariantGroupingGraph({
-                db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
-                threshold: variantThreshold,
-            });
-            rebuildImpactedVariantGroups({
-                db,
-                assets: variantGraph.assets,
-                edges: variantGraph.edges,
-                components: variantGraph.components,
-                threshold: variantThreshold,
             });
 
             return { outputs: [{ kind: 'artifact', artifactType: 'similar_group', subjectType: 'asset' }] };

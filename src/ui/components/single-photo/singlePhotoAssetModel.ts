@@ -92,3 +92,24 @@ export function clearGroupMembership(assets: Asset[], groupId: string): Asset[] 
         };
     });
 }
+
+export function applyActiveGroupContext(asset: Asset, activeGroupId: string | null): Asset {
+    if (!activeGroupId) {
+        return asset;
+    }
+
+    const activeMembership = asset.group_memberships?.find((membership) => membership.group_id === activeGroupId);
+    if (!activeMembership) {
+        return asset;
+    }
+
+    return {
+        ...asset,
+        group_id: activeMembership.group_id,
+        group_role: activeMembership.group_role,
+        stack_count: activeMembership.stack_count,
+        role: activeMembership.role,
+        rank: activeMembership.rank,
+        match_evidence: activeMembership.match_evidence,
+    };
+}

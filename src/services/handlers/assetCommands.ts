@@ -1,7 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
-import { buildGroupFieldFragments } from './assetGroupingQueryFragments';
+import {
+    buildGroupFieldFragments,
+    GROUP_HIERARCHY_CTE,
+    buildPrimaryGroupVisibilityPredicate,
+} from './assetGroupingQueryFragments';
 
 type AssetRow = {
     id: string;
@@ -152,11 +156,7 @@ function buildFilteredAssetsQuery(
 
     return {
         sql: `
-            WITH GroupCounts AS (
-                SELECT group_id, COUNT(asset_id) as stack_count
-                FROM asset_group_members
-                GROUP BY group_id
-            )
+            ${GROUP_HIERARCHY_CTE}
             SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
                 a.caption, a.sensitivity_score,
                 am.sensitivity_status,
@@ -210,11 +210,7 @@ function buildGroupedAssetsQuery(
 
     return {
         sql: `
-            WITH GroupCounts AS (
-                SELECT group_id, COUNT(asset_id) as stack_count
-                FROM asset_group_members
-                GROUP BY group_id
-            )
+            ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
                 a.caption, a.sensitivity_score,
@@ -240,16 +236,7 @@ function buildGroupedAssetsQuery(
             ${detail.aiJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM asset_group_members gm_hidden
-                WHERE gm_hidden.asset_id = a.id
-            ) OR EXISTS (
-                SELECT 1
-                FROM asset_group_members gm_visible
-                WHERE gm_visible.asset_id = a.id
-                  AND gm_visible.role = 'canonical'
-            )
+            WHERE ${buildPrimaryGroupVisibilityPredicate('a')}
             GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
@@ -274,11 +261,7 @@ function buildUngroupedAssetsQuery(
 
     return {
         sql: `
-            WITH GroupCounts AS (
-                SELECT group_id, COUNT(asset_id) as stack_count
-                FROM asset_group_members
-                GROUP BY group_id
-            )
+            ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
                 a.caption, a.sensitivity_score,
@@ -317,11 +300,7 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
 
     return {
         sql: `
-            WITH GroupCounts AS (
-                SELECT group_id, COUNT(asset_id) as stack_count
-                FROM asset_group_members
-                GROUP BY group_id
-            )
+            ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
                 a.caption, a.sensitivity_score,

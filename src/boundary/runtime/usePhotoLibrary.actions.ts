@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Asset, Album } from '@contracts/core';
+import type { Asset, Album, SimilarityOrbit } from '@contracts/core';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import type { PipelineStage } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
@@ -113,11 +113,11 @@ export function createGroupActions(params: GroupActionParams) {
     const { request, refreshLibrary, setAssets } = params;
 
     return {
-        getGroupOrbit: (groupId: string): Promise<Asset[]> => request({
+        getGroupOrbit: (groupId: string): Promise<SimilarityOrbit> => request({
             idPrefix: `get_orbit_${groupId}`,
             command: 'get_group_orbit',
             payload: { groupId },
-            select: (data) => (data?.orbit as Asset[]) || [],
+            select: (data) => data?.orbit as SimilarityOrbit,
         }),
         getGroupDiagnosticsReport: (): Promise<GroupDiagnosticsReport> => request({
             idPrefix: 'get_group_diagnostics_report',

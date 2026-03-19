@@ -27,6 +27,21 @@ export interface AssetGroupMembership {
     group_type: string | null;
 }
 
+export interface SimilarityOrbitItem {
+    kind: 'group' | 'asset';
+    group_id: string;
+    group_type: string | null;
+    stack_count: number | null;
+    asset: Asset;
+}
+
+export interface SimilarityOrbit {
+    group_id: string;
+    group_type: string | null;
+    parent_group_id: string | null;
+    items: SimilarityOrbitItem[];
+}
+
 export interface Asset {
     id: string;
     original_path: string; // Added this
@@ -52,6 +67,9 @@ export interface Asset {
     group_id?: string | null;
     group_role?: string | null;
     stack_count?: number | null;
+    role?: string | null;
+    rank?: number | null;
+    match_evidence?: Record<string, unknown> | string | null;
     group_memberships?: AssetGroupMembership[];
 
     // Progressive Enhancement State (Masonry Gallery)

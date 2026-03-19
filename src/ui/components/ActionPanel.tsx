@@ -129,20 +129,20 @@ function AnalysisAndMaintenanceColumn(props: Pick<ActionPanelProps, 'onClose' | 
                 </div>
             </section>
 
+            <section className="border-t border-[#333] pt-6">
+                <h3 className="mb-4 flex items-center text-xs font-bold uppercase tracking-[0.2em] text-red-500"><span className="mr-2 h-1.5 w-1.5 rounded-full bg-red-500" />Danger Zone</h3>
+                <div className="space-y-3">
+                    <button onClick={() => { if (window.confirm('WARNING: This will delete the internal database, manual overrides, manual face naming/isolation data, settings, and generated thumbnails. \n\nIMPORTANT: Your original photo files will NOT be deleted from your computer. \n\nAre you sure you want to proceed?')) { onFactoryReset(); onClose(); } }} className="w-full rounded-lg border border-red-800/50 bg-red-950/40 px-4 py-3 text-left text-sm font-bold text-red-100 transition-all hover:bg-red-900/60">Factory Reset Database</button>
+                    <button onClick={() => { if (window.confirm('This will clear the operational library database and generated previews, but keep manual data so it can be re-applied after a rescan. Continue?')) { onResetAll(); onClose(); } }} className="w-full rounded-lg border border-red-900/40 bg-red-950/30 px-4 py-3 text-left text-sm font-semibold text-red-100 transition-all hover:bg-red-900/45">Soft Reset Database</button>
+                    <button onClick={() => { if (window.confirm('Are you sure you want to reset faces? This will clear all detection data.')) { onResetFaces(); onClose(); } }} className="w-full rounded-lg border border-red-900/40 bg-red-950/20 px-4 py-3 text-left text-sm font-medium text-red-200 transition-all hover:bg-red-900/30">Reset Face Data</button>
+                </div>
+            </section>
+
             <section>
                 <h3 className="mb-4 flex items-center text-xs font-bold uppercase tracking-[0.2em] text-gray-300"><span className="mr-2 h-1.5 w-1.5 rounded-full bg-gray-300" />Maintenance</h3>
                 <button onClick={() => { onOpenWorkflowVisualiser(); onClose(); }} className="group mb-3 w-full rounded-lg border border-[#333] bg-[#242424] px-4 py-4 text-left transition-all hover:bg-[#2d2d2d]"><div className="mb-1 flex items-center justify-between"><span className="font-medium">Workflow Visualiser</span><span className="text-lg">🗺️</span></div><p className="text-[10px] leading-relaxed text-gray-300">Open the dedicated workflow workspace for runtime-native orchestration</p></button>
                 <button onClick={() => { onOpenSettings(); onClose(); }} className="group mb-3 w-full rounded-lg border border-[#333] bg-[#242424] px-4 py-4 text-left transition-all hover:bg-[#2d2d2d]"><div className="mb-1 flex items-center justify-between"><span className="font-medium">Application Settings</span><span className="text-lg">⚙️</span></div><p className="text-[10px] leading-relaxed text-gray-300">Open the settings dialog for UI and database configuration</p></button>
                 <button onClick={() => { onRefresh(); onClose(); }} className="group w-full rounded-lg border border-[#333] bg-[#242424] px-4 py-4 text-left transition-all hover:bg-[#2d2d2d]"><div className="mb-1 flex items-center justify-between"><span className="font-medium">Refresh Library</span><span className="text-lg">🔄</span></div><p className="text-[10px] leading-relaxed text-gray-300">Refresh library, people, and workflow dashboard snapshots</p></button>
-            </section>
-
-            <section className="border-t border-[#333] pt-6">
-                <h3 className="mb-4 flex items-center text-xs font-bold uppercase tracking-[0.2em] text-red-500"><span className="mr-2 h-1.5 w-1.5 rounded-full bg-red-500" />Danger Zone</h3>
-                <div className="space-y-3">
-                    <button onClick={() => { if (window.confirm('Are you sure you want to reset faces? This will clear all detection data.')) { onResetFaces(); onClose(); } }} className="w-full rounded-lg border border-red-900/40 bg-red-950/20 px-4 py-3 text-left text-sm font-medium text-red-200 transition-all hover:bg-red-900/30">Reset Face Data</button>
-                    <button onClick={() => { if (window.confirm('This will clear the operational library database and generated previews, but keep manual data so it can be re-applied after a rescan. Continue?')) { onResetAll(); onClose(); } }} className="w-full rounded-lg border border-red-900/40 bg-red-950/30 px-4 py-3 text-left text-sm font-semibold text-red-100 transition-all hover:bg-red-900/45">Soft Reset Database</button>
-                    <button onClick={() => { if (window.confirm('WARNING: This will delete the internal database, manual overrides, manual face naming/isolation data, settings, and generated thumbnails. \n\nIMPORTANT: Your original photo files will NOT be deleted from your computer. \n\nAre you sure you want to proceed?')) { onFactoryReset(); onClose(); } }} className="w-full rounded-lg border border-red-800/50 bg-red-950/40 px-4 py-3 text-left text-sm font-bold text-red-100 transition-all hover:bg-red-900/60">Factory Reset Database</button>
-                </div>
             </section>
         </div>
     );
@@ -163,8 +163,8 @@ export function ActionPanel(props: ActionPanelProps) {
     if (!isOpen) {return null;}
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div ref={panelRef} className="mx-4 w-full max-w-5xl rounded-xl border border-[#333] bg-[#1a1a1a]/95 p-8 text-white shadow-2xl backdrop-blur-md" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 px-4 py-4">
+            <div ref={panelRef} className="mx-auto w-full max-w-5xl rounded-xl border border-[#333] bg-[#1a1a1a]/95 p-8 text-white shadow-2xl backdrop-blur-md" role="dialog" aria-modal="true">
                 <PanelHeader onClose={onClose} />
                 <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
                     <IngestionColumn onScan={props.onScan} onClose={props.onClose} folderHistory={props.folderHistory} onStopScan={props.onStopScan} />

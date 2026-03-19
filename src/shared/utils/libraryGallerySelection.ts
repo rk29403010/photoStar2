@@ -29,6 +29,23 @@ function shouldShowAssetInGroupedMode(asset: Asset) {
     return !asset.group_id || asset.group_role === 'canonical';
 }
 
+function dedupeGroupedVisibleAssets(assets: Asset[]): Asset[] {
+    const seenGroupIds = new Set<string>();
+
+    return assets.filter((asset) => {
+        if (!asset.group_id) {
+            return true;
+        }
+
+        if (seenGroupIds.has(asset.group_id)) {
+            return false;
+        }
+
+        seenGroupIds.add(asset.group_id);
+        return true;
+    });
+}
+
 function toLibrarySelectableItem(asset: Asset, groupSimilarPhotos: boolean): LibrarySelectableItem {
     if (groupSimilarPhotos && asset.group_id && asset.group_role === 'canonical') {
         return {
@@ -55,7 +72,7 @@ export function buildVisibleGalleryItems(
 ): LibrarySelectableItem[] {
     const sortedAssets = sortAssetsWithDeclusteredTrailing(assets, options.declusteredAssetIds, options.sortMode);
     const visibleAssets = options.groupSimilarPhotos
-        ? sortedAssets.filter(shouldShowAssetInGroupedMode)
+        ? dedupeGroupedVisibleAssets(sortedAssets.filter(shouldShowAssetInGroupedMode))
         : sortedAssets;
 
     return visibleAssets.map((asset) => toLibrarySelectableItem(asset, options.groupSimilarPhotos));

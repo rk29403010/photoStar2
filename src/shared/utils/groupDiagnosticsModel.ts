@@ -1,5 +1,6 @@
 import type {
     GroupDiagnosticsAssetRow,
+    GroupDiagnosticsChildRow,
     GroupDiagnosticsFlag,
     GroupDiagnosticsGroupRow,
     GroupDiagnosticsReport,
@@ -15,7 +16,9 @@ type AssetRecord = {
 type GroupRecord = {
     groupId: string;
     groupType: string;
+    representativeAssetId: string | null;
     assetIds: string[];
+    childGroupIds: string[];
 };
 
 const GROUP_TYPE_ORDER: Record<string, number> = {
@@ -65,17 +68,17 @@ function buildUnderlyingKeys(params: {
 }
 
 function buildGroupFlags(params: {
-    fileCount: number;
+    descendantFileCount: number;
     overlapCount: number;
     underlyingImageEstimate: number;
 }): GroupDiagnosticsFlag[] {
-    const { fileCount, overlapCount, underlyingImageEstimate } = params;
+    const { descendantFileCount, overlapCount, underlyingImageEstimate } = params;
     const flags: GroupDiagnosticsFlag[] = [];
 
     if (overlapCount > 0) {
         flags.push('multi_group_overlap');
     }
-    if (underlyingImageEstimate < fileCount) {
+    if (underlyingImageEstimate < descendantFileCount) {
         flags.push('overcount_on_collapse');
     }
 
@@ -84,11 +87,72 @@ function buildGroupFlags(params: {
 
 function buildGroupSummary(params: {
     fileCount: number;
+    descendantFileCount: number;
+    directChildGroupCount: number;
     underlyingImageEstimate: number;
     overlapCount: number;
 }) {
-    const { fileCount, underlyingImageEstimate, overlapCount } = params;
-    return `${fileCount} files, ${underlyingImageEstimate} underlying image${underlyingImageEstimate === 1 ? '' : 's'}, ${overlapCount} overlapping member${overlapCount === 1 ? '' : 's'}`;
+    const {
+        fileCount,
+        descendantFileCount,
+        directChildGroupCount,
+        underlyingImageEstimate,
+        overlapCount,
+    } = params;
+    const directFileSummary = directChildGroupCount > 0
+        ? `${descendantFileCount} descendant files`
+        : `${fileCount} files`;
+    return `${directFileSummary}, ${underlyingImageEstimate} underlying image${underlyingImageEstimate === 1 ? '' : 's'}, ${overlapCount} overlapping member${overlapCount === 1 ? '' : 's'}`;
+}
+
+function buildGroupChildren(params: {
+    childGroupIds: string[];
+    groupsById: Map<string, GroupRecord>;
+    descendantCountsByGroupId: Map<string, number>;
+}): GroupDiagnosticsChildRow[] {
+    return params.childGroupIds.flatMap((childGroupId) => {
+        const childGroup = params.groupsById.get(childGroupId);
+        if (!childGroup) {
+            return [];
+        }
+
+        return [{
+            groupId: childGroup.groupId,
+            groupType: childGroup.groupType,
+            representativeAssetId: childGroup.representativeAssetId,
+            descendantFileCount: params.descendantCountsByGroupId.get(childGroupId) ?? childGroup.assetIds.length,
+        }];
+    });
+}
+
+function buildDescendantAssetIds(
+    groupId: string,
+    groupsById: Map<string, GroupRecord>,
+    descendantAssetIdsByGroupId: Map<string, string[]>,
+    activeGroupIds: Set<string>,
+): string[] {
+    const cachedAssetIds = descendantAssetIdsByGroupId.get(groupId);
+    if (cachedAssetIds) {
+        return cachedAssetIds;
+    }
+
+    const group = groupsById.get(groupId);
+    if (!group || activeGroupIds.has(groupId)) {
+        return [];
+    }
+
+    activeGroupIds.add(groupId);
+    const descendantAssetIds = [
+        ...group.assetIds,
+        ...group.childGroupIds.flatMap((childGroupId) => (
+            buildDescendantAssetIds(childGroupId, groupsById, descendantAssetIdsByGroupId, activeGroupIds)
+        )),
+    ];
+    activeGroupIds.delete(groupId);
+
+    const uniqueAssetIds = [...new Set(descendantAssetIds)];
+    descendantAssetIdsByGroupId.set(groupId, uniqueAssetIds);
+    return uniqueAssetIds;
 }
 
 function buildGroupRows(params: {
@@ -98,6 +162,18 @@ function buildGroupRows(params: {
 }): GroupDiagnosticsGroupRow[] {
     const { assetsById, groupsById, groupTypesById } = params;
     const rows: GroupDiagnosticsGroupRow[] = [];
+    const descendantAssetIdsByGroupId = new Map<string, string[]>();
+    const descendantCountsByGroupId = new Map<string, number>();
+
+    for (const group of groupsById.values()) {
+        const descendantAssetIds = buildDescendantAssetIds(
+            group.groupId,
+            groupsById,
+            descendantAssetIdsByGroupId,
+            new Set<string>(),
+        );
+        descendantCountsByGroupId.set(group.groupId, descendantAssetIds.length);
+    }
 
     for (const group of groupsById.values()) {
         const assets = buildGroupAssetRows({ assetIds: group.assetIds, assetsById });
@@ -107,19 +183,37 @@ function buildGroupRows(params: {
             assetRows: assets,
             groupTypesById,
         });
-        const underlyingImageEstimate = new Set(underlyingKeys).size;
+        const descendantFileCount = descendantCountsByGroupId.get(group.groupId) ?? assets.length;
+        const underlyingImageEstimate = group.childGroupIds.length > 0
+            ? group.childGroupIds.length + group.assetIds.length
+            : new Set(underlyingKeys).size;
         const fileCount = assets.length;
-        const flags = buildGroupFlags({ fileCount, overlapCount, underlyingImageEstimate });
+        const flags = buildGroupFlags({ descendantFileCount, overlapCount, underlyingImageEstimate });
+        const children = buildGroupChildren({
+            childGroupIds: group.childGroupIds,
+            groupsById,
+            descendantCountsByGroupId,
+        });
 
         rows.push({
             groupId: group.groupId,
             groupType: group.groupType,
+            representativeAssetId: group.representativeAssetId,
             fileCount,
+            descendantFileCount,
+            directChildGroupCount: group.childGroupIds.length,
             overlapCount,
             underlyingImageEstimate,
             flags,
-            summary: buildGroupSummary({ fileCount, underlyingImageEstimate, overlapCount }),
+            summary: buildGroupSummary({
+                fileCount,
+                descendantFileCount,
+                directChildGroupCount: group.childGroupIds.length,
+                underlyingImageEstimate,
+                overlapCount,
+            }),
             assets,
+            children,
         });
     }
 

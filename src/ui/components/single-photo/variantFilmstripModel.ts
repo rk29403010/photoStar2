@@ -1,14 +1,16 @@
-import type { Asset } from '@contracts/core';
+import type { Asset, SimilarityOrbitItem } from '@contracts/core';
 
 export interface VariantMemberActions {
     selectMember: () => void;
+    openGroup?: () => void;
 }
 
 export const FILLED_STAR_SYMBOL = '⭐';
 
 interface BuildVariantMemberActionsParams {
-    memberId: string;
+    item: SimilarityOrbitItem;
     onSelectAsset: (assetId: string) => void;
+    onOpenGroup: (groupId: string) => void;
 }
 
 export function getVariantTileTitle(isStarImage: boolean): string {
@@ -35,17 +37,6 @@ export function isVariantStarred(member: Asset): boolean {
     return member.group_role === 'canonical' || memberWithRole.role === 'canonical';
 }
 
-export function normalizeOrbitMembers(groupId: string, members: Asset[]): Asset[] {
-    return members.map((member) => {
-        const memberWithRole = member as Asset & { role?: string | null };
-        return {
-            ...member,
-            group_id: member.group_id ?? groupId,
-            group_role: member.group_role ?? memberWithRole.role ?? null,
-        };
-    });
-}
-
 export function shouldShowVariantFilmstrip(params: {
     groupId: string | null | undefined;
     hasOrbitLoader: boolean;
@@ -54,12 +45,30 @@ export function shouldShowVariantFilmstrip(params: {
 }
 
 export function buildVariantMemberActions({
-    memberId,
+    item,
     onSelectAsset,
+    onOpenGroup,
 }: BuildVariantMemberActionsParams): VariantMemberActions {
     return {
         selectMember: () => {
-            onSelectAsset(memberId);
-        }
+            onSelectAsset(item.asset.id);
+        },
+        openGroup: item.kind === 'group'
+            ? () => {
+                onSelectAsset(item.asset.id);
+                onOpenGroup(item.group_id);
+            }
+            : undefined,
     };
+}
+
+export function isOrbitItemSelected(item: SimilarityOrbitItem, selectedAsset: Asset): boolean {
+    if (item.kind === 'asset') {
+        return item.asset.id === selectedAsset.id;
+    }
+
+    return Boolean(
+        selectedAsset.group_id === item.group_id
+        || selectedAsset.group_memberships?.some((membership) => membership.group_id === item.group_id),
+    );
 }

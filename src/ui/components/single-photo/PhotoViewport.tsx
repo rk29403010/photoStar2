@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, FC, MouseEvent, RefObject, SetStateAction } from 'react';
-import type { Asset } from '@contracts/core';
+import type { Asset, SimilarityOrbit } from '@contracts/core';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import { usePanZoom } from '../../hooks/usePanZoom';
 import { FaceOverlayMap } from './FaceOverlayMap';
 import { ActionOverlays } from './ActionOverlays';
 import { VariantFilmstrip } from './VariantFilmstrip';
 import { shouldShowVariantFilmstrip } from './variantFilmstripModel';
+import { applyActiveGroupContext } from './singlePhotoAssetModel';
 export interface PanelState { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json') => void }
 export interface AnalysisState { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
-interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>; onOrbitLoaded: (assets: Asset[]) => void; onSelectAsset: (assetId: string) => void; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
+interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; onOrbitLoaded: (assets: Asset[]) => void; onSelectAsset: (assetId: string) => void; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
 
 type GroupActionHandlers = {
     handleSetCanonical: (groupId: string, newCanonicalId: string) => Promise<void>;
@@ -228,19 +229,21 @@ const ViewportActions: FC<{
 
 const VariantFilmstripOverlay: FC<{
     asset: Asset;
-    onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
+    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onOrbitLoaded: (assets: Asset[]) => void;
     onSelectAsset: (assetId: string) => void;
-}> = ({ asset, onGetGroupOrbit, onOrbitLoaded, onSelectAsset }) => {
+    onActiveGroupChange: (groupId: string) => void;
+}> = ({ asset, onGetGroupOrbit, onOrbitLoaded, onSelectAsset, onActiveGroupChange }) => {
     if (!shouldShowVariantFilmstrip({ groupId: asset.group_id, hasOrbitLoader: Boolean(onGetGroupOrbit) })) {return null;}
 
     return (
         <VariantFilmstrip
             groupId={asset.group_id!}
-            selectedAssetId={asset.id}
+            selectedAsset={asset}
             onGetGroupOrbit={onGetGroupOrbit!}
             onOrbitLoaded={onOrbitLoaded}
             onSelectAsset={onSelectAsset}
+            onActiveGroupChange={onActiveGroupChange}
         />
     );
 };
@@ -251,6 +254,7 @@ type PhotoViewportFrameProps = {
     setShowControls: Dispatch<SetStateAction<boolean>>;
     setShowActionMenu: Dispatch<SetStateAction<boolean>>;
     asset: Asset;
+    actionAsset: Asset;
     imgSrc: string | null;
     pan: { x: number; y: number };
     scale: number;
@@ -277,16 +281,18 @@ type PhotoViewportFrameProps = {
     onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     analysis: AnalysisState;
-    onGetGroupOrbit?: (groupId: string) => Promise<Asset[]>;
+    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onOrbitLoaded: (assets: Asset[]) => void;
     onSelectAsset: (assetId: string) => void;
+    onActiveGroupChange: (groupId: string) => void;
     onRevealControls: () => void;
 };
 
 const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' } as const;
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'>> = ({
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
     asset,
+    actionAsset,
     assetsLength,
     currentIndex,
     showControls,
@@ -310,10 +316,11 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
     onGetGroupOrbit,
     onOrbitLoaded,
     onSelectAsset,
+    onActiveGroupChange,
 }) => (
     <>
         <ViewportActions
-            asset={asset}
+            asset={actionAsset}
             assetsLength={assetsLength}
             currentIndex={currentIndex}
             showControls={showControls}
@@ -341,6 +348,7 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
             onGetGroupOrbit={onGetGroupOrbit}
             onOrbitLoaded={onOrbitLoaded}
             onSelectAsset={onSelectAsset}
+            onActiveGroupChange={onActiveGroupChange}
         />
     </>
 );
@@ -362,6 +370,7 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
     setShowControls,
     setShowActionMenu,
     asset,
+    actionAsset,
     imgSrc,
     pan,
     scale,
@@ -391,11 +400,11 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
     onGetGroupOrbit,
     onOrbitLoaded,
     onSelectAsset,
+    onActiveGroupChange,
     onRevealControls
 }) => {
     const alwaysShowForPanel = panelState.showInfoPanel && panelState.activeInfoTab === 'people';
     const handleFrameClick = buildFrameClickHandler(showControls, setShowControls, setShowActionMenu);
-
     return (
         <div ref={containerRef} style={frameStyle} onMouseMove={onRevealControls} onClick={handleFrameClick}>
             <ZoomableStage
@@ -417,6 +426,7 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
             />
             <ViewportDecorations
                 asset={asset}
+                actionAsset={actionAsset}
                 assetsLength={assetsLength}
                 currentIndex={currentIndex}
                 showControls={showControls}
@@ -438,8 +448,8 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = ({
                 onOpenSettings={onOpenSettings}
                 analysis={analysis}
                 onGetGroupOrbit={onGetGroupOrbit}
-                onOrbitLoaded={onOrbitLoaded}
-                onSelectAsset={onSelectAsset}
+                onOrbitLoaded={onOrbitLoaded} onSelectAsset={onSelectAsset}
+                onActiveGroupChange={onActiveGroupChange}
             />
         </div>
     );
@@ -450,6 +460,12 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const { scale, setScale, pan, setPan, isDragging, handleMouseDown, resetPanZoom } = usePanZoom(containerRef);
     const imgSrc = resolveImageUrl(props.asset?.original_path || props.asset?.preview_path);
     const groupActions = useViewportGroupActions(props.onSetCanonical, props.onExplodeGroup);
+    const [activeGroupId, setActiveGroupId] = useState<string | null>(props.asset.group_id ?? null);
+    const actionAsset = applyActiveGroupContext(props.asset, activeGroupId);
+
+    useEffect(() => {
+        setActiveGroupId(props.asset.group_id ?? null);
+    }, [props.asset.group_id, props.asset.id]);
 
     useKeyboardNavigation({
         assetsLength: props.assetsLength,
@@ -497,6 +513,8 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             onOrbitLoaded={props.onOrbitLoaded}
             onSelectAsset={props.onSelectAsset}
             onRevealControls={props.onRevealControls}
+            actionAsset={actionAsset}
+            onActiveGroupChange={setActiveGroupId}
         />
     );
 };

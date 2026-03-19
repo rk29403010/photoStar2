@@ -23,6 +23,25 @@ test('buildVisibleGalleryItems projects canonical groups in grouped mode and all
     assert.deepEqual(expandedItems.map((item) => item.selectionKey), ['photo:a3', 'photo:a2', 'photo:a1']);
 });
 
+test('buildVisibleGalleryItems keeps one visible item per collapsed group key in grouped mode', async () => {
+    const { buildVisibleGalleryItems } = await import('../../dist/core/src/shared/utils/libraryGallerySelection.js');
+
+    const assets = [
+        { id: 'a1', original_path: 'C:/photos/a1.jpg', created_at: '2026-03-04T00:00:00.000Z', group_id: 'g1', group_role: 'canonical', stack_count: 4 },
+        { id: 'a2', original_path: 'C:/photos/a2.jpg', created_at: '2026-03-03T00:00:00.000Z', group_id: 'g1', group_role: 'canonical', stack_count: 4 },
+        { id: 'a3', original_path: 'C:/photos/a3.jpg', created_at: '2026-03-02T00:00:00.000Z', group_id: 'g2', group_role: 'canonical', stack_count: 2 },
+        { id: 'a4', original_path: 'C:/photos/a4.jpg', created_at: '2026-03-01T00:00:00.000Z' },
+    ];
+
+    const groupedItems = buildVisibleGalleryItems(assets, {
+        groupSimilarPhotos: true,
+        sortMode: 'date',
+    });
+
+    assert.deepEqual(groupedItems.map((item) => item.selectionKey), ['group:g1', 'group:g2', 'photo:a4']);
+    assert.deepEqual(groupedItems.map((item) => item.asset.id), ['a1', 'a3', 'a4']);
+});
+
 test('updateLibrarySelection toggles and ranges over photo and group items independently', async () => {
     const {
         createEmptyLibrarySelectionState,

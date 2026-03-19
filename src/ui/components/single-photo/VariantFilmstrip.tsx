@@ -1,57 +1,72 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import type { Asset } from '@contracts/core';
+import type { Asset, SimilarityOrbit, SimilarityOrbitItem } from '@contracts/core';
 import { resolveImageUrl } from '@boundary/runtime/backend';
-import { buildVariantMemberActions, FILLED_STAR_SYMBOL, getVariantStarDisplayState, getVariantTileTitle, isVariantStarred, normalizeOrbitMembers } from './variantFilmstripModel';
+import {
+    buildVariantMemberActions,
+    FILLED_STAR_SYMBOL,
+    getVariantStarDisplayState,
+    getVariantTileTitle,
+    isOrbitItemSelected,
+    isVariantStarred,
+} from './variantFilmstripModel';
 
 interface VariantFilmstripProps {
     groupId: string;
-    selectedAssetId: string;
-    onGetGroupOrbit: (groupId: string) => Promise<Asset[]>;
+    selectedAsset: Asset;
+    onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
     onOrbitLoaded: (assets: Asset[]) => void;
     onSelectAsset: (assetId: string) => void;
+    onActiveGroupChange?: (groupId: string) => void;
 }
 
-function useOrbitMembers(groupId: string, onGetGroupOrbit: (groupId: string) => Promise<Asset[]>, onOrbitLoaded: (assets: Asset[]) => void) {
-    const [members, setMembers] = useState<Asset[]>([]);
+function useOrbit(groupId: string, onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>, onOrbitLoaded: (assets: Asset[]) => void) {
+    const [orbit, setOrbit] = useState<SimilarityOrbit | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let mounted = true;
         setLoading(true);
         onGetGroupOrbit(groupId)
-            .then((orbit) => {
-                if (!mounted) {return;}
-                const normalizedOrbit = normalizeOrbitMembers(groupId, orbit);
-                setMembers(normalizedOrbit);
-                onOrbitLoaded(normalizedOrbit);
+            .then((nextOrbit) => {
+                if (!mounted) {
+                    return;
+                }
+
+                setOrbit(nextOrbit);
+                onOrbitLoaded(nextOrbit.items.map((item) => item.asset));
             })
             .catch(console.error)
             .finally(() => {
-                if (mounted) {setLoading(false);}
+                if (mounted) {
+                    setLoading(false);
+                }
             });
-        return () => { mounted = false; };
+
+        return () => {
+            mounted = false;
+        };
     }, [groupId, onGetGroupOrbit, onOrbitLoaded]);
 
-    return { members, loading };
+    return { orbit, loading };
 }
 
-function getVariantTileOpacity(isCanonical: boolean): string {
-    return isCanonical ? '1' : '0.6';
+function getVariantTileOpacity(isSelected: boolean): string {
+    return isSelected ? '1' : '0.6';
 }
 
-function updateTileOpacity(target: HTMLDivElement, isCanonical: boolean, opacity: string) {
-    if (!isCanonical) {
+function updateTileOpacity(target: HTMLDivElement, isSelected: boolean, opacity: string) {
+    if (!isSelected) {
         target.style.opacity = opacity;
     }
 }
 
 function getVariantTileStyle(isSelected: boolean) {
     return {
-        width: 68,
-        height: 68,
+        width: 72,
+        height: 78,
         flexShrink: 0,
-        borderRadius: 6,
+        borderRadius: 8,
         overflow: 'hidden',
         cursor: 'pointer',
         border: isSelected ? '2px solid rgba(255, 248, 220, 0.96)' : '2px solid rgba(255, 255, 255, 0.08)',
@@ -59,7 +74,9 @@ function getVariantTileStyle(isSelected: boolean) {
         transition: 'all 0.2s',
         position: 'relative',
         background: '#17110f',
-        boxShadow: isSelected ? '0 0 0 1px rgba(0, 0, 0, 0.65)' : 'inset 0 0 0 1px rgba(0, 0, 0, 0.38)'
+        boxShadow: isSelected ? '0 0 0 1px rgba(0, 0, 0, 0.65)' : 'inset 0 0 0 1px rgba(0, 0, 0, 0.38)',
+        display: 'flex',
+        flexDirection: 'column',
     } as const;
 }
 
@@ -82,7 +99,7 @@ function StarIndicator({ isStarred }: { isStarred: boolean }) {
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.58)',
                 color: isStarred ? '#facc15' : '#111111',
                 fontSize: 15,
-                lineHeight: 1
+                lineHeight: 1,
             }}
         >
             {FILLED_STAR_SYMBOL}
@@ -90,39 +107,84 @@ function StarIndicator({ isStarred }: { isStarred: boolean }) {
     );
 }
 
-function VariantMemberTile({
-    member,
-    isSelected,
-    isStarred,
-    onSelectAsset,
-}: {
-    member: Asset;
-    isSelected: boolean;
-    isStarred: boolean;
-    onSelectAsset: (assetId: string) => void;
-}) {
-    const imgSrc = resolveImageUrl(member.preview_path ?? member.original_path) || '';
-    const actions = buildVariantMemberActions({
-        memberId: member.id,
-        onSelectAsset,
-    });
+function GroupBadge({ item }: { item: SimilarityOrbitItem }) {
+    if (item.kind !== 'group') {
+        return null;
+    }
 
-    const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        e.stopPropagation();
+    return (
+        <div style={{
+            position: 'absolute',
+            left: 4,
+            top: 4,
+            zIndex: 2,
+            borderRadius: 999,
+            background: 'rgba(10, 10, 10, 0.84)',
+            color: '#d1d5db',
+            fontSize: 10,
+            padding: '2px 6px',
+            textTransform: 'capitalize',
+        }}>
+            {item.group_type?.replace('_', ' ') ?? 'group'}
+        </div>
+    );
+}
+
+function TileFooter({ item }: { item: SimilarityOrbitItem }) {
+    return (
+        <div style={{
+            padding: '4px 6px 5px',
+            background: 'rgba(11, 8, 7, 0.92)',
+            color: '#d6d3d1',
+            fontSize: 10,
+            lineHeight: 1.1,
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 6,
+        }}>
+            <span>{item.kind === 'group' ? 'Open' : 'Photo'}</span>
+            <span>{item.stack_count ?? 1}</span>
+        </div>
+    );
+}
+
+function VariantMemberTile(props: {
+    item: SimilarityOrbitItem;
+    selectedAsset: Asset;
+    onSelectAsset: (assetId: string) => void;
+    onOpenGroup: (groupId: string) => void;
+}) {
+    const { item, selectedAsset, onSelectAsset, onOpenGroup } = props;
+    const imgSrc = resolveImageUrl(item.asset.preview_path ?? item.asset.original_path) || '';
+    const actions = buildVariantMemberActions({ item, onSelectAsset, onOpenGroup });
+    const isSelected = isOrbitItemSelected(item, selectedAsset);
+    const isStarred = isVariantStarred(item.asset);
+    const starDisplayState = getVariantStarDisplayState({ isStarred, isHovered: false });
+
+    const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        event.stopPropagation();
+        if (item.kind === 'group' && actions.openGroup) {
+            actions.openGroup();
+            return;
+        }
+
         actions.selectMember();
     };
-    const starDisplayState = getVariantStarDisplayState({ isStarred, isHovered: false });
 
     return (
         <div
             onClick={handleClick}
             style={getVariantTileStyle(isSelected)}
-            onMouseEnter={(e) => updateTileOpacity(e.currentTarget, isSelected, '1')}
-            onMouseLeave={(e) => updateTileOpacity(e.currentTarget, isSelected, '0.6')}
+            onMouseEnter={(event) => updateTileOpacity(event.currentTarget, isSelected, '1')}
+            onMouseLeave={(event) => updateTileOpacity(event.currentTarget, isSelected, '0.6')}
             title={getVariantTileTitle(isStarred)}
         >
-            <img src={imgSrc} alt="Variant preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            {starDisplayState === 'filled' && <StarIndicator isStarred />}
+            <div style={{ position: 'relative', width: '100%', height: 52 }}>
+                <img src={imgSrc} alt="Variant preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <GroupBadge item={item} />
+                {starDisplayState === 'filled' && <StarIndicator isStarred />}
+            </div>
+            <TileFooter item={item} />
         </div>
     );
 }
@@ -144,10 +206,72 @@ function FilmStripSprockets() {
     );
 }
 
-export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({ groupId, selectedAssetId, onGetGroupOrbit, onOrbitLoaded, onSelectAsset }) => {
-    const { members, loading } = useOrbitMembers(groupId, onGetGroupOrbit, onOrbitLoaded);
+function OrbitHeader(props: {
+    orbit: SimilarityOrbit;
+    onOpenParent: (groupId: string) => void;
+}) {
+    const { orbit, onOpenParent } = props;
 
-    if (loading || members.length <= 1) {return null;}
+    return (
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 10,
+            gap: 12,
+            color: '#e7e5e4',
+            fontSize: 11,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+        }}>
+            <div>{orbit.group_type?.replace('_', ' ') ?? 'group'}</div>
+            {orbit.parent_group_id ? (
+                <button
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenParent(orbit.parent_group_id!);
+                    }}
+                    style={{
+                        border: '1px solid rgba(255,255,255,0.14)',
+                        background: 'rgba(255,255,255,0.05)',
+                        color: '#f5f5f4',
+                        borderRadius: 999,
+                        padding: '3px 9px',
+                        fontSize: 10,
+                        cursor: 'pointer',
+                    }}
+                >
+                    Back Up
+                </button>
+            ) : null}
+        </div>
+    );
+}
+
+export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({
+    groupId,
+    selectedAsset,
+    onGetGroupOrbit,
+    onOrbitLoaded,
+    onSelectAsset,
+    onActiveGroupChange,
+}) => {
+    const [activeGroupId, setActiveGroupId] = useState(groupId);
+    const { orbit, loading } = useOrbit(activeGroupId, onGetGroupOrbit, onOrbitLoaded);
+
+    useEffect(() => {
+        setActiveGroupId(groupId);
+    }, [groupId]);
+
+    useEffect(() => {
+        if (orbit && onActiveGroupChange) {
+            onActiveGroupChange(orbit.group_id);
+        }
+    }, [onActiveGroupChange, orbit]);
+
+    if (loading || !orbit || orbit.items.length <= 1) {
+        return null;
+    }
 
     return (
         <div style={{
@@ -166,6 +290,7 @@ export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({ groupId, sel
             overflow: 'hidden',
         }}>
             <FilmStripSprockets />
+            <OrbitHeader orbit={orbit} onOpenParent={setActiveGroupId} />
             <div style={{
                 display: 'flex',
                 gap: 10,
@@ -173,13 +298,13 @@ export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({ groupId, sel
                 padding: '6px 0',
                 scrollbarWidth: 'thin',
             }}>
-                {members.map((member) => (
+                {orbit.items.map((item) => (
                     <VariantMemberTile
-                        key={member.id}
-                        member={member}
-                        isSelected={member.id === selectedAssetId}
-                        isStarred={isVariantStarred(member)}
+                        key={`${item.kind}:${item.group_id}:${item.asset.id}`}
+                        item={item}
+                        selectedAsset={selectedAsset}
                         onSelectAsset={onSelectAsset}
+                        onOpenGroup={setActiveGroupId}
                     />
                 ))}
             </div>
