@@ -22,6 +22,7 @@ import {
     requestBackgroundAssetRefresh,
     type RefreshLibraryOptions,
 } from './usePhotoLibrary.gallery';
+import { buildPhotoLibraryResult, useConnectionParams } from './usePhotoLibrary.composition';
 
 export type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 
@@ -391,7 +392,14 @@ function useWorkflowActions(params: {
     return useMemo(() => ({ ...scanActions, ...pipelineActions, ...systemActions, ...settingsActions }), [pipelineActions, scanActions, settingsActions, systemActions]);
 }
 
-function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage: PipelineStage, title: string) => void, removeJob: (id: string) => void, sendCommand: SendCommandFn, request: RequestFn) {
+function useComposedActions(
+    state: PhotoLibraryState,
+    addJob: (id: string, stage: PipelineStage, title: string) => void,
+    updateJobState: (id: string, state: 'queued' | 'starting' | 'running' | 'paused' | 'retrying' | 'completed' | 'failed' | 'cancelled' | 'idle') => void,
+    removeJob: (id: string) => void,
+    sendCommand: SendCommandFn,
+    request: RequestFn,
+) {
     const refreshActions = useRefreshActions({
         assets: state.assets,
         filterStackRef: state.filterStackRef,
@@ -431,7 +439,14 @@ function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage
         refreshLibrary: refreshActions.refreshLibrary,
         setAssets: state.setAssets,
     }), [refreshActions.refreshLibrary, request, state.setAssets]);
-    const buildActions = useMemo(() => createBuildActions({ transport: state.transport, request, addJob }), [addJob, request, state.transport]);
+    const buildActions = useMemo(() => createBuildActions({
+        transport: state.transport,
+        request,
+        addJob,
+        updateJobState,
+        refreshLibrary: refreshActions.refreshLibrary,
+        refreshSystemJobs: refreshActions.refreshSystemJobs,
+    }), [addJob, refreshActions.refreshLibrary, refreshActions.refreshSystemJobs, request, state.transport, updateJobState]);
 
     return useMemo(() => ({
         ...workflowActions,
@@ -445,88 +460,14 @@ function useComposedActions(state: PhotoLibraryState, addJob: (id: string, stage
 
 export function usePhotoLibrary() {
     const state = usePhotoLibraryState();
-    const { jobs, addJob, updateJobProgress, removeJob, processEvent } = useJobManager();
+    const { jobs, addJob, updateJobState, updateJobProgress, removeJob, processEvent } = useJobManager();
     const { sendCommand, request } = useLibraryTransport(state.transport, state.addLog);
 
-    const connectionParams = useMemo(() => ({
-        hasCompletedInitialSync: state.hasCompletedInitialSync,
-        setHasCompletedInitialSync: state.setHasCompletedInitialSync,
-        setHasMoreAssets: state.setHasMoreAssets,
-        setIsLoadingMoreAssets: state.setIsLoadingMoreAssets,
-        setStatus: state.setStatus,
-        setError: state.setError,
-        setTransport: state.setTransport,
-        setStats: state.setStats,
-        setAssets: state.setAssets,
-        setPeople: state.setPeople,
-        setSystemJobs: state.setSystemJobs,
-        setWorkflowStatus: state.setWorkflowStatus,
-        setDataStats: state.setDataStats,
-        setRecentEvents: state.setRecentEvents,
-        setWorkflowRuns: state.setWorkflowRuns,
-        setFolderHistory: state.setFolderHistory,
-        setRejectedAssets: state.setRejectedAssets,
-        addUiFeedEntry: state.addUiFeedEntry,
-        addNotification: state.addNotification,
-        addLog: state.addLog,
-        processEvent,
-        updateJobProgress,
-        filterStackRef: state.filterStackRef,
-        groupSimilarPhotosRef: state.groupSimilarPhotosRef,
-    }), [
-        processEvent,
-        state.addLog,
-        state.addUiFeedEntry,
-        state.addNotification,
-        state.filterStackRef,
-        state.hasCompletedInitialSync,
-        state.setAssets,
-        state.setDataStats,
-        state.setError,
-        state.setFolderHistory,
-        state.setHasCompletedInitialSync,
-        state.setHasMoreAssets,
-        state.setIsLoadingMoreAssets,
-        state.setPeople,
-        state.setWorkflowStatus,
-        state.setRecentEvents,
-        state.setWorkflowRuns,
-        state.setRejectedAssets,
-        state.setStats,
-        state.setStatus,
-        state.setSystemJobs,
-        state.setTransport,
-        state.groupSimilarPhotosRef,
-        updateJobProgress,
-    ]);
+    const connectionParams = useConnectionParams(state, { processEvent, updateJobProgress });
 
     usePhotoLibraryConnection(connectionParams);
 
-    const actions = useComposedActions(state, addJob, removeJob, sendCommand, request);
+    const actions = useComposedActions(state, addJob, updateJobState, removeJob, sendCommand, request);
 
-    return {
-        status: state.status,
-        error: state.error,
-        logs: state.logs,
-        hasCompletedInitialSync: state.hasCompletedInitialSync,
-        hasMoreAssets: state.hasMoreAssets,
-        isLoadingMoreAssets: state.isLoadingMoreAssets,
-        stats: state.stats,
-        assets: state.assets,
-        people: state.people,
-        rejectedAssets: state.rejectedAssets,
-        jobs,
-        systemJobs: state.systemJobs,
-        workflowStatus: state.workflowStatus,
-        dataStats: state.dataStats,
-        recentEvents: state.recentEvents,
-        workflowRuns: state.workflowRuns,
-        folderHistory: state.folderHistory,
-        uiFeedEntries: state.uiFeedEntries,
-        ingestStatusMessage: state.ingestStatusMessage,
-        actions,
-        filterStack: state.filterStack,
-        notifications: state.notifications,
-        dismissNotification: state.dismissNotification,
-    };
+    return buildPhotoLibraryResult({ state, jobs, actions });
 }

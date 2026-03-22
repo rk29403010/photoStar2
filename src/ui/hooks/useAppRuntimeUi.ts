@@ -9,13 +9,13 @@ import { usePersistedState } from './usePersistedState';
 
 export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
 export type InfoTab = 'file' | 'analysis' | 'people' | 'json';
+export type AiMode = 'mock' | 'live' | 'off';
 
 function useDevRuntimeImpact(
   enabled: boolean,
   getDevRuntimeImpact: () => Promise<DevRuntimeImpact>
 ) {
   const [devRuntimeImpact, setDevRuntimeImpact] = useState<DevRuntimeImpact | null>(null);
-
   useEffect(() => {
     if (!enabled) {
       return;
@@ -56,6 +56,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [activeInfoTab, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'file');
   const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
   const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
+  const [aiMode, setAiMode] = usePersistedState<AiMode>('ps_ai_mode', 'live');
   const [showActions, setShowActions] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [peopleSelectionCount, setPeopleSelectionCount] = useState(0);
@@ -82,6 +83,8 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
     setTheme,
     animationsEnabled,
     setAnimationsEnabled,
+    aiMode,
+    setAiMode,
     showActions,
     setShowActions,
     showSettings,

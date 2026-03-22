@@ -30,6 +30,10 @@ export function applyQuotaNotifications(
     event: Record<string, unknown>,
     addNotification: (type: 'warning' | 'info', message: string) => void
 ) {
+    if (event.type === 'AiMetadataConfigurationError') {
+        addNotification('warning', String(event.message || 'Live AI metadata is not configured.'));
+    }
+
     if (event.type === 'QuotaWarning') {
         addNotification('warning', buildQuotaWarningMessage(event));
     }

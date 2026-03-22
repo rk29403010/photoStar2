@@ -1,8 +1,11 @@
 import { useRef, useEffect } from 'react';
+import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 
 interface ActionPanelProps {
     isOpen: boolean;
     onClose: () => void;
+    aiMode: AiMode;
+    setAiMode: (mode: AiMode) => void;
     onScan: (path?: string) => void;
     onPreviews: () => void;
     onDetect: () => void;
@@ -21,6 +24,27 @@ interface ActionPanelProps {
     onOpenSettings: () => void;
     onOpenWorkflowVisualiser: () => void;
     folderHistory?: { path: string, last_scanned_at: string }[];
+}
+
+function AiModeSelector(props: Pick<ActionPanelProps, 'aiMode' | 'setAiMode'>) {
+    return (
+        <section className="mb-8 rounded-xl border border-[#333] bg-[#151515] p-4">
+            <div className="mb-2">
+                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-300">AI Mode</h3>
+                <p className="mt-1 text-[11px] text-gray-300">Folder ingest and runtime metadata actions use this mode.</p>
+            </div>
+            <select
+                aria-label="AI Mode"
+                value={props.aiMode}
+                onChange={(event) => props.setAiMode(event.target.value as 'mock' | 'live' | 'off')}
+                className="w-full rounded-lg border border-[#333] bg-[#101010] px-3 py-2 text-sm text-white outline-none transition-colors focus:border-indigo-400"
+            >
+                <option value="live">Live</option>
+                <option value="mock">Mock</option>
+                <option value="off">Off</option>
+            </select>
+        </section>
+    );
 }
 
 function PanelHeader({ onClose }: { onClose: () => void }) {
@@ -166,6 +190,7 @@ export function ActionPanel(props: ActionPanelProps) {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 px-4 py-4">
             <div ref={panelRef} className="mx-auto w-full max-w-5xl rounded-xl border border-[#333] bg-[#1a1a1a]/95 p-8 text-white shadow-2xl backdrop-blur-md" role="dialog" aria-modal="true">
                 <PanelHeader onClose={onClose} />
+                <AiModeSelector aiMode={props.aiMode} setAiMode={props.setAiMode} />
                 <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
                     <IngestionColumn onScan={props.onScan} onClose={props.onClose} folderHistory={props.folderHistory} onStopScan={props.onStopScan} />
                     <PipelineColumn onClose={props.onClose} onPreviews={props.onPreviews} onDetect={props.onDetect} onCluster={props.onCluster} onScanSensitive={props.onScanSensitive} onScanSensitiveAll={props.onScanSensitiveAll} onExtractAiMetadata={props.onExtractAiMetadata} />

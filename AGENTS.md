@@ -20,11 +20,12 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 ## Expected workflow
 
-1. Make the change.
-2. Run `npm run quality:staged` while iterating.
-3. If you touched branch-heavy TS/TSX, React render shells, coordinator/orchestration code, or added several boolean conditions, run `npm run complexity:staged` immediately, not just before commit.
-4. Run `npm run quality` before handing over larger changes.
-5. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
+1. For TS/TSX edits, check touched file size first; if a file is near 450 lines, extract before adding behavior.
+2. Make the change.
+3. Run `npm run quality:staged` while iterating.
+4. If you touched branch-heavy TS/TSX, React render shells, coordinator/orchestration code, or added several boolean conditions, run `npm run complexity:staged` immediately, not just before commit.
+5. Run `npm run quality` before handing over larger changes.
+6. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
 
 ## Fast loop defaults
 
@@ -38,6 +39,16 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Treat a feature as one vertical slice even when it spans UI, boundary, services, and data; use separate worktrees only for independent tasks or interruptions.
 - Do not recommend restarting the dev runtime unless the changed files or tooling indicate it is required. Use `npm run dev:impact` when needed.
 - Assume the main workspace uses the default dev ports and worktrees use automatic stable offsets unless `VITE_PORT` or `VITE_BACKEND_PORT` explicitly override them.
+
+## Windows Tool Usage
+
+- On Windows, prefer direct executable invocation over shell wrappers whenever possible.
+- Use exact tools when available: `rg.exe`, `git.exe`, `node.exe`, `npm.cmd`, `npx.cmd`, and `python.exe`.
+- Use Git Bash only when shell syntax is actually required, such as pipes, redirects, globs, `&&`, `||`, or command substitution.
+- Use PowerShell only for Windows-specific system operations such as services, registry, Defender, scheduled tasks, or event logs.
+- Do not use `bash -lc` for simple tool invocations that can run directly.
+- After the first tool-launch failure, stop retrying quoting variants and switch to a deterministic fallback.
+- Keep tool-failure commentary concise: summarize the failure once, then state the fallback.
 
 ## Biases
 

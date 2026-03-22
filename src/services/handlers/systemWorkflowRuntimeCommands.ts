@@ -12,6 +12,10 @@ type AssetSubject = {
     subjectType: 'asset';
     subjectId: string;
 };
+type SelectionSubject = {
+    subjectType: string;
+    subjectId: string;
+};
 
 function loadAssetSubjects(ctx: CommandContext, mediaId?: string): AssetSubject[] {
     const rows = mediaId
@@ -57,6 +61,19 @@ function startAssetWorkflow(
     }, null, ctx.originWs);
 }
 
+function normalizeSelectedSubjects(payload: {
+    mediaId?: string;
+    selectedSubjects?: SelectionSubject[];
+} | undefined): SelectionSubject[] {
+    if (Array.isArray(payload?.selectedSubjects) && payload.selectedSubjects.length > 0) {
+        return payload.selectedSubjects;
+    }
+    if (payload?.mediaId) {
+        return [{ subjectType: 'asset', subjectId: payload.mediaId }];
+    }
+    return [];
+}
+
 export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
     start_workflow_run: async (ctx) => {
         const workflowRuntime = getWorkflowRuntime(ctx);
@@ -82,7 +99,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             parameters: {
                 folderPath: payload.folderPath,
                 traversalMode: payload.traversalMode ?? 'folder_only',
-                aiMode: payload.aiMode ?? 'mock',
+                aiMode: payload.aiMode ?? 'live',
             },
         });
         ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
@@ -115,9 +132,37 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         startAssetWorkflow(ctx, payload, {
             workflowId: 'library_ai_metadata_v1',
             parameters: {
-                aiMode: payload?.aiMode ?? 'mock',
+                aiMode: payload?.aiMode ?? 'live',
             },
         });
+    },
+    start_selected_subject_metadata_workflow: async (ctx) => {
+        const payload = ctx.payload as {
+            aiMode?: 'mock' | 'live' | 'off';
+            imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+            mediaId?: string;
+            selectedSubjects?: SelectionSubject[];
+        } | undefined;
+        const selectedSubjects = normalizeSelectedSubjects(payload);
+        if (selectedSubjects.length === 0) {
+            throw new Error('Selected subject metadata workflow requires at least one selected subject');
+        }
+        const workflowRuntime = getWorkflowRuntime(ctx);
+        const runId = workflowRuntime.orchestrator.startDetached({
+            workflowId: 'selected_subject_metadata_v1',
+            triggerType: 'manual',
+            inputSubjects: [{ subjectType: 'selection', subjectId: `selection:${Date.now()}` }],
+            parameters: {
+                aiMode: payload?.aiMode ?? 'live',
+                imageStrategy: payload?.imageStrategy ?? 'overview_only',
+                selectedSubjects,
+            },
+        });
+        ctx.respond(ctx.id, 'ok', {
+            runId,
+            workflowId: 'selected_subject_metadata_v1',
+            assetCount: selectedSubjects.length,
+        }, null, ctx.originWs);
     },
     get_workflow_run_detail: (ctx) => {
         const workflowRuntime = getWorkflowRuntime(ctx);

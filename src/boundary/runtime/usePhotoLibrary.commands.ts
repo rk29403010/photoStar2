@@ -17,6 +17,7 @@ import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
+type AiMode = 'mock' | 'live' | 'off';
 type RefreshLibraryOptions = {
     galleryOrder?: 'default' | 'previewed_first';
     preservePagingState?: boolean;
@@ -166,14 +167,14 @@ function scheduleWorkflowRefresh(params: Pick<
     }, 1500);
 }
 
-async function startFolderIngestRun(request: RequestFn, path: string): Promise<string> {
+async function startFolderIngestRun(request: RequestFn, path: string, aiMode: AiMode): Promise<string> {
     return request<string>({
         idPrefix: 'start_folder_ingest',
         command: 'start_folder_ingest',
         payload: {
             folderPath: path,
             traversalMode: 'recursive',
-            aiMode: 'mock',
+            aiMode,
         },
         timeoutMs: 10000,
         select: (data) => String(data?.runId || ''),
@@ -260,9 +261,9 @@ export function useLibraryTransport(transport: BackendTransport | null, addLog: 
 
 export function createScanActions(params: ScanActionParams) {
     return {
-        scanLibrary: async (path: string) => {
+        scanLibrary: async (path: string, aiMode: AiMode = 'live') => {
             if (!params.transport) {return;}
-            const runId = await startFolderIngestRun(params.request, path);
+            const runId = await startFolderIngestRun(params.request, path, aiMode);
             params.lastScanId.current = runId;
             refreshLibrarySnapshots(params, {
                 galleryOrder: 'previewed_first',
@@ -303,10 +304,21 @@ export function createPipelineActions(params: PipelineActionParams) {
         clusterFaces: () => startWorkflow('start_library_grouping_from_faces', 'start_library_grouping'),
         scanSensitive: () => startWorkflow('start_library_sensitive', 'start_library_sensitive_scan_workflow'),
         scanSensitiveAll: () => startWorkflow('start_library_sensitive_force', 'start_library_sensitive_scan_workflow'),
-        extractAiMetadata: (mediaId?: string) => startWorkflow('start_library_ai_metadata', 'start_library_ai_metadata_workflow', {
-            aiMode: 'mock',
-            ...(mediaId ? { mediaId } : {}),
-        }),
+        extractAiMetadata: (
+            mediaId?: string,
+            imageStrategy: 'overview_only' | 'overview_plus_tiles' = 'overview_only',
+            aiMode: AiMode = 'live',
+        ) => (
+            mediaId
+                ? startWorkflow('start_selected_subject_metadata', 'start_selected_subject_metadata_workflow', {
+                    aiMode,
+                    imageStrategy,
+                    selectedSubjects: [{ subjectType: 'asset', subjectId: mediaId }],
+                })
+                : startWorkflow('start_library_ai_metadata', 'start_library_ai_metadata_workflow', {
+                    aiMode,
+                })
+        ),
     };
 }
 

@@ -1,5 +1,6 @@
 import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { BackgroundJob } from '@contracts/jobs';
+import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 import { TaskDrawer } from '../jobs/TaskDrawer';
 import { ActionPanel } from '../ActionPanel';
 import { SettingsModal } from '../SettingsModal';
@@ -13,6 +14,8 @@ interface AppOverlaysProps {
   setSelectedAssetId: (id: string | null) => void;
   showActions: boolean;
   setShowActions: (show: boolean) => void;
+  aiMode: AiMode;
+  setAiMode: (mode: AiMode) => void;
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
   showInfoPanel: boolean;
@@ -27,7 +30,7 @@ interface AppOverlaysProps {
   onCluster: () => void;
   onScanSensitive: () => void;
   onScanSensitiveAll: () => void;
-  onExtractAiMetadata: (assetId?: string) => Promise<string | undefined>;
+  onExtractAiMetadata: (assetId?: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
   onRefresh: () => void;
   onResetFaces: () => void;
   onResetAll: () => void;
@@ -65,6 +68,8 @@ export function AppOverlays(props: AppOverlaysProps) {
       <ActionPanel
         isOpen={props.showActions}
         onClose={() => props.setShowActions(false)}
+        aiMode={props.aiMode}
+        setAiMode={props.setAiMode}
         onScan={props.onScan}
         onPreviews={props.onPreviews}
         onDetect={props.onDetect}

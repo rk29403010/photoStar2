@@ -9,6 +9,7 @@ type WorkflowStepLike = {
     status: string;
     totalItems: number;
     completedItems: number;
+    errorMessage?: string;
 };
 
 type WorkflowRunDetailLike = {
@@ -25,6 +26,15 @@ function formatCount(value: number): string {
     return new Intl.NumberFormat().format(value);
 }
 
+function formatNodeLabel(nodeId: string): string {
+    if (!nodeId) {
+        return 'Workflow';
+    }
+
+    const label = nodeId.replace(/[-_]+/g, ' ');
+    return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function appendUiFeedEntry(entries: UiFeedEntry[], entry: UiFeedEntry, maxEntries = MAX_UI_FEED_ENTRIES): UiFeedEntry[] {
     const nextEntries = [...entries, entry];
     return nextEntries.length > maxEntries ? nextEntries.slice(nextEntries.length - maxEntries) : nextEntries;
@@ -37,6 +47,13 @@ export function countPreviewAssets<TAsset extends AssetWithPreview>(assets: TAss
 export function buildIngestStatusMessage(detail: WorkflowRunDetailLike | null | undefined): string | null {
     if (!detail?.summary?.status) {
         return null;
+    }
+
+    const failedStep = detail.steps?.find((step) => step.status === 'failed');
+    if (detail.summary.status === 'failed' && failedStep) {
+        return failedStep.errorMessage
+            ? `${formatNodeLabel(failedStep.nodeId)} failed: ${failedStep.errorMessage}`
+            : `${formatNodeLabel(failedStep.nodeId)} failed.`;
     }
 
     const previewStep = detail.steps?.find((step) => step.nodeId === PREVIEW_STEP_NODE_ID);
@@ -60,6 +77,13 @@ export function buildWorkflowPollDetail(detail: WorkflowRunDetailLike | null | u
         return 'No workflow detail returned.';
     }
 
+    const failedStep = detail.steps?.find((step) => step.status === 'failed');
+    if (failedStep) {
+        return failedStep.errorMessage
+            ? `run=${detail.summary.status}; failedStep=${failedStep.nodeId}; error=${failedStep.errorMessage}`
+            : `run=${detail.summary.status}; failedStep=${failedStep.nodeId}`;
+    }
+
     const previewStep = detail.steps?.find((step) => step.nodeId === PREVIEW_STEP_NODE_ID);
     if (!previewStep) {
         return `run=${detail.summary.status}`;
@@ -80,11 +104,16 @@ function formatAssetUpdatedEventDetail(event: Record<string, unknown>): string {
     return `asset=${String((event.asset as { id?: string } | undefined)?.id ?? 'unknown')}`;
 }
 
+function formatAiMetadataConfigurationErrorDetail(event: Record<string, unknown>): string {
+    return String(event.message ?? 'Live AI metadata is not configured.');
+}
+
 const EVENT_FEED_DETAIL_BUILDERS: Record<string, (event: Record<string, unknown>) => string> = {
     PreviewGenerated: formatPreviewEventDetail,
     WorkflowPreviewGenerated: formatPreviewEventDetail,
     MediaDiscovered: formatMediaDiscoveredEventDetail,
     AssetUpdated: formatAssetUpdatedEventDetail,
+    AiMetadataConfigurationError: formatAiMetadataConfigurationErrorDetail,
 };
 
 export function buildEventFeedDetail(event: Record<string, unknown>): string {

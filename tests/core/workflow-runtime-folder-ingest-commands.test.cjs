@@ -46,6 +46,7 @@ async function createCommandHarness(tempDir) {
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
     const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
+    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
     const { createDetectFacesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFacesModule.js');
     const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateFaceVectorsModule.js');
     const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
@@ -89,6 +90,7 @@ async function createCommandHarness(tempDir) {
     });
 
     modules.register(createScanFolderModule({ dbManager }));
+    modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
     modules.register(createGeneratePreviewsModule({ dbManager }));
     modules.register(createDetectFacesModule({ dbManager }));
     modules.register(createGenerateFaceVectorsModule({ dbManager }));
@@ -279,7 +281,7 @@ test('completed folder ingest still returns gallery assets and does not hide the
     }
 });
 
-test('start_folder_ingest dispatches detached execution and returns the run id immediately', async () => {
+test('start_folder_ingest defaults detached execution to live ai mode and returns the run id immediately', async () => {
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     const collector = createResponseCollector();
     const startCalls = [];
@@ -287,7 +289,7 @@ test('start_folder_ingest dispatches detached execution and returns the run id i
     handleSystemCommand({
         id: 'cmd-detached',
         command: 'start_folder_ingest',
-        payload: { folderPath: 'C:/photos', traversalMode: 'recursive', aiMode: 'mock' },
+        payload: { folderPath: 'C:/photos', traversalMode: 'recursive' },
         dbManager: {},
         eventBus: {},
         activeJobs: new Map(),
@@ -310,6 +312,7 @@ test('start_folder_ingest dispatches detached execution and returns the run id i
     assert.equal(startCalls.length, 1);
     assert.equal(startCalls[0].workflowId, 'folder_ingest_v1');
     assert.deepEqual(startCalls[0].inputSubjects, [{ subjectType: 'folder', subjectId: 'C:/photos' }]);
+    assert.equal(startCalls[0].parameters.aiMode, 'live');
 });
 
 test('get_workflow_visualiser returns runtime-native workflow metadata and selected run state', async () => {

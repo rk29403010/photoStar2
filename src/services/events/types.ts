@@ -120,6 +120,13 @@ export type AssetUpdated = {
     assetId: string;
 };
 
+export type AiMetadataConfigurationError = {
+    type: "AiMetadataConfigurationError";
+    workflowRunId: string;
+    nodeId: string;
+    message: string;
+};
+
 /** Emitted when quota fallback occurs — informs UI of degraded service */
 export type QuotaWarning = {
     type: "QuotaWarning";
@@ -161,6 +168,7 @@ export type DomainEvent =
     | AiMetadataV2ProCompleted
     | AiMetadataV2UpgradeQueued
     | AssetUpdated
+    | AiMetadataConfigurationError
     | QuotaWarning
     | ProAnalysisPending
     | SystemPausedStateChanged;
