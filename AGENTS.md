@@ -23,9 +23,12 @@ These rules exist because generated code drifts toward noise unless the repo pus
 1. For TS/TSX edits, check touched file size first; if a file is near 450 lines, extract before adding behavior.
 2. Make the change.
 3. Run `npm run quality:staged` while iterating.
-4. If you touched branch-heavy TS/TSX, React render shells, coordinator/orchestration code, or added several boolean conditions, run `npm run complexity:staged` immediately, not just before commit.
-5. Run `npm run quality` before handing over larger changes.
-6. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
+4. Treat `npm run lint:fast:staged` as the fast guardrail for cyclomatic complexity plus file and function LOC, because `oxlint` now enforces `complexity`, `max-lines`, and `max-lines-per-function`.
+5. If you touched branch-heavy TS/TSX, React render shells, coordinator/orchestration code, or added several boolean conditions, run `npm run complexity:staged` immediately, not just before commit. This remains the cognitive-complexity backstop.
+6. If the index is noisy or contains unrelated staged files, run the changed-file scripts with explicit ownership lists instead of broad staged mode, for example `npm run complexity:staged -- --files=src/foo.ts,src/bar.tsx`.
+7. Before editing application code while a managed dev session is running, pause it with `npm run dev:pause`; once edits and immediate verification are complete, resume it with `npm run dev:resume`.
+8. Run `npm run quality` before handing over larger changes.
+9. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
 
 ## Git ownership and commit protocol
 
@@ -47,6 +50,7 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Do not require formal design docs or multi-step planning unless the user asks for them or the task is ambiguous, architectural, or spans multiple subsystems.
 - Keep exploration tight: read the directly relevant files first instead of reloading broad repo context by default.
 - During iteration, prefer targeted verification plus `npm run quality:staged`; reserve `npm run quality` for handoff, larger changes, or when config/runtime wiring changed.
+- For code edits, prefer pausing managed watcher sessions during the patch to reduce noisy rebuilds and resume them immediately after the edit/verification cycle.
 - Treat a feature as one vertical slice even when it spans UI, boundary, services, and data; use separate worktrees only for independent tasks or interruptions.
 - Do not recommend restarting the dev runtime unless the changed files or tooling indicate it is required. Use `npm run dev:impact` when needed.
 - Assume the main workspace uses the default dev ports and worktrees use automatic stable offsets unless `VITE_PORT` or `VITE_BACKEND_PORT` explicitly override them.

@@ -97,11 +97,12 @@ if (filesToLint.length === 0) {
 }
 
 const toolLabel = tool === "oxlint" ? "Oxlint" : "ESLint";
+const oxlintConfigPath = tool === "oxlint" ? ".oxlintrc.fast-loop.json" : null;
 const linterArgs = tool === "oxlint"
   ? [
       "oxlint",
       "-c",
-      ".oxlintrc.json",
+      oxlintConfigPath,
       ...(fix ? ["--fix"] : []),
       ...filesToLint,
     ]

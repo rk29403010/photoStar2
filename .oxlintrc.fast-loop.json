@@ -1,0 +1,93 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react"
+  ],
+  "env": {
+    "es2020": true
+  },
+  "ignorePatterns": [
+    ".worktrees/**",
+    "dist/**",
+    ".local/**",
+    "core/dist/**",
+    "core/node_modules/**",
+    "core/models/nsfwjs/**",
+    "deployments/desktop/tauri/target/**",
+    "deployments/desktop/tauri/gen/**",
+    "deployments/desktop/tauri/binaries/**",
+    "src-tauri/target/**",
+    "src-tauri/gen/**",
+    "src-tauri/binaries/**",
+    "vite.config.ts.timestamp-*.mjs"
+  ],
+  "rules": {
+    "complexity": [
+      "error",
+      {
+        "max": 10
+      }
+    ],
+    "curly": "error",
+    "eqeqeq": [
+      "error",
+      "smart"
+    ],
+    "max-lines": [
+      "error",
+      {
+        "max": 500
+      }
+    ],
+    "max-lines-per-function": [
+      "error",
+      {
+        "max": 90
+      }
+    ],
+    "no-console": "off",
+    "no-implicit-coercion": "error",
+    "object-shorthand": "error",
+    "prefer-object-has-own": "error",
+    "preserve-caught-error": "off",
+    "react/jsx-uses-react": "off",
+    "react/react-in-jsx-scope": "off",
+    "react/self-closing-comp": "error",
+    "unicorn/no-array-sort": "off",
+    "unicorn/prefer-add-event-listener": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/ui/**/*.{ts,tsx,js,jsx}",
+        "src/boundary/runtime/**/*.{ts,tsx,js,jsx}",
+        "src/boundary/contracts/**/*.{ts,tsx,js,jsx}",
+        "src/boundary/transport/usePhotoLibrary.transport.ts",
+        "src/entrypoints/web/**/*.{ts,tsx,js,jsx}"
+      ],
+      "env": {
+        "browser": true
+      }
+    },
+    {
+      "files": [
+        "vite.config.ts",
+        "tooling/**/*.{js,mjs,cjs,ts}",
+        "src/data/**/*.{ts,js,mjs,cjs}",
+        "src/services/**/*.{ts,js,mjs,cjs}",
+        "src/entrypoints/core/**/*.{ts,js,mjs,cjs}",
+        "src/boundary/transport/devBridge*.ts"
+      ],
+      "env": {
+        "node": true
+      }
+    }
+  ]
+}
