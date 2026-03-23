@@ -59,6 +59,11 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 - On Windows, prefer direct executable invocation over shell wrappers whenever possible.
 - Use exact tools when available: `rg.exe`, `git.exe`, `node.exe`, `npm.cmd`, `npx.cmd`, and `python.exe`.
+- Do not launch repo dev scripts such as `npm run dev:core`, `npm run dev:web:desktop`, or `npm run dev:desktop-runtime` in detached visible terminal windows unless the user explicitly asks for that behavior.
+- If a task requires starting a long-lived local process, say so clearly in commentary, prefer non-detached execution, and shut it down before handoff unless the user asked to keep it running.
+- During cleanup, treat existing repo `dev:*` sessions as user-owned unless the AI started them in the current task or the user explicitly asked for them to be stopped.
+- When using Playwright MCP on Windows, do not leave orphaned `cmd.exe` or `node.exe` terminal windows behind at handoff.
+- After any Playwright-driven test/debug run, explicitly verify whether `@playwright/mcp` or `playwright-mcp` processes are still running and terminate the matching top-level `cmd.exe` launcher tree with `taskkill.exe /T /F` if they are.
 - Use Git Bash only when shell syntax is actually required, such as pipes, redirects, globs, `&&`, `||`, or command substitution.
 - Use PowerShell only for Windows-specific system operations such as services, registry, Defender, scheduled tasks, or event logs.
 - Do not use `bash -lc` for simple tool invocations that can run directly.
