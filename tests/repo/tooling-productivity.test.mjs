@@ -4,7 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { countSubstantiveLines } from '../../tooling/scripts/repo/complexity-report.js';
-import { buildManagedSpawnInvocation, getManagedSpawnOptions, getResumeScript } from '../../tooling/scripts/repo/dev-session.js';
+import {
+    buildManagedSpawnInvocation,
+    getManagedScriptConfig,
+    getManagedSpawnOptions,
+    getResumeScript,
+} from '../../tooling/scripts/repo/dev-session.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');
@@ -104,6 +109,17 @@ test('managed dev session does not cmd-wrap direct node launches on Windows', ()
                 windowsHide: true,
             },
         },
+    );
+});
+
+test('managed dev session routes web logs through the prefixed watcher wrapper', () => {
+    assert.match(
+        getManagedScriptConfig('dev:desktop-runtime').args[5],
+        /^npm run dev:web:watch:desktop$/,
+    );
+    assert.match(
+        getManagedScriptConfig('dev:desktop-runtime:debug').args[5],
+        /^npm run dev:web:watch:debug$/,
     );
 });
 

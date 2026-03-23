@@ -37,11 +37,9 @@ interface AppOverlaysProps {
   onFactoryReset: () => void;
   onResetGroupingData: () => void;
   onStopScan: () => void;
-  onBuildGroups: () => void;
   onOpenGroupDiagnostics: () => void;
   onGetSetting: (key: string) => Promise<string>;
   onSetSetting: (key: string, value: string) => Promise<void>;
-  onOpenWorkflowVisualiser: () => void;
   theme: string;
   setTheme: (theme: string) => void;
   animationsEnabled: boolean;
@@ -83,10 +81,7 @@ export function AppOverlays(props: AppOverlaysProps) {
         onFactoryReset={props.onFactoryReset}
         onResetGroupingData={props.onResetGroupingData}
         onStopScan={props.onStopScan}
-        onBuildGroups={props.onBuildGroups}
         onOpenGroupDiagnostics={props.onOpenGroupDiagnostics}
-        onOpenSettings={() => props.setShowSettings(true)}
-        onOpenWorkflowVisualiser={props.onOpenWorkflowVisualiser}
         folderHistory={props.folderHistory}
       />
 

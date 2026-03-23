@@ -27,6 +27,15 @@ import {
     SEQUENCE_NODE_TOP_HANDLE_ID,
 } from './workflowSequenceFlowModel';
 
+const SEQUENCE_MAP_FIT_VIEW_OPTIONS: FitViewOptions = {
+    padding: 0.12,
+    minZoom: 0.35,
+    maxZoom: 1,
+};
+
+const SEQUENCE_MAP_PRO_OPTIONS = { hideAttribution: true } as const;
+const SEQUENCE_MAP_DEFAULT_EDGE_OPTIONS = { zIndex: 4 } as const;
+
 interface WorkflowSequenceMapTabProps {
     stages: WorkflowVisualiserProgressionStage[];
     nodes: WorkflowVisualiserGraphNode[];
@@ -35,12 +44,14 @@ interface WorkflowSequenceMapTabProps {
     viewport: Viewport | null;
     shouldFitViewport: boolean;
     onViewportChange: (viewport: Viewport) => void;
+    showRuntimeDetails: boolean;
 }
 
 interface SequenceStageNodeData extends Record<string, unknown> {
     label: string;
     description: string;
     status: WorkflowVisualiserStatus;
+    showRuntimeDetails: boolean;
 }
 
 interface SequenceWorkflowNodeData extends Record<string, unknown> {
@@ -51,6 +62,7 @@ interface SequenceWorkflowNodeData extends Record<string, unknown> {
     completedItems: number;
     failedItems: number;
     countNoun: WorkflowVisualiserGraphNode['countNoun'];
+    showRuntimeDetails: boolean;
 }
 
 function getStatusTone(status: WorkflowVisualiserStatus): string {
@@ -70,13 +82,14 @@ function SequenceStageNode({ data }: NodeProps<Node<SequenceStageNodeData>>) {
         <div className={`h-full border px-5 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.25)] ${getStatusTone(data.status)}`}>
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <div className="text-lg font-semibold">{data.label}</div>
+                    <div className="cursor-help text-lg font-semibold" title={data.description}>{data.label}</div>
                 </div>
-                <div className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-80">
-                    {data.status}
-                </div>
+                {data.showRuntimeDetails ? (
+                    <div className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-80">
+                        {data.status}
+                    </div>
+                ) : null}
             </div>
-            <p className="mt-2 max-w-[220px] text-xs leading-5 opacity-75">{data.description}</p>
         </div>
     );
 }
@@ -109,17 +122,20 @@ function SequenceWorkflowNode({ data }: NodeProps<Node<SequenceWorkflowNodeData>
                 style={{ width: 10, height: 10, opacity: 0, border: 'none', background: 'transparent' }}
             />
             <div className={`h-full rounded-2xl border px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.35)] ${getStatusTone(data.status)}`}>
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60">{data.kind}</div>
-                        <div className="mt-2 text-sm font-semibold leading-5">{data.label}</div>
+                {data.showRuntimeDetails ? (
+                    <div className="flex min-h-6 items-start justify-end">
+                        <div className="inline-flex rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80">
+                            {data.status}
+                        </div>
                     </div>
-                    <div className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80">
-                        {data.status}
-                    </div>
+                ) : null}
+                <div className={data.showRuntimeDetails ? 'mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60' : 'text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60'}>
+                    {data.kind}
                 </div>
-                <div className="mt-4 text-xs opacity-80">{formatNodeCounts(data)}</div>
-                <div className="mt-1 text-xs opacity-60">{data.failedItems} failed</div>
+                <div className="mt-2 break-words text-sm font-semibold leading-5">{data.label}</div>
+                {data.showRuntimeDetails ? (
+                    <div className="mt-4 text-xs opacity-80">{formatNodeCounts(data)} • {data.failedItems} failed</div>
+                ) : null}
             </div>
         </>
     );
@@ -129,6 +145,7 @@ function buildReactFlowNodes(params: {
     stages: WorkflowVisualiserProgressionStage[];
     nodes: WorkflowVisualiserGraphNode[];
     edges: WorkflowVisualiserGraphEdge[];
+    showRuntimeDetails: boolean;
 }): Array<Node<SequenceStageNodeData | SequenceWorkflowNodeData>> {
     const sequenceMap = buildWorkflowSequenceMap(params);
     const stageById = new Map(sequenceMap.stageBoxes.map((stage) => [stage.id, stage]));
@@ -143,6 +160,7 @@ function buildReactFlowNodes(params: {
             label: stage.label,
             description: stage.description,
             status: stage.status,
+            showRuntimeDetails: params.showRuntimeDetails,
         },
         style: {
             width: stage.size.width,
@@ -175,6 +193,7 @@ function buildReactFlowNodes(params: {
                 completedItems: node.completedItems,
                 failedItems: node.failedItems,
                 countNoun: node.countNoun,
+                showRuntimeDetails: params.showRuntimeDetails,
             },
             style: {
                 width: node.size.width,
@@ -196,20 +215,17 @@ export const WorkflowSequenceMapTab: React.FC<WorkflowSequenceMapTabProps> = ({
     viewport,
     shouldFitViewport,
     onViewportChange,
+    showRuntimeDetails,
 }) => {
-    const sequenceMap = useMemo(() => buildWorkflowSequenceMap({ stages, nodes, edges }), [edges, nodes, stages]);
-    const flowNodes = useMemo(() => buildReactFlowNodes({ stages, nodes, edges }), [edges, nodes, stages]);
+    const sequenceMap = useMemo(() => buildWorkflowSequenceMap({ stages, nodes, edges, showRuntimeDetails }), [edges, nodes, showRuntimeDetails, stages]);
+    const flowNodes = useMemo(() => buildReactFlowNodes({ stages, nodes, edges, showRuntimeDetails }), [edges, nodes, showRuntimeDetails, stages]);
+    const stableNodeTypes = useMemo(() => nodeTypes, []);
     const stageIdsByNodeId = useMemo(() => {
         return Object.fromEntries(sequenceMap.nodes.map((node) => [node.id, node.stageId]));
     }, [sequenceMap.nodes]);
     const flowEdges = useMemo(() => buildWorkflowSequenceFlowEdges(edges, stageIdsByNodeId), [edges, stageIdsByNodeId]);
     const handleNodeClick: NodeMouseHandler<Node> = (_, node) => {
         onSelectDetail(node.id);
-    };
-    const fitViewOptions: FitViewOptions = {
-        padding: 0.08,
-        minZoom: 0.95,
-        maxZoom: 1.1,
     };
 
     return (
@@ -230,10 +246,10 @@ export const WorkflowSequenceMapTab: React.FC<WorkflowSequenceMapTabProps> = ({
                 <ReactFlow
                     nodes={flowNodes}
                     edges={flowEdges}
-                    nodeTypes={nodeTypes}
+                    nodeTypes={stableNodeTypes}
                     fitView={shouldFitViewport}
                     defaultViewport={viewport ?? { x: 24, y: 16, zoom: 1 }}
-                    fitViewOptions={fitViewOptions}
+                    fitViewOptions={SEQUENCE_MAP_FIT_VIEW_OPTIONS}
                     minZoom={0.35}
                     maxZoom={1.5}
                     nodesDraggable={false}
@@ -243,8 +259,8 @@ export const WorkflowSequenceMapTab: React.FC<WorkflowSequenceMapTabProps> = ({
                     onMoveEnd={(_, nextViewport) => {
                         onViewportChange(nextViewport);
                     }}
-                    proOptions={{ hideAttribution: true }}
-                    defaultEdgeOptions={{ zIndex: 4 }}
+                    proOptions={SEQUENCE_MAP_PRO_OPTIONS}
+                    defaultEdgeOptions={SEQUENCE_MAP_DEFAULT_EDGE_OPTIONS}
                 >
                     <Background color="#1f2937" gap={20} size={1} />
                     <Controls showInteractive={false} />

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
     summarizeForEventLog,
     buildEventLogEnvelope,
+    formatEventEnvelopeForConsole,
 } = require('../../dist/core/src/shared/utils/eventLogSummary.js');
 
 test('summarizeForEventLog collapses long id arrays to head and tail items', () => {
@@ -59,5 +60,40 @@ test('buildEventLogEnvelope summarizes event payloads for backend log output', (
             mediaIds: ['media-1', 'media-2', '... 4 omitted ...', 'media-7', 'media-8'],
         },
         error: null,
+    });
+});
+
+test('formatEventEnvelopeForConsole collapses event stream wrapper for readable console output', () => {
+    const formatted = formatEventEnvelopeForConsole({
+        id: 'event_stream',
+        status: 'event',
+        data: {
+            type: 'FaceClusteringUpdated',
+            clusterId: '356d6693-59c7-4017-88f3-ddfa3067a3df',
+        },
+        error: null,
+    });
+
+    assert.deepEqual(formatted, {
+        level: 'log',
+        text: 'FaceClusteringUpdated: clusterId="356d6693-59c7-4017-88f3-ddfa3067a3df"',
+    });
+});
+
+test('formatEventEnvelopeForConsole marks event stream errors for red console output', () => {
+    const formatted = formatEventEnvelopeForConsole({
+        id: 'event_stream',
+        status: 'event',
+        data: {
+            type: 'FaceClusteringUpdated',
+            clusterId: '356d6693-59c7-4017-88f3-ddfa3067a3df',
+            error: "can't be bothered",
+        },
+        error: null,
+    });
+
+    assert.deepEqual(formatted, {
+        level: 'error',
+        text: 'FaceClusteringUpdated: clusterId="356d6693-59c7-4017-88f3-ddfa3067a3df"; error="can\'t be bothered"',
     });
 });

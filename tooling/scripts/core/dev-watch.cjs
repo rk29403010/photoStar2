@@ -4,7 +4,6 @@ const { extname, relative, resolve } = require('node:path');
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const LOG_PREFIX = '\x1b[35m[core-watch]\x1b[0m';
-const DEDUPE_WINDOW_MS = 300;
 const CLEAN_BUILD_MESSAGE = 'Found 0 errors. Watching for file changes.';
 const ANSI_ESCAPE_PATTERN = new RegExp(String.raw`\u001b\[[0-9;]*m`, 'g');
 const WATCH_ROOTS = [
@@ -19,35 +18,39 @@ const WATCH_FILES = [
     resolve(REPO_ROOT, 'package.json'),
     resolve(REPO_ROOT, 'tooling', 'config', 'tsconfig.core.json'),
 ];
-const recentEvents = new Map();
 const watchers = [];
 let runtimeProcess = null;
 let runtimeRestartInFlight = Promise.resolve();
 const POST_COMPILE_SCRIPT = resolve(REPO_ROOT, 'tooling', 'scripts', 'core', 'post-compile.cjs');
 const RUNTIME_WRAPPER_SCRIPT = resolve(REPO_ROOT, 'tooling', 'scripts', 'core', 'run-compiled-core.cjs');
+const IGNORED_PATH_SEGMENTS = [
+    '/dist/',
+    '/core/dist/',
+    '/core/node_modules/',
+    '/node_modules/',
+    '/.worktrees/',
+    '/.git/',
+    '/.vscode/',
+    '/.idea/',
+    '/src-tauri/target/',
+    '/src-tauri/gen/',
+    '/src-tauri/binaries/',
+    '/deployments/desktop/tauri/target/',
+    '/deployments/desktop/tauri/gen/',
+    '/deployments/desktop/tauri/binaries/',
+];
 
 function toDisplayPath(filePath) {
     return relative(REPO_ROOT, filePath).replace(/\\/g, '/');
 }
 
+function isIgnoredPath(normalizedPath) {
+    return IGNORED_PATH_SEGMENTS.some((segment) => normalizedPath.includes(segment));
+}
+
 function shouldLogPath(filePath) {
     const normalizedPath = filePath.replace(/\\/g, '/');
-    if (
-        normalizedPath.includes('/dist/')
-        || normalizedPath.includes('/core/dist/')
-        || normalizedPath.includes('/core/node_modules/')
-        || normalizedPath.includes('/node_modules/')
-        || normalizedPath.includes('/.worktrees/')
-        || normalizedPath.includes('/.git/')
-        || normalizedPath.includes('/.vscode/')
-        || normalizedPath.includes('/.idea/')
-        || normalizedPath.includes('/src-tauri/target/')
-        || normalizedPath.includes('/src-tauri/gen/')
-        || normalizedPath.includes('/src-tauri/binaries/')
-        || normalizedPath.includes('/deployments/desktop/tauri/target/')
-        || normalizedPath.includes('/deployments/desktop/tauri/gen/')
-        || normalizedPath.includes('/deployments/desktop/tauri/binaries/')
-    ) {
+    if (isIgnoredPath(normalizedPath)) {
         return false;
     }
 
@@ -55,21 +58,29 @@ function shouldLogPath(filePath) {
     return extension === '.ts' || extension === '.tsx' || extension === '.json';
 }
 
-function logChange(eventType, filePath) {
-    if (!filePath || !shouldLogPath(filePath)) {
-        return;
-    }
+function createChangeBatchTracker() {
+    const pendingFiles = new Set();
 
-    const displayPath = toDisplayPath(filePath);
-    const dedupeKey = `${eventType}:${displayPath}`;
-    const now = Date.now();
-    const lastLoggedAt = recentEvents.get(dedupeKey) ?? 0;
-    if (now - lastLoggedAt < DEDUPE_WINDOW_MS) {
-        return;
-    }
+    return {
+        recordFileChange(filePath) {
+            if (!filePath || !shouldLogPath(filePath)) {
+                return false;
+            }
 
-    recentEvents.set(dedupeKey, now);
-    console.log(`${LOG_PREFIX} ${eventType}: ${displayPath}`);
+            pendingFiles.add(toDisplayPath(filePath));
+            return true;
+        },
+        consumeCleanBuildSummary() {
+            const changedFileCount = pendingFiles.size;
+            pendingFiles.clear();
+            if (changedFileCount === 0) {
+                return null;
+            }
+
+            const fileLabel = changedFileCount === 1 ? 'file' : 'files';
+            return `${LOG_PREFIX} compiled ${changedFileCount} changed ${fileLabel}.\n`;
+        },
+    };
 }
 
 function addWatcher(watcher) {
@@ -87,12 +98,12 @@ function watchDirectory(directoryPath) {
     addWatcher(watch(
         directoryPath,
         { recursive: process.platform === 'win32' },
-        (eventType, filename) => {
+        (_eventType, filename) => {
             if (!filename) {
                 return;
             }
 
-            logChange(eventType, resolve(directoryPath, filename.toString()));
+            changeBatchTracker.recordFileChange(resolve(directoryPath, filename.toString()));
         }
     ));
 }
@@ -103,7 +114,9 @@ function watchFile(filePath) {
     }
 
     addWatcher(watch(filePath, (eventType) => {
-        logChange(eventType, filePath);
+        if (eventType) {
+            changeBatchTracker.recordFileChange(filePath);
+        }
     }));
 }
 
@@ -214,21 +227,27 @@ function normalizeCompilerLine(line) {
     return line.replace(ANSI_ESCAPE_PATTERN, '').trim();
 }
 
-function createCompilerOutputHandler(write) {
+function createCompilerOutputHandler({
+    changeBatchTracker: tracker = changeBatchTracker,
+    restartRuntimeProcess: restartProcess = restartRuntimeProcess,
+    write,
+}) {
     let buffer = '';
 
     return (chunk) => {
-        const text = chunk.toString();
-        write(text);
-        buffer += text;
+        buffer += chunk.toString();
 
         let lineBreakIndex = buffer.indexOf('\n');
         while (lineBreakIndex !== -1) {
             const line = buffer.slice(0, lineBreakIndex);
             buffer = buffer.slice(lineBreakIndex + 1);
+            const normalizedLine = normalizeCompilerLine(line);
 
-            if (normalizeCompilerLine(line).includes(CLEAN_BUILD_MESSAGE)) {
-                void restartRuntimeProcess();
+            if (normalizedLine.includes(CLEAN_BUILD_MESSAGE)) {
+                write(tracker.consumeCleanBuildSummary() ?? `${line}\n`);
+                void restartProcess();
+            } else {
+                write(`${line}\n`);
             }
 
             lineBreakIndex = buffer.indexOf('\n');
@@ -252,8 +271,12 @@ function spawnCompiler() {
         }
     );
 
-    child.stdout.on('data', createCompilerOutputHandler((text) => process.stdout.write(text)));
-    child.stderr.on('data', createCompilerOutputHandler((text) => process.stderr.write(text)));
+    child.stdout.on('data', createCompilerOutputHandler({
+        write: (text) => process.stdout.write(text),
+    }));
+    child.stderr.on('data', createCompilerOutputHandler({
+        write: (text) => process.stderr.write(text),
+    }));
 
     child.on('error', (error) => {
         console.error(`${LOG_PREFIX} failed to start compiler:`, error);
@@ -275,16 +298,32 @@ function spawnCompiler() {
     return child;
 }
 
-WATCH_ROOTS.forEach(watchDirectory);
-WATCH_FILES.forEach(watchFile);
+const changeBatchTracker = createChangeBatchTracker();
 
-const compiler = spawnCompiler();
+function main() {
+    WATCH_ROOTS.forEach(watchDirectory);
+    WATCH_FILES.forEach(watchFile);
 
-function shutdown(signal) {
-    closeWatchers();
-    void stopRuntimeProcess();
-    compiler.kill(signal);
+    const compiler = spawnCompiler();
+
+    function shutdown(signal) {
+        closeWatchers();
+        void stopRuntimeProcess();
+        compiler.kill(signal);
+    }
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    CLEAN_BUILD_MESSAGE,
+    LOG_PREFIX,
+    createChangeBatchTracker,
+    createCompilerOutputHandler,
+    shouldLogPath,
+};

@@ -14,6 +14,7 @@ export function buildWorkflowSequenceFlowEdges(
         id: edge.id,
         source: edge.source,
         target: edge.target,
+        type: 'smoothstep',
         sourceHandle: stageIdsByNodeId[edge.source] === stageIdsByNodeId[edge.target]
             ? SEQUENCE_NODE_BOTTOM_HANDLE_ID
             : SEQUENCE_NODE_RIGHT_HANDLE_ID,
@@ -22,10 +23,10 @@ export function buildWorkflowSequenceFlowEdges(
             : SEQUENCE_NODE_LEFT_HANDLE_ID,
         animated: false,
         selectable: false,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#67e8f9' },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: '#67e8f9' },
         style: {
             stroke: '#67e8f9',
-            strokeWidth: 2,
+            strokeWidth: 2.5,
         },
     }));
 }

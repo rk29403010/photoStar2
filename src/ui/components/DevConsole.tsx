@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { formatForEventLog } from '@shared/utils/eventLogSummary';
+import { formatForEventLog, getEventToneForDisplay } from '@shared/utils/eventLogSummary';
 import {
     createConsoleEntryIdFactory,
     createUnreadConsoleCounts,
@@ -21,17 +21,32 @@ type ConsoleFilter = 'all' | 'log' | 'warn' | 'error';
 const WARN_AMBER = '#f59e0b';
 const TIMESTAMP_COLOR = '#94a3b8';
 
+function getConsoleToneLevel(level: ConsoleEntryLevel, args: unknown[]): ConsoleEntryLevel {
+    if (level === 'error' || level === 'warn') {
+        return level;
+    }
+
+    const hasErrorEvent = args.some((arg) => getEventToneForDisplay(arg) === 'error');
+    if (hasErrorEvent) {
+        return 'error';
+    }
+
+    const hasWarningEvent = args.some((arg) => getEventToneForDisplay(arg) === 'warning');
+    return hasWarningEvent ? 'warn' : level;
+}
+
 function useConsoleCapture() {
     const [entries, setEntries] = useState<ConsoleEntry[]>([]);
     const [unreadCounts, setUnreadCounts] = useState<UnreadConsoleCounts>(createUnreadConsoleCounts);
     const nextEntryIdRef = useRef(createConsoleEntryIdFactory());
 
     const addEntry = useCallback((level: ConsoleEntryLevel, args: unknown[]) => {
+        const entryLevel = getConsoleToneLevel(level, args);
         const message = normalizeConsoleMessage(args.map((arg) => formatForEventLog(arg)).join(' '));
 
         const entry: ConsoleEntry = {
             id: nextEntryIdRef.current(),
-            level,
+            level: entryLevel,
             message,
             timestamp: new Date().toLocaleTimeString('en-GB', {
                 hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 2
@@ -42,7 +57,7 @@ function useConsoleCapture() {
             const next = [...prev, entry];
             return next.length > 500 ? next.slice(-500) : next;
         });
-        setUnreadCounts((prev) => getNextUnreadConsoleCounts(prev, level));
+        setUnreadCounts((prev) => getNextUnreadConsoleCounts(prev, entryLevel));
     }, []);
 
     useEffect(() => {

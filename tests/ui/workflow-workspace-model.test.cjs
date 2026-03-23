@@ -39,7 +39,7 @@ test('getWorkflowDetail returns the matching stage or node detail for the curren
         details: [
             {
                 id: 'library-ready',
-                label: 'Library Ready',
+                label: 'Ingest',
                 description: 'Prepare previews.',
                 kind: 'stage',
                 status: 'running',

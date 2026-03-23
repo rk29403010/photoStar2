@@ -32,20 +32,10 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'preview-each',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['extract-embedded-metadata', 'generate-previews'],
+            outputsTo: ['generate-previews'],
             presentation: {
                 label: 'Preview each',
                 countNoun: { singular: 'image', plural: 'images' },
-            },
-        },
-        {
-            id: 'extract-embedded-metadata',
-            kind: 'module',
-            moduleId: 'runtime.extract_embedded_metadata',
-            presentation: {
-                label: 'Extract embedded metadata',
-                countNoun: { singular: 'image', plural: 'images' },
-                artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
             },
         },
         {
@@ -74,10 +64,20 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'enrichment-each',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['detect-faces'],
+            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content'],
             presentation: {
                 label: 'Enrich each image',
                 countNoun: { singular: 'image', plural: 'images' },
+            },
+        },
+        {
+            id: 'extract-embedded-metadata',
+            kind: 'module',
+            moduleId: 'runtime.extract_embedded_metadata',
+            presentation: {
+                label: 'Extract embedded metadata',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
             },
         },
         {
@@ -95,7 +95,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-face-vectors',
             kind: 'module',
             moduleId: 'runtime.generate_face_vectors',
-            outputsTo: ['collect-people', 'collect-similar', 'detect-sensitive-content'],
+            outputsTo: ['collect-people'],
             presentation: {
                 label: 'Generate face vectors',
                 countNoun: { singular: 'image', plural: 'images' },

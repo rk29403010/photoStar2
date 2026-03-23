@@ -4,7 +4,7 @@ import { createServer, type Server } from 'node:http';
 import * as os from 'node:os';
 import { WebSocketServer, WebSocket } from 'ws';
 import { closeSupersededUiConnections, getOpenUiConnectionCount, type DevBridgeWebSocket } from './devBridgeWebSocket';
-import { buildEventLogEnvelope } from '../../shared/utils/eventLogSummary';
+import { formatEventEnvelopeForConsole } from '../../shared/utils/eventLogSummary';
 
 const DEFAULT_WS_PORT = 5174;
 
@@ -217,6 +217,39 @@ function registerWebSocketConnections(
     });
 }
 
+function logResponderMessage(params: {
+    data: unknown;
+    error: string | null;
+    id: string;
+    payloadStr: string;
+    shouldUseSummaryOutput: boolean;
+    status: BridgeStatus;
+}) {
+    if (!params.shouldUseSummaryOutput) {
+        console.log(params.payloadStr);
+        return;
+    }
+
+    const formattedEvent = formatEventEnvelopeForConsole({
+        id: params.id,
+        status: params.status,
+        data: params.data,
+        error: params.error,
+    });
+
+    if (formattedEvent.level === 'error') {
+        console.error(formattedEvent.text);
+        return;
+    }
+
+    if (formattedEvent.level === 'warn') {
+        console.warn(formattedEvent.text);
+        return;
+    }
+
+    console.log(formattedEvent.text);
+}
+
 function createResponder(wss: WebSocketServer) {
     return (
         id: string,
@@ -229,11 +262,7 @@ function createResponder(wss: WebSocketServer) {
         const shouldUseSummaryOutput = status === 'event' || payloadStr.length > 20000;
 
         if (!targetWs) {
-            if (shouldUseSummaryOutput) {
-                console.log(JSON.stringify(buildEventLogEnvelope({ id, status, data, error })));
-            } else {
-                console.log(payloadStr);
-            }
+            logResponderMessage({ id, status, data, error, payloadStr, shouldUseSummaryOutput });
         }
 
         if (targetWs?.readyState === WebSocket.OPEN) {

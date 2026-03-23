@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import { usePersistedState } from '@ui/hooks/usePersistedState';
 import { WorkflowDetailPanel } from './WorkflowDetailPanel';
 import { WorkflowOverviewTab } from './WorkflowOverviewTab';
 import { WorkflowProgressionTab } from './WorkflowProgressionTab';
@@ -21,6 +22,39 @@ import {
 interface WorkflowWorkspaceProps {
     workflowId: string;
     onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
+}
+
+function useWorkflowWorkspacePersistence(workflowId: string) {
+    const [persistedTabs, setPersistedTabs] = usePersistedState<Record<string, WorkflowWorkspaceTabId>>('ps_workflow_workspace_tabs', {});
+    const [persistedViewports, setPersistedViewports] = usePersistedState<Record<string, WorkflowSequenceMapViewport | null>>('ps_workflow_sequence_viewports', {});
+    const [activeTab, setActiveTab] = useState<WorkflowWorkspaceTabId>(() => persistedTabs[workflowId] ?? getDefaultWorkflowWorkspaceTab());
+    const [sequenceViewport, setSequenceViewport] = useState<WorkflowSequenceMapViewport | null>(() => persistedViewports[workflowId] ?? null);
+
+    useEffect(() => {
+        setActiveTab(persistedTabs[workflowId] ?? getDefaultWorkflowWorkspaceTab());
+        setSequenceViewport(persistedViewports[workflowId] ?? null);
+    }, [persistedTabs, persistedViewports, workflowId]);
+
+    return {
+        activeTab,
+        sequenceViewport,
+        setPersistedTab(nextTab: WorkflowWorkspaceTabId) {
+            setActiveTab(nextTab);
+            setPersistedTabs((current) => ({ ...current, [workflowId]: nextTab }));
+        },
+        setPersistedViewport(viewport: WorkflowSequenceMapViewport) {
+            setSequenceViewport(viewport);
+            setPersistedViewports((current) => ({ ...current, [workflowId]: viewport }));
+        },
+    };
+}
+
+function renderWorkflowWorkspaceState(message: string, tone: 'idle' | 'error') {
+    return (
+        <div className={`flex h-full items-center justify-center text-sm ${tone === 'error' ? 'text-red-300' : 'text-gray-400'}`}>
+            {message}
+        </div>
+    );
 }
 
 function useWorkflowWorkspaceData(
@@ -75,7 +109,14 @@ function WorkflowWorkspaceContent(params: {
     }
 
     if (params.activeTab === 'graph') {
-        return <WorkflowRuntimeGraphTab nodes={params.model.tabs.graph.nodes} edges={params.model.tabs.graph.edges} onSelectDetail={params.onSelectDetail} />;
+        return (
+            <WorkflowRuntimeGraphTab
+                nodes={params.model.tabs.graph.nodes}
+                edges={params.model.tabs.graph.edges}
+                onSelectDetail={params.onSelectDetail}
+                showRuntimeDetails={params.model.selectedRun !== null}
+            />
+        );
     }
 
     if (params.activeTab === 'sequence') {
@@ -88,6 +129,7 @@ function WorkflowWorkspaceContent(params: {
                 viewport={params.sequenceViewport}
                 shouldFitViewport={shouldFitSequenceMapViewport(params.sequenceViewport)}
                 onViewportChange={params.onSequenceViewportChange}
+                showRuntimeDetails={params.model.selectedRun !== null}
             />
         );
     }
@@ -96,19 +138,27 @@ function WorkflowWorkspaceContent(params: {
 }
 
 export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser }: WorkflowWorkspaceProps) {
-    const [activeTab, setActiveTab] = useState<WorkflowWorkspaceTabId>(getDefaultWorkflowWorkspaceTab);
     const [selectedRunSelection, setSelectedRunSelection] = useState<string | null>(null);
     const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
-    const [sequenceViewport, setSequenceViewport] = useState<WorkflowSequenceMapViewport | null>(null);
+    const {
+        activeTab,
+        sequenceViewport,
+        setPersistedTab,
+        setPersistedViewport,
+    } = useWorkflowWorkspacePersistence(workflowId);
     const requestedRunId = getWorkflowVisualiserRequestedRunId(selectedRunSelection);
     const { model, loading, error } = useWorkflowWorkspaceData(workflowId, requestedRunId ?? null, onGetWorkflowVisualiser);
 
+    useEffect(() => {
+        setSelectedDetailId(null);
+    }, [workflowId]);
+
     if (loading) {
-        return <div className="flex h-full items-center justify-center text-sm text-gray-400">Loading workflow visualiser...</div>;
+        return renderWorkflowWorkspaceState('Loading workflow visualiser...', 'idle');
     }
 
     if (error || !model) {
-        return <div className="flex h-full items-center justify-center text-sm text-red-300">{error ?? 'Workflow visualiser unavailable.'}</div>;
+        return renderWorkflowWorkspaceState(error ?? 'Workflow visualiser unavailable.', 'error');
     }
 
     const supportsInspector = tabSupportsInspector(activeTab);
@@ -120,7 +170,7 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser }: Workf
                 model={model}
                 activeTab={activeTab}
                 onSelectTab={(nextTab) => {
-                    setActiveTab(nextTab);
+                    setPersistedTab(nextTab);
                     if (!tabSupportsInspector(nextTab)) {
                         setSelectedDetailId(null);
                     }
@@ -139,11 +189,17 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser }: Workf
                         activeTab={activeTab}
                         onSelectDetail={setSelectedDetailId}
                         sequenceViewport={sequenceViewport}
-                        onSequenceViewportChange={setSequenceViewport}
+                        onSequenceViewportChange={setPersistedViewport}
                     />
                 </div>
 
-                {supportsInspector ? <WorkflowDetailPanel detail={selectedDetail} onClose={() => setSelectedDetailId(null)} /> : null}
+                {supportsInspector ? (
+                    <WorkflowDetailPanel
+                        detail={selectedDetail}
+                        onClose={() => setSelectedDetailId(null)}
+                        showRuntimeDetails={model.selectedRun !== null}
+                    />
+                ) : null}
             </div>
         </div>
     );

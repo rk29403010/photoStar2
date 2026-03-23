@@ -22,15 +22,15 @@ const defaultResumeScript = 'dev:desktop-runtime';
 const MANAGED_DEV_SCRIPTS = {
     dev: {
         command: process.execPath,
-        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web', 'npm run dev:core'],
+        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:watch', 'npm run dev:core'],
     },
     'dev:desktop-runtime': {
         command: process.execPath,
-        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:desktop', 'npm run dev:core'],
+        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:watch:desktop', 'npm run dev:core'],
     },
     'dev:desktop-runtime:debug': {
         command: process.execPath,
-        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:debug', 'npm run dev:core'],
+        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:watch:debug', 'npm run dev:core'],
     },
 };
 
@@ -77,6 +77,18 @@ function isManagedScript(scriptName) {
 export function getResumeScript(session) {
     const lastScript = session?.lastScript;
     return isManagedScript(lastScript) ? lastScript : defaultResumeScript;
+}
+
+export function getManagedScriptConfig(scriptName) {
+    const scriptConfig = MANAGED_DEV_SCRIPTS[scriptName];
+    if (!scriptConfig) {
+        throw new Error(`Unsupported managed dev script: ${scriptName}`);
+    }
+
+    return {
+        command: scriptConfig.command,
+        args: [...scriptConfig.args],
+    };
 }
 
 export function getManagedSpawnOptions({

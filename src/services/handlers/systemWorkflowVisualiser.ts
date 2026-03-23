@@ -197,7 +197,7 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
                 summariseStage('discovery', 'Discovery', 'Scan the folder and discover files.', ['scan-folder'], runDetail, definition),
                 summariseStage(
                     'library-ready',
-                    'Library Ready',
+                    'Ingest',
                     'Prepare previews and unlock the browsable library.',
                     ['preview-each', 'generate-previews', 'collect-previewed-assets'],
                     runDetail,
@@ -209,6 +209,7 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
                     'Run downstream analysis, grouping, and metadata branches.',
                     [
                         'enrichment-each',
+                        'extract-embedded-metadata',
                         'detect-faces',
                         'generate-face-vectors',
                         'collect-people',

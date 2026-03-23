@@ -27,8 +27,7 @@ export const WorkflowProgressionTab: React.FC<WorkflowProgressionTabProps> = ({ 
                 className={`rounded-2xl border p-5 text-left transition-colors hover:border-cyan-500/40 ${getStatusClass(stage.status)}`}
             >
                 <div className="text-[11px] font-semibold uppercase tracking-[0.24em] opacity-70">Stage {index + 1}</div>
-                <h3 className="mt-3 text-lg font-semibold">{stage.label}</h3>
-                <p className="mt-2 text-sm leading-6 opacity-80">{stage.description}</p>
+                <h3 className="mt-3 cursor-help text-lg font-semibold" title={stage.description}>{stage.label}</h3>
                 <div className="mt-4 flex flex-wrap gap-3 text-xs uppercase tracking-[0.14em] opacity-75">
                     <span>{stage.status}</span>
                     <span>{stage.aggregateCounts.map(formatAggregateCount).join(', ')}</span>

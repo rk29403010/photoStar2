@@ -5,6 +5,7 @@ interface WorkflowRuntimeGraphTabProps {
     nodes: WorkflowVisualiserGraphNode[];
     edges: WorkflowVisualiserGraphEdge[];
     onSelectDetail: (detailId: string) => void;
+    showRuntimeDetails: boolean;
 }
 
 function getNodeTone(status: WorkflowVisualiserGraphNode['status']): string {
@@ -19,7 +20,7 @@ function formatNodeCounts(node: WorkflowVisualiserGraphNode): string {
     return `${node.completedItems}/${node.totalItems} ${noun}`;
 }
 
-export const WorkflowRuntimeGraphTab: React.FC<WorkflowRuntimeGraphTabProps> = ({ nodes, edges, onSelectDetail }) => (
+export const WorkflowRuntimeGraphTab: React.FC<WorkflowRuntimeGraphTabProps> = ({ nodes, edges, onSelectDetail, showRuntimeDetails }) => (
     <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
         <section className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
             <div className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">Runtime Graph</div>
@@ -32,7 +33,7 @@ export const WorkflowRuntimeGraphTab: React.FC<WorkflowRuntimeGraphTabProps> = (
                     >
                         <div className="text-xs uppercase tracking-[0.2em] text-gray-500">{node.kind}</div>
                         <div className="mt-2 text-sm font-semibold text-gray-100">{node.label}</div>
-                        <div className="mt-2 text-xs text-gray-400">{formatNodeCounts(node)}</div>
+                        {showRuntimeDetails ? <div className="mt-2 text-xs text-gray-400">{formatNodeCounts(node)}</div> : null}
                         <div className="mt-1 text-xs text-gray-500">{node.upstreamIds.length} upstream · {node.downstreamIds.length} downstream</div>
                     </button>
                 ))}

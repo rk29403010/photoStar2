@@ -28,7 +28,7 @@ test('folder ingest contracts support folder subjects, parameters, labels, and m
         },
         nodes: [
             { id: 'scan-folder', kind: 'module', moduleId: 'runtime.scan_folder', outputsTo: ['preview-each'] },
-            { id: 'preview-each', kind: 'control', controlType: 'for_each', outputsTo: ['extract-embedded-metadata', 'generate-previews'] },
+            { id: 'preview-each', kind: 'control', controlType: 'for_each', outputsTo: ['generate-previews'] },
             { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata' },
             { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews' },
         ],
@@ -120,6 +120,9 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     const previewCollect = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'collect-previewed-assets');
     const enrichmentFanout = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'enrichment-each');
     const detectFaces = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-faces');
+    const generateFaceVectors = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-face-vectors');
+    const collectSimilar = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'collect-similar');
+    const detectSensitiveContent = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-sensitive-content');
 
     assert.ok(previewStep);
     assert.ok(metadataStep);
@@ -134,6 +137,9 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     assert.ok(enrichmentFanout);
     assert.equal(enrichmentFanout.kind, 'control');
     assert.equal(enrichmentFanout.controlType, 'for_each');
-    assert.deepEqual(enrichmentFanout.outputsTo, ['detect-faces']);
+    assert.deepEqual(enrichmentFanout.outputsTo, ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content']);
     assert.ok(detectFaces);
+    assert.deepEqual(generateFaceVectors.outputsTo, ['collect-people']);
+    assert.deepEqual(collectSimilar.outputsTo, ['group-similar-photos']);
+    assert.deepEqual(detectSensitiveContent.outputsTo, ['generate-ai-metadata']);
 });

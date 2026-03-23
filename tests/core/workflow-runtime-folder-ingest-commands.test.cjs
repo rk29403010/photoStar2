@@ -356,7 +356,7 @@ test('get_workflow_visualiser returns runtime-native workflow metadata and selec
         assert.equal(response.data.workflowId, 'folder_ingest_v1');
         assert.equal(response.data.selectedRun.runId, startResponse.data.runId);
         assert.ok(response.data.tabs.graph.nodes.some((node) => node.id === 'scan-folder'));
-        assert.ok(response.data.tabs.progression.stages.some((stage) => stage.id === 'library-ready'));
+        assert.ok(response.data.tabs.progression.stages.some((stage) => stage.id === 'library-ready' && stage.label === 'Ingest'));
         assert.ok(response.data.tabs.text.sections.some((section) => section.id === 'milestones'));
     } finally {
         harness?.dbManager.close();

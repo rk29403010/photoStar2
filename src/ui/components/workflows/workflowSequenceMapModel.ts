@@ -8,13 +8,14 @@ import type {
 const STAGE_WIDTH = 320;
 const STAGE_PADDING_X = 24;
 const STAGE_HEADER_TOP = 20;
-const STAGE_CONTENT_TOP = 132;
+const STAGE_CONTENT_TOP = 96;
 const STAGE_PADDING_BOTTOM = 28;
 const STAGE_GAP_X = 56;
 const NODE_WIDTH = 248;
-const NODE_HEIGHT = 112;
+const NODE_MAX_WIDTH = 360;
+const NODE_HEIGHT = 148;
 const NODE_GAP_X = 28;
-const NODE_GAP_Y = 28;
+const NODE_GAP_Y = 56;
 
 export interface WorkflowSequenceMapStageBox {
     id: string;
@@ -63,6 +64,24 @@ export interface WorkflowSequenceMap {
     edges: WorkflowSequenceMapEdge[];
 }
 
+function getNodeHeight(showRuntimeDetails: boolean): number {
+    return showRuntimeDetails ? NODE_HEIGHT : 96;
+}
+
+function getNodeWidth(node: WorkflowVisualiserGraphNode, showRuntimeDetails: boolean): number {
+    const noun = node.totalItems === 1 ? node.countNoun.singular : node.countNoun.plural;
+    const runtimeSummary = `${node.status} ${node.completedItems}/${node.totalItems} ${noun} ${node.failedItems} failed`;
+    const widestLabelLength = Math.max(
+        node.label.length,
+        showRuntimeDetails ? runtimeSummary.length : 0,
+    );
+
+    return Math.min(
+        NODE_MAX_WIDTH,
+        Math.max(NODE_WIDTH, 48 + (widestLabelLength * 7)),
+    );
+}
+
 function createFallbackStage(nodeIds: string[]): WorkflowVisualiserProgressionStage {
     return {
         id: 'runtime-ungrouped',
@@ -109,12 +128,76 @@ function indexNodesByStage(stages: WorkflowVisualiserProgressionStage[], nodes: 
     return { effectiveStages, nodesByStage };
 }
 
-function getStageHeight(nodeCount: number): number {
+function getStageHeight(nodeCount: number, nodeHeight: number): number {
     if (nodeCount === 0) {
-        return STAGE_CONTENT_TOP + STAGE_PADDING_BOTTOM + NODE_HEIGHT;
+        return STAGE_CONTENT_TOP + STAGE_PADDING_BOTTOM + nodeHeight;
     }
 
-    return STAGE_CONTENT_TOP + STAGE_PADDING_BOTTOM + (nodeCount * NODE_HEIGHT) + ((nodeCount - 1) * NODE_GAP_Y);
+    return STAGE_CONTENT_TOP + STAGE_PADDING_BOTTOM + (nodeCount * nodeHeight) + ((nodeCount - 1) * NODE_GAP_Y);
+}
+
+function createOrderIndex(nodes: WorkflowVisualiserGraphNode[]): Map<string, number> {
+    return new Map(nodes.map((node, index) => [node.id, index]));
+}
+
+function getNeighborOrderScore(params: {
+    fallbackIndex: number;
+    neighborOrder: Map<string, number>;
+    node: WorkflowVisualiserGraphNode;
+    relation: 'upstreamIds' | 'downstreamIds';
+}): number {
+    const indices = params.node[params.relation]
+        .map((nodeId) => params.neighborOrder.get(nodeId))
+        .filter((value): value is number => value !== undefined);
+    if (indices.length === 0) {
+        return Number.MAX_SAFE_INTEGER + params.fallbackIndex;
+    }
+    return indices.reduce((total, value) => total + value, 0) / indices.length;
+}
+
+function sortLevelByNeighbors(params: {
+    levelNodes: WorkflowVisualiserGraphNode[];
+    neighborOrder: Map<string, number>;
+    relation: 'upstreamIds' | 'downstreamIds';
+}) {
+    return [...params.levelNodes]
+        .map((node, index) => ({
+            node,
+            index,
+            score: getNeighborOrderScore({
+                node,
+                fallbackIndex: index,
+                neighborOrder: params.neighborOrder,
+                relation: params.relation,
+            }),
+        }))
+        .sort((left, right) => left.score - right.score || left.index - right.index)
+        .map((entry) => entry.node);
+}
+
+function sortStageLevels(levels: WorkflowVisualiserGraphNode[][]): WorkflowVisualiserGraphNode[][] {
+    if (levels.length <= 1) {
+        return levels;
+    }
+
+    const nextLevels = [...levels];
+    for (let levelIndex = nextLevels.length - 2; levelIndex >= 0; levelIndex -= 1) {
+        nextLevels[levelIndex] = sortLevelByNeighbors({
+            levelNodes: nextLevels[levelIndex],
+            neighborOrder: createOrderIndex(nextLevels[levelIndex + 1]),
+            relation: 'downstreamIds',
+        });
+    }
+
+    for (let levelIndex = 1; levelIndex < nextLevels.length; levelIndex += 1) {
+        nextLevels[levelIndex] = sortLevelByNeighbors({
+            levelNodes: nextLevels[levelIndex],
+            neighborOrder: createOrderIndex(nextLevels[levelIndex - 1]),
+            relation: 'upstreamIds',
+        });
+    }
+
+    return nextLevels;
 }
 
 function buildStageLevels(nodes: WorkflowVisualiserGraphNode[]): WorkflowVisualiserGraphNode[][] {
@@ -156,16 +239,23 @@ function buildStageLevels(nodes: WorkflowVisualiserGraphNode[]): WorkflowVisuali
         levels.set(level, levelNodes);
     }
 
-    return [...levels.entries()]
+    return sortStageLevels([...levels.entries()]
         .sort((left, right) => left[0] - right[0])
-        .map((entry) => entry[1]);
+        .map((entry) => entry[1]));
 }
 
-function getStageWidth(levels: WorkflowVisualiserGraphNode[][]): number {
+function getStageNodeWidth(levels: WorkflowVisualiserGraphNode[][], showRuntimeDetails: boolean): number {
+    return Math.max(
+        NODE_WIDTH,
+        ...levels.flat().map((node) => getNodeWidth(node, showRuntimeDetails)),
+    );
+}
+
+function getStageWidth(levels: WorkflowVisualiserGraphNode[][], nodeWidth: number): number {
     const widestLevelCount = Math.max(1, ...levels.map((level) => level.length));
     return Math.max(
         STAGE_WIDTH,
-        (STAGE_PADDING_X * 2) + (widestLevelCount * NODE_WIDTH) + ((widestLevelCount - 1) * NODE_GAP_X),
+        (STAGE_PADDING_X * 2) + (widestLevelCount * nodeWidth) + ((widestLevelCount - 1) * NODE_GAP_X),
     );
 }
 
@@ -173,15 +263,18 @@ export function buildWorkflowSequenceMap(params: {
     stages: WorkflowVisualiserProgressionStage[];
     nodes: WorkflowVisualiserGraphNode[];
     edges: WorkflowVisualiserGraphEdge[];
+    showRuntimeDetails?: boolean;
 }): WorkflowSequenceMap {
     const { effectiveStages, nodesByStage } = indexNodesByStage(params.stages, params.nodes);
     const stageBoxes: WorkflowSequenceMapStageBox[] = [];
     const sequenceNodes: WorkflowSequenceMapNode[] = [];
+    const nodeHeight = getNodeHeight(params.showRuntimeDetails !== false);
 
     effectiveStages.forEach((stage, stageIndex) => {
         const stageNodes = nodesByStage.get(stage.id) ?? [];
         const stageLevels = buildStageLevels(stageNodes);
-        const stageWidth = getStageWidth(stageLevels);
+        const stageNodeWidth = getStageNodeWidth(stageLevels, params.showRuntimeDetails !== false);
+        const stageWidth = getStageWidth(stageLevels, stageNodeWidth);
         const previousStage = stageBoxes[stageIndex - 1];
         const stageX = previousStage
             ? previousStage.position.x + previousStage.size.width + STAGE_GAP_X
@@ -197,7 +290,7 @@ export function buildWorkflowSequenceMap(params: {
             position: { x: stageX, y: stageY },
             size: {
                 width: stageWidth,
-                height: getStageHeight(stageLevels.length),
+                height: getStageHeight(stageLevels.length, nodeHeight),
             },
             headerTop: STAGE_HEADER_TOP,
             contentTop: STAGE_CONTENT_TOP,
@@ -212,12 +305,12 @@ export function buildWorkflowSequenceMap(params: {
                     status: node.status,
                     stageId: stage.id,
                     position: {
-                        x: stageX + STAGE_PADDING_X + (levelColumnIndex * (NODE_WIDTH + NODE_GAP_X)),
-                        y: stageY + STAGE_CONTENT_TOP + (levelIndex * (NODE_HEIGHT + NODE_GAP_Y)),
+                        x: stageX + STAGE_PADDING_X + (levelColumnIndex * (stageNodeWidth + NODE_GAP_X)),
+                        y: stageY + STAGE_CONTENT_TOP + (levelIndex * (nodeHeight + NODE_GAP_Y)),
                     },
                     size: {
-                        width: NODE_WIDTH,
-                        height: NODE_HEIGHT,
+                        width: stageNodeWidth,
+                        height: nodeHeight,
                     },
                     totalItems: node.totalItems,
                     completedItems: node.completedItems,

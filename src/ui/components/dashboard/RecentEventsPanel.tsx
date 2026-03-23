@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import type { RecentEventSnapshot } from '@contracts/jobs';
-import { formatForEventLog } from '@shared/utils/eventLogSummary';
+import { formatForEventLog, getEventToneForDisplay } from '@shared/utils/eventLogSummary';
 
 type EventFilter = 'all' | string;
 
@@ -114,7 +114,13 @@ function EventsTable(props: {
                                 </td>
                                 <td className="px-3 py-2 text-[11px] text-cyan-300 uppercase tracking-wide whitespace-nowrap">{event.type}</td>
                                 <td className="px-3 py-2">
-                                    <pre className="text-[11px] leading-4 text-gray-200 whitespace-pre-wrap break-all font-mono">
+                                    <pre className={`text-[11px] leading-4 whitespace-pre-wrap break-all font-mono ${
+                                        getEventToneForDisplay(event.payload) === 'error'
+                                            ? 'text-red-300'
+                                            : getEventToneForDisplay(event.payload) === 'warning'
+                                                ? 'text-amber-300'
+                                                : 'text-gray-200'
+                                    }`}>
                                         {formatForEventLog(event.payload)}
                                     </pre>
                                 </td>

@@ -20,9 +20,7 @@ function createFixtureFolder(rootDir) {
     return folderPath;
 }
 
-test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library ready after previews', async () => {
-    const tempDir = createTempDir();
-    const folderPath = createFixtureFolder(tempDir);
+async function createFolderIngestHarness(tempDir) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
@@ -35,54 +33,88 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
     const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
     const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
-    let dbManager;
 
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const subjects = new runtime.SubjectRegistry();
-        const modules = new runtime.ModuleRegistry();
-        const workflows = new runtime.WorkflowRegistry({ subjects, modules });
-        const store = new runtime.ExecutionStore(dbManager);
+    const dbManager = new DatabaseManager(tempDir);
+    const subjects = new runtime.SubjectRegistry();
+    const modules = new runtime.ModuleRegistry();
+    const workflows = new runtime.WorkflowRegistry({ subjects, modules });
+    const store = new runtime.ExecutionStore(dbManager);
 
-        subjects.register({
-            id: 'folder',
-            version: 1,
-            durable: false,
-            summary: { titleField: 'path', thumbnailStrategy: 'none' },
-            progressSemantics: 'aggregate',
-            relations: [],
-            ui: { detailSections: ['overview'] },
-            labels: { singular: 'folder', plural: 'folders' },
-        });
-        subjects.register({
-            id: 'asset',
-            version: 1,
-            durable: true,
-            summary: { titleField: 'id', thumbnailStrategy: 'asset' },
-            progressSemantics: 'per_subject',
-            relations: [],
-            ui: { detailSections: ['overview'] },
-            labels: { singular: 'file', plural: 'files' },
-        });
+    subjects.register({
+        id: 'folder',
+        version: 1,
+        durable: false,
+        summary: { titleField: 'path', thumbnailStrategy: 'none' },
+        progressSemantics: 'aggregate',
+        relations: [],
+        ui: { detailSections: ['overview'] },
+        labels: { singular: 'folder', plural: 'folders' },
+    });
+    subjects.register({
+        id: 'asset',
+        version: 1,
+        durable: true,
+        summary: { titleField: 'id', thumbnailStrategy: 'asset' },
+        progressSemantics: 'per_subject',
+        relations: [],
+        ui: { detailSections: ['overview'] },
+        labels: { singular: 'file', plural: 'files' },
+    });
 
-        modules.register(createScanFolderModule({ dbManager }));
-        modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
-        modules.register(createGeneratePreviewsModule({ dbManager }));
-        modules.register(createDetectFacesModule({ dbManager }));
-        modules.register(createGenerateFaceVectorsModule({ dbManager }));
-        modules.register(createResolvePeopleModule({ dbManager }));
-        modules.register(createGroupSimilarPhotosModule({ dbManager }));
-        modules.register(createDetectSensitiveContentModule({ dbManager }));
-        modules.register(createGenerateAiMetadataModule({ dbManager }));
-        workflows.register(folderIngestWorkflowDefinition);
+    modules.register(createScanFolderModule({ dbManager }));
+    modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
+    modules.register(createGeneratePreviewsModule({ dbManager }));
+    modules.register(createDetectFacesModule({ dbManager }));
+    modules.register(createGenerateFaceVectorsModule({ dbManager }));
+    modules.register(createResolvePeopleModule({ dbManager }));
+    modules.register(createGroupSimilarPhotosModule({ dbManager }));
+    modules.register(createDetectSensitiveContentModule({ dbManager }));
+    modules.register(createGenerateAiMetadataModule({ dbManager }));
+    workflows.register(folderIngestWorkflowDefinition);
 
-        const orchestrator = new runtime.WorkflowRuntimeOrchestrator({
+    return {
+        dbManager,
+        folderIngestWorkflowDefinition,
+        orchestrator: new runtime.WorkflowRuntimeOrchestrator({
             store,
             workflows,
             modules,
-        });
+        }),
+        store,
+        runtime,
+    };
+}
 
-        const runId = await orchestrator.start({
+function assertFolderIngestResults(dbManager, run) {
+    assert.equal(
+        run.milestones.find((milestone) => milestone.milestoneId === 'library_ready')?.status,
+        'completed'
+    );
+    assert.ok(run.summary.totalItems >= 3);
+
+    const previewCount = dbManager.getDb().prepare(
+        "SELECT COUNT(DISTINCT asset_id) AS count FROM previews WHERE size = 'thumbnail'"
+    ).get();
+    assert.equal(previewCount.count, 2);
+
+    const assetRows = dbManager.getDb().prepare(
+        'SELECT file_hash, width, height, metadata_timestamp_source FROM assets ORDER BY created_at ASC'
+    ).all();
+    assert.equal(assetRows.length, 2);
+    assert.ok(assetRows.every((row) => typeof row.file_hash === 'string' && row.file_hash.length > 0));
+    assert.deepEqual(assetRows.map((row) => [row.width, row.height]), [[1, 1], [1, 1]]);
+    assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), ['file.birthtime', 'file.birthtime']);
+}
+
+test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library ready after previews', async () => {
+    const tempDir = createTempDir();
+    const folderPath = createFixtureFolder(tempDir);
+    let harness;
+
+    try {
+        harness = await createFolderIngestHarness(tempDir);
+
+        const runId = await harness.orchestrator.start({
             workflowId: 'folder_ingest_v1',
             triggerType: 'manual',
             inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
@@ -93,27 +125,10 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
             },
         });
 
-        const run = store.getRunDetail(runId);
-        assert.equal(
-            run.milestones.find((milestone) => milestone.milestoneId === 'library_ready')?.status,
-            'completed'
-        );
-        assert.ok(run.summary.totalItems >= 3);
-
-        const previewCount = dbManager.getDb().prepare(
-            "SELECT COUNT(DISTINCT asset_id) AS count FROM previews WHERE size = 'thumbnail'"
-        ).get();
-        assert.equal(previewCount.count, 2);
-
-        const assetRows = dbManager.getDb().prepare(
-            'SELECT file_hash, width, height, metadata_timestamp_source FROM assets ORDER BY created_at ASC'
-        ).all();
-        assert.equal(assetRows.length, 2);
-        assert.ok(assetRows.every((row) => typeof row.file_hash === 'string' && row.file_hash.length > 0));
-        assert.deepEqual(assetRows.map((row) => [row.width, row.height]), [[1, 1], [1, 1]]);
-        assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), ['file.birthtime', 'file.birthtime']);
+        const run = harness.store.getRunDetail(runId);
+        assertFolderIngestResults(harness.dbManager, run);
     } finally {
-        dbManager?.close();
+        harness?.dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
@@ -171,13 +186,13 @@ test('folder_ingest_v1 emits preview-generated events for workflow-runtime previ
         workflows.register({
             ...folderIngestWorkflowDefinition,
             nodes: [
-                folderIngestWorkflowDefinition.nodes[0],
-                folderIngestWorkflowDefinition.nodes[1],
+                folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'scan-folder'),
                 {
-                    ...folderIngestWorkflowDefinition.nodes[2],
+                    ...folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'preview-each'),
+                    outputsTo: ['generate-previews'],
                 },
                 {
-                    ...folderIngestWorkflowDefinition.nodes[3],
+                    ...folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-previews'),
                     outputsTo: [],
                 },
             ],

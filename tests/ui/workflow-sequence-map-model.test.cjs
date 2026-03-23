@@ -1,6 +1,124 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+function createBranchingEnrichmentMapInput() {
+    return {
+        stages: [createBranchingEnrichmentStage()],
+        nodes: createBranchingEnrichmentNodes(),
+        edges: [
+            { id: 'detect-faces->generate-face-vectors', source: 'detect-faces', target: 'generate-face-vectors' },
+            { id: 'collect-similar->group-similar-photos', source: 'collect-similar', target: 'group-similar-photos' },
+            { id: 'detect-sensitive-content->generate-ai-metadata', source: 'detect-sensitive-content', target: 'generate-ai-metadata' },
+        ],
+    };
+}
+
+function createBranchingEnrichmentStage() {
+    return {
+        id: 'enrichment',
+        label: 'Enrichment',
+        description: 'Branch to multiple downstream modules.',
+        status: 'running',
+        nodeIds: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'generate-face-vectors', 'group-similar-photos', 'generate-ai-metadata'],
+        totalItems: 18,
+        completedItems: 10,
+        failedItems: 0,
+        countNoun: { singular: 'person', plural: 'people' },
+        aggregateCounts: [{ noun: { singular: 'person', plural: 'people' }, totalItems: 18, completedItems: 10, failedItems: 0 }],
+    };
+}
+
+function createBranchingEnrichmentNodes() {
+    return [
+        createBranchingNode({
+            id: 'extract-embedded-metadata',
+            label: 'Extract Embedded Metadata',
+            status: 'completed',
+            countNoun: { singular: 'image', plural: 'images' },
+            completedItems: 18,
+            totalItems: 18,
+        }),
+        createBranchingNode({
+            id: 'detect-faces',
+            label: 'Detect Faces',
+            status: 'completed',
+            downstreamIds: ['generate-face-vectors'],
+            countNoun: { singular: 'image', plural: 'images' },
+            completedItems: 18,
+            totalItems: 18,
+        }),
+        createBranchingNode({
+            id: 'collect-similar',
+            label: 'Collect Similar',
+            status: 'running',
+            downstreamIds: ['group-similar-photos'],
+            countNoun: { singular: 'group', plural: 'groups' },
+            completedItems: 7,
+            totalItems: 18,
+        }),
+        createBranchingNode({
+            id: 'detect-sensitive-content',
+            label: 'Detect Sensitive Content',
+            status: 'running',
+            downstreamIds: ['generate-ai-metadata'],
+            countNoun: { singular: 'image', plural: 'images' },
+            completedItems: 6,
+            totalItems: 18,
+        }),
+        createBranchingNode({
+            id: 'generate-face-vectors',
+            label: 'Generate Face Vectors',
+            status: 'completed',
+            upstreamIds: ['detect-faces'],
+            countNoun: { singular: 'person', plural: 'people' },
+            completedItems: 18,
+            totalItems: 18,
+        }),
+        createBranchingNode({
+            id: 'group-similar-photos',
+            label: 'Group Similar Photos',
+            status: 'running',
+            upstreamIds: ['collect-similar'],
+            countNoun: { singular: 'group', plural: 'groups' },
+            completedItems: 7,
+            totalItems: 18,
+        }),
+        createBranchingNode({
+            id: 'generate-ai-metadata',
+            label: 'Generate AI Metadata',
+            status: 'running',
+            upstreamIds: ['detect-sensitive-content'],
+            countNoun: { singular: 'image', plural: 'images' },
+            completedItems: 6,
+            totalItems: 18,
+        }),
+    ];
+}
+
+function createBranchingNode(overrides) {
+    return {
+        kind: 'module',
+        upstreamIds: [],
+        downstreamIds: [],
+        failedItems: 0,
+        moduleId: overrides.id,
+        ...overrides,
+    };
+}
+
+function assertBranchAlignment(map) {
+    const detectFaces = map.nodes.find((node) => node.id === 'detect-faces');
+    const generateFaceVectors = map.nodes.find((node) => node.id === 'generate-face-vectors');
+    const collectSimilar = map.nodes.find((node) => node.id === 'collect-similar');
+    const groupSimilar = map.nodes.find((node) => node.id === 'group-similar-photos');
+    const detectSensitive = map.nodes.find((node) => node.id === 'detect-sensitive-content');
+    const generateAi = map.nodes.find((node) => node.id === 'generate-ai-metadata');
+    assert.equal(detectFaces?.position.x, generateFaceVectors?.position.x);
+    assert.equal(collectSimilar?.position.x, groupSimilar?.position.x);
+    assert.equal(detectSensitive?.position.x, generateAi?.position.x);
+    assert.ok((generateAi?.position.x ?? 0) > (generateFaceVectors?.position.x ?? 0));
+}
+
 test('buildWorkflowSequenceMap groups nodes inside ordered stage boxes and preserves graph edges', async () => {
     const { buildWorkflowSequenceMap } = await import('../../src/ui/components/workflows/workflowSequenceMapModel.ts');
 
@@ -20,7 +138,7 @@ test('buildWorkflowSequenceMap groups nodes inside ordered stage boxes and prese
             },
             {
                 id: 'library-ready',
-                label: 'Library Ready',
+                label: 'Ingest',
                 description: 'Generate previews.',
                 status: 'running',
                 nodeIds: ['preview-each', 'generate-previews'],
@@ -80,7 +198,7 @@ test('buildWorkflowSequenceMap groups nodes inside ordered stage boxes and prese
 
     assert.deepEqual(map.stageOrder, ['discovery', 'library-ready']);
     assert.equal(map.stageBoxes.length, 2);
-    assert.equal(map.stageBoxes[1].label, 'Library Ready');
+    assert.equal(map.stageBoxes[1].label, 'Ingest');
     assert.equal(map.stageBoxes[0].headerTop, 20);
     assert.equal(map.nodes.length, 3);
     assert.equal(map.nodes[0].stageId, 'discovery');
@@ -94,72 +212,87 @@ test('buildWorkflowSequenceMap groups nodes inside ordered stage boxes and prese
 test('buildWorkflowSequenceMap fans out downstream nodes horizontally and widens the stage to fit them', async () => {
     const { buildWorkflowSequenceMap } = await import('../../src/ui/components/workflows/workflowSequenceMapModel.ts');
 
-    const map = buildWorkflowSequenceMap({
-        stages: [
-            {
-                id: 'enrichment',
-                label: 'Enrichment',
-                description: 'Branch to multiple downstream modules.',
-                status: 'running',
-                nodeIds: ['generate-face-vectors', 'collect-people', 'collect-similar'],
-                totalItems: 18,
-                completedItems: 10,
-                failedItems: 0,
-                countNoun: { singular: 'person', plural: 'people' },
-                aggregateCounts: [{ noun: { singular: 'person', plural: 'people' }, totalItems: 18, completedItems: 10, failedItems: 0 }],
-            },
-        ],
-        nodes: [
-            {
-                id: 'generate-face-vectors',
-                label: 'Generate Face Vectors',
-                kind: 'module',
-                status: 'completed',
-                upstreamIds: [],
-                downstreamIds: ['collect-people', 'collect-similar'],
-                moduleId: 'generate-face-vectors',
-                countNoun: { singular: 'person', plural: 'people' },
-                totalItems: 18,
-                completedItems: 18,
-                failedItems: 0,
-            },
-            {
-                id: 'collect-people',
-                label: 'Collect People',
-                kind: 'module',
-                status: 'running',
-                upstreamIds: ['generate-face-vectors'],
-                downstreamIds: [],
-                moduleId: 'collect-people',
-                countNoun: { singular: 'person', plural: 'people' },
-                totalItems: 18,
-                completedItems: 10,
-                failedItems: 0,
-            },
-            {
-                id: 'collect-similar',
-                label: 'Collect Similar',
-                kind: 'module',
-                status: 'running',
-                upstreamIds: ['generate-face-vectors'],
-                downstreamIds: [],
-                moduleId: 'collect-similar',
-                countNoun: { singular: 'group', plural: 'groups' },
-                totalItems: 18,
-                completedItems: 7,
-                failedItems: 0,
-            },
-        ],
-        edges: [
-            { id: 'generate-face-vectors->collect-people', source: 'generate-face-vectors', target: 'collect-people' },
-            { id: 'generate-face-vectors->collect-similar', source: 'generate-face-vectors', target: 'collect-similar' },
-        ],
-    });
+    const map = buildWorkflowSequenceMap(createBranchingEnrichmentMapInput());
 
     assert.equal(map.stageBoxes.length, 1);
     assert.ok(map.stageBoxes[0].size.width > 320);
-    const collectPeople = map.nodes.find((node) => node.id === 'collect-people');
-    const collectSimilar = map.nodes.find((node) => node.id === 'collect-similar');
-    assert.equal(collectPeople?.position.y, collectSimilar?.position.y);
-    assert.ok((collectSimilar?.position.x ?? 0) > (collectPeople?.position.x ?? 0));
+    assertBranchAlignment(map);
+});
+
+test('buildWorkflowSequenceMap compacts node cards in definition-only mode', async () => {
+    const { buildWorkflowSequenceMap } = await import('../../src/ui/components/workflows/workflowSequenceMapModel.ts');
+
+    const map = buildWorkflowSequenceMap({
+        stages: [{
+            id: 'enrichment',
+            label: 'Enrichment',
+            description: 'Branch',
+            status: 'idle',
+            nodeIds: ['detect-faces'],
+            totalItems: 0,
+            completedItems: 0,
+            failedItems: 0,
+            countNoun: { singular: 'image', plural: 'images' },
+            aggregateCounts: [],
+        }],
+        nodes: [{
+            id: 'detect-faces',
+            label: 'Detect Faces',
+            kind: 'module',
+            status: 'idle',
+            upstreamIds: [],
+            downstreamIds: [],
+            moduleId: 'detect-faces',
+            countNoun: { singular: 'image', plural: 'images' },
+            totalItems: 0,
+            completedItems: 0,
+            failedItems: 0,
+        }],
+        edges: [],
+        showRuntimeDetails: false,
+    });
+
+    assert.equal(map.nodes[0].size.height, 96);
+});
+
+test('buildWorkflowSequenceMap widens node cards to fit runtime summaries', async () => {
+    const { buildWorkflowSequenceMap } = await import('../../src/ui/components/workflows/workflowSequenceMapModel.ts');
+
+    const baseInput = {
+        stages: [{
+            id: 'enrichment',
+            label: 'Enrichment',
+            description: 'Branch',
+            status: 'completed',
+            nodeIds: ['detect-sensitive-content'],
+            totalItems: 418,
+            completedItems: 418,
+            failedItems: 0,
+            countNoun: { singular: 'image', plural: 'images' },
+            aggregateCounts: [],
+        }],
+        nodes: [{
+            id: 'detect-sensitive-content',
+            label: 'Detect Sensitive Content',
+            kind: 'module',
+            status: 'completed',
+            upstreamIds: [],
+            downstreamIds: [],
+            moduleId: 'detect-sensitive-content',
+            countNoun: { singular: 'image', plural: 'images' },
+            totalItems: 418,
+            completedItems: 418,
+            failedItems: 0,
+        }],
+        edges: [],
+    };
+
+    const runtimeMap = buildWorkflowSequenceMap(baseInput);
+    const definitionMap = buildWorkflowSequenceMap({
+        ...baseInput,
+        showRuntimeDetails: false,
+    });
+
+    assert.ok(runtimeMap.nodes[0].size.width > definitionMap.nodes[0].size.width);
+    assert.ok(runtimeMap.stageBoxes[0].size.width >= definitionMap.stageBoxes[0].size.width);
 });

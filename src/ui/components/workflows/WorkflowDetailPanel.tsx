@@ -4,6 +4,7 @@ import type { WorkflowVisualiserAggregateCount, WorkflowVisualiserDetail } from 
 interface WorkflowDetailPanelProps {
     detail: WorkflowVisualiserDetail | null;
     onClose: () => void;
+    showRuntimeDetails: boolean;
 }
 
 function formatAggregateCount(entry: WorkflowVisualiserAggregateCount): string {
@@ -11,7 +12,7 @@ function formatAggregateCount(entry: WorkflowVisualiserAggregateCount): string {
     return `${entry.completedItems}/${entry.totalItems} ${noun}`;
 }
 
-export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail, onClose }) => {
+export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail, onClose, showRuntimeDetails }) => {
     if (!detail) {
         return (
             <aside className="rounded-2xl border border-gray-800 bg-[#111111] p-5 text-sm text-gray-400">
@@ -33,11 +34,11 @@ export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail
             </div>
             <p className="mt-3 text-sm leading-6 text-gray-400">{detail.description}</p>
             <div className="mt-4 space-y-2 text-sm text-gray-300">
-                <div>Status: {detail.status}</div>
+                {showRuntimeDetails ? <div>Status: {detail.status}</div> : null}
                 {detail.errorMessage && <div>Error: {detail.errorMessage}</div>}
-                <div>Counts: {detail.aggregateCounts.map(formatAggregateCount).join(', ')}</div>
-                <div>Total {detail.counts.totalItems === 1 ? detail.countNoun.singular : detail.countNoun.plural}: {detail.counts.totalItems}</div>
-                <div>Failed: {detail.counts.failedItems}</div>
+                {showRuntimeDetails ? <div>Counts: {detail.aggregateCounts.map(formatAggregateCount).join(', ')}</div> : null}
+                {showRuntimeDetails ? <div>Total {detail.counts.totalItems === 1 ? detail.countNoun.singular : detail.countNoun.plural}: {detail.counts.totalItems}</div> : null}
+                {showRuntimeDetails ? <div>Failed: {detail.counts.failedItems}</div> : null}
                 <div>Upstream: {detail.upstreamIds.length > 0 ? detail.upstreamIds.join(', ') : 'none'}</div>
                 <div>Downstream: {detail.downstreamIds.length > 0 ? detail.downstreamIds.join(', ') : 'none'}</div>
             </div>
