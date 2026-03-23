@@ -27,6 +27,17 @@ These rules exist because generated code drifts toward noise unless the repo pus
 5. Run `npm run quality` before handing over larger changes.
 6. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
 
+## Git ownership and commit protocol
+
+- The AI owns Git hygiene for the files it creates, edits, deletes, stages, or commits. Do not rely on the user to infer which files belong to a task.
+- Before any commit, inspect `git status --short` and identify whether the repo already contains unrelated staged or unstaged changes.
+- If unrelated changes exist, say so explicitly and stage only the files relevant to the current task. Do not silently sweep unrelated changes into a commit.
+- If the user asks to commit a task, the default expectation is that the AI stages all relevant files for that task before committing.
+- Do not leave partial staging behind unless the user explicitly asked for it. Avoid mixed index/working-tree states like `MM` when finishing a task.
+- Before committing, show or summarize `git diff --cached --stat` so the staged contents are explicit.
+- After committing, inspect `git status --short` again and report any remaining staged or unstaged files. If leftovers remain, say whether they are unrelated pre-existing changes or follow-up work from the current task.
+- A task is not "finished" if its relevant files were edited but not staged, staged but not committed, or left partially staged without explanation.
+
 ## Fast loop defaults
 
 - Default to the fastest safe path for local edits, bugfixes, refactors, and small behavior changes.

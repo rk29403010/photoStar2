@@ -43,3 +43,27 @@ test('mergeRefreshedAssetPage removes duplicate ids from preserved tail', async 
         ['b:/thumb-b-new.webp', 'a:/thumb-a.webp', 'c:/thumb-c.webp']
     );
 });
+
+test('mergeRefreshedAssetPage replaces the refreshed window before preserving later pages', async () => {
+    const { mergeRefreshedAssetPage } = await import('../../dist/core/src/shared/utils/libraryAssetRefresh.js');
+
+    const merged = mergeRefreshedAssetPage(
+        [
+            { id: 'a' },
+            { id: 'b' },
+            { id: 'c' },
+            { id: 'd' },
+            { id: 'e' },
+        ],
+        [
+            { id: 'a' },
+            { id: 'x' },
+        ],
+        { replaceWindowSize: 3 },
+    );
+
+    assert.deepEqual(
+        merged.map((asset) => asset.id),
+        ['a', 'x', 'd', 'e'],
+    );
+});

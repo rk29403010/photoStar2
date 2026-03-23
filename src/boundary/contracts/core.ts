@@ -49,10 +49,13 @@ export interface Asset {
     width?: number;
     height?: number;
     created_at?: string;
+    exif_datetime?: string | null;
+    metadata_timestamp_source?: string | null;
     caption?: string;
     faces?: FaceBox[];
     face_embeddings?: boolean[]; // Simplified boolean array if matching face index
     ai_metadata?: Record<string, unknown>;
+    embedded_metadata?: Record<string, unknown>;
 
     // Scoring & Analysis (Future proofing A5)
     aesthetic_score?: number;

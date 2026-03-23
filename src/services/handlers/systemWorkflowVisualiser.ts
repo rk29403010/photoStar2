@@ -100,6 +100,10 @@ function getStepCounts(runDetail: WorkflowRunDetail | null, nodeId: string): Wor
     return createNodeCounts(step.totalItems, step.completedItems, step.failedItems);
 }
 
+function getStepErrorMessage(runDetail: WorkflowRunDetail | null, nodeId: string): string | undefined {
+    return runDetail?.steps.find((candidate) => candidate.nodeId === nodeId)?.errorMessage;
+}
+
 function getStepStatus(runDetail: WorkflowRunDetail | null, nodeId: string): WorkflowVisualiserStatus {
     return toVisualiserStatus(runDetail?.steps.find((candidate) => candidate.nodeId === nodeId)?.status);
 }
@@ -285,7 +289,11 @@ function buildText(definition: WorkflowDefinition, runDetail: WorkflowRunDetail 
     return { sections };
 }
 
-function buildDetails(graphNodes: WorkflowVisualiserGraphNode[], progressionStages: WorkflowVisualiserProgressionStage[]): WorkflowVisualiserDetail[] {
+function buildDetails(
+    graphNodes: WorkflowVisualiserGraphNode[],
+    progressionStages: WorkflowVisualiserProgressionStage[],
+    runDetail: WorkflowRunDetail | null,
+): WorkflowVisualiserDetail[] {
     const nodeDetails = graphNodes.map((node) => ({
         id: node.id,
         label: node.label,
@@ -294,6 +302,7 @@ function buildDetails(graphNodes: WorkflowVisualiserGraphNode[], progressionStag
             : `Control node ${node.controlType ?? node.id}.`,
         kind: node.kind,
         status: node.status,
+        errorMessage: getStepErrorMessage(runDetail, node.id),
         upstreamIds: node.upstreamIds,
         downstreamIds: node.downstreamIds,
         counts: createNodeCounts(node.totalItems, node.completedItems, node.failedItems),
@@ -365,7 +374,7 @@ export function buildWorkflowVisualiserModel(params: BuildWorkflowVisualiserPara
             graph,
             text: buildText(params.workflowDefinition, params.runDetail),
         },
-        details: buildDetails(graph.nodes, progression.stages),
+        details: buildDetails(graph.nodes, progression.stages, params.runDetail),
     };
 }
 

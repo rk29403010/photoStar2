@@ -19,6 +19,7 @@ export interface RecordStepRunInput {
     nodeId: string;
     status: string;
     expectedItems?: number;
+    errorMessage?: string;
 }
 
 export interface RecordSubjectExecutionInput {
@@ -46,6 +47,7 @@ export interface WorkflowStepRunDetail {
     totalItems: number;
     completedItems: number;
     failedItems: number;
+    errorMessage?: string;
 }
 
 export interface WorkflowMilestoneState {
@@ -143,12 +145,17 @@ export class ExecutionStore {
                 node_id,
                 status,
                 expected_items,
+                error_message,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 status = excluded.status,
                 expected_items = COALESCE(excluded.expected_items, step_runs.expected_items),
+                error_message = CASE
+                    WHEN excluded.status = 'completed' THEN NULL
+                    ELSE COALESCE(excluded.error_message, step_runs.error_message)
+                END,
                 updated_at = excluded.updated_at
         `).run(
             stepRunId,
@@ -156,6 +163,7 @@ export class ExecutionStore {
             input.nodeId,
             input.status,
             input.expectedItems ?? null,
+            input.errorMessage ?? null,
             toIsoNow(),
             toIsoNow(),
         );
@@ -268,7 +276,8 @@ export class ExecutionStore {
                 sr.status,
                 COALESCE(MAX(sr.expected_items), COUNT(se.id)) AS total_items,
                 SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) AS completed_items,
-                SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) AS failed_items
+                SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) AS failed_items,
+                MAX(sr.error_message) AS error_message
             FROM step_runs sr
             LEFT JOIN subject_executions se ON se.step_run_id = sr.id
             WHERE sr.workflow_run_id = ?
@@ -281,6 +290,7 @@ export class ExecutionStore {
             total_items: number;
             completed_items: number | null;
             failed_items: number | null;
+            error_message: string | null;
         }>;
 
         return {
@@ -298,6 +308,7 @@ export class ExecutionStore {
                 totalItems: step.total_items,
                 completedItems: step.completed_items ?? 0,
                 failedItems: step.failed_items ?? 0,
+                errorMessage: step.error_message ?? undefined,
             })),
         };
     }

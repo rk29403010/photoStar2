@@ -167,10 +167,20 @@ function useDbSettingsLoader(
             return;
         }
 
+        let cancelled = false;
+
         void loadDbSettings(getSetting).then((nextSettings) => {
+            if (cancelled) {
+                return;
+            }
+
             setDbSettings(nextSettings);
             setSaveStatus(null);
         });
+
+        return () => {
+            cancelled = true;
+        };
     }, [getSetting, isOpen, setDbSettings, setSaveStatus]);
 }
 

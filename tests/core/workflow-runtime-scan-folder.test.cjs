@@ -27,6 +27,7 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
     const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
+    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
     const { createDetectFacesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFacesModule.js');
     const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateFaceVectorsModule.js');
     const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
@@ -65,6 +66,7 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
         });
 
         modules.register(createScanFolderModule({ dbManager }));
+        modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
         modules.register(createGeneratePreviewsModule({ dbManager }));
         modules.register(createDetectFacesModule({ dbManager }));
         modules.register(createGenerateFaceVectorsModule({ dbManager }));
@@ -104,11 +106,12 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
         assert.equal(previewCount.count, 2);
 
         const assetRows = dbManager.getDb().prepare(
-            'SELECT file_hash, width, height FROM assets ORDER BY created_at ASC'
+            'SELECT file_hash, width, height, metadata_timestamp_source FROM assets ORDER BY created_at ASC'
         ).all();
         assert.equal(assetRows.length, 2);
-        assert.deepEqual(assetRows.map((row) => row.file_hash), [null, null]);
-        assert.deepEqual(assetRows.map((row) => [row.width, row.height]), [[0, 0], [0, 0]]);
+        assert.ok(assetRows.every((row) => typeof row.file_hash === 'string' && row.file_hash.length > 0));
+        assert.deepEqual(assetRows.map((row) => [row.width, row.height]), [[1, 1], [1, 1]]);
+        assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), ['file.birthtime', 'file.birthtime']);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -123,6 +126,7 @@ test('folder_ingest_v1 emits preview-generated events for workflow-runtime previ
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
     const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
+    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
     let dbManager;
 
@@ -155,6 +159,7 @@ test('folder_ingest_v1 emits preview-generated events for workflow-runtime previ
         });
 
         modules.register(createScanFolderModule({ dbManager }));
+        modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
         modules.register(createGeneratePreviewsModule({
             dbManager,
             eventBus: {
@@ -170,6 +175,9 @@ test('folder_ingest_v1 emits preview-generated events for workflow-runtime previ
                 folderIngestWorkflowDefinition.nodes[1],
                 {
                     ...folderIngestWorkflowDefinition.nodes[2],
+                },
+                {
+                    ...folderIngestWorkflowDefinition.nodes[3],
                     outputsTo: [],
                 },
             ],

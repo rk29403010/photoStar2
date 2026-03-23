@@ -34,6 +34,7 @@ export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail
             <p className="mt-3 text-sm leading-6 text-gray-400">{detail.description}</p>
             <div className="mt-4 space-y-2 text-sm text-gray-300">
                 <div>Status: {detail.status}</div>
+                {detail.errorMessage && <div>Error: {detail.errorMessage}</div>}
                 <div>Counts: {detail.aggregateCounts.map(formatAggregateCount).join(', ')}</div>
                 <div>Total {detail.counts.totalItems === 1 ? detail.countNoun.singular : detail.countNoun.plural}: {detail.counts.totalItems}</div>
                 <div>Failed: {detail.counts.failedItems}</div>

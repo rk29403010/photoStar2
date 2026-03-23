@@ -20,78 +20,102 @@ function createFixtureFolder(rootDir) {
     return folderPath;
 }
 
-test('folder ingest emits FacesDetected events for workflow-runtime detections', async () => {
-    const tempDir = createTempDir();
-    const folderPath = createFixtureFolder(tempDir);
-    const emittedEvents = [];
+function registerTestSubjects(subjects) {
+    subjects.register({
+        id: 'folder',
+        version: 1,
+        durable: false,
+        summary: { titleField: 'path', thumbnailStrategy: 'none' },
+        progressSemantics: 'aggregate',
+        relations: [],
+        ui: { detailSections: ['overview'] },
+        labels: { singular: 'folder', plural: 'folders' },
+    });
+    subjects.register({
+        id: 'asset',
+        version: 1,
+        durable: true,
+        summary: { titleField: 'id', thumbnailStrategy: 'asset' },
+        progressSemantics: 'per_subject',
+        relations: [],
+        ui: { detailSections: ['overview'] },
+        labels: { singular: 'file', plural: 'files' },
+    });
+}
+
+function registerFaceEventWorkflow({ workflows, definition }) {
+    workflows.register({
+        ...definition,
+        nodes: definition.nodes.filter((node) => (
+            ['scan-folder', 'preview-each', 'extract-embedded-metadata', 'generate-previews', 'detect-faces'].includes(node.id)
+        )).map((node) => {
+            if (node.id === 'preview-each') {
+                return { ...node, outputsTo: ['extract-embedded-metadata', 'generate-previews'] };
+            }
+            if (node.id === 'extract-embedded-metadata') {
+                return { ...node, outputsTo: [] };
+            }
+            if (node.id === 'generate-previews') {
+                return { ...node, outputsTo: ['detect-faces'] };
+            }
+            if (node.id === 'detect-faces') {
+                return { ...node, outputsTo: [] };
+            }
+            return node;
+        }),
+    });
+}
+
+async function createRuntimeHarness(tempDir, emittedEvents) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
     const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
+    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
     const { createDetectFacesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFacesModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
-    let dbManager;
 
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const subjects = new runtime.SubjectRegistry();
-        const modules = new runtime.ModuleRegistry();
-        const workflows = new runtime.WorkflowRegistry({ subjects, modules });
-        const store = new runtime.ExecutionStore(dbManager);
+    const dbManager = new DatabaseManager(tempDir);
+    const subjects = new runtime.SubjectRegistry();
+    const modules = new runtime.ModuleRegistry();
+    const workflows = new runtime.WorkflowRegistry({ subjects, modules });
+    const store = new runtime.ExecutionStore(dbManager);
 
-        subjects.register({
-            id: 'folder',
-            version: 1,
-            durable: false,
-            summary: { titleField: 'path', thumbnailStrategy: 'none' },
-            progressSemantics: 'aggregate',
-            relations: [],
-            ui: { detailSections: ['overview'] },
-            labels: { singular: 'folder', plural: 'folders' },
-        });
-        subjects.register({
-            id: 'asset',
-            version: 1,
-            durable: true,
-            summary: { titleField: 'id', thumbnailStrategy: 'asset' },
-            progressSemantics: 'per_subject',
-            relations: [],
-            ui: { detailSections: ['overview'] },
-            labels: { singular: 'file', plural: 'files' },
-        });
-
-        modules.register(createScanFolderModule({ dbManager }));
-        modules.register(createGeneratePreviewsModule({ dbManager }));
-        modules.register(createDetectFacesModule({
-            dbManager,
-            eventBus: {
-                emit(event) {
-                    emittedEvents.push(event);
-                },
+    registerTestSubjects(subjects);
+    modules.register(createScanFolderModule({ dbManager }));
+    modules.register(createGeneratePreviewsModule({ dbManager }));
+    modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
+    modules.register(createDetectFacesModule({
+        dbManager,
+        eventBus: {
+            emit(event) {
+                emittedEvents.push(event);
             },
-        }));
-        workflows.register({
-            ...folderIngestWorkflowDefinition,
-            nodes: folderIngestWorkflowDefinition.nodes.filter((node) => (
-                ['scan-folder', 'preview-each', 'generate-previews', 'detect-faces'].includes(node.id)
-            )).map((node) => {
-                if (node.id === 'generate-previews') {
-                    return { ...node, outputsTo: ['detect-faces'] };
-                }
-                if (node.id === 'detect-faces') {
-                    return { ...node, outputsTo: [] };
-                }
-                return node;
-            }),
-        });
+        },
+    }));
+    registerFaceEventWorkflow({ workflows, definition: folderIngestWorkflowDefinition });
 
-        const orchestrator = new runtime.WorkflowRuntimeOrchestrator({
+    return {
+        dbManager,
+        orchestrator: new runtime.WorkflowRuntimeOrchestrator({
             store,
             workflows,
             modules,
-        });
+        }),
+    };
+}
 
-        await orchestrator.start({
+test('folder ingest emits FacesDetected events for workflow-runtime detections', async () => {
+    const tempDir = createTempDir();
+    const folderPath = createFixtureFolder(tempDir);
+    const emittedEvents = [];
+    let dbManager;
+
+    try {
+        const harness = await createRuntimeHarness(tempDir, emittedEvents);
+        dbManager = harness.dbManager;
+
+        await harness.orchestrator.start({
             workflowId: 'folder_ingest_v1',
             triggerType: 'manual',
             inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
@@ -104,7 +128,14 @@ test('folder ingest emits FacesDetected events for workflow-runtime detections',
 
         const faceEvents = emittedEvents.filter((event) => event.type === 'FacesDetected');
         assert.equal(faceEvents.length, 2);
-        assert.ok(faceEvents.every((event) => event.faceCount > 0));
+        assert.ok(faceEvents.every((event) => event.source === 'workflow_runtime'));
+
+        const detectionRow = dbManager.getDb().prepare(
+            "SELECT provider, model_version, data FROM derived_results WHERE task = 'face_detection' ORDER BY created_at ASC LIMIT 1"
+        ).get();
+        assert.equal(detectionRow.provider, 'onnx_retina_10g');
+        assert.equal(detectionRow.model_version, '1.0');
+        assert.equal(Array.isArray(JSON.parse(detectionRow.data).faces), true);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

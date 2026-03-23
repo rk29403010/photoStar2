@@ -128,6 +128,13 @@ export type AssetUpdated = {
     asset: Record<string, unknown>; // Full asset object pushed from backend
 };
 
+export type AiMetadataConfigurationError = {
+    type: "AiMetadataConfigurationError";
+    workflowRunId: string;
+    nodeId: string;
+    message: string;
+};
+
 export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
@@ -143,6 +150,7 @@ export type DomainEvent =
     | JobCompleted
     | JobFailed
     | AssetUpdated
+    | AiMetadataConfigurationError
     | QuotaWarning
     | ProAnalysisPending
     | AiMetadataV2FreshCompleted

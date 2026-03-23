@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildSpawnInvocation, getSpawnOptions, getTaskkillExecutable, runCommandSync } from './process-invocation.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
@@ -83,21 +84,13 @@ export function getManagedSpawnOptions({
     detached = false,
     platform = process.platform,
 } = {}) {
-    return {
+    return getSpawnOptions({
         cwd: workspaceRoot,
         env: process.env,
         stdio,
         detached,
-        shell: false,
-        windowsHide: platform === 'win32',
-    };
-}
-
-function quoteWindowsShellArgument(value) {
-    const normalized = String(value);
-    return /[\s"&^<>|()]/.test(normalized)
-        ? `"${normalized.replace(/"/g, '""')}"`
-        : normalized;
+        platform,
+    });
 }
 
 export function buildManagedSpawnInvocation({
@@ -107,18 +100,15 @@ export function buildManagedSpawnInvocation({
     detached = false,
     platform = process.platform,
 }) {
-    const options = getManagedSpawnOptions({ stdio, detached, platform });
-    const needsCmdWrapping = platform === 'win32' && /\.(cmd|bat)$/i.test(command);
-    if (!needsCmdWrapping) {
-        return { command, args, options };
-    }
-
-    const commandLine = [command, ...args].map(quoteWindowsShellArgument).join(' ');
-    return {
-        command: 'cmd.exe',
-        args: ['/d', '/s', '/c', commandLine],
-        options,
-    };
+    return buildSpawnInvocation({
+        command,
+        args,
+        cwd: workspaceRoot,
+        env: process.env,
+        stdio,
+        detached,
+        platform,
+    });
 }
 
 function spawnManagedScript(scriptName) {
@@ -171,10 +161,11 @@ function killPidTree(pid) {
     }
 
     if (process.platform === 'win32') {
-        const result = spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+        const result = runCommandSync({
+            command: getTaskkillExecutable(),
+            args: ['/PID', String(pid), '/T', '/F'],
             cwd: workspaceRoot,
             stdio: 'ignore',
-            shell: true,
         });
 
         return (result.status ?? 1) === 0;

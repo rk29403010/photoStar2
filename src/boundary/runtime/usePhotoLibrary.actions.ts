@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { Asset, Album, SimilarityOrbit } from '@contracts/core';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
-import type { PipelineStage } from '@contracts/jobs';
+import type { JobState, PipelineStage } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
@@ -35,6 +35,65 @@ interface BuildActionParams {
     transport: BackendTransport | null;
     request: RequestFn;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
+    updateJobState: (id: string, state: JobState) => void;
+    refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
+    refreshSystemJobs: () => void;
+}
+
+type WorkflowRunDetailResponse = {
+    summary?: {
+        status?: string;
+    };
+};
+
+async function getWorkflowRunDetail(request: RequestFn, runId: string): Promise<WorkflowRunDetailResponse> {
+    return request<WorkflowRunDetailResponse>({
+        idPrefix: `grouping_workflow_status_${runId}`,
+        command: 'get_workflow_run_detail',
+        payload: { runId },
+        timeoutMs: 10000,
+        select: (data) => data as WorkflowRunDetailResponse,
+    });
+}
+
+function scheduleGroupingRefresh(params: Pick<BuildActionParams, 'request' | 'updateJobState' | 'refreshLibrary' | 'refreshSystemJobs'> & {
+    localJobId: string;
+    runId: string;
+}) {
+    const poll = async () => {
+        params.refreshLibrary({ preservePagingState: true });
+        params.refreshSystemJobs();
+
+        try {
+            const detail = await getWorkflowRunDetail(params.request, params.runId);
+            const status = String(detail.summary?.status || '');
+
+            if (status === 'completed') {
+                params.updateJobState(params.localJobId, 'completed');
+                params.refreshLibrary();
+                params.refreshSystemJobs();
+                return;
+            }
+
+            if (status === 'failed') {
+                params.updateJobState(params.localJobId, 'failed');
+                params.refreshSystemJobs();
+                return;
+            }
+        } catch {
+            params.updateJobState(params.localJobId, 'failed');
+            params.refreshSystemJobs();
+            return;
+        }
+
+        window.setTimeout(() => {
+            void poll();
+        }, 1500);
+    };
+
+    window.setTimeout(() => {
+        void poll();
+    }, 1500);
 }
 
 export function createCoreActions(params: CoreActionParams) {
@@ -149,7 +208,7 @@ export function createGroupActions(params: GroupActionParams) {
 }
 
 export function createBuildActions(params: BuildActionParams) {
-    const { transport, request, addJob } = params;
+    const { transport, request, addJob, updateJobState, refreshLibrary, refreshSystemJobs } = params;
 
     return {
         resetGroupingData: async () => {
@@ -159,13 +218,30 @@ export function createBuildActions(params: BuildActionParams) {
         buildGroups: async (): Promise<string> => {
             const localJobId = 'build-groups-' + Date.now();
             addJob(localJobId, 'similarity_cluster', 'Runtime Grouping (Duplicates, Variants & Bursts)');
-            return request<string>({
+            const runId = await request<string>({
                 idPrefix: 'start_library_grouping',
                 command: 'start_library_grouping',
                 payload: {},
                 timeoutMs: 10000,
                 select: (data) => String(data?.runId || ''),
             });
+
+            if (!runId) {
+                updateJobState(localJobId, 'failed');
+                return '';
+            }
+
+            updateJobState(localJobId, 'running');
+            scheduleGroupingRefresh({
+                request,
+                updateJobState,
+                refreshLibrary,
+                refreshSystemJobs,
+                localJobId,
+                runId,
+            });
+
+            return runId;
         },
     };
 }

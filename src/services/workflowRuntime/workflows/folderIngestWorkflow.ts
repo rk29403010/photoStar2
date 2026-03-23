@@ -32,10 +32,20 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'preview-each',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['generate-previews'],
+            outputsTo: ['extract-embedded-metadata', 'generate-previews'],
             presentation: {
                 label: 'Preview each',
                 countNoun: { singular: 'image', plural: 'images' },
+            },
+        },
+        {
+            id: 'extract-embedded-metadata',
+            kind: 'module',
+            moduleId: 'runtime.extract_embedded_metadata',
+            presentation: {
+                label: 'Extract embedded metadata',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
             },
         },
         {

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { getNpxExecutable, runCommandSync } from "./process-invocation.js";
 
 const args = new Set(process.argv.slice(2));
 const mode = args.has("--staged") ? "staged" : args.has("--all") ? "all" : "changed";
@@ -32,10 +32,11 @@ function getExplicitFiles() {
 }
 
 function runGit(gitArgs) {
-  const result = spawnSync("git", gitArgs, {
+  const result = runCommandSync({
+    command: "git",
+    args: gitArgs,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-    shell: true,
   });
 
   if (result.error || result.status !== 0) {
@@ -119,9 +120,10 @@ const phaseLabel = fix
   : "verify";
 console.log(`[lint-changed] Running ${toolLabel} ${phaseLabel} on ${filesToLint.length} file(s).`);
 
-const result = spawnSync("npx", linterArgs, {
+const result = runCommandSync({
+  command: getNpxExecutable(),
+  args: linterArgs,
   stdio: "inherit",
-  shell: true,
 });
 
 if (result.error) {
@@ -130,9 +132,10 @@ if (result.error) {
 }
 
 if (fix && (mode === "staged" || restage) && result.status === 0) {
-  const stageResult = spawnSync("git", ["add", "--", ...filesToLint], {
+  const stageResult = runCommandSync({
+    command: "git",
+    args: ["add", "--", ...filesToLint],
     stdio: "inherit",
-    shell: true,
   });
 
   if (stageResult.error || stageResult.status !== 0) {

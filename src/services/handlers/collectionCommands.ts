@@ -44,13 +44,14 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
             CASE WHEN child.canonical_asset_id = a.id THEN -1 ELSE null END AS member_rank,
             null AS member_match_evidence,
             gc_child.stack_count AS stack_count,
-            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
             a.caption, a.sensitivity_score,
             am.sensitivity_status,
             p.path AS preview_path,
             COALESCE(r_faces_new.data, r_faces_legacy.data) AS faces_data,
             r_rec.data AS rec_data,
             COALESCE(r_ai_new.data, r_ai_legacy.data) AS ai_metadata_data,
+            r_meta.data AS embedded_metadata_data,
             (
                 SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
                 FROM face_assignments fa
@@ -68,6 +69,7 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
         LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
         LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
         LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
+        LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'
         LEFT JOIN GroupCounts gc_child ON gc_child.group_id = child.id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
@@ -99,13 +101,14 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
             m.rank AS member_rank,
             m.evidence_json AS member_match_evidence,
             gc_current.stack_count AS stack_count,
-            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
             a.caption, a.sensitivity_score,
             am.sensitivity_status,
             p.path AS preview_path,
             COALESCE(r_faces_new.data, r_faces_legacy.data) AS faces_data,
             r_rec.data AS rec_data,
             COALESCE(r_ai_new.data, r_ai_legacy.data) AS ai_metadata_data,
+            r_meta.data AS embedded_metadata_data,
             (
                 SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
                 FROM face_assignments fa
@@ -123,6 +126,7 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
         LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
         LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
         LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
+        LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'
         LEFT JOIN GroupCounts gc_current ON gc_current.group_id = m.group_id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid

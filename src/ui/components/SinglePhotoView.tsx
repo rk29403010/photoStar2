@@ -14,7 +14,7 @@ interface SinglePhotoViewProps {
     onFaceClick?: (personId: string, personName: string) => void;
     onIsolateFace?: (assetId: string, faceIndex: number) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
     onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
@@ -42,7 +42,7 @@ interface SinglePhotoOverlayProps {
     onFaceClick?: (personId: string, personName: string) => void;
     onIsolateFace?: (assetId: string, faceIndex: number) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
     onOpenSettings?: () => void;
     onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onOrbitLoaded: (assets: Asset[]) => void;

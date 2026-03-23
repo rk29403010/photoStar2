@@ -84,6 +84,7 @@ export interface WorkflowVisualiserDetail {
     description: string;
     kind: 'module' | 'control' | 'stage';
     status: WorkflowVisualiserStatus;
+    errorMessage?: string;
     upstreamIds: string[];
     downstreamIds: string[];
     counts: WorkflowVisualiserCounts;

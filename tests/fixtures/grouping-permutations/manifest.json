@@ -1,0 +1,555 @@
+{
+  "generatedAt": "2026-03-20T19:07:02.294Z",
+  "root": "tests/fixtures/grouping-permutations",
+  "notes": [
+    "Each case lives in its own folder to reduce accidental cross-grouping.",
+    "Burst-oriented files are stamped with close capture timestamps.",
+    "Duplicate files are byte-identical copies of their source file.",
+    "Near, variant, and burst images are simple visual permutations of a base shape.",
+    "Expected groups describe the intended hierarchy for manual testing and may still be influenced by runtime thresholds."
+  ],
+  "cases": [
+    {
+      "id": "01",
+      "combo": "solo",
+      "subject": "blue-circle",
+      "expectedGroups": [],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:00:00.000Z",
+          "fileName": "01__solo__blue-circle__a.png"
+        }
+      ],
+      "folder": "01__solo__blue-circle"
+    },
+    {
+      "id": "02",
+      "combo": "dup",
+      "subject": "red-triangle",
+      "expectedGroups": [
+        "dup"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:10:00.000Z",
+          "fileName": "02__dup__red-triangle__a.png"
+        },
+        {
+          "role": "b",
+          "variant": "copy",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:10:01.000Z",
+          "sourceRole": "a",
+          "fileName": "02__dup__red-triangle__b.png"
+        }
+      ],
+      "folder": "02__dup__red-triangle"
+    },
+    {
+      "id": "03",
+      "combo": "near",
+      "subject": "green-square",
+      "expectedGroups": [
+        "near"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:20:00.000Z",
+          "fileName": "03__near__green-square__a.png"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T12:20:05.000Z",
+          "fileName": "03__near__green-square__b.jpg"
+        }
+      ],
+      "folder": "03__near__green-square"
+    },
+    {
+      "id": "04",
+      "combo": "variant",
+      "subject": "yellow-circle",
+      "expectedGroups": [
+        "variant"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:30:00.000Z",
+          "fileName": "04__variant__yellow-circle__a.png"
+        },
+        {
+          "role": "b",
+          "variant": "variant",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:30:08.000Z",
+          "fileName": "04__variant__yellow-circle__b.png"
+        }
+      ],
+      "folder": "04__variant__yellow-circle"
+    },
+    {
+      "id": "05",
+      "combo": "burst",
+      "subject": "orange-star",
+      "expectedGroups": [
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "burst-1",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T12:40:00.000Z",
+          "fileName": "05__burst__orange-star__a.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "burst-2",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T12:40:01.000Z",
+          "fileName": "05__burst__orange-star__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "burst-3",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T12:40:02.000Z",
+          "fileName": "05__burst__orange-star__c.jpg"
+        }
+      ],
+      "folder": "05__burst__orange-star"
+    },
+    {
+      "id": "06",
+      "combo": "dup-near",
+      "subject": "purple-hex",
+      "expectedGroups": [
+        "dup",
+        "near"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:50:00.000Z",
+          "fileName": "06__dup-near__purple-hex__a.png"
+        },
+        {
+          "role": "a-copy",
+          "variant": "copy",
+          "extension": "png",
+          "captureAt": "2026-01-01T12:50:01.000Z",
+          "sourceRole": "a",
+          "fileName": "06__dup-near__purple-hex__a-copy.png"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T12:50:05.000Z",
+          "fileName": "06__dup-near__purple-hex__b.jpg"
+        }
+      ],
+      "folder": "06__dup-near__purple-hex"
+    },
+    {
+      "id": "07",
+      "combo": "dup-variant",
+      "subject": "teal-diamond",
+      "expectedGroups": [
+        "dup",
+        "variant"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:00:00.000Z",
+          "fileName": "07__dup-variant__teal-diamond__a.png"
+        },
+        {
+          "role": "a-copy",
+          "variant": "copy",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:00:01.000Z",
+          "sourceRole": "a",
+          "fileName": "07__dup-variant__teal-diamond__a-copy.png"
+        },
+        {
+          "role": "b",
+          "variant": "variant",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:00:10.000Z",
+          "fileName": "07__dup-variant__teal-diamond__b.png"
+        }
+      ],
+      "folder": "07__dup-variant__teal-diamond"
+    },
+    {
+      "id": "08",
+      "combo": "dup-burst",
+      "subject": "pink-cross",
+      "expectedGroups": [
+        "dup",
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:10:00.000Z",
+          "fileName": "08__dup-burst__pink-cross__a.jpg"
+        },
+        {
+          "role": "a-copy",
+          "variant": "copy",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:10:01.000Z",
+          "sourceRole": "a",
+          "fileName": "08__dup-burst__pink-cross__a-copy.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "burst-2",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:10:02.000Z",
+          "fileName": "08__dup-burst__pink-cross__b.jpg"
+        }
+      ],
+      "folder": "08__dup-burst__pink-cross"
+    },
+    {
+      "id": "09",
+      "combo": "near-variant",
+      "subject": "lime-pentagon",
+      "expectedGroups": [
+        "near",
+        "variant"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:20:00.000Z",
+          "fileName": "09__near-variant__lime-pentagon__a.png"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:20:04.000Z",
+          "fileName": "09__near-variant__lime-pentagon__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "variant",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:20:10.000Z",
+          "fileName": "09__near-variant__lime-pentagon__c.png"
+        }
+      ],
+      "folder": "09__near-variant__lime-pentagon"
+    },
+    {
+      "id": "10",
+      "combo": "near-burst",
+      "subject": "navy-arrow",
+      "expectedGroups": [
+        "near",
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:30:00.000Z",
+          "fileName": "10__near-burst__navy-arrow__a.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:30:01.000Z",
+          "fileName": "10__near-burst__navy-arrow__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "burst-3",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:30:02.000Z",
+          "fileName": "10__near-burst__navy-arrow__c.jpg"
+        }
+      ],
+      "folder": "10__near-burst__navy-arrow"
+    },
+    {
+      "id": "11",
+      "combo": "variant-burst",
+      "subject": "brown-moon",
+      "expectedGroups": [
+        "variant",
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "variant",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:40:00.000Z",
+          "fileName": "11__variant-burst__brown-moon__a.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "variant-soft",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:40:01.000Z",
+          "fileName": "11__variant-burst__brown-moon__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "burst-2",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:40:02.000Z",
+          "fileName": "11__variant-burst__brown-moon__c.jpg"
+        }
+      ],
+      "folder": "11__variant-burst__brown-moon"
+    },
+    {
+      "id": "12",
+      "combo": "dup-near-variant",
+      "subject": "black-ring",
+      "expectedGroups": [
+        "dup",
+        "near",
+        "variant"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:50:00.000Z",
+          "fileName": "12__dup-near-variant__black-ring__a.png"
+        },
+        {
+          "role": "a-copy",
+          "variant": "copy",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:50:01.000Z",
+          "sourceRole": "a",
+          "fileName": "12__dup-near-variant__black-ring__a-copy.png"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T13:50:04.000Z",
+          "fileName": "12__dup-near-variant__black-ring__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "variant",
+          "extension": "png",
+          "captureAt": "2026-01-01T13:50:10.000Z",
+          "fileName": "12__dup-near-variant__black-ring__c.png"
+        }
+      ],
+      "folder": "12__dup-near-variant__black-ring"
+    },
+    {
+      "id": "13",
+      "combo": "dup-near-burst",
+      "subject": "cyan-wave",
+      "expectedGroups": [
+        "dup",
+        "near",
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:00:00.000Z",
+          "fileName": "13__dup-near-burst__cyan-wave__a.jpg"
+        },
+        {
+          "role": "a-copy",
+          "variant": "copy",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:00:00.500Z",
+          "sourceRole": "a",
+          "fileName": "13__dup-near-burst__cyan-wave__a-copy.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:00:01.000Z",
+          "fileName": "13__dup-near-burst__cyan-wave__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "burst-3",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:00:02.000Z",
+          "fileName": "13__dup-near-burst__cyan-wave__c.jpg"
+        }
+      ],
+      "folder": "13__dup-near-burst__cyan-wave"
+    },
+    {
+      "id": "14",
+      "combo": "dup-variant-burst",
+      "subject": "olive-bolt",
+      "expectedGroups": [
+        "dup",
+        "variant",
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:10:00.000Z",
+          "fileName": "14__dup-variant-burst__olive-bolt__a.jpg"
+        },
+        {
+          "role": "a-copy",
+          "variant": "copy",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:10:00.500Z",
+          "sourceRole": "a",
+          "fileName": "14__dup-variant-burst__olive-bolt__a-copy.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "variant",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:10:01.000Z",
+          "fileName": "14__dup-variant-burst__olive-bolt__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "burst-2",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:10:02.000Z",
+          "fileName": "14__dup-variant-burst__olive-bolt__c.jpg"
+        }
+      ],
+      "folder": "14__dup-variant-burst__olive-bolt"
+    },
+    {
+      "id": "15",
+      "combo": "near-variant-burst",
+      "subject": "maroon-fan",
+      "expectedGroups": [
+        "near",
+        "variant",
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:20:00.000Z",
+          "fileName": "15__near-variant-burst__maroon-fan__a.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:20:01.000Z",
+          "fileName": "15__near-variant-burst__maroon-fan__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "variant",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:20:02.000Z",
+          "fileName": "15__near-variant-burst__maroon-fan__c.jpg"
+        },
+        {
+          "role": "d",
+          "variant": "burst-3",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:20:03.000Z",
+          "fileName": "15__near-variant-burst__maroon-fan__d.jpg"
+        }
+      ],
+      "folder": "15__near-variant-burst__maroon-fan"
+    },
+    {
+      "id": "16",
+      "combo": "dup-near-variant-burst",
+      "subject": "silver-clover",
+      "expectedGroups": [
+        "dup",
+        "near",
+        "variant",
+        "burst"
+      ],
+      "files": [
+        {
+          "role": "a",
+          "variant": "base",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:30:00.000Z",
+          "fileName": "16__dup-near-variant-burst__silver-clover__a.jpg"
+        },
+        {
+          "role": "a-copy",
+          "variant": "copy",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:30:00.500Z",
+          "sourceRole": "a",
+          "fileName": "16__dup-near-variant-burst__silver-clover__a-copy.jpg"
+        },
+        {
+          "role": "b",
+          "variant": "near",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:30:01.000Z",
+          "fileName": "16__dup-near-variant-burst__silver-clover__b.jpg"
+        },
+        {
+          "role": "c",
+          "variant": "variant",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:30:02.000Z",
+          "fileName": "16__dup-near-variant-burst__silver-clover__c.jpg"
+        },
+        {
+          "role": "d",
+          "variant": "burst-3",
+          "extension": "jpg",
+          "captureAt": "2026-01-01T14:30:03.000Z",
+          "fileName": "16__dup-near-variant-burst__silver-clover__d.jpg"
+        }
+      ],
+      "folder": "16__dup-near-variant-burst__silver-clover"
+    }
+  ]
+}

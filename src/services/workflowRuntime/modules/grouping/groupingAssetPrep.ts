@@ -1,8 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import type { DatabaseManager } from '../../../../data/db';
-import { getExifData, getFileStats, hashFile } from '../../../file-utils';
+import { getFileStats, hashFile } from '../../../file-utils';
 import { blockhashData, dhashData } from '../../../math-utils';
+import { persistAssetEmbeddedMetadata } from '../../../embeddedMetadata';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -14,6 +15,7 @@ type GroupingAssetRow = {
     width: number | null;
     height: number | null;
     exif_datetime: string | null;
+    metadata_timestamp_source: string | null;
     phash64: string | null;
     dhash64: string | null;
 };
@@ -26,6 +28,7 @@ export interface PreparedGroupingAsset {
     width: number;
     height: number;
     exifDatetime: string | null;
+    metadataTimestampSource: string | null;
     phash64: string;
     dhash64: string;
 }
@@ -51,6 +54,7 @@ function loadGroupingAssets(db: DbHandle, assetIds: string[]): GroupingAssetRow[
             a.width,
             a.height,
             a.exif_datetime,
+            a.metadata_timestamp_source,
             f.phash64,
             f.dhash64
         FROM assets a
@@ -64,6 +68,7 @@ function needsAssetUpdate(row: GroupingAssetRow): boolean {
         || !row.width
         || !row.height
         || !row.exif_datetime
+        || !row.metadata_timestamp_source
         || !row.file_size;
 }
 
@@ -101,28 +106,24 @@ function resolvePositiveNumber(currentValue: number | null, fallbackValue: numbe
     return currentValue && currentValue > 0 ? currentValue : fallbackValue;
 }
 
-function resolveExifTimestamp(currentValue: string | null, fallbackValue: Date): string {
-    return currentValue ?? fallbackValue.toISOString();
-}
-
 async function updateAssetPrerequisites(db: DbHandle, row: GroupingAssetRow): Promise<void> {
     const stats = getFileStats(row.original_path);
-    const exif = await getExifData(row.original_path);
     const fileHash = row.file_hash ?? await hashFile(row.original_path);
     const fileSize = resolvePositiveNumber(row.file_size, stats.size);
-    const width = resolvePositiveNumber(row.width, exif?.width ?? 0);
-    const height = resolvePositiveNumber(row.height, exif?.height ?? 0);
-    const exifDatetime = resolveExifTimestamp(row.exif_datetime, stats.birthtime);
 
     db.prepare(`
         UPDATE assets
         SET file_hash = ?,
-            file_size = ?,
-            width = ?,
-            height = ?,
-            exif_datetime = ?
+            file_size = ?
         WHERE id = ?
-    `).run(fileHash, fileSize, width, height, exifDatetime, row.id);
+    `).run(fileHash, fileSize, row.id);
+    await persistAssetEmbeddedMetadata({
+        db,
+        assetId: row.id,
+        originalPath: row.original_path,
+        fileSize,
+        birthtime: stats.birthtime,
+    });
 }
 
 async function updateFeaturePrerequisites(db: DbHandle, row: GroupingAssetRow): Promise<void> {
@@ -184,6 +185,7 @@ export async function ensureGroupingPrerequisites(params: {
             width: row.width,
             height: row.height,
             exifDatetime: row.exif_datetime,
+            metadataTimestampSource: row.metadata_timestamp_source,
             phash64: row.phash64,
             dhash64: row.dhash64,
         }));

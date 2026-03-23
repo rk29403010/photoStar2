@@ -8,12 +8,21 @@ export interface GroupDiagnosticsAssetRow {
     previewPath: string | null;
     membershipCount: number;
     groupIds: string[];
+    groups: GroupDiagnosticsMembershipGroupRow[];
+}
+
+export interface GroupDiagnosticsMembershipGroupRow {
+    groupId: string;
+    groupType: string;
+    representativeAssetId: string | null;
+    representativePreviewPath: string | null;
 }
 
 export interface GroupDiagnosticsChildRow {
     groupId: string;
     groupType: string;
     representativeAssetId: string | null;
+    representativePreviewPath: string | null;
     descendantFileCount: number;
 }
 
@@ -21,6 +30,7 @@ export interface GroupDiagnosticsGroupRow {
     groupId: string;
     groupType: string;
     representativeAssetId: string | null;
+    representativePreviewPath: string | null;
     fileCount: number;
     descendantFileCount: number;
     directChildGroupCount: number;

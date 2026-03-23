@@ -190,6 +190,72 @@ test('runtime burst grouping merges transitive time-neighbours into one group', 
     }
 });
 
+test('runtime burst grouping rejects phash-only matches when dhash disagrees', async () => {
+    const tempDir = createTempDir();
+    const fixtureDir = path.join(tempDir, 'fixtures');
+    const firstPath = path.join(fixtureDir, 'burst-one.png');
+    const secondPath = path.join(fixtureDir, 'burst-two.png');
+    createFixtureImage(firstPath);
+    createFixtureImage(secondPath);
+
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    let dbManager;
+
+    try {
+        dbManager = new DatabaseManager(tempDir);
+        const firstId = uuidv4();
+        const secondId = uuidv4();
+
+        seedAsset(dbManager, {
+            id: firstId,
+            originalPath: firstPath,
+            fileHash: 'burst-reject-a',
+            fileSize: 10,
+            width: 400,
+            height: 300,
+            exifDate: '2026-01-01T12:00:00.000Z',
+        });
+        seedAsset(dbManager, {
+            id: secondId,
+            originalPath: secondPath,
+            fileHash: 'burst-reject-b',
+            fileSize: 11,
+            width: 401,
+            height: 301,
+            exifDate: '2026-01-01T12:00:01.000Z',
+        });
+
+        seedAssetFeatures(dbManager, {
+            assetId: firstId,
+            fileHash: 'burst-reject-a',
+            phash64: 'bd89898d818181ff',
+            dhash64: '96e6eee6e6e4d0c0',
+        });
+        seedAssetFeatures(dbManager, {
+            assetId: secondId,
+            fileHash: 'burst-reject-b',
+            phash64: '81818d8d8d8181ff',
+            dhash64: 'be92a6a6a696b2b8',
+        });
+
+        await runGroupingWorkflow({
+            dbManager,
+            inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
+        });
+
+        const burstGroupCount = dbManager.getDb().prepare(`
+            SELECT COUNT(*) AS count
+            FROM asset_groups
+            WHERE type = 'burst'
+        `).get();
+
+        assert.equal(burstGroupCount.count, 0);
+    } finally {
+        dbManager?.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
 test('runtime variant grouping replaces stale proposed groups for impacted assets', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');

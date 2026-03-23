@@ -206,7 +206,17 @@ function isBurstMatch(
     if (!left.phash64 || !right.phash64) {
         return true;
     }
-    return hammingDistance(left.phash64, right.phash64) <= maxDistance;
+
+    const perceptualDistance = hammingDistance(left.phash64, right.phash64);
+    if (perceptualDistance > maxDistance) {
+        return false;
+    }
+
+    if (!left.dhash64 || !right.dhash64) {
+        return true;
+    }
+
+    return hammingDistance(left.dhash64, right.dhash64) <= maxDistance;
 }
 
 function collectReachableBurstAssetIds(

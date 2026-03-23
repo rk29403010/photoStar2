@@ -6,6 +6,7 @@ import type { DomainEvent } from '@contracts/events';
 import { applyQuotaNotifications } from '@boundary/runtime/usePhotoLibrary.connection.notifications';
 import type { FolderHistoryItem, LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import type { ConnectionStateParams, ParamsRef } from '@boundary/runtime/usePhotoLibrary.connection';
+import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { mergeRefreshedAssetPage } from '@shared/utils/libraryAssetRefresh';
 import { buildEventFeedDetail, countPreviewAssets } from '@shared/utils/libraryUiDiagnostics';
 import {
@@ -103,7 +104,9 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
     } else {
         params.setAssets((previousAssets) => {
             previousAssetCount = previousAssets.length;
-            const nextAssets = mergeRefreshedAssetPage(previousAssets, assets);
+            const nextAssets = mergeRefreshedAssetPage(previousAssets, assets, {
+                replaceWindowSize: ASSET_PAGE_SIZE,
+            });
             nextAssetCount = nextAssets.length;
             nextPreviewCount = countPreviewAssets(nextAssets);
             return nextAssets;

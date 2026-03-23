@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { runCommandSync } from './process-invocation.js';
 
 const DEFAULT_WEB_PORT = 5173;
 const DEFAULT_BACKEND_PORT = 5174;
@@ -96,11 +96,12 @@ function safeParseJson(text) {
 }
 
 function readPackageJsonFromHead(cwd) {
-  const result = spawnSync('git', ['show', 'HEAD:package.json'], {
+  const result = runCommandSync({
+    command: 'git',
+    args: ['show', 'HEAD:package.json'],
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: true,
   });
 
   if (result.error || result.status !== 0) {

@@ -28,7 +28,9 @@ test('folder ingest contracts support folder subjects, parameters, labels, and m
         },
         nodes: [
             { id: 'scan-folder', kind: 'module', moduleId: 'runtime.scan_folder', outputsTo: ['preview-each'] },
-            { id: 'preview-each', kind: 'control', controlType: 'for_each' },
+            { id: 'preview-each', kind: 'control', controlType: 'for_each', outputsTo: ['extract-embedded-metadata', 'generate-previews'] },
+            { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata' },
+            { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews' },
         ],
     };
 
@@ -114,11 +116,16 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const previewStep = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-previews');
+    const metadataStep = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'extract-embedded-metadata');
     const previewCollect = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'collect-previewed-assets');
     const enrichmentFanout = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'enrichment-each');
     const detectFaces = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-faces');
 
     assert.ok(previewStep);
+    assert.ok(metadataStep);
+    assert.equal(metadataStep.kind, 'module');
+    assert.equal(metadataStep.moduleId, 'runtime.extract_embedded_metadata');
+    assert.deepEqual(metadataStep.outputsTo ?? [], []);
     assert.deepEqual(previewStep.outputsTo, ['collect-previewed-assets']);
     assert.ok(previewCollect);
     assert.equal(previewCollect.kind, 'control');

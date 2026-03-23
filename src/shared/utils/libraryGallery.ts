@@ -1,6 +1,6 @@
 import type { Asset } from '@contracts/core';
 
-export type LibrarySortMode = 'filename' | 'date';
+export type LibrarySortMode = 'filename' | 'date' | 'group';
 
 export interface CurrentPhotoStatus {
     filename: string;
@@ -17,6 +17,18 @@ function getTimestampRank(createdAt: string | null | undefined): number {
     if (!createdAt) {return Number.NEGATIVE_INFINITY;}
     const timestamp = Date.parse(createdAt);
     return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+}
+
+function getGroupSortKey(asset: Pick<Asset, 'group_id'>): string {
+    return asset.group_id ?? '';
+}
+
+export function getEffectiveLibrarySortMode(mode: LibrarySortMode, groupSimilarPhotos: boolean): LibrarySortMode {
+    if (groupSimilarPhotos && mode === 'group') {
+        return 'filename';
+    }
+
+    return mode;
 }
 
 function getSensitivityLabel(asset: Pick<Asset, 'sensitivity_status' | 'sensitivity_score'>): string {
@@ -38,6 +50,18 @@ function getDimensions(asset: Pick<Asset, 'width' | 'height'>): string | null {
 
 export function sortAssetsForGallery(assets: Asset[], mode: LibrarySortMode): Asset[] {
     const sorted = [...assets];
+
+    if (mode === 'group') {
+        sorted.sort((left, right) => {
+            const groupDelta = getGroupSortKey(left).localeCompare(getGroupSortKey(right), undefined, { numeric: true, sensitivity: 'base' });
+            if (groupDelta !== 0) {
+                return groupDelta;
+            }
+
+            return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        return sorted;
+    }
 
     if (mode === 'filename') {
         sorted.sort((left, right) => (

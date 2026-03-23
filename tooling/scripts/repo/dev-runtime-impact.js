@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
 import { classifyRestartImpact, resolveDevRuntimePorts } from './dev-runtime-config.js';
+import { runCommandSync } from './process-invocation.js';
 
 function runGit(gitArgs) {
-  const result = spawnSync('git', gitArgs, {
+  const result = runCommandSync({
+    command: 'git',
+    args: gitArgs,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: true,
   });
 
   if (result.error || result.status !== 0) {

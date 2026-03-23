@@ -11,6 +11,7 @@ const SCHEMA_SQL = `
     width INTEGER,
     height INTEGER,
     exif_datetime TEXT,
+    metadata_timestamp_source TEXT,
     sensitivity_score INTEGER,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
@@ -323,6 +324,8 @@ const MIGRATIONS = [
   "ALTER TABLE jobs ADD COLUMN last_error TEXT",
   "ALTER TABLE workflow_runs ADD COLUMN parameters_json TEXT DEFAULT '{}'",
   "ALTER TABLE step_runs ADD COLUMN expected_items INTEGER",
+  "ALTER TABLE step_runs ADD COLUMN error_message TEXT",
+  "ALTER TABLE assets ADD COLUMN metadata_timestamp_source TEXT",
 ];
 
 function runMigration(db: Database.Database, sql: string): void {

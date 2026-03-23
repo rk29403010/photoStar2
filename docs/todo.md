@@ -95,6 +95,15 @@ Make job modules pluggable. i.e. they can be distribted seperately to the main a
 
 Add ability to download job modules from the web, or local storage. Modules will be compressed, so should be decompressed into one or more files. It's optional to supply large local ai models with the module, so the module should be able to download them on first run if required. Ideally the module should allow users to choose ai models from a list, and the module handles any downloading.
 
+Add a standard local AI model resource flow for modules that depend on large local models:
+
+- Each module should expose settings for a model source URL and/or explicit local file override.
+- Modules should supply a default model URL pinned to a known-good version.
+- On first run, or when the configured source changes, the runtime should download the model into the app's local resource/model directory rather than the git repo.
+- Model resolution should prefer an explicit local override, then the locally cached app resource, and never require checked-in `.onnx` files.
+- The UI/settings layer should make it clear which model version is configured, whether it is downloaded, and allow a re-download or source change.
+- Remove large local AI model files from the repo once this flow is in place.
+
 Modules may define extra settings to be stored in the DB. These settings should be accessible via the UI - so the module should be able to define its own area on the settings page.
 
 Add ability to view and edit workflows that determine how image(s) are processed. Jobs communicate with the controller via events and the controller can then trigger other jobs (by sending events). So a workflow maps the flow of events between modules. One way of thinking of the model is multiple modules connected to a single controller with the controller simply passing events between modules. But it's more useful to consider events as moving directly from one module to another.

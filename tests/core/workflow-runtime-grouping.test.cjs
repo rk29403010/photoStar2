@@ -275,6 +275,77 @@ test('runtime duplicate grouping matches changed assets against older library as
     }
 });
 
+test('runtime duplicate grouping replaces stale subset groups when a new duplicate expands the set', async () => {
+    const tempDir = createTempDir();
+    const fixtureDir = path.join(tempDir, 'fixtures');
+    const firstPath = path.join(fixtureDir, 'first.png');
+    const secondPath = path.join(fixtureDir, 'second.png');
+    const thirdPath = path.join(fixtureDir, 'third.png');
+    createFixtureImage(firstPath);
+    createFixtureImage(secondPath);
+    createFixtureImage(thirdPath);
+
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    let dbManager;
+
+    try {
+        dbManager = new DatabaseManager(tempDir);
+        const firstId = uuidv4();
+        const secondId = uuidv4();
+        const thirdId = uuidv4();
+        const duplicateHash = hashFileContents(firstPath);
+
+        seedAsset(dbManager, {
+            id: firstId,
+            originalPath: firstPath,
+            fileHash: duplicateHash,
+            fileSize: fs.statSync(firstPath).size,
+            width: 1,
+            height: 1,
+        });
+        seedAsset(dbManager, {
+            id: secondId,
+            originalPath: secondPath,
+            fileHash: duplicateHash,
+            fileSize: fs.statSync(secondPath).size,
+            width: 1,
+            height: 1,
+        });
+        seedAsset(dbManager, {
+            id: thirdId,
+            originalPath: thirdPath,
+        });
+        seedDuplicateGroup(dbManager, {
+            groupId: uuidv4(),
+            status: 'confirmed',
+            canonicalAssetId: firstId,
+            assetIds: [firstId, secondId],
+        });
+
+        await runGroupingWorkflow({
+            dbManager,
+            inputSubjects: [{ subjectType: 'asset', subjectId: thirdId }],
+        });
+
+        const duplicateGroups = dbManager.getDb().prepare(`
+            SELECT g.id, m.asset_id
+            FROM asset_groups g
+            JOIN asset_group_members m ON m.group_id = g.id
+            WHERE g.type = 'duplicate'
+            ORDER BY g.id ASC, m.rank ASC
+        `).all();
+
+        assert.equal(new Set(duplicateGroups.map((row) => row.id)).size, 1);
+        assert.deepEqual(
+            duplicateGroups.map((row) => row.asset_id).sort(),
+            [firstId, secondId, thirdId].sort(),
+        );
+    } finally {
+        dbManager?.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
 test('runtime grouping persists near-duplicate groups for same-content assets with different file identities', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');

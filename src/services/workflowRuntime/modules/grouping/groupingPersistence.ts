@@ -330,7 +330,8 @@ export function rebuildImpactedDuplicateGroups(params: {
     }
 
     const duplicateSets = loadImpactedDuplicateSets(params.db, params.changedAssetIds);
-    clearExistingImpactedGroups(params.db, 'duplicate', params.changedAssetIds);
+    const impactedAssetIds = [...new Set(duplicateSets.flatMap((duplicateSet) => duplicateSet.map((asset) => asset.id)))];
+    clearExistingImpactedGroups(params.db, 'duplicate', impactedAssetIds);
     let insertedCount = 0;
 
     for (const duplicateSet of duplicateSets) {

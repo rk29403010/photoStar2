@@ -23,7 +23,7 @@ interface ControlsOverlayProps {
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
     analysisState: AnalysisUiState;
     setAnalysisState: (state: AnalysisUiState) => void;
     setAnalysisError: (err: string | null) => void;
@@ -43,7 +43,7 @@ interface ActionMenuProps {
     setAnalysisError: (err: string | null) => void;
     setAnalyzingAssetId: (id: string | null) => void;
     setAnalyzingJobId: (id: string | null) => void;
-    onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
@@ -122,7 +122,11 @@ function getNextSensitivityStatus(currentStatus: string | null | undefined, next
     return currentStatus === nextStatus ? null : nextStatus;
 }
 
-async function handleAnalyzeImage(event: React.MouseEvent<HTMLButtonElement>, props: ActionMenuProps) {
+async function handleAnalyzeImage(
+    event: React.MouseEvent<HTMLButtonElement>,
+    props: ActionMenuProps,
+    imageStrategy: 'overview_only' | 'overview_plus_tiles' = 'overview_only',
+) {
     const { asset, onExtractAiMetadata, setAnalysisError, setAnalysisState, setAnalyzingAssetId, setAnalyzingJobId, setShowActionMenu } = props;
 
     if (!onExtractAiMetadata) {
@@ -136,7 +140,7 @@ async function handleAnalyzeImage(event: React.MouseEvent<HTMLButtonElement>, pr
     closeActionMenu(setShowActionMenu);
 
     try {
-        const jobId = await onExtractAiMetadata(asset.id);
+        const jobId = await onExtractAiMetadata(asset.id, imageStrategy);
         if (jobId) {
             setAnalyzingJobId(jobId);
         }
@@ -227,7 +231,12 @@ function AiActionMenuItem(props: ActionMenuProps) {
     }
 
     if (props.analysisState === 'idle') {
-        return <MenuItem color="#c084fc" active={false} icon="✨" label="Analyze Image" onClick={(event) => handleAnalyzeImage(event, props)} />;
+        return (
+            <>
+                <MenuItem color="#c084fc" active={false} icon="✨" label="Analyze Image" onClick={(event) => handleAnalyzeImage(event, props)} />
+                <MenuItem color="#6366f1" active={false} icon="🧩" label="Analyze Image (Tiled)" onClick={(event) => handleAnalyzeImage(event, props, 'overview_plus_tiles')} />
+            </>
+        );
     }
 
     if (props.analysisState === 'analyzing') {
@@ -337,7 +346,7 @@ const TopBar: React.FC<{
     setAnalysisError: (err: string | null) => void;
     setAnalyzingAssetId: (id: string | null) => void;
     setAnalyzingJobId: (id: string | null) => void;
-    onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;

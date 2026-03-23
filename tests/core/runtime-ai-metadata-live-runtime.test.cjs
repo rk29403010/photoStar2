@@ -1,0 +1,171 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+function createTempDir() {
+    return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-ai-live-runtime-'));
+}
+
+async function removeDirWithRetry(targetPath) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+            return;
+        } catch (error) {
+            if (attempt === 4) {
+                throw error;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+        }
+    }
+}
+
+async function runLiveMetadataCapture({ tempDir, imageStrategy }) {
+    const sharp = (await import('sharp')).default;
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+
+    const imagePath = path.join(tempDir, `oversized-${imageStrategy}.png`);
+    await sharp({
+        create: {
+            width: 2000,
+            height: 1200,
+            channels: 3,
+            background: { r: 120, g: 90, b: 60 },
+        },
+    }).png().toFile(imagePath);
+
+    const dbManager = new DatabaseManager(tempDir);
+    dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
+
+    const captured = {
+        modelParams: null,
+        request: null,
+    };
+
+    class FakeGoogleGenerativeAI {
+        getGenerativeModel(modelParams) {
+            captured.modelParams = modelParams;
+            return {
+                async generateContent(request) {
+                    captured.request = request;
+                    return {
+                        response: {
+                            text() {
+                                return JSON.stringify({
+                                    type: 'Family portrait',
+                                    estimated_date: '1930s',
+                                    location: 'Unknown',
+                                    subjects: [
+                                        {
+                                            label: 'Subject1',
+                                            bounding_box: { x: 10, y: 20, width: 100, height: 120 },
+                                            type: 'person',
+                                            location_desc: 'centre',
+                                            gender: 'female',
+                                            age_range: 'adult',
+                                            emotion: 'neutral',
+                                        },
+                                    ],
+                                    caption: 'A family portrait.',
+                                    keywords: ['family'],
+                                    emotional_impact: 'Warm',
+                                    quality: {
+                                        technical: 7,
+                                        lighting: 7,
+                                        composition: 7,
+                                        emotional: 8,
+                                        discard: false,
+                                    },
+                                    recommended_enhancements: [],
+                                    authenticity: {
+                                        score: 8,
+                                        reasons: ['Looks original'],
+                                    },
+                                });
+                            },
+                        },
+                    };
+                },
+            };
+        }
+    }
+
+    await liveRuntime.generateLiveAiMetadata({
+        dbManager,
+        row: {
+            id: 'asset-1',
+            original_path: imagePath,
+            sensitivity_status: null,
+            sensitivity_score: null,
+        },
+        imageStrategy,
+        GoogleGenerativeAIClass: FakeGoogleGenerativeAI,
+    });
+
+    return { captured, dbManager, sharp };
+}
+
+test('generateLiveAiMetadata configures structured output and overview-only image preparation', async () => {
+    const tempDir = createTempDir();
+    let dbManager = null;
+
+    try {
+        const result = await runLiveMetadataCapture({ tempDir, imageStrategy: 'overview_only' });
+        dbManager = result.dbManager;
+        const { captured, sharp } = result;
+
+        assert.ok(captured.modelParams);
+        assert.equal(captured.modelParams.model, 'gemini-3-flash-preview');
+        assert.equal(captured.modelParams.generationConfig.responseMimeType, 'application/json');
+        assert.equal(captured.modelParams.generationConfig.responseSchema.type, 'object');
+        assert.equal(captured.modelParams.generationConfig.responseSchema.properties.subjects.type, 'array');
+
+        assert.ok(Array.isArray(captured.request));
+        assert.equal(captured.request.length, 2);
+        const imagePart = captured.request[1];
+        assert.ok(imagePart.inlineData);
+        assert.equal(imagePart.inlineData.mimeType, 'image/jpeg');
+
+        const resizedMetadata = await sharp(Buffer.from(imagePart.inlineData.data, 'base64')).metadata();
+        assert.equal(Math.max(resizedMetadata.width ?? 0, resizedMetadata.height ?? 0), 768);
+    } finally {
+        try {
+            dbManager?.close();
+        } catch {
+            // ignore cleanup failures during test teardown
+        }
+        await removeDirWithRetry(tempDir);
+    }
+});
+
+test('generateLiveAiMetadata sends overview plus numbered tile crops in tiled mode', async () => {
+    const tempDir = createTempDir();
+    let dbManager = null;
+
+    try {
+        const result = await runLiveMetadataCapture({ tempDir, imageStrategy: 'overview_plus_tiles' });
+        dbManager = result.dbManager;
+        const { captured, sharp } = result;
+
+        assert.ok(Array.isArray(captured.request));
+        assert.match(captured.request[0], /Image 1 is the full overview/i);
+        assert.match(captured.request[0], /Images 2 through 5 are detail crops/i);
+        assert.equal(captured.request.length, 6);
+
+        for (const imagePart of captured.request.slice(1)) {
+            assert.ok(imagePart.inlineData);
+            const resizedMetadata = await sharp(Buffer.from(imagePart.inlineData.data, 'base64')).metadata();
+            assert.equal(Math.max(resizedMetadata.width ?? 0, resizedMetadata.height ?? 0), 768);
+        }
+    } finally {
+        try {
+            dbManager?.close();
+        } catch {
+            // ignore cleanup failures during test teardown
+        }
+        await removeDirWithRetry(tempDir);
+    }
+});

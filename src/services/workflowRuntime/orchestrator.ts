@@ -159,7 +159,8 @@ export class WorkflowRuntimeOrchestrator {
                     subjectId: subject.subjectId,
                     status: 'completed',
                 });
-            } catch {
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
                 this.deps.store.recordSubjectExecution({
                     workflowRunId: runId,
                     stepRunId,
@@ -172,9 +173,10 @@ export class WorkflowRuntimeOrchestrator {
                     workflowRunId: runId,
                     nodeId: node.id,
                     status: 'failed',
+                    errorMessage,
                 });
                 this.deps.store.updateWorkflowRunStatus(runId, 'failed');
-                throw new Error(`workflow step '${node.id}' failed`);
+                throw new Error(`workflow step '${node.id}' failed: ${errorMessage}`);
             }
         }
 
@@ -229,7 +231,8 @@ export class WorkflowRuntimeOrchestrator {
                 status: 'completed',
             });
             return result.emittedSubjects && result.emittedSubjects.length > 0 ? result.emittedSubjects : subjects;
-        } catch {
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
             this.deps.store.recordSubjectExecution({
                 workflowRunId: runId,
                 stepRunId,
@@ -242,9 +245,10 @@ export class WorkflowRuntimeOrchestrator {
                 workflowRunId: runId,
                 nodeId: node.id,
                 status: 'failed',
+                errorMessage,
             });
             this.deps.store.updateWorkflowRunStatus(runId, 'failed');
-            throw new Error(`workflow step '${node.id}' failed`);
+            throw new Error(`workflow step '${node.id}' failed: ${errorMessage}`);
         }
     }
 

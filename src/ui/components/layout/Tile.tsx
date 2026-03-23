@@ -19,6 +19,8 @@ interface TileProps {
     imageFetchPriority?: 'high' | 'auto';
     isGroupRepresentative?: boolean;
     showGroupIds?: boolean;
+    hoveredGroupId?: string | null;
+    onHoveredGroupIdChange?: (groupId: string | null) => void;
 }
 
 type SensitivityBadge = {
@@ -211,7 +213,12 @@ const GroupModeBadge: React.FC<{ show: boolean }> = ({ show }) => {
     );
 };
 
-const GroupIdPills: React.FC<{ memberships: Asset['group_memberships']; show: boolean }> = ({ memberships, show }) => {
+const GroupIdPills: React.FC<{
+    memberships: Asset['group_memberships'];
+    show: boolean;
+    hoveredGroupId?: string | null;
+    onHoveredGroupIdChange?: (groupId: string | null) => void;
+}> = ({ memberships, show, hoveredGroupId, onHoveredGroupIdChange }) => {
     if (!show || !memberships || memberships.length === 0) {return null;}
 
     const pills = buildGroupIdPillModels(memberships);
@@ -228,26 +235,31 @@ const GroupIdPills: React.FC<{ memberships: Asset['group_memberships']; show: bo
                 gap: 4,
                 maxWidth: '70%',
                 zIndex: 15,
-                pointerEvents: 'none',
+                pointerEvents: 'auto',
             }}
         >
             {pills.map((pill) => (
                 <span
                     key={pill.key}
                     title={pill.title}
+                    onMouseEnter={() => onHoveredGroupIdChange?.(pill.key)}
+                    onMouseLeave={() => onHoveredGroupIdChange?.(null)}
                     style={{
                         padding: '3px 7px',
                         borderRadius: 999,
                         background: pill.background,
-                        border: `1px solid ${pill.borderColor}`,
+                        border: `${hoveredGroupId === pill.key ? 2 : 1}px solid ${pill.borderColor}`,
                         color: pill.textColor,
                         fontSize: '0.6rem',
                         fontWeight: 700,
                         letterSpacing: '0.04em',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.28)',
+                        boxShadow: hoveredGroupId === pill.key
+                            ? `0 0 0 1px ${pill.borderColor}, 0 2px 8px rgba(0,0,0,0.34)`
+                            : '0 2px 6px rgba(0,0,0,0.28)',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 4,
+                        pointerEvents: 'auto',
                     }}
                 >
                     <span style={{ opacity: 0.95 }}>{pill.symbol}</span>
@@ -349,6 +361,8 @@ export const Tile: React.FC<TileProps> = ({
     imageFetchPriority = 'auto',
     isGroupRepresentative = false,
     showGroupIds = false,
+    hoveredGroupId = null,
+    onHoveredGroupIdChange,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -383,7 +397,12 @@ export const Tile: React.FC<TileProps> = ({
             <SensitivityBadgeView badge={sensitivityBadge} />
             <StackBadge count={asset.stack_count} />
             <GroupModeBadge show={isGroupRepresentative} />
-            <GroupIdPills memberships={asset.group_memberships} show={showGroupIds} />
+            <GroupIdPills
+                memberships={asset.group_memberships}
+                show={showGroupIds}
+                hoveredGroupId={hoveredGroupId}
+                onHoveredGroupIdChange={onHoveredGroupIdChange}
+            />
             <CaptionOverlay show={isHovered} caption={asset.caption} />
             <DeclusterButton visible={isHovered} activeFilter={activeFilter} assetId={asset.id} onUntagAsset={onUntagAsset} />
             <FaceBoxes asset={asset} showFaces={showFaces} activeFilter={activeFilter} />

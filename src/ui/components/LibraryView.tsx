@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 
 import type { Asset } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { LayoutEngine } from './layout/LayoutEngine';
-import type { LibrarySortMode } from '@shared/utils/libraryGallery';
+import { getEffectiveLibrarySortMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
+import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { buildVisibleGalleryItems } from '@shared/utils/libraryGallerySelection';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
@@ -94,6 +95,7 @@ function RejectedSection({
                     onLibrarySelectionChange={undefined}
                     declusteredAssets={undefined}
                     showGroupIds={false}
+                    layoutMode="tiled"
                 />
             </div>
         </div>
@@ -154,7 +156,7 @@ function useDisplayAssets(
     return useMemo(() => {
         return buildVisibleGalleryItems(assets, {
             declusteredAssetIds: declusteredAssets,
-            sortMode,
+            sortMode: getEffectiveLibrarySortMode(sortMode, groupSimilarPhotos),
             groupSimilarPhotos,
         });
     }, [assets, declusteredAssets, groupSimilarPhotos, sortMode]);
@@ -193,6 +195,8 @@ function useLibraryPaging(params: {
 function LibraryToolbar({
     sortMode,
     onSortModeChange,
+    layoutMode,
+    onLayoutModeChange,
     groupSimilarPhotos,
     onGroupSimilarPhotosChange,
     showGroupIds,
@@ -200,6 +204,8 @@ function LibraryToolbar({
 }: {
     sortMode: LibrarySortMode;
     onSortModeChange: (mode: LibrarySortMode) => void;
+    layoutMode: GalleryLayoutMode;
+    onLayoutModeChange: (mode: GalleryLayoutMode) => void;
     groupSimilarPhotos: boolean;
     onGroupSimilarPhotosChange: (enabled: boolean) => void;
     showGroupIds: boolean;
@@ -243,18 +249,33 @@ function LibraryToolbar({
                     Show group IDs
                 </button>
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                <span>Sort</span>
-                <select
-                    aria-label="Sort gallery"
-                    value={sortMode}
-                    onChange={(event) => onSortModeChange(event.target.value as LibrarySortMode)}
-                    style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 999, padding: '6px 10px', fontSize: '0.78rem', outline: 'none' }}
-                >
-                    <option value="date">Date</option>
-                    <option value="filename">Filename</option>
-                </select>
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    <span>View</span>
+                    <select
+                        aria-label="Gallery view"
+                        value={layoutMode}
+                        onChange={(event) => onLayoutModeChange(event.target.value as GalleryLayoutMode)}
+                        style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 999, padding: '6px 10px', fontSize: '0.78rem', outline: 'none' }}
+                    >
+                        <option value="tiled">Tiled</option>
+                        <option value="grid">Grid</option>
+                    </select>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    <span>Sort</span>
+                    <select
+                        aria-label="Sort gallery"
+                        value={sortMode}
+                        onChange={(event) => onSortModeChange(event.target.value as LibrarySortMode)}
+                        style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 999, padding: '6px 10px', fontSize: '0.78rem', outline: 'none' }}
+                    >
+                        <option value="date">Date</option>
+                        <option value="filename">Filename</option>
+                        {!groupSimilarPhotos && <option value="group">Group</option>}
+                    </select>
+                </label>
+            </div>
         </div>
     );
 }
@@ -285,6 +306,8 @@ export function LibraryView({
     onHoverAssetChange,
 }: LibraryViewProps) {
     const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
+    const [layoutMode, setLayoutMode] = useState<GalleryLayoutMode>('tiled');
+    const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
     const displayItems = useDisplayAssets(assets, declusteredAssets, sortMode, groupSimilarPhotos);
     const rejectedAssetCount = getRejectedAssetCount(showRejected, rejectedAssets);
     const { scrollRef, handleScroll } = useLibraryPaging({
@@ -294,6 +317,12 @@ export function LibraryView({
         isLoadingMoreAssets,
         onLoadMoreAssets,
     });
+
+    useEffect(() => {
+        if (groupSimilarPhotos && sortMode === 'group') {
+            setSortMode('filename');
+        }
+    }, [groupSimilarPhotos, sortMode]);
 
     if (shouldShowLoadingState({ loading, backendReady, assetCount: assets.length })) {
         return <LoadingState backendStatus={backendStatus} backendReady={backendReady} />;
@@ -311,6 +340,8 @@ export function LibraryView({
             <LibraryToolbar
                 sortMode={sortMode}
                 onSortModeChange={setSortMode}
+                layoutMode={layoutMode}
+                onLayoutModeChange={setLayoutMode}
                 groupSimilarPhotos={groupSimilarPhotos}
                 onGroupSimilarPhotosChange={onGroupSimilarPhotosChange}
                 showGroupIds={showGroupIds}
@@ -329,6 +360,9 @@ export function LibraryView({
                 declusteredAssets={declusteredAssets}
                 onHoverAssetChange={onHoverAssetChange}
                 showGroupIds={showGroupIds}
+                hoveredGroupId={hoveredGroupId}
+                onHoveredGroupIdChange={setHoveredGroupId}
+                layoutMode={layoutMode}
             />
             <RejectedSection
                 showRejected={showRejected}

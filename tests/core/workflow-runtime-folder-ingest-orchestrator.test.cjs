@@ -27,6 +27,7 @@ test('folder_ingest_v1 completes enrichment branches after Library ready', async
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
     const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
+    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
     const { createDetectFacesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFacesModule.js');
     const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateFaceVectorsModule.js');
     const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
@@ -69,6 +70,7 @@ test('folder_ingest_v1 completes enrichment branches after Library ready', async
         }
 
         modules.register(createScanFolderModule({ dbManager }));
+        modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
         modules.register(createGeneratePreviewsModule({ dbManager }));
         modules.register(createDetectFacesModule({ dbManager }));
         modules.register(createGenerateFaceVectorsModule({ dbManager }));
@@ -104,8 +106,10 @@ test('folder_ingest_v1 completes enrichment branches after Library ready', async
 
         const peopleCount = dbManager.getDb().prepare('SELECT COUNT(*) AS count FROM people').get();
         const groupCount = dbManager.getDb().prepare("SELECT COUNT(*) AS count FROM asset_groups WHERE type = 'people'").get();
-        assert.equal(peopleCount.count, 1);
+        assert.equal(peopleCount.count, 0);
         assert.equal(groupCount.count, 0);
+        const metadataCount = dbManager.getDb().prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'embedded_metadata'").get();
+        assert.equal(metadataCount.count, 2);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

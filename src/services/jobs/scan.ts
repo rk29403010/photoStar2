@@ -1,11 +1,12 @@
 import type { DatabaseManager } from '../../data/db';
-import { hashFile, getExifData } from '../file-utils';
+import { hashFile } from '../file-utils';
 import { join, extname } from 'node:path';
 import { readdirSync, statSync } from 'node:fs';
 import type { Stats } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
 import type { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
+import { persistAssetEmbeddedMetadata } from '../embeddedMetadata';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic']);
 
@@ -93,15 +94,20 @@ async function ingestNewAsset(
 ): Promise<void> {
     const mediaId = uuidv4();
     const hash = await hashFile(fullPath);
-    const exif = await getExifData(fullPath);
-    const width = exif?.width || 0;
-    const height = exif?.height || 0;
-    const exifDate = new Date(stats.birthtime).toISOString();
 
-    db.prepare('INSERT INTO assets (id, original_path, file_hash, file_size, width, height, exif_datetime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(mediaId, fullPath, hash, stats.size, width, height, exifDate, new Date().toISOString());
-
-    emitMediaDiscovered(eventBus, jobId, mediaId, fullPath, width, height);
+    db.prepare(`
+        INSERT INTO assets (
+            id, original_path, file_hash, file_size, width, height, exif_datetime, metadata_timestamp_source, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(mediaId, fullPath, hash, stats.size, 0, 0, null, null, new Date().toISOString());
+    const snapshot = await persistAssetEmbeddedMetadata({
+        db,
+        assetId: mediaId,
+        originalPath: fullPath,
+        fileSize: stats.size,
+        birthtime: stats.birthtime,
+    });
+    emitMediaDiscovered(eventBus, jobId, mediaId, fullPath, snapshot?.width ?? 0, snapshot?.height ?? 0);
 }
 
 function shouldSkipDueToFatalIssue(db: ReturnType<DatabaseManager['getDb']>, mediaId: string): boolean {

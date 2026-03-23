@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
-import type { TileIntent } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
+import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import {
     createEmptyLibrarySelectionState,
     getLibrarySelectionCount,
@@ -26,9 +26,12 @@ interface LayoutEngineProps {
     declusteredAssets?: Set<string>;
     onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
     showGroupIds?: boolean;
+    hoveredGroupId?: string | null;
+    onHoveredGroupIdChange?: (groupId: string | null) => void;
+    layoutMode?: GalleryLayoutMode;
 }
 
-type LayoutItem = { item: LibrarySelectableItem; intent: TileIntent; spanW: number; spanH: number };
+type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
 
 interface SelectionInteractionState {
     dragSelectionRef: MutableRefObject<{
@@ -58,40 +61,16 @@ interface LayoutTileProps {
     onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
     layoutItems: LayoutItem[];
     showGroupIds?: boolean;
+    hoveredGroupId?: string | null;
+    onHoveredGroupIdChange?: (groupId: string | null) => void;
 }
 
 const PRIORITY_TILE_COUNT = 60;
 const LONG_PRESS_MS = 420;
 
-const computeLayout = (items: LibrarySelectableItem[]): LayoutItem[] => items.map((item) => {
-    const h = item.asset.height || 1;
-    const w = item.asset.width || 1;
-    const ratio = w / h;
-    const targetRatios = [
-        { ratio: 1, spanW: 3, spanH: 3 }, { ratio: 4 / 3, spanW: 4, spanH: 3 }, { ratio: 3 / 4, spanW: 3, spanH: 4 },
-        { ratio: 3 / 2, spanW: 3, spanH: 2 }, { ratio: 2 / 3, spanW: 2, spanH: 3 }, { ratio: 16 / 9, spanW: 4, spanH: 2 },
-    ];
-
-    let bestTarget = targetRatios[0];
-    let minDiff = Infinity;
-    for (const target of targetRatios) {
-        const diff = Math.abs(ratio - target.ratio);
-        if (diff < minDiff) {
-            minDiff = diff;
-            bestTarget = target;
-        }
-    }
-
-    let { spanW, spanH } = bestTarget;
-    let intent: TileIntent = 'normal';
-    const isHero = item.asset.manualState?.forceHero || (item.asset.processingPhase === 2 && item.asset.layoutCapabilities?.heroEligible);
-    if (isHero) {
-        intent = 'hero';
-        spanW = Math.min(Math.round(spanW * 2), 24);
-        spanH = Math.round(spanH * 2);
-    }
-
-    return { item, intent, spanW, spanH };
+const computeLayout = (items: LibrarySelectableItem[], layoutMode: GalleryLayoutMode): LayoutItem[] => items.map((item) => {
+    const layout = buildGalleryTileLayout(item.asset, layoutMode);
+    return { item, ...layout };
 });
 
 function clearPressTimer(pressTimer: MutableRefObject<number | null>) {
@@ -256,6 +235,8 @@ function LayoutTile({
     onHoverAssetChange,
     layoutItems,
     showGroupIds,
+    hoveredGroupId,
+    onHoveredGroupIdChange,
 }: LayoutTileProps) {
     const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
     const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
@@ -317,6 +298,8 @@ function LayoutTile({
                 imageFetchPriority={prioritizeImage ? 'high' : 'auto'}
                 isGroupRepresentative={layoutItem.item.entityType === 'group'}
                 showGroupIds={showGroupIds}
+                hoveredGroupId={hoveredGroupId}
+                onHoveredGroupIdChange={onHoveredGroupIdChange}
             />
         </div>
     );
@@ -335,8 +318,11 @@ export function LayoutEngine({
     declusteredAssets,
     onHoverAssetChange,
     showGroupIds,
+    hoveredGroupId,
+    onHoveredGroupIdChange,
+    layoutMode = 'tiled',
 }: LayoutEngineProps) {
-    const layoutItems = useMemo(() => computeLayout(items), [items]);
+    const layoutItems = useMemo(() => computeLayout(items, layoutMode), [items, layoutMode]);
     const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
 
     return (
@@ -373,6 +359,8 @@ export function LayoutEngine({
                     onHoverAssetChange={onHoverAssetChange}
                     layoutItems={layoutItems}
                     showGroupIds={showGroupIds}
+                    hoveredGroupId={hoveredGroupId}
+                    onHoveredGroupIdChange={onHoveredGroupIdChange}
                 />
             ))}
         </div>

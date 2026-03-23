@@ -5,10 +5,13 @@ export type AssetPayloadRow = {
     height: number | null;
     file_size: number | null;
     created_at: string | null;
+    exif_datetime?: string | null;
+    metadata_timestamp_source?: string | null;
     preview_path: string | null;
     faces_data: string | null;
     rec_data: string | null;
     ai_metadata_data: string | null;
+    embedded_metadata_data?: string | null;
     people_data: string | null;
     caption: string | null;
     sensitivity_score: number | null;
@@ -67,6 +70,15 @@ function parseAiMetadata(row: AssetPayloadRow) {
     }
 }
 
+function parseEmbeddedMetadata(row: AssetPayloadRow) {
+    if (!row.embedded_metadata_data) {return undefined;}
+    try {
+        return JSON.parse(row.embedded_metadata_data) as Record<string, unknown>;
+    } catch {
+        return undefined;
+    }
+}
+
 function parseFaceEmbeddings(row: AssetPayloadRow) {
     if (!row.rec_data) {return [];}
     try {
@@ -93,6 +105,8 @@ function buildAssetFileFields(row: AssetPayloadRow) {
         height: row.height ?? undefined,
         file_size: row.file_size ?? undefined,
         created_at: row.created_at ?? undefined,
+        exif_datetime: row.exif_datetime ?? null,
+        metadata_timestamp_source: row.metadata_timestamp_source ?? null,
         preview_path: row.preview_path ?? undefined,
         sensitivity_score: row.sensitivity_score,
         sensitivity_status: row.sensitivity_status,
@@ -170,12 +184,14 @@ export function toAssetPayload(row: AssetPayloadRow) {
     const faces = parseFaces(row);
     applyPeopleAssignments(faces, parsePeopleAssignments(row));
     const aiMeta = parseAiMetadata(row);
+    const embeddedMetadata = parseEmbeddedMetadata(row);
 
     return {
         ...buildAssetFileFields(row),
         faces,
         face_embeddings: parseFaceEmbeddings(row),
         ai_metadata: aiMeta,
+        embedded_metadata: embeddedMetadata,
         caption: resolveCaption(row, aiMeta),
         ...buildGroupFields(row),
     };

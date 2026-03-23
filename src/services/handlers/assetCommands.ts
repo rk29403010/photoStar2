@@ -14,10 +14,13 @@ type AssetRow = {
     height: number;
     file_size: number;
     created_at: string;
+    exif_datetime: string | null;
+    metadata_timestamp_source: string | null;
     preview_path: string | null;
     faces_data: string | null;
     rec_data: string | null;
     ai_metadata_data: string | null;
+    embedded_metadata_data: string | null;
     people_data: string | null;
     caption: string | null;
     sensitivity_score: number | null;
@@ -54,6 +57,8 @@ type DetailFragments = {
     recJoin: string;
     aiSelect: string;
     aiJoin: string;
+    embeddedMetadataSelect: string;
+    embeddedMetadataJoin: string;
 };
 
 function getDetailLevel(payload: AssetQueryPayload | undefined): AssetDetailLevel {
@@ -86,6 +91,8 @@ function buildDetailFragments(params: {
             recJoin: '',
             aiSelect: 'null as ai_metadata_data,',
             aiJoin: '',
+            embeddedMetadataSelect: 'null as embedded_metadata_data,',
+            embeddedMetadataJoin: '',
         };
     }
 
@@ -96,6 +103,8 @@ function buildDetailFragments(params: {
         aiJoin: `
             LEFT JOIN derived_results ${aiNewAlias} ON a.id = ${aiNewAlias}.asset_id AND ${aiNewAlias}.task = 'ai_metadata'
             LEFT JOIN derived_results ${aiLegacyAlias} ON a.id = ${aiLegacyAlias}.asset_id AND ${aiLegacyAlias}.task = 'photo_metadata'`,
+        embeddedMetadataSelect: 'r_meta.data as embedded_metadata_data,',
+        embeddedMetadataJoin: `LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'`,
     };
 }
 
@@ -158,12 +167,13 @@ function buildFilteredAssetsQuery(
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
-                a.caption, a.sensitivity_score,
+                a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 am.sensitivity_status,
                 p.path as preview_path,
                 COALESCE(dr_new.data, dr_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
+                ${detail.embeddedMetadataSelect}
                 (
                     SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
                     FROM face_assignments fa
@@ -184,6 +194,7 @@ function buildFilteredAssetsQuery(
             LEFT JOIN derived_results dr_legacy ON a.id = dr_legacy.asset_id AND dr_legacy.task = 'face_landmarks'
             ${detail.recJoin}
             ${detail.aiJoin}
+            ${detail.embeddedMetadataJoin}
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
             WHERE 1=1 ${filterSubquery}
@@ -213,12 +224,13 @@ function buildGroupedAssetsQuery(
             ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
-                a.caption, a.sensitivity_score,
+                a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
+                ${detail.embeddedMetadataSelect}
                 json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
                 ${groupFields.memberGroupIdSelect}
                 ${groupFields.memberRoleSelect}
@@ -234,10 +246,11 @@ function buildGroupedAssetsQuery(
             LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
             ${detail.recJoin}
             ${detail.aiJoin}
+            ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
             WHERE ${buildPrimaryGroupVisibilityPredicate('a')}
-            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
+            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : ''}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
@@ -264,12 +277,13 @@ function buildUngroupedAssetsQuery(
             ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
-                a.caption, a.sensitivity_score,
+                a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
+                ${detail.embeddedMetadataSelect}
                 json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
                 ${groupFields.memberGroupIdSelect}
                 ${groupFields.memberRoleSelect}
@@ -285,9 +299,10 @@ function buildUngroupedAssetsQuery(
             LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
             ${detail.recJoin}
             ${detail.aiJoin}
+            ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
-            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data' : ''}
+            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : ''}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
@@ -302,13 +317,14 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
                 a.caption, a.sensitivity_score,
                 am.sensitivity_status,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 r_rec.data as rec_data,
                 COALESCE(r_ai_new.data, r_ai_legacy.data) as ai_metadata_data,
+                r_meta.data as embedded_metadata_data,
                 (
                     SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
                     FROM face_assignments fa
@@ -330,6 +346,7 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
             LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
             LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
             LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
+            LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
             WHERE a.id = ?

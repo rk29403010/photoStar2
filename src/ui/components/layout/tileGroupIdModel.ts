@@ -18,14 +18,15 @@ function getGroupSymbol(groupType: string | null | undefined) {
     if (groupType == null) {return '#';}
     switch (groupType) {
         case 'duplicate':
+            return '≡';
         case 'near_duplicate':
-            return '=';
+            return '≈';
         case 'variant_set':
             return '~';
         case 'burst':
             return '*';
         case 'people':
-            return '@';
+            return 'P';
     }
 
     return '#';

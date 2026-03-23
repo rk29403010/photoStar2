@@ -3,6 +3,7 @@ import type {
     GroupDiagnosticsChildRow,
     GroupDiagnosticsFlag,
     GroupDiagnosticsGroupRow,
+    GroupDiagnosticsMembershipGroupRow,
     GroupDiagnosticsReport,
 } from '@contracts/groupDiagnostics';
 
@@ -36,8 +37,9 @@ function getGroupTypeRank(groupType: string) {
 function buildGroupAssetRows(params: {
     assetIds: string[];
     assetsById: Map<string, AssetRecord>;
+    groupsById: Map<string, GroupRecord>;
 }): GroupDiagnosticsAssetRow[] {
-    const { assetIds, assetsById } = params;
+    const { assetIds, assetsById, groupsById } = params;
     return assetIds.flatMap((assetId) => {
         const asset = assetsById.get(assetId);
         if (!asset) {return [];}
@@ -47,7 +49,50 @@ function buildGroupAssetRows(params: {
             previewPath: asset.previewPath,
             membershipCount: asset.groupIds.length,
             groupIds: asset.groupIds,
+            groups: buildMembershipGroups({ groupIds: asset.groupIds, groupsById, assetsById }),
         }];
+    });
+}
+
+function buildRepresentativePreviewPath(params: {
+    representativeAssetId: string | null;
+    assetsById: Map<string, AssetRecord>;
+}) {
+    const representativeAssetId = params.representativeAssetId;
+    if (!representativeAssetId) {
+        return null;
+    }
+
+    return params.assetsById.get(representativeAssetId)?.previewPath ?? null;
+}
+
+function buildMembershipGroup(params: {
+    group: GroupRecord;
+    assetsById: Map<string, AssetRecord>;
+}): GroupDiagnosticsMembershipGroupRow {
+    return {
+        groupId: params.group.groupId,
+        groupType: params.group.groupType,
+        representativeAssetId: params.group.representativeAssetId,
+        representativePreviewPath: buildRepresentativePreviewPath({
+            representativeAssetId: params.group.representativeAssetId,
+            assetsById: params.assetsById,
+        }),
+    };
+}
+
+function buildMembershipGroups(params: {
+    groupIds: string[];
+    groupsById: Map<string, GroupRecord>;
+    assetsById: Map<string, AssetRecord>;
+}) {
+    return params.groupIds.flatMap((groupId) => {
+        const group = params.groupsById.get(groupId);
+        if (!group) {
+            return [];
+        }
+
+        return [buildMembershipGroup({ group, assetsById: params.assetsById })];
     });
 }
 
@@ -109,6 +154,7 @@ function buildGroupChildren(params: {
     childGroupIds: string[];
     groupsById: Map<string, GroupRecord>;
     descendantCountsByGroupId: Map<string, number>;
+    assetsById: Map<string, AssetRecord>;
 }): GroupDiagnosticsChildRow[] {
     return params.childGroupIds.flatMap((childGroupId) => {
         const childGroup = params.groupsById.get(childGroupId);
@@ -120,6 +166,10 @@ function buildGroupChildren(params: {
             groupId: childGroup.groupId,
             groupType: childGroup.groupType,
             representativeAssetId: childGroup.representativeAssetId,
+            representativePreviewPath: buildRepresentativePreviewPath({
+                representativeAssetId: childGroup.representativeAssetId,
+                assetsById: params.assetsById,
+            }),
             descendantFileCount: params.descendantCountsByGroupId.get(childGroupId) ?? childGroup.assetIds.length,
         }];
     });
@@ -176,7 +226,7 @@ function buildGroupRows(params: {
     }
 
     for (const group of groupsById.values()) {
-        const assets = buildGroupAssetRows({ assetIds: group.assetIds, assetsById });
+        const assets = buildGroupAssetRows({ assetIds: group.assetIds, assetsById, groupsById });
         const overlapCount = assets.filter((asset) => asset.membershipCount > 1).length;
         const underlyingKeys = buildUnderlyingKeys({
             groupType: group.groupType,
@@ -193,12 +243,17 @@ function buildGroupRows(params: {
             childGroupIds: group.childGroupIds,
             groupsById,
             descendantCountsByGroupId,
+            assetsById,
         });
 
         rows.push({
             groupId: group.groupId,
             groupType: group.groupType,
             representativeAssetId: group.representativeAssetId,
+            representativePreviewPath: buildRepresentativePreviewPath({
+                representativeAssetId: group.representativeAssetId,
+                assetsById,
+            }),
             fileCount,
             descendantFileCount,
             directChildGroupCount: group.childGroupIds.length,

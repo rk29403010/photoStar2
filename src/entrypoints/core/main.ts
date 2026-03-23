@@ -19,6 +19,8 @@ import { createGenerateAiMetadataModule } from '../../services/workflowRuntime/m
 import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
 import { createGeneratePreviewsModule } from '../../services/workflowRuntime/modules/generatePreviewsModule';
 import { createGroupSimilarPhotosModule } from '../../services/workflowRuntime/modules/groupSimilarPhotosModule';
+import { createExpandSelectionModule } from '../../services/workflowRuntime/modules/expandSelectionModule';
+import { createExtractEmbeddedMetadataModule } from '../../services/workflowRuntime/modules/extractEmbeddedMetadataModule';
 import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
 import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
 import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
@@ -28,6 +30,7 @@ import { folderIngestWorkflowDefinition } from '../../services/workflowRuntime/w
 import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryGroupingWorkflow';
 import { libraryPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPreviewWorkflow';
 import { librarySensitiveScanWorkflowDefinition } from '../../services/workflowRuntime/workflows/librarySensitiveScanWorkflow';
+import { selectedSubjectMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow';
 import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
 import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
 import { SubjectRegistry } from '../../services/workflowRuntime/subjectRegistry';
@@ -82,11 +85,23 @@ workflowRuntimeSubjects.register({
     ui: { detailSections: ['overview'] },
     labels: { singular: 'file', plural: 'files' },
 });
+workflowRuntimeSubjects.register({
+    id: 'selection',
+    version: 1,
+    durable: false,
+    summary: { titleField: 'id', thumbnailStrategy: 'none' },
+    progressSemantics: 'aggregate',
+    relations: [],
+    ui: { detailSections: ['overview'] },
+    labels: { singular: 'selection', plural: 'selections' },
+});
 workflowRuntimeModules.register(createScanFolderModule({ dbManager }));
+workflowRuntimeModules.register(createExpandSelectionModule());
+workflowRuntimeModules.register(createExtractEmbeddedMetadataModule({ dbManager, eventBus }));
 workflowRuntimeModules.register(createGeneratePreviewsModule({ dbManager, eventBus }));
 workflowRuntimeModules.register(createDetectFacesModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createGenerateFaceVectorsModule({ dbManager }));
-workflowRuntimeModules.register(createResolvePeopleModule({ dbManager }));
+workflowRuntimeModules.register(createGenerateFaceVectorsModule({ dbManager, eventBus }));
+workflowRuntimeModules.register(createResolvePeopleModule({ dbManager, eventBus }));
 workflowRuntimeModules.register(createGroupSimilarPhotosModule({ dbManager }));
 workflowRuntimeModules.register(createDetectSensitiveContentModule({ dbManager, eventBus }));
 workflowRuntimeModules.register(createGenerateAiMetadataModule({ dbManager, eventBus }));
@@ -102,6 +117,7 @@ workflowRuntimeWorkflows.register(libraryPreviewWorkflowDefinition);
 workflowRuntimeWorkflows.register(libraryFaceWorkflowDefinition);
 workflowRuntimeWorkflows.register(librarySensitiveScanWorkflowDefinition);
 workflowRuntimeWorkflows.register(libraryAiMetadataWorkflowDefinition);
+workflowRuntimeWorkflows.register(selectedSubjectMetadataWorkflowDefinition);
 const workflowRuntime = {
     store: workflowRuntimeStore,
     workflows: workflowRuntimeWorkflows,
@@ -245,11 +261,14 @@ type AssetUpdatedRow = {
     width: number;
     height: number;
     created_at: string;
+    exif_datetime: string | null;
+    metadata_timestamp_source: string | null;
     preview_path: string | null;
     faces_data: string | null;
     rec_data: string | null;
     people_data: string | null;
     ai_metadata_data: string | null;
+    embedded_metadata_data: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
 };
@@ -257,13 +276,14 @@ type AssetUpdatedRow = {
 function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
     const db = dbManager.getDb();
     return db.prepare(`
-        SELECT a.id, a.original_path, a.width, a.height, a.created_at,
+        SELECT a.id, a.original_path, a.width, a.height, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
                a.sensitivity_score,
                am.sensitivity_status,
                p.path as preview_path,
                dr.data as faces_data,
                fr.data as rec_data,
                aim.data as ai_metadata_data,
+               meta.data as embedded_metadata_data,
                (
                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', fa.person_id, 'name', per.name))
                    FROM face_assignments fa
@@ -275,6 +295,7 @@ function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
         LEFT JOIN derived_results dr ON a.id = dr.asset_id AND dr.task = 'face_detection'
         LEFT JOIN derived_results fr ON a.id = fr.asset_id AND fr.task = 'face_recognition'
         LEFT JOIN derived_results aim ON a.id = aim.asset_id AND aim.task = 'ai_metadata'
+        LEFT JOIN derived_results meta ON a.id = meta.asset_id AND meta.task = 'embedded_metadata'
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
         WHERE a.id = ?
@@ -299,12 +320,14 @@ function mergeFaceAssignments(row: AssetUpdatedRow) {
 function buildUpdatedAsset(row: AssetUpdatedRow) {
     const faces = mergeFaceAssignments(row);
     const aiMeta = row.ai_metadata_data ? JSON.parse(row.ai_metadata_data) : undefined;
+    const embeddedMetadata = row.embedded_metadata_data ? JSON.parse(row.embedded_metadata_data) : undefined;
 
     return {
         ...row,
         faces,
         face_embeddings: row.rec_data ? JSON.parse(row.rec_data).embeddings : [],
         ai_metadata: aiMeta,
+        embedded_metadata: embeddedMetadata,
         caption: aiMeta?.caption || undefined
     };
 }

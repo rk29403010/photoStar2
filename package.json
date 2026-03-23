@@ -27,6 +27,7 @@
     "build:desktop:prep": "npm run build:web && npm run build:core && npm run package:core",
     "build:desktop": "tauri build --config deployments/desktop/tauri/tauri.conf.json",
     "download:models": "node tooling/scripts/core/download_nsfw_model.cjs",
+    "generate:grouping-fixtures": "node tooling/scripts/test-data/generate-grouping-fixtures.mjs",
     "start:core": "node dist/core/src/entrypoints/core/main.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

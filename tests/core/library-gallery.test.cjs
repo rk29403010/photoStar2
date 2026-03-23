@@ -25,6 +25,27 @@ test('sortAssetsForGallery sorts by created_at descending in date mode', async (
     assert.deepEqual(sorted.map((asset) => asset.id), ['2', '1', '3']);
 });
 
+test('sortAssetsForGallery sorts by group id then asset id in group mode', async () => {
+    const { sortAssetsForGallery } = await import('../../dist/core/src/shared/utils/libraryGallery.js');
+
+    const sorted = sortAssetsForGallery([
+        { id: 'b2', original_path: 'C:/photos/b2.jpg', group_id: 'group-b' },
+        { id: 'a2', original_path: 'C:/photos/a2.jpg', group_id: 'group-a' },
+        { id: 'a1', original_path: 'C:/photos/a1.jpg', group_id: 'group-a' },
+        { id: 'u1', original_path: 'C:/photos/u1.jpg', group_id: null },
+    ], 'group');
+
+    assert.deepEqual(sorted.map((asset) => asset.id), ['u1', 'a1', 'a2', 'b2']);
+});
+
+test('getEffectiveLibrarySortMode falls back to filename when grouped mode is enabled in group sort', async () => {
+    const { getEffectiveLibrarySortMode } = await import('../../dist/core/src/shared/utils/libraryGallery.js');
+
+    assert.equal(getEffectiveLibrarySortMode('group', false), 'group');
+    assert.equal(getEffectiveLibrarySortMode('group', true), 'filename');
+    assert.equal(getEffectiveLibrarySortMode('date', true), 'date');
+});
+
 test('buildCurrentPhotoStatus returns filename, sensitivity, and dimensions', async () => {
     const { buildCurrentPhotoStatus } = await import('../../dist/core/src/shared/utils/libraryGallery.js');
 

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, statSync } from 'node:fs';
 import sharp from 'sharp';
+import { extractAssetMetadata } from './embeddedMetadata';
 
 export async function hashFile(filePath: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -18,11 +19,12 @@ export function getFileStats(filePath: string) {
 
 export async function getExifData(filePath: string) {
     try {
+        const stats = statSync(filePath);
+        const assetMetadata = await extractAssetMetadata(filePath, stats.birthtime);
         const metadata = await sharp(filePath).metadata();
-        const isRotated = metadata.orientation && metadata.orientation >= 5;
         return {
-            width: isRotated ? metadata.height : metadata.width,
-            height: isRotated ? metadata.width : metadata.height,
+            width: assetMetadata?.width ?? metadata.width,
+            height: assetMetadata?.height ?? metadata.height,
             exif: metadata.exif // Raw buffer, strictly we might want to parse this, but sharp provides some parsed fields too
         };
     } catch {

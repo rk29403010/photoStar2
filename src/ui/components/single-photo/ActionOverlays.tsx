@@ -23,7 +23,7 @@ interface ActionOverlaysProps {
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string) => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
     onOpenSettings?: () => void;
     analysisState: AnalysisUiState;
     setAnalysisState: (state: AnalysisUiState) => void;
