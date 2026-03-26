@@ -24,6 +24,7 @@ let runtimeRestartInFlight = Promise.resolve();
 const POST_COMPILE_SCRIPT = resolve(REPO_ROOT, 'tooling', 'scripts', 'core', 'post-compile.cjs');
 const RUNTIME_WRAPPER_SCRIPT = resolve(REPO_ROOT, 'tooling', 'scripts', 'core', 'run-compiled-core.cjs');
 const FAST_LOOP_OXLINT_CONFIG = resolve(REPO_ROOT, '.oxlintrc.fast-loop.json');
+const FAST_LOOP_OXLINT_SCRIPT = resolve(REPO_ROOT, 'node_modules', 'oxlint', 'bin', 'oxlint');
 const IGNORED_PATH_SEGMENTS = [
     '/dist/',
     '/core/dist/',
@@ -176,8 +177,37 @@ async function stopRuntimeProcess() {
     await awaitChildExit(child);
 }
 
-function getNpxCommand() {
-    return process.platform === 'win32' ? 'npx.cmd' : 'npx';
+function getFastLintInvocation(files) {
+    return {
+        command: process.execPath,
+        args: [
+            FAST_LOOP_OXLINT_SCRIPT,
+            '-c',
+            FAST_LOOP_OXLINT_CONFIG,
+            ...files,
+        ],
+        configPath: FAST_LOOP_OXLINT_CONFIG,
+        scriptPath: FAST_LOOP_OXLINT_SCRIPT,
+    };
+}
+
+function createFastLintExitHandler({
+    warn = (message) => console.warn(message),
+    onResolve,
+    onReject,
+}) {
+    return (code, signal) => {
+        if (signal) {
+            onReject(new Error(`fast lint terminated by signal ${signal}`));
+            return;
+        }
+
+        if ((code ?? 0) !== 0) {
+            warn(`${LOG_PREFIX} fast lint reported issues; continuing backend restart.`);
+        }
+
+        onResolve();
+    };
 }
 
 function runFastLintForFiles(files) {
@@ -186,12 +216,12 @@ function runFastLintForFiles(files) {
     }
 
     return new Promise((resolveStep, rejectStep) => {
-        const child = spawn(getNpxCommand(), [
-            'oxlint',
-            '-c',
-            FAST_LOOP_OXLINT_CONFIG,
-            ...files,
-        ], {
+        const invocation = getFastLintInvocation(files);
+        const handleExit = createFastLintExitHandler({
+            onResolve: resolveStep,
+            onReject: rejectStep,
+        });
+        const child = spawn(invocation.command, invocation.args, {
             cwd: REPO_ROOT,
             stdio: 'inherit',
             env: process.env,
@@ -200,19 +230,7 @@ function runFastLintForFiles(files) {
         });
 
         child.on('error', rejectStep);
-        child.on('exit', (code, signal) => {
-            if (signal) {
-                rejectStep(new Error(`fast lint terminated by signal ${signal}`));
-                return;
-            }
-
-            if ((code ?? 0) !== 0) {
-                rejectStep(new Error(`fast lint exited with code ${code}`));
-                return;
-            }
-
-            resolveStep();
-        });
+        child.on('exit', handleExit);
     });
 }
 
@@ -368,5 +386,7 @@ module.exports = {
     LOG_PREFIX,
     createChangeBatchTracker,
     createCompilerOutputHandler,
+    createFastLintExitHandler,
+    getFastLintInvocation,
     shouldLogPath,
 };
