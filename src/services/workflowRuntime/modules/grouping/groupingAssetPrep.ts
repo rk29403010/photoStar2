@@ -67,8 +67,6 @@ function needsAssetUpdate(row: GroupingAssetRow): boolean {
     return !row.file_hash
         || !row.width
         || !row.height
-        || !row.exif_datetime
-        || !row.metadata_timestamp_source
         || !row.file_size;
 }
 

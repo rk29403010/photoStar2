@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { extname } from 'node:path';
+import type { GoogleGenerativeAI } from '@google/generative-ai';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
@@ -28,8 +29,7 @@ import {
     sleepWithLog,
 } from './quotaManager';
 
-type GoogleGenerativeAI = import('@google/generative-ai').GoogleGenerativeAI;
-type GoogleGenerativeAIConstructor = typeof import('@google/generative-ai').GoogleGenerativeAI;
+type GoogleGenerativeAIConstructor = new (apiKey: string) => GoogleGenerativeAI;
 type PendingReason = 'rate_limit' | 'daily_quota';
 type EventSink = { emit: (event: DomainEvent) => void };
 type ModelConfig = {
@@ -59,7 +59,9 @@ const TILE_OVERLAP_RATIO = 0.2;
 const TILE_COUNT = 4;
 
 function validateApiKey(dbManager: DatabaseManager): string {
-    const apiKey = dbManager.getSetting('ai_metadata_v2_api_key') || dbManager.getSetting('gemini_api_key');
+    const apiKey = dbManager.getSetting('ai_metadata_v2_api_key')
+        || dbManager.getSetting('gemini_api_key')
+        || process.env.GEMINI_API_KEY;
     const keyTrimmed = apiKey?.trim() ?? '';
     if (!keyTrimmed) {
         throw new Error('MISSING_API_KEY');

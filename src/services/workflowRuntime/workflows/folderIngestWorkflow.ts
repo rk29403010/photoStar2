@@ -74,6 +74,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'extract-embedded-metadata',
             kind: 'module',
             moduleId: 'runtime.extract_embedded_metadata',
+            outputsTo: ['estimate-photo-date-from-embedded'],
             presentation: {
                 label: 'Extract embedded metadata',
                 countNoun: { singular: 'image', plural: 'images' },
@@ -157,11 +158,32 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-ai-metadata',
             kind: 'module',
             moduleId: 'runtime.generate_ai_metadata',
-            completesMilestones: ['enrichment_complete'],
+            outputsTo: ['estimate-photo-date-from-ai'],
             presentation: {
                 label: 'Generate AI metadata',
                 countNoun: { singular: 'image', plural: 'images' },
                 artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
+            },
+        },
+        {
+            id: 'estimate-photo-date-from-embedded',
+            kind: 'module',
+            moduleId: 'runtime.estimate_photo_date',
+            presentation: {
+                label: 'Estimate photo date from embedded metadata',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'date estimate', plural: 'date estimates' },
+            },
+        },
+        {
+            id: 'estimate-photo-date-from-ai',
+            kind: 'module',
+            moduleId: 'runtime.estimate_photo_date',
+            completesMilestones: ['enrichment_complete'],
+            presentation: {
+                label: 'Estimate photo date from AI metadata',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'date estimate', plural: 'date estimates' },
             },
         },
     ],

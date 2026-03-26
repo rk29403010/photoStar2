@@ -53,6 +53,7 @@ async function createCommandHarness(tempDir) {
     const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
     const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
     const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
 
@@ -98,6 +99,7 @@ async function createCommandHarness(tempDir) {
     modules.register(createGroupSimilarPhotosModule({ dbManager }));
     modules.register(createDetectSensitiveContentModule({ dbManager }));
     modules.register(createGenerateAiMetadataModule({ dbManager }));
+    modules.register(createEstimatePhotoDateModule({ dbManager }));
     workflows.register(folderIngestWorkflowDefinition);
 
     return { dbManager, collector, store, orchestrator, workflows };

@@ -6,6 +6,7 @@ import {
     GROUP_HIERARCHY_CTE,
     buildPrimaryGroupVisibilityPredicate,
 } from './assetGroupingQueryFragments';
+import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
 
 type AssetRow = {
     id: string;
@@ -14,6 +15,8 @@ type AssetRow = {
     height: number;
     file_size: number;
     created_at: string;
+    photo_created_at: string | null;
+    photo_created_at_confidence: number | null;
     exif_datetime: string | null;
     metadata_timestamp_source: string | null;
     preview_path: string | null;
@@ -71,11 +74,12 @@ function getGalleryOrder(payload: AssetQueryPayload | undefined): AssetGalleryOr
 
 function buildOrderClause(params: { galleryOrder: AssetGalleryOrder; defaultDirection: 'ASC' | 'DESC' }) {
     const { galleryOrder, defaultDirection } = params;
+    const photoDateOrder = `CASE WHEN a.photo_created_at IS NULL THEN 1 ELSE 0 END ASC, a.photo_created_at ${defaultDirection}, a.created_at ${defaultDirection}`;
     if (galleryOrder === 'previewed_first') {
-        return "CASE WHEN p.path IS NULL THEN 1 ELSE 0 END ASC, a.created_at ASC";
+        return `CASE WHEN p.path IS NULL THEN 1 ELSE 0 END ASC, ${photoDateOrder}`;
     }
 
-    return `a.created_at ${defaultDirection}`;
+    return photoDateOrder;
 }
 
 function buildDetailFragments(params: {
@@ -98,13 +102,13 @@ function buildDetailFragments(params: {
 
     return {
         recSelect: `${recAlias}.data as rec_data,`,
-        recJoin: `LEFT JOIN derived_results ${recAlias} ON a.id = ${recAlias}.asset_id AND ${recAlias}.task = 'face_recognition'`,
+        recJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: recAlias, task: 'face_recognition' }),
         aiSelect: `COALESCE(${aiNewAlias}.data, ${aiLegacyAlias}.data) as ai_metadata_data,`,
         aiJoin: `
-            LEFT JOIN derived_results ${aiNewAlias} ON a.id = ${aiNewAlias}.asset_id AND ${aiNewAlias}.task = 'ai_metadata'
-            LEFT JOIN derived_results ${aiLegacyAlias} ON a.id = ${aiLegacyAlias}.asset_id AND ${aiLegacyAlias}.task = 'photo_metadata'`,
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: aiNewAlias, task: 'ai_metadata' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: aiLegacyAlias, task: 'photo_metadata' })}`,
         embeddedMetadataSelect: 'r_meta.data as embedded_metadata_data,',
-        embeddedMetadataJoin: `LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'`,
+        embeddedMetadataJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' }),
     };
 }
 
@@ -166,7 +170,7 @@ function buildFilteredAssetsQuery(
     return {
         sql: `
             ${GROUP_HIERARCHY_CTE}
-            SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+            SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
                 a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 am.sensitivity_status,
                 p.path as preview_path,
@@ -190,8 +194,8 @@ function buildFilteredAssetsQuery(
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-            LEFT JOIN derived_results dr_new ON a.id = dr_new.asset_id AND dr_new.task = 'face_detection'
-            LEFT JOIN derived_results dr_legacy ON a.id = dr_legacy.asset_id AND dr_legacy.task = 'face_landmarks'
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'dr_new', task: 'face_detection' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'dr_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
             ${detail.aiJoin}
             ${detail.embeddedMetadataJoin}
@@ -223,7 +227,7 @@ function buildGroupedAssetsQuery(
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
                 a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 p.path as preview_path,
@@ -242,8 +246,8 @@ function buildGroupedAssetsQuery(
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-            LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
-            LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
             ${detail.aiJoin}
             ${detail.embeddedMetadataJoin}
@@ -276,7 +280,7 @@ function buildUngroupedAssetsQuery(
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at,
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
                 a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 p.path as preview_path,
@@ -295,8 +299,8 @@ function buildUngroupedAssetsQuery(
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-            LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
-            LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
             ${detail.aiJoin}
             ${detail.embeddedMetadataJoin}
@@ -317,7 +321,7 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
                 a.caption, a.sensitivity_score,
                 am.sensitivity_status,
                 p.path as preview_path,
@@ -341,12 +345,12 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-            LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
-            LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
-            LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
-            LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
-            LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
-            LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_rec', task: 'face_recognition' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_new', task: 'ai_metadata' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_legacy', task: 'photo_metadata' })}
+            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' })}
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
             WHERE a.id = ?

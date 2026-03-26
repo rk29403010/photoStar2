@@ -210,6 +210,7 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
                     [
                         'enrichment-each',
                         'extract-embedded-metadata',
+                        'estimate-photo-date-from-embedded',
                         'detect-faces',
                         'generate-face-vectors',
                         'collect-people',
@@ -218,6 +219,7 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
                         'group-similar-photos',
                         'detect-sensitive-content',
                         'generate-ai-metadata',
+                        'estimate-photo-date-from-ai',
                     ],
                     runDetail,
                     definition,

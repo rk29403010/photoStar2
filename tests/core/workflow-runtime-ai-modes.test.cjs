@@ -47,6 +47,7 @@ async function createHarness(tempDir, options = {}) {
     const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
     const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
     const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
@@ -92,6 +93,7 @@ async function createHarness(tempDir, options = {}) {
         eventBus: options.eventBus,
         aiRuntime: options.aiRuntime,
     }));
+    modules.register(createEstimatePhotoDateModule({ dbManager }));
     workflows.register(folderIngestWorkflowDefinition);
 
     const orchestrator = new runtime.WorkflowRuntimeOrchestrator({
@@ -103,6 +105,57 @@ async function createHarness(tempDir, options = {}) {
     return { dbManager, orchestrator, store };
 }
 
+async function runFolderIngest(harness, folderPath, parameters = {}) {
+    await harness.orchestrator.start({
+        workflowId: 'folder_ingest_v1',
+        triggerType: 'manual',
+        inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
+        parameters: {
+            folderPath,
+            traversalMode: 'folder_only',
+            ...parameters,
+        },
+    });
+}
+
+function readDerivedResultRow(dbManager, task) {
+    return dbManager.getDb().prepare(
+        `SELECT provider, model_version, data FROM derived_results WHERE task = ? LIMIT 1`
+    ).get(task);
+}
+
+function createLiveAiRuntime() {
+    return {
+        async generateLiveMetadata(params) {
+            assert.equal(params.imageStrategy, 'overview_plus_tiles');
+            return {
+                provider: 'google',
+                modelVersion: 'gemini-3.1-pro-preview',
+                data: {
+                    caption: 'Restored live caption',
+                    keywords: ['archive', 'family'],
+                    _analysis_tier: 'pro',
+                },
+            };
+        },
+    };
+}
+
+async function cleanupHarnesses(harnesses, tempDir) {
+    for (const harness of harnesses) {
+        try {
+            harness.dbManager.close();
+        } catch {
+            // ignore close failures during cleanup
+        }
+    }
+    try {
+        await removeDirWithRetry(tempDir);
+    } catch {
+        // Windows can keep SQLite sidecar handles briefly; cleanup is best-effort here.
+    }
+}
+
 test('folder ingest supports mock, live, and off ai modes', async () => {
     const tempDir = createTempDir();
     const folderPath = createFixtureFolder(tempDir);
@@ -111,35 +164,15 @@ test('folder ingest supports mock, live, and off ai modes', async () => {
     try {
         const mockHarness = await createHarness(path.join(tempDir, 'mock'));
         harnesses.push(mockHarness);
-        await mockHarness.orchestrator.start({
-            workflowId: 'folder_ingest_v1',
-            triggerType: 'manual',
-            inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
-            parameters: {
-                folderPath,
-                traversalMode: 'folder_only',
-                aiMode: 'mock',
-            },
-        });
+        await runFolderIngest(mockHarness, folderPath, { aiMode: 'mock' });
 
-        const mockRow = mockHarness.dbManager.getDb().prepare(
-            "SELECT data FROM derived_results WHERE task = 'ai_metadata' LIMIT 1"
-        ).get();
+        const mockRow = readDerivedResultRow(mockHarness.dbManager, 'ai_metadata');
         assert.ok(mockRow);
         assert.equal(JSON.parse(mockRow.data).mode, 'mock');
 
         const offHarness = await createHarness(path.join(tempDir, 'off'));
         harnesses.push(offHarness);
-        await offHarness.orchestrator.start({
-            workflowId: 'folder_ingest_v1',
-            triggerType: 'manual',
-            inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
-            parameters: {
-                folderPath,
-                traversalMode: 'folder_only',
-                aiMode: 'off',
-            },
-        });
+        await runFolderIngest(offHarness, folderPath, { aiMode: 'off' });
 
         const offCount = offHarness.dbManager.getDb().prepare(
             "SELECT COUNT(*) AS count FROM derived_results WHERE task = 'ai_metadata'"
@@ -148,54 +181,21 @@ test('folder ingest supports mock, live, and off ai modes', async () => {
 
         const liveHarness = await createHarness(path.join(tempDir, 'live'), {
             apiKey: 'AIzaSyDUMMYKEY12345678901234567890',
-            aiRuntime: {
-                async generateLiveMetadata(params) {
-                    assert.equal(params.imageStrategy, 'overview_plus_tiles');
-                    return {
-                        provider: 'google',
-                        modelVersion: 'gemini-3.1-pro-preview',
-                        data: {
-                            caption: 'Restored live caption',
-                            keywords: ['archive', 'family'],
-                            _analysis_tier: 'pro',
-                        },
-                    };
-                },
-            },
+            aiRuntime: createLiveAiRuntime(),
         });
         harnesses.push(liveHarness);
-        await liveHarness.orchestrator.start({
-            workflowId: 'folder_ingest_v1',
-            triggerType: 'manual',
-            inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
-            parameters: {
-                folderPath,
-                traversalMode: 'folder_only',
-                aiMode: 'live',
-                imageStrategy: 'overview_plus_tiles',
-            },
+        await runFolderIngest(liveHarness, folderPath, {
+            aiMode: 'live',
+            imageStrategy: 'overview_plus_tiles',
         });
 
-        const liveRow = liveHarness.dbManager.getDb().prepare(
-            "SELECT provider, model_version, data FROM derived_results WHERE task = 'ai_metadata' LIMIT 1"
-        ).get();
+        const liveRow = readDerivedResultRow(liveHarness.dbManager, 'ai_metadata');
         assert.ok(liveRow);
         assert.equal(liveRow.provider, 'google');
         assert.equal(liveRow.model_version, 'gemini-3.1-pro-preview');
         assert.equal(JSON.parse(liveRow.data).caption, 'Restored live caption');
     } finally {
-        for (const harness of harnesses) {
-            try {
-                harness.dbManager.close();
-            } catch {
-                // ignore close failures during cleanup
-            }
-        }
-        try {
-            await removeDirWithRetry(tempDir);
-        } catch {
-            // Windows can keep SQLite sidecar handles briefly; cleanup is best-effort here.
-        }
+        await cleanupHarnesses(harnesses, tempDir);
     }
 });
 

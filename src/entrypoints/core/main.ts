@@ -8,34 +8,21 @@ import type { WebSocket } from 'ws';
 import { z } from 'zod';
 import type { DomainEvent } from '../../services/events/types';
 import { startDevBridgeServer } from '../../boundary/transport/devBridgeServer';
+import type { ExecutionStore } from '../../services/workflowRuntime/executionStore';
+import type { WorkflowRegistry } from '../../services/workflowRuntime/workflowRegistry';
+import type { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orchestrator';
+import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
+import { loadLocalEnvFile } from './loadLocalEnv';
 import {
-    runAutoScanWorker,
-    runPreviewWorker,
-} from '../../services/runtimeWorkers';
-import { createPreviewAdapterModule } from '../../services/workflowRuntime/modules/previewAdapterModule';
-import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
-import { createDetectSensitiveContentModule } from '../../services/workflowRuntime/modules/detectSensitiveContentModule';
-import { createGenerateAiMetadataModule } from '../../services/workflowRuntime/modules/generateAiMetadataModule';
-import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
-import { createGeneratePreviewsModule } from '../../services/workflowRuntime/modules/generatePreviewsModule';
-import { createGroupSimilarPhotosModule } from '../../services/workflowRuntime/modules/groupSimilarPhotosModule';
-import { createExpandSelectionModule } from '../../services/workflowRuntime/modules/expandSelectionModule';
-import { createExtractEmbeddedMetadataModule } from '../../services/workflowRuntime/modules/extractEmbeddedMetadataModule';
-import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
-import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
-import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
-import { libraryAiMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryAiMetadataWorkflow';
-import { libraryFaceWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryFaceWorkflow';
-import { folderIngestWorkflowDefinition } from '../../services/workflowRuntime/workflows/folderIngestWorkflow';
-import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryGroupingWorkflow';
-import { libraryPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPreviewWorkflow';
-import { librarySensitiveScanWorkflowDefinition } from '../../services/workflowRuntime/workflows/librarySensitiveScanWorkflow';
-import { selectedSubjectMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow';
-import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
-import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
-import { SubjectRegistry } from '../../services/workflowRuntime/subjectRegistry';
-import { WorkflowRegistry } from '../../services/workflowRuntime/workflowRegistry';
-import { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orchestrator';
+    buildStartupFailureMessage,
+    isFactoryResetCommand,
+    resetLibraryStorageFiles,
+} from './startupRecovery';
+import {
+    applyConfiguredLogLevel,
+    createWorkflowRuntimeBundle,
+    resumeAutoScanIfNeeded,
+} from './runtimeBootstrap';
 
 process.on('uncaughtException', (_err) => {
     console.error('[CRITICAL] Uncaught Exception:', _err);
@@ -44,6 +31,8 @@ process.on('uncaughtException', (_err) => {
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
+loadLocalEnvFile();
 
 // Constants
 const APP_DATA_DIR = process.env.APPDATA || process.env.HOME || '.';
@@ -55,104 +44,43 @@ if (!existsSync(LIB_DIR)) {
 
 console.log(`Core backend service started. Storage: ${LIB_DIR}`);
 
-const dbManager = new DatabaseManager(LIB_DIR);
-const eventBus = new EventBus(dbManager);
-const workflowRuntimeStore = new ExecutionStore(dbManager);
-const workflowRuntimeSubjects = new SubjectRegistry();
-const workflowRuntimeModules = new ModuleRegistry();
-const workflowRuntimeWorkflows = new WorkflowRegistry({
-    subjects: workflowRuntimeSubjects,
-    modules: workflowRuntimeModules,
-});
+let dbManager: DatabaseManager | null = null;
+let eventBus: EventBus | null = null;
+let workflowRuntime: {
+    store: ExecutionStore;
+    workflows: WorkflowRegistry;
+    orchestrator: WorkflowRuntimeOrchestrator;
+} | null = null;
+let startupError: Error | null = null;
 
-workflowRuntimeSubjects.register({
-    id: 'folder',
-    version: 1,
-    durable: false,
-    summary: { titleField: 'path', thumbnailStrategy: 'none' },
-    progressSemantics: 'aggregate',
-    relations: [],
-    ui: { detailSections: ['overview'] },
-    labels: { singular: 'folder', plural: 'folders' },
-});
-workflowRuntimeSubjects.register({
-    id: 'asset',
-    version: 1,
-    durable: true,
-    summary: { titleField: 'id', thumbnailStrategy: 'asset' },
-    progressSemantics: 'per_subject',
-    relations: [],
-    ui: { detailSections: ['overview'] },
-    labels: { singular: 'file', plural: 'files' },
-});
-workflowRuntimeSubjects.register({
-    id: 'selection',
-    version: 1,
-    durable: false,
-    summary: { titleField: 'id', thumbnailStrategy: 'none' },
-    progressSemantics: 'aggregate',
-    relations: [],
-    ui: { detailSections: ['overview'] },
-    labels: { singular: 'selection', plural: 'selections' },
-});
-workflowRuntimeModules.register(createScanFolderModule({ dbManager }));
-workflowRuntimeModules.register(createExpandSelectionModule());
-workflowRuntimeModules.register(createExtractEmbeddedMetadataModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createGeneratePreviewsModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createDetectFacesModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createGenerateFaceVectorsModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createResolvePeopleModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createGroupSimilarPhotosModule({ dbManager }));
-workflowRuntimeModules.register(createDetectSensitiveContentModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createGenerateAiMetadataModule({ dbManager, eventBus }));
-workflowRuntimeModules.register(createPreviewAdapterModule({
-    runPreview: async (mediaIds) => {
-        await runPreviewWorker(mediaIds, { dbManager, eventBus });
-    },
-}));
-workflowRuntimeWorkflows.register(folderIngestWorkflowDefinition);
-workflowRuntimeWorkflows.register(libraryGroupingWorkflowDefinition);
-workflowRuntimeWorkflows.register(assetPreviewWorkflowDefinition);
-workflowRuntimeWorkflows.register(libraryPreviewWorkflowDefinition);
-workflowRuntimeWorkflows.register(libraryFaceWorkflowDefinition);
-workflowRuntimeWorkflows.register(librarySensitiveScanWorkflowDefinition);
-workflowRuntimeWorkflows.register(libraryAiMetadataWorkflowDefinition);
-workflowRuntimeWorkflows.register(selectedSubjectMetadataWorkflowDefinition);
-const workflowRuntime = {
-    store: workflowRuntimeStore,
-    workflows: workflowRuntimeWorkflows,
-    orchestrator: new WorkflowRuntimeOrchestrator({
-        store: workflowRuntimeStore,
-        workflows: workflowRuntimeWorkflows,
-        modules: workflowRuntimeModules,
-    }),
-};
+function initialiseCoreServices() {
+    const nextDbManager = new DatabaseManager(LIB_DIR);
+    const nextEventBus = new EventBus(nextDbManager);
+    const nextWorkflowRuntime = createWorkflowRuntimeBundle(nextDbManager, nextEventBus);
 
-// Apply system_log_level to suppress noisy info logs in production modes
-const logLevel = dbManager.getSetting('system_log_level') || 'info';
-if (logLevel === 'warn' || logLevel === 'error') {
-    // Suppress console.log (info-level) messages; console.error still flows for critical output
-    console.log = () => { /* silenced */ };
+    nextEventBus.subscribeAll(handleBroadcastEvent);
+    nextEventBus.subscribe('AssetUpdated', handleAssetUpdatedEvent);
+
+    dbManager = nextDbManager;
+    eventBus = nextEventBus;
+    workflowRuntime = nextWorkflowRuntime;
+    startupError = null;
+    applyConfiguredLogLevel(nextDbManager);
+    resumeAutoScanIfNeeded(nextDbManager, nextEventBus);
 }
 
-// workflow_auto_scan: if set to 'last_folder', re-scan the most recently used folder on startup
-const autoScan = dbManager.getSetting('workflow_auto_scan');
-if (autoScan === 'last_folder') {
-    const db = dbManager.getDb();
-    const lastFolder = db.prepare('SELECT path FROM folder_history ORDER BY last_scanned_at DESC LIMIT 1').get() as { path: string } | undefined;
-    if (lastFolder?.path) {
-        console.error(`[Startup] Auto-scan enabled. Resuming scan of: ${lastFolder.path}`);
-        // Defer slightly so all subscribers are registered first
-        setTimeout(() => {
-            eventBus.emit({ type: 'FolderScanRequested', folderId: lastFolder.path, scanSessionId: 'startup-autoscan' });
-            runAutoScanWorker('startup-autoscan', lastFolder.path, { dbManager, eventBus })
-                .catch(err => console.error('[Startup] Auto-scan failed:', err));
-        }, 1500);
+function bootstrapCoreServices() {
+    try {
+        initialiseCoreServices();
+    } catch (error) {
+        startupError = error instanceof Error ? error : new Error(String(error));
+        console.error('[Startup] Core services failed to initialise:', startupError);
     }
 }
 
 function persistJobStarted(event: Extract<DomainEvent, { type: 'JobStarted' }>) {
-    const db = dbManager.getDb();
+    const db = dbManager?.getDb();
+    if (!db) {return;}
     db.prepare(`
         INSERT OR REPLACE INTO jobs (id, stage, status, started_at, created_at, total_items, last_error)
         VALUES (?, ?, 'running', ?, ?, ?, NULL)
@@ -160,7 +88,8 @@ function persistJobStarted(event: Extract<DomainEvent, { type: 'JobStarted' }>) 
 }
 
 function persistJobProgress(event: Extract<DomainEvent, { type: 'JobProgress' }>) {
-    const db = dbManager.getDb();
+    const db = dbManager?.getDb();
+    if (!db) {return;}
     db.prepare(`
         UPDATE jobs SET 
             processed_items = ?, 
@@ -181,13 +110,15 @@ function persistJobProgress(event: Extract<DomainEvent, { type: 'JobProgress' }>
 }
 
 function persistJobCompleted(event: Extract<DomainEvent, { type: 'JobCompleted' }>) {
-    const db = dbManager.getDb();
+    const db = dbManager?.getDb();
+    if (!db) {return;}
     db.prepare("UPDATE jobs SET status = 'completed', finished_at = ?, last_error = NULL WHERE id = ?")
         .run(new Date().toISOString(), event.jobId);
 }
 
 function persistJobFailed(event: Extract<DomainEvent, { type: 'JobFailed' }>) {
-    const db = dbManager.getDb();
+    const db = dbManager?.getDb();
+    if (!db) {return;}
     db.prepare(`
         UPDATE jobs
         SET status = 'failed',
@@ -233,14 +164,12 @@ function handleBroadcastEvent(event: DomainEvent) {
     forwardEventToFrontend(event);
 }
 
-// Wiring: Forward all events to frontend and persist job status
-eventBus.subscribeAll(handleBroadcastEvent);
-
 // Periodic Cleanup: Keep 30 days of history
 function performCleanup() {
     console.log('[Cleanup] Running periodic cleanup of old jobs and events (30 day retention)');
     try {
-        const db = dbManager.getDb();
+        const db = dbManager?.getDb();
+        if (!db) {return;}
         // Delete jobs older than 30 days
         const jobResult = db.prepare("DELETE FROM jobs WHERE created_at < date('now', '-30 days')").run();
         // Delete events older than 30 days
@@ -261,6 +190,8 @@ type AssetUpdatedRow = {
     width: number;
     height: number;
     created_at: string;
+    photo_created_at: string | null;
+    photo_created_at_confidence: number | null;
     exif_datetime: string | null;
     metadata_timestamp_source: string | null;
     preview_path: string | null;
@@ -274,9 +205,10 @@ type AssetUpdatedRow = {
 };
 
 function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
-    const db = dbManager.getDb();
+    const db = dbManager?.getDb();
+    if (!db) {return undefined;}
     return db.prepare(`
-        SELECT a.id, a.original_path, a.width, a.height, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
+        SELECT a.id, a.original_path, a.width, a.height, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
                a.sensitivity_score,
                am.sensitivity_status,
                p.path as preview_path,
@@ -292,10 +224,10 @@ function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
                ) as people_data
         FROM assets a
         LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-        LEFT JOIN derived_results dr ON a.id = dr.asset_id AND dr.task = 'face_detection'
-        LEFT JOIN derived_results fr ON a.id = fr.asset_id AND fr.task = 'face_recognition'
-        LEFT JOIN derived_results aim ON a.id = aim.asset_id AND aim.task = 'ai_metadata'
-        LEFT JOIN derived_results meta ON a.id = meta.asset_id AND meta.task = 'embedded_metadata'
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'dr', task: 'face_detection' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'fr', task: 'face_recognition' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'aim', task: 'ai_metadata' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'meta', task: 'embedded_metadata' })}
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
         WHERE a.id = ?
@@ -347,9 +279,6 @@ function handleAssetUpdatedEvent(event: DomainEvent) {
     }
 }
 
-// 8. Asset Updated — re-query the asset and push to frontend so UI reflects new metadata
-eventBus.subscribe('AssetUpdated', handleAssetUpdatedEvent);
-
 // Define the schema for incoming WebSocket commands
 const WsCommandSchema = z.object({
     id: z.string(),
@@ -385,9 +314,34 @@ process.stdin.on('data', (chunk) => {
 // Track active jobs (Legacy support + Scan cancellation)
 const activeJobs = new Map<string, AbortController>();
 
+function recoverFromStartupFailure(): string {
+    resetLibraryStorageFiles(LIB_DIR);
+    bootstrapCoreServices();
+    if (startupError) {
+        throw startupError;
+    }
+    return 'Factory reset complete. Backend recovered after startup failure.';
+}
+
 function handleMessage(msg: { id: string, command: string, payload?: unknown }, originWs?: WebSocket) {
     const { id, command, payload } = msg;
     try {
+        if (startupError) {
+            if (isFactoryResetCommand(command, payload)) {
+                const message = recoverFromStartupFailure();
+                respond(id, 'ok', { message, mode: 'factory' }, null, originWs);
+                respond('event_stream', 'event', { type: 'BackendRecovered', message }, null, originWs);
+                return;
+            }
+
+            respond(id, 'error', null, buildStartupFailureMessage(startupError, LIB_DIR), originWs);
+            return;
+        }
+
+        if (!dbManager || !eventBus || !workflowRuntime) {
+            respond(id, 'error', null, `Backend is unavailable for storage '${LIB_DIR}'.`, originWs);
+            return;
+        }
 
         handleSystemCommand({
             id,
@@ -409,7 +363,17 @@ function handleMessage(msg: { id: string, command: string, payload?: unknown }, 
 const { respond } = startDevBridgeServer({
     onMessage: handleIncomingLine,
     onReady: () => {
+        if (startupError) {
+            respond('event_stream', 'event', {
+                type: 'BackendStartupFailed',
+                message: buildStartupFailureMessage(startupError, LIB_DIR),
+            }, null);
+            return;
+        }
+
         performCleanup();
         setInterval(performCleanup, 24 * 60 * 60 * 1000);
     },
 });
+
+bootstrapCoreServices();

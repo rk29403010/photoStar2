@@ -5,6 +5,8 @@ export type AssetPayloadRow = {
     height: number | null;
     file_size: number | null;
     created_at: string | null;
+    photo_created_at?: string | null;
+    photo_created_at_confidence?: number | null;
     exif_datetime?: string | null;
     metadata_timestamp_source?: string | null;
     preview_path: string | null;
@@ -105,6 +107,8 @@ function buildAssetFileFields(row: AssetPayloadRow) {
         height: row.height ?? undefined,
         file_size: row.file_size ?? undefined,
         created_at: row.created_at ?? undefined,
+        photo_created_at: row.photo_created_at ?? null,
+        photo_created_at_confidence: row.photo_created_at_confidence ?? null,
         exif_datetime: row.exif_datetime ?? null,
         metadata_timestamp_source: row.metadata_timestamp_source ?? null,
         preview_path: row.preview_path ?? undefined,

@@ -16,6 +16,17 @@ export interface WorkflowRuntimeOrchestratorDependencies {
     telemetry?: WorkflowRuntimeTelemetry;
 }
 
+type WorkflowMilestonesPresentation = { presentation?: { milestones: Array<{ id: string; label: string }> } };
+
+type WorkflowExecutionState = {
+    nodeById: Map<string, WorkflowNodeDefinition>;
+    remainingUpstreamCounts: Map<string, number>;
+    subjectsByNode: Map<string, SubjectRef[]>;
+    readyNodeIds: string[];
+    runningTasks: Map<string, Promise<void>>;
+    failure: Error | null;
+};
+
 function createNodeMap(nodes: WorkflowNodeDefinition[]): Map<string, WorkflowNodeDefinition> {
     return new Map(nodes.map((node) => [node.id, node]));
 }
@@ -70,6 +81,34 @@ function topologicallySortNodes(nodes: WorkflowNodeDefinition[]): WorkflowNodeDe
     return drainQueue(createRootQueue(nodes, indegree), byId, indegree);
 }
 
+function createEmptySubjectMap(nodes: WorkflowNodeDefinition[]): Map<string, SubjectRef[]> {
+    return new Map(nodes.map((node) => [node.id, []]));
+}
+
+function cloneSubjects(subjects: SubjectRef[]): SubjectRef[] {
+    return subjects.map((subject) => ({ ...subject }));
+}
+
+function mergeSubjects(existing: SubjectRef[], incoming: SubjectRef[]): SubjectRef[] {
+    if (incoming.length === 0) {
+        return existing;
+    }
+
+    const merged = [...existing];
+    const seen = new Set(existing.map((subject) => `${subject.subjectType}:${subject.subjectId}`));
+
+    for (const subject of incoming) {
+        const key = `${subject.subjectType}:${subject.subjectId}`;
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        merged.push(subject);
+    }
+
+    return merged;
+}
+
 export class WorkflowRuntimeOrchestrator {
     private readonly telemetry: WorkflowRuntimeTelemetry;
 
@@ -93,32 +132,189 @@ export class WorkflowRuntimeOrchestrator {
 
     private async executeRun(runId: string, input: CreateWorkflowRunInput): Promise<void> {
         const workflow = this.deps.workflows.get(input.workflowId);
-        let activeSubjects: SubjectRef[] = [...input.inputSubjects];
+        const orderedNodes = topologicallySortNodes(workflow.nodes);
 
         this.telemetry.runStarted(runId, workflow.id);
-
-        for (const node of topologicallySortNodes(workflow.nodes)) {
-            if (node.kind === 'control') {
-                activeSubjects = executeControlNode(node as WorkflowControlNodeDefinition, activeSubjects);
-                continue;
-            }
-
-            activeSubjects = await this.executeModuleNode(
-                runId,
-                workflow,
-                node as WorkflowModuleNodeDefinition,
-                activeSubjects,
-                input.parameters ?? {},
-            );
-        }
-
+        await this.executeWorkflowNodes(runId, workflow, orderedNodes, input.inputSubjects, input.parameters ?? {});
         this.deps.store.updateWorkflowRunStatus(runId, 'completed');
         this.telemetry.runCompleted(runId, workflow.id);
     }
 
+    private async executeWorkflowNodes(
+        runId: string,
+        workflow: { id: string } & WorkflowMilestonesPresentation,
+        orderedNodes: WorkflowNodeDefinition[],
+        inputSubjects: SubjectRef[],
+        parameters: Record<string, unknown>,
+    ): Promise<void> {
+        const state = this.createExecutionState(orderedNodes);
+        this.seedRootSubjects(state, inputSubjects);
+
+        while (this.hasPendingWork(state)) {
+            this.startReadyNodes(runId, workflow, parameters, state);
+            await this.waitForRunningTask(state);
+        }
+
+        await this.throwIfExecutionFailed(state);
+    }
+
+    private createExecutionState(orderedNodes: WorkflowNodeDefinition[]): WorkflowExecutionState {
+        const remainingUpstreamCounts = createIndegreeMap(orderedNodes);
+        populateIndegreeMap(orderedNodes, remainingUpstreamCounts);
+
+        return {
+            nodeById: createNodeMap(orderedNodes),
+            remainingUpstreamCounts,
+            subjectsByNode: createEmptySubjectMap(orderedNodes),
+            readyNodeIds: createRootQueue(orderedNodes, remainingUpstreamCounts),
+            runningTasks: new Map<string, Promise<void>>(),
+            failure: null,
+        };
+    }
+
+    private seedRootSubjects(state: WorkflowExecutionState, inputSubjects: SubjectRef[]): void {
+        for (const nodeId of state.readyNodeIds) {
+            state.subjectsByNode.set(nodeId, cloneSubjects(inputSubjects));
+        }
+    }
+
+    private hasPendingWork(state: WorkflowExecutionState): boolean {
+        if (state.failure) {
+            return state.runningTasks.size > 0;
+        }
+        return state.readyNodeIds.length > 0 || state.runningTasks.size > 0;
+    }
+
+    private startReadyNodes(
+        runId: string,
+        workflow: WorkflowMilestonesPresentation,
+        parameters: Record<string, unknown>,
+        state: WorkflowExecutionState,
+    ): void {
+        while (state.readyNodeIds.length > 0) {
+            if (state.failure) {
+                return;
+            }
+
+            const nodeId = state.readyNodeIds.shift();
+            if (!nodeId) {
+                continue;
+            }
+
+            const node = state.nodeById.get(nodeId);
+            if (!node) {
+                continue;
+            }
+
+            this.startNodeTask({
+                runId,
+                workflow,
+                parameters,
+                state,
+                node,
+                nodeId,
+            });
+        }
+    }
+
+    private startNodeTask(params: {
+        runId: string;
+        workflow: WorkflowMilestonesPresentation;
+        parameters: Record<string, unknown>;
+        state: WorkflowExecutionState;
+        node: WorkflowNodeDefinition;
+        nodeId: string;
+    }): void {
+        const nodeSubjects = params.state.subjectsByNode.get(params.nodeId) ?? [];
+        const task = this.executeScheduledNode({
+            runId: params.runId,
+            workflow: params.workflow,
+            node: params.node,
+            nodeSubjects,
+            parameters: params.parameters,
+            remainingUpstreamCounts: params.state.remainingUpstreamCounts,
+            subjectsByNode: params.state.subjectsByNode,
+            readyNodeIds: params.state.readyNodeIds,
+        }).catch((error) => {
+            if (!params.state.failure) {
+                params.state.failure = error instanceof Error ? error : new Error(String(error));
+            }
+        }).finally(() => {
+            params.state.runningTasks.delete(params.nodeId);
+        });
+
+        params.state.runningTasks.set(params.nodeId, task);
+    }
+
+    private async waitForRunningTask(state: WorkflowExecutionState): Promise<void> {
+        if (state.runningTasks.size === 0) {
+            return;
+        }
+
+        await Promise.race(state.runningTasks.values());
+    }
+
+    private async throwIfExecutionFailed(state: WorkflowExecutionState): Promise<void> {
+        if (!state.failure) {
+            return;
+        }
+
+        await Promise.allSettled(state.runningTasks.values());
+        throw state.failure;
+    }
+
+    private async executeScheduledNode(params: {
+        runId: string;
+        workflow: WorkflowMilestonesPresentation;
+        node: WorkflowNodeDefinition;
+        nodeSubjects: SubjectRef[];
+        parameters: Record<string, unknown>;
+        remainingUpstreamCounts: Map<string, number>;
+        subjectsByNode: Map<string, SubjectRef[]>;
+        readyNodeIds: string[];
+    }): Promise<void> {
+        const outputSubjects = params.node.kind === 'control'
+            ? executeControlNode(params.node as WorkflowControlNodeDefinition, params.nodeSubjects)
+            : await this.executeModuleNode(
+                params.runId,
+                params.workflow,
+                params.node as WorkflowModuleNodeDefinition,
+                params.nodeSubjects,
+                params.parameters,
+            );
+
+        this.queueReadyDownstreamNodes({
+            node: params.node,
+            outputSubjects,
+            remainingUpstreamCounts: params.remainingUpstreamCounts,
+            subjectsByNode: params.subjectsByNode,
+            readyNodeIds: params.readyNodeIds,
+        });
+    }
+
+    private queueReadyDownstreamNodes(params: {
+        node: WorkflowNodeDefinition;
+        outputSubjects: SubjectRef[];
+        remainingUpstreamCounts: Map<string, number>;
+        subjectsByNode: Map<string, SubjectRef[]>;
+        readyNodeIds: string[];
+    }): void {
+        for (const targetId of params.node.outputsTo ?? []) {
+            const nextCount = (params.remainingUpstreamCounts.get(targetId) || 0) - 1;
+            params.remainingUpstreamCounts.set(targetId, nextCount);
+            const existingSubjects = params.subjectsByNode.get(targetId) ?? [];
+            params.subjectsByNode.set(targetId, mergeSubjects(existingSubjects, params.outputSubjects));
+
+            if (nextCount !== 0) {
+                continue;
+            }
+            params.readyNodeIds.push(targetId);
+        }
+    }
+
     private async executeModuleNode(
         runId: string,
-        workflow: { presentation?: { milestones: Array<{ id: string; label: string }> } },
+        workflow: WorkflowMilestonesPresentation,
         node: WorkflowModuleNodeDefinition,
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
@@ -132,7 +328,7 @@ export class WorkflowRuntimeOrchestrator {
 
     private async executePerSubjectModuleNode(
         runId: string,
-        workflow: { presentation?: { milestones: Array<{ id: string; label: string }> } },
+        workflow: WorkflowMilestonesPresentation,
         node: WorkflowModuleNodeDefinition,
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
@@ -192,7 +388,7 @@ export class WorkflowRuntimeOrchestrator {
 
     private async executeBatchModuleNode(
         runId: string,
-        workflow: { presentation?: { milestones: Array<{ id: string; label: string }> } },
+        workflow: WorkflowMilestonesPresentation,
         node: WorkflowModuleNodeDefinition,
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,

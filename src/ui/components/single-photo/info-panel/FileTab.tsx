@@ -58,6 +58,8 @@ const FileSection: React.FC<{ asset: Asset; filename: string; ext: string }> = (
     <Field label="Path" value={shortPath(asset.original_path)} mono dim />
     <Field label="Format" value={ext} />
     {asset.width && asset.height && <Field label="Dimensions" value={`${asset.width} × ${asset.height} px`} />}
+    {asset.photo_created_at && <Field label="Photo Created" value={new Date(asset.photo_created_at).toLocaleString()} />}
+    {asset.photo_created_at_confidence != null && <Field label="Date Confidence" value={`${Math.round(asset.photo_created_at_confidence * 100)}%`} />}
     {asset.exif_datetime && <Field label="Captured" value={new Date(asset.exif_datetime).toLocaleString()} />}
     {asset.metadata_timestamp_source && <Field label="Timestamp Source" value={asset.metadata_timestamp_source} mono />}
     {asset.created_at && <Field label="Imported" value={new Date(asset.created_at).toLocaleString()} />}

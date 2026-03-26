@@ -60,6 +60,12 @@ export function getWorkflowWorkspaceRunSelectionValue(
     return selectionValue ?? modelSelectedRunId ?? '';
 }
 
+export function getWorkflowWorkspaceRefreshIntervalMs(
+    model: { selectedRun: { status: string } | null } | null,
+): number | null {
+    return model?.selectedRun?.status === 'running' ? 1000 : null;
+}
+
 export function shouldFitSequenceMapViewport(viewport: WorkflowSequenceMapViewport | null): boolean {
     return viewport === null;
 }

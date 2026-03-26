@@ -13,13 +13,13 @@ test('sortAssetsForGallery sorts filenames in natural ascending order', async ()
     assert.deepEqual(sorted.map((asset) => asset.id), ['1', '2', '3']);
 });
 
-test('sortAssetsForGallery sorts by created_at descending in date mode', async () => {
+test('sortAssetsForGallery sorts by photo_created_at descending in date mode', async () => {
     const { sortAssetsForGallery } = await import('../../dist/core/src/shared/utils/libraryGallery.js');
 
     const sorted = sortAssetsForGallery([
-        { id: '1', original_path: 'C:/photos/a.jpg', created_at: '2024-01-01T00:00:00.000Z' },
-        { id: '3', original_path: 'C:/photos/c.jpg', created_at: null },
-        { id: '2', original_path: 'C:/photos/b.jpg', created_at: '2025-01-01T00:00:00.000Z' },
+        { id: '1', original_path: 'C:/photos/a.jpg', created_at: '2026-01-01T00:00:00.000Z', photo_created_at: '2024-01-01T00:00:00.000Z' },
+        { id: '3', original_path: 'C:/photos/c.jpg', created_at: '2027-01-01T00:00:00.000Z', photo_created_at: null },
+        { id: '2', original_path: 'C:/photos/b.jpg', created_at: '2025-01-01T00:00:00.000Z', photo_created_at: '2025-01-01T00:00:00.000Z' },
     ], 'date');
 
     assert.deepEqual(sorted.map((asset) => asset.id), ['2', '1', '3']);

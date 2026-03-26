@@ -10,6 +10,7 @@ interface SinglePhotoViewProps {
     assets: Asset[];
     initialIndex: number;
     onClose: () => void;
+    onAssetFocusChange?: (assetId: string) => void;
     onPrioritize: (mediaId: string) => void;
     onFaceClick?: (personId: string, personName: string) => void;
     onIsolateFace?: (assetId: string, faceIndex: number) => void;
@@ -402,6 +403,7 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     assets,
     initialIndex,
     onClose,
+    onAssetFocusChange,
     onPrioritize,
     onFaceClick,
     onIsolateFace,
@@ -428,6 +430,12 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     const analysisUi = useAnalysisUiState();
     const asset = viewAssets[controls.currentIndex];
     const setCurrentIndex = controls.setCurrentIndex;
+
+    useEffect(() => {
+        if (!asset?.id) {return;}
+        onAssetFocusChange?.(asset.id);
+    }, [asset?.id, onAssetFocusChange]);
+
     const handleSelectAsset = useCallback((assetId: string) => {
         const nextIndex = resolveSinglePhotoAssetIndex(viewAssets, assetId);
         if (nextIndex < 0) {return;}

@@ -11,6 +11,8 @@ test('toAssetPayload returns a consistent rich asset shape for grouped orbit mem
         height: 200,
         file_size: 1234,
         created_at: '2026-03-16T10:26:33.321Z',
+        photo_created_at: '1944-06-01T12:34:56.000Z',
+        photo_created_at_confidence: 0.82,
         exif_datetime: '1944-06-01T12:34:56.000Z',
         metadata_timestamp_source: 'exif.DateTimeOriginal',
         preview_path: 'photo.webp',
@@ -45,6 +47,8 @@ test('toAssetPayload returns a consistent rich asset shape for grouped orbit mem
         height: 200,
         file_size: 1234,
         created_at: '2026-03-16T10:26:33.321Z',
+        photo_created_at: '1944-06-01T12:34:56.000Z',
+        photo_created_at_confidence: 0.82,
         exif_datetime: '1944-06-01T12:34:56.000Z',
         metadata_timestamp_source: 'exif.DateTimeOriginal',
         preview_path: 'photo.webp',
@@ -94,6 +98,8 @@ test('toAssetPayload preserves multiple group memberships while keeping primary 
         height: 200,
         file_size: 4321,
         created_at: '2026-03-18T10:26:33.321Z',
+        photo_created_at: null,
+        photo_created_at_confidence: null,
         exif_datetime: null,
         metadata_timestamp_source: null,
         preview_path: 'photo-2.webp',
@@ -143,6 +149,8 @@ test('toAssetPayload preserves multiple group memberships while keeping primary 
 
     assert.equal(asset.group_id, 'group-burst');
     assert.equal(asset.group_role, 'canonical');
+    assert.equal(asset.photo_created_at, null);
+    assert.equal(asset.photo_created_at_confidence, null);
     assert.equal(asset.metadata_timestamp_source, null);
     assert.deepEqual(asset.embedded_metadata?.embedded?.icc, { parse_status: 'unparsed', byte_length: 3 });
     assert.equal(asset.group_memberships.length, 2);

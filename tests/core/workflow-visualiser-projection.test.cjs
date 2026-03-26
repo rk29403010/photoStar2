@@ -21,6 +21,16 @@ test('buildWorkflowVisualiserModel maps folder_ingest_v1 into overview, progress
             .find((stage) => stage.id === 'enrichment')
             ?.nodeIds.includes('extract-embedded-metadata')
     );
+    assert.ok(
+        model.tabs.progression.stages
+            .find((stage) => stage.id === 'enrichment')
+            ?.nodeIds.includes('estimate-photo-date-from-embedded')
+    );
+    assert.ok(
+        model.tabs.progression.stages
+            .find((stage) => stage.id === 'enrichment')
+            ?.nodeIds.includes('estimate-photo-date-from-ai')
+    );
     assert.ok(model.tabs.overview.aggregateCounts.some((entry) => entry.noun.singular === 'folder'));
     assert.ok(model.tabs.overview.aggregateCounts.some((entry) => entry.noun.singular === 'image'));
     assert.ok(model.tabs.text.sections.some((section) => section.id === 'milestones'));

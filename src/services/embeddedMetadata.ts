@@ -309,15 +309,7 @@ async function parseExifFromFile(filePath: string): Promise<ParsedExifData | nul
 function buildTimestampCandidates(params: BuildEmbeddedMetadataPayloadParams): TimestampCandidate[] {
     const exifCandidates = collectExifTimestampCandidates(params.parsedExif);
     const xmpCandidates = collectXmpTimestampCandidates(params.metadata);
-    const timestampCandidates = [...exifCandidates, ...xmpCandidates];
-    if (timestampCandidates.length === 0) {
-        timestampCandidates.push({
-            source: 'file.birthtime',
-            value: params.fileStats.birthtime.toISOString(),
-        });
-    }
-
-    return timestampCandidates;
+    return [...exifCandidates, ...xmpCandidates];
 }
 
 function buildEmbeddedFileInfo(params: BuildEmbeddedMetadataPayloadParams): EmbeddedFileInfo {
@@ -414,8 +406,8 @@ export async function persistAssetEmbeddedMetadata(params: {
         params.fileSize ?? null,
         snapshot.width ?? 0,
         snapshot.height ?? 0,
-        snapshot.captureDatetime ?? params.birthtime.toISOString(),
-        snapshot.metadataTimestampSource ?? 'file.birthtime',
+        snapshot.captureDatetime,
+        snapshot.metadataTimestampSource,
         params.assetId,
     );
 

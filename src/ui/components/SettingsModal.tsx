@@ -107,12 +107,12 @@ function AiJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onCha
             <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">AI Metadata V2 API Key</label>
                 <input id="setting-ai-metadata-v2-api-key" type="password" value={dbSettings.ai_metadata_v2_api_key || ''} onChange={(e) => onChange('ai_metadata_v2_api_key', e.target.value)} placeholder="AIzaSy..." className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-purple-500" />
-                <p className="mt-1 text-[10px] text-gray-300">Preferred by the runtime AI metadata module. Falls back to the Gemini key if left blank.</p>
+                <p className="mt-1 text-[10px] text-gray-300">Preferred by the runtime AI metadata module. Falls back to the Gemini key, then <code className="rounded bg-black/30 px-1 py-0.5">GEMINI_API_KEY</code> from <code className="rounded bg-black/30 px-1 py-0.5">.env.local</code>, if left blank.</p>
             </div>
             <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">Gemini API Key</label>
                 <input id="setting-gemini-api-key" type="password" value={dbSettings.gemini_api_key || ''} onChange={(e) => onChange('gemini_api_key', e.target.value)} placeholder="AIzaSy..." className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-purple-500" />
-                <p className="mt-1 text-[10px] text-gray-300">Optional fallback key for Gemini-backed runtime metadata execution. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">aistudio.google.com/apikey</a></p>
+                <p className="mt-1 text-[10px] text-gray-300">Optional fallback key for Gemini-backed runtime metadata execution before the <code className="rounded bg-black/30 px-1 py-0.5">.env.local</code> fallback. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">aistudio.google.com/apikey</a></p>
             </div>
             <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">Kinship Explorer CSV Path</label>

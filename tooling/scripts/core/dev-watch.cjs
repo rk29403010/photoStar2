@@ -23,6 +23,7 @@ let runtimeProcess = null;
 let runtimeRestartInFlight = Promise.resolve();
 const POST_COMPILE_SCRIPT = resolve(REPO_ROOT, 'tooling', 'scripts', 'core', 'post-compile.cjs');
 const RUNTIME_WRAPPER_SCRIPT = resolve(REPO_ROOT, 'tooling', 'scripts', 'core', 'run-compiled-core.cjs');
+const FAST_LOOP_OXLINT_CONFIG = resolve(REPO_ROOT, '.oxlintrc.fast-loop.json');
 const IGNORED_PATH_SEGMENTS = [
     '/dist/',
     '/core/dist/',
@@ -70,15 +71,10 @@ function createChangeBatchTracker() {
             pendingFiles.add(toDisplayPath(filePath));
             return true;
         },
-        consumeCleanBuildSummary() {
-            const changedFileCount = pendingFiles.size;
+        consumePendingFiles() {
+            const files = [...pendingFiles];
             pendingFiles.clear();
-            if (changedFileCount === 0) {
-                return null;
-            }
-
-            const fileLabel = changedFileCount === 1 ? 'file' : 'files';
-            return `${LOG_PREFIX} compiled ${changedFileCount} changed ${fileLabel}.\n`;
+            return files;
         },
     };
 }
@@ -180,6 +176,46 @@ async function stopRuntimeProcess() {
     await awaitChildExit(child);
 }
 
+function getNpxCommand() {
+    return process.platform === 'win32' ? 'npx.cmd' : 'npx';
+}
+
+function runFastLintForFiles(files) {
+    if (!files || files.length === 0) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolveStep, rejectStep) => {
+        const child = spawn(getNpxCommand(), [
+            'oxlint',
+            '-c',
+            FAST_LOOP_OXLINT_CONFIG,
+            ...files,
+        ], {
+            cwd: REPO_ROOT,
+            stdio: 'inherit',
+            env: process.env,
+            shell: false,
+            windowsHide: process.platform === 'win32',
+        });
+
+        child.on('error', rejectStep);
+        child.on('exit', (code, signal) => {
+            if (signal) {
+                rejectStep(new Error(`fast lint terminated by signal ${signal}`));
+                return;
+            }
+
+            if ((code ?? 0) !== 0) {
+                rejectStep(new Error(`fast lint exited with code ${code}`));
+                return;
+            }
+
+            resolveStep();
+        });
+    });
+}
+
 function spawnRuntimeProcess() {
     const child = spawn(
         process.execPath,
@@ -211,8 +247,9 @@ function spawnRuntimeProcess() {
     runtimeProcess = child;
 }
 
-function restartRuntimeProcess() {
+function restartRuntimeProcess(changedFiles = []) {
     runtimeRestartInFlight = runtimeRestartInFlight.then(async () => {
+        await runFastLintForFiles(changedFiles);
         await stopRuntimeProcess();
         await runPostCompileStep();
         spawnRuntimeProcess();
@@ -244,8 +281,14 @@ function createCompilerOutputHandler({
             const normalizedLine = normalizeCompilerLine(line);
 
             if (normalizedLine.includes(CLEAN_BUILD_MESSAGE)) {
-                write(tracker.consumeCleanBuildSummary() ?? `${line}\n`);
-                void restartProcess();
+                const changedFiles = tracker.consumePendingFiles();
+                if (changedFiles.length > 0) {
+                    const fileLabel = changedFiles.length === 1 ? 'file' : 'files';
+                    write(`${LOG_PREFIX} compiled ${changedFiles.length} changed ${fileLabel}; running fast lint.\n`);
+                } else {
+                    write(`${line}\n`);
+                }
+                void restartProcess(changedFiles);
             } else {
                 write(`${line}\n`);
             }

@@ -6,6 +6,7 @@ test('workflow workspace exposes the approved tab order and overview as the defa
         WORKFLOW_DEFINITION_ONLY_RUN_ID,
         WORKFLOW_WORKSPACE_TABS,
         getDefaultWorkflowWorkspaceTab,
+        getWorkflowWorkspaceRefreshIntervalMs,
         getWorkflowVisualiserRequestedRunId,
         getWorkflowWorkspaceRunSelectionValue,
         shouldFitSequenceMapViewport,
@@ -28,6 +29,11 @@ test('workflow workspace exposes the approved tab order and overview as the defa
     assert.equal(getWorkflowWorkspaceRunSelectionValue(null, 'run-42'), 'run-42');
     assert.equal(getWorkflowWorkspaceRunSelectionValue(WORKFLOW_DEFINITION_ONLY_RUN_ID, 'run-42'), WORKFLOW_DEFINITION_ONLY_RUN_ID);
     assert.equal(getWorkflowWorkspaceRunSelectionValue(null, null), '');
+    assert.equal(getWorkflowWorkspaceRefreshIntervalMs(null), null);
+    assert.equal(getWorkflowWorkspaceRefreshIntervalMs({ selectedRun: null }), null);
+    assert.equal(getWorkflowWorkspaceRefreshIntervalMs({ selectedRun: { status: 'completed' } }), null);
+    assert.equal(getWorkflowWorkspaceRefreshIntervalMs({ selectedRun: { status: 'failed' } }), null);
+    assert.equal(getWorkflowWorkspaceRefreshIntervalMs({ selectedRun: { status: 'running' } }), 1000);
     assert.equal(shouldFitSequenceMapViewport(null), true);
     assert.equal(shouldFitSequenceMapViewport({ x: 10, y: 20, zoom: 0.9 }), false);
 });

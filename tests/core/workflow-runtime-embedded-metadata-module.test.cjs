@@ -59,8 +59,8 @@ test('runtime.extract_embedded_metadata stores derived metadata and emits asset 
         `).get();
         assert.equal(assetRow.width, 1);
         assert.equal(assetRow.height, 1);
-        assert.equal(assetRow.metadata_timestamp_source, 'file.birthtime');
-        assert.ok(typeof assetRow.exif_datetime === 'string');
+        assert.equal(assetRow.metadata_timestamp_source, null);
+        assert.equal(assetRow.exif_datetime, null);
 
         const metadataRow = db.prepare(`
             SELECT data
@@ -70,7 +70,7 @@ test('runtime.extract_embedded_metadata stores derived metadata and emits asset 
         assert.ok(metadataRow);
         const stored = JSON.parse(metadataRow.data);
         assert.equal(stored.file.width, 1);
-        assert.equal(stored.derived.timestamp_source, 'file.birthtime');
+        assert.equal(stored.derived.timestamp_source, null);
         assert.ok(emittedEvents.some((event) => event.type === 'AssetUpdated' && event.assetId === 'asset-1'));
     } finally {
         dbManager?.close();

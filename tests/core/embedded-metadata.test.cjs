@@ -38,7 +38,7 @@ test('buildEmbeddedMetadataPayload preserves multiple embedded blocks and derive
     assert.equal(payload.embedded.icc.parse_status, 'unparsed');
 });
 
-test('buildEmbeddedMetadataPayload falls back to file birth time when no embedded capture timestamp exists', async () => {
+test('buildEmbeddedMetadataPayload does not invent a capture time from file birth time when no embedded timestamp exists', async () => {
     const { buildEmbeddedMetadataPayload } = await import('../../src/services/embeddedMetadata.ts');
 
     const payload = buildEmbeddedMetadataPayload({
@@ -54,8 +54,9 @@ test('buildEmbeddedMetadataPayload falls back to file birth time when no embedde
         parsedExif: null,
     });
 
-    assert.equal(payload.derived.capture_datetime, '2026-03-17T11:23:05.359Z');
-    assert.equal(payload.derived.timestamp_source, 'file.birthtime');
+    assert.equal(payload.derived.capture_datetime, null);
+    assert.equal(payload.derived.timestamp_source, null);
+    assert.deepEqual(payload.derived.timestamp_candidates, []);
 });
 
 test('buildEmbeddedMetadataPayload extracts RDF-style XMP attributes as readable field-value pairs', async () => {

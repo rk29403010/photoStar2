@@ -13,9 +13,9 @@ function getFilename(asset: Pick<Asset, 'original_path'>): string {
     return asset.original_path.replace(/\\/g, '/').split('/').pop() ?? asset.original_path;
 }
 
-function getTimestampRank(createdAt: string | null | undefined): number {
-    if (!createdAt) {return Number.NEGATIVE_INFINITY;}
-    const timestamp = Date.parse(createdAt);
+function getTimestampRank(timestampValue: string | null | undefined): number {
+    if (!timestampValue) {return Number.NEGATIVE_INFINITY;}
+    const timestamp = Date.parse(timestampValue);
     return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
 }
 
@@ -70,7 +70,20 @@ export function sortAssetsForGallery(assets: Asset[], mode: LibrarySortMode): As
         return sorted;
     }
 
-    sorted.sort((left, right) => getTimestampRank(right.created_at) - getTimestampRank(left.created_at));
+    sorted.sort((left, right) => {
+        const leftRank = getTimestampRank(left.photo_created_at);
+        const rightRank = getTimestampRank(right.photo_created_at);
+        if (leftRank === rightRank) {
+            return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
+        }
+        if (leftRank === Number.NEGATIVE_INFINITY) {
+            return 1;
+        }
+        if (rightRank === Number.NEGATIVE_INFINITY) {
+            return -1;
+        }
+        return rightRank - leftRank;
+    });
     return sorted;
 }
 

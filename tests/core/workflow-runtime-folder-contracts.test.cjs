@@ -29,8 +29,10 @@ test('folder ingest contracts support folder subjects, parameters, labels, and m
         nodes: [
             { id: 'scan-folder', kind: 'module', moduleId: 'runtime.scan_folder', outputsTo: ['preview-each'] },
             { id: 'preview-each', kind: 'control', controlType: 'for_each', outputsTo: ['generate-previews'] },
-            { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata' },
+            { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata', outputsTo: ['estimate-photo-date-from-embedded'] },
             { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews' },
+            { id: 'estimate-photo-date-from-embedded', kind: 'module', moduleId: 'runtime.estimate_photo_date' },
+            { id: 'estimate-photo-date-from-ai', kind: 'module', moduleId: 'runtime.estimate_photo_date' },
         ],
     };
 
@@ -123,12 +125,15 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     const generateFaceVectors = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-face-vectors');
     const collectSimilar = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'collect-similar');
     const detectSensitiveContent = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-sensitive-content');
+    const generateAiMetadata = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-ai-metadata');
+    const estimateFromEmbedded = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'estimate-photo-date-from-embedded');
+    const estimateFromAi = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'estimate-photo-date-from-ai');
 
     assert.ok(previewStep);
     assert.ok(metadataStep);
     assert.equal(metadataStep.kind, 'module');
     assert.equal(metadataStep.moduleId, 'runtime.extract_embedded_metadata');
-    assert.deepEqual(metadataStep.outputsTo ?? [], []);
+    assert.deepEqual(metadataStep.outputsTo ?? [], ['estimate-photo-date-from-embedded']);
     assert.deepEqual(previewStep.outputsTo, ['collect-previewed-assets']);
     assert.ok(previewCollect);
     assert.equal(previewCollect.kind, 'control');
@@ -142,4 +147,12 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     assert.deepEqual(generateFaceVectors.outputsTo, ['collect-people']);
     assert.deepEqual(collectSimilar.outputsTo, ['group-similar-photos']);
     assert.deepEqual(detectSensitiveContent.outputsTo, ['generate-ai-metadata']);
+    assert.ok(generateAiMetadata);
+    assert.deepEqual(generateAiMetadata.outputsTo, ['estimate-photo-date-from-ai']);
+    assert.ok(estimateFromEmbedded);
+    assert.equal(estimateFromEmbedded.kind, 'module');
+    assert.equal(estimateFromEmbedded.moduleId, 'runtime.estimate_photo_date');
+    assert.ok(estimateFromAi);
+    assert.equal(estimateFromAi.kind, 'module');
+    assert.equal(estimateFromAi.moduleId, 'runtime.estimate_photo_date');
 });

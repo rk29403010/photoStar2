@@ -32,6 +32,7 @@ async function createFolderIngestHarness(tempDir) {
     const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
     const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
     const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
@@ -70,6 +71,7 @@ async function createFolderIngestHarness(tempDir) {
     modules.register(createGroupSimilarPhotosModule({ dbManager }));
     modules.register(createDetectSensitiveContentModule({ dbManager }));
     modules.register(createGenerateAiMetadataModule({ dbManager }));
+    modules.register(createEstimatePhotoDateModule({ dbManager }));
     workflows.register(folderIngestWorkflowDefinition);
 
     return {
@@ -103,7 +105,7 @@ function assertFolderIngestResults(dbManager, run) {
     assert.equal(assetRows.length, 2);
     assert.ok(assetRows.every((row) => typeof row.file_hash === 'string' && row.file_hash.length > 0));
     assert.deepEqual(assetRows.map((row) => [row.width, row.height]), [[1, 1], [1, 1]]);
-    assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), ['file.birthtime', 'file.birthtime']);
+    assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), [null, null]);
 }
 
 test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library ready after previews', async () => {

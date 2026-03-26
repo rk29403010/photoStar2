@@ -49,6 +49,8 @@ export interface Asset {
     width?: number;
     height?: number;
     created_at?: string;
+    photo_created_at?: string | null;
+    photo_created_at_confidence?: number | null;
     exif_datetime?: string | null;
     metadata_timestamp_source?: string | null;
     caption?: string;

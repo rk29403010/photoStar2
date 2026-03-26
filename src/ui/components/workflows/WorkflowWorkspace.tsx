@@ -11,6 +11,7 @@ import { WorkflowWorkspaceHeader } from './WorkflowWorkspaceHeader';
 import {
     getDefaultWorkflowWorkspaceTab,
     getWorkflowDetail,
+    getWorkflowWorkspaceRefreshIntervalMs,
     getWorkflowVisualiserRequestedRunId,
     getWorkflowWorkspaceRunSelectionValue,
     shouldFitSequenceMapViewport,
@@ -68,25 +69,42 @@ function useWorkflowWorkspaceData(
 
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        setError(null);
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-        void onGetWorkflowVisualiser(workflowId, selectedRunId)
-            .then((nextModel) => {
-                if (cancelled) {return;}
-                setModel(nextModel);
-            })
-            .catch((nextError: unknown) => {
-                if (cancelled) {return;}
-                setError(String(nextError));
-            })
-            .finally(() => {
-                if (cancelled) {return;}
-                setLoading(false);
-            });
+        const fetchModel = (showLoading: boolean) => {
+            if (showLoading) {
+                setLoading(true);
+            }
+            setError(null);
+
+            void onGetWorkflowVisualiser(workflowId, selectedRunId)
+                .then((nextModel) => {
+                    if (cancelled) {return;}
+                    setModel(nextModel);
+                    const refreshIntervalMs = getWorkflowWorkspaceRefreshIntervalMs(nextModel);
+                    if (refreshIntervalMs !== null) {
+                        timeoutId = setTimeout(() => {
+                            fetchModel(false);
+                        }, refreshIntervalMs);
+                    }
+                })
+                .catch((nextError: unknown) => {
+                    if (cancelled) {return;}
+                    setError(String(nextError));
+                })
+                .finally(() => {
+                    if (cancelled) {return;}
+                    setLoading(false);
+                });
+        };
+
+        fetchModel(true);
 
         return () => {
             cancelled = true;
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+            }
         };
     }, [onGetWorkflowVisualiser, selectedRunId, workflowId]);
 

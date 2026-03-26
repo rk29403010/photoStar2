@@ -60,6 +60,12 @@
     "react/jsx-uses-react": "off",
     "react/react-in-jsx-scope": "off",
     "react/self-closing-comp": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/return-await": "error",
+    "typescript/switch-exhaustiveness-check": "error",
     "unicorn/no-array-sort": "off",
     "unicorn/prefer-add-event-listener": "off"
   },

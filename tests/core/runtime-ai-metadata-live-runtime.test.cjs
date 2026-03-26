@@ -108,6 +108,114 @@ async function runLiveMetadataCapture({ tempDir, imageStrategy }) {
     return { captured, dbManager, sharp };
 }
 
+async function writeFallbackImage({ tempDir }) {
+    const imagePath = path.join(tempDir, 'env-fallback.png');
+    const sharp = (await import('sharp')).default;
+
+    await sharp({
+        create: {
+            width: 120,
+            height: 120,
+            channels: 3,
+            background: { r: 80, g: 110, b: 140 },
+        },
+    }).png().toFile(imagePath);
+
+    return imagePath;
+}
+
+function createEnvFallbackGoogleGenerativeAI(captureApiKey) {
+    return class FakeGoogleGenerativeAI {
+        constructor(apiKey) {
+            captureApiKey(apiKey);
+        }
+
+        getGenerativeModel() {
+            return {
+                async generateContent() {
+                    return {
+                        response: {
+                            text() {
+                                return JSON.stringify({
+                                    type: 'Portrait',
+                                    estimated_date: '1940s',
+                                    location: 'Unknown',
+                                    subjects: [],
+                                    caption: 'Fallback env key works.',
+                                    keywords: ['portrait'],
+                                    emotional_impact: 'Calm',
+                                    quality: {
+                                        technical: 7,
+                                        lighting: 7,
+                                        composition: 7,
+                                        emotional: 7,
+                                        discard: false,
+                                    },
+                                    recommended_enhancements: [],
+                                    authenticity: {
+                                        score: 8,
+                                        reasons: ['Consistent scan'],
+                                    },
+                                });
+                            },
+                        },
+                    };
+                },
+            };
+        }
+    };
+}
+
+async function runEnvFallbackCapture({ tempDir }) {
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+    const imagePath = await writeFallbackImage({ tempDir });
+    const dbManager = new DatabaseManager(tempDir);
+    let capturedApiKey = null;
+
+    await liveRuntime.generateLiveAiMetadata({
+        dbManager,
+        row: {
+            id: 'asset-env-1',
+            original_path: imagePath,
+            sensitivity_status: null,
+            sensitivity_score: null,
+        },
+        imageStrategy: 'overview_only',
+        GoogleGenerativeAIClass: createEnvFallbackGoogleGenerativeAI((apiKey) => {
+            capturedApiKey = apiKey;
+        }),
+    });
+
+    return { capturedApiKey, dbManager };
+}
+
+test('generateLiveAiMetadata falls back to GEMINI_API_KEY when DB settings are blank', async () => {
+    const tempDir = createTempDir();
+    const originalGeminiApiKey = process.env.GEMINI_API_KEY;
+    let dbManager = null;
+
+    try {
+        process.env.GEMINI_API_KEY = 'AIzaSyENVKEY1234567890123456789012';
+        const result = await runEnvFallbackCapture({ tempDir });
+        dbManager = result.dbManager;
+
+        assert.equal(result.capturedApiKey, 'AIzaSyENVKEY1234567890123456789012');
+    } finally {
+        if (originalGeminiApiKey === undefined) {
+            delete process.env.GEMINI_API_KEY;
+        } else {
+            process.env.GEMINI_API_KEY = originalGeminiApiKey;
+        }
+        try {
+            dbManager?.close();
+        } catch {
+            // ignore cleanup failures during test teardown
+        }
+        await removeDirWithRetry(tempDir);
+    }
+});
+
 test('generateLiveAiMetadata configures structured output and overview-only image preparation', async () => {
     const tempDir = createTempDir();
     let dbManager = null;

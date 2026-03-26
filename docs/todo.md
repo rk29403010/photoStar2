@@ -124,3 +124,34 @@ I see workflows evolving in several directions:
 Detect frames around images.
 Define a rectangle that is the maximum rectangle that sits fully within the frame (e.g. a photo 200x200px with a polaroid style frame 10px top, left and right and 50px bottom would be {10,10,180,140}. If the image has no border {0,0,200,200}).
 Also identify the primary colour used in the border to allow blending into background.
+
+Workflow changes.
+
+1. Confirm/standardise the naming around workflows.
+to equate to coding
+
+- module = function definition;
+- workflow = code calling modules with parameters (settings);
+- workflow run = running the code.
+That make sense??
+
+1. As well as giving a setting an actual value of a specific type (number, text etc), there's the  option to pass in a parameter.
+I would like to have an env file (excluded from github) that contains my google api key.
+I would like a global setting
+2. Add a per-asset finalize step for ingest workflows. This needs a design pass before implementation because it must support conditional branch completion:
+   - non-sensitive assets should flow through AI metadata before finalization;
+   - sensitive assets should skip AI metadata and finalize directly;
+   - asset completion must work across multiple app sessions and background runs without requiring the whole folder to finish as one unit.
+   See `docs/ingest-finalize-node-summary.md`.
+
+### Tooling Improvements
+
+1. Move to Vite+ <https://voidzero.dev/posts/announcing-vite-plus-alpha>
+2. Introduce
+3. Move to ts7 when available
+
+UI Improvements
+
+1. Sort by date - add ability to group by date, and to filter by date range, and to view photos in a timeline view.
+2. Option for a date histogram view - showing number of photos in each year, and each month.
+3.

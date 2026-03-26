@@ -101,6 +101,7 @@ export function AppOverlays(props: AppOverlaysProps) {
           assets={props.assets}
           initialIndex={selectedIndex}
           onClose={() => props.setSelectedAssetId(null)}
+          onAssetFocusChange={props.setSelectedAssetId}
           onPrioritize={props.onPrioritize}
           showInfoPanel={props.showInfoPanel}
           onShowInfoPanelChange={props.setShowInfoPanel}

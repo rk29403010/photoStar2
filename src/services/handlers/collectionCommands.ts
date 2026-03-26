@@ -4,6 +4,7 @@ import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
 import type { AssetPayloadRow } from './assetPayloadModel';
 import { buildGroupFieldFragments, GROUP_HIERARCHY_CTE } from './assetGroupingQueryFragments';
+import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -44,7 +45,7 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
             CASE WHEN child.canonical_asset_id = a.id THEN -1 ELSE null END AS member_rank,
             null AS member_match_evidence,
             gc_child.stack_count AS stack_count,
-            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
+            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
             a.caption, a.sensitivity_score,
             am.sensitivity_status,
             p.path AS preview_path,
@@ -64,12 +65,12 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
         JOIN asset_groups child ON child.id = agc.child_group_id
         JOIN assets a ON a.id = child.canonical_asset_id
         LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-        LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
-        LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
-        LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
-        LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
-        LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
-        LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_rec', task: 'face_recognition' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_new', task: 'ai_metadata' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_legacy', task: 'photo_metadata' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' })}
         LEFT JOIN GroupCounts gc_child ON gc_child.group_id = child.id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
@@ -82,6 +83,8 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
                 WHEN 'duplicate' THEN 3
                 ELSE 4
             END,
+            CASE WHEN a.photo_created_at IS NULL THEN 1 ELSE 0 END ASC,
+            a.photo_created_at DESC,
             a.created_at DESC,
             child.id ASC
     `).all(groupId) as OrbitItemRow[];
@@ -101,7 +104,7 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
             m.rank AS member_rank,
             m.evidence_json AS member_match_evidence,
             gc_current.stack_count AS stack_count,
-            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.exif_datetime, a.metadata_timestamp_source,
+            a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
             a.caption, a.sensitivity_score,
             am.sensitivity_status,
             p.path AS preview_path,
@@ -121,12 +124,12 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
         JOIN assets a ON a.id = m.asset_id
         LEFT JOIN asset_groups g ON g.id = m.group_id
         LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-        LEFT JOIN derived_results r_faces_new ON a.id = r_faces_new.asset_id AND r_faces_new.task = 'face_detection'
-        LEFT JOIN derived_results r_faces_legacy ON a.id = r_faces_legacy.asset_id AND r_faces_legacy.task = 'face_landmarks'
-        LEFT JOIN derived_results r_rec ON a.id = r_rec.asset_id AND r_rec.task = 'face_recognition'
-        LEFT JOIN derived_results r_ai_new ON a.id = r_ai_new.asset_id AND r_ai_new.task = 'ai_metadata'
-        LEFT JOIN derived_results r_ai_legacy ON a.id = r_ai_legacy.asset_id AND r_ai_legacy.task = 'photo_metadata'
-        LEFT JOIN derived_results r_meta ON a.id = r_meta.asset_id AND r_meta.task = 'embedded_metadata'
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_rec', task: 'face_recognition' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_new', task: 'ai_metadata' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_legacy', task: 'photo_metadata' })}
+        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' })}
         LEFT JOIN GroupCounts gc_current ON gc_current.group_id = m.group_id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
