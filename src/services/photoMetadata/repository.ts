@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseManager } from '../../data/db';
 import type {
-    PhotoMetadataAuthenticity,
+    PhotoMetadataProjectionAuthenticity,
+    PhotoMetadataProjectionDate,
+    PhotoMetadataProjectionQuality,
+} from '../../boundary/contracts/core';
+import type {
     PhotoMetadataBlock,
-    PhotoMetadataEstimatedDate,
-    PhotoMetadataQuality,
     PhotoMetadataRegionOfInterest,
     PhotoMetadataSubject,
 } from './types';
@@ -30,12 +32,12 @@ export interface PhotoMetadataProjectionInput {
     caption: string | null;
     description: string | null;
     location: string | null;
-    estimatedDate: PhotoMetadataEstimatedDate;
+    estimatedDate: PhotoMetadataProjectionDate;
     keywords: string[];
     emotionalImpact: string | null;
-    quality: PhotoMetadataQuality;
+    quality: PhotoMetadataProjectionQuality;
     recommendedEnhancements: string[];
-    authenticity: PhotoMetadataAuthenticity;
+    authenticity: PhotoMetadataProjectionAuthenticity;
     subjects?: PhotoMetadataSubject[];
     regionsOfInterest?: PhotoMetadataRegionOfInterest[];
     provenance: {
@@ -460,6 +462,10 @@ export class PhotoMetadataRepository {
                 regions_of_interest_source_id = excluded.regions_of_interest_source_id,
                 updated_at = CURRENT_TIMESTAMP
         `).run(params);
+    }
+
+    saveResolvedProjection(input: PhotoMetadataProjectionInput): void {
+        this.saveProjection(input);
     }
 
     loadProjection(assetId: string): PhotoMetadataProjectionRow | null {
