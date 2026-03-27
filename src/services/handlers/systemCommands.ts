@@ -1,6 +1,9 @@
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { runScanJob } from '../jobs/scan';
+import { applyManualAssertionToResponseBundle, createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
+import { buildPhotoMetadataBundle } from '../photoMetadata/bundle';
+import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 import type { CommandContext, CommandHandlerMap } from './types';
 import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
 
@@ -196,6 +199,53 @@ export const systemCommandHandlers: CommandHandlerMap = {
         try {
             ctx.dbManager.getDb().prepare("DELETE FROM derived_results WHERE task = 'face_detection'").run();
             ctx.respond(ctx.id, 'ok', { message: 'Face detection results cleared' }, null, ctx.originWs);
+        } catch (error) {
+            respondError(ctx, error);
+        }
+    },
+
+    record_photo_metadata_assertion: (ctx) => {
+        try {
+            const payload = ctx.payload as {
+                assetId?: string;
+                fieldPath?: string;
+                value?: unknown;
+                userId?: string;
+                note?: string | null;
+                includeEvidence?: boolean;
+            } | undefined;
+
+            if (!payload?.assetId) {
+                throw new Error('assetId is required');
+            }
+            if (!payload.fieldPath) {
+                throw new Error('fieldPath is required');
+            }
+            if (!payload.userId) {
+                throw new Error('userId is required');
+            }
+
+            const repository = createPhotoMetadataRepository({ dbManager: ctx.dbManager });
+            const manualAssertionsService = createPhotoMetadataManualAssertionsService({ dbManager: ctx.dbManager });
+            const manualAssertion = manualAssertionsService.recordManualAssertion({
+                assetId: payload.assetId,
+                fieldPath: payload.fieldPath,
+                value: payload.value,
+                userId: payload.userId,
+                note: payload.note ?? null,
+            });
+
+            const photoMetadata = applyManualAssertionToResponseBundle(buildPhotoMetadataBundle({
+                repository,
+                manualAssertionsService,
+                assetId: payload.assetId,
+                includeEvidence: payload.includeEvidence === true,
+            }), manualAssertion);
+
+            ctx.respond(ctx.id, 'ok', {
+                manualAssertion,
+                photo_metadata: photoMetadata,
+            }, null, ctx.originWs);
         } catch (error) {
             respondError(ctx, error);
         }

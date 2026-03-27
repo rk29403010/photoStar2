@@ -64,7 +64,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, active
     onTabChange?.(tab);
   }, [onTabChange]);
 
-  const hasAI = Boolean(asset.ai_metadata);
+  const hasAI = Boolean(asset.photo_metadata?.projection || asset.ai_metadata);
 
   return (
     <div style={{ width, minWidth: width, maxWidth: width, height: '100%', background: 'linear-gradient(180deg, #0f172a 0%, #0a0f1e 100%)', borderLeft: '1px solid #1e293b', display: 'flex', flexDirection: 'column', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflow: 'hidden', flexShrink: 0 }}>

@@ -1,43 +1,12 @@
+import type { PhotoMetadataBlock } from '../photoMetadata/types';
+
 export const MODEL_PRO = 'gemini-3.1-pro-preview';
 export const MODEL_FLASH = 'gemini-3-flash-preview';
 
-export interface GeminiResponse {
-    type: string;
-    estimated_date: string;
-    location: string;
-    subjects: Array<{
-        label: string;
-        bounding_box: { x: number; y: number; width: number; height: number };
-        type: 'person' | 'pet';
-        location_desc: string;
-        gender?: string;
-        animal_type?: string;
-        age_range?: string;
-        dob_range?: string;
-        emotion?: string;
-        gaze?: string;
-        features?: string;
-        suggested_names?: string[];
-        uniform?: string;
-    }>;
-    caption: string;
-    keywords: string[];
-    emotional_impact: string;
-    quality: {
-        technical: number;
-        lighting: number;
-        composition: number;
-        emotional: number;
-        discard: boolean;
-    };
-    recommended_enhancements: string[];
-    authenticity: {
-        score: number;
-        reasons: string[];
-    };
+export type GeminiResponse = PhotoMetadataBlock & {
     _analysis_tier?: 'pro' | 'flash';
     _pending_pro?: boolean;
-}
+};
 
 export interface ParsedAiMetadataRow {
     id: string;

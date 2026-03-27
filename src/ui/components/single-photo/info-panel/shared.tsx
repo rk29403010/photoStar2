@@ -49,3 +49,10 @@ export const Tag: React.FC<{ text: string; color?: string }> = ({ text, color = 
   <span style={{ background: color, borderRadius: 4, padding: '2px 7px', fontSize: 11, color: '#cbd5e1', display: 'inline-block', margin: '2px 2px 2px 0' }}>{text}</span>
 );
 
+export const SourceHint: React.FC<{ label?: string }> = ({ label }) => {
+  if (!label) {
+    return null;
+  }
+
+  return <div style={{ fontSize: 10, color: '#64748b', marginTop: -2, marginBottom: 8, paddingLeft: 98 }}>{label}</div>;
+};

@@ -1,4 +1,5 @@
 import type { Asset } from '@contracts/core';
+import { buildPhotoMetadataAnalysisSummary } from './photoMetadataPanelModel';
 
 export interface AnalysisDetails {
   mode?: string;
@@ -22,11 +23,12 @@ function getStringList(value: unknown): string[] {
 }
 
 export function buildAnalysisDetails(asset: AnalysisAssetSource): AnalysisDetails {
+  const summary = buildPhotoMetadataAnalysisSummary(asset as Asset);
   const ai = asset.ai_metadata;
   return {
     mode: getOptionalString(ai?.mode),
-    caption: getOptionalString(ai?.caption) ?? getOptionalString(asset.caption),
+    caption: summary.caption ?? getOptionalString(asset.caption),
     tags: getStringList(ai?.tags),
-    notes: getOptionalString(ai?.notes),
+    notes: summary.description ?? getOptionalString(ai?.notes),
   };
 }

@@ -1,9 +1,13 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
-import { Field, Section, Tag } from './shared';
+import { Field, Section, SourceHint, Tag } from './shared';
+import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
 import { shortPath } from './utils';
 
 function getModelLabel(asset: Asset): string | undefined {
+  const captionSource = asset.photo_metadata?.provenance?.caption?.sourceKind;
+  if (captionSource === 'gemini_pro_refined') {return '✨ Pro refined';}
+  if (captionSource === 'gemini_flash_scout') {return '⚡ Flash scout';}
   if (asset.ai_metadata?._analysis_tier === 'pro') {return '✨ Pro (3.1)';}
   if (asset.ai_metadata?._analysis_tier === 'flash') {return '⚡ Flash (3)';}
   return undefined;
@@ -25,28 +29,43 @@ const EmotionalSection: React.FC<{ emotional?: unknown }> = ({ emotional }) => {
   return <Section emoji="💖" title="Emotional Impact"><p style={{ margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.6 }}>{String(emotional)}</p></Section>;
 };
 
+const AiInterpretationSection: React.FC<{ asset: Asset; summary: ReturnType<typeof buildPhotoMetadataFileSummary>; visible: boolean }> = ({ asset, summary, visible }) => {
+  if (!visible) {return null;}
+
+  return (
+    <Section emoji="🤖" title="AI Interpretation">
+      <Field label="Type" value={summary.type} />
+      <SourceHint label={summary.typeSourceLabel} />
+      <Field label="Est. Date" value={summary.estimatedDateLabel} />
+      <SourceHint label={summary.estimatedDateSourceLabel} />
+      <Field label="Location" value={summary.location} />
+      <SourceHint label={summary.locationSourceLabel} />
+      <Field label="Model" value={getModelLabel(asset)} />
+      {Boolean(asset.ai_metadata?._pending_pro) && <div style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 6, padding: '6px 10px', marginTop: 4 }}><span style={{ fontSize: 11, color: '#fbbf24' }}>⏳ Queued for enhanced pro analysis</span></div>}
+    </Section>
+  );
+};
+
+const ResolvedMetadataSections: React.FC<{ asset: Asset; caption: string | null; captionSourceLabel?: string }> = ({ asset, caption, captionSourceLabel }) => (
+  <>
+    <CaptionSection caption={caption} />
+    <SourceHint label={captionSourceLabel} />
+    <KeywordsSection keywords={asset.photo_metadata?.projection.keywords ?? asset.ai_metadata?.keywords} />
+    <EmotionalSection emotional={asset.photo_metadata?.projection.emotionalImpact ?? asset.ai_metadata?.emotional_impact} />
+  </>
+);
+
 export const FileTab: React.FC<{ asset: Asset }> = ({ asset }) => {
-    const filename = asset.original_path.split(/[/\\]/).pop() || '';
-    const ext = filename.split('.').pop()?.toUpperCase() || '';
-    const ai = asset.ai_metadata;
+  const filename = asset.original_path.split(/[/\\]/).pop() || '';
+  const ext = filename.split('.').pop()?.toUpperCase() || '';
+  const summary = buildPhotoMetadataFileSummary(asset);
+  const hasPhotoMetadata = Boolean(asset.photo_metadata?.projection || asset.ai_metadata);
 
-    return (
-        <div>
+  return (
+    <div>
       <FileSection asset={asset} filename={filename} ext={ext} />
-
-      {ai && (
-        <Section emoji="🤖" title="AI Interpretation">
-          <Field label="Type" value={ai.type as string} />
-          <Field label="Est. Date" value={ai.estimated_date as string} />
-          <Field label="Location" value={ai.location as string} />
-          <Field label="Model" value={getModelLabel(asset)} />
-          {Boolean(asset.ai_metadata?._pending_pro) && <div style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 6, padding: '6px 10px', marginTop: 4 }}><span style={{ fontSize: 11, color: '#fbbf24' }}>⏳ Queued for enhanced pro analysis</span></div>}
-        </Section>
-      )}
-
-      <CaptionSection caption={ai?.caption} />
-      <KeywordsSection keywords={ai?.keywords} />
-      <EmotionalSection emotional={ai?.emotional_impact} />
+      <AiInterpretationSection asset={asset} summary={summary} visible={hasPhotoMetadata} />
+      <ResolvedMetadataSections asset={asset} caption={summary.caption} captionSourceLabel={summary.captionSourceLabel} />
     </div>
   );
 };

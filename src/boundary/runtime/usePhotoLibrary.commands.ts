@@ -15,6 +15,7 @@ import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibra
 import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
+export { createPhotoMetadataActions } from './photoMetadataActions';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
 type AiMode = 'mock' | 'live' | 'off';

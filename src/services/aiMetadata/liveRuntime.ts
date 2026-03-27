@@ -5,6 +5,8 @@ import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
+import type { PhotoMetadataBlock } from '../photoMetadata/types';
+import { isPhotoMetadataBlock } from '../photoMetadata/validation';
 import { buildGeminiFlashPrompt, buildGeminiProPrompt } from './geminiPrompts';
 import {
     buildGeminiFlashResponseSchema,
@@ -46,6 +48,11 @@ type PreparedImagePayload = {
     filename: string;
     exifDataString: string;
     imageParts: PreparedImagePart[];
+};
+type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
+export type LiveMetadataEvidence = StoredAiMetadataResult & {
+    metadataBlock: PhotoMetadataBlock;
+    metadataSourceKind: MetadataSourceKind;
 };
 type CropRegion = {
     left: number;
@@ -272,6 +279,33 @@ async function generateContent(
 
 type GeminiResponseSchema = ReturnType<typeof buildGeminiFlashResponseSchema>;
 
+function resolveMetadataSourceKind(response: GeminiResponse): MetadataSourceKind {
+    return response._analysis_tier === 'pro' ? 'gemini_pro_refined' : 'gemini_flash_scout';
+}
+
+function extractMetadataBlock(response: GeminiResponse): PhotoMetadataBlock {
+    const { _analysis_tier: _analysisTier, _pending_pro: _pendingPro, ...block } = response;
+    if (!isPhotoMetadataBlock(block)) {
+        throw new Error('AI response did not match the photo metadata schema');
+    }
+    return block;
+}
+
+function buildLiveMetadataEvidence(params: {
+    provider: string;
+    modelVersion: string;
+    response: GeminiResponse;
+}): LiveMetadataEvidence {
+    const metadataBlock = extractMetadataBlock(params.response);
+    return {
+        provider: params.provider,
+        modelVersion: params.modelVersion,
+        data: params.response as unknown as Record<string, unknown>,
+        metadataBlock,
+        metadataSourceKind: resolveMetadataSourceKind(params.response),
+    };
+}
+
 async function tryProModel(
     genAI: GoogleGenerativeAI,
     prompt: string,
@@ -366,38 +400,6 @@ function clearProPendingRecord(db: ReturnType<DatabaseManager['getDb']>, assetId
     db.prepare("DELETE FROM derived_results WHERE asset_id = ? AND task = 'ai_metadata_pro_pending'").run(assetId);
 }
 
-function saveAiMetadataResult(
-    db: ReturnType<DatabaseManager['getDb']>,
-    assetId: string,
-    result: StoredAiMetadataResult,
-): void {
-    const existing = db.prepare(`
-        SELECT id
-        FROM derived_results
-        WHERE asset_id = ? AND task = 'ai_metadata'
-        ORDER BY created_at DESC, id DESC
-        LIMIT 1
-    `).get(assetId) as { id: string } | undefined;
-
-    if (existing) {
-        db.prepare(`
-            UPDATE derived_results
-            SET provider = ?, model_version = ?, data = ?, created_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `).run(result.provider, result.modelVersion, JSON.stringify(result.data), existing.id);
-        db.prepare(`
-            DELETE FROM derived_results
-            WHERE asset_id = ? AND task = 'ai_metadata' AND id <> ?
-        `).run(assetId, existing.id);
-        return;
-    }
-
-    db.prepare(`
-        INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
-        VALUES (?, ?, 'ai_metadata', ?, ?, ?)
-    `).run(uuidv4(), assetId, result.provider, result.modelVersion, JSON.stringify(result.data));
-}
-
 function emitPendingEvents(eventSink: EventSink | undefined, assetId: string, flashModel: string, reason: PendingReason): void {
     if (!eventSink) {
         return;
@@ -424,7 +426,7 @@ export async function generateLiveAiMetadata(params: {
     imageStrategy: 'overview_only' | 'overview_plus_tiles';
     eventSink?: EventSink;
     GoogleGenerativeAIClass?: GoogleGenerativeAIConstructor;
-}): Promise<StoredAiMetadataResult> {
+}): Promise<LiveMetadataEvidence> {
     const modelConfig = await resolveModelConfig(params.dbManager);
     const GoogleGenerativeAIClass = params.GoogleGenerativeAIClass
         ?? (await import('@google/generative-ai')).GoogleGenerativeAI;
@@ -439,11 +441,11 @@ export async function generateLiveAiMetadata(params: {
             const proResult = await tryProModel(genAI, proPrompt, imageParts);
             if (proResult) {
                 clearProPendingRecord(db, params.row.id);
-                return {
+                return buildLiveMetadataEvidence({
                     provider: 'google',
                     modelVersion: MODEL_PRO,
-                    data: proResult as unknown as Record<string, unknown>,
-                };
+                    response: proResult,
+                });
             }
         }
 
@@ -458,11 +460,11 @@ export async function generateLiveAiMetadata(params: {
             clearProPendingRecord(db, params.row.id);
         }
 
-        return {
+        return buildLiveMetadataEvidence({
             provider: 'google',
             modelVersion: modelConfig.flashModel,
-            data: flashResult as unknown as Record<string, unknown>,
-        };
+            response: flashResult,
+        });
     } catch (error) {
         const unrecoverableReason = getUnrecoverableAiReason(error as Error);
         if (unrecoverableReason) {
@@ -470,12 +472,4 @@ export async function generateLiveAiMetadata(params: {
         }
         throw error;
     }
-}
-
-export function persistAiMetadataResult(params: {
-    dbManager: DatabaseManager;
-    assetId: string;
-    result: StoredAiMetadataResult;
-}): void {
-    saveAiMetadataResult(params.dbManager.getDb(), params.assetId, params.result);
 }

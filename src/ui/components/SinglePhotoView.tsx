@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Dispatch, FC, SetStateAction } from 'react';
 import type { Asset, SimilarityOrbit } from '@contracts/core';
-import { InfoPanel } from './single-photo/InfoPanel';
-import { PhotoViewport } from './single-photo/PhotoViewport';
 import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
+import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
 import { applyStarSelection, clearGroupMembership, dedupeSinglePhotoAssets, mergeSinglePhotoAssets, resolveSinglePhotoAssetIndex } from './single-photo/singlePhotoAssetModel';
+import { useSinglePhotoAssetLifecycle } from './single-photo/useSinglePhotoAssetLifecycle';
+import { usePhotoMetadataEvidenceLoader } from './single-photo/usePhotoMetadataEvidenceLoader';
 
 interface SinglePhotoViewProps {
     assets: Asset[];
@@ -20,39 +21,11 @@ interface SinglePhotoViewProps {
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onOpenSettings?: () => void;
+    onLoadAssetEvidence?: (assetId: string) => Promise<void>;
     showInfoPanel?: boolean;
     onShowInfoPanelChange?: (v: boolean) => void;
     activeInfoTab?: 'file' | 'analysis' | 'people' | 'json';
     onActiveInfoTabChange?: (t: 'file' | 'analysis' | 'people' | 'json') => void;
-}
-
-interface SinglePhotoOverlayProps {
-    asset: Asset;
-    assets: Asset[];
-    currentIndex: number;
-    showControls: boolean;
-    setShowControls: Dispatch<SetStateAction<boolean>>;
-    showFaces: boolean;
-    setShowFaces: Dispatch<SetStateAction<boolean>>;
-    showActionMenu: boolean;
-    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
-    hoveredFaceKey: string | null;
-    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
-    panelState: PanelState;
-    onClose: () => void;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
-    onOpenSettings?: () => void;
-    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    onOrbitLoaded: (assets: Asset[]) => void;
-    onSelectAsset: (assetId: string) => void;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    onChangeIndex: (delta: -1 | 1) => void;
-    onRevealControls: () => void;
-    analysis: AnalysisState;
 }
 
 type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
@@ -81,10 +54,7 @@ type ControlsState = {
     onChangeIndex: (delta: -1 | 1) => void;
 };
 
-const INFO_PANEL_WIDTH = 360;
 const CONTROLS_IDLE_MS = 2500;
-const APP_STATUS_BAR_HEIGHT = 30;
-
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
     onShowInfoPanelChange,
@@ -93,15 +63,12 @@ function usePanelState({
 }: Pick<SinglePhotoViewProps, 'showInfoPanel' | 'onShowInfoPanelChange' | 'activeInfoTab' | 'onActiveInfoTabChange'>): PanelState & { setActiveInfoTab: (t: 'file' | 'analysis' | 'people' | 'json') => void } {
     const [showInfoPanelInternal, setShowInfoPanelInternal] = useState(false);
     const showInfoPanel = showInfoPanelProp ?? showInfoPanelInternal;
-
     const setShowInfoPanel = useCallback((value: boolean) => {
         setShowInfoPanelInternal(value);
         onShowInfoPanelChange?.(value);
     }, [onShowInfoPanelChange]);
-
     const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<'file' | 'analysis' | 'people' | 'json'>('file');
     const activeInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
-
     const setActiveInfoTab = useCallback((tab: 'file' | 'analysis' | 'people' | 'json') => {
         setActiveInfoTabInternal(tab);
         onActiveInfoTabChange?.(tab);
@@ -117,21 +84,18 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [hoveredFaceKey, setHoveredFaceKey] = useState<string | null>(null);
     const controlsHideTimerRef = useRef<number | null>(null);
-
     const clearControlsHideTimer = useCallback(() => {
         if (controlsHideTimerRef.current !== null) {
             window.clearTimeout(controlsHideTimerRef.current);
             controlsHideTimerRef.current = null;
         }
     }, []);
-
     const scheduleControlsHide = useCallback(() => {
         clearControlsHideTimer();
         controlsHideTimerRef.current = window.setTimeout(() => {
             setShowControls(false);
         }, CONTROLS_IDLE_MS);
     }, [clearControlsHideTimer]);
-
     const revealControls = useCallback(() => {
         setShowControls(true);
         if (!showActionMenu) {
@@ -194,7 +158,6 @@ function useAnalysisUiState(): AnalysisUiBundle {
     const [analyzingJobId, setAnalyzingJobId] = useState<string | null>(null);
     const [analysisState, setAnalysisState] = useState<AnalysisUiState>('idle');
     const [analysisError, setAnalysisError] = useState<string | null>(null);
-
     return {
         analysisState,
         setAnalysisState,
@@ -254,17 +217,6 @@ function useAnalysisTracking(params: {
     ]);
 }
 
-function useAssetPrioritization(assetId: string | undefined, onPrioritize: (mediaId: string) => void) {
-    const lastPrioritizedAssetIdRef = useRef<string | null>(null);
-
-    useEffect(() => {
-        if (!assetId) {return;}
-        if (lastPrioritizedAssetIdRef.current === assetId) {return;}
-        lastPrioritizedAssetIdRef.current = assetId;
-        onPrioritize(assetId);
-    }, [assetId, onPrioritize]);
-}
-
 function buildAnalysisState(bundle: AnalysisUiBundle): AnalysisState {
     return {
         analysisState: bundle.analysisState,
@@ -310,94 +262,64 @@ function useSinglePhotoAssetState(params: {
     return { viewAssets, initialViewIndex, handleOrbitLoaded, handleSetCanonical, handleExplodeGroup };
 }
 
-const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
-    asset,
-    assets,
-    currentIndex,
-    showControls,
-    setShowControls,
-    showFaces,
-    setShowFaces,
-    showActionMenu,
-    setShowActionMenu,
-    hoveredFaceKey,
-    setHoveredFaceKey,
-    panelState,
-    onClose,
-    onFaceClick,
-    onIsolateFace,
-    onSetSensitivity,
-    onExtractAiMetadata,
-    onOpenSettings,
-    onGetGroupOrbit,
-    onOrbitLoaded,
-    onSelectAsset,
-    onSetCanonical,
-    onExplodeGroup,
-    onChangeIndex,
-    onRevealControls,
-    analysis
-}) => (
-    <div
-        style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            bottom: APP_STATUS_BAR_HEIGHT,
-            backgroundColor: '#050505',
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'row',
-            overflow: 'hidden',
-            userSelect: 'none',
-            opacity: 0,
-            animation: 'fadeInOverlay 0.2s ease-out forwards'
-        }}
-    >
-        <PhotoViewport
-            asset={asset}
-            assetsLength={assets.length}
-            currentIndex={currentIndex}
-            showControls={showControls}
-            setShowControls={setShowControls}
-            showFaces={showFaces}
-            setShowFaces={setShowFaces}
-            showActionMenu={showActionMenu}
-            setShowActionMenu={setShowActionMenu}
-            hoveredFaceKey={hoveredFaceKey}
-            setHoveredFaceKey={setHoveredFaceKey}
-            panelState={panelState}
-            onClose={onClose}
-            onFaceClick={onFaceClick}
-            onIsolateFace={onIsolateFace}
-            onSetSensitivity={onSetSensitivity}
-            onExtractAiMetadata={onExtractAiMetadata}
-            onOpenSettings={onOpenSettings}
-            onGetGroupOrbit={onGetGroupOrbit}
-            onOrbitLoaded={onOrbitLoaded}
-            onSelectAsset={onSelectAsset}
-            onSetCanonical={onSetCanonical}
-            onExplodeGroup={onExplodeGroup}
-            onChangeIndex={onChangeIndex}
-            onRevealControls={onRevealControls}
-            analysis={analysis}
-        />
+function useSinglePhotoViewState(params: {
+    assets: Asset[];
+    initialIndex: number;
+    panelState: ReturnType<typeof usePanelState>;
+    analysisUi: AnalysisUiBundle;
+    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    onExplodeGroup?: (groupId: string) => Promise<void>;
+    onAssetFocusChange?: (assetId: string) => void;
+    onPrioritize: (mediaId: string) => void;
+    onLoadAssetEvidence?: (assetId: string) => Promise<void>;
+}) {
+    const assetState = useSinglePhotoAssetState({
+        assets: params.assets,
+        initialIndex: params.initialIndex,
+        onSetCanonical: params.onSetCanonical,
+        onExplodeGroup: params.onExplodeGroup,
+    });
+    const controls = useSinglePhotoControls(assetState.initialViewIndex, assetState.viewAssets.length);
+    const asset = assetState.viewAssets[controls.currentIndex];
+    const setCurrentIndex = controls.setCurrentIndex;
 
-        {panelState.showInfoPanel && (
-            <div style={{ width: INFO_PANEL_WIDTH, height: '100%', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
-                <InfoPanel
-                    asset={asset}
-                    width={INFO_PANEL_WIDTH}
-                    activeTab={panelState.activeInfoTab}
-                    onTabChange={panelState.setActiveInfoTab}
-                    hoveredFaceKey={hoveredFaceKey}
-                    onHoverFaceKey={setHoveredFaceKey}
-                />
-            </div>
-        )}
-    </div>
-);
+    const handleSelectAsset = useCallback((assetId: string) => {
+        const nextIndex = resolveSinglePhotoAssetIndex(assetState.viewAssets, assetId);
+        if (nextIndex < 0) {return;}
+        setCurrentIndex(nextIndex);
+    }, [assetState.viewAssets, setCurrentIndex]);
+
+    useSinglePhotoAssetLifecycle({
+        assetId: asset?.id,
+        onAssetFocusChange: params.onAssetFocusChange,
+        onPrioritize: params.onPrioritize,
+    });
+    usePhotoMetadataEvidenceLoader({
+        activeTab: params.panelState.activeInfoTab,
+        asset,
+        loadAssetEvidence: params.onLoadAssetEvidence,
+    });
+    useAnalysisTracking({
+        analyzingAssetId: params.analysisUi.analyzingAssetId,
+        currentAssetId: asset?.id,
+        assetAiMetadata: asset?.ai_metadata,
+        setAnalysisError: params.analysisUi.setAnalysisError,
+        setAnalysisState: params.analysisUi.setAnalysisState,
+        setAnalyzingJobId: params.analysisUi.setAnalyzingJobId,
+        setAnalyzingAssetId: params.analysisUi.setAnalyzingAssetId,
+        setShowInfoPanel: params.panelState.setShowInfoPanel,
+    });
+
+    return {
+        asset,
+        controls,
+        viewAssets: assetState.viewAssets,
+        handleOrbitLoaded: assetState.handleOrbitLoaded,
+        handleSetCanonical: assetState.handleSetCanonical,
+        handleExplodeGroup: assetState.handleExplodeGroup,
+        handleSelectAsset,
+    };
+}
 
 export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     assets,
@@ -413,45 +335,32 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     onSetCanonical,
     onExplodeGroup,
     onOpenSettings,
+    onLoadAssetEvidence,
     showInfoPanel,
     onShowInfoPanelChange,
     activeInfoTab,
     onActiveInfoTabChange
 }) => {
     const panelState = usePanelState({ showInfoPanel, onShowInfoPanelChange, activeInfoTab, onActiveInfoTabChange });
+    const analysisUi = useAnalysisUiState();
     const {
+        asset,
+        controls,
         viewAssets,
-        initialViewIndex,
         handleOrbitLoaded,
         handleSetCanonical,
-        handleExplodeGroup
-    } = useSinglePhotoAssetState({ assets, initialIndex, onSetCanonical, onExplodeGroup });
-    const controls = useSinglePhotoControls(initialViewIndex, viewAssets.length);
-    const analysisUi = useAnalysisUiState();
-    const asset = viewAssets[controls.currentIndex];
-    const setCurrentIndex = controls.setCurrentIndex;
-
-    useEffect(() => {
-        if (!asset?.id) {return;}
-        onAssetFocusChange?.(asset.id);
-    }, [asset?.id, onAssetFocusChange]);
-
-    const handleSelectAsset = useCallback((assetId: string) => {
-        const nextIndex = resolveSinglePhotoAssetIndex(viewAssets, assetId);
-        if (nextIndex < 0) {return;}
-        setCurrentIndex(nextIndex);
-    }, [setCurrentIndex, viewAssets]);
-
-    useAssetPrioritization(asset?.id, onPrioritize);
-    useAnalysisTracking({
-        analyzingAssetId: analysisUi.analyzingAssetId,
-        currentAssetId: asset?.id,
-        assetAiMetadata: asset?.ai_metadata,
-        setAnalysisError: analysisUi.setAnalysisError,
-        setAnalysisState: analysisUi.setAnalysisState,
-        setAnalyzingJobId: analysisUi.setAnalyzingJobId,
-        setAnalyzingAssetId: analysisUi.setAnalyzingAssetId,
-        setShowInfoPanel: panelState.setShowInfoPanel
+        handleExplodeGroup,
+        handleSelectAsset,
+    } = useSinglePhotoViewState({
+        assets,
+        initialIndex,
+        panelState,
+        analysisUi,
+        onSetCanonical,
+        onExplodeGroup,
+        onAssetFocusChange,
+        onPrioritize,
+        onLoadAssetEvidence,
     });
 
     if (!asset) {return null;}

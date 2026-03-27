@@ -15,19 +15,22 @@ Treat all image parts as coordinated views of one photo, not as separate unrelat
 Use the overview for whole-scene context and the crops for local detail such as faces, clothing, signage, inscriptions, or small background clues.`;
 }
 
-export function buildGeminiProPrompt({ filename, exifDataString, imageStrategy }: GeminiPromptInput): string {
-    return `You are an expert photo archivist and AI analyst with access to extended thinking.
-Use step-by-step reasoning to carefully analyse this image, then respond ONLY with valid JSON.
+function buildSharedMetadataSchema(): string {
+    return `Return a single JSON object matching this archival metadata schema exactly.
+Keep the answer conservative and useful for long-term archive indexing.
+Prefer Unknown, null, or empty arrays over guessing.
 
-Context metadata:
-- Filename: ${filename}
-- EXIF Data: ${exifDataString || 'none'}
-${buildImagePartInstructions(imageStrategy)}
-
-Analyse and return JSON matching this exact schema:
 {
-  "type": "string (Landscape, Large group portrait, Family portrait, Document, Newspaper clipping, Drawing, Painting, Selfie, Gravestone)",
-  "estimated_date": "string — be as accurate as possible (decade, year, or full date). Use clothing, hairstyles, technology, EXIF, filename.",
+  "type": "string (Landscape, Group portrait, Family portrait, Document, Newspaper clipping, Drawing, Painting, Selfie, Gravestone)",
+  "caption": "string (short one-line summary, e.g. 'Billy and Dad enjoying Christmas dinner')",
+  "description": "string (fuller narrative description of the visible photo content and context)",
+  "estimated_date": {
+    "most_likely_date": "string or null (ISO date if exact, otherwise a year, decade, or null)",
+    "min_date": "string or null (earliest plausible ISO date)",
+    "max_date": "string or null (latest plausible ISO date)",
+    "display_label": "string (e.g. 'late 1970s')",
+    "rationale": "string (why this date range was chosen)"
+  },
   "location": "string (estimated location or 'Unknown')",
   "subjects": [
     {
@@ -35,17 +38,25 @@ Analyse and return JSON matching this exact schema:
       "bounding_box": { "x": number, "y": number, "width": number, "height": number },
       "type": "person | pet",
       "location_desc": "string (e.g. '2nd from left')",
-      "gender": "male | female | other",
-      "animal_type": "string (for pets)",
-      "age_range": "string",
-      "dob_range": "string (estimated birth decade or range)",
-      "emotion": "string",
-      "gaze": "string",
-      "features": "string (distinctive features)",
-      "uniform": "string (if applicable)"
+      "gender": "male | female | other | unknown",
+      "animal_type": "string or null",
+      "age_range": "string or null",
+      "dob_range": "string or null",
+      "emotion": "string or null",
+      "gaze": "string or null",
+      "features": "string or null",
+      "uniform": "string or null",
+      "suggested_names": ["string"]
     }
   ],
-  "caption": "string (descriptive, using subject labels)",
+  "regions_of_interest": [
+    {
+      "label": "string",
+      "kind": "string (signage, handwriting, clothing, vehicle, architecture, inscription, document, object, other)",
+      "bounding_box": { "x": number, "y": number, "width": number, "height": number },
+      "significance": "string or null"
+    }
+  ],
   "keywords": ["string"],
   "emotional_impact": "string",
   "quality": {
@@ -60,41 +71,40 @@ Analyse and return JSON matching this exact schema:
 }`;
 }
 
+function buildPromptBody(params: {
+    filename: string;
+    exifDataString: string;
+    intro: string;
+    analysisPreamble: string;
+    imageStrategy?: GeminiPromptInput['imageStrategy'];
+}): string {
+    return `${params.intro}
+${params.analysisPreamble}
+
+Context metadata:
+- Filename: ${params.filename}
+- EXIF Data: ${params.exifDataString || 'none'}
+${buildImagePartInstructions(params.imageStrategy)}
+
+${buildSharedMetadataSchema()}`;
+}
+
+export function buildGeminiProPrompt({ filename, exifDataString, imageStrategy }: GeminiPromptInput): string {
+    return buildPromptBody({
+        filename,
+        exifDataString,
+        imageStrategy,
+        intro: 'You are an expert photo archivist and AI analyst with access to extended thinking.',
+        analysisPreamble: 'Use step-by-step reasoning to carefully analyse this image, then respond ONLY with valid JSON.',
+    });
+}
+
 export function buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy }: GeminiPromptInput): string {
-    return `You are a photo archivist. Analyse this image and return ONLY valid JSON.
-
-Context:
-- Filename: ${filename}
-- EXIF Data: ${exifDataString || 'none'}
-${buildImagePartInstructions(imageStrategy)}
-
-Return JSON matching this schema exactly (no extra keys):
-{
-  "type": "string (Landscape, Group portrait, Family portrait, Document, Selfie, etc.)",
-  "estimated_date": "string (decade or year — use EXIF, clothing, hairstyles)",
-  "location": "string (estimated location or 'Unknown')",
-  "subjects": [
-    {
-      "label": "string (Subject1, Subject2, etc.)",
-      "bounding_box": { "x": number, "y": number, "width": number, "height": number },
-      "type": "person | pet",
-      "location_desc": "string (e.g. 'centre', '2nd from left')",
-      "gender": "male | female | other",
-      "age_range": "string",
-      "emotion": "string"
-    }
-  ],
-  "caption": "string",
-  "keywords": ["string"],
-  "emotional_impact": "string",
-  "quality": {
-    "technical": number,
-    "lighting": number,
-    "composition": number,
-    "emotional": number,
-    "discard": boolean
-  },
-  "recommended_enhancements": ["string"],
-  "authenticity": { "score": number, "reasons": ["string"] }
-}`;
+    return buildPromptBody({
+        filename,
+        exifDataString,
+        imageStrategy,
+        intro: 'You are a photo archivist.',
+        analysisPreamble: 'Analyse this image with careful archival judgement and return ONLY valid JSON.',
+    });
 }

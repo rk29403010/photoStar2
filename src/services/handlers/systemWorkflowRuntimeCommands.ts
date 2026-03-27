@@ -1,5 +1,8 @@
 import type { CommandHandlerMap, CommandContext } from './types';
 import { getWorkflowVisualiserModel } from './systemWorkflowVisualiser';
+import { buildPhotoMetadataBundle } from '../photoMetadata/bundle';
+import { createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
+import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 
 function getWorkflowRuntime(ctx: CommandContext) {
     if (!ctx.workflowRuntime) {
@@ -75,6 +78,23 @@ function normalizeSelectedSubjects(payload: {
 }
 
 export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
+    get_photo_metadata: (ctx) => {
+        const payload = ctx.payload as { assetId?: string; includeEvidence?: boolean } | undefined;
+        if (!payload?.assetId) {
+            throw new Error('assetId is required');
+        }
+
+        const repository = createPhotoMetadataRepository({ dbManager: ctx.dbManager });
+        const manualAssertionsService = createPhotoMetadataManualAssertionsService({ dbManager: ctx.dbManager });
+        const photoMetadata = buildPhotoMetadataBundle({
+            repository,
+            manualAssertionsService,
+            assetId: payload.assetId,
+            includeEvidence: payload.includeEvidence === true,
+        });
+
+        ctx.respond(ctx.id, 'ok', { photo_metadata: photoMetadata }, null, ctx.originWs);
+    },
     start_workflow_run: async (ctx) => {
         const workflowRuntime = getWorkflowRuntime(ctx);
         const payload = ctx.payload as {

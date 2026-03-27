@@ -1,4 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
+import type { PhotoMetadataBundle } from '../../boundary/contracts/core';
+import { createPhotoMetadataBundleLoader } from './assetPhotoMetadataLoader';
 import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
 import {
@@ -6,7 +8,8 @@ import {
     GROUP_HIERARCHY_CTE,
     buildPrimaryGroupVisibilityPredicate,
 } from './assetGroupingQueryFragments';
-import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
+import { buildFilterSubquery } from './assetQueryFilters';
+import { buildAssetDetailFragments, buildLatestDerivedResultJoin, type AssetDetailLevel } from '../../shared/sql/derivedResults';
 
 type AssetRow = {
     id: string;
@@ -25,7 +28,51 @@ type AssetRow = {
     ai_metadata_data: string | null;
     embedded_metadata_data: string | null;
     people_data: string | null;
+    type: string | null;
+    type_source_kind: string | null;
+    type_source_id: string | null;
     caption: string | null;
+    caption_source_kind: string | null;
+    caption_source_id: string | null;
+    description: string | null;
+    description_source_kind: string | null;
+    description_source_id: string | null;
+    location: string | null;
+    location_source_kind: string | null;
+    location_source_id: string | null;
+    estimated_date_most_likely: string | null;
+    estimated_date_min: string | null;
+    estimated_date_max: string | null;
+    estimated_date_display_label: string | null;
+    estimated_date_rationale: string | null;
+    estimated_date_source_kind: string | null;
+    estimated_date_source_id: string | null;
+    keywords_json: string | null;
+    keywords_source_kind: string | null;
+    keywords_source_id: string | null;
+    emotional_impact: string | null;
+    emotional_impact_source_kind: string | null;
+    emotional_impact_source_id: string | null;
+    quality_technical: number | null;
+    quality_lighting: number | null;
+    quality_composition: number | null;
+    quality_emotional: number | null;
+    quality_discard: number | null;
+    quality_source_kind: string | null;
+    quality_source_id: string | null;
+    recommended_enhancements_json: string | null;
+    recommended_enhancements_source_kind: string | null;
+    recommended_enhancements_source_id: string | null;
+    authenticity_score: number | null;
+    authenticity_reasons_json: string | null;
+    authenticity_source_kind: string | null;
+    authenticity_source_id: string | null;
+    subjects_json: string | null;
+    subjects_source_kind: string | null;
+    subjects_source_id: string | null;
+    regions_of_interest_json: string | null;
+    regions_of_interest_source_kind: string | null;
+    regions_of_interest_source_id: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
     member_group_id?: string | null;
@@ -38,7 +85,6 @@ type AssetRow = {
 };
 
 type AssetFilter = { personIds?: string[]; type?: string; albumId?: string };
-type AssetDetailLevel = 'gallery' | 'full';
 type AssetGalleryOrder = 'default' | 'previewed_first';
 type AssetQueryPayload = {
     assetId?: string;
@@ -48,20 +94,12 @@ type AssetQueryPayload = {
     filter?: AssetFilter;
     detailLevel?: AssetDetailLevel;
     galleryOrder?: AssetGalleryOrder;
+    includeEvidence?: boolean;
 };
 
 type AssetQueryParts = {
     sql: string;
     params: (string | number)[];
-};
-
-type DetailFragments = {
-    recSelect: string;
-    recJoin: string;
-    aiSelect: string;
-    aiJoin: string;
-    embeddedMetadataSelect: string;
-    embeddedMetadataJoin: string;
 };
 
 function getDetailLevel(payload: AssetQueryPayload | undefined): AssetDetailLevel {
@@ -82,74 +120,6 @@ function buildOrderClause(params: { galleryOrder: AssetGalleryOrder; defaultDire
     return photoDateOrder;
 }
 
-function buildDetailFragments(params: {
-    detailLevel: AssetDetailLevel;
-    recAlias: string;
-    aiNewAlias: string;
-    aiLegacyAlias: string;
-}): DetailFragments {
-    const { detailLevel, recAlias, aiNewAlias, aiLegacyAlias } = params;
-    if (detailLevel === 'gallery') {
-        return {
-            recSelect: 'null as rec_data,',
-            recJoin: '',
-            aiSelect: 'null as ai_metadata_data,',
-            aiJoin: '',
-            embeddedMetadataSelect: 'null as embedded_metadata_data,',
-            embeddedMetadataJoin: '',
-        };
-    }
-
-    return {
-        recSelect: `${recAlias}.data as rec_data,`,
-        recJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: recAlias, task: 'face_recognition' }),
-        aiSelect: `COALESCE(${aiNewAlias}.data, ${aiLegacyAlias}.data) as ai_metadata_data,`,
-        aiJoin: `
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: aiNewAlias, task: 'ai_metadata' })}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: aiLegacyAlias, task: 'photo_metadata' })}`,
-        embeddedMetadataSelect: 'r_meta.data as embedded_metadata_data,',
-        embeddedMetadataJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' }),
-    };
-}
-
-function buildFilterSubquery(filter: AssetFilter | undefined, params: (string | number)[]) {
-    if (!filter) {return '';}
-
-    if (filter.type === 'album' && filter.albumId) {
-        params.push(filter.albumId);
-        return 'AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
-    }
-
-    const personIds = filter.personIds || [];
-    if (personIds.length === 0) {return '';}
-
-    const placeholders = personIds.map(() => '?').join(',');
-    if (filter.type === 'person_any') {
-        params.push(...personIds);
-        return `AND a.id IN (SELECT asset_id FROM face_assignments WHERE person_id IN (${placeholders}))`;
-    }
-    if (filter.type === 'person_all') {
-        params.push(...personIds);
-        return `AND a.id IN (
-            SELECT asset_id FROM face_assignments
-            WHERE person_id IN (${placeholders})
-            GROUP BY asset_id
-            HAVING COUNT(DISTINCT person_id) = ${personIds.length}
-        )`;
-    }
-    if (filter.type === 'person_only') {
-        params.push(...personIds, ...personIds);
-        return `AND a.id IN (
-            SELECT asset_id FROM face_assignments
-            GROUP BY asset_id
-            HAVING COUNT(DISTINCT CASE WHEN person_id IN (${placeholders}) THEN person_id END) = ${personIds.length}
-            AND COUNT(DISTINCT CASE WHEN person_id NOT IN (${placeholders}) THEN person_id END) = 0
-        )`;
-    }
-
-    return '';
-}
-
 function buildFilteredAssetsQuery(
     filterSubquery: string,
     params: (string | number)[],
@@ -157,12 +127,15 @@ function buildFilteredAssetsQuery(
     offset: number,
     detailLevel: AssetDetailLevel,
     galleryOrder: AssetGalleryOrder,
+    includeEvidence: boolean,
 ): AssetQueryParts {
-    const detail = buildDetailFragments({
+    const detail = buildAssetDetailFragments({
         detailLevel,
+        includeEvidence,
         recAlias: 'fr',
         aiNewAlias: 'aim_new',
         aiLegacyAlias: 'aim_legacy',
+        projectionAlias: 'pm',
     });
     const groupFields = buildGroupFieldFragments('a');
     params.push(limit, offset);
@@ -171,7 +144,8 @@ function buildFilteredAssetsQuery(
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
-                a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
+                ${detail.projectionSelect}
+                a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 am.sensitivity_status,
                 p.path as preview_path,
                 COALESCE(dr_new.data, dr_legacy.data) as faces_data,
@@ -194,6 +168,7 @@ function buildFilteredAssetsQuery(
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            ${detail.projectionJoin}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'dr_new', task: 'face_detection' })}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'dr_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
@@ -214,21 +189,26 @@ function buildGroupedAssetsQuery(
     offset: number,
     detailLevel: AssetDetailLevel,
     galleryOrder: AssetGalleryOrder,
+    includeEvidence: boolean,
 ): AssetQueryParts {
-    const detail = buildDetailFragments({
+    const detail = buildAssetDetailFragments({
         detailLevel,
+        includeEvidence,
         recAlias: 'r_rec',
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
+        projectionAlias: 'pm',
     });
     const groupFields = buildGroupFieldFragments('a');
+    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : '';
 
     return {
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
-                a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
+                ${detail.projectionSelect}
+                a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
@@ -246,6 +226,7 @@ function buildGroupedAssetsQuery(
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            ${detail.projectionJoin}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
@@ -254,7 +235,7 @@ function buildGroupedAssetsQuery(
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
             WHERE ${buildPrimaryGroupVisibilityPredicate('a')}
-            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : ''}
+            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${evidenceGroupBy}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
@@ -267,21 +248,26 @@ function buildUngroupedAssetsQuery(
     offset: number,
     detailLevel: AssetDetailLevel,
     galleryOrder: AssetGalleryOrder,
+    includeEvidence: boolean,
 ): AssetQueryParts {
-    const detail = buildDetailFragments({
+    const detail = buildAssetDetailFragments({
         detailLevel,
+        includeEvidence,
         recAlias: 'r_rec',
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
+        projectionAlias: 'pm',
     });
     const groupFields = buildGroupFieldFragments('a');
+    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : '';
 
     return {
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
-                a.caption, a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
+                ${detail.projectionSelect}
+                a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
@@ -299,6 +285,7 @@ function buildUngroupedAssetsQuery(
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            ${detail.projectionJoin}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
@@ -306,7 +293,7 @@ function buildUngroupedAssetsQuery(
             ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
-            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${detailLevel === 'full' ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : ''}
+            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${evidenceGroupBy}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
@@ -314,21 +301,30 @@ function buildUngroupedAssetsQuery(
     };
 }
 
-function buildAssetDetailQuery(assetId: string): AssetQueryParts {
+function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): AssetQueryParts {
     const groupFields = buildGroupFieldFragments('a');
+    const detail = buildAssetDetailFragments({
+        detailLevel: 'full',
+        includeEvidence,
+        recAlias: 'r_rec',
+        aiNewAlias: 'r_ai_new',
+        aiLegacyAlias: 'r_ai_legacy',
+        projectionAlias: 'pm',
+    });
 
     return {
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
-                a.caption, a.sensitivity_score,
+                ${detail.projectionSelect}
+                a.sensitivity_score,
                 am.sensitivity_status,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
-                r_rec.data as rec_data,
-                COALESCE(r_ai_new.data, r_ai_legacy.data) as ai_metadata_data,
-                r_meta.data as embedded_metadata_data,
+                ${detail.recSelect}
+                ${detail.aiSelect}
+                ${detail.embeddedMetadataSelect}
                 (
                     SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
                     FROM face_assignments fa
@@ -345,12 +341,12 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+            ${detail.projectionJoin}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_rec', task: 'face_recognition' })}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_new', task: 'ai_metadata' })}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_legacy', task: 'photo_metadata' })}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' })}
+            ${detail.recJoin}
+            ${detail.aiJoin}
+            ${detail.embeddedMetadataJoin}
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
             WHERE a.id = ?
@@ -360,8 +356,12 @@ function buildAssetDetailQuery(assetId: string): AssetQueryParts {
     };
 }
 
-function toAsset(row: AssetRow) {
-    return toAssetPayload(row);
+function toAsset(row: AssetRow, photoMetadata?: PhotoMetadataBundle) {
+    const asset = toAssetPayload(row);
+    if (photoMetadata) {
+        asset.photo_metadata = photoMetadata;
+    }
+    return asset;
 }
 
 function dedupeAssetsById(assets: ReturnType<typeof toAsset>[]) {
@@ -376,12 +376,13 @@ function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
     const withGroupCounts = payload.withGroupCounts ?? true;
     const detailLevel = getDetailLevel(payload);
     const galleryOrder = getGalleryOrder(payload);
+    const includeEvidence = payload.includeEvidence === true;
     const params: (string | number)[] = [];
     const filterSubquery = buildFilterSubquery(payload.filter, params);
 
-    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, params, limit, offset, detailLevel, galleryOrder);}
-    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, detailLevel, galleryOrder);}
-    return buildUngroupedAssetsQuery(limit, offset, detailLevel, galleryOrder);
+    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, params, limit, offset, detailLevel, galleryOrder, includeEvidence);}
+    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, detailLevel, galleryOrder, includeEvidence);}
+    return buildUngroupedAssetsQuery(limit, offset, detailLevel, galleryOrder, includeEvidence);
 }
 
 function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
@@ -389,7 +390,8 @@ function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
     const requestPayload = (payload || {}) as AssetQueryPayload;
     const query = getAssetsQuery(requestPayload);
     const rows = dbManager.getDb().prepare(query.sql).all(...query.params) as AssetRow[];
-    const assets = dedupeAssetsById(rows.map(toAsset));
+    const loadPhotoMetadata = requestPayload.includeEvidence === true ? createPhotoMetadataBundleLoader(dbManager) : undefined;
+    const assets = dedupeAssetsById(rows.map((row) => toAsset(row, loadPhotoMetadata?.(row.id))));
     const limit = requestPayload.limit || 500;
     const offset = requestPayload.offset || 0;
     respond(id, 'ok', { assets, hasMore: rows.length === limit, limit, offset }, null, originWs);
@@ -402,13 +404,14 @@ function respondAssetDetail(ctx: Parameters<CommandHandlerMap['get_asset_detail'
         throw new Error('assetId is required');
     }
 
-    const query = buildAssetDetailQuery(requestPayload.assetId);
+    const query = buildAssetDetailQuery(requestPayload.assetId, requestPayload.includeEvidence === true);
     const row = dbManager.getDb().prepare(query.sql).get(...query.params) as AssetRow | undefined;
     if (!row) {
         throw new Error(`Asset ${requestPayload.assetId} not found`);
     }
 
-    respond(id, 'ok', { asset: toAsset(row) }, null, originWs);
+    const loadPhotoMetadata = requestPayload.includeEvidence === true ? createPhotoMetadataBundleLoader(dbManager) : undefined;
+    respond(id, 'ok', { asset: toAsset(row, loadPhotoMetadata?.(row.id)) }, null, originWs);
 }
 
 export const assetCommandHandlers: CommandHandlerMap = {

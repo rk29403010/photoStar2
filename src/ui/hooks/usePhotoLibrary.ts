@@ -22,6 +22,7 @@ import {
     requestBackgroundAssetRefresh,
     type RefreshLibraryOptions,
 } from './usePhotoLibrary.gallery';
+import { mergeAssetDetail } from './assetDetailMerge';
 import { buildPhotoLibraryResult, useConnectionParams } from './usePhotoLibrary.composition';
 
 export type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
@@ -100,17 +101,20 @@ function useAssetLoadingActions(params: {
         }
     }, [assets.length, filterStackRef, groupSimilarPhotosRef, hasMoreAssets, isLoadingMoreAssets, request, setIsLoadingMoreAssets]);
 
-    const loadAssetDetails = useCallback(async (assetId: string) => {
+    const loadAssetDetails = useCallback(async (
+        assetId: string,
+        options: { includeEvidence?: boolean } = {},
+    ) => {
         const asset = await request<Asset>({
             idPrefix: `get_asset_detail_${assetId}`,
             command: 'get_asset_detail',
-            payload: { assetId },
+            payload: { assetId, includeEvidence: options.includeEvidence === true },
             timeoutMs: 10000,
             select: (data) => (data?.asset as Asset) || { id: assetId, original_path: '' },
         });
 
         setAssets((previousAssets) => previousAssets.map((existingAsset) => (
-            existingAsset.id === assetId ? { ...existingAsset, ...asset } : existingAsset
+            existingAsset.id === assetId ? mergeAssetDetail(existingAsset, asset) : existingAsset
         )));
     }, [request, setAssets]);
 

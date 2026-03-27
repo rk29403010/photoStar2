@@ -1,3 +1,5 @@
+import type { PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
+
 export type AssetPayloadRow = {
     id: string;
     original_path: string;
@@ -15,7 +17,51 @@ export type AssetPayloadRow = {
     ai_metadata_data: string | null;
     embedded_metadata_data?: string | null;
     people_data: string | null;
+    type: string | null;
+    type_source_kind: string | null;
+    type_source_id: string | null;
     caption: string | null;
+    caption_source_kind: string | null;
+    caption_source_id: string | null;
+    description: string | null;
+    description_source_kind: string | null;
+    description_source_id: string | null;
+    location: string | null;
+    location_source_kind: string | null;
+    location_source_id: string | null;
+    estimated_date_most_likely: string | null;
+    estimated_date_min: string | null;
+    estimated_date_max: string | null;
+    estimated_date_display_label: string | null;
+    estimated_date_rationale: string | null;
+    estimated_date_source_kind: string | null;
+    estimated_date_source_id: string | null;
+    keywords_json: string | null;
+    keywords_source_kind: string | null;
+    keywords_source_id: string | null;
+    emotional_impact: string | null;
+    emotional_impact_source_kind: string | null;
+    emotional_impact_source_id: string | null;
+    quality_technical: number | null;
+    quality_lighting: number | null;
+    quality_composition: number | null;
+    quality_emotional: number | null;
+    quality_discard: number | null;
+    quality_source_kind: string | null;
+    quality_source_id: string | null;
+    recommended_enhancements_json: string | null;
+    recommended_enhancements_source_kind: string | null;
+    recommended_enhancements_source_id: string | null;
+    authenticity_score: number | null;
+    authenticity_reasons_json: string | null;
+    authenticity_source_kind: string | null;
+    authenticity_source_id: string | null;
+    subjects_json: string | null;
+    subjects_source_kind: string | null;
+    subjects_source_id: string | null;
+    regions_of_interest_json: string | null;
+    regions_of_interest_source_kind: string | null;
+    regions_of_interest_source_id: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
     member_group_id?: string | null;
@@ -87,6 +133,26 @@ function parseFaceEmbeddings(row: AssetPayloadRow) {
         return JSON.parse(row.rec_data).embeddings || [];
     } catch {
         return [];
+    }
+}
+
+function parseJsonArray<T>(value: string | null) {
+    if (!value) {return [] as T[];}
+    try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? parsed as T[] : [];
+    } catch {
+        return [];
+    }
+}
+
+function parseJsonRecord<T extends Record<string, unknown>>(value: string | null) {
+    if (!value) {return undefined;}
+    try {
+        const parsed = JSON.parse(value) as unknown;
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as T : undefined;
+    } catch {
+        return undefined;
     }
 }
 
@@ -176,27 +242,98 @@ function parseGroupMemberships(row: AssetPayloadRow) {
         .map(toGroupMembership);
 }
 
-function resolveCaption(row: AssetPayloadRow, aiMeta: Record<string, unknown> | undefined) {
-    if (row.caption) {
-        return row.caption;
-    }
-
-    return typeof aiMeta?.caption === 'string' ? aiMeta.caption : undefined;
+function toSourceSummary(sourceKind: string | null, sourceId: string | null): PhotoMetadataSourceSummary {
+    return { sourceKind, sourceId };
 }
 
-export function toAssetPayload(row: AssetPayloadRow) {
+function parseQualityDiscard(value: number | null) {
+    if (value === null) {return null;}
+    return value === 1;
+}
+
+function toPhotoMetadataProjection(row: AssetPayloadRow): PhotoMetadataProjection {
+    return {
+        assetId: row.id,
+        type: row.type,
+        caption: row.caption,
+        description: row.description,
+        location: row.location,
+        estimatedDate: {
+            most_likely_date: row.estimated_date_most_likely,
+            min_date: row.estimated_date_min,
+            max_date: row.estimated_date_max,
+            display_label: row.estimated_date_display_label,
+            rationale: row.estimated_date_rationale,
+        },
+        keywords: parseJsonArray<string>(row.keywords_json),
+        emotionalImpact: row.emotional_impact,
+        quality: {
+            technical: row.quality_technical,
+            lighting: row.quality_lighting,
+            composition: row.quality_composition,
+            emotional: row.quality_emotional,
+            discard: parseQualityDiscard(row.quality_discard),
+        },
+        recommendedEnhancements: parseJsonArray<string>(row.recommended_enhancements_json),
+        authenticity: {
+            score: row.authenticity_score,
+            reasons: parseJsonArray<string>(row.authenticity_reasons_json),
+        },
+        subjects: parseJsonArray<unknown>(row.subjects_json),
+        regionsOfInterest: parseJsonArray<unknown>(row.regions_of_interest_json),
+    };
+}
+
+function toPhotoMetadataBundle(row: AssetPayloadRow): PhotoMetadataBundle {
+    return {
+        projection: toPhotoMetadataProjection(row),
+        provenance: {
+            type: toSourceSummary(row.type_source_kind, row.type_source_id),
+            caption: toSourceSummary(row.caption_source_kind, row.caption_source_id),
+            description: toSourceSummary(row.description_source_kind, row.description_source_id),
+            location: toSourceSummary(row.location_source_kind, row.location_source_id),
+            estimatedDate: toSourceSummary(row.estimated_date_source_kind, row.estimated_date_source_id),
+            keywords: toSourceSummary(row.keywords_source_kind, row.keywords_source_id),
+            emotionalImpact: toSourceSummary(row.emotional_impact_source_kind, row.emotional_impact_source_id),
+            quality: toSourceSummary(row.quality_source_kind, row.quality_source_id),
+            recommendedEnhancements: toSourceSummary(row.recommended_enhancements_source_kind, row.recommended_enhancements_source_id),
+            authenticity: toSourceSummary(row.authenticity_source_kind, row.authenticity_source_id),
+            subjects: toSourceSummary(row.subjects_source_kind, row.subjects_source_id),
+            regionsOfInterest: toSourceSummary(row.regions_of_interest_source_kind, row.regions_of_interest_source_id),
+        },
+    };
+}
+
+function toPhotoMetadataEvidence(row: AssetPayloadRow) {
+    const machineBlocks: Array<{ kind: string; data: Record<string, unknown> }> = [];
+    const aiMetadata = parseJsonRecord<Record<string, unknown>>(row.ai_metadata_data);
+    if (aiMetadata) {machineBlocks.push({ kind: 'ai_metadata', data: aiMetadata });}
+
+    const embeddedMetadata = parseJsonRecord<Record<string, unknown>>(row.embedded_metadata_data ?? null);
+    if (embeddedMetadata) {machineBlocks.push({ kind: 'embedded_metadata', data: embeddedMetadata });}
+
+    return {
+        machineBlocks,
+        manualAssertions: [],
+    };
+}
+
+export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?: boolean } = {}) {
     const faces = parseFaces(row);
     applyPeopleAssignments(faces, parsePeopleAssignments(row));
-    const aiMeta = parseAiMetadata(row);
-    const embeddedMetadata = parseEmbeddedMetadata(row);
+    const includeEvidence = options.includeEvidence === true;
+    const photoMetadata = toPhotoMetadataBundle(row);
 
     return {
         ...buildAssetFileFields(row),
+        caption: row.caption ?? undefined,
         faces,
         face_embeddings: parseFaceEmbeddings(row),
-        ai_metadata: aiMeta,
-        embedded_metadata: embeddedMetadata,
-        caption: resolveCaption(row, aiMeta),
+        photo_metadata: includeEvidence
+            ? { ...photoMetadata, evidence: toPhotoMetadataEvidence(row) }
+            : photoMetadata,
+        ai_metadata: includeEvidence ? parseAiMetadata(row) : undefined,
+        embedded_metadata: includeEvidence ? parseEmbeddedMetadata(row) : undefined,
         ...buildGroupFields(row),
     };
 }
