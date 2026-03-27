@@ -54,6 +54,96 @@ test('resolvePhotoDateEvidence turns structured machine dates into timestamp can
     assert.ok(result.confidence.score > 0);
 });
 
+test('resolvePhotoDateEvidence keeps machine date fields when only the label is manually overridden', async () => {
+    const { resolvePhotoDateEvidence } = await import('../../dist/core/src/services/photoMetadata/dateResolver.js');
+
+    const resolved = resolvePhotoDateEvidence({
+        originalPath: 'C:/photos/partial-override.png',
+        metadataEvidence: {
+            machineBlocks: [
+                {
+                    id: 'block-1',
+                    source_kind: 'gemini_flash_scout',
+                    created_at: '2026-03-21T00:00:00.000Z',
+                    data: {
+                        estimated_date: {
+                            most_likely_date: '1974-02-14T00:00:00.000Z',
+                            min_date: '1970-01-01T00:00:00.000Z',
+                            max_date: '1979-12-31T23:59:59.999Z',
+                            display_label: 'mid 70s',
+                            rationale: 'machine summary',
+                        },
+                    },
+                },
+            ],
+            manualAssertions: [
+                {
+                    id: 'assertion-1',
+                    asset_id: 'asset-4',
+                    field_path: 'estimated_date.display_label',
+                    value: 'spring 1974',
+                    user_id: 'user-2',
+                    note: null,
+                    created_at: '2026-03-22T12:00:00.000Z',
+                },
+            ],
+        },
+    });
+
+    assert.equal(resolved.aiMetadata.estimated_date.display_label, 'spring 1974');
+    assert.equal(resolved.aiMetadata.estimated_date.most_likely_date, '1974-02-14T00:00:00.000Z');
+    assert.equal(resolved.aiMetadata.estimated_date.min_date, '1970-01-01T00:00:00.000Z');
+    assert.equal(resolved.aiMetadata.estimated_date.max_date, '1979-12-31T23:59:59.999Z');
+});
+
+test('resolvePhotoDateEvidence keeps refined machine dates ahead of newer scout blocks', async () => {
+    const { resolvePhotoDateEvidence } = await import('../../dist/core/src/services/photoMetadata/dateResolver.js');
+
+    const resolved = resolvePhotoDateEvidence({
+        originalPath: 'C:/photos/refined-scout-precedence.png',
+        metadataEvidence: {
+            machineBlocks: [
+                {
+                    id: 'block-scout-newer',
+                    source_kind: 'gemini_flash_scout',
+                    created_at: '2026-03-23T12:00:00.000Z',
+                    data: {
+                        estimated_date: {
+                            most_likely_date: '1988-06-01T00:00:00.000Z',
+                            min_date: '1988-01-01T00:00:00.000Z',
+                            max_date: '1988-12-31T23:59:59.999Z',
+                            display_label: '1988',
+                            rationale: 'newer scout',
+                        },
+                    },
+                },
+                {
+                    id: 'block-refined',
+                    source_kind: 'gemini_pro_refined',
+                    created_at: '2026-03-22T12:00:00.000Z',
+                    data: {
+                        estimated_date: {
+                            most_likely_date: '1948-07-04T00:00:00.000Z',
+                            min_date: '1948-01-01T00:00:00.000Z',
+                            max_date: '1948-12-31T23:59:59.999Z',
+                            display_label: '1948',
+                            rationale: 'refined summary',
+                        },
+                    },
+                },
+            ],
+        },
+    });
+
+    assert.equal(resolved.aiMetadata.estimated_date.most_likely_date, '1948-07-04T00:00:00.000Z');
+    assert.equal(resolved.aiMetadata.estimated_date.display_label, '1948');
+    assert.ok(
+        resolved.embeddedMetadata.derived.timestamp_candidates.some((candidate) => (
+            candidate.source === 'machine:block-refined.estimated_date.most_likely_date'
+        )),
+    );
+});
+
 test('resolvePhotoDateEvidence turns manual date assertions into timestamp candidates', async () => {
     const { resolvePhotoDateEvidence } = await import('../../dist/core/src/services/photoMetadata/dateResolver.js');
     const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
