@@ -13,6 +13,14 @@ function getSubjectSchema(schema) {
     return schema.properties.subjects.items;
 }
 
+function getEstimatedDateSchema(schema) {
+    return schema.properties.estimated_date;
+}
+
+function getRegionSchema(schema) {
+    return schema.properties.regions_of_interest.items;
+}
+
 function expectSameMembers(actual, expected) {
     assert.deepEqual([...actual].sort(), [...expected].sort());
 }
@@ -46,6 +54,18 @@ test('buildGemini response schemas share the same archival metadata fields', asy
     expectSameMembers(getRequiredNames(flashSchema), expectedTopLevelFields);
     expectSameMembers(getRequiredNames(proSchema), expectedTopLevelFields);
 
+    const expectedEstimatedDateFields = [
+        'most_likely_date',
+        'min_date',
+        'max_date',
+        'display_label',
+        'rationale',
+    ];
+    expectSameMembers(getPropertyNames(getEstimatedDateSchema(flashSchema)), expectedEstimatedDateFields);
+    expectSameMembers(getPropertyNames(getEstimatedDateSchema(proSchema)), expectedEstimatedDateFields);
+    expectSameMembers(getRequiredNames(getEstimatedDateSchema(flashSchema)), expectedEstimatedDateFields);
+    expectSameMembers(getRequiredNames(getEstimatedDateSchema(proSchema)), expectedEstimatedDateFields);
+
     const expectedSubjectFields = [
         'label',
         'bounding_box',
@@ -66,4 +86,15 @@ test('buildGemini response schemas share the same archival metadata fields', asy
     expectSameMembers(getPropertyNames(getSubjectSchema(proSchema)), expectedSubjectFields);
     expectSameMembers(getSubjectSchema(flashSchema).required, expectedSubjectFields);
     expectSameMembers(getSubjectSchema(proSchema).required, expectedSubjectFields);
+
+    const expectedRegionFields = [
+        'label',
+        'kind',
+        'bounding_box',
+        'significance',
+    ];
+    expectSameMembers(getPropertyNames(getRegionSchema(flashSchema)), expectedRegionFields);
+    expectSameMembers(getPropertyNames(getRegionSchema(proSchema)), expectedRegionFields);
+    expectSameMembers(getRequiredNames(getRegionSchema(flashSchema)), expectedRegionFields);
+    expectSameMembers(getRequiredNames(getRegionSchema(proSchema)), expectedRegionFields);
 });
