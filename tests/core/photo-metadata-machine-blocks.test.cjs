@@ -117,6 +117,22 @@ function buildFakeGoogleGenerativeAI(response) {
     };
 }
 
+function buildLiveMetadataEvidence(params) {
+    return {
+        provider: 'google',
+        modelVersion: params.metadataSourceKind === 'gemini_pro_refined'
+            ? 'gemini-3.1-pro-preview'
+            : 'gemini-3-flash-preview',
+        data: {
+            ...params.metadataBlock,
+            _analysis_tier: params.analysisTier,
+            _pending_pro: params.pendingPro ? true : undefined,
+        },
+        metadataSourceKind: params.metadataSourceKind,
+        metadataBlock: params.metadataBlock,
+    };
+}
+
 function buildBlockPersistedAssertion(checks, row, expectedSourceKind) {
     checks.ok(row);
     checks.equal(row.source_kind, expectedSourceKind);
@@ -168,6 +184,7 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
         assert.equal(flashResult.metadataBlock.caption, 'Billy and Dad at Christmas');
         assert.equal(flashResult.metadataBlock.subjects[0].suggested_names[0], 'Billy');
         assert.equal(flashResult.metadataBlock.regions_of_interest[0].kind, 'scene_context');
+        assert.equal(flashResult.data._analysis_tier, 'flash');
 
         dbManager.setSetting('job_ai_model', 'gemini-3.1-pro-preview');
         const proResult = await liveRuntime.generateLiveAiMetadata({
@@ -186,6 +203,58 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
 
         assert.equal(proResult.metadataSourceKind, 'gemini_pro_refined');
         assert.equal(proResult.metadataBlock.caption, 'Billy and Dad at Christmas dinner');
+        assert.equal(proResult.data._analysis_tier, 'pro');
+    } finally {
+        dbManager.close();
+        await removeDirWithRetry(tempDir);
+    }
+});
+
+test('generateLiveAiMetadata preserves pending pro status on flash fallback compatibility rows', async () => {
+    const tempDir = createTempDir();
+    const imagePath = await createImage(tempDir);
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+    const dbManager = new DatabaseManager(tempDir);
+    dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
+    dbManager.setSetting('job_ai_model', 'gemini-3.1-pro-preview');
+    seedAsset(dbManager.getDb(), imagePath);
+
+    class FakeGoogleGenerativeAI {
+        getGenerativeModel({ model }) {
+            return {
+                async generateContent() {
+                    if (model === 'gemini-3.1-pro-preview') {
+                        throw new Error('daily quota exceeded');
+                    }
+                    return {
+                        response: {
+                            text() {
+                                return JSON.stringify(buildGeminiResponse());
+                            },
+                        },
+                    };
+                },
+            };
+        }
+    }
+
+    try {
+        const result = await liveRuntime.generateLiveAiMetadata({
+            dbManager,
+            row: {
+                id: 'asset-1',
+                original_path: imagePath,
+                sensitivity_status: null,
+                sensitivity_score: null,
+            },
+            imageStrategy: 'overview_only',
+            GoogleGenerativeAIClass: FakeGoogleGenerativeAI,
+        });
+
+        assert.equal(result.metadataSourceKind, 'gemini_flash_scout');
+        assert.equal(result.data._analysis_tier, 'flash');
+        assert.equal(result.data._pending_pro, true);
     } finally {
         dbManager.close();
         await removeDirWithRetry(tempDir);
@@ -237,6 +306,67 @@ test('generateAiMetadataModule persists machine blocks and projection rows from 
         assert.equal(projectionRow.caption_source_kind, 'gemini_pro_refined');
         assert.equal(projectionRow.estimated_date_display_label, 'late 1968');
         assert.equal(projectionRow.estimated_date_source_kind, 'gemini_pro_refined');
+    } finally {
+        harness.dbManager.close();
+        await removeDirWithRetry(tempDir);
+    }
+});
+
+test('generateAiMetadataModule keeps refined projection when scout evidence arrives later', async () => {
+    const tempDir = createTempDir();
+    const imagePath = await createImage(tempDir);
+    const evidenceQueue = [
+        buildLiveMetadataEvidence({
+            analysisTier: 'pro',
+            metadataSourceKind: 'gemini_pro_refined',
+            metadataBlock: buildGeminiResponse({
+                caption: 'Refined caption',
+                description: 'Refined description',
+            }),
+        }),
+        buildLiveMetadataEvidence({
+            analysisTier: 'flash',
+            metadataSourceKind: 'gemini_flash_scout',
+            metadataBlock: buildGeminiResponse({
+                caption: 'Scout caption',
+                description: 'Scout description',
+            }),
+            pendingPro: false,
+        }),
+    ];
+    const harness = await createHarness(tempDir, {
+        aiRuntime: {
+            async generateLiveMetadata() {
+                return evidenceQueue.shift();
+            },
+        },
+    });
+
+    try {
+        seedAsset(harness.dbManager.getDb(), imagePath);
+
+        await harness.module.run({
+            runId: 'run-1',
+            subject: { subjectType: 'asset', subjectId: 'asset-1' },
+            parameters: { aiMode: 'live', imageStrategy: 'overview_only' },
+        });
+
+        await harness.module.run({
+            runId: 'run-2',
+            subject: { subjectType: 'asset', subjectId: 'asset-1' },
+            parameters: { aiMode: 'live', imageStrategy: 'overview_only' },
+        });
+
+        const projectionRow = harness.dbManager.getDb().prepare(`
+            SELECT caption, caption_source_kind
+            FROM photo_metadata_projection
+            WHERE asset_id = 'asset-1'
+            LIMIT 1
+        `).get();
+
+        assert.ok(projectionRow);
+        assert.equal(projectionRow.caption, 'Refined caption');
+        assert.equal(projectionRow.caption_source_kind, 'gemini_pro_refined');
     } finally {
         harness.dbManager.close();
         await removeDirWithRetry(tempDir);

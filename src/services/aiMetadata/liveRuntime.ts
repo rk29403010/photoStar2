@@ -50,8 +50,7 @@ type PreparedImagePayload = {
     imageParts: PreparedImagePart[];
 };
 type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
-export type LiveMetadataEvidence = Omit<StoredAiMetadataResult, 'data'> & {
-    data: PhotoMetadataBlock;
+export type LiveMetadataEvidence = StoredAiMetadataResult & {
     metadataBlock: PhotoMetadataBlock;
     metadataSourceKind: MetadataSourceKind;
 };
@@ -301,7 +300,7 @@ function buildLiveMetadataEvidence(params: {
     return {
         provider: params.provider,
         modelVersion: params.modelVersion,
-        data: metadataBlock,
+        data: params.response as unknown as Record<string, unknown>,
         metadataBlock,
         metadataSourceKind: resolveMetadataSourceKind(params.response),
     };

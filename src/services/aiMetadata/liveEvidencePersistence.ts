@@ -1,10 +1,49 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
-import type { PhotoMetadataProjectionInput } from '../photoMetadata/repository';
+import type { PhotoMetadataProjectionInput, PhotoMetadataProjectionRow } from '../photoMetadata/repository';
 import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 import type { PhotoMetadataBlock } from '../photoMetadata/types';
 
 type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
+type MetadataSourceRank = 0 | 1 | 2;
+const PROJECTION_SOURCE_KIND_FIELDS = [
+    'caption_source_kind',
+    'type_source_kind',
+    'description_source_kind',
+    'location_source_kind',
+    'estimated_date_source_kind',
+    'keywords_source_kind',
+    'emotional_impact_source_kind',
+    'quality_source_kind',
+    'recommended_enhancements_source_kind',
+    'authenticity_source_kind',
+    'subjects_source_kind',
+    'regions_of_interest_source_kind',
+] as const;
+
+function resolveSourceRank(sourceKind: string | null | undefined): MetadataSourceRank {
+    if (sourceKind === 'gemini_pro_refined') {
+        return 2;
+    }
+    if (sourceKind === 'gemini_flash_scout') {
+        return 1;
+    }
+    return 0;
+}
+
+function getProjectionSourceKind(projection: PhotoMetadataProjectionRow): string | null {
+    return PROJECTION_SOURCE_KIND_FIELDS
+        .map((field) => projection[field])
+        .find((sourceKind): sourceKind is string => sourceKind !== null)
+        ?? null;
+}
+
+function shouldReplaceProjection(existing: PhotoMetadataProjectionRow | null, nextSourceKind: MetadataSourceKind): boolean {
+    if (!existing) {
+        return true;
+    }
+    return resolveSourceRank(nextSourceKind) >= resolveSourceRank(getProjectionSourceKind(existing));
+}
 
 function toProjectionSource(sourceKind: string, sourceId: string) {
     return { sourceKind, sourceId };
@@ -66,12 +105,14 @@ export function persistPhotoMetadataEvidence(params: {
         schemaVersion: 1,
         block: params.metadataBlock,
     });
-    repository.saveProjection(buildProjectionInput({
-        assetId: params.assetId,
-        metadataBlock: params.metadataBlock,
-        metadataSourceKind: params.sourceKind,
-        sourceId: blockId,
-    }));
+    if (shouldReplaceProjection(repository.loadProjection(params.assetId), params.sourceKind)) {
+        repository.saveProjection(buildProjectionInput({
+            assetId: params.assetId,
+            metadataBlock: params.metadataBlock,
+            metadataSourceKind: params.sourceKind,
+            sourceId: blockId,
+        }));
+    }
     return blockId;
 }
 
