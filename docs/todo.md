@@ -74,6 +74,10 @@ Notes:
 
 - This job should skip images flagged as sensitive. (see sensitive content for details)
 - Should use both the photo content and metadata (filename and EXIF data).
+- Machine metadata should be stored as evidence blocks (for example Flash scout
+  and Pro refined), manual edits should be sparse user assertions, and the app
+  should resolve a best-current-view locally instead of assuming one latest AI
+  blob wins.
 - Add a setting to allow users to set a gemini api key for the AI model. This should be stored in the DB.
 - The implementation should create a gemini 3.1 pro prompt to request the metadata in a structured format (JSON).
 - Add a setting to allow users to upload a csv file containing names, dates of birth, date of death and gender. This file will be supplied along with the photo to the AI model to help it identify people. This file can be generated from a .ged family history tree file using the Kinship explorer utility. The utility allows the selection of a 'focus' person and organises the list in order of closeness to the focus person.

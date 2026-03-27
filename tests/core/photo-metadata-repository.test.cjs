@@ -120,19 +120,6 @@ function assertAssertionRows(checks, assertions, assertionId) {
     checks.equal(assertions[0].note, 'Dad confirmed this at the scan table.');
 }
 
-function assertProjectionRow(checks, projection, assertionId, blockId) {
-    checks.ok(projection);
-    checks.equal(projection.asset_id, 'asset-1');
-    checks.equal(projection.caption, 'Billy and Dad enjoying Christmas dinner');
-    checks.equal(projection.caption_source_kind, 'manual');
-    checks.equal(projection.caption_source_id, assertionId);
-    checks.equal(projection.type_source_kind, 'gemini_flash_scout');
-    checks.equal(projection.type_source_id, blockId);
-    checks.equal(projection.estimated_date_display_label, 'late 1968');
-    checks.equal(projection.estimated_date_source_kind, 'gemini_flash_scout');
-    checks.equal(projection.estimated_date_source_id, blockId);
-}
-
 function assertUpdatedProjectionRow(checks, projection, assertionId) {
     checks.ok(projection);
     checks.equal(projection.caption, 'Billy and Dad at the Christmas table');

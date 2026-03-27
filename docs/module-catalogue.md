@@ -545,8 +545,9 @@ Parameters:
 - `imageStrategy`: `overview_only`, `overview_plus_tiles`
 
 What it does: gates metadata generation by sensitivity state, generates mock or
-live Gemini metadata, persists the latest AI metadata result, and tracks
-deferred pro-upgrade work when live runs fall back to flash.
+live Gemini metadata, persists machine metadata evidence blocks plus a resolved
+projection, and tracks deferred pro-upgrade work when live runs fall back to
+flash.
 
 How to use it: use for caption, tag, and note generation. Feed it `asset`
 subjects directly, or expand a `selection` first when the workflow starts from
@@ -559,14 +560,22 @@ Reads from DB: `assets.id`, `assets.original_path`,
 
 Writes to DB: `derived_results.id`, `derived_results.asset_id`,
 `derived_results.task`, `derived_results.provider`,
-`derived_results.model_version`, `derived_results.data`
+`derived_results.model_version`, `derived_results.data`,
+`photo_metadata_blocks.id`, `photo_metadata_blocks.asset_id`,
+`photo_metadata_blocks.source_kind`, `photo_metadata_blocks.provider`,
+`photo_metadata_blocks.model_version`, `photo_metadata_blocks.schema_version`,
+`photo_metadata_blocks.data`, `photo_metadata_projection.asset_id`, and the
+resolved projection source columns in `photo_metadata_projection`
 
 Persisted data:
 
-- main result uses `derived_results.task = 'ai_metadata'`
+- compatibility result still uses `derived_results.task = 'ai_metadata'`
 - mock mode uses provider `runtime_stub`
 - live mode uses provider `google`
 - live mode may also create `derived_results.task = 'ai_metadata_pro_pending'`
+- machine evidence is stored in `photo_metadata_blocks`
+- field-resolved best-current-view values are stored in
+  `photo_metadata_projection`
 - live payloads may include runtime flags such as `_analysis_tier` and
   `_pending_pro`
 
@@ -591,8 +600,12 @@ Useful notes:
 - `aiMode = 'off'` makes the module a no-op
 - Unsafe assets are skipped using manual safety overrides and the sensitivity
   score gate
-- The module updates the latest `ai_metadata` row in place and removes older
-  duplicates
+- Flash scout and Pro refined runs now coexist as separate metadata evidence
+  blocks; they are not collapsed into one stored machine answer
+- Manual user edits are stored separately as sparse assertions and resolved
+  locally with the machine evidence
+- Query paths and the single-photo UI should prefer the resolved
+  `photo_metadata_projection` view and only fetch deeper evidence on demand
 - `selected_subject_metadata_v1` is the best current targeted metadata workflow
 
 ## Settings Cross-Reference
@@ -625,6 +638,9 @@ Useful notes:
 - Use batch mode intentionally for `runtime.resolve_people` and
   `runtime.group_similar_photos`
 - Treat `derived_results` as the main artifact store for many modules
+- Treat photo metadata as an exception: use the photo metadata evidence tables
+  plus the resolved projection, with `derived_results.ai_metadata` kept only as
+  a compatibility artifact
 - Expect partial success behavior from metadata and face-analysis modules
 - Treat safety detection as a gate before AI metadata
 - Remember that `selection` is synthetic handoff state, not durable domain data
