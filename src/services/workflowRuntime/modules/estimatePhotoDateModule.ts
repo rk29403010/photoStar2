@@ -2,6 +2,8 @@ import { statSync } from 'node:fs';
 import type { DatabaseManager } from '../../../data/db';
 import { buildLatestDerivedResultJoin } from '../../../shared/sql/derivedResults';
 import { estimatePhotoDate } from '../../photoDateEstimate';
+import { createPhotoMetadataRepository } from '../../photoMetadata/repository';
+import { resolvePhotoDateEvidence } from '../../photoMetadata/dateResolver';
 import type { ModuleDefinition } from '../contracts';
 
 type EstimatePhotoDateRow = {
@@ -96,6 +98,8 @@ function persistPhotoDateEstimate(params: {
 }
 
 export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOptions): ModuleDefinition {
+    const photoMetadataRepository = createPhotoMetadataRepository({ dbManager: options.dbManager });
+
     return {
         id: 'runtime.estimate_photo_date',
         version: 1,
@@ -110,12 +114,17 @@ export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOp
             }
 
             const stats = statSync(row.original_path);
-            const estimate = estimatePhotoDate({
+            const resolvedEvidence = resolvePhotoDateEvidence({
                 originalPath: row.original_path,
                 fileBirthtime: stats.birthtime.toISOString(),
                 embeddedMetadata: parseJsonRecord(row.embedded_metadata_data),
                 aiMetadata: parseJsonRecord(row.ai_metadata_data),
+                metadataEvidence: {
+                    machineBlocks: photoMetadataRepository.listBlocksForAsset(row.id),
+                    manualAssertions: photoMetadataRepository.listAssertionsForAsset(row.id),
+                },
             });
+            const estimate = estimatePhotoDate(resolvedEvidence);
 
             persistPhotoDateEstimate({
                 db,
