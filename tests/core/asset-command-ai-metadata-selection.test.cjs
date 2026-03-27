@@ -24,21 +24,88 @@ function createResponseCollector() {
     };
 }
 
-function seedAssetWithDuplicateAiMetadata(db) {
+function seedAsset(db) {
     db.prepare(`
         INSERT INTO assets (id, original_path, created_at)
         VALUES ('asset-1', 'C:/photos/one.jpg', '2026-03-23T09:00:00.000Z')
     `).run();
-
-    db.prepare(`
-        INSERT INTO derived_results (id, asset_id, task, provider, model_version, data, created_at)
-        VALUES
-            ('ai-old', 'asset-1', 'ai_metadata', 'google', 'gemini-older', '{}', '2026-03-23T09:00:00.000Z'),
-            ('ai-new', 'asset-1', 'ai_metadata', 'google', 'gemini-newer', '{"caption":"Enhanced caption","tags":["enhanced"]}', '2026-03-23T09:05:00.000Z')
-    `).run();
 }
 
-test('get_asset_detail prefers the newest ai metadata row when duplicates exist', async () => {
+async function seedAssetWithRepositoryBackedEvidence(dbManager) {
+    const { createPhotoMetadataRepository } = await import('../../dist/core/src/services/photoMetadata/repository.js');
+    const { createPhotoMetadataManualAssertionsService } = await import('../../dist/core/src/services/photoMetadata/manualAssertions.js');
+    const { createPhotoMetadataResolver } = await import('../../dist/core/src/services/photoMetadata/resolver.js');
+    const repository = createPhotoMetadataRepository({ dbManager });
+    const manualAssertions = createPhotoMetadataManualAssertionsService({ dbManager });
+
+    repository.insertMetadataBlock({
+        assetId: 'asset-1',
+        sourceKind: 'gemini_flash_scout',
+        provider: 'google',
+        modelVersion: 'gemini-3-flash-preview',
+        schemaVersion: 1,
+        block: {
+            type: 'portrait',
+            caption: 'Scout caption',
+            description: 'Scout description',
+            location: 'Scout location',
+            estimated_date: {
+                most_likely_date: '1968-12-24T00:00:00.000Z',
+                min_date: '1968-12-01T00:00:00.000Z',
+                max_date: '1968-12-31T23:59:59.999Z',
+                display_label: 'late 1968',
+                rationale: 'Scout pass estimate.',
+            },
+            subjects: [],
+            regions_of_interest: [],
+            keywords: ['family', 'christmas'],
+            emotional_impact: 'Warm',
+            quality: { technical: 4, lighting: 4, composition: 4, emotional: 5, discard: false },
+            recommended_enhancements: ['Tighten crop'],
+            authenticity: { score: 0.82, reasons: ['family context'] },
+        },
+    });
+    repository.insertMetadataBlock({
+        assetId: 'asset-1',
+        sourceKind: 'gemini_pro_refined',
+        provider: 'google',
+        modelVersion: 'gemini-3.1-pro-preview',
+        schemaVersion: 1,
+        block: {
+            type: 'portrait',
+            caption: 'Refined caption',
+            description: 'Refined description',
+            location: 'Refined location',
+            estimated_date: {
+                most_likely_date: '1968-12-25T00:00:00.000Z',
+                min_date: '1968-12-24T00:00:00.000Z',
+                max_date: '1968-12-26T23:59:59.999Z',
+                display_label: 'Christmas 1968',
+                rationale: 'Refined pass found the Christmas dinner context.',
+            },
+            subjects: [],
+            regions_of_interest: [],
+            keywords: ['family', 'christmas', 'dinner'],
+            emotional_impact: 'Warm',
+            quality: { technical: 4, lighting: 4, composition: 4, emotional: 5, discard: false },
+            recommended_enhancements: ['Tighten crop'],
+            authenticity: { score: 0.82, reasons: ['family context'] },
+        },
+    });
+
+    const manualAssertion = manualAssertions.recordManualAssertion({
+        assetId: 'asset-1',
+        fieldPath: 'caption',
+        value: 'Billy and Dad enjoying Christmas dinner',
+        userId: 'user-father-in-law',
+        note: 'Family memory confirmed the caption.',
+    });
+
+    createPhotoMetadataResolver({ dbManager }).resolvePhotoMetadata('asset-1');
+    return { manualAssertion };
+}
+
+test('get_asset_detail returns repository-backed evidence when requested', async () => {
     const tempDir = createTempDir();
     const collector = createResponseCollector();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -47,7 +114,8 @@ test('get_asset_detail prefers the newest ai metadata row when duplicates exist'
 
     try {
         dbManager = new DatabaseManager(tempDir);
-        seedAssetWithDuplicateAiMetadata(dbManager.getDb());
+        seedAsset(dbManager.getDb());
+        const ids = await seedAssetWithRepositoryBackedEvidence(dbManager);
 
         handleSystemCommand({
             id: 'cmd-asset-detail',
@@ -62,18 +130,19 @@ test('get_asset_detail prefers the newest ai metadata row when duplicates exist'
 
         const response = collector.takeLast();
         assert.equal(response.status, 'ok');
-        assert.equal(response.data.asset.ai_metadata?.caption, 'Enhanced caption');
-        assert.deepEqual(response.data.asset.ai_metadata?.tags, ['enhanced']);
+        assert.equal(response.data.asset.ai_metadata, undefined);
+        assert.equal(response.data.asset.photo_metadata.projection.caption, 'Billy and Dad enjoying Christmas dinner');
         assert.ok(response.data.asset.photo_metadata.evidence);
-        assert.equal(response.data.asset.photo_metadata.evidence.machineBlocks.length, 1);
-        assert.equal(response.data.asset.photo_metadata.evidence.manualAssertions.length, 0);
+        assert.equal(response.data.asset.photo_metadata.evidence.machineBlocks.length, 2);
+        assert.equal(response.data.asset.photo_metadata.evidence.manualAssertions.length, 1);
+        assert.equal(response.data.asset.photo_metadata.evidence.manualAssertions[0].id, ids.manualAssertion.id);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
 
-test('get_assets keeps the newest ai metadata row for single-photo payloads when duplicates exist', async () => {
+test('get_assets returns repository-backed evidence for single-photo payloads when requested', async () => {
     const tempDir = createTempDir();
     const collector = createResponseCollector();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -82,7 +151,8 @@ test('get_assets keeps the newest ai metadata row for single-photo payloads when
 
     try {
         dbManager = new DatabaseManager(tempDir);
-        seedAssetWithDuplicateAiMetadata(dbManager.getDb());
+        seedAsset(dbManager.getDb());
+        const ids = await seedAssetWithRepositoryBackedEvidence(dbManager);
 
         handleSystemCommand({
             id: 'cmd-assets',
@@ -98,11 +168,12 @@ test('get_assets keeps the newest ai metadata row for single-photo payloads when
         const response = collector.takeLast();
         assert.equal(response.status, 'ok');
         assert.equal(response.data.assets.length, 1);
-        assert.equal(response.data.assets[0].ai_metadata?.caption, 'Enhanced caption');
-        assert.deepEqual(response.data.assets[0].ai_metadata?.tags, ['enhanced']);
+        assert.equal(response.data.assets[0].ai_metadata, undefined);
+        assert.equal(response.data.assets[0].photo_metadata.projection.caption, 'Billy and Dad enjoying Christmas dinner');
         assert.ok(response.data.assets[0].photo_metadata.evidence);
-        assert.equal(response.data.assets[0].photo_metadata.evidence.machineBlocks.length, 1);
-        assert.equal(response.data.assets[0].photo_metadata.evidence.manualAssertions.length, 0);
+        assert.equal(response.data.assets[0].photo_metadata.evidence.machineBlocks.length, 2);
+        assert.equal(response.data.assets[0].photo_metadata.evidence.manualAssertions.length, 1);
+        assert.equal(response.data.assets[0].photo_metadata.evidence.manualAssertions[0].id, ids.manualAssertion.id);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

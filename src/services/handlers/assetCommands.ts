@@ -1,4 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
+import type { PhotoMetadataBundle } from '../../boundary/contracts/core';
+import { createPhotoMetadataBundleLoader } from './assetPhotoMetadataLoader';
 import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
 import {
@@ -354,8 +356,12 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
     };
 }
 
-function toAsset(row: AssetRow, options?: { includeEvidence?: boolean }) {
-    return toAssetPayload(row, options);
+function toAsset(row: AssetRow, photoMetadata?: PhotoMetadataBundle) {
+    const asset = toAssetPayload(row);
+    if (photoMetadata) {
+        asset.photo_metadata = photoMetadata;
+    }
+    return asset;
 }
 
 function dedupeAssetsById(assets: ReturnType<typeof toAsset>[]) {
@@ -384,7 +390,8 @@ function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
     const requestPayload = (payload || {}) as AssetQueryPayload;
     const query = getAssetsQuery(requestPayload);
     const rows = dbManager.getDb().prepare(query.sql).all(...query.params) as AssetRow[];
-    const assets = dedupeAssetsById(rows.map((row) => toAsset(row, { includeEvidence: requestPayload.includeEvidence === true })));
+    const loadPhotoMetadata = requestPayload.includeEvidence === true ? createPhotoMetadataBundleLoader(dbManager) : undefined;
+    const assets = dedupeAssetsById(rows.map((row) => toAsset(row, loadPhotoMetadata?.(row.id))));
     const limit = requestPayload.limit || 500;
     const offset = requestPayload.offset || 0;
     respond(id, 'ok', { assets, hasMore: rows.length === limit, limit, offset }, null, originWs);
@@ -403,7 +410,8 @@ function respondAssetDetail(ctx: Parameters<CommandHandlerMap['get_asset_detail'
         throw new Error(`Asset ${requestPayload.assetId} not found`);
     }
 
-    respond(id, 'ok', { asset: toAsset(row, { includeEvidence: requestPayload.includeEvidence === true }) }, null, originWs);
+    const loadPhotoMetadata = requestPayload.includeEvidence === true ? createPhotoMetadataBundleLoader(dbManager) : undefined;
+    respond(id, 'ok', { asset: toAsset(row, loadPhotoMetadata?.(row.id)) }, null, originWs);
 }
 
 export const assetCommandHandlers: CommandHandlerMap = {

@@ -106,17 +106,5 @@ test('toAssetPayload returns projection-backed metadata without machine evidence
     assert.equal(asset.photo_metadata.provenance.type.sourceKind, 'manual_user');
     assert.equal(asset.photo_metadata.provenance.keywords.sourceKind, 'gemini_flash_scout');
     assert.equal(asset.photo_metadata.provenance.quality.sourceId, 'block-pro-1');
-});
-
-test('toAssetPayload attaches machine evidence only when requested', async () => {
-    const { toAssetPayload } = await import('../../src/services/handlers/assetPayloadModel.ts');
-    const asset = toAssetPayload(buildBaseRow(), { includeEvidence: true });
-
-    assert.equal(asset.ai_metadata?.caption, 'Caption text');
-    assert.deepEqual(asset.ai_metadata?.tags, ['tag-1']);
-    assert.ok(asset.embedded_metadata);
-    assert.equal(asset.embedded_metadata?.embedded?.exif?.DateTimeOriginal, '1944:06:01 12:34:56');
-    assert.ok(asset.photo_metadata.evidence);
-    assert.equal(asset.photo_metadata.evidence.machineBlocks.length, 2);
-    assert.equal(asset.photo_metadata.evidence.manualAssertions.length, 0);
+    assert.equal(asset.photo_metadata.evidence, undefined);
 });
