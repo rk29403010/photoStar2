@@ -73,9 +73,15 @@ export const JsonTab: React.FC<{ asset: Asset }> = ({ asset }) => {
   const [wordWrap, setWordWrap] = useState(false);
   const jsonStr = JSON.stringify({ ...asset, faces: asset.faces?.map((f) => ({ ...f, embedding: undefined })), face_embeddings: undefined }, null, 2);
   const sanitised = JSON.parse(jsonStr) as Record<string, unknown>;
+  const isLoadingEvidence = Boolean(asset.photo_metadata) && !asset.photo_metadata?.evidence;
 
   return (
     <div>
+      {isLoadingEvidence && (
+        <div style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 6, border: '1px solid rgba(96,165,250,0.25)', background: 'rgba(30,41,59,0.55)', fontSize: 11, color: '#93c5fd' }}>
+          Loading full metadata evidence for this photo…
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 8 }}>
         <button onClick={() => setWordWrap((w) => !w)} title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'} style={{ background: wordWrap ? 'rgba(99,102,241,0.25)' : 'rgba(51,65,85,0.8)', border: `1px solid ${wordWrap ? '#6366f1' : '#334155'}`, color: wordWrap ? '#a5b4fc' : '#94a3b8', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 14, lineHeight: 1, transition: 'all 0.15s' }}>↵</button>
         <button onClick={async () => { try { await navigator.clipboard.writeText(jsonStr); } catch { /* ignore */ } }} style={{ background: 'rgba(51,65,85,0.8)', border: '1px solid #334155', color: '#94a3b8', padding: '4px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>📋 Copy JSON</button>

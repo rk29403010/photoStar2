@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Asset, FaceBox } from '@contracts/core';
 import { Section, Tag } from './shared';
+import { buildPhotoMetadataPeopleSummary } from './photoMetadataPanelModel';
 
 interface PeopleTabProps {
   asset: Asset;
@@ -70,25 +71,36 @@ const DetectedFacesSection: React.FC<{ faces: FaceBox[]; hoveredFaceKey?: string
   );
 };
 
-const SubjectCard: React.FC<{ subject: Record<string, unknown>; index: number; hoveredFaceKey?: string | null; onHoverFaceKey?: (key: string | null) => void }> = ({ subject, index, hoveredFaceKey, onHoverFaceKey }) => {
+function getSubjectNames(subject: Record<string, unknown>): string[] {
+  if (Array.isArray(subject.suggested_names)) {
+    return subject.suggested_names as string[];
+  }
+
+  return Array.isArray(subject.names) ? subject.names as string[] : [];
+}
+
+const SubjectHeader: React.FC<{ subject: Record<string, unknown>; index: number; isHovered: boolean; names: string[]; hasBbox: boolean }> = ({ subject, index, isHovered, names, hasBbox }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+    <span style={{ fontSize: 16 }}>{getSubjectIcon(subject)}</span>
+    <span style={{ fontSize: 13, fontWeight: 600, color: isHovered ? '#c4b5fd' : '#a5b4fc' }}>{getSubjectLabel(subject, index)}</span>
+    {names.length > 0 && <span style={{ fontSize: 11, background: 'rgba(168,85,247,0.2)', color: '#c084fc', padding: '1px 6px', borderRadius: 4, marginLeft: 4 }}>{names.join(' / ')}</span>}
+    <div style={{ flex: 1 }} />
+    {hasBbox && <span style={{ fontSize: 10, color: isHovered ? '#a5b4fc' : '#475569', opacity: isHovered ? 1 : 0.6 }}>📍 {getSubjectPinText(isHovered)}</span>}
+  </div>
+);
+
+const SubjectCard: React.FC<{ subject: Record<string, unknown>; index: number; hoveredFaceKey?: string | null; onHoverFaceKey?: (key: string | null) => void; sourceLabel?: string }> = ({ subject, index, hoveredFaceKey, onHoverFaceKey, sourceLabel }) => {
   const key = `subject-${index}`;
   const isHovered = hoveredFaceKey === key;
-  const names = Array.isArray(subject.names) ? (subject.names as string[]) : [];
+  const names = getSubjectNames(subject);
   const hasBbox = Boolean(subject.bounding_box);
 
   return (
     <div onMouseEnter={() => onHoverFaceKey?.(key)} onMouseLeave={() => onHoverFaceKey?.(null)} style={{ background: isHovered ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.07)', border: isHovered ? '1px solid rgba(99,102,241,0.6)' : '1px solid rgba(99,102,241,0.2)', borderRadius: 8, padding: '10px 12px', transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s', boxShadow: isHovered ? '0 0 0 1px rgba(99,102,241,0.4), 0 0 10px rgba(99,102,241,0.25)' : 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 16 }}>{getSubjectIcon(subject)}</span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: isHovered ? '#c4b5fd' : '#a5b4fc' }}>{getSubjectLabel(subject, index)}</span>
-        {names.length > 0 && <span style={{ fontSize: 11, background: 'rgba(168,85,247,0.2)', color: '#c084fc', padding: '1px 6px', borderRadius: 4, marginLeft: 4 }}>{names.join(' / ')}</span>}
-        <div style={{ flex: 1 }} />
-        {hasBbox && <span style={{ fontSize: 10, color: isHovered ? '#a5b4fc' : '#475569', opacity: isHovered ? 1 : 0.6 }}>📍 {getSubjectPinText(isHovered)}</span>}
-      </div>
-
+      <SubjectHeader subject={subject} index={index} isHovered={isHovered} names={names} hasBbox={hasBbox} />
       <SubjectMetaTags subject={subject} />
-
       <SubjectDetails subject={subject} />
+      {sourceLabel && <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>{sourceLabel}</div>}
     </div>
   );
 };
@@ -123,14 +135,18 @@ const SubjectDetails: React.FC<{ subject: Record<string, unknown> }> = ({ subjec
   </>
 );
 
-const AiSubjectsSection: React.FC<{ subjects: Array<Record<string, unknown>>; hoveredFaceKey?: string | null; onHoverFaceKey?: (key: string | null) => void }> = ({ subjects, hoveredFaceKey, onHoverFaceKey }) => {
+const AiSubjectsSection: React.FC<{ subjects: Array<Record<string, unknown>>; hoveredFaceKey?: string | null; onHoverFaceKey?: (key: string | null) => void; sourceLabel?: string }> = ({ subjects, hoveredFaceKey, onHoverFaceKey, sourceLabel }) => {
   if (subjects.length === 0) {return null;}
-  return <Section emoji="🤖" title="AI Subjects"><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{subjects.map((subject, i) => <SubjectCard key={i} subject={subject} index={i} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />)}</div></Section>;
+  return <Section emoji="🤖" title="AI Subjects"><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{subjects.map((subject, i) => <SubjectCard key={i} subject={subject} index={i} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} sourceLabel={sourceLabel} />)}</div></Section>;
 };
 
 export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onHoverFaceKey }) => {
+  const summary = buildPhotoMetadataPeopleSummary(asset);
   const ai = asset.ai_metadata;
-  const subjects = (ai?.subjects as Array<Record<string, unknown>> | undefined) || [];
+  const subjects = summary.subjects.length > 0
+    ? summary.subjects.map((subject) => subject.raw)
+    : (ai?.subjects as Array<Record<string, unknown>> | undefined) || [];
+  const sourceLabel = summary.subjects[0]?.sourceLabel;
   const faces = (asset.faces || []);
 
   if (subjects.length === 0 && faces.length === 0) {return <EmptyPeopleState />;}
@@ -139,7 +155,7 @@ export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onH
     <div>
       <RecognisedPeopleSection faces={faces} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />
       <DetectedFacesSection faces={faces} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />
-      <AiSubjectsSection subjects={subjects} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />
+      <AiSubjectsSection subjects={subjects} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} sourceLabel={sourceLabel} />
     </div>
   );
 };

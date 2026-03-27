@@ -49,6 +49,7 @@ interface AppOverlaysProps {
   onIsolateFace: (assetId: string, faceIndex: number) => void;
   onSetSensitivity: (assetId: string, status: string | null) => void;
   onOpenSettingsFromPhoto: () => void;
+  onLoadAssetEvidence: (assetId: string) => Promise<void>;
   onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
   onSetCanonical: (groupId: string, assetId: string) => Promise<void>;
   onExplodeGroup: (groupId: string) => Promise<void>;
@@ -112,6 +113,7 @@ export function AppOverlays(props: AppOverlaysProps) {
           onSetSensitivity={props.onSetSensitivity}
           onExtractAiMetadata={props.onExtractAiMetadata}
           onOpenSettings={props.onOpenSettingsFromPhoto}
+          onLoadAssetEvidence={props.onLoadAssetEvidence}
           onGetGroupOrbit={props.onGetGroupOrbit}
           onSetCanonical={props.onSetCanonical}
           onExplodeGroup={props.onExplodeGroup}

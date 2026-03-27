@@ -1,7 +1,8 @@
 import type React from 'react';
-import type { Asset } from '@contracts/core';
-import { Field, Section, StarRating, Tag } from './shared';
+import type { Asset, PhotoMetadataProjection } from '@contracts/core';
+import { Field, Section, SourceHint, StarRating, Tag } from './shared';
 import { buildAnalysisDetails } from './analysisTabModel';
+import { buildPhotoMetadataAnalysisSummary } from './photoMetadataPanelModel';
 
 function getSensitivityColor(score: number | undefined): string {
   if (score == null) {return '#4b5563';}
@@ -70,6 +71,43 @@ const EnhancementsSection: React.FC<{ enhancements?: unknown }> = ({ enhancement
   );
 };
 
+const DescriptionSection: React.FC<{ description: string; sourceLabel?: string }> = ({ description, sourceLabel }) => (
+  <Section emoji="📝" title="Description">
+    <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>{description}</div>
+    <SourceHint label={sourceLabel} />
+  </Section>
+);
+
+const InterpretationSection: React.FC<{ emotionalImpact: string; sourceLabel?: string }> = ({ emotionalImpact, sourceLabel }) => (
+  <Section emoji="💖" title="Interpretation">
+    <Field label="Mood" value={emotionalImpact} />
+    <SourceHint label={sourceLabel} />
+  </Section>
+);
+
+const EmptyAnalysisState: React.FC = () => (
+  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#374151' }}>
+    <div style={{ fontSize: 32, marginBottom: 10 }}>🤔</div>
+    <div style={{ fontSize: 13 }}>No analysis yet</div>
+    <div style={{ fontSize: 11, color: '#1e293b', marginTop: 4 }}>Use Actions → Analyze Image</div>
+  </div>
+);
+
+function hasAnalysisContent(params: {
+  ai: Asset['ai_metadata'];
+  projection: PhotoMetadataProjection | undefined;
+  sensitivityScore: number | null | undefined;
+  details: ReturnType<typeof buildAnalysisDetails>;
+}) {
+  return params.ai != null
+    || params.projection != null
+    || params.sensitivityScore != null
+    || params.details.mode != null
+    || params.details.caption != null
+    || params.details.notes != null
+    || params.details.tags.length > 0;
+}
+
 const AnalysisSummarySection: React.FC<{ asset: Asset }> = ({ asset }) => {
   const details = buildAnalysisDetails(asset);
   const hasDetails = Boolean(details.mode || details.caption || details.notes || details.tags.length > 0);
@@ -102,35 +140,52 @@ const AnalysisSummarySection: React.FC<{ asset: Asset }> = ({ asset }) => {
   );
 };
 
-export const AnalysisTab: React.FC<{ asset: Asset }> = ({ asset }) => {
+function getQualitySummary(projection: PhotoMetadataProjection | undefined, ai: Asset['ai_metadata']) {
+  return (projection?.quality as Record<string, unknown> | undefined) ?? (ai?.quality as Record<string, unknown> | undefined);
+}
+
+function getAuthenticitySummary(projection: PhotoMetadataProjection | undefined, ai: Asset['ai_metadata']) {
+  return (projection?.authenticity as Record<string, unknown> | undefined) ?? (ai?.authenticity as Record<string, unknown> | undefined);
+}
+
+function getEnhancementSummary(projection: PhotoMetadataProjection | undefined, ai: Asset['ai_metadata']) {
+  return projection?.recommendedEnhancements ?? ai?.recommended_enhancements;
+}
+
+function getAnalysisContent(asset: Asset) {
+  const projection = asset.photo_metadata?.projection;
   const ai = asset.ai_metadata;
-  const quality = ai?.quality as Record<string, unknown> | undefined;
-  const auth = ai?.authenticity as Record<string, unknown> | undefined;
   const analysisDetails = buildAnalysisDetails(asset);
-  const hasAnalysisContent = Boolean(
-    ai
-    || asset.sensitivity_score != null
-    || analysisDetails.mode
-    || analysisDetails.caption
-    || analysisDetails.notes
-    || analysisDetails.tags.length > 0
-  );
+  const summary = buildPhotoMetadataAnalysisSummary(asset);
+  const analysisVisible = hasAnalysisContent({
+    ai,
+    projection,
+    sensitivityScore: asset.sensitivity_score,
+    details: analysisDetails,
+  });
+
+  return {
+    summary,
+    quality: getQualitySummary(projection, ai),
+    authenticity: getAuthenticitySummary(projection, ai),
+    enhancements: getEnhancementSummary(projection, ai),
+    hasAnalysisContent: analysisVisible,
+  };
+}
+
+export const AnalysisTab: React.FC<{ asset: Asset }> = ({ asset }) => {
+  const content = getAnalysisContent(asset);
 
   return (
     <div>
       <AnalysisSummarySection asset={asset} />
-      <QualitySection quality={quality} />
-      <AuthenticitySection auth={auth} />
+      {content.summary.description && <DescriptionSection description={content.summary.description} sourceLabel={content.summary.descriptionSourceLabel} />}
+      {content.summary.emotionalImpact && <InterpretationSection emotionalImpact={content.summary.emotionalImpact} sourceLabel={content.summary.emotionalImpactSourceLabel} />}
+      <QualitySection quality={content.quality} />
+      <AuthenticitySection auth={content.authenticity} />
       <SensitivitySection asset={asset} />
-      <EnhancementsSection enhancements={ai?.recommended_enhancements} />
-
-      {!hasAnalysisContent && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#374151' }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>🤔</div>
-          <div style={{ fontSize: 13 }}>No analysis yet</div>
-          <div style={{ fontSize: 11, color: '#1e293b', marginTop: 4 }}>Use Actions → Analyze Image</div>
-        </div>
-      )}
+      <EnhancementsSection enhancements={content.enhancements} />
+      {!content.hasAnalysisContent && <EmptyAnalysisState />}
     </div>
   );
 };
