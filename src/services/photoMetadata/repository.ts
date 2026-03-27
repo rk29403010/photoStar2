@@ -191,6 +191,19 @@ function normalizeAssertionValue(fieldPath: string, value: JsonValue): JsonValue
     return normalized;
 }
 
+function normalizeProjectionDateValue(fieldPath: IsoDateFieldPath, value: string | null): string | null {
+    if (value === null) {
+        return null;
+    }
+
+    const normalized = normalizeIsoDateOrNull(value);
+    if (normalized === null) {
+        throw new Error(`Photo metadata field '${fieldPath}' requires an ISO date string or null`);
+    }
+
+    return normalized;
+}
+
 function toSourceParams(source: PhotoMetadataFieldSource | undefined): { kind: string | null; id: string | null } {
     if (!source) {
         return { kind: null, id: null };
@@ -231,9 +244,9 @@ function buildProjectionParams(input: PhotoMetadataProjectionInput) {
         location: input.location,
         location_source_kind: locationSource.kind,
         location_source_id: locationSource.id,
-        estimated_date_most_likely: normalizeIsoDateOrNull(input.estimatedDate.most_likely_date),
-        estimated_date_min: normalizeIsoDateOrNull(input.estimatedDate.min_date),
-        estimated_date_max: normalizeIsoDateOrNull(input.estimatedDate.max_date),
+        estimated_date_most_likely: normalizeProjectionDateValue('estimated_date.most_likely_date', input.estimatedDate.most_likely_date),
+        estimated_date_min: normalizeProjectionDateValue('estimated_date.min_date', input.estimatedDate.min_date),
+        estimated_date_max: normalizeProjectionDateValue('estimated_date.max_date', input.estimatedDate.max_date),
         estimated_date_display_label: input.estimatedDate.display_label,
         estimated_date_rationale: input.estimatedDate.rationale,
         estimated_date_source_kind: estimatedDateSource.kind,

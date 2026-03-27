@@ -72,6 +72,35 @@ function buildProjection(blockId, assertionId) {
     };
 }
 
+function buildUpdatedProjection(blockId, assertionId) {
+    return {
+        assetId: 'asset-1',
+        type: 'Group portrait',
+        caption: 'Billy and Dad at the Christmas table',
+        description: 'A revised description after manual confirmation.',
+        location: 'Liverpool',
+        estimatedDate: {
+            most_likely_date: '1968-12-24T00:00:00Z',
+            min_date: '1968-12-01T00:00:00Z',
+            max_date: '1968-12-31T23:59:59.999Z',
+            display_label: 'late December 1968',
+            rationale: 'Manual follow-up narrowed the date.',
+        },
+        keywords: ['Christmas', 'family', 'table'],
+        emotionalImpact: 'Warm and reflective',
+        quality: { technical: 5, lighting: 4, composition: 4, emotional: 5, discard: false },
+        recommendedEnhancements: ['Keep full frame'],
+        authenticity: { score: 0.93, reasons: ['manual confirmation'] },
+        provenance: {
+            type: { sourceKind: 'manual', sourceId: assertionId },
+            caption: { sourceKind: 'manual', sourceId: assertionId },
+            description: { sourceKind: 'manual', sourceId: assertionId },
+            location: { sourceKind: 'manual', sourceId: assertionId },
+            estimatedDate: { sourceKind: 'manual', sourceId: assertionId },
+        },
+    };
+}
+
 function assertBlockRows(checks, blocks, blockId) {
     checks.equal(blocks.length, 1);
     checks.equal(blocks[0].id, blockId);
@@ -104,6 +133,19 @@ function assertProjectionRow(checks, projection, assertionId, blockId) {
     checks.equal(projection.estimated_date_source_id, blockId);
 }
 
+function assertUpdatedProjectionRow(checks, projection, assertionId) {
+    checks.ok(projection);
+    checks.equal(projection.caption, 'Billy and Dad at the Christmas table');
+    checks.equal(projection.type, 'Group portrait');
+    checks.equal(projection.location, 'Liverpool');
+    checks.equal(projection.caption_source_kind, 'manual');
+    checks.equal(projection.caption_source_id, assertionId);
+    checks.equal(projection.estimated_date_display_label, 'late December 1968');
+    checks.equal(projection.estimated_date_source_kind, 'manual');
+    checks.equal(projection.estimated_date_source_id, assertionId);
+    checks.equal(projection.authenticity_score, 0.93);
+}
+
 test('photo metadata repository persists blocks, assertions, and projection rows', async () => {
     const { createPhotoMetadataRepository } = await import('../../dist/core/src/services/photoMetadata/repository.js');
     const tempDir = createTempDir();
@@ -133,14 +175,31 @@ test('photo metadata repository persists blocks, assertions, and projection rows
         });
 
         repository.saveProjection(buildProjection(blockId, assertionId));
+        repository.saveProjection(buildUpdatedProjection(blockId, assertionId));
 
         const blocks = repository.listBlocksForAsset('asset-1');
         const assertions = repository.listAssertionsForAsset('asset-1');
         const projection = repository.loadProjection('asset-1');
+        const projectionCount = db.prepare(`
+            SELECT COUNT(*) AS count
+            FROM photo_metadata_projection
+            WHERE asset_id = 'asset-1'
+        `).get();
 
         assertBlockRows(assert, blocks, blockId);
         assertAssertionRows(assert, assertions, assertionId);
-        assertProjectionRow(assert, projection, assertionId, blockId);
+        assert.equal(projectionCount.count, 1);
+        assertUpdatedProjectionRow(assert, projection, assertionId);
+
+        assert.throws(() => {
+            repository.saveProjection({
+                ...buildProjection(blockId, assertionId),
+                estimatedDate: {
+                    ...buildProjection(blockId, assertionId).estimatedDate,
+                    min_date: 'not-a-date',
+                },
+            });
+        }, /requires an ISO date string or null/);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
