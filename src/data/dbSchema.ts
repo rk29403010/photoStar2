@@ -123,6 +123,81 @@ export const SCHEMA_SQL = `
     FOREIGN KEY(asset_id) REFERENCES assets(id)
   );
 
+  CREATE TABLE IF NOT EXISTS photo_metadata_blocks (
+    id TEXT PRIMARY KEY,
+    asset_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model_version TEXT,
+    schema_version INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS photo_metadata_assertions (
+    id TEXT PRIMARY KEY,
+    asset_id TEXT NOT NULL,
+    field_path TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS photo_metadata_projection (
+    asset_id TEXT PRIMARY KEY,
+    type TEXT,
+    type_source_kind TEXT,
+    type_source_id TEXT,
+    caption TEXT,
+    caption_source_kind TEXT,
+    caption_source_id TEXT,
+    description TEXT,
+    description_source_kind TEXT,
+    description_source_id TEXT,
+    location TEXT,
+    location_source_kind TEXT,
+    location_source_id TEXT,
+    estimated_date_most_likely TEXT,
+    estimated_date_min TEXT,
+    estimated_date_max TEXT,
+    estimated_date_display_label TEXT,
+    estimated_date_rationale TEXT,
+    estimated_date_source_kind TEXT,
+    estimated_date_source_id TEXT,
+    keywords_json TEXT,
+    keywords_source_kind TEXT,
+    keywords_source_id TEXT,
+    emotional_impact TEXT,
+    emotional_impact_source_kind TEXT,
+    emotional_impact_source_id TEXT,
+    quality_technical REAL,
+    quality_lighting REAL,
+    quality_composition REAL,
+    quality_emotional REAL,
+    quality_discard INTEGER,
+    quality_source_kind TEXT,
+    quality_source_id TEXT,
+    recommended_enhancements_json TEXT,
+    recommended_enhancements_source_kind TEXT,
+    recommended_enhancements_source_id TEXT,
+    authenticity_score REAL,
+    authenticity_reasons_json TEXT,
+    authenticity_source_kind TEXT,
+    authenticity_source_id TEXT,
+    subjects_json TEXT,
+    subjects_source_kind TEXT,
+    subjects_source_id TEXT,
+    regions_of_interest_json TEXT,
+    regions_of_interest_source_kind TEXT,
+    regions_of_interest_source_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS people (
     id TEXT PRIMARY KEY,
     name TEXT,
@@ -178,6 +253,10 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_assets_photo_created_at ON assets(photo_created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_derived_task ON derived_results(task);
   CREATE INDEX IF NOT EXISTS idx_derived_task_asset ON derived_results(task, asset_id);
+  CREATE INDEX IF NOT EXISTS idx_photo_metadata_blocks_asset_created ON photo_metadata_blocks(asset_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_photo_metadata_blocks_source_created ON photo_metadata_blocks(source_kind, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_photo_metadata_assertions_asset_created ON photo_metadata_assertions(asset_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_photo_metadata_assertions_field_created ON photo_metadata_assertions(field_path, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_assignments_person ON face_assignments(person_id);
   CREATE INDEX IF NOT EXISTS idx_issues_asset ON processing_issues(asset_id);
   CREATE INDEX IF NOT EXISTS idx_issues_task ON processing_issues(task);
