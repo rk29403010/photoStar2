@@ -47,6 +47,27 @@ export interface PhotoMetadataSourceSummary {
     sourceId: string | null;
 }
 
+export interface PhotoMetadataEstimatedDateProvenance extends PhotoMetadataSourceSummary {
+    display_label?: PhotoMetadataSourceSummary;
+    most_likely_date?: PhotoMetadataSourceSummary;
+    min_date?: PhotoMetadataSourceSummary;
+    max_date?: PhotoMetadataSourceSummary;
+    rationale?: PhotoMetadataSourceSummary;
+}
+
+export interface PhotoMetadataQualityProvenance extends PhotoMetadataSourceSummary {
+    technical?: PhotoMetadataSourceSummary;
+    lighting?: PhotoMetadataSourceSummary;
+    composition?: PhotoMetadataSourceSummary;
+    emotional?: PhotoMetadataSourceSummary;
+    discard?: PhotoMetadataSourceSummary;
+}
+
+export interface PhotoMetadataAuthenticityProvenance extends PhotoMetadataSourceSummary {
+    score?: PhotoMetadataSourceSummary;
+    reasons?: PhotoMetadataSourceSummary;
+}
+
 export interface PhotoMetadataProjectionDate {
     most_likely_date: string | null;
     min_date: string | null;
@@ -92,9 +113,9 @@ export interface PhotoMetadataEvidencePayload {
 export interface PhotoMetadataBundle {
     projection: PhotoMetadataProjection;
     provenance?: Partial<Record<keyof Omit<PhotoMetadataProjection, 'assetId' | 'estimatedDate' | 'quality' | 'authenticity' | 'subjects' | 'regionsOfInterest'>, PhotoMetadataSourceSummary>> & {
-        estimatedDate?: PhotoMetadataSourceSummary;
-        quality?: PhotoMetadataSourceSummary;
-        authenticity?: PhotoMetadataSourceSummary;
+        estimatedDate?: PhotoMetadataEstimatedDateProvenance;
+        quality?: PhotoMetadataQualityProvenance;
+        authenticity?: PhotoMetadataAuthenticityProvenance;
         subjects?: PhotoMetadataSourceSummary;
         regionsOfInterest?: PhotoMetadataSourceSummary;
     };

@@ -1,7 +1,10 @@
 import type { DatabaseManager } from '../../data/db';
 import type {
+    PhotoMetadataAuthenticityProvenance,
     PhotoMetadataBundle,
+    PhotoMetadataEstimatedDateProvenance,
     PhotoMetadataProjection,
+    PhotoMetadataQualityProvenance,
     PhotoMetadataSourceSummary,
 } from '../../boundary/contracts/core';
 import type { PhotoMetadataAssertionRow } from './repository';
@@ -10,6 +13,8 @@ import { createPhotoMetadataRepository } from './repository';
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
 type JsonValue = unknown;
+type BundleProvenance = NonNullable<PhotoMetadataBundle['provenance']>;
+type ManualSourceMap = Record<string, PhotoMetadataSourceSummary | undefined>;
 
 export interface RecordManualAssertionParams {
     assetId: string;
@@ -148,83 +153,170 @@ function cloneProjection(projection: PhotoMetadataProjection): PhotoMetadataProj
     };
 }
 
-function cloneProvenance(bundle: PhotoMetadataBundle): Record<string, PhotoMetadataSourceSummary> {
-    return { ...bundle.provenance };
+function cloneProvenance(bundle: PhotoMetadataBundle): BundleProvenance {
+    if (!bundle.provenance) {
+        return {};
+    }
+
+    return {
+        ...bundle.provenance,
+        estimatedDate: bundle.provenance.estimatedDate ? { ...bundle.provenance.estimatedDate } : undefined,
+        quality: bundle.provenance.quality ? { ...bundle.provenance.quality } : undefined,
+        authenticity: bundle.provenance.authenticity ? { ...bundle.provenance.authenticity } : undefined,
+    };
 }
 
 function setManualSource(
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     key: string,
     sourceId: string,
 ) {
-    provenance[key] = { sourceKind: 'manual', sourceId };
+    (provenance as ManualSourceMap)[key] = { sourceKind: 'manual', sourceId };
+}
+
+function ensureEstimatedDateProvenance(provenance: BundleProvenance): PhotoMetadataEstimatedDateProvenance {
+    if (!provenance.estimatedDate) {
+        provenance.estimatedDate = { sourceKind: null, sourceId: null };
+    }
+
+    return provenance.estimatedDate;
+}
+
+function ensureQualityProvenance(provenance: BundleProvenance): PhotoMetadataQualityProvenance {
+    if (!provenance.quality) {
+        provenance.quality = { sourceKind: null, sourceId: null };
+    }
+
+    return provenance.quality;
+}
+
+function ensureAuthenticityProvenance(provenance: BundleProvenance): PhotoMetadataAuthenticityProvenance {
+    if (!provenance.authenticity) {
+        provenance.authenticity = { sourceKind: null, sourceId: null };
+    }
+
+    return provenance.authenticity;
+}
+
+function isManualSource(source: PhotoMetadataSourceSummary | undefined): boolean {
+    return source?.sourceKind === 'manual';
+}
+
+function promoteEstimatedDateIfFullyManual(provenance: BundleProvenance, assertion: PhotoMetadataAssertionRow) {
+    const estimatedDate = provenance.estimatedDate;
+    if (
+        estimatedDate
+        && isManualSource(estimatedDate.display_label)
+        && isManualSource(estimatedDate.most_likely_date)
+        && isManualSource(estimatedDate.min_date)
+        && isManualSource(estimatedDate.max_date)
+        && isManualSource(estimatedDate.rationale)
+    ) {
+        provenance.estimatedDate = { ...estimatedDate, sourceKind: 'manual', sourceId: assertion.id };
+    }
+}
+
+function promoteQualityIfFullyManual(provenance: BundleProvenance, assertion: PhotoMetadataAssertionRow) {
+    const quality = provenance.quality;
+    if (
+        quality
+        && isManualSource(quality.technical)
+        && isManualSource(quality.lighting)
+        && isManualSource(quality.composition)
+        && isManualSource(quality.emotional)
+        && isManualSource(quality.discard)
+    ) {
+        provenance.quality = { ...quality, sourceKind: 'manual', sourceId: assertion.id };
+    }
+}
+
+function promoteAuthenticityIfFullyManual(provenance: BundleProvenance, assertion: PhotoMetadataAssertionRow) {
+    const authenticity = provenance.authenticity;
+    if (authenticity && isManualSource(authenticity.score) && isManualSource(authenticity.reasons)) {
+        provenance.authenticity = { ...authenticity, sourceKind: 'manual', sourceId: assertion.id };
+    }
 }
 
 function applyEstimatedDateAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
     const field = assertion.field_path;
+    const estimatedDate = ensureEstimatedDateProvenance(provenance);
     if (field === 'estimated_date.display_label') {
         projection.estimatedDate.display_label = toNullableString(assertion.value);
+        estimatedDate.display_label = { sourceKind: 'manual', sourceId: assertion.id };
     } else if (field === 'estimated_date.most_likely_date') {
         projection.estimatedDate.most_likely_date = toNullableString(assertion.value);
+        estimatedDate.most_likely_date = { sourceKind: 'manual', sourceId: assertion.id };
     } else if (field === 'estimated_date.min_date') {
         projection.estimatedDate.min_date = toNullableString(assertion.value);
+        estimatedDate.min_date = { sourceKind: 'manual', sourceId: assertion.id };
     } else if (field === 'estimated_date.max_date') {
         projection.estimatedDate.max_date = toNullableString(assertion.value);
+        estimatedDate.max_date = { sourceKind: 'manual', sourceId: assertion.id };
     } else {
         projection.estimatedDate.rationale = toNullableString(assertion.value);
+        estimatedDate.rationale = { sourceKind: 'manual', sourceId: assertion.id };
     }
-    setManualSource(provenance, 'estimatedDate', assertion.id);
+    promoteEstimatedDateIfFullyManual(provenance, assertion);
 }
 
 function applyQualityAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
     const field = assertion.field_path;
+    const quality = ensureQualityProvenance(provenance);
     if (field === 'quality.discard') {
         projection.quality.discard = typeof assertion.value === 'boolean' ? assertion.value : Boolean(assertion.value);
+        quality.discard = { sourceKind: 'manual', sourceId: assertion.id };
     } else {
         const numericValue = typeof assertion.value === 'number' ? assertion.value : null;
         if (field === 'quality.technical') {
             projection.quality.technical = numericValue;
+            quality.technical = { sourceKind: 'manual', sourceId: assertion.id };
         } else if (field === 'quality.lighting') {
             projection.quality.lighting = numericValue;
+            quality.lighting = { sourceKind: 'manual', sourceId: assertion.id };
         } else if (field === 'quality.composition') {
             projection.quality.composition = numericValue;
+            quality.composition = { sourceKind: 'manual', sourceId: assertion.id };
         } else {
             projection.quality.emotional = numericValue;
+            quality.emotional = { sourceKind: 'manual', sourceId: assertion.id };
         }
     }
-    setManualSource(provenance, 'quality', assertion.id);
+    promoteQualityIfFullyManual(provenance, assertion);
 }
 
 function applyAuthenticityAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
+    const authenticity = ensureAuthenticityProvenance(provenance);
     if (assertion.field_path === 'authenticity.score') {
         projection.authenticity.score = typeof assertion.value === 'number' ? assertion.value : null;
+        authenticity.score = { sourceKind: 'manual', sourceId: assertion.id };
     } else {
         projection.authenticity.reasons = toStringArray(assertion.value);
+        authenticity.reasons = { sourceKind: 'manual', sourceId: assertion.id };
     }
-    setManualSource(provenance, 'authenticity', assertion.id);
+    promoteAuthenticityIfFullyManual(provenance, assertion);
 }
 
 type ResponseBundleApplier = (
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) => void;
 
 function applyCaptionAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
     projection.caption = toNullableString(assertion.value);
@@ -233,7 +325,7 @@ function applyCaptionAssertion(
 
 function applyDescriptionAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
     projection.description = toNullableString(assertion.value);
@@ -242,7 +334,7 @@ function applyDescriptionAssertion(
 
 function applyLocationAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
     projection.location = toNullableString(assertion.value);
@@ -251,7 +343,7 @@ function applyLocationAssertion(
 
 function applyKeywordsAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
     projection.keywords = toStringArray(assertion.value);
@@ -260,7 +352,7 @@ function applyKeywordsAssertion(
 
 function applyEmotionalImpactAssertion(
     projection: PhotoMetadataProjection,
-    provenance: Record<string, PhotoMetadataSourceSummary>,
+    provenance: BundleProvenance,
     assertion: PhotoMetadataAssertionRow,
 ) {
     projection.emotionalImpact = toNullableString(assertion.value);
