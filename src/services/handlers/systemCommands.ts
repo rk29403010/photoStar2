@@ -1,6 +1,9 @@
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import type { PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataProjectionDate, PhotoMetadataProjectionQuality, PhotoMetadataProjectionAuthenticity, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
 import { runScanJob } from '../jobs/scan';
+import { createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
+import { createPhotoMetadataRepository, type PhotoMetadataProjectionRow } from '../photoMetadata/repository';
 import type { CommandContext, CommandHandlerMap } from './types';
 import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
 
@@ -81,6 +84,140 @@ function resetLibrary(ctx: CommandContext, mode: ResetMode) {
         ? 'Factory reset complete. Database recreated from schema.'
         : 'Library reset complete. Manual data, settings, and folder history restored.';
     ctx.respond(ctx.id, 'ok', { message, mode }, null, ctx.originWs);
+}
+
+function parseJsonArray<T>(value: string | null): T[] {
+    if (value === null) {
+        return [];
+    }
+
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed as T[] : [];
+}
+
+function toSourceSummary(sourceKind: string | null, sourceId: string | null): PhotoMetadataSourceSummary {
+    return { sourceKind, sourceId };
+}
+
+function toEmptyProjection(assetId: string): PhotoMetadataProjection {
+    return {
+        assetId,
+        type: null,
+        caption: null,
+        description: null,
+        location: null,
+        estimatedDate: {
+            most_likely_date: null,
+            min_date: null,
+            max_date: null,
+            display_label: null,
+            rationale: null,
+        },
+        keywords: [],
+        emotionalImpact: null,
+        quality: {
+            technical: null,
+            lighting: null,
+            composition: null,
+            emotional: null,
+            discard: null,
+        },
+        recommendedEnhancements: [],
+        authenticity: {
+            score: null,
+            reasons: [],
+        },
+        subjects: [],
+        regionsOfInterest: [],
+    };
+}
+
+function toProjectionDate(row: PhotoMetadataProjectionRow): PhotoMetadataProjectionDate {
+    return {
+        most_likely_date: row.estimated_date_most_likely,
+        min_date: row.estimated_date_min,
+        max_date: row.estimated_date_max,
+        display_label: row.estimated_date_display_label,
+        rationale: row.estimated_date_rationale,
+    };
+}
+
+function toProjectionQuality(row: PhotoMetadataProjectionRow): PhotoMetadataProjectionQuality {
+    return {
+        technical: row.quality_technical,
+        lighting: row.quality_lighting,
+        composition: row.quality_composition,
+        emotional: row.quality_emotional,
+        discard: row.quality_discard === null ? null : row.quality_discard === 1,
+    };
+}
+
+function toProjectionAuthenticity(row: PhotoMetadataProjectionRow): PhotoMetadataProjectionAuthenticity {
+    return {
+        score: row.authenticity_score,
+        reasons: parseJsonArray<string>(row.authenticity_reasons_json),
+    };
+}
+
+function toPhotoMetadataProjection(row: PhotoMetadataProjectionRow | null, assetId: string): PhotoMetadataProjection {
+    if (!row) {
+        return toEmptyProjection(assetId);
+    }
+
+    return {
+        assetId,
+        type: row.type,
+        caption: row.caption,
+        description: row.description,
+        location: row.location,
+        estimatedDate: toProjectionDate(row),
+        keywords: parseJsonArray<string>(row.keywords_json),
+        emotionalImpact: row.emotional_impact,
+        quality: toProjectionQuality(row),
+        recommendedEnhancements: parseJsonArray<string>(row.recommended_enhancements_json),
+        authenticity: toProjectionAuthenticity(row),
+        subjects: parseJsonArray<unknown>(row.subjects_json),
+        regionsOfInterest: parseJsonArray<unknown>(row.regions_of_interest_json),
+    };
+}
+
+function toPhotoMetadataBundle(params: {
+    repository: ReturnType<typeof createPhotoMetadataRepository>;
+    manualAssertionsService: ReturnType<typeof createPhotoMetadataManualAssertionsService>;
+    assetId: string;
+    includeEvidence: boolean;
+}): PhotoMetadataBundle {
+    const projectionRow = params.repository.loadProjection(params.assetId);
+    const provenance = projectionRow
+        ? {
+            type: toSourceSummary(projectionRow.type_source_kind, projectionRow.type_source_id),
+            caption: toSourceSummary(projectionRow.caption_source_kind, projectionRow.caption_source_id),
+            description: toSourceSummary(projectionRow.description_source_kind, projectionRow.description_source_id),
+            location: toSourceSummary(projectionRow.location_source_kind, projectionRow.location_source_id),
+            estimatedDate: toSourceSummary(projectionRow.estimated_date_source_kind, projectionRow.estimated_date_source_id),
+            keywords: toSourceSummary(projectionRow.keywords_source_kind, projectionRow.keywords_source_id),
+            emotionalImpact: toSourceSummary(projectionRow.emotional_impact_source_kind, projectionRow.emotional_impact_source_id),
+            quality: toSourceSummary(projectionRow.quality_source_kind, projectionRow.quality_source_id),
+            recommendedEnhancements: toSourceSummary(projectionRow.recommended_enhancements_source_kind, projectionRow.recommended_enhancements_source_id),
+            authenticity: toSourceSummary(projectionRow.authenticity_source_kind, projectionRow.authenticity_source_id),
+            subjects: toSourceSummary(projectionRow.subjects_source_kind, projectionRow.subjects_source_id),
+            regionsOfInterest: toSourceSummary(projectionRow.regions_of_interest_source_kind, projectionRow.regions_of_interest_source_id),
+        }
+        : undefined;
+
+    const bundle: PhotoMetadataBundle = {
+        projection: toPhotoMetadataProjection(projectionRow, params.assetId),
+        provenance,
+    };
+
+    if (params.includeEvidence) {
+        bundle.evidence = {
+            machineBlocks: params.repository.listBlocksForAsset(params.assetId),
+            manualAssertions: params.manualAssertionsService.listManualAssertions(params.assetId),
+        };
+    }
+
+    return bundle;
 }
 
 function resetGroupingData(ctx: CommandContext) {
@@ -196,6 +333,53 @@ export const systemCommandHandlers: CommandHandlerMap = {
         try {
             ctx.dbManager.getDb().prepare("DELETE FROM derived_results WHERE task = 'face_detection'").run();
             ctx.respond(ctx.id, 'ok', { message: 'Face detection results cleared' }, null, ctx.originWs);
+        } catch (error) {
+            respondError(ctx, error);
+        }
+    },
+
+    record_photo_metadata_assertion: (ctx) => {
+        try {
+            const payload = ctx.payload as {
+                assetId?: string;
+                fieldPath?: string;
+                value?: unknown;
+                userId?: string;
+                note?: string | null;
+                includeEvidence?: boolean;
+            } | undefined;
+
+            if (!payload?.assetId) {
+                throw new Error('assetId is required');
+            }
+            if (!payload.fieldPath) {
+                throw new Error('fieldPath is required');
+            }
+            if (!payload.userId) {
+                throw new Error('userId is required');
+            }
+
+            const repository = createPhotoMetadataRepository({ dbManager: ctx.dbManager });
+            const manualAssertionsService = createPhotoMetadataManualAssertionsService({ dbManager: ctx.dbManager });
+            const manualAssertion = manualAssertionsService.recordManualAssertion({
+                assetId: payload.assetId,
+                fieldPath: payload.fieldPath,
+                value: payload.value,
+                userId: payload.userId,
+                note: payload.note ?? null,
+            });
+
+            const photoMetadata = toPhotoMetadataBundle({
+                repository,
+                manualAssertionsService,
+                assetId: payload.assetId,
+                includeEvidence: payload.includeEvidence === true,
+            });
+
+            ctx.respond(ctx.id, 'ok', {
+                manualAssertion,
+                photo_metadata: photoMetadata,
+            }, null, ctx.originWs);
         } catch (error) {
             respondError(ctx, error);
         }

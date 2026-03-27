@@ -42,6 +42,65 @@ export interface SimilarityOrbit {
     items: SimilarityOrbitItem[];
 }
 
+export interface PhotoMetadataSourceSummary {
+    sourceKind: string | null;
+    sourceId: string | null;
+}
+
+export interface PhotoMetadataProjectionDate {
+    most_likely_date: string | null;
+    min_date: string | null;
+    max_date: string | null;
+    display_label: string | null;
+    rationale: string | null;
+}
+
+export interface PhotoMetadataProjectionQuality {
+    technical: number | null;
+    lighting: number | null;
+    composition: number | null;
+    emotional: number | null;
+    discard: boolean | null;
+}
+
+export interface PhotoMetadataProjectionAuthenticity {
+    score: number | null;
+    reasons: string[];
+}
+
+export interface PhotoMetadataProjection {
+    assetId: string;
+    type: string | null;
+    caption: string | null;
+    description: string | null;
+    location: string | null;
+    estimatedDate: PhotoMetadataProjectionDate;
+    keywords: string[];
+    emotionalImpact: string | null;
+    quality: PhotoMetadataProjectionQuality;
+    recommendedEnhancements: string[];
+    authenticity: PhotoMetadataProjectionAuthenticity;
+    subjects: unknown[];
+    regionsOfInterest: unknown[];
+}
+
+export interface PhotoMetadataEvidencePayload {
+    machineBlocks: unknown[];
+    manualAssertions: unknown[];
+}
+
+export interface PhotoMetadataBundle {
+    projection: PhotoMetadataProjection;
+    provenance?: Partial<Record<keyof Omit<PhotoMetadataProjection, 'assetId' | 'estimatedDate' | 'quality' | 'authenticity' | 'subjects' | 'regionsOfInterest'>, PhotoMetadataSourceSummary>> & {
+        estimatedDate?: PhotoMetadataSourceSummary;
+        quality?: PhotoMetadataSourceSummary;
+        authenticity?: PhotoMetadataSourceSummary;
+        subjects?: PhotoMetadataSourceSummary;
+        regionsOfInterest?: PhotoMetadataSourceSummary;
+    };
+    evidence?: PhotoMetadataEvidencePayload;
+}
+
 export interface Asset {
     id: string;
     original_path: string; // Added this
@@ -57,6 +116,7 @@ export interface Asset {
     faces?: FaceBox[];
     face_embeddings?: boolean[]; // Simplified boolean array if matching face index
     ai_metadata?: Record<string, unknown>;
+    photo_metadata?: PhotoMetadataBundle | null;
     embedded_metadata?: Record<string, unknown>;
 
     // Scoring & Analysis (Future proofing A5)
