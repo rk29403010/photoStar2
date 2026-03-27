@@ -1,3 +1,5 @@
+import type { PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
+
 export type AssetPayloadRow = {
     id: string;
     original_path: string;
@@ -16,6 +18,21 @@ export type AssetPayloadRow = {
     embedded_metadata_data?: string | null;
     people_data: string | null;
     caption: string | null;
+    description: string | null;
+    location: string | null;
+    estimated_date_most_likely: string | null;
+    estimated_date_min: string | null;
+    estimated_date_max: string | null;
+    estimated_date_display_label: string | null;
+    estimated_date_rationale: string | null;
+    caption_source_kind: string | null;
+    caption_source_id: string | null;
+    description_source_kind: string | null;
+    description_source_id: string | null;
+    location_source_kind: string | null;
+    location_source_id: string | null;
+    estimated_date_source_kind: string | null;
+    estimated_date_source_id: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
     member_group_id?: string | null;
@@ -176,27 +193,73 @@ function parseGroupMemberships(row: AssetPayloadRow) {
         .map(toGroupMembership);
 }
 
-function resolveCaption(row: AssetPayloadRow, aiMeta: Record<string, unknown> | undefined) {
-    if (row.caption) {
-        return row.caption;
-    }
-
-    return typeof aiMeta?.caption === 'string' ? aiMeta.caption : undefined;
+function toSourceSummary(sourceKind: string | null, sourceId: string | null): PhotoMetadataSourceSummary {
+    return { sourceKind, sourceId };
 }
 
-export function toAssetPayload(row: AssetPayloadRow) {
+function toPhotoMetadataProjection(row: AssetPayloadRow): PhotoMetadataProjection {
+    return {
+        assetId: row.id,
+        type: null,
+        caption: row.caption,
+        description: row.description,
+        location: row.location,
+        estimatedDate: {
+            most_likely_date: row.estimated_date_most_likely,
+            min_date: row.estimated_date_min,
+            max_date: row.estimated_date_max,
+            display_label: row.estimated_date_display_label,
+            rationale: row.estimated_date_rationale,
+        },
+        keywords: [],
+        emotionalImpact: null,
+        quality: {
+            technical: null,
+            lighting: null,
+            composition: null,
+            emotional: null,
+            discard: null,
+        },
+        recommendedEnhancements: [],
+        authenticity: {
+            score: null,
+            reasons: [],
+        },
+        subjects: [],
+        regionsOfInterest: [],
+    };
+}
+
+function toPhotoMetadataBundle(row: AssetPayloadRow): PhotoMetadataBundle {
+    return {
+        projection: toPhotoMetadataProjection(row),
+        provenance: {
+            caption: toSourceSummary(row.caption_source_kind, row.caption_source_id),
+            description: toSourceSummary(row.description_source_kind, row.description_source_id),
+            location: toSourceSummary(row.location_source_kind, row.location_source_id),
+            estimatedDate: {
+                sourceKind: row.estimated_date_source_kind,
+                sourceId: row.estimated_date_source_id,
+            },
+        },
+    };
+}
+
+export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?: boolean } = {}) {
     const faces = parseFaces(row);
     applyPeopleAssignments(faces, parsePeopleAssignments(row));
-    const aiMeta = parseAiMetadata(row);
-    const embeddedMetadata = parseEmbeddedMetadata(row);
+    const includeEvidence = options.includeEvidence === true;
+    const aiMeta = includeEvidence ? parseAiMetadata(row) : undefined;
+    const embeddedMetadata = includeEvidence ? parseEmbeddedMetadata(row) : undefined;
 
     return {
         ...buildAssetFileFields(row),
+        caption: row.caption ?? undefined,
         faces,
         face_embeddings: parseFaceEmbeddings(row),
+        photo_metadata: toPhotoMetadataBundle(row),
         ai_metadata: aiMeta,
         embedded_metadata: embeddedMetadata,
-        caption: resolveCaption(row, aiMeta),
         ...buildGroupFields(row),
     };
 }
