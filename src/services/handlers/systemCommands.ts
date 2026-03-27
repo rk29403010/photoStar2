@@ -2,7 +2,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataProjectionDate, PhotoMetadataProjectionQuality, PhotoMetadataProjectionAuthenticity, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
 import { runScanJob } from '../jobs/scan';
-import { createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
+import { applyManualAssertionToResponseBundle, createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
 import { createPhotoMetadataRepository, type PhotoMetadataProjectionRow } from '../photoMetadata/repository';
 import type { CommandContext, CommandHandlerMap } from './types';
 import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
@@ -219,7 +219,6 @@ function toPhotoMetadataBundle(params: {
 
     return bundle;
 }
-
 function resetGroupingData(ctx: CommandContext) {
     const db = ctx.dbManager.getDb();
     db.transaction(() => {
@@ -369,12 +368,12 @@ export const systemCommandHandlers: CommandHandlerMap = {
                 note: payload.note ?? null,
             });
 
-            const photoMetadata = toPhotoMetadataBundle({
+            const photoMetadata = applyManualAssertionToResponseBundle(toPhotoMetadataBundle({
                 repository,
                 manualAssertionsService,
                 assetId: payload.assetId,
                 includeEvidence: payload.includeEvidence === true,
-            });
+            }), manualAssertion);
 
             ctx.respond(ctx.id, 'ok', {
                 manualAssertion,

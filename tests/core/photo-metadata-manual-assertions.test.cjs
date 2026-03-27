@@ -158,10 +158,10 @@ test('record_photo_metadata_assertion returns the manual edit while leaving mach
         assert.equal(response.data.manualAssertion.field_path, 'caption');
         assert.equal(response.data.manualAssertion.user_id, 'user-father-in-law');
         assert.equal(response.data.manualAssertion.note, 'Confirmed from family memory.');
-        assert.equal(response.data.photo_metadata.projection.caption, 'Billy and Dad at Christmas');
+        assert.equal(response.data.photo_metadata.projection.caption, 'Billy and Dad enjoying Christmas dinner');
         assert.equal(response.data.photo_metadata.projection.description, 'A warm family Christmas dinner with Billy and Dad at the table.');
-        assert.equal(response.data.photo_metadata.provenance.caption.sourceKind, 'gemini_flash_scout');
-        assert.equal(response.data.photo_metadata.provenance.caption.sourceId, 'block-1');
+        assert.equal(response.data.photo_metadata.provenance.caption.sourceKind, 'manual');
+        assert.equal(response.data.photo_metadata.provenance.caption.sourceId, response.data.manualAssertion.id);
         assert.ok(! Object.hasOwn(response.data.photo_metadata, 'evidence'));
     } finally {
         dbManager.close();

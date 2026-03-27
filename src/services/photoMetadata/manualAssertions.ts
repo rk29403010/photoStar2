@@ -1,4 +1,9 @@
 import type { DatabaseManager } from '../../data/db';
+import type {
+    PhotoMetadataBundle,
+    PhotoMetadataProjection,
+    PhotoMetadataSourceSummary,
+} from '../../boundary/contracts/core';
 import type { PhotoMetadataAssertionRow } from './repository';
 import { createPhotoMetadataRepository } from './repository';
 
@@ -124,4 +129,173 @@ export class PhotoMetadataManualAssertionsService implements ManualAssertionsSer
 
 export function createPhotoMetadataManualAssertionsService(options: { dbManager: DatabaseManager }): ManualAssertionsService {
     return new PhotoMetadataManualAssertionsService(options.dbManager);
+}
+
+function toNullableString(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+}
+
+function toStringArray(value: unknown): string[] {
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function cloneProjection(projection: PhotoMetadataProjection): PhotoMetadataProjection {
+    return {
+        ...projection,
+        estimatedDate: { ...projection.estimatedDate },
+        quality: { ...projection.quality },
+        authenticity: { ...projection.authenticity },
+    };
+}
+
+function cloneProvenance(bundle: PhotoMetadataBundle): Record<string, PhotoMetadataSourceSummary> {
+    return { ...bundle.provenance };
+}
+
+function setManualSource(
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    key: string,
+    sourceId: string,
+) {
+    provenance[key] = { sourceKind: 'manual', sourceId };
+}
+
+function applyEstimatedDateAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    const field = assertion.field_path;
+    if (field === 'estimated_date.display_label') {
+        projection.estimatedDate.display_label = toNullableString(assertion.value);
+    } else if (field === 'estimated_date.most_likely_date') {
+        projection.estimatedDate.most_likely_date = toNullableString(assertion.value);
+    } else if (field === 'estimated_date.min_date') {
+        projection.estimatedDate.min_date = toNullableString(assertion.value);
+    } else if (field === 'estimated_date.max_date') {
+        projection.estimatedDate.max_date = toNullableString(assertion.value);
+    } else {
+        projection.estimatedDate.rationale = toNullableString(assertion.value);
+    }
+    setManualSource(provenance, 'estimatedDate', assertion.id);
+}
+
+function applyQualityAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    const field = assertion.field_path;
+    if (field === 'quality.discard') {
+        projection.quality.discard = typeof assertion.value === 'boolean' ? assertion.value : Boolean(assertion.value);
+    } else {
+        const numericValue = typeof assertion.value === 'number' ? assertion.value : null;
+        if (field === 'quality.technical') {
+            projection.quality.technical = numericValue;
+        } else if (field === 'quality.lighting') {
+            projection.quality.lighting = numericValue;
+        } else if (field === 'quality.composition') {
+            projection.quality.composition = numericValue;
+        } else {
+            projection.quality.emotional = numericValue;
+        }
+    }
+    setManualSource(provenance, 'quality', assertion.id);
+}
+
+function applyAuthenticityAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    if (assertion.field_path === 'authenticity.score') {
+        projection.authenticity.score = typeof assertion.value === 'number' ? assertion.value : null;
+    } else {
+        projection.authenticity.reasons = toStringArray(assertion.value);
+    }
+    setManualSource(provenance, 'authenticity', assertion.id);
+}
+
+type ResponseBundleApplier = (
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) => void;
+
+function applyCaptionAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    projection.caption = toNullableString(assertion.value);
+    setManualSource(provenance, 'caption', assertion.id);
+}
+
+function applyDescriptionAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    projection.description = toNullableString(assertion.value);
+    setManualSource(provenance, 'description', assertion.id);
+}
+
+function applyLocationAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    projection.location = toNullableString(assertion.value);
+    setManualSource(provenance, 'location', assertion.id);
+}
+
+function applyKeywordsAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    projection.keywords = toStringArray(assertion.value);
+    setManualSource(provenance, 'keywords', assertion.id);
+}
+
+function applyEmotionalImpactAssertion(
+    projection: PhotoMetadataProjection,
+    provenance: Record<string, PhotoMetadataSourceSummary>,
+    assertion: PhotoMetadataAssertionRow,
+) {
+    projection.emotionalImpact = toNullableString(assertion.value);
+    setManualSource(provenance, 'emotionalImpact', assertion.id);
+}
+
+const EXACT_RESPONSE_BUNDLE_APPLIERS: Record<string, ResponseBundleApplier> = {
+    caption: applyCaptionAssertion,
+    description: applyDescriptionAssertion,
+    location: applyLocationAssertion,
+    keywords: applyKeywordsAssertion,
+    emotional_impact: applyEmotionalImpactAssertion,
+};
+
+const PREFIX_RESPONSE_BUNDLE_APPLIERS: Array<{ prefix: string; apply: ResponseBundleApplier }> = [
+    { prefix: 'estimated_date.', apply: applyEstimatedDateAssertion },
+    { prefix: 'quality.', apply: applyQualityAssertion },
+    { prefix: 'authenticity.', apply: applyAuthenticityAssertion },
+];
+
+export function applyManualAssertionToResponseBundle(bundle: PhotoMetadataBundle, assertion: PhotoMetadataAssertionRow): PhotoMetadataBundle {
+    const projection = cloneProjection(bundle.projection);
+    const provenance = cloneProvenance(bundle);
+
+    const exactApplier = EXACT_RESPONSE_BUNDLE_APPLIERS[assertion.field_path];
+    if (exactApplier) {
+        exactApplier(projection, provenance, assertion);
+    } else {
+        const prefixApplier = PREFIX_RESPONSE_BUNDLE_APPLIERS.find((rule) => assertion.field_path.startsWith(rule.prefix));
+        prefixApplier?.apply(projection, provenance, assertion);
+    }
+
+    return {
+        ...bundle,
+        projection,
+        provenance,
+    };
 }
