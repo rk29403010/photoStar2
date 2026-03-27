@@ -3,8 +3,12 @@ import type { DomainEvent } from '../../events/types';
 import {
     getLiveAiConfigurationError,
     generateLiveAiMetadata,
-    persistAiMetadataResult,
+    type LiveMetadataEvidence,
 } from '../../aiMetadata/liveRuntime';
+import {
+    persistAiMetadataResult,
+    persistPhotoMetadataEvidence,
+} from '../../aiMetadata/liveEvidencePersistence';
 import type {
     ParsedAiMetadataRow,
     StoredAiMetadataResult,
@@ -31,7 +35,7 @@ export interface GenerateAiMetadataModuleOptions {
             row: ParsedAiMetadataRow;
             imageStrategy: 'overview_only' | 'overview_plus_tiles';
             eventSink?: { emit: (event: DomainEvent) => void };
-        }) => Promise<StoredAiMetadataResult>;
+        }) => Promise<StoredAiMetadataResult | LiveMetadataEvidence>;
     };
 }
 
@@ -92,7 +96,7 @@ async function generateMetadataResult(params: {
     imageStrategy: 'overview_only' | 'overview_plus_tiles';
     liveRuntime: NonNullable<GenerateAiMetadataModuleOptions['aiRuntime']>;
     row: ParsedAiMetadataRow;
-}): Promise<StoredAiMetadataResult> {
+}): Promise<StoredAiMetadataResult | LiveMetadataEvidence> {
     if (params.aiMode === 'mock') {
         return {
             provider: 'runtime_stub',
@@ -106,6 +110,35 @@ async function generateMetadataResult(params: {
         row: params.row,
         imageStrategy: params.imageStrategy,
         eventSink: params.eventBus,
+    });
+}
+
+function isLiveMetadataResult(result: StoredAiMetadataResult | LiveMetadataEvidence): result is LiveMetadataEvidence {
+    return 'metadataBlock' in result && 'metadataSourceKind' in result;
+}
+
+function persistMachineMetadataEvidence(params: {
+    dbManager: DatabaseManager;
+    assetId: string;
+    result: StoredAiMetadataResult | LiveMetadataEvidence;
+}): void {
+    if (isLiveMetadataResult(params.result)) {
+        persistPhotoMetadataEvidence({
+            dbManager: params.dbManager,
+            assetId: params.assetId,
+            sourceKind: params.result.metadataSourceKind,
+            provider: params.result.provider,
+            modelVersion: params.result.modelVersion,
+            metadataBlock: params.result.metadataBlock,
+        });
+    }
+
+    persistAiMetadataResult({
+        dbManager: params.dbManager,
+        assetId: params.assetId,
+        provider: params.result.provider,
+        modelVersion: params.result.modelVersion,
+        data: params.result.data,
     });
 }
 
@@ -148,7 +181,7 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
                 row,
             });
 
-            persistAiMetadataResult({
+            persistMachineMetadataEvidence({
                 dbManager: options.dbManager,
                 assetId: context.subject.subjectId,
                 result,
