@@ -40,19 +40,37 @@ function seedAssetWithProjection(db, options = {}) {
     db.prepare(`
         INSERT INTO photo_metadata_projection (
             asset_id,
+            type, type_source_kind, type_source_id,
             caption, caption_source_kind, caption_source_id,
             description, description_source_kind, description_source_id,
             location, location_source_kind, location_source_id,
             estimated_date_most_likely, estimated_date_min, estimated_date_max,
             estimated_date_display_label, estimated_date_rationale,
-            estimated_date_source_kind, estimated_date_source_id
+            estimated_date_source_kind, estimated_date_source_id,
+            keywords_json, keywords_source_kind, keywords_source_id,
+            emotional_impact, emotional_impact_source_kind, emotional_impact_source_id,
+            quality_technical, quality_lighting, quality_composition, quality_emotional, quality_discard,
+            quality_source_kind, quality_source_id,
+            recommended_enhancements_json, recommended_enhancements_source_kind, recommended_enhancements_source_id,
+            authenticity_score, authenticity_reasons_json, authenticity_source_kind, authenticity_source_id,
+            subjects_json, subjects_source_kind, subjects_source_id,
+            regions_of_interest_json, regions_of_interest_source_kind, regions_of_interest_source_id
         ) VALUES (
             'asset-1',
+            'portrait', 'manual_user', 'type-1',
             'Billy and Dad enjoying Christmas dinner', 'gemini_pro_refined', 'block-pro-1',
             'A warm family Christmas dinner at the table.', 'manual_user', 'assertion-desc-1',
             'Blackpool', 'manual_user', 'assertion-loc-1',
             '1968-12-25', '1968-12-01', '1968-12-31',
-            'late 1968', 'Christmas dinner context and filename hints.', 'gemini_pro_refined', 'block-pro-1'
+            'late 1968', 'Christmas dinner context and filename hints.', 'gemini_pro_refined', 'block-pro-1',
+            '["family","christmas"]', 'gemini_flash_scout', 'block-scout-1',
+            'warm', 'manual_user', 'assertion-impact-1',
+            4, 3, 5, 4, 0,
+            'gemini_pro_refined', 'block-pro-1',
+            '["straighten","warmth boost"]', 'gemini_pro_refined', 'block-pro-1',
+            0.95, '["filename matches family archive"]', 'manual_user', 'assertion-auth-1',
+            '[{"kind":"person","label":"Billy"}]', 'manual_user', 'assertion-subjects-1',
+            '[{"kind":"face","box":[0.1,0.2,0.3,0.4]}]', 'gemini_flash_scout', 'block-scout-1'
         )
     `).run();
 }
@@ -102,7 +120,18 @@ test('get_asset_detail prefers projection fields and skips parsing legacy machin
         assert.equal(response.data.asset.photo_metadata.projection.description, 'A warm family Christmas dinner at the table.');
         assert.equal(response.data.asset.photo_metadata.projection.location, 'Blackpool');
         assert.equal(response.data.asset.photo_metadata.projection.estimatedDate.display_label, 'late 1968');
+        assert.equal(response.data.asset.photo_metadata.projection.type, 'portrait');
+        assert.deepEqual(response.data.asset.photo_metadata.projection.keywords, ['family', 'christmas']);
+        assert.equal(response.data.asset.photo_metadata.projection.emotionalImpact, 'warm');
+        assert.deepEqual(response.data.asset.photo_metadata.projection.quality, { technical: 4, lighting: 3, composition: 5, emotional: 4, discard: false });
+        assert.deepEqual(response.data.asset.photo_metadata.projection.recommendedEnhancements, ['straighten', 'warmth boost']);
+        assert.equal(response.data.asset.photo_metadata.projection.authenticity.score, 0.95);
+        assert.deepEqual(response.data.asset.photo_metadata.projection.subjects, [{ kind: 'person', label: 'Billy' }]);
+        assert.deepEqual(response.data.asset.photo_metadata.projection.regionsOfInterest, [{ kind: 'face', box: [0.1, 0.2, 0.3, 0.4] }]);
         assert.equal(response.data.asset.photo_metadata.provenance.caption.sourceKind, 'gemini_pro_refined');
+        assert.equal(response.data.asset.photo_metadata.provenance.type.sourceKind, 'manual_user');
+        assert.equal(response.data.asset.photo_metadata.provenance.keywords.sourceKind, 'gemini_flash_scout');
+        assert.equal(response.data.asset.photo_metadata.provenance.quality.sourceId, 'block-pro-1');
         assert.equal(response.data.asset.photo_metadata.provenance.description.sourceKind, 'manual_user');
         assert.equal(response.data.asset.photo_metadata.provenance.location.sourceId, 'assertion-loc-1');
         assert.equal(response.data.asset.photo_metadata.provenance.estimatedDate.sourceKind, 'gemini_pro_refined');
@@ -150,7 +179,18 @@ test('get_assets gallery results prefer projection fields and skip parsing legac
         assert.equal(response.data.assets[0].photo_metadata.projection.description, 'A warm family Christmas dinner at the table.');
         assert.equal(response.data.assets[0].photo_metadata.projection.location, 'Blackpool');
         assert.equal(response.data.assets[0].photo_metadata.projection.estimatedDate.display_label, 'late 1968');
+        assert.equal(response.data.assets[0].photo_metadata.projection.type, 'portrait');
+        assert.deepEqual(response.data.assets[0].photo_metadata.projection.keywords, ['family', 'christmas']);
+        assert.equal(response.data.assets[0].photo_metadata.projection.emotionalImpact, 'warm');
+        assert.deepEqual(response.data.assets[0].photo_metadata.projection.quality, { technical: 4, lighting: 3, composition: 5, emotional: 4, discard: false });
+        assert.deepEqual(response.data.assets[0].photo_metadata.projection.recommendedEnhancements, ['straighten', 'warmth boost']);
+        assert.equal(response.data.assets[0].photo_metadata.projection.authenticity.score, 0.95);
+        assert.deepEqual(response.data.assets[0].photo_metadata.projection.subjects, [{ kind: 'person', label: 'Billy' }]);
+        assert.deepEqual(response.data.assets[0].photo_metadata.projection.regionsOfInterest, [{ kind: 'face', box: [0.1, 0.2, 0.3, 0.4] }]);
         assert.equal(response.data.assets[0].photo_metadata.provenance.caption.sourceKind, 'gemini_pro_refined');
+        assert.equal(response.data.assets[0].photo_metadata.provenance.type.sourceKind, 'manual_user');
+        assert.equal(response.data.assets[0].photo_metadata.provenance.keywords.sourceKind, 'gemini_flash_scout');
+        assert.equal(response.data.assets[0].photo_metadata.provenance.quality.sourceId, 'block-pro-1');
         assert.equal(response.data.assets[0].photo_metadata.evidence, undefined);
     } finally {
         JSON.parse = originalJsonParse;

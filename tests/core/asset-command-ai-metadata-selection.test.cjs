@@ -64,6 +64,9 @@ test('get_asset_detail prefers the newest ai metadata row when duplicates exist'
         assert.equal(response.status, 'ok');
         assert.equal(response.data.asset.ai_metadata?.caption, 'Enhanced caption');
         assert.deepEqual(response.data.asset.ai_metadata?.tags, ['enhanced']);
+        assert.ok(response.data.asset.photo_metadata.evidence);
+        assert.equal(response.data.asset.photo_metadata.evidence.machineBlocks.length, 1);
+        assert.equal(response.data.asset.photo_metadata.evidence.manualAssertions.length, 0);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -97,6 +100,9 @@ test('get_assets keeps the newest ai metadata row for single-photo payloads when
         assert.equal(response.data.assets.length, 1);
         assert.equal(response.data.assets[0].ai_metadata?.caption, 'Enhanced caption');
         assert.deepEqual(response.data.assets[0].ai_metadata?.tags, ['enhanced']);
+        assert.ok(response.data.assets[0].photo_metadata.evidence);
+        assert.equal(response.data.assets[0].photo_metadata.evidence.machineBlocks.length, 1);
+        assert.equal(response.data.assets[0].photo_metadata.evidence.manualAssertions.length, 0);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

@@ -6,6 +6,7 @@ import {
     GROUP_HIERARCHY_CTE,
     buildPrimaryGroupVisibilityPredicate,
 } from './assetGroupingQueryFragments';
+import { buildFilterSubquery } from './assetQueryFilters';
 import { buildAssetDetailFragments, buildLatestDerivedResultJoin, type AssetDetailLevel } from '../../shared/sql/derivedResults';
 
 type AssetRow = {
@@ -25,22 +26,51 @@ type AssetRow = {
     ai_metadata_data: string | null;
     embedded_metadata_data: string | null;
     people_data: string | null;
+    type: string | null;
+    type_source_kind: string | null;
+    type_source_id: string | null;
     caption: string | null;
+    caption_source_kind: string | null;
+    caption_source_id: string | null;
     description: string | null;
+    description_source_kind: string | null;
+    description_source_id: string | null;
     location: string | null;
+    location_source_kind: string | null;
+    location_source_id: string | null;
     estimated_date_most_likely: string | null;
     estimated_date_min: string | null;
     estimated_date_max: string | null;
     estimated_date_display_label: string | null;
     estimated_date_rationale: string | null;
-    caption_source_kind: string | null;
-    caption_source_id: string | null;
-    description_source_kind: string | null;
-    description_source_id: string | null;
-    location_source_kind: string | null;
-    location_source_id: string | null;
     estimated_date_source_kind: string | null;
     estimated_date_source_id: string | null;
+    keywords_json: string | null;
+    keywords_source_kind: string | null;
+    keywords_source_id: string | null;
+    emotional_impact: string | null;
+    emotional_impact_source_kind: string | null;
+    emotional_impact_source_id: string | null;
+    quality_technical: number | null;
+    quality_lighting: number | null;
+    quality_composition: number | null;
+    quality_emotional: number | null;
+    quality_discard: number | null;
+    quality_source_kind: string | null;
+    quality_source_id: string | null;
+    recommended_enhancements_json: string | null;
+    recommended_enhancements_source_kind: string | null;
+    recommended_enhancements_source_id: string | null;
+    authenticity_score: number | null;
+    authenticity_reasons_json: string | null;
+    authenticity_source_kind: string | null;
+    authenticity_source_id: string | null;
+    subjects_json: string | null;
+    subjects_source_kind: string | null;
+    subjects_source_id: string | null;
+    regions_of_interest_json: string | null;
+    regions_of_interest_source_kind: string | null;
+    regions_of_interest_source_id: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
     member_group_id?: string | null;
@@ -86,44 +116,6 @@ function buildOrderClause(params: { galleryOrder: AssetGalleryOrder; defaultDire
     }
 
     return photoDateOrder;
-}
-
-function buildFilterSubquery(filter: AssetFilter | undefined, params: (string | number)[]) {
-    if (!filter) {return '';}
-
-    if (filter.type === 'album' && filter.albumId) {
-        params.push(filter.albumId);
-        return 'AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
-    }
-
-    const personIds = filter.personIds || [];
-    if (personIds.length === 0) {return '';}
-
-    const placeholders = personIds.map(() => '?').join(',');
-    if (filter.type === 'person_any') {
-        params.push(...personIds);
-        return `AND a.id IN (SELECT asset_id FROM face_assignments WHERE person_id IN (${placeholders}))`;
-    }
-    if (filter.type === 'person_all') {
-        params.push(...personIds);
-        return `AND a.id IN (
-            SELECT asset_id FROM face_assignments
-            WHERE person_id IN (${placeholders})
-            GROUP BY asset_id
-            HAVING COUNT(DISTINCT person_id) = ${personIds.length}
-        )`;
-    }
-    if (filter.type === 'person_only') {
-        params.push(...personIds, ...personIds);
-        return `AND a.id IN (
-            SELECT asset_id FROM face_assignments
-            GROUP BY asset_id
-            HAVING COUNT(DISTINCT CASE WHEN person_id IN (${placeholders}) THEN person_id END) = ${personIds.length}
-            AND COUNT(DISTINCT CASE WHEN person_id NOT IN (${placeholders}) THEN person_id END) = 0
-        )`;
-    }
-
-    return '';
 }
 
 function buildFilteredAssetsQuery(
