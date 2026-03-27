@@ -15,7 +15,7 @@ test('shared photo metadata block shape includes caption and description', async
         description: 'A warm family dinner scene around a holiday table.',
         location: 'Unknown',
         estimated_date: {
-            most_likely_date: '1978-12-25T00:00:00.000Z',
+            most_likely_date: '1978-12-25T00:00:00Z',
             min_date: '1978-01-01T00:00:00.000Z',
             max_date: '1978-12-31T23:59:59.999Z',
             display_label: 'late 1970s',
@@ -46,6 +46,7 @@ test('shared photo metadata block shape includes caption and description', async
     assert.equal(isPhotoMetadataFieldPath('estimated_date.display_label'), true);
     assert.equal(isPhotoMetadataFieldPath('not.a.real.path'), false);
     assert.equal(normalizeIsoDateOrNull('1978-12-25T00:00:00.000Z'), '1978-12-25T00:00:00.000Z');
+    assert.equal(normalizeIsoDateOrNull('1978-12-25T00:00:00Z'), '1978-12-25T00:00:00Z');
     assert.equal(normalizeIsoDateOrNull('not-a-date'), null);
     assert.deepEqual(PHOTO_METADATA_ASSERTION_FIELD_PATHS.includes('caption'), true);
 });

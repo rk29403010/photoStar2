@@ -58,7 +58,12 @@ function isValidUtcDateTime(value: string): boolean {
     }
 
     const parsed = new Date(value);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
+    if (Number.isNaN(parsed.getTime())) {
+        return false;
+    }
+
+    const canonical = parsed.toISOString();
+    return canonical === value || canonical === `${value.slice(0, -1)}.000Z`;
 }
 
 export function isIsoDateString(value: unknown): value is string {
