@@ -81,7 +81,7 @@ function PersonStats({ faceCount, rejectedCount }: { faceCount: number; rejected
 function usePeopleSelection(onSelectionChange?: (count: number) => void) {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isMultiSelect, setIsMultiSelect] = useState(false);
-    const timerRef = useRef<number | null>(null);
+    const timerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
 
     const updateSelected = (updater: (prev: Set<string>) => Set<string>) => {
         setSelectedIds(prev => {
