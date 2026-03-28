@@ -1,5 +1,12 @@
 import type { WorkflowRunListItem } from './jobs';
 
+export interface WorkflowVisualiserFailedSubject {
+    subjectType: string;
+    subjectId: string;
+    label: string;
+    originalPath?: string;
+}
+
 export type WorkflowVisualiserStatus = 'idle' | 'running' | 'completed' | 'failed';
 
 export interface WorkflowVisualiserCountNoun {
@@ -90,6 +97,7 @@ export interface WorkflowVisualiserDetail {
     counts: WorkflowVisualiserCounts;
     countNoun: WorkflowVisualiserCountNoun;
     aggregateCounts: WorkflowVisualiserAggregateCount[];
+    failedSubjects: WorkflowVisualiserFailedSubject[];
 }
 
 export interface WorkflowVisualiserModel {

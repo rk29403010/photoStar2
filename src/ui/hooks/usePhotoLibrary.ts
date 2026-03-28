@@ -14,6 +14,7 @@ import {
     useLibraryTransport,
 } from '@boundary/runtime/usePhotoLibrary.commands';
 import { createAlbumActions, createBuildActions, createGroupActions } from '@boundary/runtime/usePhotoLibrary.actions';
+import { createWorkflowRecoveryActions } from '@boundary/runtime/workflowRecoveryActions';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import {
@@ -392,8 +393,9 @@ function useWorkflowActions(params: {
         request,
         setAssets: state.setAssets,
     }), [request, state.setAssets, state.transport]);
+    const recoveryActions = useMemo(() => createWorkflowRecoveryActions({ request }), [request]);
 
-    return useMemo(() => ({ ...scanActions, ...pipelineActions, ...systemActions, ...settingsActions }), [pipelineActions, scanActions, settingsActions, systemActions]);
+    return useMemo(() => ({ ...scanActions, ...pipelineActions, ...systemActions, ...settingsActions, ...recoveryActions }), [pipelineActions, recoveryActions, scanActions, settingsActions, systemActions]);
 }
 
 function useComposedActions(

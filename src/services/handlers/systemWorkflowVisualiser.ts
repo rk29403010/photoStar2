@@ -13,7 +13,7 @@ import type {
     WorkflowVisualiserTextSection,
 } from '@contracts/workflowVisualiser';
 import type { WorkflowDefinition } from '../workflowRuntime/contracts';
-import type { WorkflowRunDetail } from '../workflowRuntime/executionStore';
+import type { WorkflowFailedSubject, WorkflowRunDetail } from '../workflowRuntime/executionStore';
 import { getWorkflowRunsSnapshot } from './systemWorkflowRunSnapshot';
 
 type BuildWorkflowVisualiserParams = {
@@ -106,6 +106,21 @@ function getStepErrorMessage(runDetail: WorkflowRunDetail | null, nodeId: string
 
 function getStepStatus(runDetail: WorkflowRunDetail | null, nodeId: string): WorkflowVisualiserStatus {
     return toVisualiserStatus(runDetail?.steps.find((candidate) => candidate.nodeId === nodeId)?.status);
+}
+
+function getStepFailedSubjects(runDetail: WorkflowRunDetail | null, nodeId: string): WorkflowFailedSubject[] {
+    return runDetail?.steps.find((candidate) => candidate.nodeId === nodeId)?.failedSubjects ?? [];
+}
+
+function mergeFailedSubjects(subjects: WorkflowFailedSubject[]): WorkflowFailedSubject[] {
+    const merged = new Map<string, WorkflowFailedSubject>();
+    for (const subject of subjects) {
+        const key = `${subject.subjectType}:${subject.subjectId}`;
+        if (!merged.has(key)) {
+            merged.set(key, subject);
+        }
+    }
+    return [...merged.values()];
 }
 
 function buildNodeMaps(definition: WorkflowDefinition) {
@@ -311,6 +326,7 @@ function buildDetails(
         counts: createNodeCounts(node.totalItems, node.completedItems, node.failedItems),
         countNoun: node.countNoun,
         aggregateCounts: [{ noun: node.countNoun, totalItems: node.totalItems, completedItems: node.completedItems, failedItems: node.failedItems }],
+        failedSubjects: getStepFailedSubjects(runDetail, node.id),
     } satisfies WorkflowVisualiserDetail));
 
     const stageDetails = progressionStages.map((stage) => ({
@@ -324,6 +340,7 @@ function buildDetails(
         counts: createNodeCounts(stage.totalItems, stage.completedItems, stage.failedItems),
         countNoun: stage.countNoun,
         aggregateCounts: stage.aggregateCounts,
+        failedSubjects: mergeFailedSubjects(stage.nodeIds.flatMap((nodeId) => getStepFailedSubjects(runDetail, nodeId))),
     } satisfies WorkflowVisualiserDetail));
 
     return [...stageDetails, ...nodeDetails];

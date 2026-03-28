@@ -12,6 +12,11 @@ interface WorkflowWorkspaceHeaderProps {
     onSelectTab: (tabId: WorkflowWorkspaceTabId) => void;
     selectedRunValue: string;
     onSelectRun: (runSelection: string | null) => void;
+    retryState?: {
+        enabled: boolean;
+        loading: boolean;
+        onRetry: () => void;
+    };
 }
 
 export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = ({
@@ -20,6 +25,7 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
     onSelectTab,
     selectedRunValue,
     onSelectRun,
+    retryState,
 }) => (
     <header className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -48,6 +54,15 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
                         </option>
                     ))}
                 </select>
+                {retryState?.enabled ? (
+                    <button
+                        onClick={retryState.onRetry}
+                        disabled={retryState.loading}
+                        className="mt-3 w-full rounded-lg border border-cyan-600/40 bg-cyan-600/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 transition-colors hover:bg-cyan-600/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {retryState.loading ? 'Starting retry...' : 'Retry Missing AI Metadata'}
+                    </button>
+                ) : null}
             </div>
         </div>
 

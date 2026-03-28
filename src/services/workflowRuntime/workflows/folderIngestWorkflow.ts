@@ -8,6 +8,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         { id: 'folderPath', valueType: 'string', required: true },
         { id: 'traversalMode', valueType: 'enum', required: true, options: ['folder_only', 'recursive'] },
         { id: 'aiMode', valueType: 'enum', required: true, options: ['mock', 'live', 'off'] },
+        { id: 'metadataPass', valueType: 'enum', required: false, options: ['scout', 'refine'] },
     ],
     presentation: {
         defaultRunLabel: 'Folder ingest',

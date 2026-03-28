@@ -4,7 +4,10 @@ export const libraryAiMetadataWorkflowDefinition: WorkflowDefinition = {
     id: 'library_ai_metadata_v1',
     version: 1,
     inputs: ['asset'],
-    parameters: [{ id: 'aiMode', valueType: 'enum', required: true, options: ['mock', 'live', 'off'] }],
+    parameters: [
+        { id: 'aiMode', valueType: 'enum', required: true, options: ['mock', 'live', 'off'] },
+        { id: 'metadataPass', valueType: 'enum', required: false, options: ['scout', 'refine'] },
+    ],
     presentation: {
         defaultRunLabel: 'AI metadata workflow',
         milestones: [{ id: 'ai_metadata_complete', label: 'AI metadata complete' }],

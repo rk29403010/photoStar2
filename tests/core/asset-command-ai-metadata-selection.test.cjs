@@ -42,7 +42,7 @@ async function seedAssetWithRepositoryBackedEvidence(dbManager) {
         assetId: 'asset-1',
         sourceKind: 'gemini_flash_scout',
         provider: 'google',
-        modelVersion: 'gemini-3-flash-preview',
+        modelVersion: 'gemini-2.5-flash',
         schemaVersion: 1,
         block: {
             type: 'portrait',

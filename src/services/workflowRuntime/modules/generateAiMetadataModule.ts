@@ -34,6 +34,7 @@ export interface GenerateAiMetadataModuleOptions {
             dbManager: DatabaseManager;
             row: ParsedAiMetadataRow;
             imageStrategy: 'overview_only' | 'overview_plus_tiles';
+            metadataPass: 'scout' | 'refine';
             eventSink?: { emit: (event: DomainEvent) => void };
         }) => Promise<StoredAiMetadataResult | LiveMetadataEvidence>;
     };
@@ -70,6 +71,10 @@ function resolveImageStrategy(value: unknown): 'overview_only' | 'overview_plus_
     return value === 'overview_plus_tiles' ? 'overview_plus_tiles' : 'overview_only';
 }
 
+function resolveMetadataPass(value: unknown): 'scout' | 'refine' {
+    return value === 'refine' ? 'refine' : 'scout';
+}
+
 function assertLiveAiConfiguration(
     options: GenerateAiMetadataModuleOptions,
     runId: string,
@@ -94,6 +99,7 @@ async function generateMetadataResult(params: {
     dbManager: DatabaseManager;
     eventBus?: GenerateAiMetadataModuleOptions['eventBus'];
     imageStrategy: 'overview_only' | 'overview_plus_tiles';
+    metadataPass: 'scout' | 'refine';
     liveRuntime: NonNullable<GenerateAiMetadataModuleOptions['aiRuntime']>;
     row: ParsedAiMetadataRow;
 }): Promise<StoredAiMetadataResult | LiveMetadataEvidence> {
@@ -109,6 +115,7 @@ async function generateMetadataResult(params: {
         dbManager: params.dbManager,
         row: params.row,
         imageStrategy: params.imageStrategy,
+        metadataPass: params.metadataPass,
         eventSink: params.eventBus,
     });
 }
@@ -156,6 +163,7 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
         run: async (context) => {
             const aiMode = resolveAiMode(context.parameters.aiMode);
             const imageStrategy = resolveImageStrategy(context.parameters.imageStrategy);
+            const metadataPass = resolveMetadataPass(context.parameters.metadataPass);
 
             if (aiMode === 'off') {
                 return { outputs: [] };
@@ -177,6 +185,7 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
                 dbManager: options.dbManager,
                 eventBus: options.eventBus,
                 imageStrategy,
+                metadataPass,
                 liveRuntime,
                 row,
             });

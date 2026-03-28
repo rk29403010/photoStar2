@@ -56,7 +56,7 @@ function seedPrimaryResolverScenario(repository, manualAssertions) {
         assetId: 'asset-1',
         sourceKind: 'gemini_flash_scout',
         provider: 'google',
-        modelVersion: 'gemini-3-flash-preview',
+        modelVersion: 'gemini-2.5-flash',
         schemaVersion: 1,
         block: createBlock({
             caption: 'Scout caption',
@@ -182,7 +182,7 @@ test('refined machine evidence beats scout evidence when no manual override exis
             assetId: 'asset-1',
             sourceKind: 'gemini_flash_scout',
             provider: 'google',
-            modelVersion: 'gemini-3-flash-preview',
+            modelVersion: 'gemini-2.5-flash',
             schemaVersion: 1,
             block: createBlock({
                 caption: 'Scout caption',

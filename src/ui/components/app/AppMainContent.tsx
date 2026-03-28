@@ -55,6 +55,7 @@ interface AppMainContentProps {
   onGetEventPayloadRaw: (eventId: string) => Promise<string>;
   onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
   onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
+  onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
   onGetAlbums: () => Promise<Album[]>;
   onCreateAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
   onDeleteAlbum: (id: string) => Promise<void>;
@@ -153,6 +154,7 @@ export function AppMainContent(props: AppMainContentProps) {
         <WorkflowWorkspace
           workflowId="folder_ingest_v1"
           onGetWorkflowVisualiser={props.onGetWorkflowVisualiser}
+          onRerunMissingFolderAiMetadata={props.onRerunMissingFolderAiMetadata}
         />
       )}
 

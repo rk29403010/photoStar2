@@ -81,6 +81,42 @@ test('estimated date is structured rather than plain text', async () => {
     assert.equal(isPhotoMetadataBlock(block), false);
 });
 
+test('estimated date accepts coarse year and decade hints in structured blocks', async () => {
+    const { isPhotoMetadataBlock } = await import('../../dist/core/src/services/photoMetadata/validation.js');
+
+    const block = {
+        type: 'Birthday party',
+        caption: 'A child celebrates a birthday',
+        description: 'A family gathers around a cake while the birthday child smiles at the camera.',
+        location: 'Unknown',
+        estimated_date: {
+            most_likely_date: '1970s',
+            min_date: '1974',
+            max_date: null,
+            display_label: 'mid 1970s',
+            rationale: 'Clothing and decorations suggest the middle of the decade.',
+        },
+        subjects: [],
+        regions_of_interest: [],
+        keywords: ['birthday', 'family'],
+        emotional_impact: 'Joyful',
+        quality: {
+            technical: 6,
+            lighting: 6,
+            composition: 6,
+            emotional: 8,
+            discard: false,
+        },
+        recommended_enhancements: [],
+        authenticity: {
+            score: 7,
+            reasons: ['Scene details are consistent with the period'],
+        },
+    };
+
+    assert.equal(isPhotoMetadataBlock(block), true);
+});
+
 test('subjects expose suggested names in both machine tiers', async () => {
     const { isPhotoMetadataBlock } = await import('../../dist/core/src/services/photoMetadata/validation.js');
 

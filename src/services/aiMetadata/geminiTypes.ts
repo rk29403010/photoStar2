@@ -1,7 +1,9 @@
 import type { PhotoMetadataBlock } from '../photoMetadata/types';
 
-export const MODEL_PRO = 'gemini-3.1-pro-preview';
-export const MODEL_FLASH = 'gemini-3-flash-preview';
+export const MODEL_REFINE = 'gemini-3.1-pro-preview';
+export const MODEL_SCOUT = 'gemini-2.5-flash';
+export const MODEL_PRO = MODEL_REFINE;
+export const MODEL_FLASH = MODEL_SCOUT;
 
 export type GeminiResponse = PhotoMetadataBlock & {
     _analysis_tier?: 'pro' | 'flash';

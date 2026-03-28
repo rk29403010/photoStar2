@@ -14,8 +14,8 @@ import {
 } from './geminiResponseSchema';
 import {
     getUnrecoverableAiReason,
-    MODEL_FLASH,
-    MODEL_PRO,
+    MODEL_REFINE,
+    MODEL_SCOUT,
     parseGeminiResponse,
     type GeminiResponse,
     type ParsedAiMetadataRow,
@@ -35,8 +35,8 @@ type GoogleGenerativeAIConstructor = new (apiKey: string) => GoogleGenerativeAI;
 type PendingReason = 'rate_limit' | 'daily_quota';
 type EventSink = { emit: (event: DomainEvent) => void };
 type ModelConfig = {
-    preferredModel: string;
-    flashModel: string;
+    refineModel: string;
+    scoutModel: string;
     apiKey: string;
 };
 type ImageStrategy = 'overview_only' | 'overview_plus_tiles';
@@ -50,6 +50,7 @@ type PreparedImagePayload = {
     imageParts: PreparedImagePart[];
 };
 type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
+type MetadataPass = 'scout' | 'refine';
 export type LiveMetadataEvidence = StoredAiMetadataResult & {
     metadataBlock: PhotoMetadataBlock;
     metadataSourceKind: MetadataSourceKind;
@@ -90,19 +91,22 @@ export function getLiveAiConfigurationError(dbManager: DatabaseManager): string 
 
 function resolveConfiguredModel(settingValue: string): string {
     const configured = settingValue.trim();
-    if (configured === MODEL_PRO || configured === MODEL_FLASH || configured === 'gemini-2.0-flash') {
+    if (configured === MODEL_REFINE || configured === MODEL_SCOUT || configured === 'gemini-2.0-flash') {
         return configured;
     }
-    return MODEL_FLASH;
+    return '';
 }
 
 async function resolveModelConfig(dbManager: DatabaseManager): Promise<ModelConfig> {
     const apiKey = validateApiKey(dbManager);
-    const configuredModel = resolveConfiguredModel(dbManager.getSetting('job_ai_model') || MODEL_FLASH);
-    const flashModel = configuredModel === MODEL_PRO ? MODEL_FLASH : configuredModel;
-    const preferredModel = configuredModel;
+    const configuredScoutModel = resolveConfiguredModel(dbManager.getSetting('job_ai_model_scout') || '');
+    const configuredRefineModel = resolveConfiguredModel(
+        dbManager.getSetting('job_ai_model_refine') || dbManager.getSetting('job_ai_model') || '',
+    );
+    const scoutModel = configuredScoutModel || MODEL_SCOUT;
+    const refineModel = configuredRefineModel || MODEL_REFINE;
 
-    return { preferredModel, flashModel, apiKey };
+    return { refineModel, scoutModel, apiKey };
 }
 
 async function toGeminiJpeg(buffer: Buffer): Promise<PreparedImagePart> {
@@ -311,17 +315,17 @@ async function tryProModel(
     prompt: string,
     imageParts: PreparedImagePart[],
 ): Promise<GeminiResponse | null> {
-    if (isDailyQuotaExceeded(MODEL_PRO)) {
+    if (isDailyQuotaExceeded(MODEL_REFINE)) {
         return null;
     }
-    if (!(await waitForRateLimitWindow(MODEL_PRO))) {
+    if (!(await waitForRateLimitWindow(MODEL_REFINE))) {
         return null;
     }
 
     try {
         const parsed = await generateContent(
             genAI,
-            MODEL_PRO,
+            MODEL_REFINE,
             prompt,
             imageParts,
             buildGeminiProResponseSchema(),
@@ -329,12 +333,12 @@ async function tryProModel(
         parsed._analysis_tier = 'pro';
         return parsed;
     } catch (error) {
-        const quotaType = classifyAndRecordError(MODEL_PRO, error as Error);
-        if (quotaType === 'rate_limit' && shouldWaitForModel(MODEL_PRO)) {
-            await waitForRateLimitWindow(MODEL_PRO);
+        const quotaType = classifyAndRecordError(MODEL_REFINE, error as Error);
+        if (quotaType === 'rate_limit' && shouldWaitForModel(MODEL_REFINE)) {
+            await waitForRateLimitWindow(MODEL_REFINE);
             const retryParsed = await generateContent(
                 genAI,
-                MODEL_PRO,
+                MODEL_REFINE,
                 prompt,
                 imageParts,
                 buildGeminiProResponseSchema(),
@@ -393,14 +397,14 @@ function ensureProPendingRecord(db: ReturnType<DatabaseManager['getDb']>, assetI
     db.prepare(`
         INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
         VALUES (?, ?, 'ai_metadata_pro_pending', 'google', ?, '{}')
-    `).run(uuidv4(), assetId, MODEL_PRO);
+    `).run(uuidv4(), assetId, MODEL_REFINE);
 }
 
 function clearProPendingRecord(db: ReturnType<DatabaseManager['getDb']>, assetId: string): void {
     db.prepare("DELETE FROM derived_results WHERE asset_id = ? AND task = 'ai_metadata_pro_pending'").run(assetId);
 }
 
-function emitPendingEvents(eventSink: EventSink | undefined, assetId: string, flashModel: string, reason: PendingReason): void {
+function emitPendingEvents(eventSink: EventSink | undefined, assetId: string, scoutModel: string, reason: PendingReason): void {
     if (!eventSink) {
         return;
     }
@@ -408,12 +412,12 @@ function emitPendingEvents(eventSink: EventSink | undefined, assetId: string, fl
         type: 'AiMetadataV2UpgradeQueued',
         mediaId: assetId,
         reason,
-        proModel: MODEL_PRO,
+        proModel: MODEL_REFINE,
     });
     eventSink.emit({
         type: 'QuotaWarning',
-        model: MODEL_PRO,
-        fallbackModel: flashModel,
+        model: MODEL_REFINE,
+        fallbackModel: scoutModel,
         reason,
         assetIds: [assetId],
         pendingProCount: 1,
@@ -424,6 +428,7 @@ export async function generateLiveAiMetadata(params: {
     dbManager: DatabaseManager;
     row: ParsedAiMetadataRow;
     imageStrategy: 'overview_only' | 'overview_plus_tiles';
+    metadataPass?: MetadataPass;
     eventSink?: EventSink;
     GoogleGenerativeAIClass?: GoogleGenerativeAIConstructor;
 }): Promise<LiveMetadataEvidence> {
@@ -433,36 +438,37 @@ export async function generateLiveAiMetadata(params: {
     const genAI = new GoogleGenerativeAIClass(modelConfig.apiKey);
     const db = params.dbManager.getDb();
     const { filename, exifDataString, imageParts } = await prepareImagePayload(params.row, params.imageStrategy);
+    const metadataPass = params.metadataPass ?? 'scout';
 
     try {
-        const prefersPro = modelConfig.preferredModel === MODEL_PRO;
-        if (prefersPro) {
+        const shouldRunRefineFirst = metadataPass === 'refine' && modelConfig.refineModel === MODEL_REFINE;
+        if (shouldRunRefineFirst) {
             const proPrompt = buildGeminiProPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy });
             const proResult = await tryProModel(genAI, proPrompt, imageParts);
             if (proResult) {
                 clearProPendingRecord(db, params.row.id);
                 return buildLiveMetadataEvidence({
                     provider: 'google',
-                    modelVersion: MODEL_PRO,
+                    modelVersion: MODEL_REFINE,
                     response: proResult,
                 });
             }
         }
 
         const flashPrompt = buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy });
-        const flashResult = await tryFlashModel(genAI, modelConfig.flashModel, flashPrompt, imageParts);
-        if (prefersPro) {
+        const flashResult = await tryFlashModel(genAI, modelConfig.scoutModel, flashPrompt, imageParts);
+        if (shouldRunRefineFirst) {
             flashResult._pending_pro = true;
-            const pendingReason: PendingReason = isDailyQuotaExceeded(MODEL_PRO) ? 'daily_quota' : 'rate_limit';
+            const pendingReason: PendingReason = isDailyQuotaExceeded(MODEL_REFINE) ? 'daily_quota' : 'rate_limit';
             ensureProPendingRecord(db, params.row.id);
-            emitPendingEvents(params.eventSink, params.row.id, modelConfig.flashModel, pendingReason);
+            emitPendingEvents(params.eventSink, params.row.id, modelConfig.scoutModel, pendingReason);
         } else {
             clearProPendingRecord(db, params.row.id);
         }
 
         return buildLiveMetadataEvidence({
             provider: 'google',
-            modelVersion: modelConfig.flashModel,
+            modelVersion: modelConfig.scoutModel,
             response: flashResult,
         });
     } catch (error) {

@@ -267,8 +267,16 @@ function getWeights(profile: MetadataProfile): WeightProfile {
     return UNKNOWN_WEIGHTS;
 }
 
+function isWhatsAppExportStem(stem: string): boolean {
+    return /^whatsapp image \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}/i.test(stem);
+}
+
 function collectFilenameSignals(originalPath: string, weights: WeightProfile): SignalWindow[] {
     const stem = basename(originalPath).replace(/\.[^.]+$/, '');
+    if (isWhatsAppExportStem(stem)) {
+        return [];
+    }
+
     const signals: SignalWindow[] = [];
     const seen = new Set<string>();
 

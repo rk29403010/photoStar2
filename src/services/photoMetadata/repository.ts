@@ -19,7 +19,7 @@ import {
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
 type JsonValue = unknown;
-type IsoDateFieldPath = 'estimated_date.most_likely_date' | 'estimated_date.min_date' | 'estimated_date.max_date';
+type EstimatedDateFieldPath = 'estimated_date.most_likely_date' | 'estimated_date.min_date' | 'estimated_date.max_date';
 
 export interface PhotoMetadataFieldSource {
     sourceKind: string;
@@ -147,7 +147,7 @@ export interface PhotoMetadataProjectionRow {
     updated_at: string;
 }
 
-const ISO_DATE_FIELD_PATHS = new Set<IsoDateFieldPath>([
+const ESTIMATED_DATE_FIELD_PATHS = new Set<EstimatedDateFieldPath>([
     'estimated_date.most_likely_date',
     'estimated_date.min_date',
     'estimated_date.max_date',
@@ -173,37 +173,37 @@ function parsePhotoMetadataBlock(value: string): PhotoMetadataBlock {
     return parsed;
 }
 
-function normalizeAssertionValue(fieldPath: string, value: JsonValue): JsonValue {
-    if (!ISO_DATE_FIELD_PATHS.has(fieldPath as IsoDateFieldPath)) {
-        return value;
-    }
-
+function normalizeDateHintStringOrNull(fieldPath: string, value: JsonValue): string | null {
     if (value === null) {
         return null;
     }
     if (typeof value !== 'string') {
-        throw new Error(`Photo metadata field '${fieldPath}' requires an ISO date string or null`);
+        throw new Error(`Photo metadata field '${fieldPath}' requires a string or null`);
     }
 
-    const normalized = normalizeIsoDateOrNull(value);
-    if (normalized === null) {
-        throw new Error(`Photo metadata field '${fieldPath}' requires an ISO date string or null`);
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        throw new Error(`Photo metadata field '${fieldPath}' requires a non-empty string or null`);
     }
 
-    return normalized;
+    return trimmed;
 }
 
-function normalizeProjectionDateValue(fieldPath: IsoDateFieldPath, value: string | null): string | null {
-    if (value === null) {
+function normalizeAssertionValue(fieldPath: string, value: JsonValue): JsonValue {
+    if (!ESTIMATED_DATE_FIELD_PATHS.has(fieldPath as EstimatedDateFieldPath)) {
+        return value;
+    }
+
+    return normalizeDateHintStringOrNull(fieldPath, value);
+}
+
+function normalizeProjectionDateValue(fieldPath: EstimatedDateFieldPath, value: string | null): string | null {
+    const normalizedDateHint = normalizeDateHintStringOrNull(fieldPath, value);
+    if (normalizedDateHint === null) {
         return null;
     }
 
-    const normalized = normalizeIsoDateOrNull(value);
-    if (normalized === null) {
-        throw new Error(`Photo metadata field '${fieldPath}' requires an ISO date string or null`);
-    }
-
-    return normalized;
+    return normalizeIsoDateOrNull(normalizedDateHint);
 }
 
 function toSourceParams(source: PhotoMetadataFieldSource | undefined): { kind: string | null; id: string | null } {

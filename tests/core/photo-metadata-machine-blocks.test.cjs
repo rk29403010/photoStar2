@@ -122,7 +122,7 @@ function buildLiveMetadataEvidence(params) {
         provider: 'google',
         modelVersion: params.metadataSourceKind === 'gemini_pro_refined'
             ? 'gemini-3.1-pro-preview'
-            : 'gemini-3-flash-preview',
+            : 'gemini-2.5-flash',
         data: {
             ...params.metadataBlock,
             _analysis_tier: params.analysisTier,
@@ -177,6 +177,7 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
                 sensitivity_score: null,
             },
             imageStrategy: 'overview_only',
+            metadataPass: 'scout',
             GoogleGenerativeAIClass: buildFakeGoogleGenerativeAI(buildGeminiResponse()),
         });
 
@@ -186,7 +187,7 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
         assert.equal(flashResult.metadataBlock.regions_of_interest[0].kind, 'scene_context');
         assert.equal(flashResult.data._analysis_tier, 'flash');
 
-        dbManager.setSetting('job_ai_model', 'gemini-3.1-pro-preview');
+        dbManager.setSetting('job_ai_model_refine', 'gemini-3.1-pro-preview');
         const proResult = await liveRuntime.generateLiveAiMetadata({
             dbManager,
             row: {
@@ -196,6 +197,7 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
                 sensitivity_score: null,
             },
             imageStrategy: 'overview_only',
+            metadataPass: 'refine',
             GoogleGenerativeAIClass: buildFakeGoogleGenerativeAI(buildGeminiResponse({
                 caption: 'Billy and Dad at Christmas dinner',
             })),
@@ -217,7 +219,7 @@ test('generateLiveAiMetadata preserves pending pro status on flash fallback comp
     const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
     const dbManager = new DatabaseManager(tempDir);
     dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
-    dbManager.setSetting('job_ai_model', 'gemini-3.1-pro-preview');
+    dbManager.setSetting('job_ai_model_refine', 'gemini-3.1-pro-preview');
     seedAsset(dbManager.getDb(), imagePath);
 
     class FakeGoogleGenerativeAI {
@@ -249,6 +251,7 @@ test('generateLiveAiMetadata preserves pending pro status on flash fallback comp
                 sensitivity_score: null,
             },
             imageStrategy: 'overview_only',
+            metadataPass: 'refine',
             GoogleGenerativeAIClass: FakeGoogleGenerativeAI,
         });
 

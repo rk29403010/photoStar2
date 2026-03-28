@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import type { DatabaseManager } from '../../data/db';
 
 export interface SubjectRef {
@@ -48,6 +49,14 @@ export interface WorkflowStepRunDetail {
     completedItems: number;
     failedItems: number;
     errorMessage?: string;
+    failedSubjects: WorkflowFailedSubject[];
+}
+
+export interface WorkflowFailedSubject {
+    subjectType: string;
+    subjectId: string;
+    label: string;
+    originalPath?: string;
 }
 
 export interface WorkflowMilestoneState {
@@ -62,6 +71,29 @@ export interface WorkflowRunDetail {
     milestones: WorkflowMilestoneState[];
     steps: WorkflowStepRunDetail[];
 }
+
+type WorkflowMilestoneRow = {
+    milestone_id: string;
+    label: string;
+    status: string;
+};
+
+type WorkflowStepRunRow = {
+    step_run_id: string;
+    node_id: string;
+    status: string;
+    total_items: number;
+    completed_items: number | null;
+    failed_items: number | null;
+    error_message: string | null;
+};
+
+type WorkflowFailedSubjectRow = {
+    step_run_id: string;
+    subject_type: string;
+    subject_id: string;
+    original_path: string | null;
+};
 
 function toIsoNow(): string {
     return new Date().toISOString();
@@ -82,6 +114,131 @@ function parseJsonObject(value: string | null | undefined): Record<string, unkno
     }
 
     return {};
+}
+
+function buildFailedSubjectLabel(params: {
+    subjectType: string;
+    subjectId: string;
+    originalPath: string | null;
+}): string {
+    if (params.originalPath) {
+        return path.basename(params.originalPath);
+    }
+
+    return `${params.subjectType}:${params.subjectId}`;
+}
+
+function loadRunParameters(
+    db: ReturnType<DatabaseManager['getDb']>,
+    runId: string,
+): Record<string, unknown> {
+    const run = db.prepare(`
+        SELECT parameters_json
+        FROM workflow_runs
+        WHERE id = ?
+    `).get(runId) as { parameters_json: string } | undefined;
+
+    if (!run) {
+        throw new Error(`Unknown workflow run '${runId}'`);
+    }
+
+    return parseJsonObject(run.parameters_json);
+}
+
+function loadRunMilestones(
+    db: ReturnType<DatabaseManager['getDb']>,
+    runId: string,
+): WorkflowMilestoneState[] {
+    const milestones = db.prepare(`
+        SELECT milestone_id, label, status
+        FROM workflow_run_milestones
+        WHERE workflow_run_id = ?
+        ORDER BY created_at ASC, milestone_id ASC
+    `).all(runId) as WorkflowMilestoneRow[];
+
+    return milestones.map((milestone) => ({
+        milestoneId: milestone.milestone_id,
+        label: milestone.label,
+        status: milestone.status,
+    }));
+}
+
+function loadStepRunRows(
+    db: ReturnType<DatabaseManager['getDb']>,
+    runId: string,
+): WorkflowStepRunRow[] {
+    return db.prepare(`
+        SELECT
+            sr.id AS step_run_id,
+            sr.node_id,
+            sr.status,
+            COALESCE(MAX(sr.expected_items), COUNT(se.id)) AS total_items,
+            SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) AS completed_items,
+            SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) AS failed_items,
+            MAX(sr.error_message) AS error_message
+        FROM step_runs sr
+        LEFT JOIN subject_executions se ON se.step_run_id = sr.id
+        WHERE sr.workflow_run_id = ?
+        GROUP BY sr.id, sr.node_id, sr.status
+        ORDER BY sr.created_at ASC, sr.id ASC
+    `).all(runId) as WorkflowStepRunRow[];
+}
+
+function loadFailedSubjectRows(
+    db: ReturnType<DatabaseManager['getDb']>,
+    runId: string,
+): WorkflowFailedSubjectRow[] {
+    return db.prepare(`
+        SELECT
+            se.step_run_id,
+            se.subject_type,
+            se.subject_id,
+            a.original_path
+        FROM subject_executions se
+        LEFT JOIN assets a
+            ON se.subject_type = 'asset'
+           AND a.id = se.subject_id
+        WHERE se.workflow_run_id = ?
+          AND se.status = 'failed'
+        ORDER BY se.updated_at DESC, se.id DESC
+    `).all(runId) as WorkflowFailedSubjectRow[];
+}
+
+function groupFailedSubjectsByStepRun(rows: WorkflowFailedSubjectRow[]): Map<string, WorkflowFailedSubject[]> {
+    const failedSubjectsByStepRun = new Map<string, WorkflowFailedSubject[]>();
+
+    for (const failedSubject of rows) {
+        const stepSubjects = failedSubjectsByStepRun.get(failedSubject.step_run_id) ?? [];
+        stepSubjects.push({
+            subjectType: failedSubject.subject_type,
+            subjectId: failedSubject.subject_id,
+            label: buildFailedSubjectLabel({
+                subjectType: failedSubject.subject_type,
+                subjectId: failedSubject.subject_id,
+                originalPath: failedSubject.original_path,
+            }),
+            originalPath: failedSubject.original_path ?? undefined,
+        });
+        failedSubjectsByStepRun.set(failedSubject.step_run_id, stepSubjects);
+    }
+
+    return failedSubjectsByStepRun;
+}
+
+function mapStepRunDetails(
+    steps: WorkflowStepRunRow[],
+    failedSubjectsByStepRun: Map<string, WorkflowFailedSubject[]>,
+): WorkflowStepRunDetail[] {
+    return steps.map((step) => ({
+        stepRunId: step.step_run_id,
+        nodeId: step.node_id,
+        status: step.status,
+        totalItems: step.total_items,
+        completedItems: step.completed_items ?? 0,
+        failedItems: step.failed_items ?? 0,
+        errorMessage: step.error_message ?? undefined,
+        failedSubjects: failedSubjectsByStepRun.get(step.step_run_id) ?? [],
+    }));
 }
 
 export class ExecutionStore {
@@ -248,68 +405,16 @@ export class ExecutionStore {
 
     public getRunDetail(runId: string): WorkflowRunDetail {
         const db = this.dbManager.getDb();
-        const run = db.prepare(`
-            SELECT parameters_json
-            FROM workflow_runs
-            WHERE id = ?
-        `).get(runId) as { parameters_json: string } | undefined;
-
-        if (!run) {
-            throw new Error(`Unknown workflow run '${runId}'`);
-        }
-
-        const milestones = db.prepare(`
-            SELECT milestone_id, label, status
-            FROM workflow_run_milestones
-            WHERE workflow_run_id = ?
-            ORDER BY created_at ASC, milestone_id ASC
-        `).all(runId) as Array<{
-            milestone_id: string;
-            label: string;
-            status: string;
-        }>;
-
-        const steps = db.prepare(`
-            SELECT
-                sr.id AS step_run_id,
-                sr.node_id,
-                sr.status,
-                COALESCE(MAX(sr.expected_items), COUNT(se.id)) AS total_items,
-                SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) AS completed_items,
-                SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) AS failed_items,
-                MAX(sr.error_message) AS error_message
-            FROM step_runs sr
-            LEFT JOIN subject_executions se ON se.step_run_id = sr.id
-            WHERE sr.workflow_run_id = ?
-            GROUP BY sr.id, sr.node_id, sr.status
-            ORDER BY sr.created_at ASC, sr.id ASC
-        `).all(runId) as Array<{
-            step_run_id: string;
-            node_id: string;
-            status: string;
-            total_items: number;
-            completed_items: number | null;
-            failed_items: number | null;
-            error_message: string | null;
-        }>;
+        const parameters = loadRunParameters(db, runId);
+        const milestones = loadRunMilestones(db, runId);
+        const steps = loadStepRunRows(db, runId);
+        const failedSubjectsByStepRun = groupFailedSubjectsByStepRun(loadFailedSubjectRows(db, runId));
 
         return {
             summary: this.getRunSummary(runId),
-            parameters: parseJsonObject(run.parameters_json),
-            milestones: milestones.map((milestone) => ({
-                milestoneId: milestone.milestone_id,
-                label: milestone.label,
-                status: milestone.status,
-            })),
-            steps: steps.map((step) => ({
-                stepRunId: step.step_run_id,
-                nodeId: step.node_id,
-                status: step.status,
-                totalItems: step.total_items,
-                completedItems: step.completed_items ?? 0,
-                failedItems: step.failed_items ?? 0,
-                errorMessage: step.error_message ?? undefined,
-            })),
+            parameters,
+            milestones,
+            steps: mapStepRunDetails(steps, failedSubjectsByStepRun),
         };
     }
 }

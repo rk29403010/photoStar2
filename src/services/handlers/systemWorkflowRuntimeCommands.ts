@@ -77,6 +77,77 @@ function normalizeSelectedSubjects(payload: {
     return [];
 }
 
+function parseAiMode(value: unknown): 'mock' | 'live' | 'off' {
+    return value === 'mock' || value === 'live' || value === 'off' ? value : 'live';
+}
+
+function loadMissingFolderAiMetadataSubjects(ctx: CommandContext, folderPath: string): AssetSubject[] {
+    const folderPattern = `${folderPath}${folderPath.endsWith('\\') ? '' : '\\'}%`;
+    const rows = ctx.dbManager.getDb().prepare(`
+        SELECT a.id
+        FROM assets a
+        WHERE (a.original_path = ? OR a.original_path LIKE ?)
+          AND NOT EXISTS (
+              SELECT 1
+              FROM photo_metadata_blocks pmb
+              WHERE pmb.asset_id = a.id
+                AND pmb.source_kind IN ('gemini_flash_scout', 'gemini_pro_refined')
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM derived_results dr
+              WHERE dr.asset_id = a.id
+                AND dr.task = 'ai_metadata'
+          )
+        ORDER BY a.created_at ASC, a.id ASC
+    `).all(folderPath, folderPattern) as Array<{ id: string }>;
+
+    return rows.map((row) => ({
+        subjectType: 'asset',
+        subjectId: row.id,
+    }));
+}
+
+function rerunMissingFolderAiMetadata(ctx: CommandContext, runId: string): void {
+    const workflowRuntime = getWorkflowRuntime(ctx);
+    const runDetail = workflowRuntime.store.getRunDetail(runId);
+    const folderPath = typeof runDetail.parameters.folderPath === 'string' ? runDetail.parameters.folderPath : null;
+    if (!folderPath) {
+        throw new Error('Folder ingest run does not include a folderPath parameter');
+    }
+
+    const selectedSubjects = loadMissingFolderAiMetadataSubjects(ctx, folderPath);
+    if (selectedSubjects.length === 0) {
+        ctx.respond(ctx.id, 'ok', {
+            runId: null,
+            workflowId: 'selected_subject_metadata_v1',
+            assetCount: 0,
+            folderPath,
+        }, null, ctx.originWs);
+        return;
+    }
+
+    const nextRunId = workflowRuntime.orchestrator.startDetached({
+        workflowId: 'selected_subject_metadata_v1',
+        triggerType: 'manual',
+        inputSubjects: [{ subjectType: 'selection', subjectId: `selection:${Date.now()}` }],
+        parameters: {
+            aiMode: parseAiMode(runDetail.parameters.aiMode),
+            imageStrategy: 'overview_only',
+            metadataPass: 'scout',
+            selectedSubjects,
+            sourceFolderRunId: runId,
+        },
+    });
+
+    ctx.respond(ctx.id, 'ok', {
+        runId: nextRunId,
+        workflowId: 'selected_subject_metadata_v1',
+        assetCount: selectedSubjects.length,
+        folderPath,
+    }, null, ctx.originWs);
+}
+
 export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
     get_photo_metadata: (ctx) => {
         const payload = ctx.payload as { assetId?: string; includeEvidence?: boolean } | undefined;
@@ -120,6 +191,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
                 folderPath: payload.folderPath,
                 traversalMode: payload.traversalMode ?? 'folder_only',
                 aiMode: payload.aiMode ?? 'live',
+                metadataPass: 'scout',
             },
         });
         ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
@@ -153,6 +225,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             workflowId: 'library_ai_metadata_v1',
             parameters: {
                 aiMode: payload?.aiMode ?? 'live',
+                metadataPass: 'scout',
             },
         });
     },
@@ -175,6 +248,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             parameters: {
                 aiMode: payload?.aiMode ?? 'live',
                 imageStrategy: payload?.imageStrategy ?? 'overview_only',
+                metadataPass: 'refine',
                 selectedSubjects,
             },
         });
@@ -201,5 +275,12 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             requestedRunId: payload?.runId,
         });
         ctx.respond(ctx.id, 'ok', model, null, ctx.originWs);
+    },
+    rerun_missing_folder_ai_metadata: (ctx) => {
+        const payload = ctx.payload as { runId?: string } | undefined;
+        if (!payload?.runId) {
+            throw new Error('runId is required');
+        }
+        rerunMissingFolderAiMetadata(ctx, payload.runId);
     },
 };

@@ -28,8 +28,12 @@ function isNullableString(value: unknown): value is string | null {
     return value === null || typeof value === 'string';
 }
 
-function isNullableIsoDate(value: unknown): value is string | null {
-    return value === null || isIsoDateString(value);
+function isDateHintString(value: string): boolean {
+    return value.trim().length > 0;
+}
+
+function isNullableDateHint(value: unknown): value is string | null {
+    return value === null || (typeof value === 'string' && isDateHintString(value));
 }
 
 function isDateOnly(value: string): boolean {
@@ -103,9 +107,9 @@ function hasEstimatedDateShape(value: Record<string, unknown>): boolean {
         return false;
     }
 
-    return isNullableIsoDate(value.most_likely_date)
-        && isNullableIsoDate(value.min_date)
-        && isNullableIsoDate(value.max_date)
+    return isNullableDateHint(value.most_likely_date)
+        && isNullableDateHint(value.min_date)
+        && isNullableDateHint(value.max_date)
         && isNullableString(value.rationale);
 }
 

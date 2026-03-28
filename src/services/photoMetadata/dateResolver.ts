@@ -55,6 +55,15 @@ function toNullableString(value: unknown): string | null {
     return typeof value === 'string' ? value : null;
 }
 
+function normalizeSummaryDateHint(value: unknown): string | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
 function latestAssertion(assertions: PhotoMetadataAssertionRow[], fieldPath: string): PhotoMetadataAssertionRow | null {
     let winner: PhotoMetadataAssertionRow | null = null;
     for (const assertion of assertions) {
@@ -107,9 +116,9 @@ function extractSummary(value: unknown): PhotoDateSummaryParts | null {
     }
 
     return {
-        most_likely_date: normalizeIsoDateOrNull(value.most_likely_date),
-        min_date: normalizeIsoDateOrNull(value.min_date),
-        max_date: normalizeIsoDateOrNull(value.max_date),
+        most_likely_date: normalizeSummaryDateHint(value.most_likely_date),
+        min_date: normalizeSummaryDateHint(value.min_date),
+        max_date: normalizeSummaryDateHint(value.max_date),
         display_label: displayLabel.trim(),
         rationale: toNullableString(value.rationale),
     };
@@ -135,9 +144,9 @@ function hasSummaryContent(parts: {
 
 function readManualSummary(assertions: PhotoMetadataAssertionRow[]): PhotoDateSummaryParts | null {
     const resolvedDisplayLabel = toNullableString(latestAssertionValue(assertions, 'estimated_date.display_label'));
-    const resolvedMostLikelyDate = normalizeIsoDateOrNull(latestAssertionValue(assertions, 'estimated_date.most_likely_date'));
-    const resolvedMinDate = normalizeIsoDateOrNull(latestAssertionValue(assertions, 'estimated_date.min_date'));
-    const resolvedMaxDate = normalizeIsoDateOrNull(latestAssertionValue(assertions, 'estimated_date.max_date'));
+    const resolvedMostLikelyDate = normalizeSummaryDateHint(latestAssertionValue(assertions, 'estimated_date.most_likely_date'));
+    const resolvedMinDate = normalizeSummaryDateHint(latestAssertionValue(assertions, 'estimated_date.min_date'));
+    const resolvedMaxDate = normalizeSummaryDateHint(latestAssertionValue(assertions, 'estimated_date.max_date'));
     if (!hasSummaryContent({
         displayLabel: resolvedDisplayLabel,
         mostLikelyDate: resolvedMostLikelyDate,

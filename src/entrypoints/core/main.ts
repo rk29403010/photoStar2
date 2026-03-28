@@ -12,6 +12,10 @@ import type { ExecutionStore } from '../../services/workflowRuntime/executionSto
 import type { WorkflowRegistry } from '../../services/workflowRuntime/workflowRegistry';
 import type { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orchestrator';
 import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
+import { formatAssetDiagnosticLabel } from '../../shared/utils/diagnosticFormatting';
+import { buildPhotoMetadataBundle } from '../../services/photoMetadata/bundle';
+import { createPhotoMetadataManualAssertionsService } from '../../services/photoMetadata/manualAssertions';
+import { createPhotoMetadataRepository } from '../../services/photoMetadata/repository';
 import { loadLocalEnvFile } from './loadLocalEnv';
 import {
     buildStartupFailureMessage,
@@ -253,6 +257,14 @@ function buildUpdatedAsset(row: AssetUpdatedRow) {
     const faces = mergeFaceAssignments(row);
     const aiMeta = row.ai_metadata_data ? JSON.parse(row.ai_metadata_data) : undefined;
     const embeddedMetadata = row.embedded_metadata_data ? JSON.parse(row.embedded_metadata_data) : undefined;
+    const photoMetadata = dbManager
+        ? buildPhotoMetadataBundle({
+            repository: createPhotoMetadataRepository({ dbManager }),
+            manualAssertionsService: createPhotoMetadataManualAssertionsService({ dbManager }),
+            assetId: row.id,
+            includeEvidence: false,
+        })
+        : undefined;
 
     return {
         ...row,
@@ -260,7 +272,8 @@ function buildUpdatedAsset(row: AssetUpdatedRow) {
         face_embeddings: row.rec_data ? JSON.parse(row.rec_data).embeddings : [],
         ai_metadata: aiMeta,
         embedded_metadata: embeddedMetadata,
-        caption: aiMeta?.caption || undefined
+        photo_metadata: photoMetadata,
+        caption: photoMetadata?.projection.caption ?? aiMeta?.caption ?? undefined,
     };
 }
 
@@ -273,7 +286,7 @@ function handleAssetUpdatedEvent(event: DomainEvent) {
 
         const asset = buildUpdatedAsset(row);
         respond('event_stream', 'event', { type: 'AssetUpdated', asset });
-        console.log(`[AssetUpdated] Pushed refreshed asset \${event.assetId} to frontend`);
+        console.log(`[AssetUpdated] Sent refreshed asset ${formatAssetDiagnosticLabel(asset)} to frontend`);
     } catch (err) {
         console.error('[AssetUpdated] Failed to re-query asset:', err);
     }

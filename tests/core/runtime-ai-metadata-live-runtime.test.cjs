@@ -9,17 +9,69 @@ function createTempDir() {
 }
 
 async function removeDirWithRetry(targetPath) {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 15; attempt += 1) {
         try {
             fs.rmSync(targetPath, { recursive: true, force: true });
             return;
         } catch (error) {
-            if (attempt === 4) {
+            if (attempt === 14 && error && error.code === 'EBUSY') {
+                return;
+            }
+            if (attempt === 14) {
                 throw error;
             }
-            await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+            await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
         }
     }
+}
+
+function buildValidMetadataResponse(overrides = {}) {
+    return {
+        type: 'Family portrait',
+        caption: 'A family portrait.',
+        description: 'A family portrait used for live runtime metadata tests.',
+        location: 'Unknown',
+        estimated_date: {
+            most_likely_date: '1930s',
+            min_date: null,
+            max_date: null,
+            display_label: '1930s',
+            rationale: 'Fixture date for runtime test.',
+        },
+        subjects: [
+            {
+                label: 'Subject1',
+                bounding_box: { x: 10, y: 20, width: 100, height: 120 },
+                type: 'person',
+                location_desc: 'centre',
+                gender: 'female',
+                animal_type: null,
+                age_range: 'adult',
+                dob_range: null,
+                emotion: 'neutral',
+                gaze: null,
+                features: null,
+                uniform: null,
+                suggested_names: [],
+            },
+        ],
+        regions_of_interest: [],
+        keywords: ['family'],
+        emotional_impact: 'Warm',
+        quality: {
+            technical: 7,
+            lighting: 7,
+            composition: 7,
+            emotional: 8,
+            discard: false,
+        },
+        recommended_enhancements: [],
+        authenticity: {
+            score: 8,
+            reasons: ['Looks original'],
+        },
+        ...overrides,
+    };
 }
 
 async function runLiveMetadataCapture({ tempDir, imageStrategy }) {
@@ -54,37 +106,7 @@ async function runLiveMetadataCapture({ tempDir, imageStrategy }) {
                     return {
                         response: {
                             text() {
-                                return JSON.stringify({
-                                    type: 'Family portrait',
-                                    estimated_date: '1930s',
-                                    location: 'Unknown',
-                                    subjects: [
-                                        {
-                                            label: 'Subject1',
-                                            bounding_box: { x: 10, y: 20, width: 100, height: 120 },
-                                            type: 'person',
-                                            location_desc: 'centre',
-                                            gender: 'female',
-                                            age_range: 'adult',
-                                            emotion: 'neutral',
-                                        },
-                                    ],
-                                    caption: 'A family portrait.',
-                                    keywords: ['family'],
-                                    emotional_impact: 'Warm',
-                                    quality: {
-                                        technical: 7,
-                                        lighting: 7,
-                                        composition: 7,
-                                        emotional: 8,
-                                        discard: false,
-                                    },
-                                    recommended_enhancements: [],
-                                    authenticity: {
-                                        score: 8,
-                                        reasons: ['Looks original'],
-                                    },
-                                });
+                                return JSON.stringify(buildValidMetadataResponse());
                             },
                         },
                     };
@@ -136,12 +158,18 @@ function createEnvFallbackGoogleGenerativeAI(captureApiKey) {
                     return {
                         response: {
                             text() {
-                                return JSON.stringify({
+                                return JSON.stringify(buildValidMetadataResponse({
                                     type: 'Portrait',
-                                    estimated_date: '1940s',
-                                    location: 'Unknown',
-                                    subjects: [],
                                     caption: 'Fallback env key works.',
+                                    description: 'Fallback env key runtime test response.',
+                                    estimated_date: {
+                                        most_likely_date: '1940s',
+                                        min_date: null,
+                                        max_date: null,
+                                        display_label: '1940s',
+                                        rationale: 'Fixture date for fallback test.',
+                                    },
+                                    subjects: [],
                                     keywords: ['portrait'],
                                     emotional_impact: 'Calm',
                                     quality: {
@@ -151,12 +179,11 @@ function createEnvFallbackGoogleGenerativeAI(captureApiKey) {
                                         emotional: 7,
                                         discard: false,
                                     },
-                                    recommended_enhancements: [],
                                     authenticity: {
                                         score: 8,
                                         reasons: ['Consistent scan'],
                                     },
-                                });
+                                }));
                             },
                         },
                     };
@@ -226,7 +253,7 @@ test('generateLiveAiMetadata configures structured output and overview-only imag
         const { captured, sharp } = result;
 
         assert.ok(captured.modelParams);
-        assert.equal(captured.modelParams.model, 'gemini-3-flash-preview');
+        assert.equal(captured.modelParams.model, 'gemini-2.5-flash');
         assert.equal(captured.modelParams.generationConfig.responseMimeType, 'application/json');
         assert.equal(captured.modelParams.generationConfig.responseSchema.type, 'object');
         assert.equal(captured.modelParams.generationConfig.responseSchema.properties.subjects.type, 'array');

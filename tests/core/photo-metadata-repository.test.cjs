@@ -178,15 +178,88 @@ test('photo metadata repository persists blocks, assertions, and projection rows
         assert.equal(projectionCount.count, 1);
         assertUpdatedProjectionRow(assert, projection, assertionId);
 
-        assert.throws(() => {
-            repository.saveProjection({
-                ...buildProjection(blockId, assertionId),
-                estimatedDate: {
-                    ...buildProjection(blockId, assertionId).estimatedDate,
-                    min_date: 'not-a-date',
-                },
-            });
-        }, /requires an ISO date string or null/);
+        repository.saveProjection({
+            ...buildProjection(blockId, assertionId),
+            estimatedDate: {
+                ...buildProjection(blockId, assertionId).estimatedDate,
+                min_date: 'not-a-date',
+            },
+        });
+
+        const normalizedProjection = repository.loadProjection('asset-1');
+        assert.ok(normalizedProjection);
+        assert.equal(normalizedProjection.estimated_date_min, null);
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('photo metadata repository stores coarse projection date hints without failing persistence', async () => {
+    const { createPhotoMetadataRepository } = await import('../../dist/core/src/services/photoMetadata/repository.js');
+    const tempDir = createTempDir();
+    const dbManager = createDatabaseManager(tempDir);
+
+    try {
+        const db = dbManager.getDb();
+        seedAsset(db);
+        const repository = createPhotoMetadataRepository({ dbManager });
+
+        repository.saveProjection({
+            assetId: 'asset-1',
+            type: 'Birthday party',
+            caption: 'A child celebrates a birthday',
+            description: 'A family gathers around a birthday cake.',
+            location: 'Unknown',
+            estimatedDate: {
+                most_likely_date: '1970s',
+                min_date: '1974',
+                max_date: null,
+                display_label: 'mid 1970s',
+                rationale: 'Decorations and clothing suggest the middle of the decade.',
+            },
+            keywords: ['birthday', 'family'],
+            emotionalImpact: 'Joyful',
+            quality: { technical: 6, lighting: 6, composition: 6, emotional: 8, discard: false },
+            recommendedEnhancements: [],
+            authenticity: { score: 0.75, reasons: ['consistent scene details'] },
+            provenance: {},
+        });
+
+        const projection = repository.loadProjection('asset-1');
+        assert.ok(projection);
+        assert.equal(projection.estimated_date_most_likely, null);
+        assert.equal(projection.estimated_date_min, null);
+        assert.equal(projection.estimated_date_max, null);
+        assert.equal(projection.estimated_date_display_label, 'mid 1970s');
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('photo metadata repository accepts coarse manual date assertions', async () => {
+    const { createPhotoMetadataRepository } = await import('../../dist/core/src/services/photoMetadata/repository.js');
+    const tempDir = createTempDir();
+    const dbManager = createDatabaseManager(tempDir);
+
+    try {
+        const db = dbManager.getDb();
+        seedAsset(db);
+        const repository = createPhotoMetadataRepository({ dbManager });
+
+        const assertionId = repository.insertManualAssertion({
+            assetId: 'asset-1',
+            fieldPath: 'estimated_date.most_likely_date',
+            value: 'late 1970s',
+            userId: 'user-9',
+        });
+
+        const assertions = repository.listAssertionsForAsset('asset-1');
+        assert.equal(assertionId.length > 0, true);
+        assert.equal(assertions.length, 1);
+        assert.equal(assertions[0].field_path, 'estimated_date.most_likely_date');
+        assert.equal(assertions[0].value, 'late 1970s');
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

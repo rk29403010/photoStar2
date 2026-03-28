@@ -91,8 +91,8 @@ function extractEstimatedDateLabelText(estimatedDate: Record<string, unknown>): 
 }
 
 function extractStructuredEstimatedDateText(estimatedDate: Record<string, unknown>): string | null {
-    return extractEstimatedDateRangeText(estimatedDate)
-        ?? extractEstimatedDateExactText(estimatedDate)
+    return extractEstimatedDateExactText(estimatedDate)
+        ?? extractEstimatedDateRangeText(estimatedDate)
         ?? extractEstimatedDateLabelText(estimatedDate);
 }
 

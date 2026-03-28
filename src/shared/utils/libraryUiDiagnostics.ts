@@ -1,4 +1,7 @@
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
+import {
+    formatAssetDiagnosticLabel,
+} from './diagnosticFormatting';
 
 type AssetWithPreview = {
     preview_path?: string | null;
@@ -26,6 +29,8 @@ function formatCount(value: number): string {
     return new Intl.NumberFormat().format(value);
 }
 
+export { shortenDiagnosticId } from './diagnosticFormatting';
+
 function formatNodeLabel(nodeId: string): string {
     if (!nodeId) {
         return 'Workflow';
@@ -44,32 +49,48 @@ export function countPreviewAssets<TAsset extends AssetWithPreview>(assets: TAss
     return assets.reduce((count, asset) => count + (asset.preview_path ? 1 : 0), 0);
 }
 
+function buildFailedIngestStatusMessage(detail: WorkflowRunDetailLike, failedStep: WorkflowStepLike | undefined): string | null {
+    if (detail.summary?.status !== 'failed') {
+        return null;
+    }
+    if (!failedStep) {
+        return null;
+    }
+
+    return failedStep.errorMessage
+        ? `${formatNodeLabel(failedStep.nodeId)} failed: ${failedStep.errorMessage}`
+        : `${formatNodeLabel(failedStep.nodeId)} failed.`;
+}
+
+function buildPreviewProgressMessage(detail: WorkflowRunDetailLike, previewStep: WorkflowStepLike | undefined): string | null {
+    if (!previewStep) {
+        return detail.summary?.status === 'running' ? 'Scanning folder...' : null;
+    }
+
+    const completedItems = formatCount(previewStep.completedItems);
+    const totalItems = formatCount(previewStep.totalItems);
+    if (detail.summary?.status === 'running') {
+        return `Generating thumbnails ${completedItems}/${totalItems}`;
+    }
+    if (detail.summary?.status === 'failed') {
+        return `Thumbnail generation failed at ${completedItems}/${totalItems}`;
+    }
+    return null;
+}
+
 export function buildIngestStatusMessage(detail: WorkflowRunDetailLike | null | undefined): string | null {
     if (!detail?.summary?.status) {
         return null;
     }
 
     const failedStep = detail.steps?.find((step) => step.status === 'failed');
-    if (detail.summary.status === 'failed' && failedStep) {
-        return failedStep.errorMessage
-            ? `${formatNodeLabel(failedStep.nodeId)} failed: ${failedStep.errorMessage}`
-            : `${formatNodeLabel(failedStep.nodeId)} failed.`;
+    const failedMessage = buildFailedIngestStatusMessage(detail, failedStep);
+    if (failedMessage) {
+        return failedMessage;
     }
 
     const previewStep = detail.steps?.find((step) => step.nodeId === PREVIEW_STEP_NODE_ID);
-    if (!previewStep) {
-        return detail.summary.status === 'running' ? 'Scanning folder...' : null;
-    }
-
-    const completedItems = formatCount(previewStep.completedItems);
-    const totalItems = formatCount(previewStep.totalItems);
-    if (detail.summary.status === 'running') {
-        return `Generating thumbnails ${completedItems}/${totalItems}`;
-    }
-    if (detail.summary.status === 'failed') {
-        return `Thumbnail generation failed at ${completedItems}/${totalItems}`;
-    }
-    return null;
+    return buildPreviewProgressMessage(detail, previewStep);
 }
 
 export function buildWorkflowPollDetail(detail: WorkflowRunDetailLike | null | undefined): string {
@@ -101,7 +122,12 @@ function formatMediaDiscoveredEventDetail(event: Record<string, unknown>): strin
 }
 
 function formatAssetUpdatedEventDetail(event: Record<string, unknown>): string {
-    return `asset=${String((event.asset as { id?: string } | undefined)?.id ?? 'unknown')}`;
+    return `refreshed asset=${formatAssetDiagnosticLabel(event.asset as {
+        id?: unknown;
+        original_path?: unknown;
+        filePath?: unknown;
+        path?: unknown;
+    } | undefined)}`;
 }
 
 function formatAiMetadataConfigurationErrorDetail(event: Record<string, unknown>): string {

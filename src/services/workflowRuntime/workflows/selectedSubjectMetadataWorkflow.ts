@@ -7,6 +7,7 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
     parameters: [
         { id: 'aiMode', valueType: 'enum', required: true, options: ['mock', 'live', 'off'] },
         { id: 'imageStrategy', valueType: 'enum', required: false, options: ['overview_only', 'overview_plus_tiles'] },
+        { id: 'metadataPass', valueType: 'enum', required: false, options: ['scout', 'refine'] },
     ],
     presentation: {
         defaultRunLabel: 'Selected subject metadata workflow',
@@ -28,11 +29,22 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-ai-metadata',
             kind: 'module',
             moduleId: 'runtime.generate_ai_metadata',
-            completesMilestones: ['ai_metadata_complete'],
+            outputsTo: ['estimate-photo-date-from-ai'],
             presentation: {
                 label: 'Generate AI metadata',
                 countNoun: { singular: 'image', plural: 'images' },
                 artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
+            },
+        },
+        {
+            id: 'estimate-photo-date-from-ai',
+            kind: 'module',
+            moduleId: 'runtime.estimate_photo_date',
+            completesMilestones: ['ai_metadata_complete'],
+            presentation: {
+                label: 'Estimate photo date from AI metadata',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'date estimate', plural: 'date estimates' },
             },
         },
     ],

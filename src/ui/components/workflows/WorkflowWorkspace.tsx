@@ -23,6 +23,7 @@ import {
 interface WorkflowWorkspaceProps {
     workflowId: string;
     onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
+    onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
 }
 
 function useWorkflowWorkspacePersistence(workflowId: string) {
@@ -56,6 +57,41 @@ function renderWorkflowWorkspaceState(message: string, tone: 'idle' | 'error') {
             {message}
         </div>
     );
+}
+
+function useWorkflowRetryAction(params: {
+    workflowId: string;
+    model: WorkflowVisualiserModel | null;
+    setSelectedRunSelection: (runId: string | null) => void;
+    setSelectedDetailId: (detailId: string | null) => void;
+    onRerunMissingFolderAiMetadata: WorkflowWorkspaceProps['onRerunMissingFolderAiMetadata'];
+}) {
+    const [retryingMissingAiMetadata, setRetryingMissingAiMetadata] = useState(false);
+    const canRetryMissingAiMetadata = params.workflowId === 'folder_ingest_v1'
+        && params.model?.selectedRun?.status === 'failed'
+        && typeof params.model.selectedRun.parameters.folderPath === 'string';
+
+    return {
+        retryingMissingAiMetadata,
+        canRetryMissingAiMetadata,
+        retryMissingAiMetadata() {
+            if (!params.model?.selectedRun?.runId || retryingMissingAiMetadata) {
+                return;
+            }
+
+            setRetryingMissingAiMetadata(true);
+            void params.onRerunMissingFolderAiMetadata(params.model.selectedRun.runId)
+                .then((result) => {
+                    if (result.runId) {
+                        params.setSelectedRunSelection(result.runId);
+                        params.setSelectedDetailId(null);
+                    }
+                })
+                .finally(() => {
+                    setRetryingMissingAiMetadata(false);
+                });
+        },
+    };
 }
 
 function useWorkflowWorkspaceData(
@@ -155,7 +191,7 @@ function WorkflowWorkspaceContent(params: {
     return <WorkflowTextTab sections={params.model.tabs.text.sections} />;
 }
 
-export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser }: WorkflowWorkspaceProps) {
+export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser, onRerunMissingFolderAiMetadata }: WorkflowWorkspaceProps) {
     const [selectedRunSelection, setSelectedRunSelection] = useState<string | null>(null);
     const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
     const {
@@ -166,6 +202,13 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser }: Workf
     } = useWorkflowWorkspacePersistence(workflowId);
     const requestedRunId = getWorkflowVisualiserRequestedRunId(selectedRunSelection);
     const { model, loading, error } = useWorkflowWorkspaceData(workflowId, requestedRunId ?? null, onGetWorkflowVisualiser);
+    const retryAction = useWorkflowRetryAction({
+        workflowId,
+        model,
+        setSelectedRunSelection,
+        setSelectedDetailId,
+        onRerunMissingFolderAiMetadata,
+    });
 
     useEffect(() => {
         setSelectedDetailId(null);
@@ -197,6 +240,11 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser }: Workf
                 onSelectRun={(runSelection) => {
                     setSelectedRunSelection(runSelection);
                     setSelectedDetailId(null);
+                }}
+                retryState={{
+                    enabled: retryAction.canRetryMissingAiMetadata,
+                    loading: retryAction.retryingMissingAiMetadata,
+                    onRetry: retryAction.retryMissingAiMetadata,
                 }}
             />
 

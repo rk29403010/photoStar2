@@ -50,7 +50,7 @@ test('resolvePhotoDateEvidence turns structured machine dates into timestamp can
     const result = estimatePhotoDate(resolved);
 
     assert.equal(result.photoCreatedAt, '1948-07-04T00:00:00.000Z');
-    assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.range'));
+    assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.exact'));
     assert.ok(result.confidence.score > 0);
 });
 
@@ -188,6 +188,36 @@ test('resolvePhotoDateEvidence turns manual date assertions into timestamp candi
 
     assert.equal(result.photoCreatedAt, '1968-05-18T00:00:00.000Z');
     assert.ok(result.confidence.score > 0);
+});
+
+test('resolvePhotoDateEvidence preserves coarse machine most_likely_date hints for downstream estimation', async () => {
+    const { resolvePhotoDateEvidence } = await import('../../dist/core/src/services/photoMetadata/dateResolver.js');
+
+    const resolved = resolvePhotoDateEvidence({
+        originalPath: 'C:/photos/whatsapp-family.jpg',
+        metadataEvidence: {
+            machineBlocks: [
+                {
+                    id: 'block-1',
+                    source_kind: 'gemini_flash_scout',
+                    created_at: '2026-03-27T23:21:44.000Z',
+                    data: {
+                        estimated_date: {
+                            most_likely_date: '1990',
+                            min_date: '1985-01-01',
+                            max_date: '1995-12-31',
+                            display_label: 'circa 1990',
+                            rationale: 'period styling strongly suggests around 1990',
+                        },
+                    },
+                },
+            ],
+        },
+    });
+
+    assert.equal(resolved.aiMetadata.estimated_date.most_likely_date, '1990');
+    assert.equal(resolved.aiMetadata.estimated_date.min_date, '1985-01-01');
+    assert.equal(resolved.aiMetadata.estimated_date.max_date, '1995-12-31');
 });
 
 test('estimatePhotoDate lowers confidence when evidence sources disagree', async () => {

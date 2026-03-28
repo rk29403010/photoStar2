@@ -1,3 +1,11 @@
+import {
+    formatAssetDiagnosticLabel,
+    getDiagnosticFilename,
+    isDiagnosticIdKey,
+    isDiagnosticPathKey,
+    shortenDiagnosticId,
+} from './diagnosticFormatting';
+
 const MAX_DEPTH = 5;
 const MAX_STRING_LENGTH = 180;
 const MAX_ARRAY_SAMPLE = 6;
@@ -174,6 +182,16 @@ function summarizeObject(value: Record<string, unknown>, context: SummaryContext
 
     const result: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(value)) {
+        if (typeof entry === 'string' && isDiagnosticIdKey(key)) {
+            result[key] = shortenDiagnosticId(entry);
+            continue;
+        }
+
+        if (typeof entry === 'string' && isDiagnosticPathKey(key)) {
+            result[key] = getDiagnosticFilename(entry);
+            continue;
+        }
+
         if (VECTOR_KEYS.has(key)) {
             result[key] = summarizeVectorLike(entry);
             continue;
@@ -255,7 +273,28 @@ function getOrderedEventEntries(event: Record<string, unknown>, envelope: EventL
     return entries;
 }
 
+function buildAssetUpdatedEventDisplay(event: Record<string, unknown>): FormattedEventDisplay | null {
+    const asset = isRecord(event.asset) ? event.asset : null;
+    const assetId = typeof event.assetId === 'string'
+        ? shortenDiagnosticId(event.assetId)
+        : formatAssetDiagnosticLabel(asset);
+
+    return {
+        text: `AssetUpdated: refreshed asset ${assetId}`,
+        tone: getEventTone(event, null),
+    };
+}
+
+const EVENT_DISPLAY_BUILDERS: Record<string, (event: Record<string, unknown>) => FormattedEventDisplay | null> = {
+    AssetUpdated: buildAssetUpdatedEventDisplay,
+};
+
 function buildFormattedEventDisplay(event: Record<string, unknown>, envelope: EventLogEnvelope | null): FormattedEventDisplay {
+    const customDisplay = EVENT_DISPLAY_BUILDERS[String(event.type)]?.(event);
+    if (customDisplay) {
+        return customDisplay;
+    }
+
     const detail = getOrderedEventEntries(event, envelope)
         .filter(([, value]) => isNonEmptyValue(value))
         .map(([key, value]) => `${key}=${formatCompactValue(value)}`)

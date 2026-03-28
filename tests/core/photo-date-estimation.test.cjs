@@ -85,6 +85,61 @@ test('estimatePhotoDate keeps born-digital metadata as the leading signal but lo
     assert.ok(result.confidence.reasons.some((reason) => reason.includes('disagrees')));
 });
 
+test('estimatePhotoDate ignores WhatsApp export filename dates when historical AI evidence disagrees', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/Users/robin/Pictures/Family History/WhatsApp Image 2025-02-12 at 20.04.41_2d3c19d9.jpg',
+        fileBirthtime: '2025-02-13T07:58:13.571Z',
+        embeddedMetadata: {
+            embedded: {},
+            derived: {
+                capture_datetime: null,
+                timestamp_source: null,
+                timestamp_candidates: [],
+            },
+        },
+        aiMetadata: {
+            estimated_date: 'circa 1990',
+        },
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1990);
+    assert.equal(result.range.start, '1990-01-01T00:00:00.000Z');
+    assert.equal(result.range.end, '1990-12-31T23:59:59.999Z');
+    assert.ok(result.signals.every((signal) => signal.source !== 'filename.full_date'));
+    assert.ok(result.signals.every((signal) => signal.label.includes('WhatsApp') === false));
+});
+
+test('estimatePhotoDate prefers structured AI most_likely_date over broad min/max range text', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/family-scan.jpg',
+        fileBirthtime: '2025-02-13T07:58:13.571Z',
+        embeddedMetadata: {
+            embedded: {},
+            derived: {
+                capture_datetime: null,
+                timestamp_source: null,
+                timestamp_candidates: [],
+            },
+        },
+        aiMetadata: {
+            estimated_date: {
+                most_likely_date: '1990',
+                min_date: '1985-01-01',
+                max_date: '1995-12-31',
+                display_label: 'circa 1990',
+                rationale: 'Period styling strongly suggests around 1990.',
+            },
+        },
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1990);
+    assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.year'));
+});
+
 test('runtime.estimate_photo_date preserves import time and stores photo_created_at plus confidence', async () => {
     const tempDir = createTempDir();
     const imagePath = createFixtureImage(tempDir, 'family-1967-scan.png');

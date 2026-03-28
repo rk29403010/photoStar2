@@ -17,6 +17,7 @@ type SettingsMap = { [key: string]: string };
 const dbKeys = [
     'system_log_level', 'system_max_threads', 'workflow_auto_scan',
     'ai_metadata_v2_api_key', 'gemini_api_key', 'gemini_csv_path', 'job_cluster_threshold',
+    'job_ai_model_scout', 'job_ai_model_refine',
 ];
 
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -118,6 +119,16 @@ function AiJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onCha
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">Kinship Explorer CSV Path</label>
                 <input type="text" value={dbSettings.gemini_csv_path || ''} onChange={(e) => onChange('gemini_csv_path', e.target.value)} placeholder="C:/Path/To/Names.csv" className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-purple-500" />
                 <p className="mt-1 text-[10px] text-gray-300">Used to identify people across generations</p>
+            </div>
+            <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">Scout Model</label>
+                <input type="text" value={dbSettings.job_ai_model_scout || 'gemini-2.5-flash'} onChange={(e) => onChange('job_ai_model_scout', e.target.value)} placeholder="gemini-2.5-flash" className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-purple-500" />
+                <p className="mt-1 text-[10px] text-gray-300">Cheap first-pass ingest model. Default is <code className="rounded bg-black/30 px-1 py-0.5">gemini-2.5-flash</code>.</p>
+            </div>
+            <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">Refine Model</label>
+                <input type="text" value={dbSettings.job_ai_model_refine || 'gemini-3.1-pro-preview'} onChange={(e) => onChange('job_ai_model_refine', e.target.value)} placeholder="gemini-3.1-pro-preview" className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-purple-500" />
+                <p className="mt-1 text-[10px] text-gray-300">Optional higher-quality second-pass model for refine treatment. Default is <code className="rounded bg-black/30 px-1 py-0.5">gemini-3.1-pro-preview</code>.</p>
             </div>
         </div>
     );
