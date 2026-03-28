@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import { listOnnxModelPathCandidates } from '../modelPaths';
+import { getOrientedDimensions } from './faceImageGeometry';
 
 const MODEL_FILENAME = 'w600k_r50.onnx';
 const INPUT_SIZE = 112;
@@ -132,12 +133,14 @@ export class ArcFaceRecognizer implements FaceEmbeddingService {
 
         const image = sharp(imagePath);
         const metadata = await image.metadata();
-        const cropRegion = clampCropRegion(box, metadata.width ?? 0, metadata.height ?? 0);
+        const orientedDimensions = getOrientedDimensions(metadata);
+        const cropRegion = clampCropRegion(box, orientedDimensions?.width ?? 0, orientedDimensions?.height ?? 0);
         if (!cropRegion) {
             return null;
         }
 
         const buffer = await image
+            .rotate()
             .extract(cropRegion)
             .resize(INPUT_SIZE, INPUT_SIZE, { fit: 'fill' })
             .removeAlpha()

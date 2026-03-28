@@ -4,6 +4,13 @@ import { dirname, join } from 'node:path';
 import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import { resolveOnnxModelPath } from '../modelPaths';
+import {
+    createModelToImageTransform,
+    getOrientedDimensions,
+    mapBoxFromModelToImage,
+    mapPointFromModelToImage,
+    type ModelToImageTransform,
+} from './faceImageGeometry';
 
 const MODEL_FILENAME = 'det_10g.onnx';
 const INPUT_WIDTH = 640;
@@ -37,12 +44,24 @@ export class RetinaFaceDetector {
 
         const image = sharp(imagePath);
         const metadata = await image.metadata();
-        if (!metadata.width || !metadata.height) {
+        const orientedDimensions = getOrientedDimensions(metadata);
+        if (!orientedDimensions) {
             return [];
         }
 
+        const transform = createModelToImageTransform({
+            imageWidth: orientedDimensions.width,
+            imageHeight: orientedDimensions.height,
+            modelWidth: INPUT_WIDTH,
+            modelHeight: INPUT_HEIGHT,
+        });
+
         const buffer = await image
-            .resize(INPUT_WIDTH, INPUT_HEIGHT, { fit: 'fill' })
+            .rotate()
+            .resize(INPUT_WIDTH, INPUT_HEIGHT, {
+                fit: 'contain',
+                background: { r: 0, g: 0, b: 0, alpha: 1 },
+            })
             .removeAlpha()
             .raw()
             .toBuffer();
@@ -56,7 +75,7 @@ export class RetinaFaceDetector {
 
         const tensor = new ort.Tensor('float32', float32Data, [1, 3, INPUT_HEIGHT, INPUT_WIDTH]);
         const results = await this.session!.run({ 'input.1': tensor });
-        return this.postProcess(results);
+        return this.postProcess(results, transform);
     }
 
     private async init(): Promise<void> {
@@ -101,7 +120,7 @@ export class RetinaFaceDetector {
         return anchors;
     }
 
-    private postProcess(results: Record<string, ort.Tensor>): FaceDetectionCandidate[] {
+    private postProcess(results: Record<string, ort.Tensor>, transform: ModelToImageTransform): FaceDetectionCandidate[] {
         try {
             const scores = Float32Array.from([
                 ...(results['448'].data as Float32Array),
@@ -118,7 +137,7 @@ export class RetinaFaceDetector {
                 ...(results['477'].data as Float32Array),
                 ...(results['500'].data as Float32Array),
             ]);
-            return this.nonMaxSuppress(this.buildCandidates(scores, boxes, landmarks));
+            return this.nonMaxSuppress(this.buildCandidates(scores, boxes, landmarks, transform));
         } catch {
             return [];
         }
@@ -128,6 +147,7 @@ export class RetinaFaceDetector {
         scores: Float32Array,
         boxes: Float32Array,
         landmarks: Float32Array,
+        transform: ModelToImageTransform,
     ): FaceDetectionCandidate[] {
         const candidates: FaceDetectionCandidate[] = [];
         for (let index = 0; index < this.anchors.length; index += 1) {
@@ -150,17 +170,22 @@ export class RetinaFaceDetector {
             for (let landmarkIndex = 0; landmarkIndex < 5; landmarkIndex += 1) {
                 const x = anchor[0] + landmarks[index * 10 + landmarkIndex * 2] * VARIANCE[0] * anchor[2];
                 const y = anchor[1] + landmarks[index * 10 + landmarkIndex * 2 + 1] * VARIANCE[0] * anchor[3];
-                faceLandmarks.push({ x: clampUnit(x), y: clampUnit(y) });
+                faceLandmarks.push(mapPointFromModelToImage({ x: clampUnit(x), y: clampUnit(y) }, transform));
             }
 
-            candidates.push({
-                score,
-                box: [
+            const mappedBox = mapBoxFromModelToImage(
+                [
                     clampUnit(cx - width / 2),
                     clampUnit(cy - height / 2),
                     clampUnit(cx + width / 2),
                     clampUnit(cy + height / 2),
                 ],
+                transform,
+            );
+
+            candidates.push({
+                score,
+                box: mappedBox,
                 landmarks: faceLandmarks,
             });
         }
