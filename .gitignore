@@ -41,6 +41,7 @@ coverage/
 vite.config.ts.timestamp-*.mjs
 .local/
 .playwright-cli/
+.superpowers/
 *.tsbuildinfo
 
 # AI model weights (large binaries — re-downloaded on first run or via postinstall)
