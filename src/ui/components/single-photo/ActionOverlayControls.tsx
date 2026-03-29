@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
 import { getNextZoomScale } from './zoomMath';
+import { NavButtons } from './ActionOverlayNavButtons';
 import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
 
 export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
@@ -13,6 +14,7 @@ interface ControlsOverlayProps {
     setShowActionMenu: (show: boolean) => void;
     showFaces: boolean;
     setShowFaces: (show: boolean) => void;
+    isImageTransitionPending: boolean;
     scale: number;
     setScale: (s: number) => void;
     setPan: (pan: { x: number, y: number }) => void;
@@ -378,13 +380,6 @@ const TopBar: React.FC<{
     </div>
 );
 
-const NavButtons: React.FC<{ currentIndex: number; assetsLength: number; onPrevious: () => void; onNext: () => void; controlsVisible: boolean }> = ({ currentIndex, assetsLength, onPrevious, onNext, controlsVisible }) => (
-    <>
-        <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', zIndex: 1001, opacity: controlsVisible ? (currentIndex > 0 ? 0.8 : 0.15) : 0, cursor: currentIndex > 0 ? 'pointer' : 'default', padding: '12px', pointerEvents: controlsVisible ? 'auto' : 'none', transition: 'opacity 0.35s ease' }} onClick={(e) => { e.stopPropagation(); onPrevious(); }}><div style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 18 }}>◀</div></div>
-        <div style={{ position: 'absolute', top: '50%', right: '12px', transform: 'translateY(-50%)', zIndex: 1001, opacity: controlsVisible ? (currentIndex < assetsLength - 1 ? 0.8 : 0.15) : 0, cursor: currentIndex < assetsLength - 1 ? 'pointer' : 'default', padding: '12px', pointerEvents: controlsVisible ? 'auto' : 'none', transition: 'opacity 0.35s ease' }} onClick={(e) => { e.stopPropagation(); onNext(); }}><div style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 18 }}>▶</div></div>
-    </>
-);
-
 const ZoomBar: React.FC<{ scale: number; setScale: (s: number) => void; setPan: (pan: { x: number; y: number }) => void; resetPanZoom: () => void; showFaces: boolean; setShowFaces: (show: boolean) => void; showInfoPanel: boolean; setShowInfoPanel: (show: boolean) => void; controlsVisible: boolean }> = ({ scale, setScale, setPan, resetPanZoom, showFaces, setShowFaces, showInfoPanel, setShowInfoPanel, controlsVisible }) => (
     <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '8px', background: 'rgba(15,15,25,0.85)', padding: '6px 14px', borderRadius: '30px', zIndex: 1001, backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', alignItems: 'center', ...getOverlayVisibilityStyle(controlsVisible) }} onClick={(e) => e.stopPropagation()}>
         <button onClick={() => { const nextScale = getNextZoomScale(scale, -1); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} style={zoomBtnStyle} title="Zoom out">−</button>
@@ -407,6 +402,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     setShowActionMenu,
     showFaces,
     setShowFaces,
+    isImageTransitionPending,
     scale,
     setScale,
     setPan,
@@ -448,7 +444,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             onExplodeGroup={onExplodeGroup}
             controlsVisible={controlsVisible}
         />
-        <NavButtons currentIndex={currentIndex} assetsLength={assetsLength} onPrevious={onPrevious} onNext={onNext} controlsVisible={controlsVisible} />
+        <NavButtons currentIndex={currentIndex} assetsLength={assetsLength} onPrevious={onPrevious} onNext={onNext} controlsVisible={controlsVisible} showInfoPanel={showInfoPanel} isImageTransitionPending={isImageTransitionPending} />
         <ZoomBar
             scale={scale}
             setScale={setScale}

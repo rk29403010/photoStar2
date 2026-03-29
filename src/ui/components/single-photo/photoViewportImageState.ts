@@ -2,6 +2,14 @@ import type { Asset } from '@contracts/core';
 
 type NullableAsset = Asset | null;
 
+export type ViewportImageTransitionState = {
+    activeAsset: NullableAsset;
+    activeImageSrc: string | null;
+    pendingAsset: NullableAsset;
+    pendingImageSrc: string | null;
+    isActiveImageReady: boolean;
+};
+
 export function resolveViewportStageAsset(params: {
     committedAsset: NullableAsset;
     requestedAsset: Asset;
@@ -24,18 +32,99 @@ export function shouldShowViewportFaceOverlays(params: {
     alwaysShowForPanel: boolean;
     committedAssetId: string | null;
     requestedAssetId: string | null;
-    isRequestedImageReady: boolean;
+    isDisplayedImageReady: boolean;
 }): boolean {
-    const { showFaces, alwaysShowForPanel, committedAssetId, requestedAssetId, isRequestedImageReady } = params;
+    const { showFaces, alwaysShowForPanel, committedAssetId, requestedAssetId, isDisplayedImageReady } = params;
     if (!showFaces && !alwaysShowForPanel) {
         return false;
     }
 
-    if (!isRequestedImageReady || !committedAssetId || !requestedAssetId) {
+    if (!isDisplayedImageReady || !committedAssetId || !requestedAssetId) {
         return false;
     }
 
     return committedAssetId === requestedAssetId;
+}
+
+export function isViewportImageTransitionPending(params: {
+    committedAssetId: string | null;
+    requestedAssetId: string | null;
+    isDisplayedImageReady: boolean;
+}): boolean {
+    const { committedAssetId, requestedAssetId, isDisplayedImageReady } = params;
+    if (!committedAssetId || !requestedAssetId) {
+        return !isDisplayedImageReady;
+    }
+
+    return committedAssetId !== requestedAssetId || !isDisplayedImageReady;
+}
+
+export function getNextNavButtonRightOffset(params: {
+    showInfoPanel: boolean;
+    infoPanelWidth: number;
+    edgeOffset?: number;
+}): number {
+    const { showInfoPanel, infoPanelWidth, edgeOffset = 12 } = params;
+    if (!showInfoPanel) {
+        return edgeOffset;
+    }
+
+    return infoPanelWidth + edgeOffset;
+}
+
+export function fitViewportStageDimensions(params: {
+    viewportWidth: number;
+    viewportHeight: number;
+    assetWidth: number;
+    assetHeight: number;
+}): { width: number; height: number } {
+    const { viewportWidth, viewportHeight, assetWidth, assetHeight } = params;
+    if (viewportWidth <= 0 || viewportHeight <= 0 || assetWidth <= 0 || assetHeight <= 0) {
+        return { width: 0, height: 0 };
+    }
+
+    const scale = Math.min(viewportWidth / assetWidth, viewportHeight / assetHeight);
+    return {
+        width: Math.round(assetWidth * scale),
+        height: Math.round(assetHeight * scale),
+    };
+}
+
+export function commitViewportPendingImage(
+    state: ViewportImageTransitionState,
+): ViewportImageTransitionState {
+    const { pendingAsset, pendingImageSrc } = state;
+    if (!pendingAsset) {
+        return state;
+    }
+
+    return {
+        activeAsset: pendingAsset,
+        activeImageSrc: pendingImageSrc,
+        pendingAsset: null,
+        pendingImageSrc: null,
+        isActiveImageReady: false,
+    };
+}
+
+export function getViewportStageTransformTransition(params: {
+    isDragging: boolean;
+    isImageTransitionPending: boolean;
+}): 'none' | 'transform 0.15s ease-out' {
+    const { isDragging, isImageTransitionPending } = params;
+    if (isDragging || isImageTransitionPending) {
+        return 'none';
+    }
+
+    return 'transform 0.15s ease-out';
+}
+
+export function getViewportStageIdentity(params: {
+    assetId: string;
+    imageSrc: string | null;
+}): string {
+    const { assetId, imageSrc } = params;
+    return `${assetId}::${imageSrc ?? 'missing'}`;
 }
 
 export function resolveViewportImageSrc(asset: Asset): string | null {

@@ -1,7 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Asset } from '@contracts/core';
 import { resolveImageUrl } from '@boundary/runtime/backend';
-import { resolveViewportImageSrc, resolveViewportStageAsset, shouldShowViewportFaceOverlays } from './photoViewportImageState';
+import {
+    commitViewportPendingImage,
+    isViewportImageTransitionPending,
+    resolveViewportImageSrc,
+    resolveViewportStageAsset,
+    shouldShowViewportFaceOverlays,
+} from './photoViewportImageState';
+
+function useSyncedCurrent<T>(value: T) {
+    const ref = useRef(value);
+
+    useEffect(() => {
+        ref.current = value;
+    }, [value]);
+
+    return ref;
+}
 
 export function usePhotoViewportImageState(params: {
     asset: Asset;
@@ -11,68 +27,81 @@ export function usePhotoViewportImageState(params: {
     const { asset, showFaces, alwaysShowForPanel } = params;
     const requestedImagePath = resolveViewportImageSrc(asset);
     const requestedImageSrc = useMemo(() => resolveImageUrl(requestedImagePath), [requestedImagePath]);
-    const [committedAsset, setCommittedAsset] = useState<Asset | null>(asset);
-    const [committedImageSrc, setCommittedImageSrc] = useState<string | null>(requestedImageSrc);
-    const [isRequestedImageReady, setIsRequestedImageReady] = useState(false);
-    const requestedAssetRef = useRef(asset);
-
-    useEffect(() => {
-        requestedAssetRef.current = asset;
-    }, [asset]);
-
+    const [activeAsset, setActiveAsset] = useState<Asset | null>(asset);
+    const [activeImageSrc, setActiveImageSrc] = useState<string | null>(requestedImageSrc);
+    const [pendingAsset, setPendingAsset] = useState<Asset | null>(null);
+    const [pendingImageSrc, setPendingImageSrc] = useState<string | null>(null);
+    const [isActiveImageReady, setIsActiveImageReady] = useState(false);
+    const activeAssetRef = useSyncedCurrent<Asset | null>(activeAsset);
+    const activeImageSrcRef = useSyncedCurrent<string | null>(activeImageSrc);
+    const pendingAssetRef = useSyncedCurrent<Asset | null>(pendingAsset);
+    const pendingImageSrcRef = useSyncedCurrent<string | null>(pendingImageSrc);
     useEffect(() => {
         if (!requestedImageSrc) {
-            setCommittedAsset(requestedAssetRef.current);
-            setCommittedImageSrc(null);
-            setIsRequestedImageReady(true);
+            setActiveAsset(asset);
+            setActiveImageSrc(null);
+            setPendingAsset(null);
+            setPendingImageSrc(null);
+            setIsActiveImageReady(true);
             return;
         }
 
-        let isCancelled = false;
-        setIsRequestedImageReady(false);
-
-        const loader = new window.Image();
-        const commitRequestedAsset = () => {
-            if (isCancelled) {
-                return;
-            }
-
-            setCommittedAsset(requestedAssetRef.current);
-            setCommittedImageSrc(requestedImageSrc);
-            setIsRequestedImageReady(true);
-        };
-
-        loader.onload = commitRequestedAsset;
-        loader.onerror = commitRequestedAsset;
-        loader.src = requestedImageSrc;
-
-        if (loader.complete) {
-            commitRequestedAsset();
+        const isAlreadyActive = activeAsset?.id === asset.id && activeImageSrc === requestedImageSrc;
+        if (isAlreadyActive) {
+            setPendingAsset(null);
+            setPendingImageSrc(null);
+            return;
         }
 
-        return () => {
-            isCancelled = true;
-            loader.onload = null;
-            loader.onerror = null;
-        };
-    }, [asset.id, requestedImageSrc]);
-
+        setPendingAsset(asset);
+        setPendingImageSrc(requestedImageSrc);
+    }, [activeAsset, activeImageSrc, asset, requestedImageSrc]);
+    const isAlreadyActiveState = activeAsset?.id === asset.id && activeImageSrc === requestedImageSrc;
     const stageAsset = resolveViewportStageAsset({
-        committedAsset,
+        committedAsset: activeAsset,
         requestedAsset: asset,
-        isRequestedImageReady,
+        isRequestedImageReady: isAlreadyActiveState,
+    });
+    const isDisplayedImageReady = stageAsset.id === asset.id && pendingImageSrc === null && isActiveImageReady;
+    const isImageTransitionPending = isViewportImageTransitionPending({
+        committedAssetId: stageAsset.id,
+        requestedAssetId: asset.id,
+        isDisplayedImageReady,
     });
     const showFaceOverlays = shouldShowViewportFaceOverlays({
         showFaces,
         alwaysShowForPanel,
         committedAssetId: stageAsset.id,
         requestedAssetId: asset.id,
-        isRequestedImageReady,
+        isDisplayedImageReady,
     });
 
     return {
         stageAsset,
-        stageImageSrc: stageAsset.id === asset.id ? requestedImageSrc : committedImageSrc,
+        stageImageSrc: activeImageSrc,
+        pendingImageSrc,
+        isImageTransitionPending,
         showFaceOverlays,
+        commitPendingImage: () => {
+            const nextPendingAsset = pendingAssetRef.current;
+            const nextPendingImageSrc = pendingImageSrcRef.current;
+            if (!nextPendingAsset) {
+                return;
+            }
+
+            const nextState = commitViewportPendingImage({
+                activeAsset: activeAssetRef.current,
+                activeImageSrc: activeImageSrcRef.current,
+                pendingAsset: nextPendingAsset,
+                pendingImageSrc: nextPendingImageSrc,
+                isActiveImageReady,
+            });
+            setActiveAsset(nextState.activeAsset);
+            setActiveImageSrc(nextState.activeImageSrc);
+            setPendingAsset(nextState.pendingAsset);
+            setPendingImageSrc(nextState.pendingImageSrc);
+            setIsActiveImageReady(nextState.isActiveImageReady);
+        },
+        markActiveImageReady: () => setIsActiveImageReady(true),
     };
 }

@@ -2,90 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, FC, MouseEvent, RefObject, SetStateAction } from 'react';
 import type { Asset, SimilarityOrbit } from '@contracts/core';
 import { usePanZoom } from '../../hooks/usePanZoom';
-import { FaceOverlayMap } from './FaceOverlayMap';
 import { ActionOverlays } from './ActionOverlays';
 import { VariantFilmstripOverlay } from './PhotoViewportFilmstrip';
+import { ZoomableStage } from './PhotoViewportStage';
 import { applyActiveGroupContext } from './singlePhotoAssetModel';
 import { useKeyboardNavigation, useViewportGroupActions } from './photoViewportInteractions';
 import { usePhotoViewportImageState } from './usePhotoViewportImageState';
+import { useViewportStageDimensions } from './useViewportStageDimensions';
 export interface PanelState { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json') => void }
 export interface AnalysisState { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
 interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; onOrbitLoaded: (assets: Asset[]) => void; onSelectAsset: (assetId: string) => void; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
-
-const ZoomableStage: FC<{
-    asset: Asset;
-    imgSrc: string | null;
-    pan: { x: number; y: number };
-    scale: number;
-    isDragging: boolean;
-    showControls: boolean;
-    setShowControls: Dispatch<SetStateAction<boolean>>;
-    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
-    handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
-    showFaces: boolean;
-    alwaysShowForPanel: boolean;
-    overlaysReady: boolean;
-    hoveredFaceKey: string | null;
-    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
-}> = ({
-    asset,
-    imgSrc,
-    pan,
-    scale,
-    isDragging,
-    showControls,
-    setShowControls,
-    setShowActionMenu,
-    handleMouseDown,
-    showFaces,
-    alwaysShowForPanel,
-    overlaysReady,
-    hoveredFaceKey,
-    setHoveredFaceKey,
-    onFaceClick,
-    onIsolateFace
-}) => {
-    if (!imgSrc) {return <div style={{ color: '#9ca3af' }}>Image not found</div>;}
-
-    return (
-        <div
-            onMouseDown={handleMouseDown}
-            onClick={(e) => {
-                e.stopPropagation();
-                setShowControls(!showControls);
-                setShowActionMenu(false);
-            }}
-            style={{
-                position: 'relative',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                maxWidth: '100%',
-                maxHeight: '100%',
-                aspectRatio: (asset?.width && asset?.height) ? `${asset.width} / ${asset.height}` : 'auto',
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                transition: isDragging ? 'none' : 'transform 0.15s ease-out',
-                cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
-                willChange: 'transform'
-            }}
-        >
-            <img src={imgSrc} alt="Original" style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} draggable={false} />
-            {overlaysReady ? (
-                <FaceOverlayMap
-                    asset={asset}
-                    showFaces={showFaces}
-                    alwaysShowForPanel={alwaysShowForPanel}
-                    hoveredFaceKey={hoveredFaceKey}
-                    onHoverFaceKey={setHoveredFaceKey}
-                    onFaceClick={onFaceClick}
-                    onIsolateFace={onIsolateFace}
-                />
-            ) : null}
-        </div>
-    );
-};
 
 const ViewportActions: FC<{
     asset: Asset;
@@ -97,6 +23,7 @@ const ViewportActions: FC<{
     showFaces: boolean;
     setShowFaces: Dispatch<SetStateAction<boolean>>;
     panelState: PanelState;
+    isImageTransitionPending: boolean;
     scale: number;
     setScale: Dispatch<SetStateAction<number>>;
     setPan: Dispatch<SetStateAction<{ x: number; y: number }>>;
@@ -119,6 +46,7 @@ const ViewportActions: FC<{
     showFaces,
     setShowFaces,
     panelState,
+    isImageTransitionPending,
     scale,
     setScale,
     setPan,
@@ -141,6 +69,7 @@ const ViewportActions: FC<{
         setShowActionMenu={setShowActionMenu}
         showFaces={showFaces}
         setShowFaces={setShowFaces}
+        isImageTransitionPending={isImageTransitionPending}
         showInfoPanel={panelState.showInfoPanel}
         setShowInfoPanel={panelState.setShowInfoPanel}
         scale={scale}
@@ -173,12 +102,15 @@ type PhotoViewportFrameProps = {
     asset: Asset;
     actionAsset: Asset;
     imgSrc: string | null;
+    pendingImageSrc: string | null;
+    stageSize: { width: number; height: number } | null;
     pan: { x: number; y: number };
     scale: number;
     isDragging: boolean;
     handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
     showFaces: boolean;
     showFaceOverlays: boolean;
+    isImageTransitionPending: boolean;
     panelState: PanelState;
     hoveredFaceKey: string | null;
     setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
@@ -204,29 +136,36 @@ type PhotoViewportFrameProps = {
     onSelectAsset: (assetId: string) => void;
     onActiveGroupChange: (groupId: string) => void;
     onRevealControls: () => void;
+    onActiveImageLoad: () => void;
+    onPendingImageLoad: () => void;
 };
 
 const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' } as const;
 
-const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'asset' | 'imgSrc' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls'>> = ({
+const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'asset' | 'imgSrc' | 'pendingImageSrc' | 'stageSize' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'isImageTransitionPending' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls' | 'onActiveImageLoad' | 'onPendingImageLoad'>> = ({
     containerRef,
     showControls,
     setShowControls,
     setShowActionMenu,
     asset,
     imgSrc,
+    pendingImageSrc,
+    stageSize,
     pan,
     scale,
     isDragging,
     handleMouseDown,
     showFaces,
     showFaceOverlays,
+    isImageTransitionPending,
     panelState,
     hoveredFaceKey,
     setHoveredFaceKey,
     onFaceClick,
     onIsolateFace,
     onRevealControls,
+    onActiveImageLoad,
+    onPendingImageLoad,
 }) => {
     const alwaysShowForPanel = panelState.showInfoPanel && panelState.activeInfoTab === 'people';
 
@@ -243,6 +182,8 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
             <ZoomableStage
                 asset={asset}
                 imgSrc={imgSrc}
+                pendingImageSrc={pendingImageSrc}
+                stageSize={stageSize}
                 pan={pan}
                 scale={scale}
                 isDragging={isDragging}
@@ -253,16 +194,19 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
                 showFaces={showFaces}
                 alwaysShowForPanel={alwaysShowForPanel}
                 overlaysReady={showFaceOverlays}
+                isImageTransitionPending={isImageTransitionPending}
                 hoveredFaceKey={hoveredFaceKey}
                 setHoveredFaceKey={setHoveredFaceKey}
                 onFaceClick={onFaceClick}
                 onIsolateFace={onIsolateFace}
+                onActiveImageLoad={onActiveImageLoad}
+                onPendingImageLoad={onPendingImageLoad}
             />
         </div>
     );
 };
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
     asset,
     actionAsset,
     assetsLength,
@@ -273,6 +217,7 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
     showFaces,
     setShowFaces,
     panelState,
+    isImageTransitionPending,
     scale,
     setScale,
     setPan,
@@ -301,6 +246,7 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
             showFaces={showFaces}
             setShowFaces={setShowFaces}
             panelState={panelState}
+            isImageTransitionPending={isImageTransitionPending}
             scale={scale}
             setScale={setScale}
             setPan={setPan}
@@ -335,18 +281,23 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 setShowActionMenu={props.setShowActionMenu}
                 asset={props.asset}
                 imgSrc={props.imgSrc}
+                pendingImageSrc={props.pendingImageSrc}
+                stageSize={props.stageSize}
                 pan={props.pan}
                 scale={props.scale}
                 isDragging={props.isDragging}
                 handleMouseDown={props.handleMouseDown}
                 showFaces={props.showFaces}
                 showFaceOverlays={props.showFaceOverlays}
+                isImageTransitionPending={props.isImageTransitionPending}
                 panelState={props.panelState}
                 hoveredFaceKey={props.hoveredFaceKey}
                 setHoveredFaceKey={props.setHoveredFaceKey}
                 onFaceClick={props.onFaceClick}
                 onIsolateFace={props.onIsolateFace}
                 onRevealControls={props.onRevealControls}
+                onActiveImageLoad={props.onActiveImageLoad}
+                onPendingImageLoad={props.onPendingImageLoad}
             />
             <ViewportDecorations
                 asset={props.asset}
@@ -359,6 +310,7 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 showFaces={props.showFaces}
                 setShowFaces={props.setShowFaces}
                 panelState={props.panelState}
+                isImageTransitionPending={props.isImageTransitionPending}
                 scale={props.scale}
                 setScale={props.setScale}
                 setPan={props.setPan}
@@ -390,12 +342,17 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const {
         stageAsset,
         stageImageSrc,
+        pendingImageSrc,
+        isImageTransitionPending,
         showFaceOverlays,
+        commitPendingImage,
+        markActiveImageReady,
     } = usePhotoViewportImageState({
         asset: props.asset,
         showFaces: props.showFaces,
         alwaysShowForPanel,
     });
+    const stageSize = useViewportStageDimensions(containerRef, stageAsset);
 
     useEffect(() => {
         setActiveGroupId(props.asset.group_id ?? null);
@@ -418,12 +375,15 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             setShowActionMenu={props.setShowActionMenu}
             asset={stageAsset}
             imgSrc={stageImageSrc}
+            pendingImageSrc={pendingImageSrc}
+            stageSize={stageSize}
             pan={pan}
             scale={scale}
             isDragging={isDragging}
             handleMouseDown={handleMouseDown}
             showFaces={props.showFaces}
             showFaceOverlays={showFaceOverlays}
+            isImageTransitionPending={isImageTransitionPending}
             panelState={props.panelState}
             hoveredFaceKey={props.hoveredFaceKey}
             setHoveredFaceKey={props.setHoveredFaceKey}
@@ -448,6 +408,8 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             onOrbitLoaded={props.onOrbitLoaded}
             onSelectAsset={props.onSelectAsset}
             onRevealControls={props.onRevealControls}
+            onActiveImageLoad={markActiveImageReady}
+            onPendingImageLoad={commitPendingImage}
             actionAsset={actionAsset}
             onActiveGroupChange={setActiveGroupId}
         />
