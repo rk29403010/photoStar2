@@ -1,6 +1,6 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
-import { getNextZoomScale } from './zoomMath';
+import { TopBar, ZoomBar } from './ActionOverlayChrome';
 import { NavButtons } from './ActionOverlayNavButtons';
 import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
 
@@ -100,13 +100,6 @@ const actionButtonStyle: React.CSSProperties = {
     backdropFilter: 'blur(4px)',
     transition: 'background 0.2s'
 };
-
-const zoomBtnStyle: React.CSSProperties = {
-    background: 'none', border: 'none', color: 'white', cursor: 'pointer',
-    fontSize: 16, width: 28, display: 'flex', alignItems: 'center', justifyContent: 'center'
-};
-
-const dividerStyle: React.CSSProperties = { width: 1, height: 18, background: 'rgba(255,255,255,0.12)' };
 
 function getOverlayVisibilityStyle(controlsVisible: boolean): React.CSSProperties {
     return {
@@ -335,65 +328,6 @@ const ActionMenu: React.FC<ActionMenuProps> = (props) => {
     );
 };
 
-const TopBar: React.FC<{
-    asset: Asset;
-    assetsLength: number;
-    currentIndex: number;
-    showActionMenu: boolean;
-    setShowActionMenu: (show: boolean) => void;
-    analysisState: AnalysisUiState;
-    analyzingAssetId: string | null;
-    onClose: () => void;
-    setAnalysisState: (state: AnalysisUiState) => void;
-    setAnalysisError: (err: string | null) => void;
-    setAnalyzingAssetId: (id: string | null) => void;
-    setAnalyzingJobId: (id: string | null) => void;
-    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    controlsVisible: boolean;
-}> = ({ asset, assetsLength, currentIndex, showActionMenu, setShowActionMenu, analysisState, analyzingAssetId, onClose, setAnalysisState, setAnalysisError, setAnalyzingAssetId, setAnalyzingJobId, onExtractAiMetadata, onSetSensitivity, onSetCanonical, onExplodeGroup, controlsVisible }) => (
-    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)', color: 'white', zIndex: 1001, ...getOverlayVisibilityStyle(controlsVisible) }} onClick={(e) => { e.stopPropagation(); closeActionMenu(setShowActionMenu); }}>
-        <div style={{ fontSize: '13px', opacity: 0.6, display: 'flex', alignItems: 'center' }}>{currentIndex + 1} / {assetsLength}</div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <AnalysisStatus analysisState={analysisState} analyzingAssetId={analyzingAssetId} asset={asset} />
-            <div style={{ position: 'relative' }}>
-                <button onClick={(e) => { e.stopPropagation(); setShowActionMenu(!showActionMenu); }} style={actionButtonStyle} onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }} onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}>Actions ▾</button>
-                <ActionMenu
-                    show={showActionMenu}
-                    asset={asset}
-                    analysisState={analysisState}
-                    setAnalysisState={setAnalysisState}
-                    setAnalysisError={setAnalysisError}
-                    setAnalyzingAssetId={setAnalyzingAssetId}
-                    setAnalyzingJobId={setAnalyzingJobId}
-                    onExtractAiMetadata={onExtractAiMetadata}
-                    onSetSensitivity={onSetSensitivity}
-                    onSetCanonical={onSetCanonical}
-                    onExplodeGroup={onExplodeGroup}
-                    setShowActionMenu={setShowActionMenu}
-                />
-            </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', fontSize: '22px', cursor: 'pointer', opacity: 0.7, lineHeight: 1, padding: '2px 4px' }}>✕</button>
-        </div>
-    </div>
-);
-
-const ZoomBar: React.FC<{ scale: number; setScale: (s: number) => void; setPan: (pan: { x: number; y: number }) => void; resetPanZoom: () => void; showFaces: boolean; setShowFaces: (show: boolean) => void; showInfoPanel: boolean; setShowInfoPanel: (show: boolean) => void; controlsVisible: boolean }> = ({ scale, setScale, setPan, resetPanZoom, showFaces, setShowFaces, showInfoPanel, setShowInfoPanel, controlsVisible }) => (
-    <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '8px', background: 'rgba(15,15,25,0.85)', padding: '6px 14px', borderRadius: '30px', zIndex: 1001, backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', alignItems: 'center', ...getOverlayVisibilityStyle(controlsVisible) }} onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => { const nextScale = getNextZoomScale(scale, -1); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} style={zoomBtnStyle} title="Zoom out">−</button>
-        <div style={{ color: '#94a3b8', fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(scale * 100)}%</div>
-        <button onClick={() => setScale(getNextZoomScale(scale, 1))} style={zoomBtnStyle} title="Zoom in">+</button>
-        <div style={dividerStyle} />
-        <button onClick={resetPanZoom} style={{ ...zoomBtnStyle, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }} title="Reset zoom"><span style={{ fontSize: 14 }}>⟲</span> Reset</button>
-        <div style={dividerStyle} />
-        <button onClick={() => setShowFaces(!showFaces)} title={showFaces ? 'Hide faces' : 'Show faces'} style={{ ...zoomBtnStyle, background: showFaces ? 'rgba(0,255,255,0.15)' : 'none', border: `1px solid ${showFaces ? 'rgba(0,255,255,0.5)' : 'transparent'}`, borderRadius: 6, color: showFaces ? 'cyan' : 'white', width: 30, height: 30, transition: 'all 0.2s' }}><span style={{ fontSize: 15 }}>👤</span></button>
-        <div style={dividerStyle} />
-        <button onClick={() => setShowInfoPanel(!showInfoPanel)} title={showInfoPanel ? 'Hide info panel (I)' : 'Show info panel (I)'} style={{ ...zoomBtnStyle, background: showInfoPanel ? 'rgba(99,102,241,0.25)' : 'none', border: `1px solid ${showInfoPanel ? 'rgba(99,102,241,0.6)' : 'transparent'}`, borderRadius: 6, color: showInfoPanel ? '#a5b4fc' : 'white', width: 30, height: 30, transition: 'all 0.2s' }}><span style={{ fontSize: 15 }}>ℹ</span></button>
-    </div>
-);
-
 export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     asset,
     assetsLength,
@@ -426,23 +360,35 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
 }) => (
     <>
         <TopBar
-            asset={asset}
             assetsLength={assetsLength}
             currentIndex={currentIndex}
             showActionMenu={showActionMenu}
             setShowActionMenu={setShowActionMenu}
-            analysisState={analysisState}
-            analyzingAssetId={analyzingAssetId}
+            asset={asset}
+            analysisStatus={<AnalysisStatus analysisState={analysisState} analyzingAssetId={analyzingAssetId} asset={asset} />}
+            actionMenu={(
+                <div style={{ position: 'relative' }}>
+                    <button onClick={(event) => { event.stopPropagation(); setShowActionMenu(!showActionMenu); }} style={actionButtonStyle} onMouseOver={(event) => { event.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }} onMouseOut={(event) => { event.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}>Actions ▾</button>
+                    <ActionMenu
+                        show={showActionMenu}
+                        asset={asset}
+                        analysisState={analysisState}
+                        setAnalysisState={setAnalysisState}
+                        setAnalysisError={setAnalysisError}
+                        setAnalyzingAssetId={setAnalyzingAssetId}
+                        setAnalyzingJobId={setAnalyzingJobId}
+                        onExtractAiMetadata={onExtractAiMetadata}
+                        onSetSensitivity={onSetSensitivity}
+                        onSetCanonical={onSetCanonical}
+                        onExplodeGroup={onExplodeGroup}
+                        setShowActionMenu={setShowActionMenu}
+                    />
+                </div>
+            )}
             onClose={onClose}
-            setAnalysisState={setAnalysisState}
-            setAnalysisError={setAnalysisError}
-            setAnalyzingAssetId={setAnalyzingAssetId}
-            setAnalyzingJobId={setAnalyzingJobId}
-            onExtractAiMetadata={onExtractAiMetadata}
-            onSetSensitivity={onSetSensitivity}
-            onSetCanonical={onSetCanonical}
-            onExplodeGroup={onExplodeGroup}
             controlsVisible={controlsVisible}
+            showInfoPanel={showInfoPanel}
+            getOverlayVisibilityStyle={getOverlayVisibilityStyle}
         />
         <NavButtons currentIndex={currentIndex} assetsLength={assetsLength} onPrevious={onPrevious} onNext={onNext} controlsVisible={controlsVisible} showInfoPanel={showInfoPanel} isImageTransitionPending={isImageTransitionPending} />
         <ZoomBar
@@ -455,6 +401,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             showInfoPanel={showInfoPanel}
             setShowInfoPanel={setShowInfoPanel}
             controlsVisible={controlsVisible}
+            getOverlayVisibilityStyle={getOverlayVisibilityStyle}
         />
     </>
 );

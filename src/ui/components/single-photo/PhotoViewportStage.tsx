@@ -2,6 +2,7 @@ import type { Dispatch, FC, MouseEvent, SetStateAction } from 'react';
 import type { Asset } from '@contracts/core';
 import { FaceOverlayMap } from './FaceOverlayMap';
 import { getViewportStageIdentity, getViewportStageTransformTransition } from './photoViewportImageState';
+import { getLoadingBadgeStyle } from './singlePhotoOverlayLayout';
 
 function getStageCursor(params: {
     isImageTransitionPending: boolean;
@@ -19,21 +20,6 @@ function getStageCursor(params: {
 
     return 'zoom-in';
 }
-
-const loadingBadgeStyle = {
-    position: 'absolute',
-    left: '50%',
-    bottom: 28,
-    transform: 'translateX(-50%)',
-    padding: '8px 14px',
-    borderRadius: 999,
-    background: 'rgba(8, 12, 24, 0.82)',
-    border: '1px solid rgba(148, 163, 184, 0.28)',
-    color: '#e2e8f0',
-    fontSize: 12,
-    backdropFilter: 'blur(8px)',
-    zIndex: 11,
-} as const;
 
 const imageStyle = {
     width: '100%',
@@ -223,7 +209,7 @@ export const ZoomableStage: FC<{
                 onFaceClick={onFaceClick}
                 onIsolateFace={onIsolateFace}
             />
-            {isImageTransitionPending ? <div style={loadingBadgeStyle}>Loading photo...</div> : null}
+            {isImageTransitionPending ? <div style={getLoadingBadgeStyle()}>Loading photo...</div> : null}
         </div>
     );
 };
