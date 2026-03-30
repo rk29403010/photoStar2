@@ -133,4 +133,9 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['benchmark:quality'], 'node tooling/scripts/repo/benchmark-quality.js');
     assert.equal(scripts['dev:pause'], 'node tooling/scripts/repo/dev-session.js pause');
     assert.equal(scripts['dev:resume'], 'node tooling/scripts/repo/dev-session.js resume');
+    assert.equal(scripts['thread:list'], 'node tooling/scripts/repo/thread-state.js list');
+    assert.equal(scripts['thread:status'], 'node tooling/scripts/repo/thread-state.js status');
+    assert.equal(scripts['thread:register'], 'node tooling/scripts/repo/thread-state.js register');
+    assert.equal(scripts['thread:update'], 'node tooling/scripts/repo/thread-state.js update');
+    assert.equal(scripts['thread:close'], 'node tooling/scripts/repo/thread-state.js close');
 });

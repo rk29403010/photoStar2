@@ -41,6 +41,23 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - After committing, inspect `git status --short` again and report any remaining staged or unstaged files. If leftovers remain, say whether they are unrelated pre-existing changes or follow-up work from the current task.
 - A task is not "finished" if its relevant files were edited but not staged, staged but not committed, or left partially staged without explanation.
 
+## Parallel Thread Protocol
+
+- Treat each chat thread as one task capsule: one worktree, one branch, one goal.
+- Use the shared thread tracker for worktree bookkeeping instead of relying on stash names or memory. The tracker is shared across linked worktrees through Git's common directory.
+- When starting an independent task in its own worktree, register it early with `npm run thread:register -- --task "<task name>"`.
+- When a thread changes state, update it immediately with `npm run thread:update -- --status <active|blocked|ready-to-merge|parked>`.
+- When a thread is finished, explicitly close it with `npm run thread:close -- --status <merged|parked|discarded>`.
+- Before handing off, merging, or telling the user "what is active", inspect the tracker with `npm run thread:list` and confirm the current worktree with `npm run thread:status`.
+- Do not treat `git stash` as normal task storage. Stash is emergency-only parking. If work matters, commit it on the task branch or close the thread as `parked` with a WIP commit.
+- Do not leave a dirty worktree unregistered. If a worktree is active enough to edit, it is active enough to appear in the tracker.
+- If the user asks in plain English to finish a thread, interpret it as a state transition plus the required Git action:
+  - `finish this thread and merge it back` means get the worktree clean, merge it, then `thread:close -- --status merged`.
+  - `finish this thread, commit it, and keep the branch` means commit the work, leave the branch intact, then `thread:update -- --status ready-to-merge`.
+  - `make a WIP commit and park this thread` means create a WIP commit, stop any managed dev session owned by that worktree if appropriate, then `thread:close -- --status parked`.
+  - `discard this thread` means verify with the user before destructive cleanup, then `thread:close -- --status discarded`.
+- When a managed dev session is part of the thread context, include that note in tracker updates via `--note` so the next thread can see what was running.
+
 ## Fast loop defaults
 
 - Default to the fastest safe path for local edits, bugfixes, refactors, and small behavior changes.
