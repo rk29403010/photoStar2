@@ -53,6 +53,7 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Do not treat `git stash` as normal task storage. Stash is emergency-only parking. If work matters, commit it on the task branch or close the thread as `parked` with a WIP commit.
 - Do not leave a dirty worktree unregistered. If a worktree is active enough to edit, it is active enough to appear in the tracker.
 - If the user asks in plain English to finish a thread, interpret it as a state transition plus the required Git action:
+  - `ship it` means finish the thread cleanly, commit what belongs to it, merge it into `main`, push to GitHub, then `thread:close -- --status merged`.
   - `finish this thread and merge it back` means get the worktree clean, merge it, then `thread:close -- --status merged`.
   - `finish this thread, commit it, and keep the branch` means commit the work, leave the branch intact, then `thread:update -- --status ready-to-merge`.
   - `make a WIP commit and park this thread` means create a WIP commit, stop any managed dev session owned by that worktree if appropriate, then `thread:close -- --status parked`.
