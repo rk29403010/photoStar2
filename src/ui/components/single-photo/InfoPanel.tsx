@@ -12,6 +12,7 @@ interface InfoPanelProps {
   width?: number;
   activeTab?: TabId;
   onTabChange?: (tab: TabId) => void;
+  onClose?: () => void;
   hoveredFaceKey?: string | null;
   onHoverFaceKey?: (key: string | null) => void;
 }
@@ -23,12 +24,27 @@ const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
   { id: 'json', emoji: '{ }', label: 'Raw' },
 ];
 
-const PanelHeader: React.FC<{ asset: Asset; hasAI: boolean }> = ({ asset, hasAI }) => {
+const PanelHeader: React.FC<{ asset: Asset; hasAI: boolean; onClose?: () => void }> = ({ asset, hasAI, onClose }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
   return (
     <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid #1e293b', background: 'rgba(15,23,42,0.9)', flexShrink: 0 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 2, wordBreak: 'break-all' }}>📷 {filename}</div>
-      <div style={{ fontSize: 10, color: '#475569' }}>{asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ''}{hasAI ? '🧠 Analysed' : '⏳ Not yet analysed'}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 2, wordBreak: 'break-all' }}>📷 {filename}</div>
+          <div style={{ fontSize: 10, color: '#475569' }}>{asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ''}{hasAI ? '🧠 Analysed' : '⏳ Not yet analysed'}</div>
+        </div>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            title="Hide info panel"
+            aria-label="Hide info panel"
+            style={{ background: 'transparent', border: '1px solid rgba(148,163,184,0.22)', color: '#cbd5e1', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 };
@@ -56,7 +72,7 @@ const PanelContent: React.FC<{ activeTab: TabId; asset: Asset; hoveredFaceKey?: 
   </div>
 );
 
-export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, activeTab: controlledTab, onTabChange, hoveredFaceKey, onHoverFaceKey }) => {
+export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, activeTab: controlledTab, onTabChange, onClose, hoveredFaceKey, onHoverFaceKey }) => {
   const [internalTab, setInternalTab] = useState<TabId>('file');
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = useCallback((tab: TabId) => {
@@ -68,7 +84,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, active
 
   return (
     <div style={{ width, minWidth: width, maxWidth: width, height: '100%', background: 'linear-gradient(180deg, #0f172a 0%, #0a0f1e 100%)', borderLeft: '1px solid #1e293b', display: 'flex', flexDirection: 'column', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflow: 'hidden', flexShrink: 0 }}>
-      <PanelHeader asset={asset} hasAI={hasAI} />
+      <PanelHeader asset={asset} hasAI={hasAI} onClose={onClose} />
       <PanelTabs activeTab={activeTab} setActiveTab={setActiveTab} />
       <PanelContent activeTab={activeTab} asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />
     </div>

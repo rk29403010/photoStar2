@@ -3,8 +3,8 @@ import type { Asset, SimilarityOrbit } from '@contracts/core';
 import { InfoPanel } from './InfoPanel';
 import { PhotoViewport } from './PhotoViewport';
 import type { AnalysisState, PanelState } from './PhotoViewport';
+import { DEFAULT_INFO_PANEL_WIDTH } from './singlePhotoOverlayLayout';
 
-const INFO_PANEL_WIDTH = 360;
 const APP_STATUS_BAR_HEIGHT = 30;
 
 export interface SinglePhotoOverlayProps {
@@ -111,12 +111,13 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
         />
 
         {panelState.showInfoPanel && (
-            <div style={{ width: INFO_PANEL_WIDTH, height: '100%', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
+            <div style={{ width: DEFAULT_INFO_PANEL_WIDTH, height: '100%', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
                 <InfoPanel
                     asset={asset}
-                    width={INFO_PANEL_WIDTH}
+                    width={DEFAULT_INFO_PANEL_WIDTH}
                     activeTab={panelState.activeInfoTab}
                     onTabChange={panelState.setActiveInfoTab}
+                    onClose={() => panelState.setShowInfoPanel(false)}
                     hoveredFaceKey={hoveredFaceKey}
                     onHoverFaceKey={setHoveredFaceKey}
                 />

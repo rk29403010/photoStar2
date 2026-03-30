@@ -4,6 +4,7 @@ import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
 import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
 import { applyStarSelection, clearGroupMembership, dedupeSinglePhotoAssets, mergeSinglePhotoAssets, resolveSinglePhotoAssetIndex } from './single-photo/singlePhotoAssetModel';
+import { CONTROLS_IDLE_MS } from './single-photo/singlePhotoOverlayLayout';
 import { useSinglePhotoAssetLifecycle } from './single-photo/useSinglePhotoAssetLifecycle';
 import { usePhotoMetadataEvidenceLoader } from './single-photo/usePhotoMetadataEvidenceLoader';
 
@@ -54,7 +55,6 @@ type ControlsState = {
     onChangeIndex: (delta: -1 | 1) => void;
 };
 
-const CONTROLS_IDLE_MS = 2500;
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
     onShowInfoPanelChange,
