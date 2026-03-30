@@ -128,7 +128,7 @@ export function renderThreadList(registry) {
         .join('\n');
 }
 
-function resolveThreadRegistryPath(cwd = workspaceRoot) {
+export function resolveThreadRegistryPath(cwd = workspaceRoot) {
     const result = runCommandSync({
         command: gitExecutable,
         args: ['rev-parse', '--path-format=absolute', '--git-common-dir'],
@@ -143,7 +143,7 @@ function resolveThreadRegistryPath(cwd = workspaceRoot) {
     return path.join(result.stdout.trim(), 'codex-thread-state.json');
 }
 
-function readThreadRegistry(registryPath) {
+export function readThreadRegistry(registryPath) {
     if (!existsSync(registryPath)) {
         return createEmptyThreadRegistry();
     }
@@ -155,7 +155,7 @@ function readThreadRegistry(registryPath) {
     }
 }
 
-function writeThreadRegistry(registryPath, registry) {
+export function writeThreadRegistry(registryPath, registry) {
     mkdirSync(path.dirname(registryPath), { recursive: true });
     writeFileSync(registryPath, `${JSON.stringify(normalizeRegistry(registry), null, 2)}\n`);
 }
@@ -230,7 +230,7 @@ function runGitText(args, cwd) {
     return result.stdout.trim();
 }
 
-function collectThreadSnapshot(cwd = workspaceRoot) {
+export function collectThreadSnapshot(cwd = workspaceRoot) {
     const worktreePath = runGitText(['rev-parse', '--show-toplevel'], cwd);
     const branch = runGitText(['branch', '--show-current'], cwd);
     const lastCommit = runGitText(['rev-parse', '--short', 'HEAD'], cwd);

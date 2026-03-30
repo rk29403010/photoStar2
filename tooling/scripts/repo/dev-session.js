@@ -209,8 +209,6 @@ function resumeManagedSession(requestedScript) {
         ? requestedScript
         : getResumeScript(readSession());
 
-    updateSession({ lastScript: scriptToRun });
-
     const invocation = buildManagedSpawnInvocation({
         command: npmExecutable,
         args: ['run', scriptToRun],
@@ -219,6 +217,11 @@ function resumeManagedSession(requestedScript) {
     });
     const child = spawn(invocation.command, invocation.args, invocation.options);
 
+    updateSession({
+        lastScript: scriptToRun,
+        pid: child.pid,
+        startedAt: new Date().toISOString(),
+    });
     child.unref();
     console.log(`[dev-session] Resumed ${scriptToRun} in the background.`);
 }
