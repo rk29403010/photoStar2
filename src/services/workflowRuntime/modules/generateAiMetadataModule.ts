@@ -29,6 +29,7 @@ export interface GenerateAiMetadataModuleOptions {
     eventBus?: {
         emit: (event: DomainEvent) => void;
     };
+    liveMetadataTimeoutMs?: number;
     aiRuntime?: {
         generateLiveMetadata: (params: {
             dbManager: DatabaseManager;
@@ -39,6 +40,8 @@ export interface GenerateAiMetadataModuleOptions {
         }) => Promise<StoredAiMetadataResult | LiveMetadataEvidence>;
     };
 }
+
+const DEFAULT_LIVE_METADATA_TIMEOUT_MS = 120_000;
 
 function loadAssetRow(
     db: ReturnType<DatabaseManager['getDb']>,
@@ -120,6 +123,29 @@ async function generateMetadataResult(params: {
     });
 }
 
+async function withLiveMetadataTimeout<T>(
+    operation: Promise<T>,
+    timeoutMs: number,
+    assetId: string,
+): Promise<T> {
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+    try {
+        return await Promise.race([
+            operation,
+            new Promise<T>((_, reject) => {
+                timeoutHandle = setTimeout(() => {
+                    reject(new Error(`AI metadata timed out after ${timeoutMs}ms for asset '${assetId}'`));
+                }, timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timeoutHandle !== null) {
+            clearTimeout(timeoutHandle);
+        }
+    }
+}
+
 function isLiveMetadataResult(result: StoredAiMetadataResult | LiveMetadataEvidence): result is LiveMetadataEvidence {
     return 'metadataBlock' in result && 'metadataSourceKind' in result;
 }
@@ -153,6 +179,7 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
     const liveRuntime = options.aiRuntime ?? {
         generateLiveMetadata: generateLiveAiMetadata,
     };
+    const liveMetadataTimeoutMs = options.liveMetadataTimeoutMs ?? DEFAULT_LIVE_METADATA_TIMEOUT_MS;
 
     return {
         id: 'runtime.generate_ai_metadata',
@@ -179,16 +206,20 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
                 return { outputs: [] };
             }
 
-            const result = await generateMetadataResult({
-                aiMode,
-                assetId: context.subject.subjectId,
-                dbManager: options.dbManager,
-                eventBus: options.eventBus,
-                imageStrategy,
-                metadataPass,
-                liveRuntime,
-                row,
-            });
+            const result = await withLiveMetadataTimeout(
+                generateMetadataResult({
+                    aiMode,
+                    assetId: context.subject.subjectId,
+                    dbManager: options.dbManager,
+                    eventBus: options.eventBus,
+                    imageStrategy,
+                    metadataPass,
+                    liveRuntime,
+                    row,
+                }),
+                liveMetadataTimeoutMs,
+                context.subject.subjectId,
+            );
 
             persistMachineMetadataEvidence({
                 dbManager: options.dbManager,

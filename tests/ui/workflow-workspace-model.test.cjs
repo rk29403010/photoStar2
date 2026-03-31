@@ -7,6 +7,8 @@ test('workflow workspace exposes the approved tab order and overview as the defa
         WORKFLOW_WORKSPACE_TABS,
         getDefaultWorkflowWorkspaceTab,
         getWorkflowWorkspaceRefreshIntervalMs,
+        getWorkflowWorkspaceRetryFeedback,
+        getWorkflowWorkspaceRetryLabel,
         getWorkflowVisualiserRequestedRunId,
         getWorkflowWorkspaceRunSelectionValue,
         shouldFitSequenceMapViewport,
@@ -34,6 +36,29 @@ test('workflow workspace exposes the approved tab order and overview as the defa
     assert.equal(getWorkflowWorkspaceRefreshIntervalMs({ selectedRun: { status: 'completed' } }), null);
     assert.equal(getWorkflowWorkspaceRefreshIntervalMs({ selectedRun: { status: 'failed' } }), null);
     assert.equal(getWorkflowWorkspaceRefreshIntervalMs({ selectedRun: { status: 'running' } }), 1000);
+    assert.equal(getWorkflowWorkspaceRetryLabel(false), 'Resume Workflow');
+    assert.equal(getWorkflowWorkspaceRetryLabel(true), 'Starting resume...');
+    assert.equal(getWorkflowWorkspaceRetryFeedback({ loading: true }), 'Starting resume...');
+    assert.equal(
+        getWorkflowWorkspaceRetryFeedback({
+            loading: false,
+            assetCount: 12,
+            selectedRun: { status: 'running', completedItems: 3, totalItems: 12 },
+        }),
+        'Resume running · 3/12 items',
+    );
+    assert.equal(
+        getWorkflowWorkspaceRetryFeedback({ loading: false, assetCount: 12 }),
+        'Resume started for 12 items.',
+    );
+    assert.equal(
+        getWorkflowWorkspaceRetryFeedback({
+            loading: false,
+            assetCount: 0,
+            resumeRequestCompleted: true,
+        }),
+        'No remaining photos needed AI metadata.',
+    );
     assert.equal(shouldFitSequenceMapViewport(null), true);
     assert.equal(shouldFitSequenceMapViewport({ x: 10, y: 20, zoom: 0.9 }), false);
 });

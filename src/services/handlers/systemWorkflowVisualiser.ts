@@ -6,6 +6,7 @@ import type {
     WorkflowVisualiserDetail,
     WorkflowVisualiserGraphEdge,
     WorkflowVisualiserGraphNode,
+    WorkflowVisualiserLinkedRun,
     WorkflowVisualiserModel,
     WorkflowVisualiserProgressionStage,
     WorkflowVisualiserRunSummary,
@@ -20,6 +21,7 @@ type BuildWorkflowVisualiserParams = {
     workflowDefinition: WorkflowDefinition;
     runDetail: WorkflowRunDetail | null;
     availableRuns: WorkflowRunListItem[];
+    allRuns: WorkflowRunListItem[];
 };
 
 type DbLike = Parameters<typeof getWorkflowRunsSnapshot>[0];
@@ -346,7 +348,50 @@ function buildDetails(
     return [...stageDetails, ...nodeDetails];
 }
 
-function buildSelectedRun(runDetail: WorkflowRunDetail | null, availableRuns: WorkflowRunListItem[], workflowId: string): WorkflowVisualiserRunSummary | null {
+function toLinkedRun(run: WorkflowRunListItem, relationship: WorkflowVisualiserLinkedRun['relationship']): WorkflowVisualiserLinkedRun {
+    return {
+        runId: run.runId,
+        workflowId: run.workflowId,
+        displayName: run.displayName,
+        status: run.status,
+        createdAt: run.createdAt,
+        relationship,
+        totalItems: run.totalItems,
+        completedItems: run.completedItems,
+        failedItems: run.failedItems,
+    };
+}
+
+function buildLinkedRuns(runDetail: WorkflowRunDetail, allRuns: WorkflowRunListItem[]): WorkflowVisualiserLinkedRun[] {
+    const linkedRuns: WorkflowVisualiserLinkedRun[] = [];
+    const sourceFolderRunId = typeof runDetail.parameters.sourceFolderRunId === 'string'
+        ? runDetail.parameters.sourceFolderRunId
+        : null;
+
+    if (sourceFolderRunId) {
+        const sourceRun = allRuns.find((candidate) => candidate.runId === sourceFolderRunId);
+        if (sourceRun) {
+            linkedRuns.push(toLinkedRun(sourceRun, 'source'));
+        }
+    }
+
+    const recoveryRuns = allRuns.filter((candidate) => (
+        typeof candidate.parameters.sourceFolderRunId === 'string'
+        && candidate.parameters.sourceFolderRunId === runDetail.summary.runId
+    ));
+    for (const recoveryRun of recoveryRuns) {
+        linkedRuns.push(toLinkedRun(recoveryRun, 'recovery'));
+    }
+
+    return linkedRuns;
+}
+
+function buildSelectedRun(
+    runDetail: WorkflowRunDetail | null,
+    availableRuns: WorkflowRunListItem[],
+    allRuns: WorkflowRunListItem[],
+    workflowId: string,
+): WorkflowVisualiserRunSummary | null {
     if (!runDetail) {
         return null;
     }
@@ -360,6 +405,7 @@ function buildSelectedRun(runDetail: WorkflowRunDetail | null, availableRuns: Wo
         totalItems: runDetail.summary.totalItems,
         completedItems: runDetail.summary.completedItems,
         failedItems: runDetail.summary.failedItems,
+        linkedRuns: buildLinkedRuns(runDetail, allRuns),
     };
 }
 
@@ -371,7 +417,7 @@ export function buildWorkflowVisualiserModel(params: BuildWorkflowVisualiserPara
     return {
         workflowId: params.workflowDefinition.id,
         displayName,
-        selectedRun: buildSelectedRun(params.runDetail, params.availableRuns, params.workflowDefinition.id),
+        selectedRun: buildSelectedRun(params.runDetail, params.availableRuns, params.allRuns, params.workflowDefinition.id),
         availableRuns: params.availableRuns,
         tabs: {
             overview: {
@@ -421,7 +467,8 @@ export function getWorkflowVisualiserModel(params: {
     getRunDetail: (runId: string) => WorkflowRunDetail;
     requestedRunId?: string | null;
 }): WorkflowVisualiserModel {
-    const availableRuns = getWorkflowRunsSnapshot(params.db).filter((run) => run.workflowId === params.workflowDefinition.id);
+    const allRuns = getWorkflowRunsSnapshot(params.db);
+    const availableRuns = allRuns.filter((run) => run.workflowId === params.workflowDefinition.id);
     const selectedRunId = selectRunId({
         requestedRunId: params.requestedRunId,
         workflowId: params.workflowDefinition.id,
@@ -432,5 +479,6 @@ export function getWorkflowVisualiserModel(params: {
         workflowDefinition: params.workflowDefinition,
         runDetail: selectedRunId ? params.getRunDetail(selectedRunId) : null,
         availableRuns,
+        allRuns,
     });
 }

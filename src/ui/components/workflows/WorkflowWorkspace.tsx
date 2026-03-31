@@ -67,21 +67,33 @@ function useWorkflowRetryAction(params: {
     onRerunMissingFolderAiMetadata: WorkflowWorkspaceProps['onRerunMissingFolderAiMetadata'];
 }) {
     const [retryingMissingAiMetadata, setRetryingMissingAiMetadata] = useState(false);
+    const [resumeAssetCount, setResumeAssetCount] = useState<number | undefined>(undefined);
+    const [resumeRequestCompleted, setResumeRequestCompleted] = useState(false);
     const canRetryMissingAiMetadata = params.workflowId === 'folder_ingest_v1'
         && params.model?.selectedRun?.status === 'failed'
         && typeof params.model.selectedRun.parameters.folderPath === 'string';
 
     return {
+        resumeAssetCount,
+        resumeRequestCompleted,
         retryingMissingAiMetadata,
         canRetryMissingAiMetadata,
+        clearResumeAssetCount() {
+            setResumeAssetCount(undefined);
+            setResumeRequestCompleted(false);
+        },
         retryMissingAiMetadata() {
             if (!params.model?.selectedRun?.runId || retryingMissingAiMetadata) {
                 return;
             }
 
             setRetryingMissingAiMetadata(true);
+            setResumeAssetCount(undefined);
+            setResumeRequestCompleted(false);
             void params.onRerunMissingFolderAiMetadata(params.model.selectedRun.runId)
                 .then((result) => {
+                    setResumeAssetCount(result.assetCount);
+                    setResumeRequestCompleted(true);
                     if (result.runId) {
                         params.setSelectedRunSelection(result.runId);
                         params.setSelectedDetailId(null);
@@ -191,6 +203,72 @@ function WorkflowWorkspaceContent(params: {
     return <WorkflowTextTab sections={params.model.tabs.text.sections} />;
 }
 
+function renderWorkflowWorkspaceReadyState(params: {
+    model: WorkflowVisualiserModel;
+    activeTab: WorkflowWorkspaceTabId;
+    selectedRunSelection: string | null;
+    selectedDetailId: string | null;
+    sequenceViewport: WorkflowSequenceMapViewport | null;
+    setPersistedTab: (tabId: WorkflowWorkspaceTabId) => void;
+    setPersistedViewport: (viewport: WorkflowSequenceMapViewport) => void;
+    setSelectedDetailId: (detailId: string | null) => void;
+    setSelectedRunSelection: (runSelection: string | null) => void;
+    retryAction: ReturnType<typeof useWorkflowRetryAction>;
+}) {
+    const supportsInspector = tabSupportsInspector(params.activeTab);
+    const selectedDetail = getWorkflowDetail(params.model, params.selectedDetailId);
+
+    return (
+        <div className="mx-auto flex h-full w-full flex-col gap-5 overflow-y-auto bg-[#0a0a0a] p-6">
+            <WorkflowWorkspaceHeader
+                model={params.model}
+                activeTab={params.activeTab}
+                onSelectTab={(nextTab) => {
+                    params.setPersistedTab(nextTab);
+                    if (!tabSupportsInspector(nextTab)) {
+                        params.setSelectedDetailId(null);
+                    }
+                }}
+                selectedRunValue={getWorkflowWorkspaceRunSelectionValue(params.selectedRunSelection, params.model.selectedRun?.runId ?? null)}
+                onSelectRun={(runSelection) => {
+                    params.setSelectedRunSelection(runSelection);
+                    params.setSelectedDetailId(null);
+                    if (!params.retryAction.retryingMissingAiMetadata) {
+                        params.retryAction.clearResumeAssetCount();
+                    }
+                }}
+                retryState={{
+                    enabled: params.retryAction.canRetryMissingAiMetadata,
+                    loading: params.retryAction.retryingMissingAiMetadata,
+                    assetCount: params.retryAction.resumeAssetCount,
+                    requestCompleted: params.retryAction.resumeRequestCompleted,
+                    onRetry: params.retryAction.retryMissingAiMetadata,
+                }}
+            />
+
+            <div className={`grid gap-5 ${supportsInspector ? 'xl:grid-cols-[1.5fr_0.65fr]' : 'xl:grid-cols-1'}`}>
+                <div className="min-h-0">
+                    <WorkflowWorkspaceContent
+                        model={params.model}
+                        activeTab={params.activeTab}
+                        onSelectDetail={params.setSelectedDetailId}
+                        sequenceViewport={params.sequenceViewport}
+                        onSequenceViewportChange={params.setPersistedViewport}
+                    />
+                </div>
+
+                {supportsInspector ? (
+                    <WorkflowDetailPanel
+                        detail={selectedDetail}
+                        onClose={() => params.setSelectedDetailId(null)}
+                        showRuntimeDetails={params.model.selectedRun !== null}
+                    />
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
 export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser, onRerunMissingFolderAiMetadata }: WorkflowWorkspaceProps) {
     const [selectedRunSelection, setSelectedRunSelection] = useState<string | null>(null);
     const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
@@ -222,51 +300,16 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser, onRerun
         return renderWorkflowWorkspaceState(error ?? 'Workflow visualiser unavailable.', 'error');
     }
 
-    const supportsInspector = tabSupportsInspector(activeTab);
-    const selectedDetail = getWorkflowDetail(model, selectedDetailId);
-
-    return (
-        <div className="mx-auto flex h-full w-full flex-col gap-5 overflow-y-auto bg-[#0a0a0a] p-6">
-            <WorkflowWorkspaceHeader
-                model={model}
-                activeTab={activeTab}
-                onSelectTab={(nextTab) => {
-                    setPersistedTab(nextTab);
-                    if (!tabSupportsInspector(nextTab)) {
-                        setSelectedDetailId(null);
-                    }
-                }}
-                selectedRunValue={getWorkflowWorkspaceRunSelectionValue(selectedRunSelection, model.selectedRun?.runId ?? null)}
-                onSelectRun={(runSelection) => {
-                    setSelectedRunSelection(runSelection);
-                    setSelectedDetailId(null);
-                }}
-                retryState={{
-                    enabled: retryAction.canRetryMissingAiMetadata,
-                    loading: retryAction.retryingMissingAiMetadata,
-                    onRetry: retryAction.retryMissingAiMetadata,
-                }}
-            />
-
-            <div className={`grid gap-5 ${supportsInspector ? 'xl:grid-cols-[1.5fr_0.65fr]' : 'xl:grid-cols-1'}`}>
-                <div className="min-h-0">
-                    <WorkflowWorkspaceContent
-                        model={model}
-                        activeTab={activeTab}
-                        onSelectDetail={setSelectedDetailId}
-                        sequenceViewport={sequenceViewport}
-                        onSequenceViewportChange={setPersistedViewport}
-                    />
-                </div>
-
-                {supportsInspector ? (
-                    <WorkflowDetailPanel
-                        detail={selectedDetail}
-                        onClose={() => setSelectedDetailId(null)}
-                        showRuntimeDetails={model.selectedRun !== null}
-                    />
-                ) : null}
-            </div>
-        </div>
-    );
+    return renderWorkflowWorkspaceReadyState({
+        model,
+        activeTab,
+        selectedRunSelection,
+        selectedDetailId,
+        sequenceViewport,
+        setPersistedTab,
+        setPersistedViewport,
+        setSelectedDetailId,
+        setSelectedRunSelection,
+        retryAction,
+    });
 }

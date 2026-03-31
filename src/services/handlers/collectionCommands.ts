@@ -4,7 +4,7 @@ import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
 import type { AssetPayloadRow } from './assetPayloadModel';
 import { buildGroupFieldFragments, GROUP_HIERARCHY_CTE } from './assetGroupingQueryFragments';
-import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
+import { buildAssetDetailFragments, buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -33,6 +33,14 @@ function loadOrbitMetadata(db: DbHandle, groupId: string): OrbitMetadataRow | un
 
 function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
     const groupFields = buildGroupFieldFragments('a');
+    const detail = buildAssetDetailFragments({
+        detailLevel: 'full',
+        includeEvidence: false,
+        recAlias: 'r_rec',
+        aiNewAlias: 'r_ai_new',
+        aiLegacyAlias: 'r_ai_legacy',
+        projectionAlias: 'pm',
+    });
 
     return db.prepare(`
         ${GROUP_HIERARCHY_CTE}
@@ -46,13 +54,14 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
             null AS member_match_evidence,
             gc_child.stack_count AS stack_count,
             a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
-            a.caption, a.sensitivity_score,
+            ${detail.projectionSelect}
+            a.sensitivity_score,
             am.sensitivity_status,
             p.path AS preview_path,
             COALESCE(r_faces_new.data, r_faces_legacy.data) AS faces_data,
-            r_rec.data AS rec_data,
-            COALESCE(r_ai_new.data, r_ai_legacy.data) AS ai_metadata_data,
-            r_meta.data AS embedded_metadata_data,
+            ${detail.recSelect}
+            ${detail.aiSelect}
+            ${detail.embeddedMetadataSelect}
             (
                 SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
                 FROM face_assignments fa
@@ -65,12 +74,12 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
         JOIN asset_groups child ON child.id = agc.child_group_id
         JOIN assets a ON a.id = child.canonical_asset_id
         LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+        ${detail.projectionJoin}
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_rec', task: 'face_recognition' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_new', task: 'ai_metadata' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_legacy', task: 'photo_metadata' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' })}
+        ${detail.recJoin}
+        ${detail.aiJoin}
+        ${detail.embeddedMetadataJoin}
         LEFT JOIN GroupCounts gc_child ON gc_child.group_id = child.id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
@@ -92,6 +101,14 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
 
 function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[] {
     const groupFields = buildGroupFieldFragments('a');
+    const detail = buildAssetDetailFragments({
+        detailLevel: 'full',
+        includeEvidence: false,
+        recAlias: 'r_rec',
+        aiNewAlias: 'r_ai_new',
+        aiLegacyAlias: 'r_ai_legacy',
+        projectionAlias: 'pm',
+    });
 
     return db.prepare(`
         ${GROUP_HIERARCHY_CTE}
@@ -105,13 +122,14 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
             m.evidence_json AS member_match_evidence,
             gc_current.stack_count AS stack_count,
             a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
-            a.caption, a.sensitivity_score,
+            ${detail.projectionSelect}
+            a.sensitivity_score,
             am.sensitivity_status,
             p.path AS preview_path,
             COALESCE(r_faces_new.data, r_faces_legacy.data) AS faces_data,
-            r_rec.data AS rec_data,
-            COALESCE(r_ai_new.data, r_ai_legacy.data) AS ai_metadata_data,
-            r_meta.data AS embedded_metadata_data,
+            ${detail.recSelect}
+            ${detail.aiSelect}
+            ${detail.embeddedMetadataSelect}
             (
                 SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
                 FROM face_assignments fa
@@ -124,12 +142,12 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
         JOIN assets a ON a.id = m.asset_id
         LEFT JOIN asset_groups g ON g.id = m.group_id
         LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
+        ${detail.projectionJoin}
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_rec', task: 'face_recognition' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_new', task: 'ai_metadata' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai_legacy', task: 'photo_metadata' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' })}
+        ${detail.recJoin}
+        ${detail.aiJoin}
+        ${detail.embeddedMetadataJoin}
         LEFT JOIN GroupCounts gc_current ON gc_current.group_id = m.group_id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid

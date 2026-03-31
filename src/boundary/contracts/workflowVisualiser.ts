@@ -30,6 +30,16 @@ export interface WorkflowVisualiserRunSummary extends WorkflowVisualiserCounts {
     status: string;
     createdAt?: string;
     parameters: Record<string, unknown>;
+    linkedRuns?: WorkflowVisualiserLinkedRun[];
+}
+
+export interface WorkflowVisualiserLinkedRun extends WorkflowVisualiserCounts {
+    runId: string;
+    workflowId: string;
+    displayName: string;
+    status: string;
+    createdAt?: string;
+    relationship: 'recovery' | 'source';
 }
 
 export interface WorkflowVisualiserMilestone {

@@ -92,6 +92,7 @@ async function createHarness(tempDir, options = {}) {
         dbManager,
         eventBus: options.eventBus,
         aiRuntime: options.aiRuntime,
+        liveMetadataTimeoutMs: options.liveMetadataTimeoutMs,
     }));
     modules.register(createEstimatePhotoDateModule({ dbManager }));
     workflows.register(folderIngestWorkflowDefinition);
@@ -251,6 +252,60 @@ test('live ai mode without an api key emits one configuration error and stops fu
             emittedEvents.filter((event) => event.type === 'AiMetadataConfigurationError').map((event) => event.message),
             ['Live AI metadata requires a configured Gemini API key. Add one in Settings before running live ingest.'],
         );
+    } finally {
+        try {
+            harness?.dbManager.close();
+        } catch {
+            // ignore close failures during cleanup
+        }
+        try {
+            await removeDirWithRetry(tempDir);
+        } catch {
+            // Windows can keep SQLite sidecar handles briefly; cleanup is best-effort here.
+        }
+    }
+});
+
+test('hung live ai metadata fails the workflow with a timeout instead of leaving the run stuck', async () => {
+    const tempDir = createTempDir();
+    const folderPath = createFixtureFolder(tempDir, ['one.png']);
+    let harness = null;
+
+    try {
+        harness = await createHarness(path.join(tempDir, 'hung-live'), {
+            apiKey: 'AIzaSyDUMMYKEY12345678901234567890',
+            liveMetadataTimeoutMs: 20,
+            aiRuntime: {
+                async generateLiveMetadata() {
+                    return await new Promise(() => {});
+                },
+            },
+        });
+
+        await assert.rejects(
+            harness.orchestrator.start({
+                workflowId: 'folder_ingest_v1',
+                triggerType: 'manual',
+                inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
+                parameters: {
+                    folderPath,
+                    traversalMode: 'folder_only',
+                    aiMode: 'live',
+                },
+            }),
+            /timed out/i,
+        );
+
+        const runId = harness.dbManager.getDb().prepare(
+            "SELECT id FROM workflow_runs ORDER BY created_at DESC, id DESC LIMIT 1"
+        ).get().id;
+        const detail = harness.store.getRunDetail(runId);
+        const metadataStep = detail.steps.find((step) => step.nodeId === 'generate-ai-metadata');
+
+        assert.equal(detail.summary.status, 'failed');
+        assert.ok(metadataStep);
+        assert.equal(metadataStep.status, 'failed');
+        assert.match(metadataStep.errorMessage, /timed out/i);
     } finally {
         try {
             harness?.dbManager.close();

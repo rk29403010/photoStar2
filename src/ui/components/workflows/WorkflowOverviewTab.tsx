@@ -1,6 +1,7 @@
 import type React from 'react';
 import type {
     WorkflowVisualiserAggregateCount,
+    WorkflowVisualiserLinkedRun,
     WorkflowVisualiserOverviewModel,
     WorkflowVisualiserRunSummary,
 } from '@contracts/workflowVisualiser';
@@ -13,6 +14,10 @@ interface WorkflowOverviewTabProps {
 function formatAggregateCount(entry: WorkflowVisualiserAggregateCount): string {
     const noun = entry.totalItems === 1 ? entry.noun.singular : entry.noun.plural;
     return `${entry.totalItems} ${noun}`;
+}
+
+function formatLinkedRun(run: WorkflowVisualiserLinkedRun): string {
+    return `${run.displayName} · ${run.status} · ${run.completedItems}/${run.totalItems}`;
 }
 
 export const WorkflowOverviewTab: React.FC<WorkflowOverviewTabProps> = ({ overview, selectedRun }) => (
@@ -30,6 +35,11 @@ export const WorkflowOverviewTab: React.FC<WorkflowOverviewTabProps> = ({ overvi
                 <div>Counts: {overview.aggregateCounts.length > 0 ? overview.aggregateCounts.map(formatAggregateCount).join(', ') : 'No runtime counts yet'}</div>
                 <div>Completed: {selectedRun?.completedItems ?? 0}</div>
                 <div>Failed: {selectedRun?.failedItems ?? 0}</div>
+                {(selectedRun?.linkedRuns ?? []).map((run) => (
+                    <div key={run.runId}>
+                        {run.relationship === 'recovery' ? 'Recovery:' : 'Source:'} {formatLinkedRun(run)}
+                    </div>
+                ))}
             </div>
         </section>
 

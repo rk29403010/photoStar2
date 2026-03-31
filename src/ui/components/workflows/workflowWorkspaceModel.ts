@@ -66,6 +66,35 @@ export function getWorkflowWorkspaceRefreshIntervalMs(
     return model?.selectedRun?.status === 'running' ? 1000 : null;
 }
 
+export function getWorkflowWorkspaceRetryLabel(loading: boolean): string {
+    return loading ? 'Starting resume...' : 'Resume Workflow';
+}
+
+export function getWorkflowWorkspaceRetryFeedback(params: {
+    loading: boolean;
+    assetCount?: number;
+    resumeRequestCompleted?: boolean;
+    selectedRun?: { status: string; completedItems: number; totalItems: number } | null;
+}): string | null {
+    if (params.loading) {
+        return 'Starting resume...';
+    }
+
+    if (params.selectedRun?.status === 'running') {
+        return `Resume running · ${params.selectedRun.completedItems}/${params.selectedRun.totalItems} items`;
+    }
+
+    if (typeof params.assetCount === 'number' && params.assetCount > 0) {
+        return `Resume started for ${params.assetCount} items.`;
+    }
+
+    if (params.resumeRequestCompleted && params.assetCount === 0) {
+        return 'No remaining photos needed AI metadata.';
+    }
+
+    return null;
+}
+
 export function shouldFitSequenceMapViewport(viewport: WorkflowSequenceMapViewport | null): boolean {
     return viewport === null;
 }

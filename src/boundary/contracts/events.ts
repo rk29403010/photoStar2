@@ -125,7 +125,8 @@ export type AiMetadataV2UpgradeQueued = {
 
 export type AssetUpdated = {
     type: "AssetUpdated";
-    asset: Record<string, unknown>; // Full asset object pushed from backend
+    assetId: string;
+    asset?: Record<string, unknown>;
 };
 
 export type AiMetadataConfigurationError = {

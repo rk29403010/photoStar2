@@ -44,6 +44,7 @@ export interface ConnectionStateParams {
     addLog: (message: string) => void;
     processEvent: (event: DomainEvent) => void;
     updateJobProgress: (jobId: string, payload: { processed?: number; total?: number; message?: string; current?: string; status?: string }) => void;
+    refreshAssetById?: (assetId: string) => void;
     filterStackRef: { current: LibraryFilter[] };
     groupSimilarPhotosRef: { current: boolean };
 }

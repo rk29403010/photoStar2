@@ -8,6 +8,7 @@ type JobManagerState = ReturnType<typeof useJobManager>;
 export function useConnectionParams(
     state: PhotoLibraryState,
     jobManager: Pick<JobManagerState, 'processEvent' | 'updateJobProgress'>,
+    refreshAssetById?: (assetId: string) => void,
 ) {
     return useMemo(() => ({
         hasCompletedInitialSync: state.hasCompletedInitialSync,
@@ -32,6 +33,7 @@ export function useConnectionParams(
         addLog: state.addLog,
         processEvent: jobManager.processEvent,
         updateJobProgress: jobManager.updateJobProgress,
+        refreshAssetById,
         filterStackRef: state.filterStackRef,
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
     }), [
@@ -59,6 +61,7 @@ export function useConnectionParams(
         state.setWorkflowStatus,
         state.groupSimilarPhotosRef,
         jobManager.updateJobProgress,
+        refreshAssetById,
     ]);
 }
 

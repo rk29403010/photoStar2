@@ -147,6 +147,7 @@ I would like a global setting
    - sensitive assets should skip AI metadata and finalize directly;
    - asset completion must work across multiple app sessions and background runs without requiring the whole folder to finish as one unit.
    See `docs/ingest-finalize-node-summary.md`.
+3. Add true generic workflow resume support so failed runs can continue from recoverable checkpoints instead of relying on workflow-specific retry actions.
 
 ### Tooling Improvements
 
