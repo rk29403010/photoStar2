@@ -30,7 +30,7 @@ export const Field: React.FC<{ label: string; value?: string | null; mono?: bool
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', paddingBottom: 6 }}>
       <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', minWidth: 90, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 12, color: dim ? '#64748b' : '#e2e8f0', lineHeight: 1.5, fontFamily: mono ? '"Cascadia Code","Consolas",monospace' : undefined, wordBreak: 'break-word' }}>{value}</span>
+      <span style={{ fontSize: 12, color: dim ? '#64748b' : '#e2e8f0', lineHeight: 1.5, fontFamily: mono ? '"Cascadia Code","Consolas",monospace' : undefined, wordBreak: 'break-word', userSelect: 'text' }}>{value}</span>
     </div>
   );
 };

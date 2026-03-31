@@ -36,3 +36,11 @@ test('single photo overlay wires the info panel close button back to the shared 
     assert.match(infoPanelSource, /onClose\?: \(\) => void/);
     assert.match(infoPanelSource, /title="Hide info panel"/);
 });
+
+test('single photo overlay keeps info panel values selectable', () => {
+    const overlaySource = fs.readFileSync('src/ui/components/single-photo/SinglePhotoOverlay.tsx', 'utf8');
+    const sharedInfoPanelSource = fs.readFileSync('src/ui/components/single-photo/info-panel/shared.tsx', 'utf8');
+
+    assert.doesNotMatch(overlaySource, /userSelect:\s*'none'/);
+    assert.match(sharedInfoPanelSource, /userSelect:\s*'text'/);
+});

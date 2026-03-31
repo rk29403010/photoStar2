@@ -76,7 +76,6 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
             display: 'flex',
             flexDirection: 'row',
             overflow: 'hidden',
-            userSelect: 'none',
             opacity: 0,
             animation: 'fadeInOverlay 0.2s ease-out forwards'
         }}

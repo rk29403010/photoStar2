@@ -9,6 +9,7 @@ import type { ConnectionStateParams, ParamsRef } from '@boundary/runtime/usePhot
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { mergeRefreshedAssetPage } from '@shared/utils/libraryAssetRefresh';
 import { buildEventFeedDetail, countPreviewAssets } from '@shared/utils/libraryUiDiagnostics';
+import { getAssetUpdateInstruction } from './assetUpdateEvents';
 import {
     isAssetPageResponseId,
     isAssetResponseId,
@@ -184,7 +185,17 @@ function applyMappedAssetUpdate(
 }
 
 function applyAssetUpdatedEvent(event: Record<string, unknown>, params: ConnectionStateParams) {
-    const updated = event.asset as Asset;
+    const instruction = getAssetUpdateInstruction(event);
+    if (!instruction) {
+        return;
+    }
+
+    if (instruction.kind === 'refresh') {
+        params.refreshAssetById?.(instruction.assetId);
+        return;
+    }
+
+    const updated = instruction.asset;
     params.setAssets((prev) => {
         let found = false;
         const next = prev.map((asset) => {
@@ -195,7 +206,10 @@ function applyAssetUpdatedEvent(event: Record<string, unknown>, params: Connecti
             found = true;
             return { ...asset, ...updated };
         });
-        return dedupeAssetsById(found ? next : [...next, updated]);
+        if (!found) {
+            params.refreshAssetById?.(updated.id);
+        }
+        return dedupeAssetsById(next);
     });
 }
 
@@ -215,7 +229,7 @@ function applyEventAssetUpdates(event: Record<string, unknown>, params: Connecti
         return;
     }
 
-    if (event.type === 'AssetUpdated' && event.asset) {
+    if (event.type === 'AssetUpdated') {
         applyAssetUpdatedEvent(event, params);
     }
 }
