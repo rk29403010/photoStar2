@@ -1,5 +1,9 @@
 import type { PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataProjectionAuthenticity, PhotoMetadataProjectionDate, PhotoMetadataProjectionQuality, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
 import type { PhotoMetadataAssertionRow, PhotoMetadataBlockRow, PhotoMetadataProjectionRow } from './repository';
+import {
+    normalizePhotoMetadataRegionsOfInterest,
+    normalizePhotoMetadataSubjects,
+} from './coordinateNormalization';
 
 type PhotoMetadataRepositoryLike = {
     loadProjection(assetId: string): PhotoMetadataProjectionRow | null;
@@ -117,8 +121,8 @@ function toPhotoMetadataProjection(row: PhotoMetadataProjectionRow | null, asset
         quality: toProjectionQuality(row),
         recommendedEnhancements: parseJsonArray<string>(row.recommended_enhancements_json),
         authenticity: toProjectionAuthenticity(row),
-        subjects: parseJsonArray<unknown>(row.subjects_json),
-        regionsOfInterest: parseJsonArray<unknown>(row.regions_of_interest_json),
+        subjects: normalizePhotoMetadataSubjects(parseJsonArray<unknown>(row.subjects_json)),
+        regionsOfInterest: normalizePhotoMetadataRegionsOfInterest(parseJsonArray<unknown>(row.regions_of_interest_json)),
     };
 }
 

@@ -135,7 +135,11 @@ test('folder ingest emits FacesDetected events for workflow-runtime detections',
         ).get();
         assert.equal(detectionRow.provider, 'onnx_retina_10g');
         assert.equal(detectionRow.model_version, '1.0');
-        assert.equal(Array.isArray(JSON.parse(detectionRow.data).faces), true);
+        const persistedFaces = JSON.parse(detectionRow.data).faces;
+        assert.equal(Array.isArray(persistedFaces), true);
+        if (persistedFaces.length > 0) {
+            assert.deepEqual(Object.keys(persistedFaces[0].box).sort(), ['height', 'width', 'x', 'y']);
+        }
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

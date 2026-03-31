@@ -2,6 +2,11 @@ import { existsSync } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../data/db';
 import { ArcFaceRecognizer, type FaceEmbeddingService } from '../../faces/arcFaceRecognizer';
+import {
+    normalizeStoredPhotoBox,
+    storedPhotoBoxToUnitCorners,
+    type StoredPhotoBox,
+} from '../../faces/faceImageGeometry';
 import type { FaceEmbeddingGenerated } from '../../events/types';
 import type { ModuleDefinition } from '../contracts';
 
@@ -19,7 +24,7 @@ type AssetRow = {
 
 type DetectionFace = {
     id?: string;
-    box?: number[];
+    box?: StoredPhotoBox | number[];
     landmarks?: Array<{ x: number; y: number }>;
 };
 
@@ -99,7 +104,17 @@ async function buildEmbeddings(params: {
         }
 
         try {
-            const embedding = await params.embeddingService.computeEmbedding(params.assetPath, face.box);
+            const storedBox = normalizeStoredPhotoBox(face.box);
+            if (!storedBox) {
+                failedFaces += 1;
+                embeddings.push(null);
+                continue;
+            }
+
+            const embedding = await params.embeddingService.computeEmbedding(
+                params.assetPath,
+                storedPhotoBoxToUnitCorners(storedBox),
+            );
             if (embedding) {
                 params.eventSink?.emit({
                     type: 'FaceEmbeddingGenerated',

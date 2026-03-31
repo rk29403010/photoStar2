@@ -1,4 +1,9 @@
 import type { PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
+import {
+    normalizePhotoMetadataRegionsOfInterest,
+    normalizePhotoMetadataSubjects,
+} from '../photoMetadata/coordinateNormalization';
+import { normalizeStoredPhotoBox } from '../faces/faceImageGeometry';
 
 export type AssetPayloadRow = {
     id: string;
@@ -85,7 +90,13 @@ type RawGroupMembership = {
 
 function parseFaces(row: AssetPayloadRow) {
     try {
-        return row.faces_data ? JSON.parse(row.faces_data).faces || [] : [];
+        const parsedFaces = row.faces_data ? JSON.parse(row.faces_data).faces || [] : [];
+        return Array.isArray(parsedFaces)
+            ? parsedFaces.flatMap((face: Record<string, unknown>) => {
+                const normalizedBox = normalizeStoredPhotoBox(face.box);
+                return normalizedBox ? [{ ...face, box: normalizedBox } as Record<string, unknown>] : [];
+            })
+            : [];
     } catch {
         return [];
     }
@@ -279,8 +290,8 @@ function toPhotoMetadataProjection(row: AssetPayloadRow): PhotoMetadataProjectio
             score: row.authenticity_score,
             reasons: parseJsonArray<string>(row.authenticity_reasons_json),
         },
-        subjects: parseJsonArray<unknown>(row.subjects_json),
-        regionsOfInterest: parseJsonArray<unknown>(row.regions_of_interest_json),
+        subjects: normalizePhotoMetadataSubjects(parseJsonArray<unknown>(row.subjects_json)),
+        regionsOfInterest: normalizePhotoMetadataRegionsOfInterest(parseJsonArray<unknown>(row.regions_of_interest_json)),
     };
 }
 

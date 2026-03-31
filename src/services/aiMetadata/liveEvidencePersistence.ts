@@ -3,6 +3,7 @@ import type { DatabaseManager } from '../../data/db';
 import type { PhotoMetadataProjectionInput, PhotoMetadataProjectionRow } from '../photoMetadata/repository';
 import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 import type { PhotoMetadataBlock } from '../photoMetadata/types';
+import { normalizePhotoMetadataBlockBoxes } from '../photoMetadata/coordinateNormalization';
 
 type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
 type MetadataSourceRank = 0 | 1 | 2;
@@ -97,18 +98,19 @@ export function persistPhotoMetadataEvidence(params: {
     metadataBlock: PhotoMetadataBlock;
 }): string {
     const repository = createPhotoMetadataRepository({ dbManager: params.dbManager });
+    const normalizedMetadataBlock = normalizePhotoMetadataBlockBoxes(params.metadataBlock);
     const blockId = repository.insertMetadataBlock({
         assetId: params.assetId,
         sourceKind: params.sourceKind,
         provider: params.provider,
         modelVersion: params.modelVersion,
         schemaVersion: 1,
-        block: params.metadataBlock,
+        block: normalizedMetadataBlock,
     });
     if (shouldReplaceProjection(repository.loadProjection(params.assetId), params.sourceKind)) {
         repository.saveProjection(buildProjectionInput({
             assetId: params.assetId,
-            metadataBlock: params.metadataBlock,
+            metadataBlock: normalizedMetadataBlock,
             metadataSourceKind: params.sourceKind,
             sourceId: blockId,
         }));

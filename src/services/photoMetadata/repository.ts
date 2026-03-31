@@ -11,6 +11,10 @@ import type {
     PhotoMetadataSubject,
 } from './types';
 import {
+    normalizePhotoMetadataRegionsOfInterest,
+    normalizePhotoMetadataSubjects,
+} from './coordinateNormalization';
+import {
     isPhotoMetadataBlock,
     isPhotoMetadataFieldPath,
     normalizeIsoDateOrNull,
@@ -152,15 +156,12 @@ const ESTIMATED_DATE_FIELD_PATHS = new Set<EstimatedDateFieldPath>([
     'estimated_date.min_date',
     'estimated_date.max_date',
 ] );
-
 function createId(value?: string): string {
     return value ?? randomUUID();
 }
-
 function stringifyJson(value: unknown): string {
     return JSON.stringify(value);
 }
-
 function parseJson<T>(value: string | null): T {
     return JSON.parse(value ?? 'null') as T;
 }
@@ -273,10 +274,10 @@ function buildProjectionParams(input: PhotoMetadataProjectionInput) {
         authenticity_reasons_json: toProjectionJson(input.authenticity.reasons),
         authenticity_source_kind: authenticitySource.kind,
         authenticity_source_id: authenticitySource.id,
-        subjects_json: toProjectionJson(input.subjects ?? []),
+        subjects_json: toProjectionJson(normalizePhotoMetadataSubjects(input.subjects ?? [])),
         subjects_source_kind: subjectsSource.kind,
         subjects_source_id: subjectsSource.id,
-        regions_of_interest_json: toProjectionJson(input.regionsOfInterest ?? []),
+        regions_of_interest_json: toProjectionJson(normalizePhotoMetadataRegionsOfInterest(input.regionsOfInterest ?? [])),
         regions_of_interest_source_kind: regionsOfInterestSource.kind,
         regions_of_interest_source_id: regionsOfInterestSource.id,
     };

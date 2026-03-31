@@ -67,10 +67,19 @@ function buildBaseRow() {
         authenticity_reasons_json: JSON.stringify(['filename matches family archive']),
         authenticity_source_kind: 'manual_user',
         authenticity_source_id: 'assertion-auth-1',
-        subjects_json: JSON.stringify([{ kind: 'person', label: 'Billy' }]),
+        subjects_json: JSON.stringify([{
+            kind: 'person',
+            label: 'Billy',
+            bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        }]),
         subjects_source_kind: 'manual_user',
         subjects_source_id: 'assertion-subjects-1',
-        regions_of_interest_json: JSON.stringify([{ kind: 'face', box: [0.1, 0.2, 0.3, 0.4] }]),
+        regions_of_interest_json: JSON.stringify([{
+            kind: 'face',
+            label: 'Face',
+            significance: null,
+            bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        }]),
         regions_of_interest_source_kind: 'gemini_flash_scout',
         regions_of_interest_source_id: 'block-scout-1',
         sensitivity_score: 5,
@@ -84,7 +93,7 @@ function buildBaseRow() {
 }
 
 test('toAssetPayload returns projection-backed metadata without machine evidence by default', async () => {
-    const { toAssetPayload } = await import('../../src/services/handlers/assetPayloadModel.ts');
+    const { toAssetPayload } = await import('../../dist/core/src/services/handlers/assetPayloadModel.js');
     const asset = toAssetPayload(buildBaseRow());
 
     assert.equal(asset.caption, 'Billy and Dad enjoying Christmas dinner');
@@ -100,8 +109,22 @@ test('toAssetPayload returns projection-backed metadata without machine evidence
     assert.deepEqual(asset.photo_metadata.projection.quality, { technical: 4, lighting: 3, composition: 5, emotional: 4, discard: false });
     assert.deepEqual(asset.photo_metadata.projection.recommendedEnhancements, ['straighten', 'warmth boost']);
     assert.equal(asset.photo_metadata.projection.authenticity.score, 0.95);
-    assert.deepEqual(asset.photo_metadata.projection.subjects, [{ kind: 'person', label: 'Billy' }]);
-    assert.deepEqual(asset.photo_metadata.projection.regionsOfInterest, [{ kind: 'face', box: [0.1, 0.2, 0.3, 0.4] }]);
+    assert.deepEqual(asset.faces, [{
+        box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        person_id: 'person-1',
+        person_name: 'Person 1',
+    }]);
+    assert.deepEqual(asset.photo_metadata.projection.subjects, [{
+        kind: 'person',
+        label: 'Billy',
+        bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+    }]);
+    assert.deepEqual(asset.photo_metadata.projection.regionsOfInterest, [{
+        kind: 'face',
+        label: 'Face',
+        significance: null,
+        bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+    }]);
     assert.equal(asset.photo_metadata.provenance.caption.sourceKind, 'gemini_pro_refined');
     assert.equal(asset.photo_metadata.provenance.type.sourceKind, 'manual_user');
     assert.equal(asset.photo_metadata.provenance.keywords.sourceKind, 'gemini_flash_scout');

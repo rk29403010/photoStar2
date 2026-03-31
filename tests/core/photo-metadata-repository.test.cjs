@@ -265,3 +265,94 @@ test('photo metadata repository accepts coarse manual date assertions', async ()
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('database startup backfills legacy stored coordinate payloads into canonical normalized boxes', async () => {
+    const tempDir = createTempDir();
+    const dbManager = createDatabaseManager(tempDir);
+
+    try {
+        const db = dbManager.getDb();
+        seedAsset(db);
+        db.prepare(`
+            INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
+            VALUES ('face-detect-1', 'asset-1', 'face_detection', 'onnx_retina_10g', '1.0', ?)
+        `).run(JSON.stringify({
+            faces: [{
+                id: 'face-1',
+                box: [0.1, 0.2, 0.5, 0.7],
+                score: 0.91,
+                landmarks: [],
+            }],
+        }));
+        db.prepare(`
+            INSERT INTO photo_metadata_blocks (id, asset_id, source_kind, provider, model_version, schema_version, data)
+            VALUES ('block-1', 'asset-1', 'gemini_flash_scout', 'google', 'gemini-2.5-flash-preview', 1, ?)
+        `).run(JSON.stringify({
+            ...buildMetadataBlock(),
+            subjects: [{
+                label: 'Subject1',
+                bounding_box: { x: 700, y: 140, width: 180, height: 320 },
+                type: 'person',
+                location_desc: 'centre',
+                gender: null,
+                animal_type: null,
+                age_range: null,
+                dob_range: null,
+                emotion: null,
+                gaze: null,
+                features: null,
+                uniform: null,
+                suggested_names: [],
+            }],
+            regions_of_interest: [{
+                label: 'Badge',
+                kind: 'clothing',
+                bounding_box: { x: 250, y: 500, width: 120, height: 110 },
+                significance: null,
+            }],
+        }));
+        db.prepare(`
+            INSERT INTO photo_metadata_projection (
+                asset_id, subjects_json, regions_of_interest_json, created_at, updated_at
+            ) VALUES (
+                'asset-1', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+        `).run(
+            JSON.stringify([{ label: 'Subject1', bounding_box: { x: 700, y: 140, width: 180, height: 320 } }]),
+            JSON.stringify([{ label: 'Badge', kind: 'clothing', bounding_box: { x: 250, y: 500, width: 120, height: 110 } }]),
+        );
+
+        dbManager.close();
+
+        const reopened = createDatabaseManager(tempDir);
+        try {
+            const reopenedDb = reopened.getDb();
+            const detectionRow = reopenedDb.prepare(`
+                SELECT data FROM derived_results WHERE id = 'face-detect-1'
+            `).get();
+            const migratedBlockRow = reopenedDb.prepare(`
+                SELECT data FROM photo_metadata_blocks WHERE id = 'block-1'
+            `).get();
+            const migratedProjectionRow = reopenedDb.prepare(`
+                SELECT subjects_json, regions_of_interest_json
+                FROM photo_metadata_projection
+                WHERE asset_id = 'asset-1'
+            `).get();
+
+            assert.deepEqual(JSON.parse(detectionRow.data).faces[0].box, { x: 0.1, y: 0.2, width: 0.4, height: 0.5 });
+            assert.deepEqual(JSON.parse(migratedBlockRow.data).subjects[0].bounding_box, { x: 0.7, y: 0.14, width: 0.18, height: 0.32 });
+            assert.deepEqual(JSON.parse(migratedBlockRow.data).regions_of_interest[0].bounding_box, { x: 0.25, y: 0.5, width: 0.12, height: 0.11 });
+            assert.deepEqual(JSON.parse(migratedProjectionRow.subjects_json)[0].bounding_box, { x: 0.7, y: 0.14, width: 0.18, height: 0.32 });
+            assert.deepEqual(JSON.parse(migratedProjectionRow.regions_of_interest_json)[0].bounding_box, { x: 0.25, y: 0.5, width: 0.12, height: 0.11 });
+        } finally {
+            reopened.close();
+        }
+    } finally {
+        try {
+            dbManager.close();
+        } catch {
+            // already closed
+        }
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});

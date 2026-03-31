@@ -320,10 +320,10 @@ const FaceBoxes: React.FC<{ asset: Asset; showFaces: boolean; activeFilter?: Lib
                         title={face.person_name || 'Unknown Person'}
                         style={{
                             position: 'absolute',
-                            left: `${face.box[0] * 100}%`,
-                            top: `${face.box[1] * 100}%`,
-                            width: `${(face.box[2] - face.box[0]) * 100}%`,
-                            height: `${(face.box[3] - face.box[1]) * 100}%`,
+                            left: `${face.box.x * 100}%`,
+                            top: `${face.box.y * 100}%`,
+                            width: `${face.box.width * 100}%`,
+                            height: `${face.box.height * 100}%`,
                             border: `2px solid ${visuals.highlightColor}`,
                             borderRadius: '2px',
                             boxShadow: visuals.isFilteredPerson ? '0 0 10px rgba(0,0,0,0.5), inset 0 0 5px rgba(0,0,0,0.3)' : 'none',
@@ -345,6 +345,63 @@ const DebugIntent: React.FC<{ debug: boolean; intent: TileIntent }> = ({ debug, 
         <div style={{ position: 'absolute', bottom: 2, left: 2, fontSize: 10, color: 'white', background: 'rgba(0,0,0,0.5)', padding: '1px 4px', borderRadius: 2 }}>
             {intent}
         </div>
+    );
+};
+
+const TileOverlays: React.FC<{
+    selected: boolean;
+    sensitivityBadge: SensitivityBadge | null;
+    stackCount: number | null | undefined;
+    isGroupRepresentative: boolean;
+    groupMemberships: Asset['group_memberships'];
+    showGroupIds: boolean;
+    hoveredGroupId: string | null;
+    onHoveredGroupIdChange?: (groupId: string | null) => void;
+    isHovered: boolean;
+    caption?: string;
+    activeFilter?: LibraryFilter;
+    assetId: string;
+    onUntagAsset?: (assetId: string, personId: string) => void;
+    asset: Asset;
+    showFaces: boolean;
+    debug: boolean;
+    intent: TileIntent;
+}> = ({
+    selected,
+    sensitivityBadge,
+    stackCount,
+    isGroupRepresentative,
+    groupMemberships,
+    showGroupIds,
+    hoveredGroupId,
+    onHoveredGroupIdChange,
+    isHovered,
+    caption,
+    activeFilter,
+    assetId,
+    onUntagAsset,
+    asset,
+    showFaces,
+    debug,
+    intent,
+}) => {
+    return (
+        <>
+            {selected && <SelectedStarBadge />}
+            <SensitivityBadgeView badge={sensitivityBadge} />
+            <StackBadge count={stackCount} />
+            <GroupModeBadge show={isGroupRepresentative} />
+            <GroupIdPills
+                memberships={groupMemberships}
+                show={showGroupIds}
+                hoveredGroupId={hoveredGroupId}
+                onHoveredGroupIdChange={onHoveredGroupIdChange}
+            />
+            <CaptionOverlay show={isHovered} caption={caption} />
+            <DeclusterButton visible={isHovered} activeFilter={activeFilter} assetId={assetId} onUntagAsset={onUntagAsset} />
+            <FaceBoxes asset={asset} showFaces={showFaces} activeFilter={activeFilter} />
+            <DebugIntent debug={debug} intent={intent} />
+        </>
     );
 };
 
@@ -393,20 +450,25 @@ export const Tile: React.FC<TileProps> = ({
             }}
         >
             <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} />
-            {selected && <SelectedStarBadge />}
-            <SensitivityBadgeView badge={sensitivityBadge} />
-            <StackBadge count={asset.stack_count} />
-            <GroupModeBadge show={isGroupRepresentative} />
-            <GroupIdPills
-                memberships={asset.group_memberships}
-                show={showGroupIds}
+            <TileOverlays
+                selected={selected}
+                sensitivityBadge={sensitivityBadge}
+                stackCount={asset.stack_count}
+                isGroupRepresentative={isGroupRepresentative}
+                groupMemberships={asset.group_memberships}
+                showGroupIds={showGroupIds}
                 hoveredGroupId={hoveredGroupId}
                 onHoveredGroupIdChange={onHoveredGroupIdChange}
+                isHovered={isHovered}
+                caption={asset.caption}
+                activeFilter={activeFilter}
+                assetId={asset.id}
+                onUntagAsset={onUntagAsset}
+                asset={asset}
+                showFaces={showFaces}
+                debug={debug}
+                intent={intent}
             />
-            <CaptionOverlay show={isHovered} caption={asset.caption} />
-            <DeclusterButton visible={isHovered} activeFilter={activeFilter} assetId={asset.id} onUntagAsset={onUntagAsset} />
-            <FaceBoxes asset={asset} showFaces={showFaces} activeFilter={activeFilter} />
-            <DebugIntent debug={debug} intent={intent} />
             <style>{`
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(5px); }

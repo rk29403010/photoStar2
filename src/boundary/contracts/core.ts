@@ -10,8 +10,15 @@ export const PERSON_COLORS = [
     '#a3e635'  // lime
 ];
 
+export interface StoredPhotoBox {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
 export interface FaceBox {
-    box: [number, number, number, number]; // [x1, y1, x2, y2] normalized 0-1
+    box: StoredPhotoBox;
     embedding?: number[]; // Optional presence check
     person_id?: string;
     person_name?: string;

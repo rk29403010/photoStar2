@@ -7,12 +7,143 @@ import {
   MIGRATIONS,
   SCHEMA_SQL,
 } from './dbSchema';
+import { normalizeStoredPhotoBox } from '../services/faces/faceImageGeometry';
+import {
+  normalizePhotoMetadataBlockBoxes,
+  normalizePhotoMetadataRegionsOfInterest,
+  normalizePhotoMetadataSubjects,
+} from '../services/photoMetadata/coordinateNormalization';
 
 function runMigration(db: Database.Database, sql: string): void {
   try {
     db.prepare(sql).run();
   } catch {
     // ignore migration already applied / unsupported on this DB state
+    }
+}
+
+const INTERRUPTED_WORKFLOW_MESSAGE = 'Workflow execution was interrupted before this step finished. Retry the remaining work from the workflow view.';
+
+function reconcileStaleWorkflowRuns(db: Database.Database): void {
+    const now = new Date().toISOString();
+
+    try {
+        db.transaction(() => {
+            db.prepare(`
+                UPDATE step_runs
+                SET status = 'failed',
+                    error_message = COALESCE(error_message, ?),
+                    updated_at = ?
+                WHERE status = 'running'
+            `).run(INTERRUPTED_WORKFLOW_MESSAGE, now);
+
+            db.prepare(`
+                UPDATE subject_executions
+                SET status = 'failed',
+                    updated_at = ?
+                WHERE status = 'running'
+            `).run(now);
+
+            db.prepare(`
+                UPDATE workflow_runs
+                SET status = 'failed',
+                    finished_at = COALESCE(finished_at, ?)
+                WHERE status = 'running'
+            `).run(now);
+        })();
+    } catch {
+        // ignore workflow recovery failures so startup still proceeds
+    }
+}
+
+function normalizeFaceDetectionPayload(data: string): string | null {
+  try {
+    const parsed = JSON.parse(data) as { faces?: Array<Record<string, unknown>> };
+    if (!Array.isArray(parsed.faces)) {
+      return null;
+    }
+
+    const normalizedFaces = parsed.faces.flatMap((face) => {
+      const normalizedBox = normalizeStoredPhotoBox(face.box);
+      return normalizedBox ? [{ ...face, box: normalizedBox }] : [];
+    });
+    return JSON.stringify({ ...parsed, faces: normalizedFaces });
+  } catch {
+    return null;
+  }
+}
+
+function normalizePhotoMetadataBlockPayload(data: string): string | null {
+  try {
+    return JSON.stringify(normalizePhotoMetadataBlockBoxes(JSON.parse(data)));
+  } catch {
+    return null;
+  }
+}
+
+function normalizePhotoMetadataProjectionPayload(data: string | null, kind: 'subjects' | 'regions'): string | null {
+  if (!data) {
+    return data;
+  }
+
+  try {
+    const parsed = JSON.parse(data);
+    const normalized = kind === 'subjects'
+      ? normalizePhotoMetadataSubjects(parsed)
+      : normalizePhotoMetadataRegionsOfInterest(parsed);
+    return JSON.stringify(normalized);
+  } catch {
+    return null;
+  }
+}
+
+function backfillStoredPhotoCoordinates(db: Database.Database): void {
+  try {
+    db.transaction(() => {
+      const faceRows = db.prepare(`
+        SELECT id, data
+        FROM derived_results
+        WHERE task = 'face_detection'
+      `).all() as Array<{ id: string; data: string }>;
+      const updateDerivedResult = db.prepare('UPDATE derived_results SET data = ? WHERE id = ?');
+      for (const row of faceRows) {
+        const normalized = normalizeFaceDetectionPayload(row.data);
+        if (normalized) {
+          updateDerivedResult.run(normalized, row.id);
+        }
+      }
+
+      const blockRows = db.prepare(`
+        SELECT id, data
+        FROM photo_metadata_blocks
+      `).all() as Array<{ id: string; data: string }>;
+      const updateMetadataBlock = db.prepare('UPDATE photo_metadata_blocks SET data = ? WHERE id = ?');
+      for (const row of blockRows) {
+        const normalized = normalizePhotoMetadataBlockPayload(row.data);
+        if (normalized) {
+          updateMetadataBlock.run(normalized, row.id);
+        }
+      }
+
+      const projectionRows = db.prepare(`
+        SELECT asset_id, subjects_json, regions_of_interest_json
+        FROM photo_metadata_projection
+      `).all() as Array<{ asset_id: string; subjects_json: string | null; regions_of_interest_json: string | null }>;
+      const updateProjection = db.prepare(`
+        UPDATE photo_metadata_projection
+        SET subjects_json = ?, regions_of_interest_json = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE asset_id = ?
+      `);
+      for (const row of projectionRows) {
+        updateProjection.run(
+          normalizePhotoMetadataProjectionPayload(row.subjects_json, 'subjects') ?? row.subjects_json,
+          normalizePhotoMetadataProjectionPayload(row.regions_of_interest_json, 'regions') ?? row.regions_of_interest_json,
+          row.asset_id,
+        );
+      }
+    })();
+  } catch {
+    // ignore coordinate backfill failures so startup still proceeds
   }
 }
 
@@ -39,6 +170,8 @@ export class DatabaseManager {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
     this.removeLegacyWorkflowState();
+    reconcileStaleWorkflowRuns(this.db);
+    backfillStoredPhotoCoordinates(this.db);
 
     // Jobs cannot resume after process restart; mark stale "running" rows as failed.
     try {

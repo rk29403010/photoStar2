@@ -1,4 +1,5 @@
 import type { Asset, FaceBox, PhotoMetadataSourceSummary } from '../../../boundary/contracts/core.ts';
+import { readCanonicalStoredPhotoBox } from '../../../services/faces/faceImageGeometry.ts';
 
 type SubjectRecord = Record<string, unknown>;
 type BoundingBoxRecord = Record<string, unknown>;
@@ -130,39 +131,22 @@ function asStringArray(value: unknown): string[] {
         : [];
 }
 
-function readBoundingBoxNumber(value: BoundingBoxRecord, key: 'x' | 'y' | 'width' | 'height'): number | null {
-    const entry = value[key];
-    return typeof entry === 'number' ? entry : null;
-}
-
-function normalizeBoundingBoxScale(params: { x: number; y: number; width: number; height: number }): SinglePhotoOverlayBox {
-    const scale = params.x > 1 || params.y > 1 || params.width > 1 || params.height > 1 ? 1000 : 1;
-    return {
-        x: params.x / scale,
-        y: params.y / scale,
-        w: params.width / scale,
-        h: params.height / scale,
-    };
-}
-
 function hasVisibleArea(box: SinglePhotoOverlayBox): boolean {
     return box.w > 0 && box.h > 0;
 }
 
 function normalizeBoundingBox(value: unknown): SinglePhotoOverlayBox | null {
-    if (!isRecord(value)) {
+    const box = readCanonicalStoredPhotoBox(value);
+    if (!box) {
         return null;
     }
 
-    const x = readBoundingBoxNumber(value, 'x');
-    const y = readBoundingBoxNumber(value, 'y');
-    const width = readBoundingBoxNumber(value, 'width');
-    const height = readBoundingBoxNumber(value, 'height');
-    if (x === null || y === null || width === null || height === null) {
-        return null;
-    }
-
-    const normalized = normalizeBoundingBoxScale({ x, y, width, height });
+    const normalized = {
+        x: box.x,
+        y: box.y,
+        w: box.width,
+        h: box.height,
+    };
     if (!hasVisibleArea(normalized)) {
         return null;
     }
@@ -231,17 +215,16 @@ function buildFaceItems(asset: Asset): SinglePhotoPeopleItem[] {
 }
 
 function buildFaceBox(face: FaceBox): SinglePhotoOverlayBox | null {
-    const width = face.box[2] - face.box[0];
-    const height = face.box[3] - face.box[1];
-    if (width <= 0 || height <= 0) {
+    const box = readCanonicalStoredPhotoBox(face.box);
+    if (!box) {
         return null;
     }
 
     return {
-        x: face.box[0],
-        y: face.box[1],
-        w: width,
-        h: height,
+        x: box.x,
+        y: box.y,
+        w: box.width,
+        h: box.height,
     };
 }
 

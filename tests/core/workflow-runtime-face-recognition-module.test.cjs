@@ -47,12 +47,12 @@ test('runtime.generate_face_vectors stores ArcFace embeddings and emits face eve
         insertFaceDetection(db, 'asset-1', [
             {
                 id: 'face-1',
-                box: [0.1, 0.1, 0.5, 0.5],
+                box: { x: 0.1, y: 0.1, width: 0.4, height: 0.4 },
                 landmarks: [{ x: 0.2, y: 0.2 }],
             },
             {
                 id: 'face-2',
-                box: [0.5, 0.5, 0.9, 0.9],
+                box: { x: 0.5, y: 0.5, width: 0.4, height: 0.4 },
             },
         ]);
 
@@ -119,7 +119,7 @@ test('runtime.generate_face_vectors keeps existing embeddings when ArcFace model
         insertAsset(db, 'asset-1', imagePath);
         insertFaceDetection(db, 'asset-1', [{
             id: 'face-1',
-            box: [0.1, 0.1, 0.5, 0.5],
+            box: { x: 0.1, y: 0.1, width: 0.4, height: 0.4 },
             landmarks: [{ x: 0.2, y: 0.2 }],
         }]);
         db.prepare(`

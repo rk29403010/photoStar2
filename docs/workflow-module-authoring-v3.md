@@ -20,6 +20,33 @@ definitions only.
 - A module should avoid hidden global state and should not depend on queue rows
   or paused-module settings.
 
+## In-Photo Coordinate Standard
+
+If a module stores any rectangle or box that refers to an area inside a photo,
+it must normalize that data before persistence.
+
+Stored in-photo coordinates use this canonical shape:
+
+```ts
+{
+  x: number,
+  y: number,
+  width: number,
+  height: number
+}
+```
+
+Rules:
+
+- values are normalized fractions in the `0..1` image space
+- origin is the top-left of the full original photo
+- `x` and `y` are the top-left corner
+- `width` and `height` are the box extents
+- modules must convert external or model-specific coordinate formats into this
+  shape before writing to the database
+- UI consumers are allowed to assume stored boxes already follow this standard
+  and should not contain source-specific coordinate guessing logic
+
 ## Implementation Shape
 
 Runtime modules live under `src/services/workflowRuntime/modules/`.

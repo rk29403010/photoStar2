@@ -14,10 +14,10 @@ const asset: Asset = {
     height: 800,
     faces: [
         {
-            box: [0.1, 0.2, 0.3, 0.5],
+            box: { x: 0.1, y: 0.2, width: 0.2, height: 0.3 },
         },
         {
-            box: [0.4, 0.15, 0.65, 0.55],
+            box: { x: 0.4, y: 0.15, width: 0.25, height: 0.4 },
             person_id: 'person-1',
             person_name: 'Alex',
         },
@@ -64,7 +64,7 @@ const asset: Asset = {
                     features: 'wearing glasses',
                     uniform: null,
                     suggested_names: ['Maybe Jordan'],
-                    bounding_box: { x: 700, y: 140, width: 180, height: 320 },
+                    bounding_box: { x: 0.7, y: 0.14, width: 0.18, height: 0.32 },
                 },
             ],
             regionsOfInterest: [
@@ -72,7 +72,7 @@ const asset: Asset = {
                     label: 'Badge',
                     kind: 'clothing',
                     significance: 'Could help identify the event era.',
-                    bounding_box: { x: 250, y: 500, width: 120, height: 110 },
+                    bounding_box: { x: 0.25, y: 0.5, width: 0.12, height: 0.11 },
                 },
             ],
         },
@@ -124,6 +124,36 @@ void test('buildSinglePhotoPeopleModel normalizes local faces, resolved people, 
         w: 0.18,
         h: 0.32,
     });
+});
+
+void test('buildSinglePhotoPeopleModel ignores legacy mixed-scale boxes instead of guessing their units', () => {
+    const model = buildSinglePhotoPeopleModel({
+        ...asset,
+        photo_metadata: {
+            ...asset.photo_metadata!,
+            projection: {
+                ...asset.photo_metadata!.projection,
+                subjects: [{
+                    label: 'Legacy Subject',
+                    type: 'person',
+                    location_desc: 'left side',
+                    gender: null,
+                    animal_type: null,
+                    age_range: null,
+                    dob_range: null,
+                    emotion: null,
+                    gaze: null,
+                    features: null,
+                    uniform: null,
+                    suggested_names: [],
+                    bounding_box: { x: 700, y: 140, width: 180, height: 320 },
+                }],
+                regionsOfInterest: [],
+            },
+        },
+    });
+
+    assert.equal(model.peopleItems.some((item) => item.label === 'Legacy Subject'), false);
 });
 
 void test('getSinglePhotoPeopleColor returns distinct palettes for each overlay source', () => {

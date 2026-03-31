@@ -309,6 +309,9 @@ test('generateAiMetadataModule persists machine blocks and projection rows from 
         assert.equal(projectionRow.caption_source_kind, 'gemini_pro_refined');
         assert.equal(projectionRow.estimated_date_display_label, 'late 1968');
         assert.equal(projectionRow.estimated_date_source_kind, 'gemini_pro_refined');
+        const parsedBlock = JSON.parse(blockRow.data);
+        assert.deepEqual(parsedBlock.subjects[0].bounding_box, { x: 0.01, y: 0.02, width: 0.1, height: 0.12 });
+        assert.deepEqual(parsedBlock.regions_of_interest[0].bounding_box, { x: 0.03, y: 0.04, width: 0.06, height: 0.04 });
     } finally {
         harness.dbManager.close();
         await removeDirWithRetry(tempDir);

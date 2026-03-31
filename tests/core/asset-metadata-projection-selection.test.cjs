@@ -69,8 +69,8 @@ function seedAssetWithProjection(db, options = {}) {
             'gemini_pro_refined', 'block-pro-1',
             '["straighten","warmth boost"]', 'gemini_pro_refined', 'block-pro-1',
             0.95, '["filename matches family archive"]', 'manual_user', 'assertion-auth-1',
-            '[{"kind":"person","label":"Billy"}]', 'manual_user', 'assertion-subjects-1',
-            '[{"kind":"face","box":[0.1,0.2,0.3,0.4]}]', 'gemini_flash_scout', 'block-scout-1'
+            '[{"kind":"person","label":"Billy","bounding_box":{"x":0.1,"y":0.2,"width":0.2,"height":0.2}}]', 'manual_user', 'assertion-subjects-1',
+            '[{"kind":"face","label":"Face","significance":null,"bounding_box":{"x":0.1,"y":0.2,"width":0.2,"height":0.2}}]', 'gemini_flash_scout', 'block-scout-1'
         )
     `).run();
 }
@@ -126,8 +126,17 @@ test('get_asset_detail prefers projection fields and skips parsing legacy machin
         assert.deepEqual(response.data.asset.photo_metadata.projection.quality, { technical: 4, lighting: 3, composition: 5, emotional: 4, discard: false });
         assert.deepEqual(response.data.asset.photo_metadata.projection.recommendedEnhancements, ['straighten', 'warmth boost']);
         assert.equal(response.data.asset.photo_metadata.projection.authenticity.score, 0.95);
-        assert.deepEqual(response.data.asset.photo_metadata.projection.subjects, [{ kind: 'person', label: 'Billy' }]);
-        assert.deepEqual(response.data.asset.photo_metadata.projection.regionsOfInterest, [{ kind: 'face', box: [0.1, 0.2, 0.3, 0.4] }]);
+        assert.deepEqual(response.data.asset.photo_metadata.projection.subjects, [{
+            kind: 'person',
+            label: 'Billy',
+            bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        }]);
+        assert.deepEqual(response.data.asset.photo_metadata.projection.regionsOfInterest, [{
+            kind: 'face',
+            label: 'Face',
+            significance: null,
+            bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        }]);
         assert.equal(response.data.asset.photo_metadata.provenance.caption.sourceKind, 'gemini_pro_refined');
         assert.equal(response.data.asset.photo_metadata.provenance.type.sourceKind, 'manual_user');
         assert.equal(response.data.asset.photo_metadata.provenance.keywords.sourceKind, 'gemini_flash_scout');
@@ -185,8 +194,17 @@ test('get_assets gallery results prefer projection fields and skip parsing legac
         assert.deepEqual(response.data.assets[0].photo_metadata.projection.quality, { technical: 4, lighting: 3, composition: 5, emotional: 4, discard: false });
         assert.deepEqual(response.data.assets[0].photo_metadata.projection.recommendedEnhancements, ['straighten', 'warmth boost']);
         assert.equal(response.data.assets[0].photo_metadata.projection.authenticity.score, 0.95);
-        assert.deepEqual(response.data.assets[0].photo_metadata.projection.subjects, [{ kind: 'person', label: 'Billy' }]);
-        assert.deepEqual(response.data.assets[0].photo_metadata.projection.regionsOfInterest, [{ kind: 'face', box: [0.1, 0.2, 0.3, 0.4] }]);
+        assert.deepEqual(response.data.assets[0].photo_metadata.projection.subjects, [{
+            kind: 'person',
+            label: 'Billy',
+            bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        }]);
+        assert.deepEqual(response.data.assets[0].photo_metadata.projection.regionsOfInterest, [{
+            kind: 'face',
+            label: 'Face',
+            significance: null,
+            bounding_box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        }]);
         assert.equal(response.data.assets[0].photo_metadata.provenance.caption.sourceKind, 'gemini_pro_refined');
         assert.equal(response.data.assets[0].photo_metadata.provenance.type.sourceKind, 'manual_user');
         assert.equal(response.data.assets[0].photo_metadata.provenance.keywords.sourceKind, 'gemini_flash_scout');

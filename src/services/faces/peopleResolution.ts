@@ -5,6 +5,11 @@ import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
 import { cosineSimilarity } from '../math-utils';
+import {
+    normalizeStoredPhotoBox,
+    storedPhotoBoxToPixelCrop,
+    type StoredPhotoBox,
+} from './faceImageGeometry';
 
 type FaceRef = { assetId: string; faceIndex: number; embedding: number[] };
 type Cluster = { id: string; faces: number[]; centroid: number[] };
@@ -193,43 +198,31 @@ function applyManualOverrides(db: ReturnType<DatabaseManager['getDb']>): void {
     })();
 }
 
-function clampUnitBounds(box: number[]): [number, number, number, number] {
-    const width = box[2] - box[0];
-    const height = box[3] - box[1];
-    const centerX = (box[0] + box[2]) / 2;
-    const centerY = (box[1] + box[3]) / 2;
-    const cropSize = Math.max(width, height) * 1.5;
+function expandStoredPhotoBox(box: StoredPhotoBox, multiplier: number): StoredPhotoBox | null {
+    const expandedWidth = box.width * multiplier;
+    const expandedHeight = box.height * multiplier;
+    const expandedX = box.x - ((expandedWidth - box.width) / 2);
+    const expandedY = box.y - ((expandedHeight - box.height) / 2);
 
-    let x1 = centerX - cropSize / 2;
-    let y1 = centerY - cropSize / 2;
-    let x2 = centerX + cropSize / 2;
-    let y2 = centerY + cropSize / 2;
-
-    if (x1 < 0) {
-        x2 -= x1;
-        x1 = 0;
-    }
-    if (y1 < 0) {
-        y2 -= y1;
-        y1 = 0;
-    }
-    if (x2 > 1) {
-        x1 -= x2 - 1;
-        x2 = 1;
-    }
-    if (y2 > 1) {
-        y1 -= y2 - 1;
-        y2 = 1;
-    }
-
-    return [Math.max(0, x1), Math.max(0, y1), Math.min(1, x2), Math.min(1, y2)];
+    return normalizeStoredPhotoBox({
+        x: expandedX,
+        y: expandedY,
+        width: expandedWidth,
+        height: expandedHeight,
+    });
 }
 
-async function createThumbnailForPerson(
+type ThumbnailSource = {
+    assetPath: string;
+    width: number;
+    height: number;
+    box: StoredPhotoBox;
+};
+
+function loadThumbnailSource(
     db: ReturnType<DatabaseManager['getDb']>,
-    previewsDir: string,
     personId: string,
-): Promise<void> {
+): ThumbnailSource | null {
     const bestFace = db.prepare(`
         SELECT asset_id, face_index
         FROM face_assignments
@@ -238,7 +231,7 @@ async function createThumbnailForPerson(
         LIMIT 1
     `).get(personId) as { asset_id: string; face_index: number } | undefined;
     if (!bestFace) {
-        return;
+        return null;
     }
 
     const asset = db.prepare('SELECT original_path, width, height FROM assets WHERE id = ?')
@@ -246,27 +239,57 @@ async function createThumbnailForPerson(
     const detection = db.prepare("SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'")
         .get(bestFace.asset_id) as { data: string } | undefined;
     if (!asset || !asset.width || !asset.height || !detection) {
-        return;
+        return null;
     }
 
-    const face = (JSON.parse(detection.data) as { faces?: Array<{ box: number[] }> }).faces?.[bestFace.face_index];
-    if (!face) {
-        return;
+    const face = (JSON.parse(detection.data) as { faces?: Array<{ box: StoredPhotoBox | number[] }> }).faces?.[bestFace.face_index];
+    const normalizedBox = normalizeStoredPhotoBox(face?.box);
+    if (!normalizedBox) {
+        return null;
     }
 
-    const [x1, y1, x2, y2] = clampUnitBounds(face.box);
-    const crop = {
-        left: Math.floor(x1 * asset.width),
-        top: Math.floor(y1 * asset.height),
-        width: Math.floor((x2 - x1) * asset.width),
-        height: Math.floor((y2 - y1) * asset.height),
+    return {
+        assetPath: asset.original_path,
+        width: asset.width,
+        height: asset.height,
+        box: normalizedBox,
     };
+}
+
+function buildPersonThumbnailCrop(source: ThumbnailSource) {
+    const expandedBox = expandStoredPhotoBox(source.box, 1.5);
+    if (!expandedBox) {
+        return null;
+    }
+
+    const crop = storedPhotoBoxToPixelCrop(expandedBox, {
+        width: source.width,
+        height: source.height,
+    });
     if (crop.width <= 5 || crop.height <= 5) {
+        return null;
+    }
+
+    return crop;
+}
+
+async function createThumbnailForPerson(
+    db: ReturnType<DatabaseManager['getDb']>,
+    previewsDir: string,
+    personId: string,
+): Promise<void> {
+    const thumbnailSource = loadThumbnailSource(db, personId);
+    if (!thumbnailSource) {
+        return;
+    }
+
+    const crop = buildPersonThumbnailCrop(thumbnailSource);
+    if (!crop) {
         return;
     }
 
     const outputPath = join(previewsDir, `person-${personId}.webp`);
-    await sharp(asset.original_path)
+    await sharp(thumbnailSource.assetPath)
         .rotate()
         .extract(crop)
         .resize(256, 256)

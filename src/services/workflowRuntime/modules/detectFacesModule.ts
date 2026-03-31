@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import type { DatabaseManager } from '../../../data/db';
 import type { FacesDetected } from '@contracts/events';
 import { RetinaFaceDetector } from '../../faces/retinaFaceDetector';
+import { normalizeStoredPhotoBox } from '../../faces/faceImageGeometry';
 import type { ModuleDefinition } from '../contracts';
 
 export interface DetectFacesModuleOptions {
@@ -25,17 +26,24 @@ export function createDetectFacesModule(options: DetectFacesModuleOptions): Modu
             const db = options.dbManager.getDb();
             const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?')
                 .get(context.subject.subjectId) as { original_path: string } | undefined;
-            let faces: Array<{ id: string; box: [number, number, number, number]; score: number; landmarks: Array<{ x: number; y: number }> }> = [];
+            let faces: Array<{ id: string; box: { x: number; y: number; width: number; height: number }; score: number; landmarks: Array<{ x: number; y: number }> }> = [];
 
             if (asset?.original_path && existsSync(asset.original_path)) {
                 try {
                     const detections = await detector.detect(asset.original_path);
-                    faces = detections.map((detection) => ({
-                        id: uuidv4(),
-                        box: detection.box,
-                        score: detection.score,
-                        landmarks: detection.landmarks,
-                    }));
+                    faces = detections.flatMap((detection) => {
+                        const normalizedBox = normalizeStoredPhotoBox(detection.box);
+                        if (!normalizedBox) {
+                            return [];
+                        }
+
+                        return [{
+                            id: uuidv4(),
+                            box: normalizedBox,
+                            score: detection.score,
+                            landmarks: detection.landmarks,
+                        }];
+                    });
                 } catch (error) {
                     db.prepare(`
                         INSERT INTO processing_issues (id, asset_id, task, severity, message)
