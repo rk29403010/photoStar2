@@ -63,8 +63,12 @@ export function buildVariantMemberActions({
 }
 
 export function isOrbitItemSelected(item: SimilarityOrbitItem, selectedAsset: Asset): boolean {
+    if (item.asset.id === selectedAsset.id) {
+        return true;
+    }
+
     if (item.kind === 'asset') {
-        return item.asset.id === selectedAsset.id;
+        return false;
     }
 
     return Boolean(

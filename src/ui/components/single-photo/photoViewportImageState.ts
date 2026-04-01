@@ -103,7 +103,8 @@ export function commitViewportPendingImage(
         activeImageSrc: pendingImageSrc,
         pendingAsset: null,
         pendingImageSrc: null,
-        isActiveImageReady: false,
+        // The hidden pending image only commits after it has already loaded.
+        isActiveImageReady: true,
     };
 }
 

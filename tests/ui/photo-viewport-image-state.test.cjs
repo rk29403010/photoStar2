@@ -146,7 +146,7 @@ test('fitViewportStageDimensions scales small assets up to the available viewpor
     );
 });
 
-test('commitViewportPendingImage resets ready state until the visible image has loaded', async () => {
+test('commitViewportPendingImage keeps the committed image ready after the hidden preload succeeds', async () => {
     const { commitViewportPendingImage } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
 
     assert.deepEqual(
@@ -162,7 +162,7 @@ test('commitViewportPendingImage resets ready state until the visible image has 
             activeImageSrc: 'two.jpg',
             pendingAsset: null,
             pendingImageSrc: null,
-            isActiveImageReady: false,
+            isActiveImageReady: true,
         },
     );
 });

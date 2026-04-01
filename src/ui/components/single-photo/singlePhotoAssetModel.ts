@@ -183,6 +183,14 @@ export function clearGroupMembership(assets: Asset[], groupId: string): Asset[] 
     });
 }
 
+export function resolveActiveSinglePhotoGroupId(asset: Asset, previousActiveGroupId: string | null): string | null {
+    if (previousActiveGroupId && asset.group_memberships?.some((membership) => membership.group_id === previousActiveGroupId)) {
+        return previousActiveGroupId;
+    }
+
+    return asset.group_id ?? null;
+}
+
 export function applyActiveGroupContext(asset: Asset, activeGroupId: string | null): Asset {
     if (!activeGroupId) {
         return asset;

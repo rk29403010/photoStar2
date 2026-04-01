@@ -98,3 +98,38 @@ test('isLibrarySelectionAnchorAsset excludes orbit-only duplicate assets from re
     assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, 'orbit-duplicate'), false);
     assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, undefined), false);
 });
+
+test('resolveActiveSinglePhotoGroupId preserves the active child group while the selected asset still belongs to it', async () => {
+    const { resolveActiveSinglePhotoGroupId } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
+
+    assert.equal(
+        resolveActiveSinglePhotoGroupId(
+            {
+                id: 'asset-3',
+                original_path: 'three.jpg',
+                group_id: 'group-parent',
+                group_memberships: [
+                    { group_id: 'group-parent', group_role: 'member', stack_count: 3, role: 'member', rank: null, match_evidence: null, group_type: 'variant_set' },
+                    { group_id: 'group-child', group_role: 'canonical', stack_count: 2, role: 'canonical', rank: -1, match_evidence: null, group_type: 'burst' },
+                ],
+            },
+            'group-child',
+        ),
+        'group-child',
+    );
+
+    assert.equal(
+        resolveActiveSinglePhotoGroupId(
+            {
+                id: 'asset-4',
+                original_path: 'four.jpg',
+                group_id: 'group-parent',
+                group_memberships: [
+                    { group_id: 'group-parent', group_role: 'member', stack_count: 3, role: 'member', rank: null, match_evidence: null, group_type: 'variant_set' },
+                ],
+            },
+            'group-child',
+        ),
+        'group-parent',
+    );
+});

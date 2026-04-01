@@ -5,7 +5,7 @@ import { usePanZoom } from '../../hooks/usePanZoom';
 import { ActionOverlays } from './ActionOverlays';
 import { VariantFilmstripOverlay } from './PhotoViewportFilmstrip';
 import { ZoomableStage } from './PhotoViewportStage';
-import { applyActiveGroupContext } from './singlePhotoAssetModel';
+import { applyActiveGroupContext, resolveActiveSinglePhotoGroupId } from './singlePhotoAssetModel';
 import { useKeyboardNavigation, useViewportGroupActions } from './photoViewportInteractions';
 import { usePhotoViewportImageState } from './usePhotoViewportImageState';
 import { useViewportStageDimensions } from './useViewportStageDimensions';
@@ -99,7 +99,8 @@ type PhotoViewportFrameProps = {
     showControls: boolean;
     setShowControls: Dispatch<SetStateAction<boolean>>;
     setShowActionMenu: Dispatch<SetStateAction<boolean>>;
-    asset: Asset;
+    displayedAsset: Asset;
+    selectedAsset: Asset;
     actionAsset: Asset;
     imgSrc: string | null;
     pendingImageSrc: string | null;
@@ -142,12 +143,12 @@ type PhotoViewportFrameProps = {
 
 const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', userSelect: 'none' } as const;
 
-const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'asset' | 'imgSrc' | 'pendingImageSrc' | 'stageSize' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'isImageTransitionPending' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls' | 'onActiveImageLoad' | 'onPendingImageLoad'>> = ({
+const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'displayedAsset' | 'imgSrc' | 'pendingImageSrc' | 'stageSize' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'isImageTransitionPending' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls' | 'onActiveImageLoad' | 'onPendingImageLoad'>> = ({
     containerRef,
     showControls,
     setShowControls,
     setShowActionMenu,
-    asset,
+    displayedAsset,
     imgSrc,
     pendingImageSrc,
     stageSize,
@@ -180,7 +181,7 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
             }}
         >
             <ZoomableStage
-                asset={asset}
+                asset={displayedAsset}
                 imgSrc={imgSrc}
                 pendingImageSrc={pendingImageSrc}
                 stageSize={stageSize}
@@ -206,8 +207,8 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
     );
 };
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
-    asset,
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
+    selectedAsset,
     actionAsset,
     assetsLength,
     currentIndex,
@@ -262,7 +263,7 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'asset' | 'assetsLen
         />
 
         <VariantFilmstripOverlay
-            asset={asset}
+            asset={selectedAsset}
             onGetGroupOrbit={onGetGroupOrbit}
             onOrbitLoaded={onOrbitLoaded}
             onSelectAsset={onSelectAsset}
@@ -279,7 +280,7 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 showControls={props.showControls}
                 setShowControls={props.setShowControls}
                 setShowActionMenu={props.setShowActionMenu}
-                asset={props.asset}
+                displayedAsset={props.displayedAsset}
                 imgSrc={props.imgSrc}
                 pendingImageSrc={props.pendingImageSrc}
                 stageSize={props.stageSize}
@@ -300,7 +301,7 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 onPendingImageLoad={props.onPendingImageLoad}
             />
             <ViewportDecorations
-                asset={props.asset}
+                selectedAsset={props.selectedAsset}
                 actionAsset={props.actionAsset}
                 assetsLength={props.assetsLength}
                 currentIndex={props.currentIndex}
@@ -336,7 +337,7 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scale, setScale, pan, setPan, isDragging, handleMouseDown, resetPanZoom } = usePanZoom(containerRef);
     const groupActions = useViewportGroupActions(props.onSetCanonical, props.onExplodeGroup);
-    const [activeGroupId, setActiveGroupId] = useState<string | null>(props.asset.group_id ?? null);
+    const [activeGroupId, setActiveGroupId] = useState<string | null>(() => resolveActiveSinglePhotoGroupId(props.asset, null));
     const actionAsset = applyActiveGroupContext(props.asset, activeGroupId);
     const alwaysShowForPanel = props.panelState.showInfoPanel && props.panelState.activeInfoTab === 'people';
     const {
@@ -355,8 +356,8 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const stageSize = useViewportStageDimensions(containerRef, stageAsset);
 
     useEffect(() => {
-        setActiveGroupId(props.asset.group_id ?? null);
-    }, [props.asset.group_id, props.asset.id]);
+        setActiveGroupId((previousActiveGroupId) => resolveActiveSinglePhotoGroupId(props.asset, previousActiveGroupId));
+    }, [props.asset]);
 
     useKeyboardNavigation({
         assetsLength: props.assetsLength,
@@ -373,7 +374,8 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             showControls={props.showControls}
             setShowControls={props.setShowControls}
             setShowActionMenu={props.setShowActionMenu}
-            asset={stageAsset}
+            displayedAsset={stageAsset}
+            selectedAsset={props.asset}
             imgSrc={stageImageSrc}
             pendingImageSrc={pendingImageSrc}
             stageSize={stageSize}

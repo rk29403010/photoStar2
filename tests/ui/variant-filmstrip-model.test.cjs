@@ -94,4 +94,16 @@ test('variant filmstrip model exposes hierarchy-aware selection helpers', async 
         stack_count: 1,
         asset: { id: 'asset-2', original_path: 'two.jpg' },
     }, selectedAsset), true);
+
+    assert.equal(isOrbitItemSelected({
+        kind: 'group',
+        group_id: 'group-child',
+        group_type: 'burst',
+        stack_count: 4,
+        asset: { id: 'asset-9', original_path: 'nine.jpg' },
+    }, {
+        id: 'asset-9',
+        original_path: 'nine.jpg',
+        group_id: 'group-parent',
+    }), true);
 });
