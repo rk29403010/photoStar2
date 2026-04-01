@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 
 type ActionTab = 'ingest' | 'workflows' | 'library' | 'danger';
 
 interface ActionPanelProps {
     isOpen: boolean;
     onClose: () => void;
-    aiMode: AiMode;
-    setAiMode: (mode: AiMode) => void;
     onScan: (path?: string) => void;
     onPreviews: () => void;
     onDetect: () => void;
     onCluster: () => void;
+    onRecalculatePhotoDates: () => Promise<string>;
     onExtractAiMetadata: () => void;
     onScanSensitive: () => void;
     onScanSensitiveAll: () => void;
@@ -52,7 +50,6 @@ function PanelHeader({ onClose }: { onClose: () => void }) {
         <div className="mb-6 flex items-center justify-between border-b border-[#333] pb-4">
             <div>
                 <h2 className="bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-2xl font-bold text-transparent">Library Actions</h2>
-                <p className="mt-1 text-xs text-gray-300">Operational tools for ingest, workflows, maintenance, and recovery.</p>
             </div>
             <button onClick={onClose} className="rounded-full p-2 text-gray-400 transition-colors hover:bg-[#333] hover:text-white" aria-label="Close">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,32 +57,6 @@ function PanelHeader({ onClose }: { onClose: () => void }) {
                 </svg>
             </button>
         </div>
-    );
-}
-
-function AiModeSelector(props: Pick<ActionPanelProps, 'aiMode' | 'setAiMode'>) {
-    return (
-        <section className="mb-6 rounded-xl border border-[#333] bg-[#151515] p-4">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-300">AI Mode</h3>
-                    <p className="mt-1 text-[11px] text-gray-300">Folder ingest and AI metadata actions will use this mode.</p>
-                </div>
-                <div className="rounded-full border border-[#2f2f2f] bg-[#111] px-2 py-1 text-[10px] uppercase tracking-[0.25em] text-gray-400">
-                    Cross-cutting
-                </div>
-            </div>
-            <select
-                aria-label="AI Mode"
-                value={props.aiMode}
-                onChange={(event) => props.setAiMode(event.target.value as AiMode)}
-                className="w-full rounded-lg border border-[#333] bg-[#101010] px-3 py-2 text-sm text-white outline-none transition-colors focus:border-indigo-400"
-            >
-                <option value="live">Live</option>
-                <option value="mock">Mock</option>
-                <option value="off">Off</option>
-            </select>
-        </section>
     );
 }
 
@@ -221,6 +192,15 @@ function buildWorkflowItems(props: ActionPanelProps, closeThen: (action: () => v
         { label: 'Generate Library Previews', icon: '🖼️', description: 'Start the runtime preview workflow for assets missing gallery previews.', accentClassName: 'hover:border-purple-500/50', onClick: closeThen(props.onPreviews) },
         { label: 'Run Face Workflow', icon: '🎯', description: 'Launch the runtime face analysis workflow across the current library.', accentClassName: 'hover:border-purple-500/50', onClick: closeThen(props.onDetect) },
         { label: 'Run Grouping Workflow', icon: '🧬', description: 'Build duplicate, variant, burst, and sequence groupings from the runtime model.', accentClassName: 'hover:border-teal-500/50', onClick: closeThen(props.onCluster) },
+        {
+            label: 'Recalculate Photo Dates',
+            icon: '🗓️',
+            description: 'Re-run photo created date estimation across the library using the latest weighting rules.',
+            accentClassName: 'hover:border-sky-500/50',
+            onClick: closeThen(() => {
+                void props.onRecalculatePhotoDates();
+            }),
+        },
         { label: 'Scan Sensitive Content', icon: '🔞', description: 'Run the runtime sensitive-content workflow for the library.', accentClassName: 'hover:border-amber-500/50', onClick: closeThen(props.onScanSensitive) },
         {
             label: 'Re-run Sensitive Scan',
@@ -343,7 +323,6 @@ export function ActionPanel(props: ActionPanelProps) {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 px-4 py-4">
             <div ref={panelRef} className="mx-auto w-full max-w-6xl rounded-xl border border-[#333] bg-[#1a1a1a]/95 p-8 text-white shadow-2xl backdrop-blur-md" role="dialog" aria-modal="true">
                 <PanelHeader onClose={props.onClose} />
-                <AiModeSelector aiMode={props.aiMode} setAiMode={props.setAiMode} />
 
                 <div className="mb-5 flex flex-wrap gap-2">
                     {ACTION_TABS.map((tab) => (

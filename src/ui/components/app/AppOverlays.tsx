@@ -1,6 +1,7 @@
 import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { BackgroundJob } from '@contracts/jobs';
 import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { TaskDrawer } from '../jobs/TaskDrawer';
 import { ActionPanel } from '../ActionPanel';
 import { SettingsModal } from '../SettingsModal';
@@ -28,6 +29,7 @@ interface AppOverlaysProps {
   onPreviews: () => void;
   onDetect: () => void;
   onCluster: () => void;
+  onRecalculatePhotoDates: () => Promise<string>;
   onScanSensitive: () => void;
   onScanSensitiveAll: () => void;
   onExtractAiMetadata: (assetId?: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
@@ -53,6 +55,7 @@ interface AppOverlaysProps {
   onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
   onSetCanonical: (groupId: string, assetId: string) => Promise<void>;
   onExplodeGroup: (groupId: string) => Promise<void>;
+  onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
   onStopJob: (job: BackgroundJob) => void;
   isTaskDrawerMinimized: boolean;
   onTaskDrawerMinimizedChange: (minimized: boolean) => void;
@@ -67,12 +70,11 @@ export function AppOverlays(props: AppOverlaysProps) {
       <ActionPanel
         isOpen={props.showActions}
         onClose={() => props.setShowActions(false)}
-        aiMode={props.aiMode}
-        setAiMode={props.setAiMode}
         onScan={props.onScan}
         onPreviews={props.onPreviews}
         onDetect={props.onDetect}
         onCluster={props.onCluster}
+        onRecalculatePhotoDates={props.onRecalculatePhotoDates}
         onScanSensitive={props.onScanSensitive}
         onScanSensitiveAll={props.onScanSensitiveAll}
         onExtractAiMetadata={props.onExtractAiMetadata}
@@ -95,6 +97,8 @@ export function AppOverlays(props: AppOverlaysProps) {
         setTheme={props.setTheme}
         animationsEnabled={props.animationsEnabled}
         setAnimationsEnabled={props.setAnimationsEnabled}
+        aiMode={props.aiMode}
+        setAiMode={props.setAiMode}
       />
 
       {hasSelectedAsset && (
@@ -117,6 +121,7 @@ export function AppOverlays(props: AppOverlaysProps) {
           onGetGroupOrbit={props.onGetGroupOrbit}
           onSetCanonical={props.onSetCanonical}
           onExplodeGroup={props.onExplodeGroup}
+          onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
         />
       )}
 

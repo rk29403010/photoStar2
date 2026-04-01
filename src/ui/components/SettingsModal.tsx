@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -9,6 +10,8 @@ interface SettingsModalProps {
     setTheme: (v: string) => void;
     animationsEnabled: boolean;
     setAnimationsEnabled: (v: boolean) => void;
+    aiMode: AiMode;
+    setAiMode: (mode: AiMode) => void;
 }
 
 type Tab = 'system' | 'ui' | 'workflows' | 'jobs';
@@ -60,13 +63,32 @@ function SystemTab({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange
 }
 
 function UiTab({
-    theme, setTheme, animationsEnabled, setAnimationsEnabled,
-}: Pick<SettingsModalProps, 'theme' | 'setTheme' | 'animationsEnabled' | 'setAnimationsEnabled'>) {
+    theme,
+    setTheme,
+    animationsEnabled,
+    setAnimationsEnabled,
+    aiMode,
+    setAiMode,
+}: Pick<SettingsModalProps, 'theme' | 'setTheme' | 'animationsEnabled' | 'setAnimationsEnabled' | 'aiMode' | 'setAiMode'>) {
     return (
         <div className="space-y-6">
             <h3 className="border-b border-[#333] pb-2 text-lg font-semibold text-pink-400">UI Settings</h3>
             <p className="mb-4 text-xs text-gray-300">Persisted locally in the browser/client storage.</p>
             <div className="space-y-4">
+                <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-300">AI Mode</label>
+                    <select
+                        aria-label="AI Mode"
+                        value={aiMode}
+                        onChange={(event) => setAiMode(event.target.value as AiMode)}
+                        className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-[#2a5]"
+                    >
+                        <option value="live">Live</option>
+                        <option value="mock">Mock</option>
+                        <option value="off">Off</option>
+                    </select>
+                    <p className="mt-1 text-[10px] text-gray-300">Folder ingest and AI metadata actions will use this mode.</p>
+                </div>
                 <div>
                     <label className="mb-1 block text-xs font-medium text-gray-300">Color Theme</label>
                     <select value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-[#2a5]">
@@ -239,6 +261,8 @@ function SettingsContent({
     setTheme,
     animationsEnabled,
     setAnimationsEnabled,
+    aiMode,
+    setAiMode,
 }: {
     activeTab: Tab;
     dbSettings: SettingsMap;
@@ -247,6 +271,8 @@ function SettingsContent({
     setTheme: (v: string) => void;
     animationsEnabled: boolean;
     setAnimationsEnabled: (v: boolean) => void;
+    aiMode: AiMode;
+    setAiMode: (mode: AiMode) => void;
 }) {
     if (activeTab === 'system') {
         return <SystemTab dbSettings={dbSettings} onChange={onDbChange} />;
@@ -259,6 +285,8 @@ function SettingsContent({
                 setTheme={setTheme}
                 animationsEnabled={animationsEnabled}
                 setAnimationsEnabled={setAnimationsEnabled}
+                aiMode={aiMode}
+                setAiMode={setAiMode}
             />
         );
     }
@@ -293,7 +321,7 @@ function SettingsFooter({
 
 export function SettingsModal({
     isOpen, onClose, getSetting, setSetting,
-    theme, setTheme, animationsEnabled, setAnimationsEnabled,
+    theme, setTheme, animationsEnabled, setAnimationsEnabled, aiMode, setAiMode,
 }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<Tab>('system');
     const [dbSettings, setDbSettings] = useState<SettingsMap>({});
@@ -328,6 +356,8 @@ export function SettingsModal({
                             setTheme={setTheme}
                             animationsEnabled={animationsEnabled}
                             setAnimationsEnabled={setAnimationsEnabled}
+                            aiMode={aiMode}
+                            setAiMode={setAiMode}
                         />
                     </div>
                 </div>
