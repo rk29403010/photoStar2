@@ -53,7 +53,38 @@ test('estimatePhotoDate prefers historical AI ranges over scanner-style metadata
     assert.ok(result.confidence.reasons.some((reason) => reason.includes('scanner')));
 });
 
-test('estimatePhotoDate keeps born-digital metadata as the leading signal but lowers confidence on major disagreement', async () => {
+test('estimatePhotoDate keeps born-digital metadata as the leading signal when AI is nearby', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/IMG_2048.JPG',
+        fileBirthtime: '2024-08-10T10:12:13.000Z',
+        embeddedMetadata: {
+            embedded: {
+                exif: {
+                    Make: 'Apple',
+                    Model: 'iPhone 15 Pro',
+                    Software: '17.5',
+                },
+            },
+            derived: {
+                timestamp_candidates: [
+                    { source: 'exif.DateTimeOriginal', value: '2024-08-10T10:12:13.000Z' },
+                ],
+            },
+        },
+        aiMetadata: {
+            estimated_date: '2023',
+        },
+    });
+
+    assert.equal(result.photoCreatedAt, '2024-08-10T10:12:13.000Z');
+    assert.equal(result.range.start, '2024-08-10T10:12:13.000Z');
+    assert.equal(result.range.end, '2024-08-10T10:12:13.000Z');
+    assert.ok(result.confidence.score > 0.7);
+});
+
+test('estimatePhotoDate lets AI override born-digital metadata when the divergence is decades wide', async () => {
     const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
 
     const result = estimatePhotoDate({
@@ -78,11 +109,10 @@ test('estimatePhotoDate keeps born-digital metadata as the leading signal but lo
         },
     });
 
-    assert.equal(result.photoCreatedAt, '2024-08-10T10:12:13.000Z');
-    assert.equal(result.range.start, '2024-08-10T10:12:13.000Z');
-    assert.equal(result.range.end, '2024-08-10T10:12:13.000Z');
-    assert.ok(result.confidence.score < 0.8);
-    assert.ok(result.confidence.reasons.some((reason) => reason.includes('disagrees')));
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1974);
+    assert.equal(result.range.start, '1970-01-01T00:00:00.000Z');
+    assert.equal(result.range.end, '1979-12-31T23:59:59.999Z');
+    assert.ok(result.confidence.score < 0.6);
 });
 
 test('estimatePhotoDate ignores WhatsApp export filename dates when historical AI evidence disagrees', async () => {
@@ -138,6 +168,128 @@ test('estimatePhotoDate prefers structured AI most_likely_date over broad min/ma
 
     assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1990);
     assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.year'));
+});
+
+test('estimatePhotoDate treats edit-time metadata as weaker than historical AI decade hints', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/family-scan.jpg',
+        fileBirthtime: '2026-03-17T11:23:05.359Z',
+        embeddedMetadata: {
+            embedded: {},
+            derived: {
+                timestamp_candidates: [
+                    { source: 'exif.ModifyDate', value: '2021-07-01T00:00:00.000Z' },
+                ],
+            },
+        },
+        aiMetadata: {
+            estimated_date: {
+                most_likely_date: null,
+                min_date: null,
+                max_date: null,
+                display_label: 'Early 1990s',
+                rationale: 'Clothing and photo quality suggest an early 1990s print scan.',
+            },
+        },
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1994);
+    assert.equal(result.range.start, '1990-01-01T00:00:00.000Z');
+    assert.equal(result.range.end, '1999-12-31T23:59:59.999Z');
+    assert.ok(result.signals.some((signal) => signal.source === 'exif.ModifyDate'));
+    assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.decade'));
+});
+
+test('estimatePhotoDate prefers AI over unknown-source embedded timestamps', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/family-archive.jpg',
+        fileBirthtime: '2026-03-17T11:23:05.359Z',
+        embeddedMetadata: {
+            embedded: {},
+            derived: {
+                timestamp_candidates: [
+                    { source: 'exif.DateTimeOriginal', value: '2021-07-01T00:00:00.000Z' },
+                ],
+            },
+        },
+        aiMetadata: {
+            estimated_date: 'Early 1990s',
+        },
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1994);
+    assert.equal(result.range.start, '1990-01-01T00:00:00.000Z');
+    assert.equal(result.range.end, '1999-12-31T23:59:59.999Z');
+});
+
+test('estimatePhotoDate ignores scanner-style two-digit archive filename years when AI provides a historical year', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/family-archive/b1s18_04.jpg',
+        fileBirthtime: '2026-03-17T11:23:05.359Z',
+        embeddedMetadata: {
+            embedded: {
+                exif: {
+                    ProcessingSoftware: 'Windows Photo Editor 10.0.10011.16384',
+                    Software: 'Windows Photo Editor 10.0.10011.16384',
+                },
+            },
+            derived: {
+                timestamp_candidates: [
+                    { source: 'exif.DateTimeOriginal', value: '2018-10-21T03:04:29.000Z' },
+                ],
+            },
+        },
+        aiMetadata: {
+            estimated_date: '1954',
+        },
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1954);
+    assert.ok(result.signals.every((signal) => signal.source !== 'filename.two_digit_year'));
+    assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.year'));
+});
+
+test('estimatePhotoDate lets historical AI override born-digital export timestamps on decades-wide disagreement', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/PB153551.JPG',
+        fileBirthtime: '2025-12-26T02:47:04.000Z',
+        embeddedMetadata: {
+            embedded: {
+                exif: {
+                    Make: 'Apple',
+                    Model: 'iPhone 15 Pro',
+                    Software: '17.5',
+                },
+            },
+            derived: {
+                timestamp_candidates: [
+                    { source: 'exif.DateTimeOriginal', value: '2018-11-15T16:12:00.000Z' },
+                    { source: 'exif.ModifyDate', value: '2018-11-15T16:12:00.000Z' },
+                    { source: 'exif.CreateDate', value: '2018-11-15T16:12:00.000Z' },
+                ],
+            },
+        },
+        aiMetadata: {
+            estimated_date: '1945',
+        },
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1945);
+    assert.equal(result.range.start, '1945-01-01T00:00:00.000Z');
+    assert.equal(result.range.end, '1945-12-31T23:59:59.999Z');
+    const aiSignal = result.signals.find((signal) => signal.source === 'ai.estimated_date.year');
+    const modifySignal = result.signals.find((signal) => signal.source === 'exif.ModifyDate');
+    assert.ok(aiSignal);
+    assert.ok(modifySignal);
+    assert.ok(aiSignal.weight > modifySignal.weight);
 });
 
 test('runtime.estimate_photo_date preserves import time and stores photo_created_at plus confidence', async () => {

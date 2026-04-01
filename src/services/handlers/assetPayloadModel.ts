@@ -20,6 +20,7 @@ export type AssetPayloadRow = {
     faces_data: string | null;
     rec_data: string | null;
     ai_metadata_data: string | null;
+    photo_date_estimate_data?: string | null;
     embedded_metadata_data?: string | null;
     people_data: string | null;
     type: string | null;
@@ -133,6 +134,15 @@ function parseEmbeddedMetadata(row: AssetPayloadRow) {
     if (!row.embedded_metadata_data) {return undefined;}
     try {
         return JSON.parse(row.embedded_metadata_data) as Record<string, unknown>;
+    } catch {
+        return undefined;
+    }
+}
+
+function parsePhotoDateEstimate(row: AssetPayloadRow) {
+    if (!row.photo_date_estimate_data) {return undefined;}
+    try {
+        return JSON.parse(row.photo_date_estimate_data);
     } catch {
         return undefined;
     }
@@ -345,6 +355,7 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
             : photoMetadata,
         ai_metadata: includeEvidence ? parseAiMetadata(row) : undefined,
         embedded_metadata: includeEvidence ? parseEmbeddedMetadata(row) : undefined,
+        photo_date_estimate: includeEvidence ? parsePhotoDateEstimate(row) : undefined,
         ...buildGroupFields(row),
     };
 }

@@ -38,6 +38,7 @@ interface BuildActionParams {
     updateJobState: (id: string, state: JobState) => void;
     refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
     refreshSystemJobs: () => void;
+    loadAssetDetails: (assetId: string, options?: { includeEvidence?: boolean }) => Promise<void>;
 }
 
 type WorkflowRunDetailResponse = {
@@ -48,7 +49,7 @@ type WorkflowRunDetailResponse = {
 
 async function getWorkflowRunDetail(request: RequestFn, runId: string): Promise<WorkflowRunDetailResponse> {
     return request<WorkflowRunDetailResponse>({
-        idPrefix: `grouping_workflow_status_${runId}`,
+        idPrefix: `workflow_run_status_${runId}`,
         command: 'get_workflow_run_detail',
         payload: { runId },
         timeoutMs: 10000,
@@ -56,9 +57,10 @@ async function getWorkflowRunDetail(request: RequestFn, runId: string): Promise<
     });
 }
 
-function scheduleGroupingRefresh(params: Pick<BuildActionParams, 'request' | 'updateJobState' | 'refreshLibrary' | 'refreshSystemJobs'> & {
+function scheduleWorkflowRunRefresh(params: Pick<BuildActionParams, 'request' | 'updateJobState' | 'refreshLibrary' | 'refreshSystemJobs'> & {
     localJobId: string;
     runId: string;
+    onCompleted?: () => void;
 }) {
     const poll = async () => {
         params.refreshLibrary({ preservePagingState: true });
@@ -72,6 +74,7 @@ function scheduleGroupingRefresh(params: Pick<BuildActionParams, 'request' | 'up
                 params.updateJobState(params.localJobId, 'completed');
                 params.refreshLibrary();
                 params.refreshSystemJobs();
+                params.onCompleted?.();
                 return;
             }
 
@@ -232,13 +235,46 @@ export function createBuildActions(params: BuildActionParams) {
             }
 
             updateJobState(localJobId, 'running');
-            scheduleGroupingRefresh({
+            scheduleWorkflowRunRefresh({
                 request,
                 updateJobState,
                 refreshLibrary,
                 refreshSystemJobs,
                 localJobId,
                 runId,
+            });
+
+            return runId;
+        },
+        recalculatePhotoDates: async (assetId?: string): Promise<string> => {
+            const localJobId = 'recalculate-photo-dates-' + Date.now();
+            addJob(localJobId, 'analysis', assetId ? 'Recalculating Photo Date' : 'Recalculating Photo Dates');
+            updateJobState(localJobId, 'starting');
+
+            const runId = await request<string>({
+                idPrefix: 'start_library_photo_date_workflow',
+                command: 'start_library_photo_date_workflow',
+                payload: assetId ? { mediaId: assetId } : {},
+                timeoutMs: 10000,
+                select: (data) => String(data?.runId || ''),
+            });
+
+            if (!runId) {
+                updateJobState(localJobId, 'failed');
+                return '';
+            }
+
+            updateJobState(localJobId, 'running');
+            scheduleWorkflowRunRefresh({
+                request,
+                updateJobState,
+                refreshLibrary,
+                refreshSystemJobs,
+                localJobId,
+                runId,
+                onCompleted: assetId ? () => {
+                    void params.loadAssetDetails(assetId, { includeEvidence: true });
+                } : undefined,
             });
 
             return runId;

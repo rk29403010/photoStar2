@@ -141,6 +141,10 @@ test('photo metadata boundary actions fetch evidence, submit manual assertions, 
                 return args.select({ runId: 'run-refine-1' });
             }
 
+            if (args.command === 'start_library_photo_date_workflow') {
+                return args.select({ runId: 'run-photo-date-1' });
+            }
+
             return args.select({
                 manualAssertion: { id: 'assertion-1', user_id: 'user-father-in-law' },
                 photo_metadata: {
@@ -159,12 +163,16 @@ test('photo metadata boundary actions fetch evidence, submit manual assertions, 
         note: 'Confirmed from family memory.',
     });
     const runId = await actions.refinePhotoMetadata('asset-1');
+    const photoDateRunId = await actions.recalculatePhotoDate('asset-1');
 
     assert.equal(photoMetadata.projection.caption, 'Billy and Dad enjoying Christmas dinner');
     assert.equal(assertionResult.manualAssertion.user_id, 'user-father-in-law');
     assert.equal(requests[1].command, 'record_photo_metadata_assertion');
     assert.equal(requests[1].payload.userId, 'user-father-in-law');
-    assert.equal(requests.at(-1).command, 'start_selected_subject_metadata_workflow');
-    assert.deepEqual(requests.at(-1).payload.selectedSubjects, [{ subjectType: 'asset', subjectId: 'asset-1' }]);
+    assert.equal(requests.at(-2).command, 'start_selected_subject_metadata_workflow');
+    assert.deepEqual(requests.at(-2).payload.selectedSubjects, [{ subjectType: 'asset', subjectId: 'asset-1' }]);
+    assert.equal(requests.at(-1).command, 'start_library_photo_date_workflow');
+    assert.deepEqual(requests.at(-1).payload, { mediaId: 'asset-1' });
     assert.equal(runId, 'run-refine-1');
+    assert.equal(photoDateRunId, 'run-photo-date-1');
 });

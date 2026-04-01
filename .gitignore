@@ -43,6 +43,7 @@ vite.config.ts.timestamp-*.mjs
 .playwright-cli/
 .superpowers/
 *.tsbuildinfo
+artifacts/reports/
 
 # AI model weights (large binaries — re-downloaded on first run or via postinstall)
 deployments/common/models/*.onnx

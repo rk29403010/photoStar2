@@ -13,6 +13,7 @@ import {
 } from '@shared/utils/librarySelectionState';
 import { useAppUiState, type AppView } from './hooks/useAppRuntimeUi';
 import { useGroupDiagnosticsView } from './hooks/useGroupDiagnosticsView';
+import { usePhotoDateReviewHandler } from './hooks/usePhotoDateReviewHandler';
 import {
     LoadedAppShell,
 } from './components/app/LoadedAppShell';
@@ -392,6 +393,7 @@ export default function App() {
     const photoLibrary = usePhotoLibrary();
     const { status, error, hasCompletedInitialSync, stats, assets, actions } = photoLibrary;
     const { handlers, handleExtractAiMetadata, overlayJobState, uiState } = useAppShellState(photoLibrary);
+    const handleFlagPhotoDateCorrection = usePhotoDateReviewHandler(actions);
     const { groupDiagnosticsReport, isLoadingGroupDiagnostics, loadGroupDiagnosticsReport } = useGroupDiagnosticsView({
         getGroupDiagnosticsReport: actions.getGroupDiagnosticsReport,
         view: uiState.view,
@@ -428,10 +430,11 @@ export default function App() {
                 uiState.setView('groupDiagnostics');
                 void loadGroupDiagnosticsReport();
             }}
-            onRefreshGroupDiagnostics={() => {
-                void loadGroupDiagnosticsReport();
-            }}
-            uiState={uiState}
-        />
-    );
+                onRefreshGroupDiagnostics={() => {
+                    void loadGroupDiagnosticsReport();
+                }}
+                handleFlagPhotoDateCorrection={handleFlagPhotoDateCorrection}
+                uiState={uiState}
+            />
+        );
 }

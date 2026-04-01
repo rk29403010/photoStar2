@@ -16,11 +16,13 @@ test('App renders a single overlay shell and keeps workflow visualiser wiring', 
     assert.match(appSource, /useSelectedAssetDetails\(loadAssetDetails, uiState\.selectedAssetId\)/);
 });
 
-test('single-photo overlay keeps selected asset id in sync while navigating', () => {
-    const overlaysSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/app/AppOverlays.tsx'), 'utf8');
+test('single-photo overlay only syncs library-backed asset ids while navigating', () => {
     const singlePhotoSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/SinglePhotoView.tsx'), 'utf8');
+    const assetModelSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/single-photo/singlePhotoAssetModel.ts'), 'utf8');
+    const lifecycleSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/single-photo/useSinglePhotoAssetLifecycle.ts'), 'utf8');
 
-    assert.match(overlaysSource, /onAssetFocusChange=\{props\.setSelectedAssetId\}/);
-    assert.match(singlePhotoSource, /onAssetFocusChange\?: \(assetId: string\) => void;/);
-    assert.match(singlePhotoSource, /useEffect\(\(\) => \{\s*if \(!asset\?\.id\) \{return;\}\s*onAssetFocusChange\?\.\(asset\.id\);/s);
+    assert.match(assetModelSource, /export function isLibrarySelectionAnchorAsset\(assets: Asset\[], assetId: string \| undefined\): boolean/);
+    assert.match(singlePhotoSource, /const shouldSyncAssetFocus = isLibrarySelectionAnchorAsset\(params\.assets, asset\?\.id\);/);
+    assert.match(singlePhotoSource, /shouldSyncAssetFocus,/);
+    assert.match(lifecycleSource, /if \(shouldSyncAssetFocus\) \{\s*onAssetFocusChange\?\.\(assetId\);\s*\}/s);
 });

@@ -13,6 +13,7 @@ import { createResolvePeopleModule } from '../../services/workflowRuntime/module
 import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
 import { libraryAiMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryAiMetadataWorkflow';
 import { libraryFaceWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryFaceWorkflow';
+import { libraryPhotoDateWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPhotoDateWorkflow';
 import { folderIngestWorkflowDefinition } from '../../services/workflowRuntime/workflows/folderIngestWorkflow';
 import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryGroupingWorkflow';
 import { libraryPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPreviewWorkflow';
@@ -93,6 +94,7 @@ function registerWorkflows(workflows: WorkflowRegistry) {
     workflows.register(libraryFaceWorkflowDefinition);
     workflows.register(librarySensitiveScanWorkflowDefinition);
     workflows.register(libraryAiMetadataWorkflowDefinition);
+    workflows.register(libraryPhotoDateWorkflowDefinition);
     workflows.register(selectedSubjectMetadataWorkflowDefinition);
 }
 

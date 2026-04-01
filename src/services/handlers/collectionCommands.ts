@@ -40,6 +40,7 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
         projectionAlias: 'pm',
+        photoDateEstimateAlias: 'r_date',
     });
 
     return db.prepare(`
@@ -61,6 +62,7 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
             COALESCE(r_faces_new.data, r_faces_legacy.data) AS faces_data,
             ${detail.recSelect}
             ${detail.aiSelect}
+            ${detail.photoDateEstimateSelect}
             ${detail.embeddedMetadataSelect}
             (
                 SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
@@ -79,6 +81,7 @@ function loadOrbitChildRows(db: DbHandle, groupId: string): OrbitItemRow[] {
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
         ${detail.recJoin}
         ${detail.aiJoin}
+        ${detail.photoDateEstimateJoin}
         ${detail.embeddedMetadataJoin}
         LEFT JOIN GroupCounts gc_child ON gc_child.group_id = child.id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
@@ -108,6 +111,7 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
         projectionAlias: 'pm',
+        photoDateEstimateAlias: 'r_date',
     });
 
     return db.prepare(`
@@ -129,6 +133,7 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
             COALESCE(r_faces_new.data, r_faces_legacy.data) AS faces_data,
             ${detail.recSelect}
             ${detail.aiSelect}
+            ${detail.photoDateEstimateSelect}
             ${detail.embeddedMetadataSelect}
             (
                 SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
@@ -147,6 +152,7 @@ function loadOrbitDirectAssetRows(db: DbHandle, groupId: string): OrbitItemRow[]
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
         ${detail.recJoin}
         ${detail.aiJoin}
+        ${detail.photoDateEstimateJoin}
         ${detail.embeddedMetadataJoin}
         LEFT JOIN GroupCounts gc_current ON gc_current.group_id = m.group_id
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path

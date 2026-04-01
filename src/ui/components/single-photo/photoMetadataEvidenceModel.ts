@@ -6,7 +6,7 @@ export function shouldRequestPhotoMetadataEvidence(params: {
     activeTab: EvidenceTabId;
     asset: Asset;
 }): boolean {
-    return params.activeTab === 'json'
+    return (params.activeTab === 'file' || params.activeTab === 'json')
         && Boolean(params.asset.photo_metadata)
         && !params.asset.photo_metadata?.evidence;
 }

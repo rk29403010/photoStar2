@@ -1,7 +1,9 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { Field, Section, SourceHint, Tag } from './shared';
 import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
+import { PhotoDateReviewSection } from './PhotoDateReviewSection';
 import { shortPath } from './utils';
 
 function getModelLabel(asset: Asset): string | undefined {
@@ -55,7 +57,7 @@ const ResolvedMetadataSections: React.FC<{ asset: Asset; caption: string | null;
   </>
 );
 
-export const FileTab: React.FC<{ asset: Asset }> = ({ asset }) => {
+export const FileTab: React.FC<{ asset: Asset; onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void> }> = ({ asset, onFlagPhotoDateCorrection }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
   const ext = filename.split('.').pop()?.toUpperCase() || '';
   const summary = buildPhotoMetadataFileSummary(asset);
@@ -65,6 +67,7 @@ export const FileTab: React.FC<{ asset: Asset }> = ({ asset }) => {
     <div>
       <FileSection asset={asset} filename={filename} ext={ext} />
       <AiInterpretationSection asset={asset} summary={summary} visible={hasPhotoMetadata} />
+      <PhotoDateReviewSection asset={asset} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
       <ResolvedMetadataSections asset={asset} caption={summary.caption} captionSourceLabel={summary.captionSourceLabel} />
     </div>
   );

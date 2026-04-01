@@ -3,10 +3,18 @@ import type { Dispatch, FC, SetStateAction } from 'react';
 import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
 import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
-import { applyStarSelection, clearGroupMembership, dedupeSinglePhotoAssets, mergeSinglePhotoAssets, resolveSinglePhotoAssetIndex } from './single-photo/singlePhotoAssetModel';
+import {
+    applyStarSelection,
+    clearGroupMembership,
+    dedupeSinglePhotoAssets,
+    isLibrarySelectionAnchorAsset,
+    mergeSinglePhotoAssets,
+    resolveSinglePhotoAssetIndex,
+} from './single-photo/singlePhotoAssetModel';
 import { CONTROLS_IDLE_MS } from './single-photo/singlePhotoOverlayLayout';
 import { useSinglePhotoAssetLifecycle } from './single-photo/useSinglePhotoAssetLifecycle';
 import { usePhotoMetadataEvidenceLoader } from './single-photo/usePhotoMetadataEvidenceLoader';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 
 interface SinglePhotoViewProps {
     assets: Asset[];
@@ -23,6 +31,7 @@ interface SinglePhotoViewProps {
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onOpenSettings?: () => void;
     onLoadAssetEvidence?: (assetId: string) => Promise<void>;
+    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     showInfoPanel?: boolean;
     onShowInfoPanelChange?: (v: boolean) => void;
     activeInfoTab?: 'file' | 'analysis' | 'people' | 'json';
@@ -282,6 +291,7 @@ function useSinglePhotoViewState(params: {
     const controls = useSinglePhotoControls(assetState.initialViewIndex, assetState.viewAssets.length);
     const asset = assetState.viewAssets[controls.currentIndex];
     const setCurrentIndex = controls.setCurrentIndex;
+    const shouldSyncAssetFocus = isLibrarySelectionAnchorAsset(params.assets, asset?.id);
 
     const handleSelectAsset = useCallback((assetId: string) => {
         const nextIndex = resolveSinglePhotoAssetIndex(assetState.viewAssets, assetId);
@@ -291,6 +301,7 @@ function useSinglePhotoViewState(params: {
 
     useSinglePhotoAssetLifecycle({
         assetId: asset?.id,
+        shouldSyncAssetFocus,
         onAssetFocusChange: params.onAssetFocusChange,
         onPrioritize: params.onPrioritize,
     });
@@ -336,6 +347,7 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     onExplodeGroup,
     onOpenSettings,
     onLoadAssetEvidence,
+    onFlagPhotoDateCorrection,
     showInfoPanel,
     onShowInfoPanelChange,
     activeInfoTab,
@@ -390,6 +402,7 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
             onSelectAsset={handleSelectAsset}
             onSetCanonical={handleSetCanonical}
             onExplodeGroup={handleExplodeGroup}
+            onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
             onChangeIndex={controls.onChangeIndex}
             onRevealControls={controls.revealControls}
             analysis={buildAnalysisState(analysisUi)}

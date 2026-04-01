@@ -85,3 +85,16 @@ test('mergeSinglePhotoAssets preserves richer gallery metadata when orbit assets
     assert.deepEqual(merged[0].photo_metadata?.projection.keywords, ['family']);
     assert.equal(merged[0].ai_metadata?.caption, 'Rich AI caption');
 });
+
+test('isLibrarySelectionAnchorAsset excludes orbit-only duplicate assets from replacing the library anchor', async () => {
+    const { isLibrarySelectionAnchorAsset } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
+
+    const libraryAssets = [
+        { id: 'asset-1', original_path: 'one.jpg' },
+        { id: 'asset-2', original_path: 'two.jpg' },
+    ];
+
+    assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, 'asset-1'), true);
+    assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, 'orbit-duplicate'), false);
+    assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, undefined), false);
+});

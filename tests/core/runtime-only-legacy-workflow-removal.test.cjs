@@ -68,6 +68,7 @@ async function createRuntimeHarness(tempDir) {
         faces: 'test.runtime.faces',
         sensitive: 'test.runtime.sensitive',
         metadata: 'test.runtime.metadata',
+        photoDate: 'test.runtime.photo-date',
     };
 
     for (const moduleId of Object.values(moduleIds)) {
@@ -104,6 +105,12 @@ async function createRuntimeHarness(tempDir) {
         version: 1,
         inputs: ['asset'],
         nodes: [{ id: 'generate-ai-metadata', kind: 'module', moduleId: moduleIds.metadata }],
+    });
+    workflows.register({
+        id: 'library_photo_date_v1',
+        version: 1,
+        inputs: ['asset'],
+        nodes: [{ id: 'recalculate-photo-date', kind: 'module', moduleId: moduleIds.photoDate }],
     });
 
     return {
@@ -155,6 +162,7 @@ test('runtime-only library workflow commands start the expected workflow definit
             { command: 'start_library_face_workflow', workflowId: 'library_face_pipeline_v1', payload: {} },
             { command: 'start_library_sensitive_scan_workflow', workflowId: 'library_sensitive_scan_v1', payload: {} },
             { command: 'start_library_ai_metadata_workflow', workflowId: 'library_ai_metadata_v1', payload: { aiMode: 'mock' } },
+            { command: 'start_library_photo_date_workflow', workflowId: 'library_photo_date_v1', payload: {} },
         ];
 
         for (const testCase of cases) {

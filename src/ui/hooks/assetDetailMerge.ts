@@ -18,5 +18,6 @@ export function mergeAssetDetail(existingAsset: Asset, nextAsset: Asset): Asset 
         photo_metadata: mergePhotoMetadata(existingAsset, nextAsset),
         ai_metadata: nextAsset.ai_metadata ?? existingAsset.ai_metadata,
         embedded_metadata: nextAsset.embedded_metadata ?? existingAsset.embedded_metadata,
+        photo_date_estimate: nextAsset.photo_date_estimate ?? existingAsset.photo_date_estimate,
     };
 }

@@ -1,4 +1,6 @@
 import { basename } from 'node:path';
+import { getEmbeddedTimestampWeight } from './photoDateEstimateEmbeddedWeights';
+import { rebalanceSignalsForMetadataProfile } from './photoDateEstimateSignalBalance';
 
 export type SignalOrigin = 'embedded' | 'filename' | 'ai' | 'file';
 export type SignalPrecision = 'exact' | 'year' | 'decade' | 'range';
@@ -271,27 +273,19 @@ function isWhatsAppExportStem(stem: string): boolean {
     return /^whatsapp image \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}/i.test(stem);
 }
 
-function collectFilenameSignals(originalPath: string, weights: WeightProfile): SignalWindow[] {
-    const stem = basename(originalPath).replace(/\.[^.]+$/, '');
-    if (isWhatsAppExportStem(stem)) {
-        return [];
+function addUniqueSignal(signals: SignalWindow[], seen: Set<string>, signal: SignalWindow | null) {
+    if (!signal) {
+        return;
     }
+    const key = `${signal.source}:${signal.startMs}:${signal.endMs}`;
+    if (seen.has(key)) {
+        return;
+    }
+    seen.add(key);
+    signals.push(signal);
+}
 
-    const signals: SignalWindow[] = [];
-    const seen = new Set<string>();
-
-    const addSignal = (signal: SignalWindow | null) => {
-        if (!signal) {
-            return;
-        }
-        const key = `${signal.source}:${signal.startMs}:${signal.endMs}`;
-        if (seen.has(key)) {
-            return;
-        }
-        seen.add(key);
-        signals.push(signal);
-    };
-
+function collectFullDateFilenameSignals(stem: string, weights: WeightProfile, signals: SignalWindow[], seen: Set<string>) {
     for (const match of stem.matchAll(/\b((?:19|20)\d{2})[-_ ]?(\d{2})[-_ ]?(\d{2})\b/g)) {
         const year = Number(match[1]);
         const month = Number(match[2]);
@@ -300,7 +294,7 @@ function collectFilenameSignals(originalPath: string, weights: WeightProfile): S
             continue;
         }
         const range = buildDayRange(year, month, day);
-        addSignal(buildSignal({
+        addUniqueSignal(signals, seen, buildSignal({
             origin: 'filename',
             source: 'filename.full_date',
             label: `Filename date ${match[0]}`,
@@ -310,9 +304,11 @@ function collectFilenameSignals(originalPath: string, weights: WeightProfile): S
             weight: weights.filenameExact,
         }));
     }
+}
 
+function collectDecadeFilenameSignals(stem: string, weights: WeightProfile, signals: SignalWindow[], seen: Set<string>) {
     for (const match of stem.matchAll(/\b((?:18|19|20)\d{2})s\b/gi)) {
-        addSignal(buildSignal({
+        addUniqueSignal(signals, seen, buildSignal({
             origin: 'filename',
             source: 'filename.decade',
             label: `Filename decade ${match[0]}`,
@@ -321,9 +317,11 @@ function collectFilenameSignals(originalPath: string, weights: WeightProfile): S
             weight: weights.filenameDecade,
         }));
     }
+}
 
+function collectYearFilenameSignals(stem: string, weights: WeightProfile, signals: SignalWindow[], seen: Set<string>) {
     for (const match of stem.matchAll(/\b((?:19|20)\d{2})\b/g)) {
-        addSignal(buildSignal({
+        addUniqueSignal(signals, seen, buildSignal({
             origin: 'filename',
             source: 'filename.year',
             label: `Filename year ${match[0]}`,
@@ -332,13 +330,15 @@ function collectFilenameSignals(originalPath: string, weights: WeightProfile): S
             weight: weights.filenameYear,
         }));
     }
+}
 
+function collectTwoDigitYearFilenameSignals(stem: string, weights: WeightProfile, signals: SignalWindow[], seen: Set<string>) {
     for (const token of stem.split(/[^0-9']+/).filter((value) => value.length > 0)) {
         const match = token.match(/^'?(\d{2})$/);
         if (!match) {
             continue;
         }
-        addSignal(buildSignal({
+        addUniqueSignal(signals, seen, buildSignal({
             origin: 'filename',
             source: 'filename.two_digit_year',
             label: `Filename year ${token}`,
@@ -346,6 +346,26 @@ function collectFilenameSignals(originalPath: string, weights: WeightProfile): S
             range: buildYearRange(normaliseTwoDigitYear(Number(match[1]))),
             weight: weights.filenameYear * 0.72,
         }));
+    }
+}
+
+function collectFilenameSignals(
+    originalPath: string,
+    weights: WeightProfile,
+    metadataProfile: MetadataProfile,
+): SignalWindow[] {
+    const stem = basename(originalPath).replace(/\.[^.]+$/, '');
+    if (isWhatsAppExportStem(stem)) {
+        return [];
+    }
+
+    const signals: SignalWindow[] = [];
+    const seen = new Set<string>();
+    collectFullDateFilenameSignals(stem, weights, signals, seen);
+    collectDecadeFilenameSignals(stem, weights, signals, seen);
+    collectYearFilenameSignals(stem, weights, signals, seen);
+    if (metadataProfile !== 'scanner') {
+        collectTwoDigitYearFilenameSignals(stem, weights, signals, seen);
     }
 
     return signals;
@@ -431,13 +451,19 @@ function getEmbeddedTimestampCandidates(embeddedMetadata: Record<string, unknown
 
 function collectEmbeddedSignals(embeddedMetadata: Record<string, unknown> | null | undefined, weights: WeightProfile): SignalWindow[] {
     return getEmbeddedTimestampCandidates(embeddedMetadata)
-        .map((candidate, index) => tryBuildExactSignal({
-            origin: 'embedded',
-            source: typeof candidate.source === 'string' ? candidate.source : `embedded.timestamp_candidate_${index + 1}`,
-            label: typeof candidate.source === 'string' ? `Embedded timestamp ${candidate.source}` : 'Embedded timestamp',
-            value: candidate.value,
-            weight: weights.embedded,
-        }))
+        .map((candidate, index) => {
+            const source = typeof candidate.source === 'string'
+                ? candidate.source
+                : `embedded.timestamp_candidate_${index + 1}`;
+
+            return tryBuildExactSignal({
+                origin: 'embedded',
+                source,
+                label: typeof candidate.source === 'string' ? `Embedded timestamp ${candidate.source}` : 'Embedded timestamp',
+                value: candidate.value,
+                weight: getEmbeddedTimestampWeight(source, weights.embedded),
+            });
+        })
         .filter((signal): signal is SignalWindow => signal !== null);
 }
 
@@ -454,12 +480,17 @@ function collectFileSignal(fileBirthtime: string | null | undefined, weights: We
 
 export function collectSignals(params: SignalCollectionContext): SignalWindow[] {
     const weights = getWeights(params.metadataProfile);
-    return [
+    const signals = [
         ...collectEmbeddedSignals(params.embeddedMetadata ?? null, weights),
-        ...collectFilenameSignals(params.originalPath, weights),
+        ...collectFilenameSignals(params.originalPath, weights, params.metadataProfile),
         ...collectAiSignals(params.aiMetadata ?? null, weights),
         ...collectFileSignal(params.fileBirthtime ?? null, weights),
     ];
+
+    return rebalanceSignalsForMetadataProfile({
+        metadataProfile: params.metadataProfile,
+        signals,
+    });
 }
 
 export function overlaps(left: SignalWindow, right: SignalWindow): boolean {

@@ -35,6 +35,8 @@ function getWorkflowDisplayName(workflowId: string): string {
             return 'Sensitive content workflow';
         case 'library_ai_metadata_v1':
             return 'AI metadata workflow';
+        case 'library_photo_date_v1':
+            return 'Photo date recalculation';
         default:
             return workflowId;
     }

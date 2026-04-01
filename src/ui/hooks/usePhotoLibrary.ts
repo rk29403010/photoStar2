@@ -7,6 +7,7 @@ import { useJobManager } from './useJobManager';
 import { usePhotoLibraryState } from './usePhotoLibrary.state';
 import { usePhotoLibraryConnection } from '@boundary/runtime/usePhotoLibrary.connection';
 import {
+    createPhotoMetadataActions,
     createPipelineActions,
     createScanActions,
     createSettingsActions,
@@ -440,6 +441,7 @@ function useComposedActions(
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
     });
     const albumActions = useMemo(() => createAlbumActions({ request }), [request]);
+    const photoMetadataActions = useMemo(() => createPhotoMetadataActions({ request }), [request]);
     const groupActions = useMemo(() => createGroupActions({
         request,
         refreshLibrary: refreshActions.refreshLibrary,
@@ -452,16 +454,18 @@ function useComposedActions(
         updateJobState,
         refreshLibrary: refreshActions.refreshLibrary,
         refreshSystemJobs: refreshActions.refreshSystemJobs,
-    }), [addJob, refreshActions.refreshLibrary, refreshActions.refreshSystemJobs, request, state.transport, updateJobState]);
+        loadAssetDetails: refreshActions.loadAssetDetails,
+    }), [addJob, refreshActions.loadAssetDetails, refreshActions.refreshLibrary, refreshActions.refreshSystemJobs, request, state.transport, updateJobState]);
 
     return useMemo(() => ({
         ...workflowActions,
         ...refreshActions,
         ...coreActions,
         ...albumActions,
+        ...photoMetadataActions,
         ...groupActions,
         ...buildActions,
-    }), [albumActions, buildActions, coreActions, groupActions, refreshActions, workflowActions]);
+    }), [albumActions, buildActions, coreActions, groupActions, photoMetadataActions, refreshActions, workflowActions]);
 }
 
 export function usePhotoLibrary() {

@@ -1,5 +1,6 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
 import type { Asset, SimilarityOrbit } from '@contracts/core';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from './InfoPanel';
 import { PhotoViewport } from './PhotoViewport';
 import type { AnalysisState, PanelState } from './PhotoViewport';
@@ -31,6 +32,7 @@ export interface SinglePhotoOverlayProps {
     onSelectAsset: (assetId: string) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
+    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     onChangeIndex: (delta: -1 | 1) => void;
     onRevealControls: () => void;
     analysis: AnalysisState;
@@ -60,6 +62,7 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
     onSelectAsset,
     onSetCanonical,
     onExplodeGroup,
+    onFlagPhotoDateCorrection,
     onChangeIndex,
     onRevealControls,
     analysis
@@ -119,6 +122,7 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
                     onClose={() => panelState.setShowInfoPanel(false)}
                     hoveredFaceKey={hoveredFaceKey}
                     onHoverFaceKey={setHoveredFaceKey}
+                    onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
                 />
             </div>
         )}

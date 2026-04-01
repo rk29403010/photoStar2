@@ -229,6 +229,14 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             },
         });
     },
+    start_library_photo_date_workflow: async (ctx) => {
+        const payload = ctx.payload as {
+            mediaId?: string;
+        } | undefined;
+        startAssetWorkflow(ctx, payload, {
+            workflowId: 'library_photo_date_v1',
+        });
+    },
     start_selected_subject_metadata_workflow: async (ctx) => {
         const payload = ctx.payload as {
             aiMode?: 'mock' | 'live' | 'off';

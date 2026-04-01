@@ -121,6 +121,10 @@ export function resolveSinglePhotoAssetIndex(assets: Asset[], assetId: string): 
     return assets.findIndex((asset) => asset.id === assetId);
 }
 
+export function isLibrarySelectionAnchorAsset(assets: Asset[], assetId: string | undefined): boolean {
+    return Boolean(assetId) && assets.some((asset) => asset.id === assetId);
+}
+
 export function resolveStarAssetId(assets: Asset[], fallbackAssetId: string): string {
     const starredAsset = assets.find((asset) => asset.group_role === 'canonical');
     return starredAsset?.id ?? fallbackAssetId;

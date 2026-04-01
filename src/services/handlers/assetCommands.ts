@@ -26,6 +26,7 @@ type AssetRow = {
     faces_data: string | null;
     rec_data: string | null;
     ai_metadata_data: string | null;
+    photo_date_estimate_data: string | null;
     embedded_metadata_data: string | null;
     people_data: string | null;
     type: string | null;
@@ -136,6 +137,7 @@ function buildFilteredAssetsQuery(
         aiNewAlias: 'aim_new',
         aiLegacyAlias: 'aim_legacy',
         projectionAlias: 'pm',
+        photoDateEstimateAlias: 'r_date',
     });
     const groupFields = buildGroupFieldFragments('a');
     params.push(limit, offset);
@@ -151,6 +153,7 @@ function buildFilteredAssetsQuery(
                 COALESCE(dr_new.data, dr_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
+                ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
                 (
                     SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
@@ -173,6 +176,7 @@ function buildFilteredAssetsQuery(
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'dr_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
             ${detail.aiJoin}
+            ${detail.photoDateEstimateJoin}
             ${detail.embeddedMetadataJoin}
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
@@ -198,9 +202,10 @@ function buildGroupedAssetsQuery(
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
         projectionAlias: 'pm',
+        photoDateEstimateAlias: 'r_date',
     });
     const groupFields = buildGroupFieldFragments('a');
-    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : '';
+    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_date.data, r_meta.data' : '';
 
     return {
         sql: `
@@ -214,6 +219,7 @@ function buildGroupedAssetsQuery(
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
+                ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
                 json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
                 ${groupFields.memberGroupIdSelect}
@@ -231,6 +237,7 @@ function buildGroupedAssetsQuery(
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
             ${detail.aiJoin}
+            ${detail.photoDateEstimateJoin}
             ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
@@ -257,9 +264,10 @@ function buildUngroupedAssetsQuery(
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
         projectionAlias: 'pm',
+        photoDateEstimateAlias: 'r_date',
     });
     const groupFields = buildGroupFieldFragments('a');
-    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_meta.data' : '';
+    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_date.data, r_meta.data' : '';
 
     return {
         sql: `
@@ -273,6 +281,7 @@ function buildUngroupedAssetsQuery(
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
+                ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
                 json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
                 ${groupFields.memberGroupIdSelect}
@@ -290,6 +299,7 @@ function buildUngroupedAssetsQuery(
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
             ${detail.aiJoin}
+            ${detail.photoDateEstimateJoin}
             ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
@@ -310,6 +320,7 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
         aiNewAlias: 'r_ai_new',
         aiLegacyAlias: 'r_ai_legacy',
         projectionAlias: 'pm',
+        photoDateEstimateAlias: 'r_date',
     });
 
     return {
@@ -324,6 +335,7 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
                 ${detail.aiSelect}
+                ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
                 (
                     SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
@@ -346,6 +358,7 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
             ${detail.recJoin}
             ${detail.aiJoin}
+            ${detail.photoDateEstimateJoin}
             ${detail.embeddedMetadataJoin}
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid

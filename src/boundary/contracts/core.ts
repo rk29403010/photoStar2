@@ -129,6 +129,31 @@ export interface PhotoMetadataBundle {
     evidence?: PhotoMetadataEvidencePayload;
 }
 
+export interface PhotoDateEstimateSignal {
+    source: string;
+    origin: 'embedded' | 'filename' | 'ai' | 'file';
+    label: string;
+    precision: 'exact' | 'year' | 'decade' | 'range';
+    start: string;
+    end: string;
+    representativeAt: string;
+    weight: number;
+}
+
+export interface PhotoDateEstimateArtifact {
+    schema_version: number;
+    photoCreatedAt: string;
+    range: {
+        start: string;
+        end: string;
+    };
+    confidence: {
+        score: number;
+        reasons: string[];
+    };
+    signals: PhotoDateEstimateSignal[];
+}
+
 export interface Asset {
     id: string;
     original_path: string; // Added this
@@ -146,6 +171,7 @@ export interface Asset {
     ai_metadata?: Record<string, unknown>;
     photo_metadata?: PhotoMetadataBundle | null;
     embedded_metadata?: Record<string, unknown>;
+    photo_date_estimate?: PhotoDateEstimateArtifact;
 
     // Scoring & Analysis (Future proofing A5)
     aesthetic_score?: number;

@@ -36,6 +36,8 @@ export type AssetDetailFragments = {
     aiJoin: string;
     embeddedMetadataSelect: string;
     embeddedMetadataJoin: string;
+    photoDateEstimateSelect: string;
+    photoDateEstimateJoin: string;
 };
 
 export function buildAssetDetailFragments(params: {
@@ -45,8 +47,9 @@ export function buildAssetDetailFragments(params: {
     aiNewAlias: string;
     aiLegacyAlias: string;
     projectionAlias: string;
+    photoDateEstimateAlias: string;
 }): AssetDetailFragments {
-    const { detailLevel, includeEvidence, recAlias, aiNewAlias, aiLegacyAlias, projectionAlias } = params;
+    const { detailLevel, includeEvidence, recAlias, aiNewAlias, aiLegacyAlias, projectionAlias, photoDateEstimateAlias } = params;
     const projectionSelect = `
                 ${projectionAlias}.type as type,
                 ${projectionAlias}.type_source_kind as type_source_kind,
@@ -104,6 +107,8 @@ export function buildAssetDetailFragments(params: {
             aiJoin: '',
             embeddedMetadataSelect: 'null as embedded_metadata_data,',
             embeddedMetadataJoin: '',
+            photoDateEstimateSelect: 'null as photo_date_estimate_data,',
+            photoDateEstimateJoin: '',
         };
     }
 
@@ -118,5 +123,7 @@ export function buildAssetDetailFragments(params: {
             ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: aiLegacyAlias, task: 'photo_metadata' })}`,
         embeddedMetadataSelect: 'r_meta.data as embedded_metadata_data,',
         embeddedMetadataJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' }),
+        photoDateEstimateSelect: `${photoDateEstimateAlias}.data as photo_date_estimate_data,`,
+        photoDateEstimateJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: photoDateEstimateAlias, task: 'photo_date_estimate' }),
     };
 }

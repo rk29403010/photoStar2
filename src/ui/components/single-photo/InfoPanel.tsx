@@ -6,6 +6,7 @@ import { FileTab } from './info-panel/FileTab';
 import { JsonTab } from './info-panel/JsonTab';
 import { PeopleTab } from './info-panel/PeopleTab';
 import type { TabId } from './info-panel/utils';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 
 interface InfoPanelProps {
   asset: Asset;
@@ -15,6 +16,7 @@ interface InfoPanelProps {
   onClose?: () => void;
   hoveredFaceKey?: string | null;
   onHoverFaceKey?: (key: string | null) => void;
+  onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
 const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
@@ -63,16 +65,16 @@ const PanelTabs: React.FC<{ activeTab: TabId; setActiveTab: (tab: TabId) => void
   </div>
 );
 
-const PanelContent: React.FC<{ activeTab: TabId; asset: Asset; hoveredFaceKey?: string | null; onHoverFaceKey?: (key: string | null) => void }> = ({ activeTab, asset, hoveredFaceKey, onHoverFaceKey }) => (
+const PanelContent: React.FC<{ activeTab: TabId; asset: Asset; hoveredFaceKey?: string | null; onHoverFaceKey?: (key: string | null) => void; onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void> }> = ({ activeTab, asset, hoveredFaceKey, onHoverFaceKey, onFlagPhotoDateCorrection }) => (
   <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 20px' }}>
-    {activeTab === 'file' && <FileTab asset={asset} />}
+    {activeTab === 'file' && <FileTab asset={asset} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />}
     {activeTab === 'analysis' && <AnalysisTab asset={asset} />}
     {activeTab === 'people' && <PeopleTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />}
     {activeTab === 'json' && <JsonTab asset={asset} />}
   </div>
 );
 
-export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, activeTab: controlledTab, onTabChange, onClose, hoveredFaceKey, onHoverFaceKey }) => {
+export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, activeTab: controlledTab, onTabChange, onClose, hoveredFaceKey, onHoverFaceKey, onFlagPhotoDateCorrection }) => {
   const [internalTab, setInternalTab] = useState<TabId>('file');
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = useCallback((tab: TabId) => {
@@ -86,7 +88,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, active
     <div style={{ width, minWidth: width, maxWidth: width, height: '100%', background: 'linear-gradient(180deg, #0f172a 0%, #0a0f1e 100%)', borderLeft: '1px solid #1e293b', display: 'flex', flexDirection: 'column', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflow: 'hidden', flexShrink: 0 }}>
       <PanelHeader asset={asset} hasAI={hasAI} onClose={onClose} />
       <PanelTabs activeTab={activeTab} setActiveTab={setActiveTab} />
-      <PanelContent activeTab={activeTab} asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />
+      <PanelContent activeTab={activeTab} asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
     </div>
   );
 };
