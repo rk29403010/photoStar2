@@ -131,11 +131,36 @@ test('projection-backed file and analysis panel models prefer resolved metadata 
     assert.equal(fileSummary.type, 'portrait');
     assert.equal(fileSummary.location, 'Blackpool');
     assert.equal(fileSummary.estimatedDateLabel, 'late 1968');
+    assert.equal(fileSummary.estimatedDateRangeLabel, '01 Dec 68 to 31 Dec 68');
     assert.equal(fileSummary.caption, 'Billy and Dad enjoying Christmas dinner');
     assert.equal(fileSummary.captionSourceLabel, 'Pro refined');
     assert.equal(analysisSummary.caption, 'Billy and Dad enjoying Christmas dinner');
     assert.equal(analysisSummary.description, 'Billy sits beside his dad at the Christmas dinner table with crackers and candles visible in the background.');
     assert.equal(analysisSummary.descriptionSourceLabel, 'Manual · father-in-law');
+});
+
+test('file panel date range falls back to photo date estimate artifact when projection range is missing', async () => {
+    const {
+        buildPhotoMetadataFileSummary,
+    } = await import('../../src/ui/components/single-photo/info-panel/photoMetadataPanelModel.ts');
+
+    const asset = createAsset({
+        photo_metadata: {
+            ...createAsset().photo_metadata,
+            projection: {
+                ...createAsset().photo_metadata.projection,
+                estimatedDate: {
+                    ...createAsset().photo_metadata.projection.estimatedDate,
+                    min_date: null,
+                    max_date: null,
+                },
+            },
+        },
+    });
+
+    const fileSummary = buildPhotoMetadataFileSummary(asset);
+
+    assert.equal(fileSummary.estimatedDateRangeLabel, '01 Jan 45 to 31 Dec 45');
 });
 
 test('photo date diagnostics expose confidence, range, and top signals for review', async () => {

@@ -16,6 +16,7 @@ export interface FilePanelSummary {
     location: string | null;
     locationSourceLabel?: string;
     estimatedDateLabel: string | null;
+    estimatedDateRangeLabel: string | null;
     estimatedDateSourceLabel?: string;
     dateRationale: string | null;
 }
@@ -153,6 +154,43 @@ function getResolvedEstimatedDateLabel(asset: Asset, projection: PhotoMetadataPr
     return projection?.estimatedDate.display_label ?? getAiMetadataString(asset, 'estimated_date');
 }
 
+function formatDateOnly(value: string | null | undefined): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: '2-digit',
+        timeZone: 'UTC',
+    }).format(parsed);
+}
+
+function getResolvedEstimatedDateRangeLabel(asset: Asset, projection: PhotoMetadataProjection | null): string | null {
+    const projectionStart = formatDateOnly(projection?.estimatedDate.min_date);
+    const projectionEnd = formatDateOnly(projection?.estimatedDate.max_date);
+    const estimateStart = formatDateOnly(asset.photo_date_estimate?.range.start);
+    const estimateEnd = formatDateOnly(asset.photo_date_estimate?.range.end);
+    const start = projectionStart ?? estimateStart;
+    const end = projectionEnd ?? estimateEnd;
+
+    if (!start || !end) {
+        return null;
+    }
+
+    if (start === end) {
+        return start;
+    }
+
+    return `${start} to ${end}`;
+}
+
 function getAnalysisCaption(asset: Asset, projection: PhotoMetadataProjection | null): string | null {
     return projection?.caption ?? getAiMetadataString(asset, 'caption') ?? getOptionalString(asset.caption) ?? null;
 }
@@ -179,6 +217,7 @@ export function buildPhotoMetadataFileSummary(asset: Asset): FilePanelSummary {
         location: getResolvedLocation(asset, projection),
         locationSourceLabel: buildPhotoMetadataSourceLabel({ source: provenance?.location, evidence }),
         estimatedDateLabel: getResolvedEstimatedDateLabel(asset, projection),
+        estimatedDateRangeLabel: getResolvedEstimatedDateRangeLabel(asset, projection),
         estimatedDateSourceLabel: buildPhotoMetadataSourceLabel({ source: estimatedDateSource, evidence }),
         dateRationale: projection?.estimatedDate.rationale ?? null,
     };

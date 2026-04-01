@@ -79,8 +79,8 @@ const DescriptionSection: React.FC<{ description: string; sourceLabel?: string }
 );
 
 const InterpretationSection: React.FC<{ emotionalImpact: string; sourceLabel?: string }> = ({ emotionalImpact, sourceLabel }) => (
-  <Section emoji="💖" title="Interpretation">
-    <Field label="Mood" value={emotionalImpact} />
+  <Section emoji="💖" title="Emotional Impact">
+    <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>{emotionalImpact}</div>
     <SourceHint label={sourceLabel} />
   </Section>
 );
@@ -103,31 +103,18 @@ function hasAnalysisContent(params: {
     || params.projection != null
     || params.sensitivityScore != null
     || params.details.mode != null
-    || params.details.caption != null
-    || params.details.notes != null
+    || params.details.description != null
     || params.details.tags.length > 0;
 }
 
 const AnalysisSummarySection: React.FC<{ asset: Asset }> = ({ asset }) => {
   const details = buildAnalysisDetails(asset);
-  const hasDetails = Boolean(details.mode || details.caption || details.notes || details.tags.length > 0);
+  const hasDetails = Boolean(details.mode || details.tags.length > 0);
   if (!hasDetails) {return null;}
 
   return (
-    <Section emoji="🧠" title="Analysis Summary">
+    <Section emoji="🧠" title="Analysis Summary" hideHeader>
       <Field label="Mode" value={details.mode} />
-      {details.caption && (
-        <div style={{ paddingBottom: 10 }}>
-          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Caption</div>
-          <div style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.6, fontStyle: 'italic' }}>&ldquo;{details.caption}&rdquo;</div>
-        </div>
-      )}
-      {details.notes && (
-        <div style={{ paddingBottom: 10 }}>
-          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Notes</div>
-          <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.6 }}>{details.notes}</div>
-        </div>
-      )}
       {details.tags.length > 0 && (
         <div>
           <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Tags</div>

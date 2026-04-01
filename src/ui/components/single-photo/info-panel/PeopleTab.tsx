@@ -75,7 +75,7 @@ const OverlaySection: React.FC<{
   }
 
   return (
-    <Section emoji={emoji} title={title}>
+    <Section emoji={emoji} title={title} hideHeader={title === 'People'}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {items.map((item) => (
           <OverlayCard key={item.key} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />

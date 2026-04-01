@@ -3,9 +3,8 @@ import { buildPhotoMetadataAnalysisSummary } from './photoMetadataPanelModel';
 
 export interface AnalysisDetails {
   mode?: string;
-  caption?: string;
   tags: string[];
-  notes?: string;
+  description?: string;
 }
 
 type AnalysisAssetSource = Pick<Asset, 'ai_metadata' | 'caption'>;
@@ -27,8 +26,7 @@ export function buildAnalysisDetails(asset: AnalysisAssetSource): AnalysisDetail
   const ai = asset.ai_metadata;
   return {
     mode: getOptionalString(ai?.mode),
-    caption: summary.caption ?? getOptionalString(asset.caption),
     tags: getStringList(ai?.tags),
-    notes: summary.description ?? getOptionalString(ai?.notes),
+    description: summary.description ?? getOptionalString(ai?.notes),
   };
 }

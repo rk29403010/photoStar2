@@ -26,10 +26,23 @@ const KeywordsSection: React.FC<{ keywords?: unknown }> = ({ keywords }) => {
   return <Section emoji="🏷️" title="Keywords"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{items.map((k, i) => <Tag key={i} text={k} />)}</div></Section>;
 };
 
-const EmotionalSection: React.FC<{ emotional?: unknown }> = ({ emotional }) => {
-  if (!emotional) {return null;}
-  return <Section emoji="💖" title="Emotional Impact"><p style={{ margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.6 }}>{String(emotional)}</p></Section>;
-};
+function formatDateOnly(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: '2-digit',
+    timeZone: 'UTC',
+  }).format(parsed);
+}
 
 const AiInterpretationSection: React.FC<{ asset: Asset; summary: ReturnType<typeof buildPhotoMetadataFileSummary>; visible: boolean }> = ({ asset, summary, visible }) => {
   if (!visible) {return null;}
@@ -53,9 +66,38 @@ const ResolvedMetadataSections: React.FC<{ asset: Asset; caption: string | null;
     <CaptionSection caption={caption} />
     <SourceHint label={captionSourceLabel} />
     <KeywordsSection keywords={asset.photo_metadata?.projection.keywords ?? asset.ai_metadata?.keywords} />
-    <EmotionalSection emotional={asset.photo_metadata?.projection.emotionalImpact ?? asset.ai_metadata?.emotional_impact} />
   </>
 );
+
+const IdField: React.FC<{ value: string }> = ({ value }) => {
+  const uppercaseValue = value.toUpperCase();
+  const prefix = uppercaseValue.slice(0, -4);
+  const suffix = uppercaseValue.slice(-4);
+
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', paddingBottom: 6 }}>
+      <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', minWidth: 90, flexShrink: 0 }}>ID</span>
+      <span style={{ color: '#e2e8f0', lineHeight: 1.4, fontFamily: '"Cascadia Code","Consolas",monospace', userSelect: 'text', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 10 }}>{prefix}</span>
+        <span style={{ fontSize: 12 }}>{suffix}</span>
+      </span>
+    </div>
+  );
+};
+
+const PhotoCreatedField: React.FC<{ value: string }> = ({ value }) => {
+  const label = formatDateOnly(value);
+  if (!label) {
+    return null;
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', paddingBottom: 6 }}>
+      <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', minWidth: 90, flexShrink: 0 }}>Photo Created</span>
+      <span style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.5 }}>{label}</span>
+    </div>
+  );
+};
 
 export const FileTab: React.FC<{ asset: Asset; onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void> }> = ({ asset, onFlagPhotoDateCorrection }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
@@ -65,7 +107,7 @@ export const FileTab: React.FC<{ asset: Asset; onFlagPhotoDateCorrection?: (inpu
 
   return (
     <div>
-      <FileSection asset={asset} filename={filename} ext={ext} />
+      <FileSection asset={asset} filename={filename} ext={ext} summary={summary} />
       <AiInterpretationSection asset={asset} summary={summary} visible={hasPhotoMetadata} />
       <PhotoDateReviewSection asset={asset} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
       <ResolvedMetadataSections asset={asset} caption={summary.caption} captionSourceLabel={summary.captionSourceLabel} />
@@ -73,14 +115,15 @@ export const FileTab: React.FC<{ asset: Asset; onFlagPhotoDateCorrection?: (inpu
   );
 };
 
-const FileSection: React.FC<{ asset: Asset; filename: string; ext: string }> = ({ asset, filename, ext }) => (
-  <Section emoji="📄" title="File">
-    <Field label="ID" value={asset.id} mono />
+const FileSection: React.FC<{ asset: Asset; filename: string; ext: string; summary: ReturnType<typeof buildPhotoMetadataFileSummary> }> = ({ asset, filename, ext, summary }) => (
+  <Section emoji="📄" title="File" hideHeader>
+    <IdField value={asset.id} />
     <Field label="Name" value={filename} />
     <Field label="Path" value={shortPath(asset.original_path)} mono dim />
     <Field label="Format" value={ext} />
     {asset.width && asset.height && <Field label="Dimensions" value={`${asset.width} × ${asset.height} px`} />}
-    {asset.photo_created_at && <Field label="Photo Created" value={new Date(asset.photo_created_at).toLocaleString()} />}
+    {asset.photo_created_at && <PhotoCreatedField value={asset.photo_created_at} />}
+    {summary.estimatedDateRangeLabel && <Field label="Date Range" value={summary.estimatedDateRangeLabel} />}
     {asset.photo_created_at_confidence != null && <Field label="Date Confidence" value={`${Math.round(asset.photo_created_at_confidence * 100)}%`} />}
     {asset.exif_datetime && <Field label="Captured" value={new Date(asset.exif_datetime).toLocaleString()} />}
     {asset.metadata_timestamp_source && <Field label="Timestamp Source" value={asset.metadata_timestamp_source} mono />}

@@ -1,9 +1,10 @@
 import type React from 'react';
+import { normalizeRatingPercent } from './ratingScale';
 
 
 export const StarRating: React.FC<{ value: number; label: string }> = ({ value, label }) => {
-  const stars = Math.round((value / 100) * 5);
-  const pct = Math.round(value);
+  const pct = normalizeRatingPercent(value);
+  const stars = Math.round((pct / 100) * 5);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ fontSize: 11, color: '#94a3b8', minWidth: 60 }}>{label}</span>
@@ -35,12 +36,14 @@ export const Field: React.FC<{ label: string; value?: string | null; mono?: bool
   );
 };
 
-export const Section: React.FC<{ emoji: string; title: string; children: React.ReactNode }> = ({ emoji, title, children }) => (
+export const Section: React.FC<{ emoji: string; title: string; children: React.ReactNode; hideHeader?: boolean }> = ({ emoji, title, children, hideHeader }) => (
   <div style={{ marginBottom: 20 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #1e293b', paddingBottom: 6, marginBottom: 10 }}>
-      <span style={{ fontSize: 14 }}>{emoji}</span>
-      <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: 1 }}>{title}</span>
-    </div>
+    {!hideHeader && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #1e293b', paddingBottom: 6, marginBottom: 10 }}>
+        <span style={{ fontSize: 14 }}>{emoji}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: 1 }}>{title}</span>
+      </div>
+    )}
     {children}
   </div>
 );
