@@ -13,6 +13,8 @@ import { WorkflowWorkspace } from '../workflows/WorkflowWorkspace';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import { GroupingDiagnosticsView } from '../group-diagnostics/GroupingDiagnosticsView';
+import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 
 interface AppMainContentProps {
   view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
@@ -22,6 +24,10 @@ interface AppMainContentProps {
   backendReady: boolean;
   filterStack: LibraryFilter[];
   selectedAssetId: string | null;
+  showInfoPanel: boolean;
+  setShowInfoPanel: (show: boolean) => void;
+  activeInfoTab: InfoTab;
+  setActiveInfoTab: (tab: InfoTab) => void;
   libraryActive: boolean;
   showFaces: boolean;
   librarySelection: LibrarySelectionState;
@@ -42,6 +48,7 @@ interface AppMainContentProps {
   isLoadingMoreAssets: boolean;
   onLoadMoreAssets: () => Promise<void>;
   onAssetClick: (id: string | null) => void;
+  onEnsureAssetDetails: (assetId: string) => void;
   onUntagAsset: (assetId: string, personId: string) => void;
   onLibrarySelectionChange: (selection: LibrarySelectionState) => void;
   onGroupSimilarPhotosChange: (enabled: boolean) => void;
@@ -61,6 +68,7 @@ interface AppMainContentProps {
   onDeleteAlbum: (id: string) => Promise<void>;
   onOpenAlbum: (albumId: string, title: string) => void;
   onHoverLibraryAssetChange: (asset: Asset | null) => void;
+  onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
 function getPanelStyle(active: boolean) {
@@ -83,39 +91,51 @@ function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | 
   return visibleAssets;
 }
 
+function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets: Asset[]; activeFilter?: LibraryFilter }) {
+  return (
+    <div style={getPanelStyle(props.view === 'library')}>
+      <LibraryView
+        assets={props.visibleLibraryAssets}
+        loading={props.status.includes('Initializing')}
+        backendReady={props.backendReady}
+        backendStatus={props.status}
+        hasMoreAssets={props.hasMoreAssets}
+        isLoadingMoreAssets={props.isLoadingMoreAssets}
+        onLoadMoreAssets={props.onLoadMoreAssets}
+        active={props.libraryActive}
+        onAssetClick={props.onAssetClick}
+        selectedAssetId={props.selectedAssetId}
+        showInfoPanel={props.showInfoPanel}
+        onShowInfoPanelChange={props.setShowInfoPanel}
+        activeInfoTab={props.activeInfoTab}
+        onActiveInfoTabChange={props.setActiveInfoTab}
+        activeFilter={props.activeFilter}
+        showFaces={props.showFaces}
+        onEnsureAssetDetails={props.onEnsureAssetDetails}
+        onUntagAsset={props.onUntagAsset}
+        librarySelection={props.librarySelection}
+        groupSimilarPhotos={props.groupSimilarPhotos}
+        showGroupIds={props.showGroupIds}
+        onLibrarySelectionChange={props.onLibrarySelectionChange}
+        onGroupSimilarPhotosChange={props.onGroupSimilarPhotosChange}
+        onShowGroupIdsChange={props.onShowGroupIdsChange}
+        declusteredAssets={props.declusteredAssets}
+        showRejected={props.showRejected}
+        rejectedAssets={props.showRejected ? props.rejectedAssets : []}
+        onHoverAssetChange={props.onHoverLibraryAssetChange}
+        onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+      />
+    </div>
+  );
+}
+
 export function AppMainContent(props: AppMainContentProps) {
   const activeFilter = props.filterStack.length > 0 ? props.filterStack[props.filterStack.length - 1] : undefined;
   const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestStatusMessage);
 
   return (
     <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-      <div style={getPanelStyle(props.view === 'library')}>
-        <LibraryView
-          assets={visibleLibraryAssets}
-          loading={props.status.includes('Initializing')}
-          backendReady={props.backendReady}
-          backendStatus={props.status}
-          hasMoreAssets={props.hasMoreAssets}
-          isLoadingMoreAssets={props.isLoadingMoreAssets}
-          onLoadMoreAssets={props.onLoadMoreAssets}
-          active={props.libraryActive}
-          onAssetClick={props.onAssetClick}
-          selectedAssetId={props.selectedAssetId}
-          activeFilter={activeFilter}
-          showFaces={props.showFaces}
-          onUntagAsset={props.onUntagAsset}
-          librarySelection={props.librarySelection}
-          groupSimilarPhotos={props.groupSimilarPhotos}
-          showGroupIds={props.showGroupIds}
-          onLibrarySelectionChange={props.onLibrarySelectionChange}
-          onGroupSimilarPhotosChange={props.onGroupSimilarPhotosChange}
-          onShowGroupIdsChange={props.onShowGroupIdsChange}
-          declusteredAssets={props.declusteredAssets}
-          showRejected={props.showRejected}
-          rejectedAssets={props.showRejected ? props.rejectedAssets : []}
-          onHoverAssetChange={props.onHoverLibraryAssetChange}
-        />
-      </div>
+      <LibraryContentView {...props} visibleLibraryAssets={visibleLibraryAssets} activeFilter={activeFilter} />
 
       {props.view === 'people' && (
         <PeopleView

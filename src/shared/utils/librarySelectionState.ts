@@ -14,6 +14,7 @@ export interface LibrarySelectionState {
     photoIds: Set<string>;
     groupIds: Set<string>;
     anchorKey: LibrarySelectionKey | null;
+    mostRecentSelectionKey: LibrarySelectionKey | null;
 }
 
 export type LibrarySelectionAction =
@@ -27,6 +28,7 @@ export function createEmptyLibrarySelectionState(): LibrarySelectionState {
         photoIds: new Set(),
         groupIds: new Set(),
         anchorKey: null,
+        mostRecentSelectionKey: null,
     };
 }
 
@@ -87,6 +89,7 @@ function cloneLibrarySelection(selection: LibrarySelectionState): LibrarySelecti
         photoIds: new Set(selection.photoIds),
         groupIds: new Set(selection.groupIds),
         anchorKey: selection.anchorKey,
+        mostRecentSelectionKey: selection.mostRecentSelectionKey,
     };
 }
 
@@ -103,6 +106,7 @@ function replaceLibrarySelection(items: LibrarySelectableItem[], index: number):
     const nextSelection = createEmptyLibrarySelectionState();
     addItemToSelection(nextSelection, item);
     nextSelection.anchorKey = item.selectionKey;
+    nextSelection.mostRecentSelectionKey = item.selectionKey;
     return nextSelection;
 }
 
@@ -119,6 +123,7 @@ function toggleLibrarySelectionItem(items: LibrarySelectableItem[], selection: L
         addItemToSelection(nextSelection, item);
     }
     nextSelection.anchorKey = item.selectionKey;
+    nextSelection.mostRecentSelectionKey = item.selectionKey;
     return nextSelection;
 }
 
@@ -140,6 +145,7 @@ function rangeSelectLibraryItems(items: LibrarySelectableItem[], selection: Libr
             addItemToSelection(nextSelection, rangedItem);
         }
     }
+    nextSelection.mostRecentSelectionKey = item.selectionKey;
     return nextSelection;
 }
 
@@ -154,6 +160,7 @@ export function updateLibrarySelection(
             addItemToSelection(nextSelection, item);
         }
         nextSelection.anchorKey = items[0]?.selectionKey ?? null;
+        nextSelection.mostRecentSelectionKey = items.at(-1)?.selectionKey ?? null;
         return nextSelection;
     }
 

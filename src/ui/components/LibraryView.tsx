@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type UIEvent } from 'react';
 import type { Asset } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
-import { LayoutEngine } from './layout/LayoutEngine';
+import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { buildVisibleGalleryItems } from '@shared/utils/libraryGallerySelection';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
-import { createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { clearLibrarySelection, createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { GalleryInfoPanel } from './library/GalleryInfoPanel';
+import { LibraryGalleryPane } from './library/LibraryGalleryPane';
+import { getGalleryInfoPanelAsset } from './library/galleryInfoPanelModel';
 
 interface LibraryViewProps {
     assets: Asset[];
@@ -24,6 +28,10 @@ interface LibraryViewProps {
     onUntagAsset?: (assetId: string, personId: string) => void;
     librarySelection?: LibrarySelectionState;
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    showInfoPanel: boolean;
+    onShowInfoPanelChange: (show: boolean) => void;
+    activeInfoTab: InfoTab;
+    onActiveInfoTabChange: (tab: InfoTab) => void;
     groupSimilarPhotos: boolean;
     onGroupSimilarPhotosChange: (enabled: boolean) => void;
     showGroupIds: boolean;
@@ -32,7 +40,11 @@ interface LibraryViewProps {
     showRejected?: boolean;
     rejectedAssets?: Asset[];
     onHoverAssetChange?: (asset: Asset | null) => void;
+    onEnsureAssetDetails?: (assetId: string) => void;
+    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
+
+const EMPTY_LIBRARY_SELECTION = createEmptyLibrarySelectionState();
 
 function LoadingState({ backendStatus, backendReady }: { backendStatus: string; backendReady: boolean }) {
     return (
@@ -52,52 +64,6 @@ function EmptyState() {
             <div style={{ fontSize: '3rem', opacity: 0.3 }}>📂</div>
             <div style={{ fontWeight: 500 }}>No photos found in library.</div>
             <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Click &quot;Actions &gt; Scan Folder&quot; to import photos.</div>
-        </div>
-    );
-}
-
-function RejectedSection({
-    showRejected,
-    rejectedAssets,
-    onAssetClick,
-    selectedAssetId,
-}: {
-    showRejected?: boolean;
-    rejectedAssets?: Asset[];
-    onAssetClick?: (id: string) => void;
-    selectedAssetId?: string | null;
-}) {
-    if (!showRejected || !rejectedAssets || rejectedAssets.length === 0) {return null;}
-
-    return (
-        <div>
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderTop: '1px solid #1f1f1f',
-                color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase'
-            }}>
-                <span style={{ color: '#ef4444', opacity: 0.7 }}>🚫</span>
-                <span>Rejected - {rejectedAssets.length} photo{rejectedAssets.length !== 1 ? 's' : ''} removed from this person</span>
-                <div style={{ flex: 1, height: 1, background: '#1f1f1f' }} />
-            </div>
-            <div style={{ opacity: 0.45, filter: 'grayscale(40%)' }}>
-                <LayoutEngine
-                    items={buildVisibleGalleryItems(rejectedAssets, {
-                        groupSimilarPhotos: false,
-                        sortMode: 'date',
-                    })}
-                    debug={false}
-                    onAssetClick={onAssetClick}
-                    selectedAssetId={selectedAssetId}
-                    activeFilter={undefined}
-                    showFaces={false}
-                    onUntagAsset={undefined}
-                    librarySelection={createEmptyLibrarySelectionState()}
-                    onLibrarySelectionChange={undefined}
-                    declusteredAssets={undefined}
-                    showGroupIds={false}
-                    layoutMode="tiled"
-                />
-            </div>
         </div>
     );
 }
@@ -192,184 +158,112 @@ function useLibraryPaging(params: {
     return { scrollRef, handleScroll };
 }
 
-function LibraryToolbar({
-    sortMode,
-    onSortModeChange,
-    layoutMode,
-    onLayoutModeChange,
-    groupSimilarPhotos,
-    onGroupSimilarPhotosChange,
-    showGroupIds,
-    onShowGroupIdsChange,
+function useLibraryInfoAsset(
+    displayItems: ReturnType<typeof useDisplayAssets>,
+    selection: LibrarySelectionState,
+    showInfoPanel: boolean,
+    onEnsureAssetDetails?: (assetId: string) => void,
+) {
+    const selectedInfoAsset = useMemo(() => getGalleryInfoPanelAsset(displayItems, selection), [displayItems, selection]);
+    const selectedInfoAssetId = selectedInfoAsset?.id ?? null;
+
+    useEffect(() => {
+        if (!showInfoPanel || !selectedInfoAssetId) {
+            return;
+        }
+
+        onEnsureAssetDetails?.(selectedInfoAssetId);
+    }, [onEnsureAssetDetails, selectedInfoAssetId, showInfoPanel]);
+
+    return selectedInfoAsset;
+}
+
+function LibraryPanel({
+    scrollRef,
+    handleScroll,
+    toolbar,
+    layout,
+    rejected,
+    showInfoPanel,
+    activeInfoTab,
+    onActiveInfoTabChange,
+    onShowInfoPanelChange,
+    selectedInfoAsset,
+    onFlagPhotoDateCorrection,
 }: {
-    sortMode: LibrarySortMode;
-    onSortModeChange: (mode: LibrarySortMode) => void;
-    layoutMode: GalleryLayoutMode;
-    onLayoutModeChange: (mode: GalleryLayoutMode) => void;
-    groupSimilarPhotos: boolean;
-    onGroupSimilarPhotosChange: (enabled: boolean) => void;
-    showGroupIds: boolean;
-    onShowGroupIdsChange: (enabled: boolean) => void;
+    scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
+    handleScroll: ReturnType<typeof useLibraryPaging>['handleScroll'];
+    toolbar: ComponentProps<typeof LibraryGalleryPane>['toolbar'];
+    layout: ComponentProps<typeof LibraryGalleryPane>['layout'];
+    rejected: ComponentProps<typeof LibraryGalleryPane>['rejected'];
+    showInfoPanel: boolean;
+    activeInfoTab: InfoTab;
+    onActiveInfoTabChange: (tab: InfoTab) => void;
+    onShowInfoPanelChange: (show: boolean) => void;
+    selectedInfoAsset: Asset | null;
+    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }) {
     return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 14px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'linear-gradient(180deg, rgba(18,18,18,0.92), rgba(10,10,10,0.92))' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                    type="button"
-                    aria-pressed={groupSimilarPhotos}
-                    onClick={() => onGroupSimilarPhotosChange(!groupSimilarPhotos)}
-                    style={{
-                        background: groupSimilarPhotos ? 'rgba(37,99,235,0.22)' : 'rgba(148,163,184,0.08)',
-                        color: groupSimilarPhotos ? '#bfdbfe' : '#cbd5e1',
-                        border: `1px solid ${groupSimilarPhotos ? 'rgba(96,165,250,0.75)' : 'rgba(148,163,184,0.2)'}`,
-                        borderRadius: 999,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                    }}
-                >
-                    Group similar photos
-                </button>
-                <button
-                    type="button"
-                    aria-pressed={showGroupIds}
-                    onClick={() => onShowGroupIdsChange(!showGroupIds)}
-                    style={{
-                        background: showGroupIds ? 'rgba(8,145,178,0.22)' : 'rgba(148,163,184,0.08)',
-                        color: showGroupIds ? '#a5f3fc' : '#cbd5e1',
-                        border: `1px solid ${showGroupIds ? 'rgba(34,211,238,0.65)' : 'rgba(148,163,184,0.2)'}`,
-                        borderRadius: 999,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                    }}
-                >
-                    Show group IDs
-                </button>
+        <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden', background: '#0a0a0a' }}>
+            <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto' }}>
+                <LibraryGalleryPane toolbar={toolbar} layout={layout} rejected={rejected} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                    <span>View</span>
-                    <select
-                        aria-label="Gallery view"
-                        value={layoutMode}
-                        onChange={(event) => onLayoutModeChange(event.target.value as GalleryLayoutMode)}
-                        style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 999, padding: '6px 10px', fontSize: '0.78rem', outline: 'none' }}
-                    >
-                        <option value="tiled">Tiled</option>
-                        <option value="grid">Grid</option>
-                    </select>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                    <span>Sort</span>
-                    <select
-                        aria-label="Sort gallery"
-                        value={sortMode}
-                        onChange={(event) => onSortModeChange(event.target.value as LibrarySortMode)}
-                        style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 999, padding: '6px 10px', fontSize: '0.78rem', outline: 'none' }}
-                    >
-                        <option value="date">Date</option>
-                        <option value="filename">Filename</option>
-                        {!groupSimilarPhotos && <option value="group">Group</option>}
-                    </select>
-                </label>
-            </div>
+            {showInfoPanel && (
+                <GalleryInfoPanel asset={selectedInfoAsset} activeTab={activeInfoTab} onTabChange={onActiveInfoTabChange} onClose={() => onShowInfoPanelChange(false)} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
+            )}
         </div>
     );
 }
 
-export function LibraryView({
-    assets,
-    loading,
-    active,
-    backendReady,
-    backendStatus,
-    hasMoreAssets,
-    isLoadingMoreAssets,
-    onLoadMoreAssets,
-    onAssetClick,
-    selectedAssetId,
-    activeFilter,
-    showFaces,
-    onUntagAsset,
-    librarySelection,
-    onLibrarySelectionChange,
-    groupSimilarPhotos,
-    onGroupSimilarPhotosChange,
-    showGroupIds,
-    onShowGroupIdsChange,
-    declusteredAssets,
-    showRejected,
-    rejectedAssets,
-    onHoverAssetChange,
-}: LibraryViewProps) {
+export function LibraryView(props: LibraryViewProps) {
     const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
     const [layoutMode, setLayoutMode] = useState<GalleryLayoutMode>('tiled');
     const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
-    const displayItems = useDisplayAssets(assets, declusteredAssets, sortMode, groupSimilarPhotos);
-    const rejectedAssetCount = getRejectedAssetCount(showRejected, rejectedAssets);
+    const selection = props.librarySelection ?? EMPTY_LIBRARY_SELECTION;
+    const displayItems = useDisplayAssets(props.assets, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
+    const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails);
+    const rejectedAssetCount = getRejectedAssetCount(props.showRejected, props.rejectedAssets);
     const { scrollRef, handleScroll } = useLibraryPaging({
-        active,
+        active: props.active,
         displayAssetCount: displayItems.length,
-        hasMoreAssets,
-        isLoadingMoreAssets,
-        onLoadMoreAssets,
+        hasMoreAssets: props.hasMoreAssets,
+        isLoadingMoreAssets: props.isLoadingMoreAssets,
+        onLoadMoreAssets: props.onLoadMoreAssets,
     });
 
     useEffect(() => {
-        if (groupSimilarPhotos && sortMode === 'group') {
+        if (props.groupSimilarPhotos && sortMode === 'group') {
             setSortMode('filename');
         }
-    }, [groupSimilarPhotos, sortMode]);
+    }, [props.groupSimilarPhotos, sortMode]);
 
-    if (shouldShowLoadingState({ loading, backendReady, assetCount: assets.length })) {
-        return <LoadingState backendStatus={backendStatus} backendReady={backendReady} />;
+    const handleShowInfoPanelChange = useCallback((show: boolean) => {
+        props.onShowInfoPanelChange(show);
+        if (!show) {
+            props.onLibrarySelectionChange?.(clearLibrarySelection());
+        }
+    }, [props]);
+
+    if (shouldShowLoadingState({ loading: props.loading, backendReady: props.backendReady, assetCount: props.assets.length })) {
+        return <LoadingState backendStatus={props.backendStatus} backendReady={props.backendReady} />;
     }
-    if (shouldShowEmptyState(assets.length, rejectedAssetCount)) {
+    if (shouldShowEmptyState(props.assets.length, rejectedAssetCount)) {
         return <EmptyState />;
     }
 
     return (
-        <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#0a0a0a' }}
-        >
-            <LibraryToolbar
-                sortMode={sortMode}
-                onSortModeChange={setSortMode}
-                layoutMode={layoutMode}
-                onLayoutModeChange={setLayoutMode}
-                groupSimilarPhotos={groupSimilarPhotos}
-                onGroupSimilarPhotosChange={onGroupSimilarPhotosChange}
-                showGroupIds={showGroupIds}
-                onShowGroupIdsChange={onShowGroupIdsChange}
+            <LibraryPanel
+                scrollRef={scrollRef}
+                handleScroll={handleScroll}
+                toolbar={{ sortMode, onSortModeChange: setSortMode, layoutMode, onLayoutModeChange: setLayoutMode, groupSimilarPhotos: props.groupSimilarPhotos, onGroupSimilarPhotosChange: props.onGroupSimilarPhotosChange, showGroupIds: props.showGroupIds, onShowGroupIdsChange: props.onShowGroupIdsChange, showInfoPanel: props.showInfoPanel, onShowInfoPanelChange: handleShowInfoPanelChange }}
+                layout={{ items: displayItems, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId, activeFilter: props.activeFilter, showFaces: props.showFaces, onUntagAsset: props.onUntagAsset, librarySelection: selection, onLibrarySelectionChange: props.onLibrarySelectionChange, declusteredAssets: props.declusteredAssets, onHoverAssetChange: props.onHoverAssetChange, showGroupIds: props.showGroupIds, hoveredGroupId, onHoveredGroupIdChange: setHoveredGroupId, layoutMode, showInfoPanel: props.showInfoPanel }}
+                rejected={{ showRejected: props.showRejected, rejectedAssets: props.rejectedAssets, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId }}
+                showInfoPanel={props.showInfoPanel}
+                activeInfoTab={props.activeInfoTab}
+                onActiveInfoTabChange={props.onActiveInfoTabChange}
+                onShowInfoPanelChange={handleShowInfoPanelChange}
+                selectedInfoAsset={selectedInfoAsset}
+                onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
             />
-            <LayoutEngine
-                items={displayItems}
-                debug={false}
-                onAssetClick={onAssetClick}
-                selectedAssetId={selectedAssetId}
-                activeFilter={activeFilter}
-                showFaces={showFaces}
-                onUntagAsset={onUntagAsset}
-                librarySelection={librarySelection ?? createEmptyLibrarySelectionState()}
-                onLibrarySelectionChange={onLibrarySelectionChange}
-                declusteredAssets={declusteredAssets}
-                onHoverAssetChange={onHoverAssetChange}
-                showGroupIds={showGroupIds}
-                hoveredGroupId={hoveredGroupId}
-                onHoveredGroupIdChange={setHoveredGroupId}
-                layoutMode={layoutMode}
-            />
-            <RejectedSection
-                showRejected={showRejected}
-                rejectedAssets={rejectedAssets}
-                onAssetClick={onAssetClick}
-                selectedAssetId={selectedAssetId}
-            />
-        </div>
     );
 }

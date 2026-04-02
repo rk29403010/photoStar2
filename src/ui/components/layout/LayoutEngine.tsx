@@ -3,6 +3,7 @@ import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react'
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
+import { getSingleClickTileAction, shouldOpenAssetOnDoubleClick } from './layoutTileInteractionModel';
 import {
     createEmptyLibrarySelectionState,
     getLibrarySelectionCount,
@@ -29,6 +30,7 @@ interface LayoutEngineProps {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     layoutMode?: GalleryLayoutMode;
+    showInfoPanel?: boolean;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
@@ -63,6 +65,16 @@ interface LayoutTileProps {
     showGroupIds?: boolean;
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
+    showInfoPanel: boolean;
+}
+
+interface LayoutTileEventHandlers {
+    onClick: () => void;
+    onDoubleClick: () => void;
+    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+    onPointerEnter: (event: ReactPointerEvent<HTMLDivElement>) => void;
+    onPointerLeave: () => void;
+    onPointerUp: () => void;
 }
 
 const PRIORITY_TILE_COUNT = 60;
@@ -207,15 +219,94 @@ function extendSelection(params: {
 }
 
 function handleTileClick(
-    layoutItem: LayoutItem,
-    librarySelection: LibrarySelectionState,
-    onAssetClick: ((id: string) => void) | undefined,
-    selectionState: SelectionInteractionState,
+    params: {
+        index: number;
+        layoutItem: LayoutItem;
+        layoutItems: LayoutItem[];
+        librarySelection: LibrarySelectionState;
+        onAssetClick: ((id: string) => void) | undefined;
+        onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+        selectionState: SelectionInteractionState;
+        showInfoPanel: boolean;
+    },
 ) {
+    const {
+        index,
+        layoutItem,
+        layoutItems,
+        librarySelection,
+        onAssetClick,
+        onLibrarySelectionChange,
+        selectionState,
+        showInfoPanel,
+    } = params;
+
     clearPressTimer(selectionState.pressTimer);
-    if (getLibrarySelectionCount(librarySelection) === 0) {
+    const action = getSingleClickTileAction({
+        showInfoPanel,
+        selectionCount: getLibrarySelectionCount(librarySelection),
+    });
+
+    if (action === 'select') {
+        applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, { mode: 'replace', index });
+        return;
+    }
+
+    if (action === 'open') {
         onAssetClick?.(layoutItem.item.asset.id);
     }
+}
+
+function useLayoutTileEventHandlers(params: {
+    index: number;
+    layoutItem: LayoutItem;
+    layoutItems: LayoutItem[];
+    librarySelection: LibrarySelectionState;
+    onAssetClick?: (id: string) => void;
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    selectionState: SelectionInteractionState;
+    showInfoPanel: boolean;
+}): LayoutTileEventHandlers {
+    const {
+        index,
+        layoutItem,
+        layoutItems,
+        librarySelection,
+        onAssetClick,
+        onLibrarySelectionChange,
+        selectionState,
+        showInfoPanel,
+    } = params;
+
+    const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        beginSelection({ event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState });
+    }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
+
+    const onPointerEnter = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        extendSelection({ event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState });
+    }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
+
+    const onClick = useCallback(() => {
+        handleTileClick({ index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, showInfoPanel });
+    }, [index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, showInfoPanel]);
+
+    const onDoubleClick = useCallback(() => {
+        clearPressTimer(selectionState.pressTimer);
+        if (shouldOpenAssetOnDoubleClick(showInfoPanel)) {
+            onAssetClick?.(layoutItem.item.asset.id);
+        }
+    }, [layoutItem.item.asset.id, onAssetClick, selectionState.pressTimer, showInfoPanel]);
+
+    const onPointerUp = useCallback(() => {
+        clearPressTimer(selectionState.pressTimer);
+        selectionState.stopDragging();
+    }, [selectionState]);
+
+    const onPointerLeave = useCallback(() => {
+        clearPressTimer(selectionState.pressTimer);
+    }, [selectionState.pressTimer]);
+
+    return { onClick, onDoubleClick, onPointerDown, onPointerEnter, onPointerLeave, onPointerUp };
 }
 
 function LayoutTile({
@@ -237,6 +328,7 @@ function LayoutTile({
     showGroupIds,
     hoveredGroupId,
     onHoveredGroupIdChange,
+    showInfoPanel,
 }: LayoutTileProps) {
     const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
     const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
@@ -245,45 +337,27 @@ function LayoutTile({
         gridColumn: `span ${layoutItem.spanW}`,
         gridRow: `span ${layoutItem.spanH}`,
     }), [isDeclustered, isSelected, layoutItem.spanH, layoutItem.spanW]);
-
-    const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        beginSelection({
-            event,
-            index,
-            layoutItems,
-            librarySelection,
-            onLibrarySelectionChange,
-            selectionState,
-        });
-    }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
-
-    const onPointerEnter = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        extendSelection({
-            event,
-            index,
-            layoutItems,
-            librarySelection,
-            onLibrarySelectionChange,
-            selectionState,
-        });
-    }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
-
-    const onClick = useCallback(() => {
-        handleTileClick(layoutItem, librarySelection, onAssetClick, selectionState);
-    }, [layoutItem, librarySelection, onAssetClick, selectionState]);
+    const { onClick, onDoubleClick, onPointerDown, onPointerEnter, onPointerLeave, onPointerUp } = useLayoutTileEventHandlers({
+        index,
+        layoutItem,
+        layoutItems,
+        librarySelection,
+        onAssetClick,
+        onLibrarySelectionChange,
+        selectionState,
+        showInfoPanel,
+    });
 
     return (
         <div
             key={layoutItem.item.selectionKey}
             style={shellStyle}
             onPointerDown={onPointerDown}
-            onPointerUp={() => {
-                clearPressTimer(selectionState.pressTimer);
-                selectionState.stopDragging();
-            }}
-            onPointerLeave={() => clearPressTimer(selectionState.pressTimer)}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerLeave}
             onPointerEnter={onPointerEnter}
             onClick={onClick}
+            onDoubleClick={onDoubleClick}
         >
             <Tile
                 asset={layoutItem.item.asset}
@@ -321,6 +395,7 @@ export function LayoutEngine({
     hoveredGroupId,
     onHoveredGroupIdChange,
     layoutMode = 'tiled',
+    showInfoPanel = false,
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(items, layoutMode), [items, layoutMode]);
     const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
@@ -361,6 +436,7 @@ export function LayoutEngine({
                     showGroupIds={showGroupIds}
                     hoveredGroupId={hoveredGroupId}
                     onHoveredGroupIdChange={onHoveredGroupIdChange}
+                    showInfoPanel={showInfoPanel}
                 />
             ))}
         </div>
