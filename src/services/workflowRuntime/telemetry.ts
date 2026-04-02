@@ -12,4 +12,8 @@ export class WorkflowRuntimeTelemetry {
     public runCompleted(runId: string, workflowId: string): void {
         this.sink?.emit({ type: 'RunCompleted', runId, workflowId });
     }
+
+    public runFailed(runId: string, workflowId: string, errorMessage: string): void {
+        this.sink?.emit({ type: 'RunFailed', runId, workflowId, errorMessage });
+    }
 }

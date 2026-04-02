@@ -22,6 +22,7 @@ import { selectedSubjectMetadataWorkflowDefinition } from '../../services/workfl
 import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
 import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
 import { SubjectRegistry } from '../../services/workflowRuntime/subjectRegistry';
+import { WorkflowRuntimeTelemetry } from '../../services/workflowRuntime/telemetry';
 import { WorkflowRegistry } from '../../services/workflowRuntime/workflowRegistry';
 import { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orchestrator';
 import { runAutoScanWorker, runPreviewWorker } from '../../services/runtimeWorkers';
@@ -33,6 +34,28 @@ type WorkflowRuntimeBundle = {
     workflows: WorkflowRegistry;
     orchestrator: WorkflowRuntimeOrchestrator;
 };
+
+function createConsoleWorkflowTelemetry(): WorkflowRuntimeTelemetry {
+    return new WorkflowRuntimeTelemetry({
+        emit(event) {
+            if (event.type === 'RunStarted') {
+                console.log(`[Workflow] Started ${String(event.workflowId)} run ${String(event.runId)}`);
+                return;
+            }
+
+            if (event.type === 'RunCompleted') {
+                console.log(`[Workflow] Completed ${String(event.workflowId)} run ${String(event.runId)}`);
+                return;
+            }
+
+            if (event.type === 'RunFailed') {
+                console.error(
+                    `[Workflow] Failed ${String(event.workflowId)} run ${String(event.runId)}: ${String(event.errorMessage)}`,
+                );
+            }
+        },
+    });
+}
 
 function registerSubjects(subjects: SubjectRegistry) {
     subjects.register({
@@ -115,6 +138,7 @@ export function createWorkflowRuntimeBundle(dbManager: DatabaseManager, eventBus
             store,
             workflows,
             modules,
+            telemetry: createConsoleWorkflowTelemetry(),
         }),
     };
 }

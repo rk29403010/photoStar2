@@ -135,9 +135,16 @@ export class WorkflowRuntimeOrchestrator {
         const orderedNodes = topologicallySortNodes(workflow.nodes);
 
         this.telemetry.runStarted(runId, workflow.id);
-        await this.executeWorkflowNodes(runId, workflow, orderedNodes, input.inputSubjects, input.parameters ?? {});
-        this.deps.store.updateWorkflowRunStatus(runId, 'completed');
-        this.telemetry.runCompleted(runId, workflow.id);
+        try {
+            await this.executeWorkflowNodes(runId, workflow, orderedNodes, input.inputSubjects, input.parameters ?? {});
+            this.deps.store.updateWorkflowRunStatus(runId, 'completed');
+            this.telemetry.runCompleted(runId, workflow.id);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.deps.store.updateWorkflowRunStatus(runId, 'failed');
+            this.telemetry.runFailed(runId, workflow.id, errorMessage);
+            throw error;
+        }
     }
 
     private async executeWorkflowNodes(
