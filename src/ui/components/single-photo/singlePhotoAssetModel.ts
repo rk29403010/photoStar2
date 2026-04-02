@@ -80,7 +80,7 @@ function hasMeaningfulPhotoMetadata(asset: Asset): boolean {
 }
 
 function mergeSinglePhotoAsset(existingAsset: Asset, nextAsset: Asset): Asset {
-    const mergedAsset = mergeAssetDetail(existingAsset, nextAsset);
+    const mergedAsset = mergeAssetDetail(nextAsset, existingAsset);
     if (hasMeaningfulPhotoMetadata(nextAsset) || !existingAsset.photo_metadata) {
         return mergedAsset;
     }

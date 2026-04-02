@@ -86,6 +86,56 @@ test('mergeSinglePhotoAssets preserves richer gallery metadata when orbit assets
     assert.equal(merged[0].ai_metadata?.caption, 'Rich AI caption');
 });
 
+test('mergeSinglePhotoAssets keeps refreshed gallery metadata when orbit copies are stale', async () => {
+    const { mergeSinglePhotoAssets } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
+
+    const merged = mergeSinglePhotoAssets(
+        [{
+            id: 'asset-1',
+            original_path: 'one.jpg',
+            ai_metadata: {
+                caption: 'Enhanced caption',
+                _analysis_tier: 'pro',
+                keywords: ['enhanced', 'portrait'],
+            },
+            photo_metadata: {
+                projection: createProjection({
+                    caption: 'Enhanced gallery caption',
+                    description: 'Fresh projection description',
+                    keywords: ['enhanced', 'portrait'],
+                }),
+                provenance: {
+                    caption: { sourceKind: 'manual_user', sourceId: 'caption-2' },
+                },
+            },
+        }],
+        [{
+            id: 'asset-1',
+            original_path: 'one.jpg',
+            ai_metadata: {
+                caption: 'Stale caption',
+                _analysis_tier: 'flash',
+                keywords: ['stale'],
+            },
+            photo_metadata: {
+                projection: createProjection({
+                    caption: 'Stale projection caption',
+                    description: null,
+                    keywords: [],
+                }),
+                provenance: {},
+            },
+        }],
+    );
+
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].ai_metadata?.caption, 'Enhanced caption');
+    assert.equal(merged[0].ai_metadata?._analysis_tier, 'pro');
+    assert.deepEqual(merged[0].ai_metadata?.keywords, ['enhanced', 'portrait']);
+    assert.equal(merged[0].photo_metadata?.projection.caption, 'Enhanced gallery caption');
+    assert.equal(merged[0].photo_metadata?.projection.description, 'Fresh projection description');
+});
+
 test('isLibrarySelectionAnchorAsset excludes orbit-only duplicate assets from replacing the library anchor', async () => {
     const { isLibrarySelectionAnchorAsset } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
 
