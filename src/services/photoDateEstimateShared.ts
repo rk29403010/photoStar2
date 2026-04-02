@@ -1,6 +1,8 @@
 import { basename } from 'node:path';
 import { getEmbeddedTimestampWeight } from './photoDateEstimateEmbeddedWeights';
+import { isMeaningfulFilenameStem, isWhatsAppExportStem } from './photoDateEstimateFilenameHeuristics';
 import { rebalanceSignalsForMetadataProfile } from './photoDateEstimateSignalBalance';
+import { getWeights, type WeightProfile } from './photoDateEstimateWeights';
 
 export type SignalOrigin = 'embedded' | 'filename' | 'ai' | 'file';
 export type SignalPrecision = 'exact' | 'year' | 'decade' | 'range';
@@ -46,18 +48,6 @@ type SignalCollectionContext = {
     metadataProfile: MetadataProfile;
 };
 
-type WeightProfile = {
-    embedded: number;
-    file: number;
-    filenameExact: number;
-    filenameYear: number;
-    filenameDecade: number;
-    aiExact: number;
-    aiYear: number;
-    aiDecade: number;
-    aiRange: number;
-};
-
 const BORN_DIGITAL_KEYWORDS = [
     'apple',
     'iphone',
@@ -90,40 +80,6 @@ const SCANNER_KEYWORDS = [
     'paintshop',
     'gimp',
 ];
-const UNKNOWN_WEIGHTS: WeightProfile = {
-    embedded: 0.58,
-    file: 0.2,
-    filenameExact: 0.95,
-    filenameYear: 0.82,
-    filenameDecade: 0.56,
-    aiExact: 0.7,
-    aiYear: 0.64,
-    aiDecade: 0.48,
-    aiRange: 0.56,
-};
-const BORN_DIGITAL_WEIGHTS: WeightProfile = {
-    embedded: 1.0,
-    file: 0.82,
-    filenameExact: 0.72,
-    filenameYear: 0.66,
-    filenameDecade: 0.34,
-    aiExact: 0.32,
-    aiYear: 0.28,
-    aiDecade: 0.22,
-    aiRange: 0.26,
-};
-const SCANNER_WEIGHTS: WeightProfile = {
-    embedded: 0.18,
-    file: 0.08,
-    filenameExact: 1.0,
-    filenameYear: 0.92,
-    filenameDecade: 0.7,
-    aiExact: 0.82,
-    aiYear: 0.84,
-    aiDecade: 0.88,
-    aiRange: 0.92,
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -259,20 +215,6 @@ export function detectMetadataProfile(embeddedMetadata: Record<string, unknown> 
     return 'unknown';
 }
 
-function getWeights(profile: MetadataProfile): WeightProfile {
-    if (profile === 'born_digital') {
-        return BORN_DIGITAL_WEIGHTS;
-    }
-    if (profile === 'scanner') {
-        return SCANNER_WEIGHTS;
-    }
-    return UNKNOWN_WEIGHTS;
-}
-
-function isWhatsAppExportStem(stem: string): boolean {
-    return /^whatsapp image \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}/i.test(stem);
-}
-
 function addUniqueSignal(signals: SignalWindow[], seen: Set<string>, signal: SignalWindow | null) {
     if (!signal) {
         return;
@@ -364,7 +306,7 @@ function collectFilenameSignals(
     collectFullDateFilenameSignals(stem, weights, signals, seen);
     collectDecadeFilenameSignals(stem, weights, signals, seen);
     collectYearFilenameSignals(stem, weights, signals, seen);
-    if (metadataProfile !== 'scanner') {
+    if (metadataProfile !== 'scanner' && isMeaningfulFilenameStem(stem)) {
         collectTwoDigitYearFilenameSignals(stem, weights, signals, seen);
     }
 

@@ -255,6 +255,47 @@ test('estimatePhotoDate ignores scanner-style two-digit archive filename years w
     assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.year'));
 });
 
+test('estimatePhotoDate ignores opaque numeric filename two-digit years when AI provides a historical year', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/485609-082918_09.jpg',
+        fileBirthtime: '2026-03-17T11:23:05.359Z',
+        embeddedMetadata: {
+            embedded: {},
+            derived: {
+                timestamp_candidates: [],
+            },
+        },
+        aiMetadata: {
+            estimated_date: '1964',
+        },
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1964);
+    assert.ok(result.signals.every((signal) => signal.source !== 'filename.two_digit_year'));
+    assert.ok(result.signals.some((signal) => signal.source === 'ai.estimated_date.year'));
+});
+
+test('estimatePhotoDate keeps meaningful two-digit filename years for human-readable names', async () => {
+    const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
+
+    const result = estimatePhotoDate({
+        originalPath: 'C:/photos/Dad, Doncaster 89.jpg',
+        fileBirthtime: null,
+        embeddedMetadata: {
+            embedded: {},
+            derived: {
+                timestamp_candidates: [],
+            },
+        },
+        aiMetadata: null,
+    });
+
+    assert.equal(new Date(result.photoCreatedAt).getUTCFullYear(), 1989);
+    assert.ok(result.signals.some((signal) => signal.source === 'filename.two_digit_year'));
+});
+
 test('estimatePhotoDate lets historical AI override born-digital export timestamps on decades-wide disagreement', async () => {
     const { estimatePhotoDate } = await import('../../dist/core/src/services/photoDateEstimate.js');
 
