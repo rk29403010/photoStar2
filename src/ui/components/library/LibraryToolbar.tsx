@@ -7,6 +7,9 @@ interface LibraryToolbarProps {
     onSortModeChange: (mode: LibrarySortMode) => void;
     layoutMode: GalleryLayoutMode;
     onLayoutModeChange: (mode: GalleryLayoutMode) => void;
+    selectedTag: string;
+    availableTags: string[];
+    onTagChange: (tag: string) => void;
     groupSimilarPhotos: boolean;
     onGroupSimilarPhotosChange: (enabled: boolean) => void;
     showGroupIds: boolean;
@@ -83,9 +86,14 @@ export function LibraryToolbar(props: LibraryToolbarProps) {
                 <ToggleButton label="Info panel" active={props.showInfoPanel} onClick={() => props.onShowInfoPanelChange(!props.showInfoPanel)} colors={{ activeBackground: 'rgba(79,70,229,0.24)', activeColor: '#c7d2fe', activeBorder: 'rgba(129,140,248,0.72)' }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <ToolbarSelect label="Tag" ariaLabel="Filter gallery by tag" value={props.selectedTag} onChange={props.onTagChange}>
+                    <option value="">All tags</option>
+                    {props.availableTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+                </ToolbarSelect>
                 <ToolbarSelect label="View" ariaLabel="Gallery view" value={props.layoutMode} onChange={props.onLayoutModeChange}>
                     <option value="tiled">Tiled</option>
                     <option value="grid">Grid</option>
+                    <option value="justified">Justified</option>
                 </ToolbarSelect>
                 <ToolbarSelect label="Sort" ariaLabel="Sort gallery" value={props.sortMode} onChange={props.onSortModeChange}>
                     <option value="date">Date</option>

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
+import { LayoutModeRenderer } from './LayoutModeRenderer';
 import { getSingleClickTileAction, shouldOpenAssetOnDoubleClick } from './layoutTileInteractionModel';
 import {
     createEmptyLibrarySelectionState,
@@ -66,6 +67,7 @@ interface LayoutTileProps {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     showInfoPanel: boolean;
+    shellStyleOverride?: CSSProperties;
 }
 
 interface LayoutTileEventHandlers {
@@ -329,14 +331,17 @@ function LayoutTile({
     hoveredGroupId,
     onHoveredGroupIdChange,
     showInfoPanel,
+    shellStyleOverride,
 }: LayoutTileProps) {
     const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
     const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
     const shellStyle = useMemo(() => ({
         ...getTileShellStyle(isDeclustered, isSelected),
-        gridColumn: `span ${layoutItem.spanW}`,
-        gridRow: `span ${layoutItem.spanH}`,
-    }), [isDeclustered, isSelected, layoutItem.spanH, layoutItem.spanW]);
+        ...(shellStyleOverride ?? {
+            gridColumn: `span ${layoutItem.spanW}`,
+            gridRow: `span ${layoutItem.spanH}`,
+        }),
+    }), [isDeclustered, isSelected, layoutItem.spanH, layoutItem.spanW, shellStyleOverride]);
     const { onClick, onDoubleClick, onPointerDown, onPointerEnter, onPointerLeave, onPointerUp } = useLayoutTileEventHandlers({
         index,
         layoutItem,
@@ -379,6 +384,55 @@ function LayoutTile({
     );
 }
 
+function renderLayoutTile(params: {
+    layoutItems: LayoutItem[];
+    index: number;
+    debug: boolean;
+    selectedAssetId?: string | null;
+    activeFilter?: LibraryFilter;
+    showFaces?: boolean;
+    onUntagAsset?: (assetId: string, personId: string) => void;
+    onAssetClick?: (id: string) => void;
+    librarySelection: LibrarySelectionState;
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    declusteredAssets?: Set<string>;
+    selectionState: SelectionInteractionState;
+    onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
+    showGroupIds?: boolean;
+    hoveredGroupId?: string | null;
+    onHoveredGroupIdChange?: (groupId: string | null) => void;
+    showInfoPanel: boolean;
+    shellStyleOverride?: CSSProperties;
+}) {
+    const layoutItem = params.layoutItems[params.index];
+
+    return (
+        <LayoutTile
+            key={layoutItem.item.selectionKey}
+            layoutItem={layoutItem}
+            index={params.index}
+            debug={params.debug}
+            selectedAssetId={params.selectedAssetId}
+            activeFilter={params.activeFilter}
+            showFaces={params.showFaces}
+            onUntagAsset={params.onUntagAsset}
+            onAssetClick={params.onAssetClick}
+            librarySelection={params.librarySelection}
+            onLibrarySelectionChange={params.onLibrarySelectionChange}
+            declusteredAssets={params.declusteredAssets}
+            selectionState={params.selectionState}
+            prioritizeImage={params.index < PRIORITY_TILE_COUNT}
+            onHoverAssetChange={params.onHoverAssetChange}
+            layoutItems={params.layoutItems}
+            showGroupIds={params.showGroupIds}
+            hoveredGroupId={params.hoveredGroupId}
+            onHoveredGroupIdChange={params.onHoveredGroupIdChange}
+            showInfoPanel={params.showInfoPanel}
+            shellStyleOverride={params.shellStyleOverride}
+        />
+    );
+}
+
 export function LayoutEngine({
     items,
     debug = false,
@@ -401,44 +455,34 @@ export function LayoutEngine({
     const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
 
     return (
-        <div
-            className="layout-grid"
-            style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(24, 1fr)',
-                gridAutoFlow: 'dense',
-                gridAutoRows: 'min(75px, 4.1vw)',
-                gap: '2px',
-                padding: '2px',
-                width: '100%',
-                maxWidth: '1800px',
-                margin: '0 auto',
-            }}
-        >
-            {layoutItems.map((layoutItem, index) => (
-                <LayoutTile
-                    key={layoutItem.item.selectionKey}
-                    layoutItem={layoutItem}
-                    index={index}
-                    debug={debug}
-                    selectedAssetId={selectedAssetId}
-                    activeFilter={activeFilter}
-                    showFaces={showFaces}
-                    onUntagAsset={onUntagAsset}
-                    onAssetClick={onAssetClick}
-                    librarySelection={librarySelection}
-                    onLibrarySelectionChange={onLibrarySelectionChange}
-                    declusteredAssets={declusteredAssets}
-                    selectionState={selectionState}
-                    prioritizeImage={index < PRIORITY_TILE_COUNT}
-                    onHoverAssetChange={onHoverAssetChange}
-                    layoutItems={layoutItems}
-                    showGroupIds={showGroupIds}
-                    hoveredGroupId={hoveredGroupId}
-                    onHoveredGroupIdChange={onHoveredGroupIdChange}
-                    showInfoPanel={showInfoPanel}
-                />
-            ))}
-        </div>
+        <LayoutModeRenderer
+            layoutMode={layoutMode}
+            justifiedItems={layoutItems.map((layoutItem) => ({
+                id: layoutItem.item.selectionKey,
+                width: layoutItem.item.asset.width,
+                height: layoutItem.item.asset.height,
+            }))}
+            itemCount={layoutItems.length}
+            renderTile={(index, shellStyleOverride) => renderLayoutTile({
+                layoutItems,
+                index,
+                debug,
+                selectedAssetId,
+                activeFilter,
+                showFaces,
+                onUntagAsset,
+                onAssetClick,
+                librarySelection,
+                onLibrarySelectionChange,
+                declusteredAssets,
+                selectionState,
+                onHoverAssetChange,
+                showGroupIds,
+                hoveredGroupId,
+                onHoveredGroupIdChange,
+                showInfoPanel,
+                shellStyleOverride,
+            })}
+        />
     );
 }

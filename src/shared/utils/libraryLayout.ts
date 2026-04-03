@@ -1,6 +1,6 @@
 import type { Asset, TileIntent } from '@contracts/core';
 
-export type GalleryLayoutMode = 'tiled' | 'grid';
+export type GalleryLayoutMode = 'tiled' | 'grid' | 'justified';
 
 export type GalleryTileLayout = {
     intent: TileIntent;
@@ -34,7 +34,7 @@ function getBestTargetRatio(width: number, height: number) {
 }
 
 export function buildGalleryTileLayout(asset: Pick<Asset, 'width' | 'height' | 'manualState' | 'processingPhase' | 'layoutCapabilities'>, mode: GalleryLayoutMode): GalleryTileLayout {
-    if (mode === 'grid') {
+    if (mode === 'grid' || mode === 'justified') {
         return {
             intent: 'normal',
             spanW: 3,
