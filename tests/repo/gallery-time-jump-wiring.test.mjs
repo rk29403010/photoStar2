@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+test('gallery exposes a global timeline rail with release-to-seek wiring and stable tile selection keys', () => {
+    const libraryViewSource = fs.readFileSync('src/ui/components/LibraryView.tsx', 'utf8');
+    const toolbarSource = fs.readFileSync('src/ui/components/library/LibraryToolbar.tsx', 'utf8');
+    const timelineRailSource = fs.readFileSync('src/ui/components/library/LibraryTimelineRail.tsx', 'utf8');
+    const timelineHelpersSource = fs.readFileSync('src/ui/components/library/libraryViewTimeline.tsx', 'utf8');
+    const appMainContentSource = fs.readFileSync('src/ui/components/app/AppMainContent.tsx', 'utf8');
+    const loadedAppShellSource = fs.readFileSync('src/ui/components/app/LoadedAppShell.tsx', 'utf8');
+    const layoutEngineSource = fs.readFileSync('src/ui/components/layout/LayoutEngine.tsx', 'utf8');
+
+    assert.match(libraryViewSource, /stats: LibraryStats \| null;/);
+    assert.match(libraryViewSource, /galleryTimelineSeek: GalleryTimelineSeek \| null;/);
+    assert.match(libraryViewSource, /onGalleryTimelineSeek: \(seek: GalleryTimelineSeek \| null\) => void;/);
+    assert.doesNotMatch(toolbarSource, /LibraryTimelineRail/);
+    assert.match(libraryViewSource, /timelineRail=\{timelineRail\}/);
+    assert.match(timelineHelpersSource, /<LibraryTimelineRail/);
+    assert.match(libraryViewSource, /viewportBucketIndex/);
+    assert.match(timelineHelpersSource, /querySelectorAll<HTMLElement>\('\[data-selection-key\]'\)/);
+    assert.match(timelineHelpersSource, /useCallback\(\(scrollContainer: HTMLDivElement \| null\) =>/);
+    assert.match(timelineHelpersSource, /updateViewportBucketIndex\(params\.scrollRef\.current\)/);
+    assert.match(libraryViewSource, /updateViewportBucketIndex\(event\.currentTarget\)/);
+    assert.match(timelineRailSource, /type="range"/);
+    assert.match(timelineRailSource, /writingMode: 'vertical-lr'/);
+    assert.match(timelineRailSource, /transform: 'rotate\(180deg\)'/);
+    assert.match(timelineRailSource, /gridTemplateRows/);
+    assert.match(timelineRailSource, /getNewestFirstBuckets/);
+    assert.doesNotMatch(timelineRailSource, /Oldest /);
+    assert.doesNotMatch(timelineRailSource, /Newest /);
+    assert.match(timelineRailSource, /Unknown date/);
+    assert.match(timelineRailSource, /onMouseUp|onPointerUp|onKeyUp/);
+    assert.match(appMainContentSource, /stats=\{props\.stats\}/);
+    assert.match(appMainContentSource, /galleryTimelineSeek=\{props\.galleryTimelineSeek\}/);
+    assert.match(loadedAppShellSource, /stats,/);
+    assert.match(loadedAppShellSource, /galleryTimelineSeek,/);
+    assert.match(loadedAppShellSource, /onGalleryTimelineSeek=\{actions\.seekGalleryTimeline\}/);
+    assert.match(layoutEngineSource, /data-selection-key=\{layoutItem\.item\.selectionKey\}/);
+});

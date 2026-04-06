@@ -1,8 +1,13 @@
+import type { GalleryTimelineSeek } from '@contracts/core';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 
+export type GalleryOrder = 'default' | 'oldest_first' | 'previewed_first';
+export type { GalleryTimelineSeek } from '@contracts/core';
+
 export type RefreshLibraryOptions = {
-    galleryOrder?: 'default' | 'previewed_first';
+    galleryOrder?: GalleryOrder;
+    gallerySeek?: GalleryTimelineSeek | null;
     preservePagingState?: boolean;
     withGroupCounts?: boolean;
 };
@@ -14,6 +19,8 @@ export function getCurrentFilter(filterStackRef: { current: LibraryFilter[] }) {
 
 export function buildAssetRefreshPayload(
     groupSimilarPhotosRef: { current: boolean },
+    galleryOrderRef: { current: GalleryOrder },
+    gallerySeekRef: { current: GalleryTimelineSeek | null },
     filterStackRef: { current: LibraryFilter[] },
     options: RefreshLibraryOptions,
 ) {
@@ -22,7 +29,8 @@ export function buildAssetRefreshPayload(
         offset: 0,
         filter: getCurrentFilter(filterStackRef),
         detailLevel: 'gallery' as const,
-        galleryOrder: options.galleryOrder ?? 'default',
+        galleryOrder: options.galleryOrder ?? galleryOrderRef.current,
+        gallerySeek: options.gallerySeek ?? gallerySeekRef.current,
         withGroupCounts: options.withGroupCounts ?? groupSimilarPhotosRef.current,
     };
 }
@@ -31,12 +39,16 @@ export function buildLoadMoreAssetsPayload(params: {
     assetCount: number;
     filterStackRef: { current: LibraryFilter[] };
     groupSimilarPhotosRef: { current: boolean };
+    galleryOrderRef: { current: GalleryOrder };
+    gallerySeekRef: { current: GalleryTimelineSeek | null };
 }) {
     return {
         limit: ASSET_PAGE_SIZE,
         offset: params.assetCount,
         filter: getCurrentFilter(params.filterStackRef),
         detailLevel: 'gallery' as const,
+        galleryOrder: params.galleryOrderRef.current,
+        gallerySeek: params.gallerySeekRef.current,
         withGroupCounts: params.groupSimilarPhotosRef.current,
     };
 }

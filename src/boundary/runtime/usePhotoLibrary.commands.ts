@@ -15,14 +15,11 @@ import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibra
 import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
+import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 export { createPhotoMetadataActions } from './photoMetadataActions';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
 type AiMode = 'mock' | 'live' | 'off';
-type RefreshLibraryOptions = {
-    galleryOrder?: 'default' | 'previewed_first';
-    preservePagingState?: boolean;
-};
 
 type SharedWorkflowActionParams = {
     transport: BackendTransport | null;
@@ -469,6 +466,7 @@ export function createRefreshActions(sendCommand: SendCommand, filterStackRef: {
                 filter: currentFilter,
                 detailLevel: 'gallery',
                 galleryOrder: options.galleryOrder ?? 'default',
+                gallerySeek: options.gallerySeek ?? null,
             });
         },
         refreshPeople: () => {

@@ -215,8 +215,35 @@ export interface Person {
     cover_image?: string;
 }
 
+export interface LibraryTimelineBucket {
+    label: string;
+    startYear: number;
+    endYear: number;
+    startDate: string;
+    endDate: string;
+    count: number;
+}
+
+export interface LibraryTimelineSummary {
+    firstPhotoDate: string | null;
+    lastPhotoDate: string | null;
+    datedPhotoCount: number;
+    unknownDateCount: number;
+    buckets: LibraryTimelineBucket[];
+}
+
+export type GalleryTimelineSeek =
+    | {
+        kind: 'dated';
+        targetDate: string;
+    }
+    | {
+        kind: 'unknown';
+    };
+
 export interface LibraryStats {
     count: number;
+    timeline?: LibraryTimelineSummary;
     [key: string]: unknown;
 }
 

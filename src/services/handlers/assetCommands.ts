@@ -1,8 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { PhotoMetadataBundle } from '../../boundary/contracts/core';
+import type { GalleryTimelineSeek, PhotoMetadataBundle } from '../../boundary/contracts/core';
 import { createPhotoMetadataBundleLoader } from './assetPhotoMetadataLoader';
 import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
+import { buildOrderClause, getGalleryOrder, type AssetGalleryOrder } from './assetGalleryOrder';
+import { buildAssetTimelineSeekClause, getAssetTimelineSeek, type AssetTimelineSeekClause } from './assetTimelineSeek';
 import {
     buildGroupFieldFragments,
     GROUP_HIERARCHY_CTE,
@@ -85,8 +87,7 @@ type AssetRow = {
     group_memberships_json?: string | null;
 };
 
-type AssetFilter = { personIds?: string[]; type?: string; albumId?: string };
-type AssetGalleryOrder = 'default' | 'previewed_first';
+type AssetFilter = { personIds?: string[]; type?: string; albumId?: string; tag?: string };
 type AssetQueryPayload = {
     assetId?: string;
     offset?: number;
@@ -95,6 +96,7 @@ type AssetQueryPayload = {
     filter?: AssetFilter;
     detailLevel?: AssetDetailLevel;
     galleryOrder?: AssetGalleryOrder;
+    gallerySeek?: GalleryTimelineSeek | null;
     includeEvidence?: boolean;
 };
 
@@ -107,22 +109,9 @@ function getDetailLevel(payload: AssetQueryPayload | undefined): AssetDetailLeve
     return payload?.detailLevel === 'gallery' ? 'gallery' : 'full';
 }
 
-function getGalleryOrder(payload: AssetQueryPayload | undefined): AssetGalleryOrder {
-    return payload?.galleryOrder === 'previewed_first' ? 'previewed_first' : 'default';
-}
-
-function buildOrderClause(params: { galleryOrder: AssetGalleryOrder; defaultDirection: 'ASC' | 'DESC' }) {
-    const { galleryOrder, defaultDirection } = params;
-    const photoDateOrder = `CASE WHEN a.photo_created_at IS NULL THEN 1 ELSE 0 END ASC, a.photo_created_at ${defaultDirection}, a.created_at ${defaultDirection}`;
-    if (galleryOrder === 'previewed_first') {
-        return `CASE WHEN p.path IS NULL THEN 1 ELSE 0 END ASC, ${photoDateOrder}`;
-    }
-
-    return photoDateOrder;
-}
-
 function buildFilteredAssetsQuery(
     filterSubquery: string,
+    timelineSeekClause: AssetTimelineSeekClause,
     params: (string | number)[],
     limit: number,
     offset: number,
@@ -140,6 +129,8 @@ function buildFilteredAssetsQuery(
         photoDateEstimateAlias: 'r_date',
     });
     const groupFields = buildGroupFieldFragments('a');
+    const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
+    params.push(...timelineSeekClause.params);
     params.push(limit, offset);
 
     return {
@@ -180,7 +171,7 @@ function buildFilteredAssetsQuery(
             ${detail.embeddedMetadataJoin}
             LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
             LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
-            WHERE 1=1 ${filterSubquery}
+            WHERE 1=1 ${filterSubquery}${timelineSeekSql}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'ASC' })}
             LIMIT ? OFFSET ?
         `,
@@ -191,6 +182,7 @@ function buildFilteredAssetsQuery(
 function buildGroupedAssetsQuery(
     limit: number,
     offset: number,
+    timelineSeekClause: AssetTimelineSeekClause,
     detailLevel: AssetDetailLevel,
     galleryOrder: AssetGalleryOrder,
     includeEvidence: boolean,
@@ -206,6 +198,7 @@ function buildGroupedAssetsQuery(
     });
     const groupFields = buildGroupFieldFragments('a');
     const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_date.data, r_meta.data' : '';
+    const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
 
     return {
         sql: `
@@ -241,18 +234,19 @@ function buildGroupedAssetsQuery(
             ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
-            WHERE ${buildPrimaryGroupVisibilityPredicate('a')}
+            WHERE ${buildPrimaryGroupVisibilityPredicate('a')}${timelineSeekSql}
             GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${evidenceGroupBy}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
-        params: [limit, offset],
+        params: [...timelineSeekClause.params, limit, offset],
     };
 }
 
 function buildUngroupedAssetsQuery(
     limit: number,
     offset: number,
+    timelineSeekClause: AssetTimelineSeekClause,
     detailLevel: AssetDetailLevel,
     galleryOrder: AssetGalleryOrder,
     includeEvidence: boolean,
@@ -268,6 +262,7 @@ function buildUngroupedAssetsQuery(
     });
     const groupFields = buildGroupFieldFragments('a');
     const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_date.data, r_meta.data' : '';
+    const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
 
     return {
         sql: `
@@ -303,11 +298,12 @@ function buildUngroupedAssetsQuery(
             ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
+            WHERE 1=1${timelineSeekSql}
             GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${evidenceGroupBy}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
         `,
-        params: [limit, offset],
+        params: [...timelineSeekClause.params, limit, offset],
     };
 }
 
@@ -389,13 +385,14 @@ function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
     const withGroupCounts = payload.withGroupCounts ?? true;
     const detailLevel = getDetailLevel(payload);
     const galleryOrder = getGalleryOrder(payload);
+    const timelineSeekClause = buildAssetTimelineSeekClause('a', galleryOrder, getAssetTimelineSeek(payload));
     const includeEvidence = payload.includeEvidence === true;
     const params: (string | number)[] = [];
     const filterSubquery = buildFilterSubquery(payload.filter, params);
 
-    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, params, limit, offset, detailLevel, galleryOrder, includeEvidence);}
-    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, detailLevel, galleryOrder, includeEvidence);}
-    return buildUngroupedAssetsQuery(limit, offset, detailLevel, galleryOrder, includeEvidence);
+    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, timelineSeekClause, params, limit, offset, detailLevel, galleryOrder, includeEvidence);}
+    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence);}
+    return buildUngroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence);
 }
 
 function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {

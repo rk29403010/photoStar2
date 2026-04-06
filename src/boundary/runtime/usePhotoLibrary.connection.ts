@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Command, type Child } from '@tauri-apps/plugin-shell';
-import type { Asset, LibraryStats, Person } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, LibraryStats, Person } from '@contracts/core';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import { getBackendTransportKind, getBackendWsUrl } from '@boundary/runtime/backend';
 import type { DomainEvent } from '@contracts/events';
@@ -15,6 +15,7 @@ import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/u
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { createMessageHandler, createSnapshotSyncController, currentFilter } from '@boundary/runtime/usePhotoLibrary.connection.messages';
 import { getRetryState } from '@boundary/runtime/usePhotoLibrary.connection.retry';
+import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
 
 const FAST_RECONNECT_WINDOW_MS = 5000;
 const INITIAL_STARTUP_TIMEOUT_MS = 10000;
@@ -47,6 +48,8 @@ export interface ConnectionStateParams {
     refreshAssetById?: (assetId: string) => void;
     filterStackRef: { current: LibraryFilter[] };
     groupSimilarPhotosRef: { current: boolean };
+    galleryOrderRef: { current: GalleryOrder };
+    gallerySeekRef: { current: GalleryTimelineSeek | null };
 }
 
 export type ParamsRef = { current: ConnectionStateParams };
@@ -81,10 +84,11 @@ async function sendInitialRequests(
     write: (payload: string) => void | Promise<void>,
     filter: LibraryFilter | undefined,
     withGroupCounts: boolean,
+    galleryOrder: GalleryOrder,
 ) {
     await write(JSON.stringify({ id: '1', command: 'ping', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'stats-init', command: 'get_stats', payload: {} }) + '\n');
-    await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: ASSET_PAGE_SIZE, offset: 0, filter, detailLevel: 'gallery', withGroupCounts } }) + '\n');
+    await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: ASSET_PAGE_SIZE, offset: 0, filter, detailLevel: 'gallery', galleryOrder, withGroupCounts } }) + '\n');
     await write(JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'system-jobs-init', command: 'get_system_jobs', payload: {} }) + '\n');
 }
@@ -129,6 +133,7 @@ async function startWebSocketMode(deps: StartConnectionDeps) {
                 (payload) => ws.send(payload),
                 currentFilter(deps.paramsRef.current.filterStackRef),
                 deps.paramsRef.current.groupSimilarPhotosRef.current,
+                deps.paramsRef.current.galleryOrderRef.current,
             );
         } catch (error) {
             if (deps.isSessionStale()) {return;}
@@ -210,6 +215,7 @@ async function startTauriMode(deps: StartConnectionDeps) {
                 (payload) => process.write(payload),
                 currentFilter(deps.paramsRef.current.filterStackRef),
                 deps.paramsRef.current.groupSimilarPhotosRef.current,
+                deps.paramsRef.current.galleryOrderRef.current,
             );
         } catch (error) {
             if (deps.isSessionStale()) {return;}

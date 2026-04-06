@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Asset, Person, Album } from '@contracts/core';
+import type { Asset, Person, Album, GalleryTimelineSeek, LibraryStats } from '@contracts/core';
 import type { DataStatsSnapshot, JobErrorSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
@@ -15,10 +15,13 @@ import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import { GroupingDiagnosticsView } from '../group-diagnostics/GroupingDiagnosticsView';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
+import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
 
 interface AppMainContentProps {
   view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
+  stats: LibraryStats | null;
   assets: Asset[];
+  galleryTimelineSeek: GalleryTimelineSeek | null;
   people: Person[];
   status: string;
   backendReady: boolean;
@@ -47,9 +50,12 @@ interface AppMainContentProps {
   hasMoreAssets: boolean;
   isLoadingMoreAssets: boolean;
   onLoadMoreAssets: () => Promise<void>;
+  onGalleryOrderChange: (order: GalleryOrder) => void;
+  onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
   onAssetClick: (id: string | null) => void;
   onEnsureAssetDetails: (assetId: string) => void;
   onUntagAsset: (assetId: string, personId: string) => void;
+  onTagFilterChange: (tag: string) => void;
   onLibrarySelectionChange: (selection: LibrarySelectionState) => void;
   onGroupSimilarPhotosChange: (enabled: boolean) => void;
   onShowGroupIdsChange: (enabled: boolean) => void;
@@ -95,13 +101,17 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
   return (
     <div style={getPanelStyle(props.view === 'library')}>
       <LibraryView
+        stats={props.stats}
         assets={props.visibleLibraryAssets}
+        galleryTimelineSeek={props.galleryTimelineSeek}
         loading={props.status.includes('Initializing')}
         backendReady={props.backendReady}
         backendStatus={props.status}
         hasMoreAssets={props.hasMoreAssets}
         isLoadingMoreAssets={props.isLoadingMoreAssets}
         onLoadMoreAssets={props.onLoadMoreAssets}
+        onGalleryOrderChange={props.onGalleryOrderChange}
+        onGalleryTimelineSeek={props.onGalleryTimelineSeek}
         active={props.libraryActive}
         onAssetClick={props.onAssetClick}
         selectedAssetId={props.selectedAssetId}
@@ -110,6 +120,7 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
         activeInfoTab={props.activeInfoTab}
         onActiveInfoTabChange={props.setActiveInfoTab}
         activeFilter={props.activeFilter}
+        onTagFilterChange={props.onTagFilterChange}
         showFaces={props.showFaces}
         onEnsureAssetDetails={props.onEnsureAssetDetails}
         onUntagAsset={props.onUntagAsset}

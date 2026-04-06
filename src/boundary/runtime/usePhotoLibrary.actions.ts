@@ -5,6 +5,7 @@ import type { JobState, PipelineStage } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 import { replaceGroupRepresentative } from '@ui/components/single-photo/singlePhotoAssetModel';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
@@ -27,7 +28,7 @@ interface AlbumActionParams {
 
 interface GroupActionParams {
     request: RequestFn;
-    refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
+    refreshLibrary: (options?: RefreshLibraryOptions) => void;
     setAssets: SetAssets;
 }
 
@@ -36,7 +37,7 @@ interface BuildActionParams {
     request: RequestFn;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
     updateJobState: (id: string, state: JobState) => void;
-    refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
+    refreshLibrary: (options?: RefreshLibraryOptions) => void;
     refreshSystemJobs: () => void;
     loadAssetDetails: (assetId: string, options?: { includeEvidence?: boolean }) => Promise<void>;
 }

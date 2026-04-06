@@ -1,8 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { Asset } from '@contracts/core';
-import type { DevRuntimeImpact } from '@contracts/devRuntime';
 import type { PipelineStage } from '@contracts/jobs';
-import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import { useJobManager } from './useJobManager';
 import { usePhotoLibraryState } from './usePhotoLibrary.state';
 import { usePhotoLibraryConnection } from '@boundary/runtime/usePhotoLibrary.connection';
@@ -16,8 +14,6 @@ import {
 } from '@boundary/runtime/usePhotoLibrary.commands';
 import { createAlbumActions, createBuildActions, createGroupActions } from '@boundary/runtime/usePhotoLibrary.actions';
 import { createWorkflowRecoveryActions } from '@boundary/runtime/workflowRecoveryActions';
-import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
-import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import {
     buildAssetRefreshPayload,
     buildLoadMoreAssetsPayload,
@@ -26,6 +22,7 @@ import {
 } from './usePhotoLibrary.gallery';
 import { mergeAssetDetail } from './assetDetailMerge';
 import { buildPhotoLibraryResult, useConnectionParams } from './usePhotoLibrary.composition';
+import { useCoreActions } from './usePhotoLibrary.coreActions';
 
 export type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 
@@ -40,11 +37,13 @@ function useLibraryRefreshAction(params: {
     setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
+    galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
+    gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
-    const { filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, groupSimilarPhotosRef } = params;
+    const { filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef } = params;
 
     return useCallback((options: RefreshLibraryOptions = {}) => {
-        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, filterStackRef, options);
+        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, options);
 
         if (!options.preservePagingState) {
             setHasMoreAssets(true);
@@ -58,7 +57,7 @@ function useLibraryRefreshAction(params: {
         }
 
         void sendCommand('get_assets', payload);
-    }, [filterStackRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets]);
+    }, [filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets]);
 }
 
 function useAssetLoadingActions(params: {
@@ -70,6 +69,8 @@ function useAssetLoadingActions(params: {
     setAssets: PhotoLibraryState['setAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
+    galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
+    gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
     const {
         assets,
@@ -80,6 +81,8 @@ function useAssetLoadingActions(params: {
         setAssets,
         setIsLoadingMoreAssets,
         groupSimilarPhotosRef,
+        galleryOrderRef,
+        gallerySeekRef,
     } = params;
 
     const loadMoreAssets = useCallback(async () => {
@@ -94,6 +97,8 @@ function useAssetLoadingActions(params: {
                     assetCount: assets.length,
                     filterStackRef,
                     groupSimilarPhotosRef,
+                    galleryOrderRef,
+                    gallerySeekRef,
                 }),
                 timeoutMs: 10000,
                 select: () => undefined,
@@ -101,7 +106,7 @@ function useAssetLoadingActions(params: {
         } finally {
             setIsLoadingMoreAssets(false);
         }
-    }, [assets.length, filterStackRef, groupSimilarPhotosRef, hasMoreAssets, isLoadingMoreAssets, request, setIsLoadingMoreAssets]);
+    }, [assets.length, filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, hasMoreAssets, isLoadingMoreAssets, request, setIsLoadingMoreAssets]);
 
     const loadAssetDetails = useCallback(async (
         assetId: string,
@@ -134,6 +139,8 @@ function useRefreshActions(params: {
     setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
+    galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
+    gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
     const {
         assets,
@@ -146,6 +153,8 @@ function useRefreshActions(params: {
         setHasMoreAssets,
         setIsLoadingMoreAssets,
         groupSimilarPhotosRef,
+        galleryOrderRef,
+        gallerySeekRef,
     } = params;
 
     const refreshLibrary = useLibraryRefreshAction({
@@ -155,6 +164,8 @@ function useRefreshActions(params: {
         setHasMoreAssets,
         setIsLoadingMoreAssets,
         groupSimilarPhotosRef,
+        galleryOrderRef,
+        gallerySeekRef,
     });
 
     const refreshPeople = useCallback(() => {
@@ -174,6 +185,8 @@ function useRefreshActions(params: {
         setAssets,
         setIsLoadingMoreAssets,
         groupSimilarPhotosRef,
+        galleryOrderRef,
+        gallerySeekRef,
     });
 
     return useMemo(() => ({
@@ -183,86 +196,6 @@ function useRefreshActions(params: {
         loadMoreAssets,
         loadAssetDetails,
     }), [loadAssetDetails, loadMoreAssets, refreshLibrary, refreshPeople, refreshSystemJobs]);
-}
-
-function useCoreActions(params: {
-    transport: PhotoLibraryState['transport'];
-    sendCommand: SendCommandFn;
-    request: RequestFn;
-    setAssets: PhotoLibraryState['setAssets'];
-    setRejectedAssets: PhotoLibraryState['setRejectedAssets'];
-    setFilterStack: PhotoLibraryState['setFilterStack'];
-    filterStackRef: PhotoLibraryState['filterStackRef'];
-    refreshLibrary: (options?: RefreshLibraryOptions) => void;
-    groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
-}) {
-    const { transport, sendCommand, request, setAssets, setRejectedAssets, setFilterStack, filterStackRef, refreshLibrary, groupSimilarPhotosRef } = params;
-
-    const updateFilterStack = useCallback((newStack: LibraryFilter[]) => {
-        setFilterStack(newStack);
-        if (transport) {
-            setAssets([]);
-            refreshLibrary();
-        }
-    }, [refreshLibrary, setAssets, setFilterStack, transport]);
-
-    const getRejectedAssetsForPerson = useCallback((personId: string | null) => {
-        if (!personId) {
-            setRejectedAssets([]);
-            return;
-        }
-
-        void writeCommand(transport, `rejected-assets-${Date.now()}`, 'get_rejected_assets_for_person', { personId });
-    }, [setRejectedAssets, transport]);
-
-    const pushFilter = useCallback((filter: LibraryFilter) => {
-        updateFilterStack([...filterStackRef.current, filter]);
-    }, [filterStackRef, updateFilterStack]);
-
-    const popFilter = useCallback(() => {
-        const currentStack = filterStackRef.current;
-        if (currentStack.length > 0) {
-            updateFilterStack(currentStack.slice(0, -1));
-        }
-    }, [filterStackRef, updateFilterStack]);
-
-    const clearFilters = useCallback(() => {
-        updateFilterStack([]);
-    }, [updateFilterStack]);
-
-    const setGroupSimilarPhotos = useCallback((enabled: boolean) => {
-        groupSimilarPhotosRef.current = enabled;
-        if (!transport) {return;}
-        setAssets([]);
-        refreshLibrary({ withGroupCounts: enabled });
-    }, [groupSimilarPhotosRef, refreshLibrary, setAssets, transport]);
-
-    return useMemo(() => ({
-        prioritizeAsset: (_mediaId: string) => undefined,
-        renamePerson: (personId: string, newName: string) => sendCommand('rename_person', { personId, newName }),
-        mergePeople: (personIds: string[], targetName: string) => sendCommand('merge_people', { personIds, targetName }),
-        isolateFace: (assetId: string, faceIndex: number) => sendCommand('isolate_face', { assetId, faceIndex }),
-        isolatePersonAsset: (assetId: string, personId: string) => sendCommand('isolate_person_asset', { assetId, personId }),
-        getRejectedAssetsForPerson,
-        updateAsset: (id: string, partial: Partial<Asset>) => setAssets((prev) => prev.map((asset) => asset.id === id ? { ...asset, ...partial } : asset)),
-        getWorkflowVisualiser: (workflowId: string, runId?: string | null): Promise<WorkflowVisualiserModel> => request<WorkflowVisualiserModel>({
-            idPrefix: `get_workflow_visualiser_${workflowId}_${runId === undefined ? 'default' : runId === null ? 'definition' : runId}`,
-            command: 'get_workflow_visualiser',
-            payload: runId === undefined ? { workflowId } : { workflowId, runId },
-            timeoutMs: 10000,
-            select: (data) => data as unknown as WorkflowVisualiserModel,
-        }),
-        getDevRuntimeImpact: (): Promise<DevRuntimeImpact> => request<DevRuntimeImpact>({
-            idPrefix: 'get_dev_runtime_impact',
-            command: 'get_dev_runtime_impact',
-            timeoutMs: 10000,
-            select: (data) => data as unknown as DevRuntimeImpact,
-        }),
-        pushFilter,
-        popFilter,
-        clearFilters,
-        setGroupSimilarPhotos,
-    }), [clearFilters, getRejectedAssetsForPerson, popFilter, pushFilter, request, sendCommand, setAssets, setGroupSimilarPhotos]);
 }
 
 function useScanWorkflowActions(params: {
@@ -418,6 +351,8 @@ function useComposedActions(
         setHasMoreAssets: state.setHasMoreAssets,
         setIsLoadingMoreAssets: state.setIsLoadingMoreAssets,
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
+        galleryOrderRef: state.galleryOrderRef,
+        gallerySeekRef: state.gallerySeekRef,
     });
     const workflowActions = useWorkflowActions({
         state,
@@ -439,6 +374,9 @@ function useComposedActions(
         filterStackRef: state.filterStackRef,
         refreshLibrary: refreshActions.refreshLibrary,
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
+        galleryOrderRef: state.galleryOrderRef,
+        gallerySeekRef: state.gallerySeekRef,
+        setGalleryTimelineSeek: state.setGalleryTimelineSeek,
     });
     const albumActions = useMemo(() => createAlbumActions({ request }), [request]);
     const photoMetadataActions = useMemo(() => createPhotoMetadataActions({ request }), [request]);

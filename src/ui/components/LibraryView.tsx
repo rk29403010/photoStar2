@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type UIEvent } from 'react';
-import type { Asset } from '@contracts/core';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode, type UIEvent } from 'react';
+import type { Asset, GalleryTimelineSeek, LibraryStats } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
@@ -7,13 +7,23 @@ import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { buildVisibleGalleryItems } from '@shared/utils/libraryGallerySelection';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
-import { clearLibrarySelection, createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
+import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
 import { GalleryInfoPanel } from './library/GalleryInfoPanel';
 import { LibraryGalleryPane } from './library/LibraryGalleryPane';
 import { getGalleryInfoPanelAsset } from './library/galleryInfoPanelModel';
+import { getActiveTimelineSeek, isTimelineSortMode } from './library/libraryTimelineModel';
+import {
+    getLibraryToolbarProps,
+    getTimelineRailElement,
+    handleInfoPanelVisibilityChange,
+    useViewportTimelineBucketIndex,
+} from './library/libraryViewTimeline';
 
 interface LibraryViewProps {
+    stats: LibraryStats | null;
     assets: Asset[];
+    galleryTimelineSeek: GalleryTimelineSeek | null;
     loading: boolean;
     active: boolean;
     backendReady: boolean;
@@ -21,9 +31,12 @@ interface LibraryViewProps {
     hasMoreAssets?: boolean;
     isLoadingMoreAssets?: boolean;
     onLoadMoreAssets?: () => Promise<void>;
+    onGalleryOrderChange: (order: GalleryOrder) => void;
+    onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
     onAssetClick?: (id: string) => void;
     selectedAssetId?: string | null;
     activeFilter?: LibraryFilter;
+    onTagFilterChange: (tag: string) => void;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
     librarySelection?: LibrarySelectionState;
@@ -128,6 +141,77 @@ function useDisplayAssets(
     }, [assets, declusteredAssets, groupSimilarPhotos, sortMode]);
 }
 
+function getGalleryOrderForSortMode(sortMode: LibrarySortMode): GalleryOrder {
+    return sortMode === 'reverse-date' ? 'oldest_first' : 'default';
+}
+
+function useLibrarySortController(params: {
+    groupSimilarPhotos: boolean;
+    onGalleryOrderChange: (order: GalleryOrder) => void;
+    onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
+    scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
+}) {
+    const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
+    const { groupSimilarPhotos, onGalleryOrderChange, onGalleryTimelineSeek, scrollRef } = params;
+
+    useEffect(() => {
+        if (groupSimilarPhotos && sortMode === 'group') {
+            setSortMode('filename');
+        }
+    }, [groupSimilarPhotos, sortMode]);
+
+    useEffect(() => {
+        const scrollContainer = scrollRef.current;
+        onGalleryOrderChange(getGalleryOrderForSortMode(sortMode));
+        if (!isTimelineSortMode(sortMode)) {
+            onGalleryTimelineSeek(null);
+        }
+        scrollContainer?.scrollTo({ top: 0, behavior: 'auto' });
+    }, [onGalleryOrderChange, onGalleryTimelineSeek, scrollRef, sortMode]);
+
+    return { sortMode, setSortMode };
+}
+
+function getAssetTags(asset: Asset) {
+    return asset.photo_metadata?.projection.keywords ?? [];
+}
+
+function getTagKey(tag: string) {
+    return tag.trim().toLocaleLowerCase();
+}
+
+function getAvailableTags(assets: Asset[], selectedTag: string) {
+    const tagsByKey = new Map<string, string>();
+    for (const asset of assets) {
+        for (const tag of getAssetTags(asset)) {
+            const trimmedTag = tag.trim();
+            if (trimmedTag) {
+                const key = getTagKey(trimmedTag);
+                if (!tagsByKey.has(key)) {
+                    tagsByKey.set(key, trimmedTag);
+                }
+            }
+        }
+    }
+
+    const trimmedSelectedTag = selectedTag.trim();
+    if (trimmedSelectedTag) {
+        const key = getTagKey(trimmedSelectedTag);
+        if (!tagsByKey.has(key)) {
+            tagsByKey.set(key, trimmedSelectedTag);
+        }
+    }
+
+    return Array.from(tagsByKey.values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
+}
+
+function getSelectedTag(availableTags: string[], rawSelectedTag: string) {
+    if (!rawSelectedTag) {
+        return '';
+    }
+    return availableTags.find((tag) => getTagKey(tag) === getTagKey(rawSelectedTag)) ?? rawSelectedTag;
+}
+
 function useLibraryPaging(params: {
     active: boolean;
     displayAssetCount: number;
@@ -178,10 +262,12 @@ function useLibraryInfoAsset(
     return selectedInfoAsset;
 }
 
+
 function LibraryPanel({
     scrollRef,
     handleScroll,
     toolbar,
+    timelineRail,
     layout,
     rejected,
     showInfoPanel,
@@ -194,6 +280,7 @@ function LibraryPanel({
     scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
     handleScroll: ReturnType<typeof useLibraryPaging>['handleScroll'];
     toolbar: ComponentProps<typeof LibraryGalleryPane>['toolbar'];
+    timelineRail?: ReactNode;
     layout: ComponentProps<typeof LibraryGalleryPane>['layout'];
     rejected: ComponentProps<typeof LibraryGalleryPane>['rejected'];
     showInfoPanel: boolean;
@@ -205,6 +292,7 @@ function LibraryPanel({
 }) {
     return (
         <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden', background: '#0a0a0a' }}>
+            {timelineRail}
             <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto' }}>
                 <LibraryGalleryPane toolbar={toolbar} layout={layout} rejected={rejected} />
             </div>
@@ -216,33 +304,47 @@ function LibraryPanel({
 }
 
 export function LibraryView(props: LibraryViewProps) {
-    const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
     const [layoutMode, setLayoutMode] = useState<GalleryLayoutMode>('tiled');
     const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
     const selection = props.librarySelection ?? EMPTY_LIBRARY_SELECTION;
-    const displayItems = useDisplayAssets(props.assets, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
-    const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails);
-    const rejectedAssetCount = getRejectedAssetCount(props.showRejected, props.rejectedAssets);
     const { scrollRef, handleScroll } = useLibraryPaging({
         active: props.active,
-        displayAssetCount: displayItems.length,
+        displayAssetCount: props.assets.length,
         hasMoreAssets: props.hasMoreAssets,
         isLoadingMoreAssets: props.isLoadingMoreAssets,
         onLoadMoreAssets: props.onLoadMoreAssets,
     });
-
-    useEffect(() => {
-        if (props.groupSimilarPhotos && sortMode === 'group') {
-            setSortMode('filename');
-        }
-    }, [props.groupSimilarPhotos, sortMode]);
-
+    const { sortMode, setSortMode } = useLibrarySortController({
+        groupSimilarPhotos: props.groupSimilarPhotos,
+        onGalleryOrderChange: props.onGalleryOrderChange,
+        onGalleryTimelineSeek: props.onGalleryTimelineSeek,
+        scrollRef,
+    });
+    const rawSelectedTag = props.activeFilter?.type === 'tag' ? (props.activeFilter.tag ?? '') : '';
+    const availableTags = useMemo(() => getAvailableTags(props.assets, rawSelectedTag), [props.assets, rawSelectedTag]);
+    const selectedTag = useMemo(() => getSelectedTag(availableTags, rawSelectedTag), [availableTags, rawSelectedTag]);
+    const displayItems = useDisplayAssets(props.assets, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
+    const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({
+        assets: props.assets,
+        sortMode,
+        timeline: props.stats?.timeline,
+        galleryTimelineSeek: props.galleryTimelineSeek,
+    }), [props.assets, props.galleryTimelineSeek, props.stats?.timeline, sortMode]);
+    const { viewportBucketIndex, updateViewportBucketIndex } = useViewportTimelineBucketIndex({
+        scrollRef,
+        displayItems,
+        timeline: props.stats?.timeline,
+        activeTimelineSeek,
+    });
+    const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails);
+    const rejectedAssetCount = getRejectedAssetCount(props.showRejected, props.rejectedAssets);
     const handleShowInfoPanelChange = useCallback((show: boolean) => {
-        props.onShowInfoPanelChange(show);
-        if (!show) {
-            props.onLibrarySelectionChange?.(clearLibrarySelection());
-        }
-    }, [props]);
+        handleInfoPanelVisibilityChange(show, props.onShowInfoPanelChange, props.onLibrarySelectionChange);
+    }, [props.onLibrarySelectionChange, props.onShowInfoPanelChange]);
+    const handleLibraryScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+        handleScroll(event);
+        updateViewportBucketIndex(event.currentTarget);
+    }, [handleScroll, updateViewportBucketIndex]);
 
     if (shouldShowLoadingState({ loading: props.loading, backendReady: props.backendReady, assetCount: props.assets.length })) {
         return <LoadingState backendStatus={props.backendStatus} backendReady={props.backendReady} />;
@@ -251,19 +353,43 @@ export function LibraryView(props: LibraryViewProps) {
         return <EmptyState />;
     }
 
+    const toolbar = getLibraryToolbarProps({
+        sortMode,
+        setSortMode,
+        layoutMode,
+        setLayoutMode,
+        selectedTag,
+        availableTags,
+        onTagFilterChange: props.onTagFilterChange,
+        groupSimilarPhotos: props.groupSimilarPhotos,
+        onGroupSimilarPhotosChange: props.onGroupSimilarPhotosChange,
+        showGroupIds: props.showGroupIds,
+        onShowGroupIdsChange: props.onShowGroupIdsChange,
+        showInfoPanel: props.showInfoPanel,
+        handleShowInfoPanelChange,
+    });
+    const timelineRail = getTimelineRailElement({
+        timeline: props.stats?.timeline,
+        sortMode,
+        activeTimelineSeek,
+        viewportBucketIndex,
+        onGalleryTimelineSeek: props.onGalleryTimelineSeek,
+    });
+
     return (
-            <LibraryPanel
-                scrollRef={scrollRef}
-                handleScroll={handleScroll}
-                toolbar={{ sortMode, onSortModeChange: setSortMode, layoutMode, onLayoutModeChange: setLayoutMode, groupSimilarPhotos: props.groupSimilarPhotos, onGroupSimilarPhotosChange: props.onGroupSimilarPhotosChange, showGroupIds: props.showGroupIds, onShowGroupIdsChange: props.onShowGroupIdsChange, showInfoPanel: props.showInfoPanel, onShowInfoPanelChange: handleShowInfoPanelChange }}
-                layout={{ items: displayItems, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId, activeFilter: props.activeFilter, showFaces: props.showFaces, onUntagAsset: props.onUntagAsset, librarySelection: selection, onLibrarySelectionChange: props.onLibrarySelectionChange, declusteredAssets: props.declusteredAssets, onHoverAssetChange: props.onHoverAssetChange, showGroupIds: props.showGroupIds, hoveredGroupId, onHoveredGroupIdChange: setHoveredGroupId, layoutMode, showInfoPanel: props.showInfoPanel }}
-                rejected={{ showRejected: props.showRejected, rejectedAssets: props.rejectedAssets, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId }}
-                showInfoPanel={props.showInfoPanel}
-                activeInfoTab={props.activeInfoTab}
-                onActiveInfoTabChange={props.onActiveInfoTabChange}
-                onShowInfoPanelChange={handleShowInfoPanelChange}
-                selectedInfoAsset={selectedInfoAsset}
-                onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
-            />
+        <LibraryPanel
+            scrollRef={scrollRef}
+            handleScroll={handleLibraryScroll}
+            toolbar={toolbar}
+            timelineRail={timelineRail}
+            layout={{ items: displayItems, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId, activeFilter: props.activeFilter, showFaces: props.showFaces, onUntagAsset: props.onUntagAsset, librarySelection: selection, onLibrarySelectionChange: props.onLibrarySelectionChange, declusteredAssets: props.declusteredAssets, onHoverAssetChange: props.onHoverAssetChange, showGroupIds: props.showGroupIds, hoveredGroupId, onHoveredGroupIdChange: setHoveredGroupId, layoutMode, showInfoPanel: props.showInfoPanel }}
+            rejected={{ showRejected: props.showRejected, rejectedAssets: props.rejectedAssets, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId }}
+            showInfoPanel={props.showInfoPanel}
+            activeInfoTab={props.activeInfoTab}
+            onActiveInfoTabChange={props.onActiveInfoTabChange}
+            onShowInfoPanelChange={handleShowInfoPanelChange}
+            selectedInfoAsset={selectedInfoAsset}
+            onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+        />
     );
 }

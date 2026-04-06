@@ -13,6 +13,9 @@ interface LibraryGalleryPaneProps {
         onSortModeChange: (mode: LibrarySortMode) => void;
         layoutMode: GalleryLayoutMode;
         onLayoutModeChange: (mode: GalleryLayoutMode) => void;
+        selectedTag: string;
+        availableTags: string[];
+        onTagChange: (tag: string) => void;
         groupSimilarPhotos: boolean;
         onGroupSimilarPhotosChange: (enabled: boolean) => void;
         showGroupIds: boolean;

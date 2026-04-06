@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
-import type { Asset, LibraryStats, Person } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, LibraryStats, Person } from '@contracts/core';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { BackendTransport } from '@boundary/transport/usePhotoLibrary.transport';
 import type { FolderHistoryItem, LibraryFilter, NotificationItem, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
+import type { GalleryOrder } from './usePhotoLibrary.gallery';
 import { appendUiFeedEntry } from '@shared/utils/libraryUiDiagnostics';
 
 function useNotificationState() {
@@ -50,6 +51,17 @@ function useUiFeedState() {
     return { uiFeedEntries, addUiFeedEntry };
 }
 
+function useGallerySeekState() {
+    const [galleryTimelineSeek, setGalleryTimelineSeekState] = useState<GalleryTimelineSeek | null>(null);
+    const gallerySeekRef = useRef<GalleryTimelineSeek | null>(null);
+    const setGalleryTimelineSeek = useCallback((seek: GalleryTimelineSeek | null) => {
+        gallerySeekRef.current = seek;
+        setGalleryTimelineSeekState(seek);
+    }, []);
+
+    return { galleryTimelineSeek, setGalleryTimelineSeek, gallerySeekRef };
+}
+
 export function usePhotoLibraryState() {
     const [status, setStatus] = useState('Initializing...');
     const [error, setError] = useState<string | null>(null);
@@ -78,6 +90,8 @@ export function usePhotoLibraryState() {
     const workflowRefreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [ingestStatusMessage, setIngestStatusMessage] = useState<string | null>(null);
     const groupSimilarPhotosRef = useRef(true);
+    const galleryOrderRef = useRef<GalleryOrder>('default');
+    const gallerySeekState = useGallerySeekState();
 
     return {
         status,
@@ -119,6 +133,8 @@ export function usePhotoLibraryState() {
         activeWorkflowRunId,
         workflowRefreshTimeout,
         groupSimilarPhotosRef,
+        galleryOrderRef,
+        ...gallerySeekState,
         ...logState,
         ingestStatusMessage,
         setIngestStatusMessage,

@@ -165,7 +165,11 @@ function handleErrorMessage(msg: WsResponse, params: ConnectionStateParams) {
 }
 
 function applyMediaDiscoveredEvent(event: Record<string, unknown>, params: ConnectionStateParams) {
-    params.setStats((prev) => ({ count: (prev?.count ?? 0) + 1, processed_faces: prev?.processed_faces }));
+    params.setStats((prev) => ({
+        ...prev,
+        count: (prev?.count ?? 0) + 1,
+        processed_faces: prev?.processed_faces,
+    }));
     const newAsset: Asset = {
         id: String(event.mediaId),
         original_path: String(event.filePath),
