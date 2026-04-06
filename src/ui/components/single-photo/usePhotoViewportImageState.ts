@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Asset } from '@contracts/core';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import {
@@ -8,16 +8,6 @@ import {
     resolveViewportStageAsset,
     shouldShowViewportFaceOverlays,
 } from './photoViewportImageState';
-
-function useSyncedCurrent<T>(value: T) {
-    const ref = useRef(value);
-
-    useEffect(() => {
-        ref.current = value;
-    }, [value]);
-
-    return ref;
-}
 
 export function usePhotoViewportImageState(params: {
     asset: Asset;
@@ -32,10 +22,7 @@ export function usePhotoViewportImageState(params: {
     const [pendingAsset, setPendingAsset] = useState<Asset | null>(null);
     const [pendingImageSrc, setPendingImageSrc] = useState<string | null>(null);
     const [isActiveImageReady, setIsActiveImageReady] = useState(false);
-    const activeAssetRef = useSyncedCurrent<Asset | null>(activeAsset);
-    const activeImageSrcRef = useSyncedCurrent<string | null>(activeImageSrc);
-    const pendingAssetRef = useSyncedCurrent<Asset | null>(pendingAsset);
-    const pendingImageSrcRef = useSyncedCurrent<string | null>(pendingImageSrc);
+
     useEffect(() => {
         if (!requestedImageSrc) {
             setActiveAsset(asset);
@@ -83,17 +70,15 @@ export function usePhotoViewportImageState(params: {
         isImageTransitionPending,
         showFaceOverlays,
         commitPendingImage: () => {
-            const nextPendingAsset = pendingAssetRef.current;
-            const nextPendingImageSrc = pendingImageSrcRef.current;
-            if (!nextPendingAsset) {
+            if (!pendingAsset) {
                 return;
             }
 
             const nextState = commitViewportPendingImage({
-                activeAsset: activeAssetRef.current,
-                activeImageSrc: activeImageSrcRef.current,
-                pendingAsset: nextPendingAsset,
-                pendingImageSrc: nextPendingImageSrc,
+                activeAsset,
+                activeImageSrc,
+                pendingAsset,
+                pendingImageSrc,
                 isActiveImageReady,
             });
             setActiveAsset(nextState.activeAsset);

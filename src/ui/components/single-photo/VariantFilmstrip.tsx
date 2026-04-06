@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Asset, SimilarityOrbit, SimilarityOrbitItem } from '@contracts/core';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import {
@@ -23,18 +23,28 @@ interface VariantFilmstripProps {
 function useOrbit(groupId: string, onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>, onOrbitLoaded: (assets: Asset[]) => void) {
     const [orbit, setOrbit] = useState<SimilarityOrbit | null>(null);
     const [loading, setLoading] = useState(true);
+    const onGetGroupOrbitRef = useRef(onGetGroupOrbit);
+    const onOrbitLoadedRef = useRef(onOrbitLoaded);
+
+    useEffect(() => {
+        onGetGroupOrbitRef.current = onGetGroupOrbit;
+    }, [onGetGroupOrbit]);
+
+    useEffect(() => {
+        onOrbitLoadedRef.current = onOrbitLoaded;
+    }, [onOrbitLoaded]);
 
     useEffect(() => {
         let mounted = true;
         setLoading(true);
-        onGetGroupOrbit(groupId)
+        onGetGroupOrbitRef.current(groupId)
             .then((nextOrbit) => {
                 if (!mounted) {
                     return;
                 }
 
                 setOrbit(nextOrbit);
-                onOrbitLoaded(nextOrbit.items.map((item) => item.asset));
+                onOrbitLoadedRef.current(nextOrbit.items.map((item) => item.asset));
             })
             .catch(console.error)
             .finally(() => {
@@ -46,7 +56,7 @@ function useOrbit(groupId: string, onGetGroupOrbit: (groupId: string) => Promise
         return () => {
             mounted = false;
         };
-    }, [groupId, onGetGroupOrbit, onOrbitLoaded]);
+    }, [groupId]);
 
     return { orbit, loading };
 }
@@ -258,15 +268,19 @@ export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({
 }) => {
     const [activeGroupId, setActiveGroupId] = useState(groupId);
     const { orbit, loading } = useOrbit(activeGroupId, onGetGroupOrbit, onOrbitLoaded);
+    const lastReportedGroupIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         setActiveGroupId(groupId);
     }, [groupId]);
 
     useEffect(() => {
-        if (orbit && onActiveGroupChange) {
-            onActiveGroupChange(orbit.group_id);
+        if (!orbit || !onActiveGroupChange || lastReportedGroupIdRef.current === orbit.group_id) {
+            return;
         }
+
+        lastReportedGroupIdRef.current = orbit.group_id;
+        onActiveGroupChange(orbit.group_id);
     }, [onActiveGroupChange, orbit]);
 
     if (loading || !orbit || orbit.items.length <= 1) {

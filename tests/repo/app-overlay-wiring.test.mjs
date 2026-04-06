@@ -24,5 +24,27 @@ test('single-photo overlay only syncs library-backed asset ids while navigating'
     assert.match(assetModelSource, /export function isLibrarySelectionAnchorAsset\(assets: Asset\[], assetId: string \| undefined\): boolean/);
     assert.match(singlePhotoSource, /const shouldSyncAssetFocus = isLibrarySelectionAnchorAsset\(params\.assets, asset\?\.id\);/);
     assert.match(singlePhotoSource, /shouldSyncAssetFocus,/);
-    assert.match(lifecycleSource, /if \(shouldSyncAssetFocus\) \{\s*onAssetFocusChange\?\.\(assetId\);\s*\}/s);
+    assert.match(lifecycleSource, /export function shouldSyncSinglePhotoAssetFocus/);
+    assert.match(lifecycleSource, /if \(shouldSyncSinglePhotoAssetFocus\(\{/);
+    assert.match(lifecycleSource, /lastSyncedAssetIdRef\.current = assetId;\s*onAssetFocusChange\?\.\(assetId\);/s);
+});
+
+test('variant filmstrip keeps orbit loading stable across parent callback churn', () => {
+    const filmstripSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/single-photo/VariantFilmstrip.tsx'), 'utf8');
+
+    assert.match(filmstripSource, /const onGetGroupOrbitRef = useRef\(onGetGroupOrbit\);/);
+    assert.match(filmstripSource, /const onOrbitLoadedRef = useRef\(onOrbitLoaded\);/);
+    assert.match(filmstripSource, /onGetGroupOrbitRef\.current\(groupId\)/);
+    assert.match(filmstripSource, /onOrbitLoadedRef\.current\(nextOrbit\.items\.map\(\(item\) => item\.asset\)\);/);
+    assert.match(filmstripSource, /\}, \[groupId\]\);/);
+    assert.match(filmstripSource, /lastReportedGroupIdRef\.current === orbit\.group_id/);
+});
+
+test('viewport image transitions commit from current render state instead of post-render synced refs', () => {
+    const viewportImageStateSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/single-photo/usePhotoViewportImageState.ts'), 'utf8');
+
+    assert.doesNotMatch(viewportImageStateSource, /useSyncedCurrent/);
+    assert.doesNotMatch(viewportImageStateSource, /pendingAssetRef|pendingImageSrcRef|activeAssetRef|activeImageSrcRef/);
+    assert.match(viewportImageStateSource, /if \(!pendingAsset\) \{\s*return;\s*\}/s);
+    assert.match(viewportImageStateSource, /pendingAsset,\s*pendingImageSrc,\s*isActiveImageReady,/s);
 });
