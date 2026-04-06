@@ -1,4 +1,4 @@
-import type { Asset } from '@contracts/core';
+import type { Asset, ReviewItemSummary } from '@contracts/core';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from '../single-photo/InfoPanel';
@@ -8,6 +8,13 @@ interface GalleryInfoPanelProps {
     activeTab: InfoTab;
     onTabChange: (tab: InfoTab) => void;
     onClose: () => void;
+    onAssignTag?: (tagLabel: string) => Promise<void>;
+    onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
@@ -41,6 +48,9 @@ export function GalleryInfoPanel({
     activeTab,
     onTabChange,
     onClose,
+    onAssignTag,
+    onRemoveTag,
+    onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
 }: GalleryInfoPanelProps) {
     if (!asset) {
@@ -53,6 +63,9 @@ export function GalleryInfoPanel({
             activeTab={activeTab}
             onTabChange={onTabChange}
             onClose={onClose}
+            onAssignTag={onAssignTag}
+            onRemoveTag={onRemoveTag}
+            onSetReviewItemStatus={onSetReviewItemStatus}
             onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
         />
     );

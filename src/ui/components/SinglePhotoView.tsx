@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Dispatch, FC, SetStateAction } from 'react';
-import type { Asset, SimilarityOrbit } from '@contracts/core';
+import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
 import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
 import {
@@ -31,6 +31,13 @@ interface SinglePhotoViewProps {
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onOpenSettings?: () => void;
     onLoadAssetEvidence?: (assetId: string) => Promise<void>;
+    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     showInfoPanel?: boolean;
     onShowInfoPanelChange?: (v: boolean) => void;
@@ -347,6 +354,9 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     onExplodeGroup,
     onOpenSettings,
     onLoadAssetEvidence,
+    onAssignAssetTag,
+    onRemoveAssetTag,
+    onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
     showInfoPanel,
     onShowInfoPanelChange,
@@ -402,6 +412,9 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
             onSelectAsset={handleSelectAsset}
             onSetCanonical={handleSetCanonical}
             onExplodeGroup={handleExplodeGroup}
+            onAssignAssetTag={onAssignAssetTag}
+            onRemoveAssetTag={onRemoveAssetTag}
+            onSetReviewItemStatus={onSetReviewItemStatus}
             onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
             onChangeIndex={controls.onChangeIndex}
             onRevealControls={controls.revealControls}

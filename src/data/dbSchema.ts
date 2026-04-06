@@ -198,6 +198,51 @@ export const SCHEMA_SQL = `
     FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS tag_definitions (
+    id TEXT PRIMARY KEY,
+    canonical_label TEXT NOT NULL UNIQUE,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    category TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS tag_aliases (
+    id TEXT PRIMARY KEY,
+    tag_definition_id TEXT NOT NULL,
+    alias_label TEXT NOT NULL UNIQUE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(tag_definition_id) REFERENCES tag_definitions(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS asset_tag_assignments (
+    asset_id TEXT NOT NULL,
+    tag_definition_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL,
+    source_record_id TEXT,
+    confidence REAL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (asset_id, tag_definition_id, source_kind),
+    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+    FOREIGN KEY(tag_definition_id) REFERENCES tag_definitions(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS review_items (
+    id TEXT PRIMARY KEY,
+    review_item_type TEXT NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reviewer_id TEXT,
+    review_note TEXT,
+    reviewed_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS people (
     id TEXT PRIMARY KEY,
     name TEXT,
@@ -257,6 +302,11 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_photo_metadata_blocks_source_created ON photo_metadata_blocks(source_kind, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_photo_metadata_assertions_asset_created ON photo_metadata_assertions(asset_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_photo_metadata_assertions_field_created ON photo_metadata_assertions(field_path, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_tag_definitions_canonical_label ON tag_definitions(canonical_label);
+  CREATE INDEX IF NOT EXISTS idx_tag_aliases_alias_label ON tag_aliases(alias_label);
+  CREATE INDEX IF NOT EXISTS idx_asset_tag_assignments_asset_tag ON asset_tag_assignments(asset_id, tag_definition_id);
+  CREATE INDEX IF NOT EXISTS idx_asset_tag_assignments_tag_asset ON asset_tag_assignments(tag_definition_id, asset_id);
+  CREATE INDEX IF NOT EXISTS idx_review_items_status_type ON review_items(status, review_item_type);
   CREATE INDEX IF NOT EXISTS idx_assignments_person ON face_assignments(person_id);
   CREATE INDEX IF NOT EXISTS idx_issues_asset ON processing_issues(asset_id);
   CREATE INDEX IF NOT EXISTS idx_issues_task ON processing_issues(task);

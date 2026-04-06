@@ -22,9 +22,12 @@ export interface AppActionHandlers {
     handleViewChange: (next: ReturnType<typeof useAppUiState>['view']) => void;
     handleRefresh: () => void;
     handleDeclusterSelection: (personId: string) => void;
+    handleBulkTagSelection: () => Promise<void>;
+    handleBulkUntagSelection: () => Promise<void>;
     handleToggleRejected: (personId: string) => void;
     handleFilterBack: () => void;
     handleClearAllFilters: () => void;
+    handleTagFilterChange: (tag: string) => void;
     handleUntagAsset: (assetId: string, personId: string) => void;
     handlePeopleFilter: (filter: Parameters<ReturnType<typeof usePhotoLibrary>['actions']['pushFilter']>[0]) => void;
     handleOpenAlbum: (albumId: string, albumTitle: string) => void;

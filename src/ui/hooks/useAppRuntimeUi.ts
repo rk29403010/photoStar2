@@ -7,7 +7,7 @@ import {
 } from '@shared/utils/librarySelectionState';
 import { usePersistedState } from './usePersistedState';
 
-export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
+export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
 export type InfoTab = 'file' | 'analysis' | 'people' | 'json';
 export type AiMode = 'mock' | 'live' | 'off';
 

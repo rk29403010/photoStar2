@@ -1,16 +1,40 @@
-export function buildFilterSubquery(
-    filter: { personIds?: string[]; type?: string; albumId?: string } | undefined,
-    params: (string | number)[],
-) {
-    if (!filter) {return '';}
+type AssetQueryFilter = {
+    personIds?: string[];
+    type?: string;
+    albumId?: string;
+    value?: string;
+};
 
-    if (filter.type === 'album' && filter.albumId) {
-        params.push(filter.albumId);
-        return 'AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
+function buildAlbumFilterSubquery(filter: AssetQueryFilter, params: (string | number)[]) {
+    if (filter.type !== 'album' || !filter.albumId) {
+        return null;
     }
 
+    params.push(filter.albumId);
+    return 'AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
+}
+
+function buildTagFilterSubquery(filter: AssetQueryFilter, params: (string | number)[]) {
+    if (filter.type !== 'tag' || !filter.value) {
+        return null;
+    }
+
+    params.push(filter.value.trim());
+    return `
+        AND EXISTS (
+            SELECT 1
+            FROM asset_tag_assignments ata
+            JOIN tag_definitions td ON td.id = ata.tag_definition_id
+            WHERE ata.asset_id = a.id
+              AND td.status = 'active'
+              AND lower(td.canonical_label) = lower(?)
+        )
+    `;
+}
+
+function buildPersonFilterSubquery(filter: AssetQueryFilter, params: (string | number)[]) {
     const personIds = filter.personIds || [];
-    if (personIds.length === 0) {return '';}
+    if (personIds.length === 0) {return null;}
 
     const placeholders = personIds.map(() => '?').join(',');
     if (filter.type === 'person_any') {
@@ -36,5 +60,17 @@ export function buildFilterSubquery(
         )`;
     }
 
-    return '';
+    return null;
+}
+
+export function buildFilterSubquery(
+    filter: AssetQueryFilter | undefined,
+    params: (string | number)[],
+) {
+    if (!filter) {return '';}
+
+    return buildAlbumFilterSubquery(filter, params)
+        ?? buildTagFilterSubquery(filter, params)
+        ?? buildPersonFilterSubquery(filter, params)
+        ?? '';
 }

@@ -148,8 +148,13 @@ function createBaseResponseSchema(): ResponseSchema {
             },
             keywords: {
                 type: SchemaType.ARRAY,
-                description: 'Useful archival keywords for the image.',
+                description: 'Approved canonical tags chosen from the provided vocabulary.',
                 items: requiredString('Keyword.'),
+            },
+            tag_proposals: {
+                type: SchemaType.ARRAY,
+                description: 'Candidate new tags for useful concepts missing from the approved canonical vocabulary.',
+                items: requiredString('Tag proposal.'),
             },
             emotional_impact: requiredString('Summary of the image mood or emotional impact.'),
             quality: createQualitySchema(),
@@ -169,6 +174,7 @@ function createBaseResponseSchema(): ResponseSchema {
             'subjects',
             'regions_of_interest',
             'keywords',
+            'tag_proposals',
             'emotional_impact',
             'quality',
             'recommended_enhancements',

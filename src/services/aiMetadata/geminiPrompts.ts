@@ -2,6 +2,7 @@ export interface GeminiPromptInput {
     filename: string;
     exifDataString: string;
     imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+    approvedTagVocabulary?: string[];
 }
 
 function buildImagePartInstructions(imageStrategy: GeminiPromptInput['imageStrategy']): string {
@@ -57,7 +58,8 @@ Prefer Unknown, null, or empty arrays over guessing.
       "significance": "string or null"
     }
   ],
-  "keywords": ["string"],
+  "keywords": ["string chosen only from the approved canonical tag vocabulary"],
+  "tag_proposals": ["string for genuinely missing concepts that are not already in the approved canonical tag vocabulary"],
   "emotional_impact": "string",
   "quality": {
     "technical": number,
@@ -77,7 +79,24 @@ function buildPromptBody(params: {
     intro: string;
     analysisPreamble: string;
     imageStrategy?: GeminiPromptInput['imageStrategy'];
+    approvedTagVocabulary?: string[];
 }): string {
+    const approvedVocabulary = params.approvedTagVocabulary ?? [];
+    const approvedVocabularyInstructions = approvedVocabulary.length > 0
+        ? `Approved canonical tag vocabulary:
+- ${approvedVocabulary.join('\n- ')}
+
+Tagging rules:
+- Populate "keywords" only with tags from the approved canonical vocabulary above.
+- If a useful concept is missing from that approved vocabulary, put it in "tag_proposals" instead of "keywords".
+- Do not invent broad low-value labels like "adult", "person", or "photo".`
+        : `Approved canonical tag vocabulary:
+- none provided
+
+Tagging rules:
+- Leave "keywords" empty when no approved canonical vocabulary is provided.
+- Put any genuinely useful missing concepts in "tag_proposals" instead.`;
+
     return `${params.intro}
 ${params.analysisPreamble}
 
@@ -86,24 +105,28 @@ Context metadata:
 - EXIF Data: ${params.exifDataString || 'none'}
 ${buildImagePartInstructions(params.imageStrategy)}
 
-${buildSharedMetadataSchema()}`;
+${buildSharedMetadataSchema()}
+
+${approvedVocabularyInstructions}`;
 }
 
-export function buildGeminiProPrompt({ filename, exifDataString, imageStrategy }: GeminiPromptInput): string {
+export function buildGeminiProPrompt({ filename, exifDataString, imageStrategy, approvedTagVocabulary }: GeminiPromptInput): string {
     return buildPromptBody({
         filename,
         exifDataString,
         imageStrategy,
+        approvedTagVocabulary,
         intro: 'You are an expert photo archivist and AI analyst with access to extended thinking.',
         analysisPreamble: 'Use step-by-step reasoning to carefully analyse this image, then respond ONLY with valid JSON.',
     });
 }
 
-export function buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy }: GeminiPromptInput): string {
+export function buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy, approvedTagVocabulary }: GeminiPromptInput): string {
     return buildPromptBody({
         filename,
         exifDataString,
         imageStrategy,
+        approvedTagVocabulary,
         intro: 'You are a photo archivist.',
         analysisPreamble: 'Analyse this image with careful archival judgement and return ONLY valid JSON.',
     });

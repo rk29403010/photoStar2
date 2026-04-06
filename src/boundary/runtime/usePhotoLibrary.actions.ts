@@ -1,11 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Asset, Album, SimilarityOrbit } from '@contracts/core';
+import type { Asset, Album, ReviewItemSummary, SimilarityOrbit, TagDefinitionSummary } from '@contracts/core';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import type { JobState, PipelineStage } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import { createTagVocabularyActions } from '@boundary/runtime/tagVocabularyActions';
 import { replaceGroupRepresentative } from '@ui/components/single-photo/singlePhotoAssetModel';
+import { fetchAssetTagContext } from '@ui/hooks/assetTagContext';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
 
@@ -39,6 +41,12 @@ interface BuildActionParams {
     refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
     refreshSystemJobs: () => void;
     loadAssetDetails: (assetId: string, options?: { includeEvidence?: boolean }) => Promise<void>;
+}
+
+interface TagActionParams {
+    request: RequestFn;
+    setAssets: SetAssets;
+    refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
 }
 
 type WorkflowRunDetailResponse = {
@@ -279,5 +287,166 @@ export function createBuildActions(params: BuildActionParams) {
 
             return runId;
         },
+    };
+}
+
+function updateAssetTagState(
+    setAssets: SetAssets,
+    assetId: string,
+    nextState: Pick<Asset, 'tags' | 'pending_review_items'>,
+) {
+    setAssets((previousAssets) => previousAssets.map((asset) => (
+        asset.id === assetId ? { ...asset, ...nextState } : asset
+    )));
+}
+
+type AssignAssetTagPayload = {
+    assetId: string;
+    tagDefinitionId?: string;
+    tagLabel?: string;
+    userId?: string | null;
+};
+
+type RemoveAssetTagPayload = {
+    assetId: string;
+    tagDefinitionId: string;
+};
+
+type BulkAssignAssetTagPayload = {
+    assetIds: string[];
+    tagDefinitionId?: string;
+    tagLabel?: string;
+    userId?: string | null;
+};
+
+type BulkRemoveAssetTagPayload = {
+    assetIds: string[];
+    tagDefinitionId: string;
+};
+
+type ListReviewItemsPayload = {
+    status?: ReviewItemSummary['status'];
+    reviewItemType?: ReviewItemSummary['reviewItemType'];
+    subjectType?: string;
+    subjectId?: string;
+};
+
+type SetReviewItemStatusPayload = {
+    reviewItemId: string;
+    status: ReviewItemSummary['status'];
+    reviewerId?: string | null;
+    reviewNote?: string | null;
+    tagDefinitionId?: string;
+    tagLabel?: string;
+};
+
+function refreshTagAwareAsset(
+    request: RequestFn,
+    setAssets: SetAssets,
+    refreshLibrary: TagActionParams['refreshLibrary'],
+    assetId: string,
+) {
+    return fetchAssetTagContext(request, assetId).then((tagContext) => {
+        updateAssetTagState(setAssets, assetId, {
+            tags: tagContext.tags,
+            pending_review_items: tagContext.pendingReviewItems,
+        });
+        refreshLibrary({ preservePagingState: true });
+    });
+}
+
+function requestTagCommand(
+    request: RequestFn,
+    command: string,
+    idPrefix: string,
+    payload: Record<string, unknown>,
+) {
+    return request<void>({
+        idPrefix,
+        command,
+        payload,
+        select: () => undefined,
+    });
+}
+
+function listAvailableTagDefinitions(request: RequestFn) {
+    return request<TagDefinitionSummary[]>({
+        idPrefix: 'list_available_tags',
+        command: 'list_available_tags',
+        select: (data) => (data?.tags as TagDefinitionSummary[]) || [],
+    });
+}
+
+function listTagReviewItems(request: RequestFn, payload: ListReviewItemsPayload) {
+    return request<ReviewItemSummary[]>({
+        idPrefix: 'list_review_items',
+        command: 'list_review_items',
+        payload,
+        select: (data) => (data?.reviewItems as ReviewItemSummary[]) || [],
+    });
+}
+
+async function assignAssetTag(
+    request: RequestFn,
+    setAssets: SetAssets,
+    refreshLibrary: TagActionParams['refreshLibrary'],
+    payload: AssignAssetTagPayload,
+) {
+    await requestTagCommand(request, 'assign_asset_tag', `assign_asset_tag_${payload.assetId}`, payload);
+    await refreshTagAwareAsset(request, setAssets, refreshLibrary, payload.assetId);
+}
+
+async function removeAssetTag(
+    request: RequestFn,
+    setAssets: SetAssets,
+    refreshLibrary: TagActionParams['refreshLibrary'],
+    payload: RemoveAssetTagPayload,
+) {
+    await requestTagCommand(request, 'remove_asset_tag', `remove_asset_tag_${payload.assetId}`, payload);
+    await refreshTagAwareAsset(request, setAssets, refreshLibrary, payload.assetId);
+}
+
+async function runBulkTagMutation(
+    request: RequestFn,
+    refreshLibrary: TagActionParams['refreshLibrary'],
+    command: 'bulk_assign_asset_tag' | 'bulk_remove_asset_tag',
+    payload: BulkAssignAssetTagPayload | BulkRemoveAssetTagPayload,
+) {
+    await requestTagCommand(request, command, command, payload as Record<string, unknown>);
+    refreshLibrary({ preservePagingState: true });
+}
+
+async function setTagReviewItemStatus(
+    request: RequestFn,
+    setAssets: SetAssets,
+    refreshLibrary: TagActionParams['refreshLibrary'],
+    payload: SetReviewItemStatusPayload,
+) {
+    const updatedReviewItem = await request<ReviewItemSummary>({
+        idPrefix: `set_review_item_status_${payload.reviewItemId}`,
+        command: 'set_review_item_status',
+        payload,
+        select: (data) => data?.reviewItem as ReviewItemSummary,
+    });
+    if (updatedReviewItem.subjectType === 'asset') {
+        await refreshTagAwareAsset(request, setAssets, refreshLibrary, updatedReviewItem.subjectId);
+        return;
+    }
+    refreshLibrary({ preservePagingState: true });
+}
+
+export function createTagActions(params: TagActionParams) {
+    const { request, setAssets, refreshLibrary } = params;
+    const vocabularyActions = createTagVocabularyActions({ request, refreshLibrary });
+
+    return {
+        listAvailableTags: () => listAvailableTagDefinitions(request),
+        assignAssetTag: (payload: AssignAssetTagPayload) => assignAssetTag(request, setAssets, refreshLibrary, payload),
+        removeAssetTag: (payload: RemoveAssetTagPayload) => removeAssetTag(request, setAssets, refreshLibrary, payload),
+        bulkAssignAssetTag: (payload: BulkAssignAssetTagPayload) => runBulkTagMutation(request, refreshLibrary, 'bulk_assign_asset_tag', payload),
+        bulkRemoveAssetTag: (payload: BulkRemoveAssetTagPayload) => runBulkTagMutation(request, refreshLibrary, 'bulk_remove_asset_tag', payload),
+        listReviewItems: (payload: ListReviewItemsPayload) => listTagReviewItems(request, payload),
+        setReviewItemStatus: (payload: SetReviewItemStatusPayload) => setTagReviewItemStatus(request, setAssets, refreshLibrary, payload),
+        ...vocabularyActions,
     };
 }

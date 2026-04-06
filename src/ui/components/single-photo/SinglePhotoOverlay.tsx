@@ -1,5 +1,5 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
-import type { Asset, SimilarityOrbit } from '@contracts/core';
+import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from './InfoPanel';
 import { PhotoViewport } from './PhotoViewport';
@@ -32,10 +32,56 @@ export interface SinglePhotoOverlayProps {
     onSelectAsset: (assetId: string) => void;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
+    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     onChangeIndex: (delta: -1 | 1) => void;
     onRevealControls: () => void;
     analysis: AnalysisState;
+}
+
+function PhotoInfoSidebar(props: {
+    asset: Asset;
+    panelState: PanelState;
+    hoveredFaceKey: string | null;
+    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
+    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+}) {
+    const assignAssetTag = props.onAssignAssetTag;
+    const removeAssetTag = props.onRemoveAssetTag;
+    if (!props.panelState.showInfoPanel) {
+        return null;
+    }
+
+    return (
+        <div style={{ width: DEFAULT_INFO_PANEL_WIDTH, height: '100%', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
+            <InfoPanel
+                asset={props.asset}
+                width={DEFAULT_INFO_PANEL_WIDTH}
+                activeTab={props.panelState.activeInfoTab}
+                onTabChange={props.panelState.setActiveInfoTab}
+                onClose={() => props.panelState.setShowInfoPanel(false)}
+                hoveredFaceKey={props.hoveredFaceKey}
+                onHoverFaceKey={props.setHoveredFaceKey}
+                onAssignTag={assignAssetTag ? (tagLabel) => assignAssetTag(props.asset.id, tagLabel) : undefined}
+                onRemoveTag={removeAssetTag ? (tagDefinitionId) => removeAssetTag(props.asset.id, tagDefinitionId) : undefined}
+                onSetReviewItemStatus={props.onSetReviewItemStatus}
+                onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+            />
+        </div>
+    );
 }
 
 export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
@@ -62,6 +108,9 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
     onSelectAsset,
     onSetCanonical,
     onExplodeGroup,
+    onAssignAssetTag,
+    onRemoveAssetTag,
+    onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
     onChangeIndex,
     onRevealControls,
@@ -111,20 +160,6 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
             onRevealControls={onRevealControls}
             analysis={analysis}
         />
-
-        {panelState.showInfoPanel && (
-            <div style={{ width: DEFAULT_INFO_PANEL_WIDTH, height: '100%', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
-                <InfoPanel
-                    asset={asset}
-                    width={DEFAULT_INFO_PANEL_WIDTH}
-                    activeTab={panelState.activeInfoTab}
-                    onTabChange={panelState.setActiveInfoTab}
-                    onClose={() => panelState.setShowInfoPanel(false)}
-                    hoveredFaceKey={hoveredFaceKey}
-                    onHoverFaceKey={setHoveredFaceKey}
-                    onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
-                />
-            </div>
-        )}
+        <PhotoInfoSidebar asset={asset} panelState={panelState} hoveredFaceKey={hoveredFaceKey} setHoveredFaceKey={setHoveredFaceKey} onAssignAssetTag={onAssignAssetTag} onRemoveAssetTag={onRemoveAssetTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
     </div>
 );

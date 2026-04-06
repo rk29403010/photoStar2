@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
+import { createTagRepository } from '../tags/tagRepository';
 import type { PhotoMetadataProjectionInput, PhotoMetadataProjectionRow } from '../photoMetadata/repository';
 import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 import type { PhotoMetadataBlock } from '../photoMetadata/types';
@@ -89,6 +90,68 @@ function buildProjectionInput(params: {
     };
 }
 
+function replaceAiTagAssignments(params: {
+    dbManager: DatabaseManager;
+    assetId: string;
+    sourceRecordId: string;
+    approvedKeywords: string[];
+    tagProposals: string[];
+}): void {
+    const db = params.dbManager.getDb();
+    const tagRepository = createTagRepository({ dbManager: params.dbManager });
+    const loadDefinitionsByLabel = params.approvedKeywords.length > 0
+        ? db.prepare(`
+            SELECT id, canonical_label
+            FROM tag_definitions
+            WHERE canonical_label IN (${params.approvedKeywords.map(() => '?').join(',')})
+        `)
+        : null;
+    const definitionRows = loadDefinitionsByLabel
+        ? loadDefinitionsByLabel.all(...params.approvedKeywords) as Array<{ id: string; canonical_label: string }>
+        : [];
+    const definitionMap = new Map(definitionRows.map((row) => [row.canonical_label, row.id]));
+
+    db.transaction(() => {
+        db.prepare(`
+            DELETE FROM asset_tag_assignments
+            WHERE asset_id = ? AND source_kind = 'ai'
+        `).run(params.assetId);
+        db.prepare(`
+            DELETE FROM review_items
+            WHERE subject_type = 'asset'
+              AND subject_id = ?
+              AND review_item_type = 'tag_proposal'
+              AND status = 'pending'
+        `).run(params.assetId);
+
+        for (const keyword of params.approvedKeywords) {
+            const tagDefinitionId = definitionMap.get(keyword);
+            if (!tagDefinitionId) {continue;}
+            tagRepository.assignTagToAsset({
+                assetId: params.assetId,
+                tagDefinitionId,
+                sourceKind: 'ai',
+                sourceRecordId: params.sourceRecordId,
+                confidence: null,
+            });
+        }
+
+        for (const proposal of params.tagProposals) {
+            tagRepository.createReviewItem({
+                reviewItemType: 'tag_proposal',
+                subjectType: 'asset',
+                subjectId: params.assetId,
+                payloadJson: JSON.stringify({
+                    proposedLabel: proposal,
+                    sourceKind: 'ai',
+                    sourceRecordId: params.sourceRecordId,
+                }),
+                status: 'pending',
+            });
+        }
+    })();
+}
+
 export function persistPhotoMetadataEvidence(params: {
     dbManager: DatabaseManager;
     assetId: string;
@@ -96,6 +159,8 @@ export function persistPhotoMetadataEvidence(params: {
     provider: string;
     modelVersion: string;
     metadataBlock: PhotoMetadataBlock;
+    approvedKeywords?: string[];
+    tagProposals?: string[];
 }): string {
     const repository = createPhotoMetadataRepository({ dbManager: params.dbManager });
     const normalizedMetadataBlock = normalizePhotoMetadataBlockBoxes(params.metadataBlock);
@@ -115,6 +180,13 @@ export function persistPhotoMetadataEvidence(params: {
             sourceId: blockId,
         }));
     }
+    replaceAiTagAssignments({
+        dbManager: params.dbManager,
+        assetId: params.assetId,
+        sourceRecordId: blockId,
+        approvedKeywords: params.approvedKeywords ?? normalizedMetadataBlock.keywords,
+        tagProposals: params.tagProposals ?? [],
+    });
     return blockId;
 }
 

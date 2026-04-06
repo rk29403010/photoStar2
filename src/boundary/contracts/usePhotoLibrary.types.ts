@@ -1,15 +1,29 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { Asset } from '@contracts/core';
 
-export type FilterType = 'person_any' | 'person_all' | 'person_only' | 'album';
+export type FilterType = 'person_any' | 'person_all' | 'person_only' | 'album' | 'tag';
 
-export interface LibraryFilter {
-    type: FilterType;
+type LibraryFilterBase = {
     personIds: string[];
-    albumId?: string;
     description?: string;
     persons?: { id: string; name: string }[];
-}
+};
+
+type PersonLibraryFilter = LibraryFilterBase & {
+    type: 'person_any' | 'person_all' | 'person_only';
+};
+
+type AlbumLibraryFilter = LibraryFilterBase & {
+    type: 'album';
+    albumId: string;
+};
+
+type TagLibraryFilter = LibraryFilterBase & {
+    type: 'tag';
+    value: string;
+};
+
+export type LibraryFilter = PersonLibraryFilter | AlbumLibraryFilter | TagLibraryFilter;
 
 export type NotificationItem = {
     id: string;

@@ -1,8 +1,8 @@
 import type React from 'react';
 
 interface TopBarProps {
-    view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
-    setView: (view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics') => void;
+    view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+    setView: (view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics') => void;
     onOpenActions: () => void;
     onOpenSettings: () => void;
     showSettings: boolean;
@@ -97,6 +97,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <ViewButton view="library" current={view} setView={setView} />
                 <ViewButton view="people" current={view} setView={setView} />
                 <ViewButton view="albums" current={view} setView={setView} />
+                <ViewButton view="reviews" current={view} setView={setView} />
+                <ViewButton view="vocabulary" current={view} setView={setView} />
                 <ViewButton view="dashboard" current={view} setView={setView} />
             </div>
 

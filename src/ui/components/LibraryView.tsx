@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type UIEvent } from 'react';
-import type { Asset } from '@contracts/core';
+import type { Asset, ReviewItemSummary } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
@@ -14,6 +14,7 @@ import { getGalleryInfoPanelAsset } from './library/galleryInfoPanelModel';
 
 interface LibraryViewProps {
     assets: Asset[];
+    availableTags?: string[];
     loading: boolean;
     active: boolean;
     backendReady: boolean;
@@ -24,6 +25,7 @@ interface LibraryViewProps {
     onAssetClick?: (id: string) => void;
     selectedAssetId?: string | null;
     activeFilter?: LibraryFilter;
+    onTagFilterChange: (tag: string) => void;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
     librarySelection?: LibrarySelectionState;
@@ -41,10 +43,37 @@ interface LibraryViewProps {
     rejectedAssets?: Asset[];
     onHoverAssetChange?: (asset: Asset | null) => void;
     onEnsureAssetDetails?: (assetId: string) => void;
+    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
 const EMPTY_LIBRARY_SELECTION = createEmptyLibrarySelectionState();
+
+function getAssetKeywordTags(asset: Asset) {
+    return asset.photo_metadata?.projection.keywords ?? [];
+}
+
+function getAvailableTags(assets: Asset[]) {
+    const uniqueTags = new Map<string, string>();
+    for (const asset of assets) {
+        for (const tag of getAssetKeywordTags(asset)) {
+            const trimmedTag = tag.trim();
+            if (!trimmedTag) {continue;}
+            const normalizedTag = trimmedTag.toLowerCase();
+            if (!uniqueTags.has(normalizedTag)) {
+                uniqueTags.set(normalizedTag, trimmedTag);
+            }
+        }
+    }
+
+    return Array.from(uniqueTags.values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
+}
 
 function LoadingState({ backendStatus, backendReady }: { backendStatus: string; backendReady: boolean }) {
     return (
@@ -189,6 +218,9 @@ function LibraryPanel({
     onActiveInfoTabChange,
     onShowInfoPanelChange,
     selectedInfoAsset,
+    onAssignAssetTag,
+    onRemoveAssetTag,
+    onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
 }: {
     scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
@@ -201,6 +233,13 @@ function LibraryPanel({
     onActiveInfoTabChange: (tab: InfoTab) => void;
     onShowInfoPanelChange: (show: boolean) => void;
     selectedInfoAsset: Asset | null;
+    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }) {
     return (
@@ -209,7 +248,16 @@ function LibraryPanel({
                 <LibraryGalleryPane toolbar={toolbar} layout={layout} rejected={rejected} />
             </div>
             {showInfoPanel && (
-                <GalleryInfoPanel asset={selectedInfoAsset} activeTab={activeInfoTab} onTabChange={onActiveInfoTabChange} onClose={() => onShowInfoPanelChange(false)} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
+                <GalleryInfoPanel
+                    asset={selectedInfoAsset}
+                    activeTab={activeInfoTab}
+                    onTabChange={onActiveInfoTabChange}
+                    onClose={() => onShowInfoPanelChange(false)}
+                    onAssignTag={selectedInfoAsset && onAssignAssetTag ? (tagLabel) => onAssignAssetTag(selectedInfoAsset.id, tagLabel) : undefined}
+                    onRemoveTag={selectedInfoAsset && onRemoveAssetTag ? (tagDefinitionId) => onRemoveAssetTag(selectedInfoAsset.id, tagDefinitionId) : undefined}
+                    onSetReviewItemStatus={onSetReviewItemStatus}
+                    onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
+                />
             )}
         </div>
     );
@@ -255,7 +303,7 @@ export function LibraryView(props: LibraryViewProps) {
             <LibraryPanel
                 scrollRef={scrollRef}
                 handleScroll={handleScroll}
-                toolbar={{ sortMode, onSortModeChange: setSortMode, layoutMode, onLayoutModeChange: setLayoutMode, groupSimilarPhotos: props.groupSimilarPhotos, onGroupSimilarPhotosChange: props.onGroupSimilarPhotosChange, showGroupIds: props.showGroupIds, onShowGroupIdsChange: props.onShowGroupIdsChange, showInfoPanel: props.showInfoPanel, onShowInfoPanelChange: handleShowInfoPanelChange }}
+                toolbar={{ sortMode, onSortModeChange: setSortMode, layoutMode, onLayoutModeChange: setLayoutMode, selectedTag: props.activeFilter?.type === 'tag' ? props.activeFilter.value : '', availableTags: props.availableTags ?? getAvailableTags(props.assets), onTagChange: props.onTagFilterChange, groupSimilarPhotos: props.groupSimilarPhotos, onGroupSimilarPhotosChange: props.onGroupSimilarPhotosChange, showGroupIds: props.showGroupIds, onShowGroupIdsChange: props.onShowGroupIdsChange, showInfoPanel: props.showInfoPanel, onShowInfoPanelChange: handleShowInfoPanelChange }}
                 layout={{ items: displayItems, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId, activeFilter: props.activeFilter, showFaces: props.showFaces, onUntagAsset: props.onUntagAsset, librarySelection: selection, onLibrarySelectionChange: props.onLibrarySelectionChange, declusteredAssets: props.declusteredAssets, onHoverAssetChange: props.onHoverAssetChange, showGroupIds: props.showGroupIds, hoveredGroupId, onHoveredGroupIdChange: setHoveredGroupId, layoutMode, showInfoPanel: props.showInfoPanel }}
                 rejected={{ showRejected: props.showRejected, rejectedAssets: props.rejectedAssets, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId }}
                 showInfoPanel={props.showInfoPanel}
@@ -263,6 +311,9 @@ export function LibraryView(props: LibraryViewProps) {
                 onActiveInfoTabChange={props.onActiveInfoTabChange}
                 onShowInfoPanelChange={handleShowInfoPanelChange}
                 selectedInfoAsset={selectedInfoAsset}
+                onAssignAssetTag={props.onAssignAssetTag}
+                onRemoveAssetTag={props.onRemoveAssetTag}
+                onSetReviewItemStatus={props.onSetReviewItemStatus}
                 onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
             />
     );
