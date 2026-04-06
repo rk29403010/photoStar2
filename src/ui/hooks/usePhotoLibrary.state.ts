@@ -53,13 +53,14 @@ function useUiFeedState() {
 
 function useGallerySeekState() {
     const [galleryTimelineSeek, setGalleryTimelineSeekState] = useState<GalleryTimelineSeek | null>(null);
+    const [isSeekingTimeline, setIsSeekingTimeline] = useState(false);
     const gallerySeekRef = useRef<GalleryTimelineSeek | null>(null);
     const setGalleryTimelineSeek = useCallback((seek: GalleryTimelineSeek | null) => {
         gallerySeekRef.current = seek;
         setGalleryTimelineSeekState(seek);
     }, []);
 
-    return { galleryTimelineSeek, setGalleryTimelineSeek, gallerySeekRef };
+    return { galleryTimelineSeek, isSeekingTimeline, setIsSeekingTimeline, setGalleryTimelineSeek, gallerySeekRef };
 }
 
 export function usePhotoLibraryState() {

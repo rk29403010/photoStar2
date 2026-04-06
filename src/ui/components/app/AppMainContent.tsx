@@ -22,6 +22,7 @@ interface AppMainContentProps {
   stats: LibraryStats | null;
   assets: Asset[];
   galleryTimelineSeek: GalleryTimelineSeek | null;
+  isSeekingTimeline: boolean;
   people: Person[];
   status: string;
   backendReady: boolean;
@@ -104,6 +105,7 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
         stats={props.stats}
         assets={props.visibleLibraryAssets}
         galleryTimelineSeek={props.galleryTimelineSeek}
+        isSeekingTimeline={props.isSeekingTimeline}
         loading={props.status.includes('Initializing')}
         backendReady={props.backendReady}
         backendStatus={props.status}

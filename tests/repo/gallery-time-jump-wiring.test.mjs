@@ -10,12 +10,18 @@ test('gallery exposes a global timeline rail with release-to-seek wiring and sta
     const appMainContentSource = fs.readFileSync('src/ui/components/app/AppMainContent.tsx', 'utf8');
     const loadedAppShellSource = fs.readFileSync('src/ui/components/app/LoadedAppShell.tsx', 'utf8');
     const layoutEngineSource = fs.readFileSync('src/ui/components/layout/LayoutEngine.tsx', 'utf8');
+    const coreActionsSource = fs.readFileSync('src/ui/hooks/usePhotoLibrary.coreActions.ts', 'utf8');
+    const photoLibrarySource = fs.readFileSync('src/ui/hooks/usePhotoLibrary.ts', 'utf8');
+    const connectionMessagesSource = fs.readFileSync('src/boundary/runtime/usePhotoLibrary.connection.messages.ts', 'utf8');
 
     assert.match(libraryViewSource, /stats: LibraryStats \| null;/);
     assert.match(libraryViewSource, /galleryTimelineSeek: GalleryTimelineSeek \| null;/);
+    assert.match(libraryViewSource, /isSeekingTimeline: boolean;/);
     assert.match(libraryViewSource, /onGalleryTimelineSeek: \(seek: GalleryTimelineSeek \| null\) => void;/);
     assert.doesNotMatch(toolbarSource, /LibraryTimelineRail/);
-    assert.match(libraryViewSource, /timelineRail=\{timelineRail\}/);
+    assert.match(libraryViewSource, /timelineRail,/);
+    assert.match(libraryViewSource, /isSeekingTimeline && layout\.items\.length > 0/);
+    assert.match(libraryViewSource, /Jumping to/);
     assert.match(timelineHelpersSource, /<LibraryTimelineRail/);
     assert.match(libraryViewSource, /viewportBucketIndex/);
     assert.match(timelineHelpersSource, /querySelectorAll<HTMLElement>\('\[data-selection-key\]'\)/);
@@ -33,8 +39,14 @@ test('gallery exposes a global timeline rail with release-to-seek wiring and sta
     assert.match(timelineRailSource, /onMouseUp|onPointerUp|onKeyUp/);
     assert.match(appMainContentSource, /stats=\{props\.stats\}/);
     assert.match(appMainContentSource, /galleryTimelineSeek=\{props\.galleryTimelineSeek\}/);
+    assert.match(appMainContentSource, /isSeekingTimeline=\{props\.isSeekingTimeline\}/);
     assert.match(loadedAppShellSource, /stats,/);
     assert.match(loadedAppShellSource, /galleryTimelineSeek,/);
+    assert.match(loadedAppShellSource, /isSeekingTimeline,/);
     assert.match(loadedAppShellSource, /onGalleryTimelineSeek=\{actions\.seekGalleryTimeline\}/);
+    assert.match(coreActionsSource, /setIsSeekingTimeline\(true\)/);
+    assert.doesNotMatch(coreActionsSource, /seekGalleryTimeline[\s\S]*setAssets\(\[\]\)/);
+    assert.match(photoLibrarySource, /setIsSeekingTimeline: state\.setIsSeekingTimeline/);
+    assert.match(connectionMessagesSource, /params\.setIsSeekingTimeline\(false\)/);
     assert.match(layoutEngineSource, /data-selection-key=\{layoutItem\.item\.selectionKey\}/);
 });

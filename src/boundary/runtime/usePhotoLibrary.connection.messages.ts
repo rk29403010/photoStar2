@@ -80,6 +80,10 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
         return;
     }
 
+    if (!isAssetPageResponseId(msg.id)) {
+        params.setIsSeekingTimeline(false);
+    }
+
     let previousAssetCount = 0;
     let nextAssetCount = 0;
     let nextPreviewCount = 0;
@@ -148,6 +152,9 @@ function handleOkMessage(msg: WsResponse, params: ConnectionStateParams) {
 function handleErrorMessage(msg: WsResponse, params: ConnectionStateParams) {
     if (isAssetPageResponseId(msg.id)) {
         params.setIsLoadingMoreAssets(false);
+    }
+    if (isAssetResponseId(msg.id) && !isAssetPageResponseId(msg.id)) {
+        params.setIsSeekingTimeline(false);
     }
     if (!msg.error) {return;}
     params.addLog(`Command ${msg.id ?? 'unknown'} failed: ${msg.error}`);

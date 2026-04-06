@@ -53,13 +53,14 @@ function useFilterStackActions(params: {
 function useGalleryPreferenceActions(params: {
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
+    setIsSeekingTimeline: PhotoLibraryState['setIsSeekingTimeline'];
     setGalleryTimelineSeek: PhotoLibraryState['setGalleryTimelineSeek'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     setAssets: PhotoLibraryState['setAssets'];
     transport: PhotoLibraryState['transport'];
 }) {
-    const { galleryOrderRef, gallerySeekRef, setGalleryTimelineSeek, groupSimilarPhotosRef, refreshLibrary, setAssets, transport } = params;
+    const { galleryOrderRef, gallerySeekRef, setIsSeekingTimeline, setGalleryTimelineSeek, groupSimilarPhotosRef, refreshLibrary, setAssets, transport } = params;
 
     const setGroupSimilarPhotos = useCallback((enabled: boolean) => {
         groupSimilarPhotosRef.current = enabled;
@@ -80,9 +81,9 @@ function useGalleryPreferenceActions(params: {
         gallerySeekRef.current = seek;
         setGalleryTimelineSeek(seek);
         if (!transport) {return;}
-        setAssets([]);
+        setIsSeekingTimeline(true);
         refreshLibrary({ gallerySeek: seek });
-    }, [gallerySeekRef, refreshLibrary, setAssets, setGalleryTimelineSeek, transport]);
+    }, [gallerySeekRef, refreshLibrary, setGalleryTimelineSeek, setIsSeekingTimeline, transport]);
 
     return { setGalleryOrder, setGroupSimilarPhotos, seekGalleryTimeline };
 }
@@ -99,6 +100,7 @@ export function useCoreActions(params: {
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
+    setIsSeekingTimeline: PhotoLibraryState['setIsSeekingTimeline'];
     setGalleryTimelineSeek: PhotoLibraryState['setGalleryTimelineSeek'];
 }) {
     const {
@@ -113,6 +115,7 @@ export function useCoreActions(params: {
         groupSimilarPhotosRef,
         galleryOrderRef,
         gallerySeekRef,
+        setIsSeekingTimeline,
         setGalleryTimelineSeek,
     } = params;
 
@@ -135,6 +138,7 @@ export function useCoreActions(params: {
     const galleryPreferenceActions = useGalleryPreferenceActions({
         galleryOrderRef,
         gallerySeekRef,
+        setIsSeekingTimeline,
         setGalleryTimelineSeek,
         groupSimilarPhotosRef,
         refreshLibrary,

@@ -376,6 +376,7 @@ function useComposedActions(
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
         galleryOrderRef: state.galleryOrderRef,
         gallerySeekRef: state.gallerySeekRef,
+        setIsSeekingTimeline: state.setIsSeekingTimeline,
         setGalleryTimelineSeek: state.setGalleryTimelineSeek,
     });
     const albumActions = useMemo(() => createAlbumActions({ request }), [request]);

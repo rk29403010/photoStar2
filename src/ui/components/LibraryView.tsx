@@ -24,6 +24,7 @@ interface LibraryViewProps {
     stats: LibraryStats | null;
     assets: Asset[];
     galleryTimelineSeek: GalleryTimelineSeek | null;
+    isSeekingTimeline: boolean;
     loading: boolean;
     active: boolean;
     backendReady: boolean;
@@ -81,6 +82,44 @@ function EmptyState() {
     );
 }
 
+function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
+    if (seek?.kind === 'unknown') {
+        return 'Unknown date';
+    }
+    if (seek?.kind === 'dated') {
+        const year = new Date(seek.targetDate).getUTCFullYear();
+        return Number.isNaN(year) ? 'timeline' : `${year}s`;
+    }
+    return 'timeline';
+}
+
+function TimelineSeekOverlay({ seek }: { seek: GalleryTimelineSeek | null }) {
+    return (
+        <div
+            style={{
+                position: 'absolute',
+                right: 18,
+                bottom: 18,
+                zIndex: 2,
+                pointerEvents: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 14px',
+                borderRadius: 14,
+                background: 'rgba(10,10,10,0.82)',
+                border: '1px solid rgba(148,163,184,0.24)',
+                color: '#e5e7eb',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                backdropFilter: 'blur(8px)',
+            }}
+        >
+            <div className="animate-pulse" style={{ width: 8, height: 8, borderRadius: 999, background: '#60a5fa' }} />
+            <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Jumping to {getTimelineSeekLabel(seek)}...</span>
+        </div>
+    );
+}
+
 function shouldLoadMore(element: HTMLDivElement) {
     const remaining = element.scrollHeight - element.scrollTop - element.clientHeight;
     return remaining < 720;
@@ -88,12 +127,14 @@ function shouldLoadMore(element: HTMLDivElement) {
 
 function canRequestMoreAssets(params: {
     active: boolean;
+    isSeekingTimeline: boolean;
     hasMoreAssets?: boolean;
     isLoadingMoreAssets?: boolean;
     onLoadMoreAssets?: () => Promise<void>;
 }) {
     return Boolean(
         params.active
+        && !params.isSeekingTimeline
         && params.hasMoreAssets
         && !params.isLoadingMoreAssets
         && params.onLoadMoreAssets
@@ -102,11 +143,13 @@ function canRequestMoreAssets(params: {
 
 function shouldAutoRequestMoreAssets(params: {
     active: boolean;
+    isSeekingTimeline: boolean;
     container: HTMLDivElement | null;
     displayAssetCount: number;
 }) {
     return Boolean(
         params.active
+        && !params.isSeekingTimeline
         && params.container
         && params.displayAssetCount > 0
         && shouldLoadMore(params.container)
@@ -214,18 +257,19 @@ function getSelectedTag(availableTags: string[], rawSelectedTag: string) {
 
 function useLibraryPaging(params: {
     active: boolean;
+    isSeekingTimeline: boolean;
     displayAssetCount: number;
     hasMoreAssets?: boolean;
     isLoadingMoreAssets?: boolean;
     onLoadMoreAssets?: () => Promise<void>;
 }) {
-    const { active, displayAssetCount, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets } = params;
+    const { active, isSeekingTimeline, displayAssetCount, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets } = params;
     const scrollRef = useRef<HTMLDivElement | null>(null);
 
     const requestMoreAssets = useCallback(() => {
-        if (!canRequestMoreAssets({ active, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets })) {return;}
+        if (!canRequestMoreAssets({ active, isSeekingTimeline, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets })) {return;}
         void onLoadMoreAssets?.();
-    }, [active, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets]);
+    }, [active, hasMoreAssets, isLoadingMoreAssets, isSeekingTimeline, onLoadMoreAssets]);
 
     const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
         if (shouldLoadMore(event.currentTarget)) {
@@ -235,9 +279,9 @@ function useLibraryPaging(params: {
 
     useEffect(() => {
         const container = scrollRef.current;
-        if (!shouldAutoRequestMoreAssets({ active, container, displayAssetCount })) {return;}
+        if (!shouldAutoRequestMoreAssets({ active, isSeekingTimeline, container, displayAssetCount })) {return;}
         requestMoreAssets();
-    }, [active, displayAssetCount, requestMoreAssets]);
+    }, [active, displayAssetCount, isSeekingTimeline, requestMoreAssets]);
 
     return { scrollRef, handleScroll };
 }
@@ -270,6 +314,8 @@ function LibraryPanel({
     timelineRail,
     layout,
     rejected,
+    isSeekingTimeline,
+    galleryTimelineSeek,
     showInfoPanel,
     activeInfoTab,
     onActiveInfoTabChange,
@@ -283,6 +329,8 @@ function LibraryPanel({
     timelineRail?: ReactNode;
     layout: ComponentProps<typeof LibraryGalleryPane>['layout'];
     rejected: ComponentProps<typeof LibraryGalleryPane>['rejected'];
+    isSeekingTimeline: boolean;
+    galleryTimelineSeek: GalleryTimelineSeek | null;
     showInfoPanel: boolean;
     activeInfoTab: InfoTab;
     onActiveInfoTabChange: (tab: InfoTab) => void;
@@ -291,16 +339,70 @@ function LibraryPanel({
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }) {
     return (
-        <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden', background: '#0a0a0a' }}>
+        <div style={{ position: 'relative', flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden', background: '#0a0a0a' }}>
             {timelineRail}
             <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto' }}>
                 <LibraryGalleryPane toolbar={toolbar} layout={layout} rejected={rejected} />
             </div>
+            {isSeekingTimeline && layout.items.length > 0 && <TimelineSeekOverlay seek={galleryTimelineSeek} />}
             {showInfoPanel && (
                 <GalleryInfoPanel asset={selectedInfoAsset} activeTab={activeInfoTab} onTabChange={onActiveInfoTabChange} onClose={() => onShowInfoPanelChange(false)} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
             )}
         </div>
     );
+}
+
+function getLibraryPanelProps(params: {
+    props: LibraryViewProps;
+    scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
+    handleLibraryScroll: ReturnType<typeof useLibraryPaging>['handleScroll'];
+    toolbar: ComponentProps<typeof LibraryGalleryPane>['toolbar'];
+    timelineRail?: ReactNode;
+    displayItems: ReturnType<typeof useDisplayAssets>;
+    selection: LibrarySelectionState;
+    hoveredGroupId: string | null;
+    setHoveredGroupId: (groupId: string | null) => void;
+    layoutMode: GalleryLayoutMode;
+    selectedInfoAsset: Asset | null;
+    handleShowInfoPanelChange: (show: boolean) => void;
+}) {
+    return {
+        scrollRef: params.scrollRef,
+        handleScroll: params.handleLibraryScroll,
+        toolbar: params.toolbar,
+        timelineRail: params.timelineRail,
+        layout: {
+            items: params.displayItems,
+            onAssetClick: params.props.onAssetClick,
+            selectedAssetId: params.props.selectedAssetId,
+            activeFilter: params.props.activeFilter,
+            showFaces: params.props.showFaces,
+            onUntagAsset: params.props.onUntagAsset,
+            librarySelection: params.selection,
+            onLibrarySelectionChange: params.props.onLibrarySelectionChange,
+            declusteredAssets: params.props.declusteredAssets,
+            onHoverAssetChange: params.props.onHoverAssetChange,
+            showGroupIds: params.props.showGroupIds,
+            hoveredGroupId: params.hoveredGroupId,
+            onHoveredGroupIdChange: params.setHoveredGroupId,
+            layoutMode: params.layoutMode,
+            showInfoPanel: params.props.showInfoPanel,
+        },
+        rejected: {
+            showRejected: params.props.showRejected,
+            rejectedAssets: params.props.rejectedAssets,
+            onAssetClick: params.props.onAssetClick,
+            selectedAssetId: params.props.selectedAssetId,
+        },
+        isSeekingTimeline: params.props.isSeekingTimeline,
+        galleryTimelineSeek: params.props.galleryTimelineSeek,
+        showInfoPanel: params.props.showInfoPanel,
+        activeInfoTab: params.props.activeInfoTab,
+        onActiveInfoTabChange: params.props.onActiveInfoTabChange,
+        onShowInfoPanelChange: params.handleShowInfoPanelChange,
+        selectedInfoAsset: params.selectedInfoAsset,
+        onFlagPhotoDateCorrection: params.props.onFlagPhotoDateCorrection,
+    } satisfies ComponentProps<typeof LibraryPanel>;
 }
 
 export function LibraryView(props: LibraryViewProps) {
@@ -309,6 +411,7 @@ export function LibraryView(props: LibraryViewProps) {
     const selection = props.librarySelection ?? EMPTY_LIBRARY_SELECTION;
     const { scrollRef, handleScroll } = useLibraryPaging({
         active: props.active,
+        isSeekingTimeline: props.isSeekingTimeline,
         displayAssetCount: props.assets.length,
         hasMoreAssets: props.hasMoreAssets,
         isLoadingMoreAssets: props.isLoadingMoreAssets,
@@ -375,21 +478,20 @@ export function LibraryView(props: LibraryViewProps) {
         viewportBucketIndex,
         onGalleryTimelineSeek: props.onGalleryTimelineSeek,
     });
+    const panelProps = getLibraryPanelProps({
+        props,
+        scrollRef,
+        handleLibraryScroll,
+        toolbar,
+        timelineRail,
+        displayItems,
+        selection,
+        hoveredGroupId,
+        setHoveredGroupId,
+        layoutMode,
+        selectedInfoAsset,
+        handleShowInfoPanelChange,
+    });
 
-    return (
-        <LibraryPanel
-            scrollRef={scrollRef}
-            handleScroll={handleLibraryScroll}
-            toolbar={toolbar}
-            timelineRail={timelineRail}
-            layout={{ items: displayItems, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId, activeFilter: props.activeFilter, showFaces: props.showFaces, onUntagAsset: props.onUntagAsset, librarySelection: selection, onLibrarySelectionChange: props.onLibrarySelectionChange, declusteredAssets: props.declusteredAssets, onHoverAssetChange: props.onHoverAssetChange, showGroupIds: props.showGroupIds, hoveredGroupId, onHoveredGroupIdChange: setHoveredGroupId, layoutMode, showInfoPanel: props.showInfoPanel }}
-            rejected={{ showRejected: props.showRejected, rejectedAssets: props.rejectedAssets, onAssetClick: props.onAssetClick, selectedAssetId: props.selectedAssetId }}
-            showInfoPanel={props.showInfoPanel}
-            activeInfoTab={props.activeInfoTab}
-            onActiveInfoTabChange={props.onActiveInfoTabChange}
-            onShowInfoPanelChange={handleShowInfoPanelChange}
-            selectedInfoAsset={selectedInfoAsset}
-            onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
-        />
-    );
+    return <LibraryPanel {...panelProps} />;
 }
