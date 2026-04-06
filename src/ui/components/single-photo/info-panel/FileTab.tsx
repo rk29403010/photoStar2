@@ -1,9 +1,10 @@
 import type React from 'react';
-import type { Asset } from '@contracts/core';
+import type { Asset, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { Field, Section, SourceHint, Tag } from './shared';
 import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
 import { PhotoDateReviewSection } from './PhotoDateReviewSection';
+import { TagManagementSection } from './TagManagementSection';
 import { shortPath } from './utils';
 
 function getModelLabel(asset: Asset): string | undefined {
@@ -99,7 +100,18 @@ const PhotoCreatedField: React.FC<{ value: string }> = ({ value }) => {
   );
 };
 
-export const FileTab: React.FC<{ asset: Asset; onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void> }> = ({ asset, onFlagPhotoDateCorrection }) => {
+export const FileTab: React.FC<{
+  asset: Asset;
+  availableTags?: TagDefinitionSummary[];
+  onAssignTag?: (tagLabel: string) => Promise<void>;
+  onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+  onSetReviewItemStatus?: (payload: {
+    reviewItemId: string;
+    status: ReviewItemSummary['status'];
+    tagLabel?: string;
+  }) => Promise<void>;
+  onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+}> = ({ asset, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
   const ext = filename.split('.').pop()?.toUpperCase() || '';
   const summary = buildPhotoMetadataFileSummary(asset);
@@ -111,6 +123,13 @@ export const FileTab: React.FC<{ asset: Asset; onFlagPhotoDateCorrection?: (inpu
       <AiInterpretationSection asset={asset} summary={summary} visible={hasPhotoMetadata} />
       <PhotoDateReviewSection asset={asset} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
       <ResolvedMetadataSections asset={asset} caption={summary.caption} captionSourceLabel={summary.captionSourceLabel} />
+      <TagManagementSection
+        asset={asset}
+        availableTags={availableTags}
+        onAssignTag={onAssignTag}
+        onRemoveTag={onRemoveTag}
+        onSetReviewItemStatus={onSetReviewItemStatus}
+      />
     </div>
   );
 };

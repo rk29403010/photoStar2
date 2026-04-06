@@ -4,6 +4,7 @@ import { buildLatestDerivedResultJoin } from '../../../shared/sql/derivedResults
 import { estimatePhotoDate } from '../../photoDateEstimate';
 import { createPhotoMetadataRepository } from '../../photoMetadata/repository';
 import { resolvePhotoDateEvidence } from '../../photoMetadata/dateResolver';
+import { generateDateTagLabels } from '../../tags/dateTagGenerator';
 import type { ModuleDefinition } from '../contracts';
 
 type EstimatePhotoDateRow = {
@@ -97,6 +98,53 @@ function persistPhotoDateEstimate(params: {
     `).run(params.assetId, params.estimateJson);
 }
 
+function refreshSystemDateTags(params: {
+    db: ReturnType<DatabaseManager['getDb']>;
+    assetId: string;
+    labels: string[];
+}): void {
+    const selectTag = params.db.prepare(`
+        SELECT id
+        FROM tag_definitions
+        WHERE canonical_label = ?
+        LIMIT 1
+    `);
+    const insertTag = params.db.prepare(`
+        INSERT INTO tag_definitions (
+            id, canonical_label, description, status, category
+        ) VALUES (
+            lower(hex(randomblob(16))), ?, 'Deterministic date tag generated from the resolved photo date.', 'active', 'date'
+        )
+    `);
+    const insertAssignment = params.db.prepare(`
+        INSERT INTO asset_tag_assignments (
+            asset_id, tag_definition_id, source_kind, source_record_id, confidence
+        ) VALUES (
+            ?, ?, 'system', 'photo_date_estimate', NULL
+        )
+        ON CONFLICT(asset_id, tag_definition_id, source_kind) DO UPDATE SET
+            source_record_id = excluded.source_record_id,
+            updated_at = CURRENT_TIMESTAMP
+    `);
+
+    params.db.transaction(() => {
+        params.db.prepare(`
+            DELETE FROM asset_tag_assignments
+            WHERE asset_id = ? AND source_kind = 'system'
+        `).run(params.assetId);
+
+        for (const label of params.labels) {
+            let tagRow = selectTag.get(label) as { id: string } | undefined;
+            if (!tagRow) {
+                insertTag.run(label);
+                tagRow = selectTag.get(label) as { id: string } | undefined;
+            }
+            if (!tagRow) {continue;}
+            insertAssignment.run(params.assetId, tagRow.id);
+        }
+    })();
+}
+
 export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOptions): ModuleDefinition {
     const photoMetadataRepository = createPhotoMetadataRepository({ dbManager: options.dbManager });
 
@@ -132,6 +180,15 @@ export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOp
                 photoCreatedAt: estimate.photoCreatedAt,
                 confidenceScore: estimate.confidence.score,
                 estimateJson: JSON.stringify(estimate),
+            });
+            refreshSystemDateTags({
+                db,
+                assetId: row.id,
+                labels: generateDateTagLabels({
+                    photoCreatedAt: estimate.photoCreatedAt,
+                    rangeStart: estimate.range.start,
+                    rangeEnd: estimate.range.end,
+                }),
             });
 
             options.eventBus?.emit({

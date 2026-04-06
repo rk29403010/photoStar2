@@ -14,6 +14,7 @@ import {
 import { useAppUiState, type AppView } from './hooks/useAppRuntimeUi';
 import { useGroupDiagnosticsView } from './hooks/useGroupDiagnosticsView';
 import { usePhotoDateReviewHandler } from './hooks/usePhotoDateReviewHandler';
+import { promptBulkTagSelection, promptBulkUntagSelection } from './hooks/libraryTagSelectionPrompts';
 import {
     LoadedAppShell,
 } from './components/app/LoadedAppShell';
@@ -64,6 +65,10 @@ interface UseLibraryFilterStateResetParams {
     setShowRejected: (showRejected: boolean | ((prev: boolean) => boolean)) => void;
     setView: (view: AppView) => void;
     showRejected: boolean;
+}
+
+function isTagFilter(filter: LibraryFilter | undefined) {
+    return filter?.type === 'tag';
 }
 
 async function requestScanPath(): Promise<string | null> {
@@ -169,6 +174,7 @@ function useLibraryFilterHandlers(params: UseLibraryFilterHandlersParams) {
     const {
         actions,
         filterStack,
+        librarySelection,
         setView,
     } = params;
     const stateResetHandlers = useLibraryFilterStateResetHandlers(params);
@@ -176,24 +182,47 @@ function useLibraryFilterHandlers(params: UseLibraryFilterHandlersParams) {
 
     const handleFilterBack = useCallback(() => {
         if (filterStack.length <= 1) {
-            setView('people');
+            setView(isTagFilter(filterStack[0]) ? 'library' : 'people');
             actions.clearFilters();
         } else {
             actions.popFilter();
         }
         resetLibraryUi();
-    }, [actions, filterStack.length, resetLibraryUi, setView]);
+    }, [actions, filterStack, resetLibraryUi, setView]);
 
     const handleClearAllFilters = useCallback(() => {
         actions.clearFilters();
-        setView('people');
+        setView(filterStack.some(isTagFilter) ? 'library' : 'people');
         resetLibraryUi();
+    }, [actions, filterStack, resetLibraryUi, setView]);
+
+    const handleTagFilterChange = useCallback((tag: string) => {
+        actions.clearFilters();
+        resetLibraryUi();
+        if (!tag) {
+            setView('library');
+            return;
+        }
+
+        actions.pushFilter({ type: 'tag', personIds: [], value: tag, description: `Tag: ${tag}` });
+        setView('library');
     }, [actions, resetLibraryUi, setView]);
+
+    const handleBulkTagSelection = useCallback(async () => {
+        await promptBulkTagSelection(actions, getLibrarySelectionPhotoIds(librarySelection));
+    }, [actions, librarySelection]);
+
+    const handleBulkUntagSelection = useCallback(async () => {
+        await promptBulkUntagSelection(actions, getLibrarySelectionPhotoIds(librarySelection));
+    }, [actions, librarySelection]);
 
     return {
         ...stateResetHandlers,
         handleFilterBack,
         handleClearAllFilters,
+        handleTagFilterChange,
+        handleBulkTagSelection,
+        handleBulkUntagSelection,
     };
 }
 

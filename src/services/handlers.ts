@@ -8,6 +8,7 @@ import { systemCommandHandlers } from './handlers/systemCommands';
 import { systemEventLogCommandHandlers } from './handlers/systemEventLogCommands';
 import { systemJobsCommandHandlers } from './handlers/systemJobsCommands';
 import { systemWorkflowRuntimeCommandHandlers } from './handlers/systemWorkflowRuntimeCommands';
+import { tagCommandHandlers } from './handlers/tagCommands';
 
 const COMMAND_ROUTES = [
     systemCommandHandlers,
@@ -17,6 +18,7 @@ const COMMAND_ROUTES = [
     collectionCommandHandlers,
     groupDiagnosticsCommandHandlers,
     assetCommandHandlers,
+    tagCommandHandlers,
     systemJobsCommandHandlers,
 ];
 

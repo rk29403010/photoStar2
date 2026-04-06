@@ -177,6 +177,32 @@ function parseJsonRecord<T extends Record<string, unknown>>(value: string | null
     }
 }
 
+function parseLegacyAiTagValues(aiMetadataData: string | null) {
+    const aiMetadata = parseJsonRecord<Record<string, unknown>>(aiMetadataData);
+    if (!aiMetadata) {return [] as string[];}
+
+    const keywordValues = Array.isArray(aiMetadata.keywords)
+        ? aiMetadata.keywords.filter((value): value is string => typeof value === 'string')
+        : [];
+    const tagValues = Array.isArray(aiMetadata.tags)
+        ? aiMetadata.tags.filter((value): value is string => typeof value === 'string')
+        : [];
+
+    return [...keywordValues, ...tagValues];
+}
+
+export function collectLegacyTagLabelsFromPayloadRow(row: Pick<AssetPayloadRow, 'keywords_json' | 'ai_metadata_data'>) {
+    const projectionKeywords = parseJsonArray<string>(row.keywords_json)
+        .filter((value) => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+    const aiKeywords = parseLegacyAiTagValues(row.ai_metadata_data)
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+    return Array.from(new Set([...projectionKeywords, ...aiKeywords]));
+}
+
 function parseMatchEvidence(matchEvidence: string | null | undefined) {
     if (!matchEvidence) {return null;}
     try {

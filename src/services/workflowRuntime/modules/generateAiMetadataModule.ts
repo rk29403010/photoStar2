@@ -163,6 +163,8 @@ function persistMachineMetadataEvidence(params: {
             provider: params.result.provider,
             modelVersion: params.result.modelVersion,
             metadataBlock: params.result.metadataBlock,
+            approvedKeywords: params.result.approvedKeywords,
+            tagProposals: params.result.tagProposals,
         });
     }
 

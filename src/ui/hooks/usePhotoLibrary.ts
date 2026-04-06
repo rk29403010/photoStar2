@@ -12,7 +12,7 @@ import {
     createSystemActions,
     useLibraryTransport,
 } from '@boundary/runtime/usePhotoLibrary.commands';
-import { createAlbumActions, createBuildActions, createGroupActions } from '@boundary/runtime/usePhotoLibrary.actions';
+import { createAlbumActions, createBuildActions, createGroupActions, createTagActions } from '@boundary/runtime/usePhotoLibrary.actions';
 import { createWorkflowRecoveryActions } from '@boundary/runtime/workflowRecoveryActions';
 import {
     buildAssetRefreshPayload,
@@ -21,6 +21,8 @@ import {
     type RefreshLibraryOptions,
 } from './usePhotoLibrary.gallery';
 import { mergeAssetDetail } from './assetDetailMerge';
+import { useAssetRefreshById } from './assetRefreshById';
+import { applyAssetTagContext, fetchAssetTagContext } from './assetTagContext';
 import { buildPhotoLibraryResult, useConnectionParams } from './usePhotoLibrary.composition';
 import { useCoreActions } from './usePhotoLibrary.coreActions';
 
@@ -119,9 +121,11 @@ function useAssetLoadingActions(params: {
             timeoutMs: 10000,
             select: (data) => (data?.asset as Asset) || { id: assetId, original_path: '' },
         });
+        const tagContext = await fetchAssetTagContext(request, assetId);
+        const assetWithTagContext = applyAssetTagContext(asset, tagContext);
 
         setAssets((previousAssets) => previousAssets.map((existingAsset) => (
-            existingAsset.id === assetId ? mergeAssetDetail(existingAsset, asset) : existingAsset
+            existingAsset.id === assetId ? mergeAssetDetail(existingAsset, assetWithTagContext) : existingAsset
         )));
     }, [request, setAssets]);
 
@@ -386,6 +390,11 @@ function useComposedActions(
         refreshLibrary: refreshActions.refreshLibrary,
         setAssets: state.setAssets,
     }), [refreshActions.refreshLibrary, request, state.setAssets]);
+    const tagActions = useMemo(() => createTagActions({
+        request,
+        setAssets: state.setAssets,
+        refreshLibrary: refreshActions.refreshLibrary,
+    }), [refreshActions.refreshLibrary, request, state.setAssets]);
     const buildActions = useMemo(() => createBuildActions({
         transport: state.transport,
         request,
@@ -403,28 +412,16 @@ function useComposedActions(
         ...albumActions,
         ...photoMetadataActions,
         ...groupActions,
+        ...tagActions,
         ...buildActions,
-    }), [albumActions, buildActions, coreActions, groupActions, photoMetadataActions, refreshActions, workflowActions]);
+    }), [albumActions, buildActions, coreActions, groupActions, photoMetadataActions, refreshActions, tagActions, workflowActions]);
 }
 
 export function usePhotoLibrary() {
     const state = usePhotoLibraryState();
     const { jobs, addJob, updateJobState, updateJobProgress, removeJob, processEvent } = useJobManager();
     const { sendCommand, request } = useLibraryTransport(state.transport, state.addLog);
-    const { setAssets } = state;
-    const refreshAssetById = useCallback((assetId: string) => {
-        void request<Asset>({
-            idPrefix: `refresh_asset_${assetId}`,
-            command: 'get_asset_detail',
-            payload: { assetId, includeEvidence: false },
-            timeoutMs: 10000,
-            select: (data) => (data?.asset as Asset) || { id: assetId, original_path: '' },
-        }).then((asset) => {
-            setAssets((previousAssets) => previousAssets.map((existingAsset) => (
-                existingAsset.id === assetId ? mergeAssetDetail(existingAsset, asset) : existingAsset
-            )));
-        });
-    }, [request, setAssets]);
+    const refreshAssetById = useAssetRefreshById({ request, setAssets: state.setAssets });
 
     const connectionParams = useConnectionParams(state, { processEvent, updateJobProgress }, refreshAssetById);
 
