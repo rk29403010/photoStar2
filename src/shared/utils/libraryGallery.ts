@@ -1,6 +1,6 @@
 import type { Asset } from '@contracts/core';
 
-export type LibrarySortMode = 'filename' | 'date' | 'group';
+export type LibrarySortMode = 'filename' | 'date' | 'reverse-date' | 'group';
 
 export interface CurrentPhotoStatus {
     filename: string;
@@ -17,6 +17,25 @@ function getTimestampRank(timestampValue: string | null | undefined): number {
     if (!timestampValue) {return Number.NEGATIVE_INFINITY;}
     const timestamp = Date.parse(timestampValue);
     return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+}
+
+function compareGalleryDates(
+    left: Pick<Asset, 'id' | 'photo_created_at'>,
+    right: Pick<Asset, 'id' | 'photo_created_at'>,
+    newerFirst: boolean,
+) {
+    const leftRank = getTimestampRank(left.photo_created_at);
+    const rightRank = getTimestampRank(right.photo_created_at);
+    if (leftRank === rightRank) {
+        return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    if (leftRank === Number.NEGATIVE_INFINITY) {
+        return 1;
+    }
+    if (rightRank === Number.NEGATIVE_INFINITY) {
+        return -1;
+    }
+    return newerFirst ? rightRank - leftRank : leftRank - rightRank;
 }
 
 function getGroupSortKey(asset: Pick<Asset, 'group_id'>): string {
@@ -70,20 +89,7 @@ export function sortAssetsForGallery(assets: Asset[], mode: LibrarySortMode): As
         return sorted;
     }
 
-    sorted.sort((left, right) => {
-        const leftRank = getTimestampRank(left.photo_created_at);
-        const rightRank = getTimestampRank(right.photo_created_at);
-        if (leftRank === rightRank) {
-            return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
-        }
-        if (leftRank === Number.NEGATIVE_INFINITY) {
-            return 1;
-        }
-        if (rightRank === Number.NEGATIVE_INFINITY) {
-            return -1;
-        }
-        return rightRank - leftRank;
-    });
+    sorted.sort((left, right) => compareGalleryDates(left, right, mode === 'date'));
     return sorted;
 }
 

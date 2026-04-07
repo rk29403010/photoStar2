@@ -1,12 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { Asset } from '@contracts/core';
 
-export type FilterType = 'person_any' | 'person_all' | 'person_only' | 'album';
+export type FilterType = 'person_any' | 'person_all' | 'person_only' | 'album' | 'tag';
 
 export interface LibraryFilter {
     type: FilterType;
     personIds: string[];
     albumId?: string;
+    tag?: string;
     description?: string;
     persons?: { id: string; name: string }[];
 }

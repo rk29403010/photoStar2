@@ -27,6 +27,7 @@ export interface AppActionHandlers {
     handleClearAllFilters: () => void;
     handleUntagAsset: (assetId: string, personId: string) => void;
     handlePeopleFilter: (filter: Parameters<ReturnType<typeof usePhotoLibrary>['actions']['pushFilter']>[0]) => void;
+    handleTagFilter: (tag: string) => void;
     handleOpenAlbum: (albumId: string, albumTitle: string) => void;
     handleScan: (specificPath?: string) => Promise<void>;
     handleOverlayRefresh: () => void;

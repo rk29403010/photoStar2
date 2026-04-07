@@ -25,6 +25,18 @@ test('sortAssetsForGallery sorts by photo_created_at descending in date mode', a
     assert.deepEqual(sorted.map((asset) => asset.id), ['2', '1', '3']);
 });
 
+test('sortAssetsForGallery sorts by photo_created_at ascending in reverse-date mode', async () => {
+    const { sortAssetsForGallery } = await import('../../dist/core/src/shared/utils/libraryGallery.js');
+
+    const sorted = sortAssetsForGallery([
+        { id: '1', original_path: 'C:/photos/a.jpg', created_at: '2026-01-01T00:00:00.000Z', photo_created_at: '2024-01-01T00:00:00.000Z' },
+        { id: '3', original_path: 'C:/photos/c.jpg', created_at: '2027-01-01T00:00:00.000Z', photo_created_at: null },
+        { id: '2', original_path: 'C:/photos/b.jpg', created_at: '2025-01-01T00:00:00.000Z', photo_created_at: '2025-01-01T00:00:00.000Z' },
+    ], 'reverse-date');
+
+    assert.deepEqual(sorted.map((asset) => asset.id), ['1', '2', '3']);
+});
+
 test('sortAssetsForGallery sorts by group id then asset id in group mode', async () => {
     const { sortAssetsForGallery } = await import('../../dist/core/src/shared/utils/libraryGallery.js');
 
