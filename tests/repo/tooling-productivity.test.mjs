@@ -138,5 +138,6 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['thread:register'], 'node tooling/scripts/repo/thread-state.js register');
     assert.equal(scripts['thread:update'], 'node tooling/scripts/repo/thread-state.js update');
     assert.equal(scripts['thread:close'], 'node tooling/scripts/repo/thread-state.js close');
+    assert.equal(scripts['thread:new'], 'node tooling/scripts/repo/thread-bootstrap.js');
     assert.equal(scripts['thread:start-dev'], 'node tooling/scripts/repo/thread-dev-session.js');
 });

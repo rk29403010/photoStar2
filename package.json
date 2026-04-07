@@ -26,6 +26,7 @@
     "thread:register": "node tooling/scripts/repo/thread-state.js register",
     "thread:update": "node tooling/scripts/repo/thread-state.js update",
     "thread:close": "node tooling/scripts/repo/thread-state.js close",
+    "thread:new": "node tooling/scripts/repo/thread-bootstrap.js",
     "thread:start-dev": "node tooling/scripts/repo/thread-dev-session.js",
     "photo-date:review-report": "node tooling/scripts/repo/photo-date-review-report.mjs",
     "dev:desktop": "node tooling/scripts/repo/run-tauri-dev.js",

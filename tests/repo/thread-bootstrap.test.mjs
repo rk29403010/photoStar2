@@ -1,0 +1,67 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import {
+    buildThreadBootstrapPlan,
+    normalizeThreadSlug,
+    resolveRepositoryRootFromCommonDir,
+    resolvePreferredWorktreeDirectory,
+} from '../../tooling/scripts/repo/thread-bootstrap.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const workspaceRoot = path.resolve(__dirname, '..', '..');
+
+test('normalizeThreadSlug creates a lowercase dash slug', () => {
+    assert.equal(normalizeThreadSlug('Automatic Thread Worktrees'), 'automatic-thread-worktrees');
+});
+
+test('normalizeThreadSlug removes punctuation and collapses whitespace', () => {
+    assert.equal(normalizeThreadSlug('  Ship it? No, isolate it first.  '), 'ship-it-no-isolate-it-first');
+});
+
+test('resolvePreferredWorktreeDirectory prefers .worktrees over worktrees', () => {
+    assert.equal(
+        resolvePreferredWorktreeDirectory({
+            availableDirectories: new Set(['.worktrees', 'worktrees']),
+            ignoredDirectories: new Set(['.worktrees', 'worktrees']),
+        }),
+        '.worktrees',
+    );
+});
+
+test('resolvePreferredWorktreeDirectory rejects project-local directories that are not ignored', () => {
+    assert.throws(
+        () => resolvePreferredWorktreeDirectory({
+            availableDirectories: new Set(['.worktrees']),
+            ignoredDirectories: new Set(),
+        }),
+        /ignored/i,
+    );
+});
+
+test('buildThreadBootstrapPlan derives branch and worktree path from the task slug', () => {
+    assert.deepEqual(
+        buildThreadBootstrapPlan({
+            task: 'Automatic Thread Worktrees',
+            workspaceRoot,
+            worktreeDirectory: '.worktrees',
+        }),
+        {
+            task: 'Automatic Thread Worktrees',
+            slug: 'automatic-thread-worktrees',
+            branch: 'codex/automatic-thread-worktrees',
+            worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
+        },
+    );
+});
+
+test('resolveRepositoryRootFromCommonDir returns the parent of the shared .git directory', () => {
+    assert.equal(
+        resolveRepositoryRootFromCommonDir(
+            path.join(workspaceRoot, '.git', 'worktrees', 'automatic-thread-worktrees'),
+        ),
+        workspaceRoot,
+    );
+});
