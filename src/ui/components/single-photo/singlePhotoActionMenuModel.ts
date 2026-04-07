@@ -1,4 +1,5 @@
 import type { Asset } from '@contracts/core';
+import { getLibraryBinActionLabel as getSharedLibraryBinActionLabel } from '../app/libraryBinActionModel';
 
 type GroupedAsset = Asset & { role?: string | null };
 
@@ -21,4 +22,8 @@ export function getSelectAsStarLabel(): string {
 
 export function getExplodeGroupLabel(): string {
     return 'Explode Group';
+}
+
+export function getLibraryBinActionLabel(action: 'move_to_bin' | 'restore'): string {
+    return getSharedLibraryBinActionLabel(action);
 }

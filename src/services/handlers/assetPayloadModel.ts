@@ -12,6 +12,7 @@ export type AssetPayloadRow = {
     height: number | null;
     file_size: number | null;
     created_at: string | null;
+    binned_at?: string | null;
     photo_created_at?: string | null;
     photo_created_at_confidence?: number | null;
     exif_datetime?: string | null;
@@ -212,21 +213,40 @@ function parseMatchEvidence(matchEvidence: string | null | undefined) {
     }
 }
 
-function buildAssetFileFields(row: AssetPayloadRow) {
+function buildAssetDimensionFields(row: AssetPayloadRow) {
     return {
-        id: row.id,
-        original_path: row.original_path,
         width: row.width ?? undefined,
         height: row.height ?? undefined,
         file_size: row.file_size ?? undefined,
+        preview_path: row.preview_path ?? undefined,
+    };
+}
+
+function buildAssetTimestampFields(row: AssetPayloadRow) {
+    return {
         created_at: row.created_at ?? undefined,
+        binned_at: row.binned_at ?? null,
         photo_created_at: row.photo_created_at ?? null,
         photo_created_at_confidence: row.photo_created_at_confidence ?? null,
         exif_datetime: row.exif_datetime ?? null,
         metadata_timestamp_source: row.metadata_timestamp_source ?? null,
-        preview_path: row.preview_path ?? undefined,
+    };
+}
+
+function buildAssetSensitivityFields(row: AssetPayloadRow) {
+    return {
         sensitivity_score: row.sensitivity_score,
         sensitivity_status: row.sensitivity_status,
+    };
+}
+
+function buildAssetFileFields(row: AssetPayloadRow) {
+    return {
+        id: row.id,
+        original_path: row.original_path,
+        ...buildAssetDimensionFields(row),
+        ...buildAssetTimestampFields(row),
+        ...buildAssetSensitivityFields(row),
     };
 }
 

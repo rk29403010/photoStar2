@@ -20,6 +20,7 @@ type AssetRow = {
     height: number;
     file_size: number;
     created_at: string;
+    binned_at: string | null;
     photo_created_at: string | null;
     photo_created_at_confidence: number | null;
     exif_datetime: string | null;
@@ -136,7 +137,7 @@ function buildFilteredAssetsQuery(
     return {
         sql: `
             ${GROUP_HIERARCHY_CTE}
-            SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
+            SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence,
                 ${detail.projectionSelect}
                 a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 am.sensitivity_status,
@@ -204,7 +205,7 @@ function buildGroupedAssetsQuery(
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence,
                 ${detail.projectionSelect}
                 a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
@@ -234,7 +235,7 @@ function buildGroupedAssetsQuery(
             ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
-            WHERE ${buildPrimaryGroupVisibilityPredicate('a')}${timelineSeekSql}
+            WHERE ${buildPrimaryGroupVisibilityPredicate('a')} AND a.binned_at IS NULL${timelineSeekSql}
             GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${evidenceGroupBy}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
@@ -268,7 +269,7 @@ function buildUngroupedAssetsQuery(
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence,
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence,
                 ${detail.projectionSelect}
                 a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
@@ -298,7 +299,7 @@ function buildUngroupedAssetsQuery(
             ${detail.embeddedMetadataJoin}
             LEFT JOIN face_assignments fa ON a.id = fa.asset_id
             LEFT JOIN people ppl ON fa.person_id = ppl.id
-            WHERE 1=1${timelineSeekSql}
+            WHERE 1=1 AND a.binned_at IS NULL${timelineSeekSql}
             GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${evidenceGroupBy}
             ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
             LIMIT ? OFFSET ?
@@ -323,7 +324,7 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
         sql: `
             ${GROUP_HIERARCHY_CTE}
             SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
+                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
                 ${detail.projectionSelect}
                 a.sensitivity_score,
                 am.sensitivity_status,

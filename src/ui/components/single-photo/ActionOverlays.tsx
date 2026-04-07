@@ -22,6 +22,8 @@ interface ActionOverlaysProps {
     onPrevious: () => void;
     onNext: () => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onMoveToBin?: (assetId: string) => Promise<void>;
+    onRestoreFromBin?: (assetId: string) => Promise<void>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
@@ -55,6 +57,8 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
     onPrevious,
     onNext,
     onSetSensitivity,
+    onMoveToBin,
+    onRestoreFromBin,
     onSetCanonical,
     onExplodeGroup,
     onExtractAiMetadata,
@@ -87,6 +91,8 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
             onPrevious={onPrevious}
             onNext={onNext}
             onSetSensitivity={onSetSensitivity}
+            onMoveToBin={onMoveToBin}
+            onRestoreFromBin={onRestoreFromBin}
             onSetCanonical={onSetCanonical}
             onExplodeGroup={onExplodeGroup}
             onExtractAiMetadata={onExtractAiMetadata}

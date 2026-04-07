@@ -11,7 +11,7 @@ import { usePhotoViewportImageState } from './usePhotoViewportImageState';
 import { useViewportStageDimensions } from './useViewportStageDimensions';
 export interface PanelState { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json') => void }
 export interface AnalysisState { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
-interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; onOrbitLoaded: (assets: Asset[]) => void; onSelectAsset: (assetId: string) => void; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
+interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onMoveToBin?: (assetId: string) => Promise<void>; onRestoreFromBin?: (assetId: string) => Promise<void>; onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; onOrbitLoaded: (assets: Asset[]) => void; onSelectAsset: (assetId: string) => void; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
 
 const ViewportActions: FC<{
     asset: Asset;
@@ -31,6 +31,8 @@ const ViewportActions: FC<{
     onClose: () => void;
     onChangeIndex: (delta: -1 | 1) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onMoveToBin?: (assetId: string) => Promise<void>;
+    onRestoreFromBin?: (assetId: string) => Promise<void>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
@@ -54,6 +56,8 @@ const ViewportActions: FC<{
     onClose,
     onChangeIndex,
     onSetSensitivity,
+    onMoveToBin,
+    onRestoreFromBin,
     onSetCanonical,
     onExplodeGroup,
     onExtractAiMetadata,
@@ -80,6 +84,8 @@ const ViewportActions: FC<{
         onPrevious={() => onChangeIndex(-1)}
         onNext={() => onChangeIndex(1)}
         onSetSensitivity={onSetSensitivity}
+        onMoveToBin={onMoveToBin}
+        onRestoreFromBin={onRestoreFromBin}
         onSetCanonical={onSetCanonical}
         onExplodeGroup={onExplodeGroup}
         onExtractAiMetadata={onExtractAiMetadata}
@@ -127,6 +133,8 @@ type PhotoViewportFrameProps = {
     onClose: () => void;
     onChangeIndex: (delta: -1 | 1) => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onMoveToBin?: (assetId: string) => Promise<void>;
+    onRestoreFromBin?: (assetId: string) => Promise<void>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
@@ -207,7 +215,7 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
     );
 };
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onMoveToBin' | 'onRestoreFromBin' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
     selectedAsset,
     actionAsset,
     assetsLength,
@@ -226,6 +234,8 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'a
     onClose,
     onChangeIndex,
     onSetSensitivity,
+    onMoveToBin,
+    onRestoreFromBin,
     onSetCanonical,
     onExplodeGroup,
     onExtractAiMetadata,
@@ -255,6 +265,8 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'a
             onClose={onClose}
             onChangeIndex={onChangeIndex}
             onSetSensitivity={onSetSensitivity}
+            onMoveToBin={onMoveToBin}
+            onRestoreFromBin={onRestoreFromBin}
             onSetCanonical={onSetCanonical}
             onExplodeGroup={onExplodeGroup}
             onExtractAiMetadata={onExtractAiMetadata}
@@ -401,6 +413,8 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             onClose={props.onClose}
             onChangeIndex={props.onChangeIndex}
             onSetSensitivity={props.onSetSensitivity}
+            onMoveToBin={props.onMoveToBin}
+            onRestoreFromBin={props.onRestoreFromBin}
             onSetCanonical={groupActions.handleSetCanonical}
             onExplodeGroup={groupActions.handleExplodeGroup}
             onExtractAiMetadata={props.onExtractAiMetadata}

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CurrentPhotoStatus } from '@shared/utils/libraryGallery';
 import type { DevRuntimeImpact } from '@contracts/devRuntime';
 import {
   createEmptyLibrarySelectionState,
   type LibrarySelectionState,
 } from '@shared/utils/librarySelectionState';
+import type { StatusBanner } from '@ui/components/app/statusBannerModel';
+import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel';
 import { usePersistedState } from './usePersistedState';
 
 export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
@@ -65,7 +67,10 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [showGroupIds, setShowGroupIds] = usePersistedState<boolean>('ps_show_group_ids', false);
   const [declusteredAssets, setDeclusteredAssets] = useState<Set<string>>(new Set());
   const [showRejected, setShowRejected] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusBanner, setStatusBanner] = useState<StatusBanner | null>(null);
+  const setStatusMessage = useCallback((message: string | null) => {
+    setStatusBanner(message ? createStatusMessageBanner(message) : null);
+  }, []);
   const [isTaskDrawerMinimized, setIsTaskDrawerMinimized] = useState(false);
   const [hoveredLibraryPhoto, setHoveredLibraryPhoto] = useState<CurrentPhotoStatus | null>(null);
   const devRuntimeImpact = useDevRuntimeImpact(import.meta.env.DEV, getDevRuntimeImpact);
@@ -101,7 +106,8 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
     setDeclusteredAssets,
     showRejected,
     setShowRejected,
-    statusMessage,
+    statusBanner,
+    setStatusBanner,
     setStatusMessage,
     isTaskDrawerMinimized,
     setIsTaskDrawerMinimized,

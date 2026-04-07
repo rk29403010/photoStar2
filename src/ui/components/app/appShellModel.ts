@@ -24,6 +24,8 @@ export interface AppActionHandlers {
     handleDeclusterSelection: (personId: string) => void;
     handleBulkTagSelection: () => Promise<void>;
     handleBulkUntagSelection: () => Promise<void>;
+    handleMoveSelectionToBin: () => Promise<void>;
+    handleRestoreSelectionFromBin: () => Promise<void>;
     handleToggleRejected: (personId: string) => void;
     handleFilterBack: () => void;
     handleClearAllFilters: () => void;
@@ -34,6 +36,8 @@ export interface AppActionHandlers {
     handleScan: (specificPath?: string) => Promise<void>;
     handleOverlayRefresh: () => void;
     handleFaceClick: (personId: string, personName: string) => void;
+    handleMoveAssetToBin: (assetId: string) => Promise<void>;
+    handleRestoreAssetFromBin: (assetId: string) => Promise<void>;
     handleOpenSettingsFromPhoto: () => void;
 }
 

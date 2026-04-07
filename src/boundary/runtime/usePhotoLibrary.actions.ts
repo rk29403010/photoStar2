@@ -171,6 +171,18 @@ export function createAlbumActions(params: AlbumActionParams) {
             payload: { albumId, assetIds },
             select: () => undefined,
         }),
+        moveToBin: (assetIds: string[]): Promise<void> => request<void>({
+            idPrefix: 'move_to_bin',
+            command: 'move_to_bin',
+            payload: { assetIds },
+            select: () => undefined,
+        }),
+        restoreFromBin: (assetIds: string[]): Promise<void> => request<void>({
+            idPrefix: 'restore_from_bin',
+            command: 'restore_from_bin',
+            payload: { assetIds },
+            select: () => undefined,
+        }),
         deleteAlbum: (albumId: string): Promise<void> => request<void>({
             idPrefix: 'delete_album',
             command: 'delete_album',

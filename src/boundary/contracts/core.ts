@@ -206,6 +206,7 @@ export interface Asset {
     width?: number;
     height?: number;
     created_at?: string;
+    binned_at?: string | null;
     photo_created_at?: string | null;
     photo_created_at_confidence?: number | null;
     exif_datetime?: string | null;
@@ -300,6 +301,8 @@ export interface Album {
     description: string | null;
     cover_asset_id: string | null;
     rules_json: string | null;
+    is_system?: boolean;
+    system_kind?: 'bin' | null;
     created_at: string;
     item_count: number;
     cover_preview_path: string | null;

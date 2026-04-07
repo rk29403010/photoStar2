@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import metadata from '../../../../metadata.json';
 import type { CurrentPhotoStatus } from '@shared/utils/libraryGallery';
+import type { StatusBanner } from './statusBannerModel';
 
 interface AppStatusBarProps {
-  statusMessage: string | null;
+  statusBanner: StatusBanner | null;
   activityMessage?: string | null;
   status: string;
   view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
@@ -16,8 +17,8 @@ interface AppStatusBarProps {
   rightSlot?: ReactNode;
 }
 
-function getStatusDotColor(statusMessage: string | null, status: string): string {
-  if (statusMessage) {
+function getStatusDotColor(statusBanner: StatusBanner | null, status: string): string {
+  if (statusBanner) {
     return '#60a5fa';
   }
 
@@ -74,9 +75,9 @@ function CurrentPhotoSegment({ currentPhoto }: { currentPhoto: CurrentPhotoStatu
   );
 }
 
-export function AppStatusBar({ statusMessage, activityMessage, status, view, librarySelectionCount, shownAssetsCount, peopleSelectionCount, totalPhotoCount, peopleCount, currentPhoto, rightSlot }: AppStatusBarProps) {
-  const displayedStatus = statusMessage ?? activityMessage ?? status;
-  const dotColor = getStatusDotColor(displayedStatus === status ? null : displayedStatus, status);
+export function AppStatusBar({ statusBanner, activityMessage, status, view, librarySelectionCount, shownAssetsCount, peopleSelectionCount, totalPhotoCount, peopleCount, currentPhoto, rightSlot }: AppStatusBarProps) {
+  const displayedStatus = statusBanner?.message ?? activityMessage ?? status;
+  const dotColor = getStatusDotColor(displayedStatus === status ? null : statusBanner, status);
   const summary = buildStatusSummary(view, {
     librarySelectionCount,
     shownAssetsCount,
@@ -92,6 +93,24 @@ export function AppStatusBar({ statusMessage, activityMessage, status, view, lib
       <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
         <span style={{ marginRight: 8, color: dotColor }}>●</span>
         <span style={{ color: displayedStatus !== status ? '#93c5fd' : undefined }}>{displayedStatus}</span>
+        {statusBanner?.actionLabel && statusBanner.onAction && (
+          <button
+            type="button"
+            onClick={statusBanner.onAction}
+            style={{
+              marginLeft: 10,
+              border: '1px solid rgba(147,197,253,0.45)',
+              background: 'rgba(59,130,246,0.12)',
+              color: '#bfdbfe',
+              borderRadius: 999,
+              cursor: 'pointer',
+              fontSize: '0.78rem',
+              padding: '2px 10px',
+            }}
+          >
+            {statusBanner?.actionLabel}
+          </button>
+        )}
       </div>
       <div style={{ marginRight: 16 }}>{summary}</div>
       {currentPhoto && <CurrentPhotoSegment currentPhoto={currentPhoto} />}

@@ -1,3 +1,5 @@
+import { isBinAlbumId } from './binAlbum';
+
 type AssetQueryFilter = {
     personIds?: string[];
     type?: string;
@@ -11,7 +13,11 @@ function buildAlbumFilterSubquery(filter: AssetQueryFilter, params: (string | nu
     }
 
     params.push(filter.albumId);
-    return 'AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
+    if (isBinAlbumId(filter.albumId)) {
+        return 'AND a.binned_at IS NOT NULL AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
+    }
+
+    return 'AND a.binned_at IS NULL AND a.id IN (SELECT asset_id FROM album_items WHERE album_id = ?)';
 }
 
 function buildTagFilterSubquery(filter: AssetQueryFilter, params: (string | number)[]) {
@@ -69,8 +75,16 @@ export function buildFilterSubquery(
 ) {
     if (!filter) {return '';}
 
-    return buildAlbumFilterSubquery(filter, params)
-        ?? buildTagFilterSubquery(filter, params)
+    const albumFilterSubquery = buildAlbumFilterSubquery(filter, params);
+    if (albumFilterSubquery) {
+        return albumFilterSubquery;
+    }
+
+    const visibilitySubquery = 'AND a.binned_at IS NULL';
+
+    return `${visibilitySubquery}${
+        buildTagFilterSubquery(filter, params)
         ?? buildPersonFilterSubquery(filter, params)
-        ?? '';
+        ?? ''
+    }`;
 }

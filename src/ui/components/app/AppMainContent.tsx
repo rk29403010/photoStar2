@@ -107,6 +107,8 @@ interface AppMainContentProps {
   }) => Promise<ReviewItemSummary[]>;
   onAssignAssetTag: (assetId: string, tagLabel: string) => Promise<void>;
   onRemoveAssetTag: (assetId: string, tagDefinitionId: string) => Promise<void>;
+  onMoveAssetToBin: (assetId: string) => Promise<void>;
+  onRestoreAssetFromBin: (assetId: string) => Promise<void>;
   onSetReviewItemStatus: (payload: {
     reviewItemId: string;
     status: ReviewItemSummary['status'];
