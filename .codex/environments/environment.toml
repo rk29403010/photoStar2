@@ -4,3 +4,8 @@ name = "photoStar2"
 
 [setup]
 script = ""
+
+[[actions]]
+name = "Debug"
+icon = "tool"
+command = "npm run dev:desktop-runtime"
