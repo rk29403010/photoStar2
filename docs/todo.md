@@ -11,6 +11,10 @@
 
 1. Manual Clustering - Allow users to manually merge clusters of faces/people. Like all manual operations, this should be done in a way that is easy to undo. The data should be stored seperately from automatically clustered data.
 2. It should also be possible to remove one/more faces from automatically generated clusters.
+3. Introduce extra intelligence using family history and biographical data:
+   1. Start with family tree support by allowing users to upload `.ged` family history files.
+   2. Parse imported tree data so it can help identify likely people, relationships, and family groupings across photos.
+   3. Design for richer person profiles over time, including biographical information such as jobs, military or other uniformed service, pets, and close friends.
 
 ## General UI
 
