@@ -59,7 +59,15 @@ function persistPhotoDateEstimate(params: {
     photoCreatedAt: string;
     confidenceScore: number;
     estimateJson: string;
-}): void {
+}): boolean {
+    const existingAsset = params.db.prepare(`
+        SELECT photo_created_at
+        FROM assets
+        WHERE id = ?
+        LIMIT 1
+    `).get(params.assetId) as { photo_created_at: string | null } | undefined;
+    const didPhotoCreatedAtChange = (existingAsset?.photo_created_at ?? null) !== params.photoCreatedAt;
+
     params.db.prepare(`
         UPDATE assets
         SET photo_created_at = ?,
@@ -88,13 +96,15 @@ function persistPhotoDateEstimate(params: {
             DELETE FROM derived_results
             WHERE asset_id = ? AND task = 'photo_date_estimate' AND id <> ?
         `).run(params.assetId, existing.id);
-        return;
+        return didPhotoCreatedAtChange;
     }
 
     params.db.prepare(`
         INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
         VALUES (lower(hex(randomblob(16))), ?, 'photo_date_estimate', 'runtime', '1.0', ?)
     `).run(params.assetId, params.estimateJson);
+
+    return didPhotoCreatedAtChange;
 }
 
 export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOptions): ModuleDefinition {
@@ -126,7 +136,7 @@ export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOp
             });
             const estimate = estimatePhotoDate(resolvedEvidence);
 
-            persistPhotoDateEstimate({
+            const didPhotoCreatedAtChange = persistPhotoDateEstimate({
                 db,
                 assetId: row.id,
                 photoCreatedAt: estimate.photoCreatedAt,
@@ -134,10 +144,12 @@ export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOp
                 estimateJson: JSON.stringify(estimate),
             });
 
-            options.eventBus?.emit({
-                type: 'AssetUpdated',
-                assetId: row.id,
-            });
+            if (didPhotoCreatedAtChange) {
+                options.eventBus?.emit({
+                    type: 'AssetUpdated',
+                    assetId: row.id,
+                });
+            }
 
             return {
                 outputs: [{ kind: 'artifact', artifactType: 'photo_date_estimate', subjectType: 'asset' }],

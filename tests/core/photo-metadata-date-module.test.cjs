@@ -271,3 +271,58 @@ test('runtime.estimate_photo_date persists the resolved date back onto the asset
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('runtime.estimate_photo_date only emits AssetUpdated when the resolved created date changes', async () => {
+    const tempDir = createTempDir();
+    const imagePath = createFixtureImage(tempDir, 'family-1972-scan.png');
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const emittedEvents = [];
+    const { createEstimatePhotoDateModule } = loadModuleWithStubs({
+        '../../photoMetadata/dateResolver': {
+            resolvePhotoDateEvidence: (params) => ({
+                originalPath: params.originalPath,
+                fileBirthtime: '2002-02-03T04:05:06.000Z',
+                embeddedMetadata: null,
+                aiMetadata: {
+                    estimated_date: {
+                        most_likely_date: '2002-02-03T04:05:06.000Z',
+                        min_date: '2002-02-03T04:05:06.000Z',
+                        max_date: '2002-02-03T04:05:06.000Z',
+                        display_label: 'resolved date',
+                        rationale: null,
+                    },
+                },
+            }),
+        },
+        '../../photoDateEstimate': {
+            estimatePhotoDate: () => createResolvedEstimate(),
+        },
+    });
+    let dbManager;
+
+    try {
+        dbManager = new DatabaseManager(tempDir);
+        const db = dbManager.getDb();
+        db.prepare(`
+            INSERT INTO assets (id, original_path, file_hash, file_size, width, height, exif_datetime, metadata_timestamp_source, created_at, photo_created_at, photo_created_at_confidence)
+            VALUES ('asset-3', ?, NULL, 67, 1, 1, NULL, NULL, '2026-03-21T00:00:00.000Z', '2001-01-02T03:04:05.000Z', 0.12)
+        `).run(imagePath);
+
+        const moduleDefinition = createEstimatePhotoDateModule({
+            dbManager,
+            eventBus: { emit(event) { emittedEvents.push(event); } },
+        });
+
+        await moduleDefinition.run({
+            runId: 'run-3',
+            subject: { subjectType: 'asset', subjectId: 'asset-3' },
+            batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-3' }],
+            parameters: {},
+        });
+
+        assert.deepEqual(emittedEvents, []);
+    } finally {
+        dbManager?.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
