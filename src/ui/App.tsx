@@ -14,6 +14,7 @@ import {
 import { useAppUiState, type AppView } from './hooks/useAppRuntimeUi';
 import { useGroupDiagnosticsView } from './hooks/useGroupDiagnosticsView';
 import { usePhotoDateReviewHandler } from './hooks/usePhotoDateReviewHandler';
+import { usePhotoBinActions } from './hooks/usePhotoBinActions';
 import { promptBulkTagSelection, promptBulkUntagSelection } from './hooks/libraryTagSelectionPrompts';
 import {
     LoadedAppShell,
@@ -85,7 +86,7 @@ function useSelectionRecovery(
     assets: ReturnType<typeof usePhotoLibrary>['assets'],
     selectedAssetId: string | null,
     setSelectedAssetId: (assetId: string | null) => void,
-    setStatusMessage: Dispatch<SetStateAction<string | null>>,
+    setStatusMessage: (message: string | null) => void,
 ) {
     useEffect(() => {
         if (!selectedAssetId || assets.length === 0) {return;}
@@ -102,7 +103,7 @@ function useSelectionRecovery(
     }, [assets, selectedAssetId, setSelectedAssetId, setStatusMessage]);
 }
 
-function useAppActionHandlers(params: UseAppActionHandlersParams): AppActionHandlers {
+function useAppActionHandlers(params: UseAppActionHandlersParams) {
     const {
         actions,
         aiMode,
@@ -396,7 +397,15 @@ function useAppShellState(photoLibrary: ReturnType<typeof usePhotoLibrary>) {
     const { actions, assets, filterStack, jobs } = photoLibrary;
     const uiState = useAppUiState(actions.getDevRuntimeImpact);
     const { aiMode } = uiState;
-    const handlers = useAppActionHandlers({
+    const binActions = usePhotoBinActions({
+        actions,
+        librarySelection: uiState.librarySelection,
+        setLibrarySelection: uiState.setLibrarySelection,
+        selectedAssetId: uiState.selectedAssetId,
+        setSelectedAssetId: uiState.setSelectedAssetId,
+        setStatusBanner: uiState.setStatusBanner,
+    });
+    const baseHandlers = useAppActionHandlers({
         assets,
         filterStack,
         showRejected: uiState.showRejected,
@@ -412,6 +421,10 @@ function useAppShellState(photoLibrary: ReturnType<typeof usePhotoLibrary>) {
         setSelectedAssetId: uiState.setSelectedAssetId,
         setShowSettings: uiState.setShowSettings,
     });
+    const handlers: AppActionHandlers = {
+        ...baseHandlers,
+        ...binActions,
+    };
     const overlayJobState = useOverlayJobState(actions, jobs, uiState.setIsTaskDrawerMinimized);
     const handleExtractAiMetadata = useExtractAiMetadataHandler(actions, aiMode);
 

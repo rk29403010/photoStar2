@@ -2,7 +2,7 @@ import type React from 'react';
 import type { Asset } from '@contracts/core';
 import { TopBar, ZoomBar } from './ActionOverlayChrome';
 import { NavButtons } from './ActionOverlayNavButtons';
-import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
+import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getLibraryBinActionLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
 
 export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
 
@@ -23,6 +23,8 @@ interface ControlsOverlayProps {
     onPrevious: () => void;
     onNext: () => void;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onMoveToBin?: (assetId: string) => Promise<void>;
+    onRestoreFromBin?: (assetId: string) => Promise<void>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
@@ -47,6 +49,8 @@ interface ActionMenuProps {
     setAnalyzingJobId: (id: string | null) => void;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
+    onMoveToBin?: (assetId: string) => Promise<void>;
+    onRestoreFromBin?: (assetId: string) => Promise<void>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     setShowActionMenu: (show: boolean) => void;
@@ -267,6 +271,33 @@ function SensitivityMenuItems({ asset, onSetSensitivity, setShowActionMenu }: Pi
     );
 }
 
+function BinMenuItem(props: Pick<ActionMenuProps, 'asset' | 'onMoveToBin' | 'onRestoreFromBin' | 'setShowActionMenu'>) {
+    const { asset, onMoveToBin, onRestoreFromBin, setShowActionMenu } = props;
+    const isBinned = Boolean(asset.binned_at);
+    const handler = isBinned ? onRestoreFromBin : onMoveToBin;
+
+    if (!handler) {
+        return null;
+    }
+
+    return (
+        <>
+            <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
+            <MenuItem
+                color={isBinned ? '#4ade80' : '#67e8f9'}
+                active={false}
+                icon={isBinned ? '↩' : '🗑'}
+                label={getLibraryBinActionLabel(asset.binned_at ? 'restore' : 'move_to_bin')}
+                onClick={async (event) => {
+                    event.stopPropagation();
+                    await handler(asset.id);
+                    closeActionMenu(setShowActionMenu);
+                }}
+            />
+        </>
+    );
+}
+
 function GroupMenuItems(props: Pick<ActionMenuProps, 'asset' | 'onSetCanonical' | 'onExplodeGroup' | 'setShowActionMenu'>) {
     const { asset, onSetCanonical, onExplodeGroup, setShowActionMenu } = props;
     const showSelectAsStar = onSetCanonical && canSelectAsStar(asset);
@@ -323,6 +354,7 @@ const ActionMenu: React.FC<ActionMenuProps> = (props) => {
         <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: '#111827', border: '1px solid #1f2937', borderRadius: '10px', padding: '6px', minWidth: '200px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <AiActionMenuItem {...props} />
             <GroupMenuItems asset={props.asset} onSetCanonical={props.onSetCanonical} onExplodeGroup={props.onExplodeGroup} setShowActionMenu={props.setShowActionMenu} />
+            <BinMenuItem asset={props.asset} onMoveToBin={props.onMoveToBin} onRestoreFromBin={props.onRestoreFromBin} setShowActionMenu={props.setShowActionMenu} />
             <SensitivityMenuItems asset={props.asset} onSetSensitivity={props.onSetSensitivity} setShowActionMenu={props.setShowActionMenu} />
         </div>
     );
@@ -345,6 +377,8 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     onPrevious,
     onNext,
     onSetSensitivity,
+    onMoveToBin,
+    onRestoreFromBin,
     onSetCanonical,
     onExplodeGroup,
     onExtractAiMetadata,
@@ -379,6 +413,8 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
                         setAnalyzingJobId={setAnalyzingJobId}
                         onExtractAiMetadata={onExtractAiMetadata}
                         onSetSensitivity={onSetSensitivity}
+                        onMoveToBin={onMoveToBin}
+                        onRestoreFromBin={onRestoreFromBin}
                         onSetCanonical={onSetCanonical}
                         onExplodeGroup={onExplodeGroup}
                         setShowActionMenu={setShowActionMenu}

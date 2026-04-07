@@ -15,6 +15,7 @@ export const SCHEMA_SQL = `
     exif_datetime TEXT,
     metadata_timestamp_source TEXT,
     sensitivity_score INTEGER,
+    binned_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -394,6 +395,8 @@ export const SCHEMA_SQL = `
     description TEXT,
     cover_asset_id TEXT,
     rules_json TEXT,
+    is_system INTEGER NOT NULL DEFAULT 0,
+    system_kind TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cover_asset_id) REFERENCES assets(id) ON DELETE SET NULL
   );
@@ -441,6 +444,9 @@ export const MIGRATIONS = [
     "ALTER TABLE assets ADD COLUMN metadata_timestamp_source TEXT",
     "ALTER TABLE assets ADD COLUMN photo_created_at TEXT",
     "ALTER TABLE assets ADD COLUMN photo_created_at_confidence REAL",
+    "ALTER TABLE assets ADD COLUMN binned_at TEXT",
+    "ALTER TABLE albums ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE albums ADD COLUMN system_kind TEXT",
 ];
 
 export const LEGACY_QUEUE_TABLE_NAME = joinLegacyName('task', 'queue');

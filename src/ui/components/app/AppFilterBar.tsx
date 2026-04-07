@@ -1,6 +1,7 @@
 import { PERSON_COLORS } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { getLibrarySelectionCount, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { getLibraryBinActionLabel, isBinLibraryFilter } from './libraryBinActionModel';
 
 interface AppFilterBarProps {
   view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
@@ -10,6 +11,8 @@ interface AppFilterBarProps {
   onDeclusterSelection: (personId: string) => void;
   onBulkTagSelection: () => Promise<void>;
   onBulkUntagSelection: () => Promise<void>;
+  onMoveSelectionToBin: () => Promise<void>;
+  onRestoreSelectionFromBin: () => Promise<void>;
   onClearSelection: () => void;
   onToggleRejected: (personId: string) => void;
   onBack: () => void;
@@ -65,21 +68,29 @@ function FilterTrail({ filterStack }: { filterStack: LibraryFilter[] }) {
 function SelectionActions({
   selectionCount,
   singlePersonId,
+  isViewingBin,
   onDeclusterSelection,
   onBulkTagSelection,
   onBulkUntagSelection,
+  onMoveSelectionToBin,
+  onRestoreSelectionFromBin,
   onClearSelection,
 }: {
   selectionCount: number;
   singlePersonId: string | null;
+  isViewingBin: boolean;
   onDeclusterSelection: (personId: string) => void;
   onBulkTagSelection: () => Promise<void>;
   onBulkUntagSelection: () => Promise<void>;
+  onMoveSelectionToBin: () => Promise<void>;
+  onRestoreSelectionFromBin: () => Promise<void>;
   onClearSelection: () => void;
 }) {
   if (selectionCount === 0) {
     return null;
   }
+
+  const binActionLabel = getLibraryBinActionLabel(isViewingBin ? 'restore' : 'move_to_bin');
 
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginRight: '16px', borderRight: '1px solid #3b82f6', paddingRight: '16px' }}>
@@ -94,6 +105,19 @@ function SelectionActions({
       </button>
       <button onClick={() => void onBulkUntagSelection()} style={{ ...filterBarButtonStyle, background: 'transparent', border: '1px solid #fca5a5', color: '#fca5a5', fontSize: '0.8rem' }}>
         Untag Selected
+      </button>
+      <button
+        onClick={() => {
+          if (isViewingBin) {
+            void onRestoreSelectionFromBin();
+            return;
+          }
+
+          void onMoveSelectionToBin();
+        }}
+        style={{ ...filterBarButtonStyle, background: 'rgba(14,116,144,0.16)', border: '1px solid #67e8f9', color: '#cffafe', fontSize: '0.8rem' }}
+      >
+        {binActionLabel}
       </button>
       <button onClick={onClearSelection} style={{ ...filterBarButtonStyle, background: '#3b82f6', border: 'none', color: '#fff', fontSize: '0.8rem' }}>
         Clear Selection
@@ -131,7 +155,7 @@ function RejectedToggleButton({
   );
 }
 
-export function AppFilterBar({ view, filterStack, librarySelection, showRejected, onDeclusterSelection, onBulkTagSelection, onBulkUntagSelection, onClearSelection, onToggleRejected, onBack, onClearAll }: AppFilterBarProps) {
+export function AppFilterBar({ view, filterStack, librarySelection, showRejected, onDeclusterSelection, onBulkTagSelection, onBulkUntagSelection, onMoveSelectionToBin, onRestoreSelectionFromBin, onClearSelection, onToggleRejected, onBack, onClearAll }: AppFilterBarProps) {
   if (view !== 'library' || (filterStack.length === 0 && getLibrarySelectionCount(librarySelection) === 0)) {return null;}
   return (
     <FilterBarContent
@@ -141,6 +165,8 @@ export function AppFilterBar({ view, filterStack, librarySelection, showRejected
       onDeclusterSelection={onDeclusterSelection}
       onBulkTagSelection={onBulkTagSelection}
       onBulkUntagSelection={onBulkUntagSelection}
+      onMoveSelectionToBin={onMoveSelectionToBin}
+      onRestoreSelectionFromBin={onRestoreSelectionFromBin}
       onClearSelection={onClearSelection}
       onToggleRejected={onToggleRejected}
       onBack={onBack}
@@ -156,6 +182,8 @@ function FilterBarContent({
   onDeclusterSelection,
   onBulkTagSelection,
   onBulkUntagSelection,
+  onMoveSelectionToBin,
+  onRestoreSelectionFromBin,
   onClearSelection,
   onToggleRejected,
   onBack,
@@ -164,6 +192,7 @@ function FilterBarContent({
   const singlePersonId = getSinglePersonId(filterStack);
   const selectionCount = getLibrarySelectionCount(librarySelection);
   const hasFilters = filterStack.length > 0;
+  const isViewingBin = isBinLibraryFilter(filterStack[filterStack.length - 1]);
 
   return (
     <div style={{ background: '#1e3a8a', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #1e40af' }}>
@@ -179,9 +208,12 @@ function FilterBarContent({
       <SelectionActions
         selectionCount={selectionCount}
         singlePersonId={singlePersonId}
+        isViewingBin={isViewingBin}
         onDeclusterSelection={onDeclusterSelection}
         onBulkTagSelection={onBulkTagSelection}
         onBulkUntagSelection={onBulkUntagSelection}
+        onMoveSelectionToBin={onMoveSelectionToBin}
+        onRestoreSelectionFromBin={onRestoreSelectionFromBin}
         onClearSelection={onClearSelection}
       />
       <RejectedToggleButton

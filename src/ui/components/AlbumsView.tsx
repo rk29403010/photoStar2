@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import type { Album } from '@contracts/core';
+import { isSystemAlbum, sortAlbumsForDisplay } from './albums/albumsViewModel';
 
 interface AlbumsViewProps {
     onOpenAlbum: (albumId: string, albumTitle: string) => void;
@@ -101,22 +102,29 @@ function AlbumCard({
                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {album.title}
                 </div>
+                {isSystemAlbum(album) && (
+                    <div style={{ color: '#93c5fd', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>
+                        System Album
+                    </div>
+                )}
                 <div style={{ color: '#9ca3af', fontSize: '0.9rem' }}>{album.item_count} items</div>
             </div>
 
-            <button
-                onClick={(e) => onDelete(e, album.id, album.title)}
-                title="Delete Album"
-                style={{
-                    position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.5)', color: '#ef4444',
-                    border: 'none', width: 24, height: 24, borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.8
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
-            >
-                ×
-            </button>
+            {!isSystemAlbum(album) && (
+                <button
+                    onClick={(e) => onDelete(e, album.id, album.title)}
+                    title="Delete Album"
+                    style={{
+                        position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.5)', color: '#ef4444',
+                        border: 'none', width: 24, height: 24, borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.8
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+                >
+                    ×
+                </button>
+            )}
         </div>
     );
 }
@@ -132,17 +140,19 @@ function AlbumsContent({
     onOpenAlbum: (albumId: string, albumTitle: string) => void;
     onDelete: (e: React.MouseEvent, id: string, title: string) => void;
 }) {
+    const sortedAlbums = sortAlbumsForDisplay(albums);
+
     if (loading) {
         return <div>Loading albums...</div>;
     }
 
-    if (albums.length === 0) {
+    if (sortedAlbums.length === 0) {
         return <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>No albums yet. Create one to get started!</div>;
     }
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 }}>
-            {albums.map(album => (
+            {sortedAlbums.map(album => (
                 <AlbumCard key={album.id} album={album} onOpenAlbum={onOpenAlbum} onDelete={onDelete} />
             ))}
         </div>
