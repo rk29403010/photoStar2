@@ -175,20 +175,25 @@ function useLibraryFilterHandlers(params: UseLibraryFilterHandlersParams) {
     const { resetLibraryUi } = stateResetHandlers;
 
     const handleFilterBack = useCallback(() => {
+        const currentFilter = filterStack[filterStack.length - 1];
         if (filterStack.length <= 1) {
-            setView('people');
             actions.clearFilters();
+            if (currentFilter?.type !== 'tag') {
+                setView('people');
+            }
         } else {
             actions.popFilter();
         }
         resetLibraryUi();
-    }, [actions, filterStack.length, resetLibraryUi, setView]);
+    }, [actions, filterStack, resetLibraryUi, setView]);
 
     const handleClearAllFilters = useCallback(() => {
         actions.clearFilters();
-        setView('people');
+        if (filterStack.some((filter) => filter.type !== 'tag')) {
+            setView('people');
+        }
         resetLibraryUi();
-    }, [actions, resetLibraryUi, setView]);
+    }, [actions, filterStack, resetLibraryUi, setView]);
 
     return {
         ...stateResetHandlers,
@@ -201,6 +206,7 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
     const {
         actions,
         declusteredAssets,
+        filterStack,
         librarySelection,
         setDeclusteredAssets,
         setLibrarySelection,
@@ -259,6 +265,24 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
         setPeopleSelectionCount(0);
     }, [actions, setPeopleSelectionCount, setView]);
 
+    const handleTagFilter = useCallback((tag: string) => {
+        const trimmedTag = tag.trim();
+        const filtersWithoutTag = filterStack.filter((filter) => filter.type !== 'tag');
+
+        if (!trimmedTag) {
+            actions.setFilters(filtersWithoutTag);
+            resetLibraryUi();
+            return;
+        }
+
+        actions.setFilters([
+            ...filtersWithoutTag,
+            { type: 'tag', tag: trimmedTag, description: trimmedTag, personIds: [] },
+        ]);
+        setView('library');
+        resetLibraryUi();
+    }, [actions, filterStack, resetLibraryUi, setView]);
+
     const handleOpenAlbum = useCallback((albumId: string, albumTitle: string) => {
         actions.pushFilter({ type: 'album', albumId, description: albumTitle, personIds: [] });
         setView('library');
@@ -272,6 +296,7 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
         handleToggleRejected,
         handleUntagAsset,
         handlePeopleFilter,
+        handleTagFilter,
         handleOpenAlbum,
     };
 }

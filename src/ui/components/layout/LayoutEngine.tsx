@@ -356,6 +356,7 @@ function LayoutTile({
     return (
         <div
             key={layoutItem.item.selectionKey}
+            data-selection-key={layoutItem.item.selectionKey}
             style={shellStyle}
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
