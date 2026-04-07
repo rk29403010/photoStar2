@@ -45,7 +45,10 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 - Treat each chat thread as one task capsule: one worktree, one branch, one goal.
 - Use the shared thread tracker for worktree bookkeeping instead of relying on stash names or memory. The tracker is shared across linked worktrees through Git's common directory.
+- For every new chat conversation or explicit thread split, create a dedicated worktree first with `npm run thread:new -- --task "<task name>"` unless the user explicitly asks to stay on `main`.
+- Treat follow-up requests inside the same chat conversation as work on that same worktree unless the user explicitly asks to branch off into a new thread.
 - When starting an independent task in its own worktree, register it early with `npm run thread:register -- --task "<task name>"`.
+- Treat `thread:register` as bookkeeping for an already-existing worktree. It does not create isolation on its own.
 - If a thread needs its own managed app session, prefer `npm run thread:start-dev` so the tracker records the current dev script and worktree URL in one step.
 - When a thread changes state, update it immediately with `npm run thread:update -- --status <active|blocked|ready-to-merge|parked>`.
 - When a thread is finished, explicitly close it with `npm run thread:close -- --status <merged|parked|discarded>`.
