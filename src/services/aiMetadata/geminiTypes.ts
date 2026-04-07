@@ -6,6 +6,7 @@ export const MODEL_PRO = MODEL_REFINE;
 export const MODEL_FLASH = MODEL_SCOUT;
 
 export type GeminiResponse = PhotoMetadataBlock & {
+    tag_proposals?: string[];
     _analysis_tier?: 'pro' | 'flash';
     _pending_pro?: boolean;
 };

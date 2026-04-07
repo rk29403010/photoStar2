@@ -30,6 +30,12 @@ import {
     recordRequest,
     sleepWithLog,
 } from './quotaManager';
+import {
+    loadApprovedTagVocabulary,
+    resolveGeminiMetadataSourceKind,
+    sanitizeGeminiResponseTags,
+    type MetadataSourceKind,
+} from './liveRuntimeTagHelpers';
 
 type GoogleGenerativeAIConstructor = new (apiKey: string) => GoogleGenerativeAI;
 type PendingReason = 'rate_limit' | 'daily_quota';
@@ -49,11 +55,12 @@ type PreparedImagePayload = {
     exifDataString: string;
     imageParts: PreparedImagePart[];
 };
-type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
 type MetadataPass = 'scout' | 'refine';
 export type LiveMetadataEvidence = StoredAiMetadataResult & {
     metadataBlock: PhotoMetadataBlock;
     metadataSourceKind: MetadataSourceKind;
+    approvedKeywords: string[];
+    tagProposals: string[];
 };
 type CropRegion = {
     left: number;
@@ -283,12 +290,8 @@ async function generateContent(
 
 type GeminiResponseSchema = ReturnType<typeof buildGeminiFlashResponseSchema>;
 
-function resolveMetadataSourceKind(response: GeminiResponse): MetadataSourceKind {
-    return response._analysis_tier === 'pro' ? 'gemini_pro_refined' : 'gemini_flash_scout';
-}
-
 function extractMetadataBlock(response: GeminiResponse): PhotoMetadataBlock {
-    const { _analysis_tier: _analysisTier, _pending_pro: _pendingPro, ...block } = response;
+    const { tag_proposals: _tagProposals, _analysis_tier: _analysisTier, _pending_pro: _pendingPro, ...block } = response;
     if (!isPhotoMetadataBlock(block)) {
         throw new Error('AI response did not match the photo metadata schema');
     }
@@ -299,14 +302,21 @@ function buildLiveMetadataEvidence(params: {
     provider: string;
     modelVersion: string;
     response: GeminiResponse;
+    approvedTagVocabulary: string[];
 }): LiveMetadataEvidence {
-    const metadataBlock = extractMetadataBlock(params.response);
+    const sanitizedResponse = sanitizeGeminiResponseTags(params.response, params.approvedTagVocabulary);
+    const metadataBlock = {
+        ...extractMetadataBlock(params.response),
+        keywords: sanitizedResponse.approvedKeywords,
+    };
     return {
         provider: params.provider,
         modelVersion: params.modelVersion,
-        data: params.response as unknown as Record<string, unknown>,
+        data: sanitizedResponse.storedResponse,
         metadataBlock,
-        metadataSourceKind: resolveMetadataSourceKind(params.response),
+        metadataSourceKind: resolveGeminiMetadataSourceKind(params.response),
+        approvedKeywords: sanitizedResponse.approvedKeywords,
+        tagProposals: sanitizedResponse.tagProposals,
     };
 }
 
@@ -437,13 +447,14 @@ export async function generateLiveAiMetadata(params: {
         ?? (await import('@google/generative-ai')).GoogleGenerativeAI;
     const genAI = new GoogleGenerativeAIClass(modelConfig.apiKey);
     const db = params.dbManager.getDb();
+    const approvedTagVocabulary = loadApprovedTagVocabulary(params.dbManager);
     const { filename, exifDataString, imageParts } = await prepareImagePayload(params.row, params.imageStrategy);
     const metadataPass = params.metadataPass ?? 'scout';
 
     try {
         const shouldRunRefineFirst = metadataPass === 'refine' && modelConfig.refineModel === MODEL_REFINE;
         if (shouldRunRefineFirst) {
-            const proPrompt = buildGeminiProPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy });
+            const proPrompt = buildGeminiProPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy, approvedTagVocabulary });
             const proResult = await tryProModel(genAI, proPrompt, imageParts);
             if (proResult) {
                 clearProPendingRecord(db, params.row.id);
@@ -451,11 +462,12 @@ export async function generateLiveAiMetadata(params: {
                     provider: 'google',
                     modelVersion: MODEL_REFINE,
                     response: proResult,
+                    approvedTagVocabulary,
                 });
             }
         }
 
-        const flashPrompt = buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy });
+        const flashPrompt = buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy, approvedTagVocabulary });
         const flashResult = await tryFlashModel(genAI, modelConfig.scoutModel, flashPrompt, imageParts);
         if (shouldRunRefineFirst) {
             flashResult._pending_pro = true;
@@ -470,6 +482,7 @@ export async function generateLiveAiMetadata(params: {
             provider: 'google',
             modelVersion: modelConfig.scoutModel,
             response: flashResult,
+            approvedTagVocabulary,
         });
     } catch (error) {
         const unrecoverableReason = getUnrecoverableAiReason(error as Error);

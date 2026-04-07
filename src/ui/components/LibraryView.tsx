@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode, type UIEvent } from 'react';
-import type { Asset, GalleryTimelineSeek, LibraryStats } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
@@ -12,6 +12,7 @@ import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
 import { GalleryInfoPanel } from './library/GalleryInfoPanel';
 import { LibraryGalleryPane } from './library/LibraryGalleryPane';
 import { getGalleryInfoPanelAsset } from './library/galleryInfoPanelModel';
+import { getAvailableTags, getSelectedTag } from './library/libraryTagFilterModel';
 import { getActiveTimelineSeek, isTimelineSortMode } from './library/libraryTimelineModel';
 import {
     getLibraryToolbarProps,
@@ -25,6 +26,7 @@ interface LibraryViewProps {
     assets: Asset[];
     galleryTimelineSeek: GalleryTimelineSeek | null;
     isSeekingTimeline: boolean;
+    availableTags?: string[];
     loading: boolean;
     active: boolean;
     backendReady: boolean;
@@ -55,6 +57,13 @@ interface LibraryViewProps {
     rejectedAssets?: Asset[];
     onHoverAssetChange?: (asset: Asset | null) => void;
     onEnsureAssetDetails?: (assetId: string) => void;
+    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
@@ -215,46 +224,6 @@ function useLibrarySortController(params: {
     return { sortMode, setSortMode };
 }
 
-function getAssetTags(asset: Asset) {
-    return asset.photo_metadata?.projection.keywords ?? [];
-}
-
-function getTagKey(tag: string) {
-    return tag.trim().toLocaleLowerCase();
-}
-
-function getAvailableTags(assets: Asset[], selectedTag: string) {
-    const tagsByKey = new Map<string, string>();
-    for (const asset of assets) {
-        for (const tag of getAssetTags(asset)) {
-            const trimmedTag = tag.trim();
-            if (trimmedTag) {
-                const key = getTagKey(trimmedTag);
-                if (!tagsByKey.has(key)) {
-                    tagsByKey.set(key, trimmedTag);
-                }
-            }
-        }
-    }
-
-    const trimmedSelectedTag = selectedTag.trim();
-    if (trimmedSelectedTag) {
-        const key = getTagKey(trimmedSelectedTag);
-        if (!tagsByKey.has(key)) {
-            tagsByKey.set(key, trimmedSelectedTag);
-        }
-    }
-
-    return Array.from(tagsByKey.values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
-}
-
-function getSelectedTag(availableTags: string[], rawSelectedTag: string) {
-    if (!rawSelectedTag) {
-        return '';
-    }
-    return availableTags.find((tag) => getTagKey(tag) === getTagKey(rawSelectedTag)) ?? rawSelectedTag;
-}
-
 function useLibraryPaging(params: {
     active: boolean;
     isSeekingTimeline: boolean;
@@ -321,6 +290,9 @@ function LibraryPanel({
     onActiveInfoTabChange,
     onShowInfoPanelChange,
     selectedInfoAsset,
+    onAssignAssetTag,
+    onRemoveAssetTag,
+    onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
 }: {
     scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
@@ -336,6 +308,13 @@ function LibraryPanel({
     onActiveInfoTabChange: (tab: InfoTab) => void;
     onShowInfoPanelChange: (show: boolean) => void;
     selectedInfoAsset: Asset | null;
+    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    onSetReviewItemStatus?: (payload: {
+        reviewItemId: string;
+        status: ReviewItemSummary['status'];
+        tagLabel?: string;
+    }) => Promise<void>;
     onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }) {
     return (
@@ -346,7 +325,16 @@ function LibraryPanel({
             </div>
             {isSeekingTimeline && layout.items.length > 0 && <TimelineSeekOverlay seek={galleryTimelineSeek} />}
             {showInfoPanel && (
-                <GalleryInfoPanel asset={selectedInfoAsset} activeTab={activeInfoTab} onTabChange={onActiveInfoTabChange} onClose={() => onShowInfoPanelChange(false)} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
+                <GalleryInfoPanel
+                    asset={selectedInfoAsset}
+                    activeTab={activeInfoTab}
+                    onTabChange={onActiveInfoTabChange}
+                    onClose={() => onShowInfoPanelChange(false)}
+                    onAssignTag={selectedInfoAsset && onAssignAssetTag ? (tagLabel) => onAssignAssetTag(selectedInfoAsset.id, tagLabel) : undefined}
+                    onRemoveTag={selectedInfoAsset && onRemoveAssetTag ? (tagDefinitionId) => onRemoveAssetTag(selectedInfoAsset.id, tagDefinitionId) : undefined}
+                    onSetReviewItemStatus={onSetReviewItemStatus}
+                    onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
+                />
             )}
         </div>
     );
@@ -401,6 +389,9 @@ function getLibraryPanelProps(params: {
         onActiveInfoTabChange: params.props.onActiveInfoTabChange,
         onShowInfoPanelChange: params.handleShowInfoPanelChange,
         selectedInfoAsset: params.selectedInfoAsset,
+        onAssignAssetTag: params.props.onAssignAssetTag,
+        onRemoveAssetTag: params.props.onRemoveAssetTag,
+        onSetReviewItemStatus: params.props.onSetReviewItemStatus,
         onFlagPhotoDateCorrection: params.props.onFlagPhotoDateCorrection,
     } satisfies ComponentProps<typeof LibraryPanel>;
 }
@@ -423,8 +414,11 @@ export function LibraryView(props: LibraryViewProps) {
         onGalleryTimelineSeek: props.onGalleryTimelineSeek,
         scrollRef,
     });
-    const rawSelectedTag = props.activeFilter?.type === 'tag' ? (props.activeFilter.tag ?? '') : '';
-    const availableTags = useMemo(() => getAvailableTags(props.assets, rawSelectedTag), [props.assets, rawSelectedTag]);
+    const rawSelectedTag = props.activeFilter?.type === 'tag' ? props.activeFilter.value : '';
+    const availableTags = useMemo(
+        () => props.availableTags ?? getAvailableTags(props.assets, rawSelectedTag),
+        [props.assets, props.availableTags, rawSelectedTag],
+    );
     const selectedTag = useMemo(() => getSelectedTag(availableTags, rawSelectedTag), [availableTags, rawSelectedTag]);
     const displayItems = useDisplayAssets(props.assets, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
     const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({

@@ -14,6 +14,7 @@ import {
 import { useAppUiState, type AppView } from './hooks/useAppRuntimeUi';
 import { useGroupDiagnosticsView } from './hooks/useGroupDiagnosticsView';
 import { usePhotoDateReviewHandler } from './hooks/usePhotoDateReviewHandler';
+import { promptBulkTagSelection, promptBulkUntagSelection } from './hooks/libraryTagSelectionPrompts';
 import {
     LoadedAppShell,
 } from './components/app/LoadedAppShell';
@@ -64,6 +65,10 @@ interface UseLibraryFilterStateResetParams {
     setShowRejected: (showRejected: boolean | ((prev: boolean) => boolean)) => void;
     setView: (view: AppView) => void;
     showRejected: boolean;
+}
+
+function isTagFilter(filter: LibraryFilter | undefined) {
+    return filter?.type === 'tag';
 }
 
 async function requestScanPath(): Promise<string | null> {
@@ -169,18 +174,16 @@ function useLibraryFilterHandlers(params: UseLibraryFilterHandlersParams) {
     const {
         actions,
         filterStack,
+        librarySelection,
         setView,
     } = params;
     const stateResetHandlers = useLibraryFilterStateResetHandlers(params);
     const { resetLibraryUi } = stateResetHandlers;
 
     const handleFilterBack = useCallback(() => {
-        const currentFilter = filterStack[filterStack.length - 1];
         if (filterStack.length <= 1) {
+            setView(isTagFilter(filterStack[0]) ? 'library' : 'people');
             actions.clearFilters();
-            if (currentFilter?.type !== 'tag') {
-                setView('people');
-            }
         } else {
             actions.popFilter();
         }
@@ -189,16 +192,37 @@ function useLibraryFilterHandlers(params: UseLibraryFilterHandlersParams) {
 
     const handleClearAllFilters = useCallback(() => {
         actions.clearFilters();
-        if (filterStack.some((filter) => filter.type !== 'tag')) {
-            setView('people');
-        }
+        setView(filterStack.some(isTagFilter) ? 'library' : 'people');
         resetLibraryUi();
     }, [actions, filterStack, resetLibraryUi, setView]);
+
+    const handleTagFilterChange = useCallback((tag: string) => {
+        actions.clearFilters();
+        resetLibraryUi();
+        if (!tag) {
+            setView('library');
+            return;
+        }
+
+        actions.pushFilter({ type: 'tag', personIds: [], value: tag, description: `Tag: ${tag}` });
+        setView('library');
+    }, [actions, resetLibraryUi, setView]);
+
+    const handleBulkTagSelection = useCallback(async () => {
+        await promptBulkTagSelection(actions, getLibrarySelectionPhotoIds(librarySelection));
+    }, [actions, librarySelection]);
+
+    const handleBulkUntagSelection = useCallback(async () => {
+        await promptBulkUntagSelection(actions, getLibrarySelectionPhotoIds(librarySelection));
+    }, [actions, librarySelection]);
 
     return {
         ...stateResetHandlers,
         handleFilterBack,
         handleClearAllFilters,
+        handleTagFilterChange,
+        handleBulkTagSelection,
+        handleBulkUntagSelection,
     };
 }
 
@@ -206,7 +230,6 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
     const {
         actions,
         declusteredAssets,
-        filterStack,
         librarySelection,
         setDeclusteredAssets,
         setLibrarySelection,
@@ -265,24 +288,6 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
         setPeopleSelectionCount(0);
     }, [actions, setPeopleSelectionCount, setView]);
 
-    const handleTagFilter = useCallback((tag: string) => {
-        const trimmedTag = tag.trim();
-        const filtersWithoutTag = filterStack.filter((filter) => filter.type !== 'tag');
-
-        if (!trimmedTag) {
-            actions.setFilters(filtersWithoutTag);
-            resetLibraryUi();
-            return;
-        }
-
-        actions.setFilters([
-            ...filtersWithoutTag,
-            { type: 'tag', tag: trimmedTag, description: trimmedTag, personIds: [] },
-        ]);
-        setView('library');
-        resetLibraryUi();
-    }, [actions, filterStack, resetLibraryUi, setView]);
-
     const handleOpenAlbum = useCallback((albumId: string, albumTitle: string) => {
         actions.pushFilter({ type: 'album', albumId, description: albumTitle, personIds: [] });
         setView('library');
@@ -296,7 +301,6 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
         handleToggleRejected,
         handleUntagAsset,
         handlePeopleFilter,
-        handleTagFilter,
         handleOpenAlbum,
     };
 }

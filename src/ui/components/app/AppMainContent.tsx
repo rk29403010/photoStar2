@@ -1,24 +1,47 @@
 import { useEffect, useState } from 'react';
-import type { Asset, Person, Album, GalleryTimelineSeek, LibraryStats } from '@contracts/core';
-import type { DataStatsSnapshot, JobErrorSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
-import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
+import type {
+  Album,
+  Asset,
+  GalleryTimelineSeek,
+  LibraryStats,
+  Person,
+  ReviewItemSummary,
+  TagAliasSummary,
+  TagDefinitionSummary,
+} from '@contracts/core';
+import type {
+  DataStatsSnapshot,
+  JobErrorSnapshot,
+  RecentEventSnapshot,
+  WorkflowRunListItem,
+  WorkflowStatusSnapshot,
+} from '@contracts/jobs';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
-import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
+import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
+import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
+import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
+import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
+import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
+import { useAvailableTags } from '@ui/hooks/useAvailableTags';
+import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
+import { AlbumsView } from '../AlbumsView';
+import { DashboardView } from '../DashboardView';
+import { GroupingDiagnosticsView } from '../group-diagnostics/GroupingDiagnosticsView';
 import { LibraryView } from '../LibraryView';
 import { PeopleView } from '../PeopleView';
-import { DashboardView } from '../DashboardView';
-import { AlbumsView } from '../AlbumsView';
+import { ReviewsView } from '../ReviewsView';
+import { TagVocabularyView } from '../TagVocabularyView';
 import { WorkflowWorkspace } from '../workflows/WorkflowWorkspace';
-import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
-import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
-import { GroupingDiagnosticsView } from '../group-diagnostics/GroupingDiagnosticsView';
-import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
-import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
-import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
+
+type TagDetailPayload = {
+  tag: TagDefinitionSummary;
+  aliases: TagAliasSummary[];
+};
 
 interface AppMainContentProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
+  view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
   stats: LibraryStats | null;
   assets: Asset[];
   galleryTimelineSeek: GalleryTimelineSeek | null;
@@ -55,8 +78,8 @@ interface AppMainContentProps {
   onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
   onAssetClick: (id: string | null) => void;
   onEnsureAssetDetails: (assetId: string) => void;
-  onUntagAsset: (assetId: string, personId: string) => void;
   onTagFilterChange: (tag: string) => void;
+  onUntagAsset: (assetId: string, personId: string) => void;
   onLibrarySelectionChange: (selection: LibrarySelectionState) => void;
   onGroupSimilarPhotosChange: (enabled: boolean) => void;
   onShowGroupIdsChange: (enabled: boolean) => void;
@@ -75,6 +98,25 @@ interface AppMainContentProps {
   onDeleteAlbum: (id: string) => Promise<void>;
   onOpenAlbum: (albumId: string, title: string) => void;
   onHoverLibraryAssetChange: (asset: Asset | null) => void;
+  onListAvailableTags: () => Promise<TagDefinitionSummary[]>;
+  onListReviewItems: (payload: {
+    status?: ReviewItemSummary['status'];
+    reviewItemType?: ReviewItemSummary['reviewItemType'];
+    subjectType?: string;
+    subjectId?: string;
+  }) => Promise<ReviewItemSummary[]>;
+  onAssignAssetTag: (assetId: string, tagLabel: string) => Promise<void>;
+  onRemoveAssetTag: (assetId: string, tagDefinitionId: string) => Promise<void>;
+  onSetReviewItemStatus: (payload: {
+    reviewItemId: string;
+    status: ReviewItemSummary['status'];
+    tagLabel?: string;
+  }) => Promise<void>;
+  onGetTagDefinitionDetail: (payload: { tagDefinitionId: string }) => Promise<TagDetailPayload>;
+  onRenameTagDefinition: (payload: { tagDefinitionId: string; canonicalLabel: string }) => Promise<TagDetailPayload>;
+  onCreateTagAlias: (payload: { tagDefinitionId: string; aliasLabel: string }) => Promise<TagDetailPayload>;
+  onDeleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetailPayload>;
+  onMergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetailPayload>;
   onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
@@ -99,6 +141,8 @@ function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | 
 }
 
 function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets: Asset[]; activeFilter?: LibraryFilter }) {
+  const availableTags = useAvailableTags(props.view === 'library', props.onListAvailableTags);
+
   return (
     <div style={getPanelStyle(props.view === 'library')}>
       <LibraryView
@@ -106,6 +150,7 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
         assets={props.visibleLibraryAssets}
         galleryTimelineSeek={props.galleryTimelineSeek}
         isSeekingTimeline={props.isSeekingTimeline}
+        availableTags={availableTags.map((tag) => tag.canonicalLabel)}
         loading={props.status.includes('Initializing')}
         backendReady={props.backendReady}
         backendStatus={props.status}
@@ -136,6 +181,9 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
         showRejected={props.showRejected}
         rejectedAssets={props.showRejected ? props.rejectedAssets : []}
         onHoverAssetChange={props.onHoverLibraryAssetChange}
+        onAssignAssetTag={props.onAssignAssetTag}
+        onRemoveAssetTag={props.onRemoveAssetTag}
+        onSetReviewItemStatus={props.onSetReviewItemStatus}
         onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
       />
     </div>
@@ -180,6 +228,27 @@ export function AppMainContent(props: AppMainContentProps) {
           createAlbum={props.onCreateAlbum}
           deleteAlbum={props.onDeleteAlbum}
           onOpenAlbum={props.onOpenAlbum}
+        />
+      )}
+
+      {props.view === 'reviews' && (
+        <ReviewsView
+          active={props.view === 'reviews'}
+          listReviewItems={props.onListReviewItems}
+          listAvailableTags={props.onListAvailableTags}
+          setReviewItemStatus={props.onSetReviewItemStatus}
+        />
+      )}
+
+      {props.view === 'vocabulary' && (
+        <TagVocabularyView
+          active={props.view === 'vocabulary'}
+          listAvailableTags={props.onListAvailableTags}
+          getTagDefinitionDetail={props.onGetTagDefinitionDetail}
+          renameTagDefinition={props.onRenameTagDefinition}
+          createTagAlias={props.onCreateTagAlias}
+          deleteTagAlias={props.onDeleteTagAlias}
+          mergeTagDefinitions={props.onMergeTagDefinitions}
         />
       )}
 

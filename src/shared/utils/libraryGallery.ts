@@ -19,25 +19,6 @@ function getTimestampRank(timestampValue: string | null | undefined): number {
     return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
 }
 
-function compareGalleryDates(
-    left: Pick<Asset, 'id' | 'photo_created_at'>,
-    right: Pick<Asset, 'id' | 'photo_created_at'>,
-    newerFirst: boolean,
-) {
-    const leftRank = getTimestampRank(left.photo_created_at);
-    const rightRank = getTimestampRank(right.photo_created_at);
-    if (leftRank === rightRank) {
-        return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
-    }
-    if (leftRank === Number.NEGATIVE_INFINITY) {
-        return 1;
-    }
-    if (rightRank === Number.NEGATIVE_INFINITY) {
-        return -1;
-    }
-    return newerFirst ? rightRank - leftRank : leftRank - rightRank;
-}
-
 function getGroupSortKey(asset: Pick<Asset, 'group_id'>): string {
     return asset.group_id ?? '';
 }
@@ -67,29 +48,65 @@ function getDimensions(asset: Pick<Asset, 'width' | 'height'>): string | null {
     return `${asset.width} × ${asset.height}`;
 }
 
+function compareAssetIds(left: Pick<Asset, 'id'>, right: Pick<Asset, 'id'>) {
+    return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function compareAssetDates(left: Asset, right: Asset, direction: 'asc' | 'desc') {
+    const leftRank = getTimestampRank(left.photo_created_at);
+    const rightRank = getTimestampRank(right.photo_created_at);
+    if (leftRank === rightRank) {
+        return compareAssetIds(left, right);
+    }
+    if (leftRank === Number.NEGATIVE_INFINITY) {
+        return 1;
+    }
+    if (rightRank === Number.NEGATIVE_INFINITY) {
+        return -1;
+    }
+    return direction === 'asc' ? leftRank - rightRank : rightRank - leftRank;
+}
+
+function sortAssetsByGroup(sorted: Asset[]) {
+    sorted.sort((left, right) => {
+        const groupDelta = getGroupSortKey(left).localeCompare(getGroupSortKey(right), undefined, { numeric: true, sensitivity: 'base' });
+        if (groupDelta !== 0) {
+            return groupDelta;
+        }
+
+        return compareAssetIds(left, right);
+    });
+}
+
+function sortAssetsByFilename(sorted: Asset[]) {
+    sorted.sort((left, right) => (
+        getFilename(left).localeCompare(getFilename(right), undefined, { numeric: true, sensitivity: 'base' })
+    ));
+}
+
+function sortAssetsByDate(sorted: Asset[], direction: 'asc' | 'desc') {
+    sorted.sort((left, right) => compareAssetDates(left, right, direction));
+}
+
 export function sortAssetsForGallery(assets: Asset[], mode: LibrarySortMode): Asset[] {
     const sorted = [...assets];
 
     if (mode === 'group') {
-        sorted.sort((left, right) => {
-            const groupDelta = getGroupSortKey(left).localeCompare(getGroupSortKey(right), undefined, { numeric: true, sensitivity: 'base' });
-            if (groupDelta !== 0) {
-                return groupDelta;
-            }
-
-            return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
-        });
+        sortAssetsByGroup(sorted);
         return sorted;
     }
 
     if (mode === 'filename') {
-        sorted.sort((left, right) => (
-            getFilename(left).localeCompare(getFilename(right), undefined, { numeric: true, sensitivity: 'base' })
-        ));
+        sortAssetsByFilename(sorted);
         return sorted;
     }
 
-    sorted.sort((left, right) => compareGalleryDates(left, right, mode === 'date'));
+    if (mode === 'reverse-date') {
+        sortAssetsByDate(sorted, 'asc');
+        return sorted;
+    }
+
+    sortAssetsByDate(sorted, 'desc');
     return sorted;
 }
 

@@ -3,11 +3,13 @@ import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { getLibrarySelectionCount, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 interface AppFilterBarProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums' | 'workflows' | 'groupDiagnostics';
+  view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
   filterStack: LibraryFilter[];
   librarySelection: LibrarySelectionState;
   showRejected: boolean;
   onDeclusterSelection: (personId: string) => void;
+  onBulkTagSelection: () => Promise<void>;
+  onBulkUntagSelection: () => Promise<void>;
   onClearSelection: () => void;
   onToggleRejected: (personId: string) => void;
   onBack: () => void;
@@ -64,11 +66,15 @@ function SelectionActions({
   selectionCount,
   singlePersonId,
   onDeclusterSelection,
+  onBulkTagSelection,
+  onBulkUntagSelection,
   onClearSelection,
 }: {
   selectionCount: number;
   singlePersonId: string | null;
   onDeclusterSelection: (personId: string) => void;
+  onBulkTagSelection: () => Promise<void>;
+  onBulkUntagSelection: () => Promise<void>;
   onClearSelection: () => void;
 }) {
   if (selectionCount === 0) {
@@ -83,6 +89,12 @@ function SelectionActions({
           Decluster
         </button>
       )}
+      <button onClick={() => void onBulkTagSelection()} style={{ ...filterBarButtonStyle, background: 'rgba(59,130,246,0.2)', border: '1px solid #60a5fa', color: '#dbeafe', fontSize: '0.8rem' }}>
+        Tag Selected
+      </button>
+      <button onClick={() => void onBulkUntagSelection()} style={{ ...filterBarButtonStyle, background: 'transparent', border: '1px solid #fca5a5', color: '#fca5a5', fontSize: '0.8rem' }}>
+        Untag Selected
+      </button>
       <button onClick={onClearSelection} style={{ ...filterBarButtonStyle, background: '#3b82f6', border: 'none', color: '#fff', fontSize: '0.8rem' }}>
         Clear Selection
       </button>
@@ -119,14 +131,16 @@ function RejectedToggleButton({
   );
 }
 
-export function AppFilterBar({ view, filterStack, librarySelection, showRejected, onDeclusterSelection, onClearSelection, onToggleRejected, onBack, onClearAll }: AppFilterBarProps) {
-  if (view !== 'library' || filterStack.length === 0) {return null;}
+export function AppFilterBar({ view, filterStack, librarySelection, showRejected, onDeclusterSelection, onBulkTagSelection, onBulkUntagSelection, onClearSelection, onToggleRejected, onBack, onClearAll }: AppFilterBarProps) {
+  if (view !== 'library' || (filterStack.length === 0 && getLibrarySelectionCount(librarySelection) === 0)) {return null;}
   return (
     <FilterBarContent
       filterStack={filterStack}
       librarySelection={librarySelection}
       showRejected={showRejected}
       onDeclusterSelection={onDeclusterSelection}
+      onBulkTagSelection={onBulkTagSelection}
+      onBulkUntagSelection={onBulkUntagSelection}
       onClearSelection={onClearSelection}
       onToggleRejected={onToggleRejected}
       onBack={onBack}
@@ -140,22 +154,34 @@ function FilterBarContent({
   librarySelection,
   showRejected,
   onDeclusterSelection,
+  onBulkTagSelection,
+  onBulkUntagSelection,
   onClearSelection,
   onToggleRejected,
   onBack,
   onClearAll
 }: Omit<AppFilterBarProps, 'view'>) {
   const singlePersonId = getSinglePersonId(filterStack);
+  const selectionCount = getLibrarySelectionCount(librarySelection);
+  const hasFilters = filterStack.length > 0;
 
   return (
     <div style={{ background: '#1e3a8a', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #1e40af' }}>
-      <span style={{ fontWeight: 'bold' }}>Filtered:</span>
-      <FilterTrail filterStack={filterStack} />
+      {hasFilters ? (
+        <>
+          <span style={{ fontWeight: 'bold' }}>Filtered:</span>
+          <FilterTrail filterStack={filterStack} />
+        </>
+      ) : (
+        <span style={{ fontWeight: 'bold' }}>Selection:</span>
+      )}
       <div style={{ flex: 1 }} />
       <SelectionActions
-        selectionCount={getLibrarySelectionCount(librarySelection)}
+        selectionCount={selectionCount}
         singlePersonId={singlePersonId}
         onDeclusterSelection={onDeclusterSelection}
+        onBulkTagSelection={onBulkTagSelection}
+        onBulkUntagSelection={onBulkUntagSelection}
         onClearSelection={onClearSelection}
       />
       <RejectedToggleButton
@@ -163,8 +189,12 @@ function FilterBarContent({
         showRejected={showRejected}
         onToggleRejected={onToggleRejected}
       />
-      <button onClick={onBack} style={{ ...filterBarButtonStyle, background: 'transparent', border: '1px solid #60a5fa', color: '#fff' }}>Back</button>
-      <button onClick={onClearAll} style={{ ...filterBarButtonStyle, background: 'transparent', border: 'none', color: '#93c5fd', textDecoration: 'underline' }}>Clear All</button>
+      {hasFilters ? (
+        <>
+          <button onClick={onBack} style={{ ...filterBarButtonStyle, background: 'transparent', border: '1px solid #60a5fa', color: '#fff' }}>Back</button>
+          <button onClick={onClearAll} style={{ ...filterBarButtonStyle, background: 'transparent', border: 'none', color: '#93c5fd', textDecoration: 'underline' }}>Clear All</button>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -19,5 +19,7 @@ export function mergeAssetDetail(existingAsset: Asset, nextAsset: Asset): Asset 
         ai_metadata: nextAsset.ai_metadata ?? existingAsset.ai_metadata,
         embedded_metadata: nextAsset.embedded_metadata ?? existingAsset.embedded_metadata,
         photo_date_estimate: nextAsset.photo_date_estimate ?? existingAsset.photo_date_estimate,
+        tags: nextAsset.tags ?? existingAsset.tags,
+        pending_review_items: nextAsset.pending_review_items ?? existingAsset.pending_review_items,
     };
 }

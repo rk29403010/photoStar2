@@ -1,4 +1,4 @@
-import type { Asset, SimilarityOrbit } from '@contracts/core';
+import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { BackgroundJob } from '@contracts/jobs';
 import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
@@ -55,6 +55,13 @@ interface AppOverlaysProps {
   onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
   onSetCanonical: (groupId: string, assetId: string) => Promise<void>;
   onExplodeGroup: (groupId: string) => Promise<void>;
+  onAssignAssetTag: (assetId: string, tagLabel: string) => Promise<void>;
+  onRemoveAssetTag: (assetId: string, tagDefinitionId: string) => Promise<void>;
+  onSetReviewItemStatus: (payload: {
+    reviewItemId: string;
+    status: ReviewItemSummary['status'];
+    tagLabel?: string;
+  }) => Promise<void>;
   onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
   onStopJob: (job: BackgroundJob) => void;
   isTaskDrawerMinimized: boolean;
@@ -121,6 +128,9 @@ export function AppOverlays(props: AppOverlaysProps) {
           onGetGroupOrbit={props.onGetGroupOrbit}
           onSetCanonical={props.onSetCanonical}
           onExplodeGroup={props.onExplodeGroup}
+          onAssignAssetTag={props.onAssignAssetTag}
+          onRemoveAssetTag={props.onRemoveAssetTag}
+          onSetReviewItemStatus={props.onSetReviewItemStatus}
           onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
         />
       )}

@@ -117,6 +117,51 @@ export interface PhotoMetadataEvidencePayload {
     manualAssertions: unknown[];
 }
 
+export interface AssetTag {
+    tagDefinitionId: string;
+    canonicalLabel: string;
+    description: string | null;
+    status: 'active' | 'retired';
+    category: string | null;
+    sourceKind: 'manual' | 'system' | 'ai' | 'legacy_ai';
+    sourceRecordId: string | null;
+    confidence: number | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface TagDefinitionSummary {
+    id: string;
+    canonicalLabel: string;
+    description: string | null;
+    status: 'active' | 'retired';
+    category: string | null;
+    createdAt: string;
+    updatedAt: string;
+    assignmentCount?: number;
+}
+
+export interface TagAliasSummary {
+    id: string;
+    tagDefinitionId: string;
+    aliasLabel: string;
+    createdAt: string;
+}
+
+export interface ReviewItemSummary {
+    id: string;
+    reviewItemType: 'tag_proposal' | 'group_merge' | 'sensitivity_override_candidate';
+    subjectType: string;
+    subjectId: string;
+    payloadJson: string;
+    status: 'pending' | 'approved' | 'rejected' | 'dismissed' | 'superseded';
+    reviewerId?: string | null;
+    reviewNote?: string | null;
+    reviewedAt?: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface PhotoMetadataBundle {
     projection: PhotoMetadataProjection;
     provenance?: Partial<Record<keyof Omit<PhotoMetadataProjection, 'assetId' | 'estimatedDate' | 'quality' | 'authenticity' | 'subjects' | 'regionsOfInterest'>, PhotoMetadataSourceSummary>> & {
@@ -172,6 +217,8 @@ export interface Asset {
     photo_metadata?: PhotoMetadataBundle | null;
     embedded_metadata?: Record<string, unknown>;
     photo_date_estimate?: PhotoDateEstimateArtifact;
+    tags?: AssetTag[];
+    pending_review_items?: ReviewItemSummary[];
 
     // Scoring & Analysis (Future proofing A5)
     aesthetic_score?: number;
