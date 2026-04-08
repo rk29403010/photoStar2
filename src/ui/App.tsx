@@ -399,6 +399,7 @@ function useAppShellState(photoLibrary: ReturnType<typeof usePhotoLibrary>) {
     const { aiMode } = uiState;
     const binActions = usePhotoBinActions({
         actions,
+        assets,
         librarySelection: uiState.librarySelection,
         setLibrarySelection: uiState.setLibrarySelection,
         selectedAssetId: uiState.selectedAssetId,

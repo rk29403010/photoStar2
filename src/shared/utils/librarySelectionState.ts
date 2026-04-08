@@ -54,6 +54,22 @@ export function getLibrarySelectionPhotoIds(selection: LibrarySelectionState): s
     return [...selection.photoIds];
 }
 
+export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, assets: Asset[]): string[] {
+    const assetIds = new Set(selection.photoIds);
+
+    if (selection.groupIds.size === 0) {
+        return [...assetIds];
+    }
+
+    for (const asset of assets) {
+        if (asset.group_id && selection.groupIds.has(asset.group_id)) {
+            assetIds.add(asset.id);
+        }
+    }
+
+    return [...assetIds];
+}
+
 export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: LibrarySelectionKey, targetKey: LibrarySelectionKey): LibrarySelectionKey[] {
     const startIndex = keys.indexOf(anchorKey);
     const endIndex = keys.indexOf(targetKey);

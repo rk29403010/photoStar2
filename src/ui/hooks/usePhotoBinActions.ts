@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { clearLibrarySelection, getLibrarySelectionPhotoIds, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { clearLibrarySelection, getLibrarySelectionAssetIds, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import type { Asset } from '@contracts/core';
 import { createStatusMessageBanner, type StatusBanner } from '@ui/components/app/statusBannerModel';
 
 type PhotoLibraryActions = {
@@ -10,6 +11,7 @@ type PhotoLibraryActions = {
 
 interface UsePhotoBinActionsParams {
     actions: PhotoLibraryActions;
+    assets: Asset[];
     librarySelection: LibrarySelectionState;
     setLibrarySelection: (selection: LibrarySelectionState) => void;
     selectedAssetId: string | null;
@@ -24,6 +26,7 @@ function shouldClearFocusedAsset(selectedAssetId: string | null, assetIds: strin
 export function usePhotoBinActions(params: UsePhotoBinActionsParams) {
     const {
         actions,
+        assets,
         librarySelection,
         setLibrarySelection,
         selectedAssetId,
@@ -67,14 +70,14 @@ export function usePhotoBinActions(params: UsePhotoBinActionsParams) {
     }, [actions, restoreAssetIds, selectedAssetId, setLibrarySelection, setSelectedAssetId, setStatusBanner]);
 
     const restoreSelectionFromBin = useCallback(async () => {
-        await restoreAssetIds(getLibrarySelectionPhotoIds(librarySelection));
+        await restoreAssetIds(getLibrarySelectionAssetIds(librarySelection, assets));
         setLibrarySelection(clearLibrarySelection());
-    }, [librarySelection, restoreAssetIds, setLibrarySelection]);
+    }, [assets, librarySelection, restoreAssetIds, setLibrarySelection]);
 
     return {
         handleMoveSelectionToBin: useCallback(async () => {
-            await moveAssetIdsToBin(getLibrarySelectionPhotoIds(librarySelection));
-        }, [librarySelection, moveAssetIdsToBin]),
+            await moveAssetIdsToBin(getLibrarySelectionAssetIds(librarySelection, assets));
+        }, [assets, librarySelection, moveAssetIdsToBin]),
         handleRestoreSelectionFromBin: restoreSelectionFromBin,
         handleMoveAssetToBin: useCallback(async (assetId: string) => {
             await moveAssetIdsToBin([assetId]);

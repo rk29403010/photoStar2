@@ -331,6 +331,8 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 onClose={props.onClose}
                 onChangeIndex={props.onChangeIndex}
                 onSetSensitivity={props.onSetSensitivity}
+                onMoveToBin={props.onMoveToBin}
+                onRestoreFromBin={props.onRestoreFromBin}
                 onSetCanonical={props.onSetCanonical}
                 onExplodeGroup={props.onExplodeGroup}
                 onExtractAiMetadata={props.onExtractAiMetadata}

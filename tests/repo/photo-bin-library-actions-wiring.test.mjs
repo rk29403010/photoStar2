@@ -15,12 +15,14 @@ test('library and single-photo actions switch between Move to Bin and Restore', 
     const actionModelSource = readWorkspaceFile('src/ui/components/app/libraryBinActionModel.ts');
     const filterBarSource = readWorkspaceFile('src/ui/components/app/AppFilterBar.tsx');
     const hookSource = readWorkspaceFile('src/ui/hooks/usePhotoBinActions.ts');
+    const selectionSource = readWorkspaceFile('src/shared/utils/librarySelectionState.ts');
     const appSource = readWorkspaceFile('src/ui/App.tsx');
     const loadedShellSource = readWorkspaceFile('src/ui/components/app/LoadedAppShell.tsx');
     const mainContentSource = readWorkspaceFile('src/ui/components/app/AppMainContent.tsx');
     const overlaysSource = readWorkspaceFile('src/ui/components/app/AppOverlays.tsx');
     const controlsSource = readWorkspaceFile('src/ui/components/single-photo/ActionOverlayControls.tsx');
     const singlePhotoMenuModelSource = readWorkspaceFile('src/ui/components/single-photo/singlePhotoActionMenuModel.ts');
+    const viewportSource = readWorkspaceFile('src/ui/components/single-photo/PhotoViewport.tsx');
 
     assert.match(actionModelSource, /export function isBinLibraryFilter/);
     assert.match(actionModelSource, /export function getLibraryBinActionLabel/);
@@ -35,14 +37,21 @@ test('library and single-photo actions switch between Move to Bin and Restore', 
     assert.match(controlsSource, /onMoveToBin\?: \(assetId: string\) => Promise<void>/);
     assert.match(controlsSource, /onRestoreFromBin\?: \(assetId: string\) => Promise<void>/);
     assert.match(controlsSource, /getLibraryBinActionLabel\(asset\.binned_at \? 'restore' : 'move_to_bin'\)/);
+    assert.match(viewportSource, /onMoveToBin=\{props\.onMoveToBin\}/);
+    assert.match(viewportSource, /onRestoreFromBin=\{props\.onRestoreFromBin\}/);
 
+    assert.match(selectionSource, /export function getLibrarySelectionAssetIds/);
+    assert.match(selectionSource, /selection\.groupIds\.has\(asset\.group_id\)/);
     assert.match(hookSource, /export function usePhotoBinActions/);
+    assert.match(hookSource, /assets: Asset\[\];/);
     assert.match(hookSource, /setStatusBanner\(\{/);
     assert.match(hookSource, /actionLabel: 'Undo'/);
+    assert.match(hookSource, /getLibrarySelectionAssetIds\(librarySelection, assets\)/);
     assert.match(hookSource, /await actions\.moveToBin\(assetIds\)/);
     assert.match(hookSource, /await actions\.restoreFromBin\(assetIds\)/);
 
     assert.match(appSource, /usePhotoBinActions\(/);
+    assert.match(appSource, /assets,/);
     assert.match(mainContentSource, /onMoveAssetToBin: \(assetId: string\) => Promise<void>/);
     assert.match(mainContentSource, /onRestoreAssetFromBin: \(assetId: string\) => Promise<void>/);
     assert.match(loadedShellSource, /onMoveSelectionToBin=\{props\.handlers\.handleMoveSelectionToBin\}/);
