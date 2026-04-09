@@ -63,6 +63,35 @@ These rules exist because generated code drifts toward noise unless the repo pus
   - `discard this thread` means verify with the user before destructive cleanup, then `thread:close -- --status discarded`.
 - When a managed dev session is part of the thread context, include that note in tracker updates via `--note` so the next thread can see what was running.
 
+## Thread Runtime And Dependency Policy
+
+- Treat worktree isolation and runtime ownership as separate decisions.
+- Every independent task still gets its own worktree with `npm run thread:new -- --task "<task name>"` unless the user explicitly asks to stay on `main`.
+- New threads start as `edit-only` by default. That means the thread has its own worktree but does not automatically start a managed dev session.
+- Promote a thread to `runtime-owning` with `npm run thread:start-dev` when the task needs branch-local manual verification, interactive debugging, or runtime-specific inspection.
+- For this repo, do not assume automated tests or quality scripts prove the feature works from a user point of view. They are regression guards, not a substitute for running the branch.
+- If a change affects visible UI, desktop-runtime behavior, routing, app state, backend wiring, or environment-sensitive logic, prefer running that thread in its own worktree before signoff.
+- Do not merge into `main` just to run or verify a branch. If the thread needs runtime verification, run it in that worktree.
+- Do not auto-start managed dev sessions for every new thread. Start them when the thread reaches the point where real branch-local verification is required.
+- Prefer keeping only the threads currently being verified or debugged as `runtime-owning`. Leave the rest as `edit-only` to reduce process and port sprawl.
+- When a thread owns a managed dev session, record that in the tracker note so the active runtime context is visible to the next thread.
+
+## Runtime Promotion Triggers
+
+- Promote a thread to `runtime-owning` before signoff if the task changes anything the user would normally judge by running the app rather than by reading code or test output.
+- Promote a thread to `runtime-owning` when the change affects rendered UI, interaction flow, desktop-runtime behavior, state transitions, navigation, persistence, imports or exports, background jobs, or any feature with meaningful user-visible side effects.
+- Promote a thread to `runtime-owning` when the assistant cannot honestly verify the outcome from targeted checks alone.
+- If there is reasonable doubt about whether automated checks are enough, prefer starting the thread runtime rather than guessing.
+- A thread may remain `edit-only` through handoff only when the change is genuinely non-runtime-facing, such as docs, comments, narrow refactors with unchanged behavior, or well-covered internal fixes where the runtime path is not part of the claim being made.
+
+## Thread Dependency Policy
+
+- Treat per-thread runtime as normal when branch-local verification is needed, but treat full dependency duplication as something to minimise.
+- Do not assume every worktree needs a fresh full install just because it exists. Install or rebuild dependencies when the thread actually needs to run and the current dependency state is not already usable.
+- Prefer solutions that preserve branch isolation while sharing dependency artifacts safely, such as the package-manager cache or a shared content-addressed store.
+- Be cautious with ad hoc shared `node_modules` linking across worktrees in this repo. Native dependencies and lockfile drift can make that fragile.
+- If repeated thread-local installs become a bottleneck, prefer evaluating a package-manager workflow that shares package contents across worktrees cleanly rather than weakening worktree isolation for convenience.
+
 ## Fast loop defaults
 
 - Default to the fastest safe path for local edits, bugfixes, refactors, and small behavior changes.
