@@ -33,6 +33,7 @@ interface LayoutEngineProps {
     layoutMode?: GalleryLayoutMode;
     scrollContainerRef?: RefObject<HTMLDivElement | null>;
     showInfoPanel?: boolean;
+    isScrollSettled?: boolean;
     targetRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
 }
@@ -40,10 +41,7 @@ interface LayoutEngineProps {
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
 
 interface SelectionInteractionState {
-    dragSelectionRef: MutableRefObject<{
-        active: boolean;
-        anchorIndex: number | null;
-    }>;
+    dragSelectionRef: MutableRefObject<{ active: boolean; anchorIndex: number | null }>;
     isSelecting: boolean;
     setIsSelecting: (value: boolean) => void;
     pressTimer: MutableRefObject<number | null>;
@@ -70,6 +68,7 @@ interface LayoutTileProps {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     showInfoPanel: boolean;
+    isScrollSettled: boolean;
     shellStyleOverride?: CSSProperties;
 }
 
@@ -78,8 +77,7 @@ interface LayoutTileEventHandlers {
     onDoubleClick: () => void;
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
     onPointerEnter: (event: ReactPointerEvent<HTMLDivElement>) => void;
-    onPointerLeave: () => void;
-    onPointerUp: () => void;
+    onPointerLeave: () => void; onPointerUp: () => void;
 }
 
 const PRIORITY_TILE_COUNT = 60;
@@ -133,16 +131,10 @@ function useSelectionInteractions(
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
 ): SelectionInteractionState {
     const [isSelecting, setIsSelecting] = useState(false);
-    const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({
-        active: false,
-        anchorIndex: null,
-    });
+    const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({ active: false, anchorIndex: null });
     const pressTimer = useRef<number | null>(null);
     const stopDragging = useCallback(() => {
-        dragSelectionRef.current = {
-            ...dragSelectionRef.current,
-            active: false,
-        };
+        dragSelectionRef.current = { ...dragSelectionRef.current, active: false };
     }, []);
 
     useSelectAllShortcut(layoutItems, onLibrarySelectionChange, setIsSelecting);
@@ -334,6 +326,7 @@ function LayoutTile({
     hoveredGroupId,
     onHoveredGroupIdChange,
     showInfoPanel,
+    isScrollSettled,
     shellStyleOverride,
 }: LayoutTileProps) {
     const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
@@ -355,7 +348,6 @@ function LayoutTile({
         selectionState,
         showInfoPanel,
     });
-
     return (
         <div
             key={layoutItem.item.selectionKey}
@@ -380,9 +372,10 @@ function LayoutTile({
                 imageLoading={prioritizeImage ? 'eager' : 'lazy'}
                 imageFetchPriority={prioritizeImage ? 'high' : 'auto'}
                 isGroupRepresentative={layoutItem.item.entityType === 'group'}
-                showGroupIds={showGroupIds}
+                showGroupIds={Boolean(showGroupIds)}
                 hoveredGroupId={hoveredGroupId}
                 onHoveredGroupIdChange={onHoveredGroupIdChange}
+                isScrollSettled={isScrollSettled}
             />
         </div>
     );
@@ -406,6 +399,7 @@ function renderLayoutTile(params: {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     showInfoPanel: boolean;
+    isScrollSettled: boolean;
     shellStyleOverride?: CSSProperties;
 }) {
     const layoutItem = params.layoutItems[params.index];
@@ -432,6 +426,7 @@ function renderLayoutTile(params: {
             hoveredGroupId={params.hoveredGroupId}
             onHoveredGroupIdChange={params.onHoveredGroupIdChange}
             showInfoPanel={params.showInfoPanel}
+            isScrollSettled={params.isScrollSettled}
             shellStyleOverride={params.shellStyleOverride}
         />
     );
@@ -455,6 +450,7 @@ export function LayoutEngine({
     layoutMode = 'tiled',
     scrollContainerRef,
     showInfoPanel = false,
+    isScrollSettled = true,
     targetRowHeight,
     onTopVisibleSelectionKeyChange,
 }: LayoutEngineProps) {
@@ -491,6 +487,7 @@ export function LayoutEngine({
                 hoveredGroupId,
                 onHoveredGroupIdChange,
                 showInfoPanel,
+                isScrollSettled,
                 shellStyleOverride,
             })}
         />

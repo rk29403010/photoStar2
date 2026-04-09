@@ -281,6 +281,7 @@ function getLibraryPanelProps(params: {
             layoutMode: params.layoutMode,
             scrollContainerRef: params.scrollRef,
             showInfoPanel: params.props.showInfoPanel,
+            isScrollSettled: params.isScrollSettled,
             targetRowHeight: params.browseRowHeight,
             onTopVisibleSelectionKeyChange: params.setTopVisibleSelectionKey,
         },

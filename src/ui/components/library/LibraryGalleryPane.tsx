@@ -41,6 +41,7 @@ interface LibraryGalleryPaneProps {
         layoutMode: GalleryLayoutMode;
         scrollContainerRef?: RefObject<HTMLDivElement | null>;
         showInfoPanel: boolean;
+        isScrollSettled?: boolean;
         targetRowHeight?: number;
         onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
     };
