@@ -293,8 +293,8 @@ function handleUpdate(args, registryPath) {
     ensureValidStatus(status);
 
     upsertThreadEntry(registry, {
-        ...snapshot,
         ...existingEntry,
+        ...snapshot,
         task: typeof args.task === 'string' ? args.task.trim() : existingEntry.task,
         status,
         owner: typeof args.owner === 'string' ? args.owner.trim() : existingEntry.owner,
