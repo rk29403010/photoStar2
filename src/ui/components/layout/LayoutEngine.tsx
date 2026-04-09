@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
@@ -31,7 +31,10 @@ interface LayoutEngineProps {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     layoutMode?: GalleryLayoutMode;
+    scrollContainerRef?: RefObject<HTMLDivElement | null>;
     showInfoPanel?: boolean;
+    targetRowHeight?: number;
+    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
@@ -450,7 +453,10 @@ export function LayoutEngine({
     hoveredGroupId,
     onHoveredGroupIdChange,
     layoutMode = 'tiled',
+    scrollContainerRef,
     showInfoPanel = false,
+    targetRowHeight,
+    onTopVisibleSelectionKeyChange,
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(items, layoutMode), [items, layoutMode]);
     const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
@@ -463,7 +469,10 @@ export function LayoutEngine({
                 width: layoutItem.item.asset.width,
                 height: layoutItem.item.asset.height,
             }))}
+            scrollContainerRef={scrollContainerRef}
             itemCount={layoutItems.length}
+            targetRowHeight={targetRowHeight}
+            onTopVisibleSelectionKeyChange={onTopVisibleSelectionKeyChange}
             renderTile={(index, shellStyleOverride) => renderLayoutTile({
                 layoutItems,
                 index,

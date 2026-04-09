@@ -4,6 +4,7 @@ import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import { buildVisibleGalleryItems } from '@shared/utils/libraryGallerySelection';
 import { createEmptyLibrarySelectionState, type LibrarySelectableItem, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
+import type { RefObject } from 'react';
 import { LayoutEngine } from '../layout/LayoutEngine';
 import { LibraryToolbar } from './LibraryToolbar';
 
@@ -38,7 +39,10 @@ interface LibraryGalleryPaneProps {
         hoveredGroupId: string | null;
         onHoveredGroupIdChange: (groupId: string | null) => void;
         layoutMode: GalleryLayoutMode;
+        scrollContainerRef?: RefObject<HTMLDivElement | null>;
         showInfoPanel: boolean;
+        targetRowHeight?: number;
+        onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
     };
     rejected: {
         showRejected?: boolean;

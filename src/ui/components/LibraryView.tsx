@@ -257,6 +257,7 @@ function getLibraryPanelProps(params: {
     handleShowInfoPanelChange: (show: boolean) => void;
     browseRowHeight: number;
     isScrollSettled: boolean;
+    setTopVisibleSelectionKey: (selectionKey: string | null) => void;
 }) {
     return {
         scrollRef: params.scrollRef,
@@ -278,7 +279,10 @@ function getLibraryPanelProps(params: {
             hoveredGroupId: params.hoveredGroupId,
             onHoveredGroupIdChange: params.setHoveredGroupId,
             layoutMode: params.layoutMode,
+            scrollContainerRef: params.scrollRef,
             showInfoPanel: params.props.showInfoPanel,
+            targetRowHeight: params.browseRowHeight,
+            onTopVisibleSelectionKeyChange: params.setTopVisibleSelectionKey,
         },
         rejected: {
             showRejected: params.props.showRejected,
@@ -347,6 +351,7 @@ function useLibraryChrome(params: {
 export function LibraryView(props: LibraryViewProps) {
     const [layoutMode, setLayoutMode] = useState<GalleryLayoutMode>(getDefaultGalleryLayoutMode);
     const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
+    const [topVisibleSelectionKey, setTopVisibleSelectionKey] = useState<string | null>(null);
     const { browseRowHeight, isScrollSettled, markScrollActivity } = useGalleryBrowseRailState();
     const selection = props.librarySelection ?? EMPTY_LIBRARY_SELECTION;
     const { scrollRef, handleScroll } = useLibraryPaging({
@@ -372,10 +377,10 @@ export function LibraryView(props: LibraryViewProps) {
         galleryTimelineSeek: props.galleryTimelineSeek,
     }), [props.assets, props.galleryTimelineSeek, props.stats?.timeline, sortMode]);
     const { viewportBucketIndex, updateViewportBucketIndex } = useViewportTimelineBucketIndex({
-        scrollRef,
         displayItems,
         timeline: props.stats?.timeline,
         activeTimelineSeek,
+        visibleSelectionKey: topVisibleSelectionKey,
     });
     const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails);
     const rejectedAssetCount = getRejectedAssetCount(props.showRejected, props.rejectedAssets);
@@ -385,8 +390,10 @@ export function LibraryView(props: LibraryViewProps) {
     const handleLibraryScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
         markScrollActivity();
         handleScroll(event);
-        updateViewportBucketIndex(event.currentTarget);
-    }, [handleScroll, markScrollActivity, updateViewportBucketIndex]);
+    }, [handleScroll, markScrollActivity]);
+    useEffect(() => {
+        updateViewportBucketIndex(topVisibleSelectionKey);
+    }, [topVisibleSelectionKey, updateViewportBucketIndex]);
     const { toolbar, timelineRail } = useLibraryChrome({
         props,
         sortMode,
@@ -420,6 +427,7 @@ export function LibraryView(props: LibraryViewProps) {
         handleShowInfoPanelChange,
         browseRowHeight,
         isScrollSettled,
+        setTopVisibleSelectionKey,
     });
 
     return <LibraryPanel {...panelProps} />;
