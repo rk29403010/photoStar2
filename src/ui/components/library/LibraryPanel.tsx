@@ -90,12 +90,12 @@ export function LibraryPanel({
     browseRowHeight,
     isScrollSettled,
 }: LibraryPanelProps) {
-    const scrollContainerStyle: CSSProperties = {
+    const scrollContainerStyle: CSSProperties & Record<'--gallery-browse-row-height', string> = {
         flex: 1,
         minHeight: 0,
         minWidth: 0,
         overflowY: 'auto',
-        ['--gallery-browse-row-height' as const]: `${browseRowHeight}px`,
+        '--gallery-browse-row-height': `${browseRowHeight}px`,
     };
 
     return (
