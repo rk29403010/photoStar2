@@ -4,6 +4,7 @@ import type { DevRuntimeImpact } from '@contracts/devRuntime';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import { removeAssetsById, restoreAssetsByReference } from '@shared/utils/photoBinLocalState';
 import type { GalleryOrder, RefreshLibraryOptions } from './usePhotoLibrary.gallery';
 import type { usePhotoLibraryState } from './usePhotoLibrary.state';
 import type { useLibraryTransport } from '@boundary/runtime/usePhotoLibrary.commands';
@@ -154,6 +155,10 @@ export function useCoreActions(params: {
         isolatePersonAsset: (assetId: string, personId: string) => sendCommand('isolate_person_asset', { assetId, personId }),
         getRejectedAssetsForPerson,
         updateAsset: (id: string, partial: Partial<Asset>) => setAssets((prev) => prev.map((asset) => asset.id === id ? { ...asset, ...partial } : asset)),
+        removeAssetsFromState: (assetIds: string[]) => setAssets((previousAssets) => removeAssetsById(previousAssets, assetIds)),
+        restoreAssetsInState: (restoredAssets: Asset[], referenceAssets: Asset[]) => setAssets((previousAssets) => (
+            restoreAssetsByReference(previousAssets, restoredAssets, referenceAssets)
+        )),
         getWorkflowVisualiser: (workflowId: string, runId?: string | null): Promise<WorkflowVisualiserModel> => request<WorkflowVisualiserModel>({
             idPrefix: `get_workflow_visualiser_${workflowId}_${runId === undefined ? 'default' : runId === null ? 'definition' : runId}`,
             command: 'get_workflow_visualiser',

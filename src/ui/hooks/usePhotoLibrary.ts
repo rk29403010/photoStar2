@@ -33,7 +33,6 @@ type RequestFn = ReturnType<typeof useLibraryTransport>['request'];
 type SendCommandFn = (command: string, payload?: Record<string, unknown>) => Promise<void>;
 
 function useLibraryRefreshAction(params: {
-    assets: PhotoLibraryState['assets'];
     filterStackRef: PhotoLibraryState['filterStackRef'];
     request: RequestFn;
     sendCommand: SendCommandFn;
@@ -43,13 +42,10 @@ function useLibraryRefreshAction(params: {
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
-    const { assets, filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef } = params;
+    const { filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef } = params;
 
     return useCallback((options: RefreshLibraryOptions = {}) => {
-        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, {
-            ...options,
-            loadedAssetCount: options.preservePagingState ? assets.length : options.loadedAssetCount,
-        });
+        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, options);
 
         if (!options.preservePagingState) {
             setHasMoreAssets(true);
@@ -63,7 +59,7 @@ function useLibraryRefreshAction(params: {
         }
 
         void sendCommand('get_assets', payload);
-    }, [assets.length, filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets]);
+    }, [filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets]);
 }
 
 function useAssetLoadingActions(params: {
@@ -166,7 +162,6 @@ function useRefreshActions(params: {
     } = params;
 
     const refreshLibrary = useLibraryRefreshAction({
-        assets,
         filterStackRef,
         request,
         sendCommand,

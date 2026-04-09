@@ -10,7 +10,6 @@ export type RefreshLibraryOptions = {
     gallerySeek?: GalleryTimelineSeek | null;
     preservePagingState?: boolean;
     withGroupCounts?: boolean;
-    loadedAssetCount?: number;
 };
 
 export function getCurrentFilter(filterStackRef: { current: LibraryFilter[] }) {
@@ -25,12 +24,8 @@ export function buildAssetRefreshPayload(
     filterStackRef: { current: LibraryFilter[] },
     options: RefreshLibraryOptions,
 ) {
-    const refreshLimit = options.preservePagingState
-        ? Math.max(ASSET_PAGE_SIZE, options.loadedAssetCount ?? 0)
-        : ASSET_PAGE_SIZE;
-
     return {
-        limit: refreshLimit,
+        limit: ASSET_PAGE_SIZE,
         offset: 0,
         filter: getCurrentFilter(filterStackRef),
         detailLevel: 'gallery' as const,
