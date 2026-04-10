@@ -1,15 +1,18 @@
 export function getTileOverlayVisibility(params: {
     isHovered: boolean;
     isScrollSettled: boolean;
+    isImageVisible: boolean;
     showGroupIds: boolean;
     isGroupRepresentative: boolean;
 }) {
-    const showSettledOverlays = params.isHovered && params.isScrollSettled;
+    const showVisibleOverlays = params.isScrollSettled && params.isImageVisible;
+    const showSettledOverlays = params.isHovered && showVisibleOverlays;
 
     return {
         showCaption: showSettledOverlays,
         showDeclusterButton: showSettledOverlays,
-        showGroupModeBadge: params.isGroupRepresentative && params.isScrollSettled,
-        showGroupIdPills: params.showGroupIds && params.isScrollSettled,
+        showStackBadge: showVisibleOverlays,
+        showGroupModeBadge: params.isGroupRepresentative && showVisibleOverlays,
+        showGroupIdPills: params.showGroupIds && showVisibleOverlays,
     };
 }

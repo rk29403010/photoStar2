@@ -203,6 +203,7 @@ export interface Asset {
     id: string;
     original_path: string; // Added this
     preview_path?: string;
+    preview_data_url?: string;
     width?: number;
     height?: number;
     created_at?: string;

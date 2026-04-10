@@ -18,6 +18,7 @@ export type AssetPayloadRow = {
     exif_datetime?: string | null;
     metadata_timestamp_source?: string | null;
     preview_path: string | null;
+    preview_data_url?: string | null;
     faces_data: string | null;
     rec_data: string | null;
     ai_metadata_data: string | null;
@@ -219,6 +220,7 @@ function buildAssetDimensionFields(row: AssetPayloadRow) {
         height: row.height ?? undefined,
         file_size: row.file_size ?? undefined,
         preview_path: row.preview_path ?? undefined,
+        preview_data_url: row.preview_data_url ?? undefined,
     };
 }
 

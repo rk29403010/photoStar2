@@ -1,5 +1,6 @@
 export interface JustifiedLayoutSourceItem {
     id: string;
+    index?: number;
     width?: number;
     height?: number;
 }
@@ -16,6 +17,8 @@ export interface JustifiedLayoutRow {
     items: JustifiedLayoutItem[];
     height: number;
     width: number;
+    gap: number;
+    isFinalRow: boolean;
 }
 
 export interface BuildJustifiedLayoutRowsOptions {
@@ -43,16 +46,8 @@ function getAspectRatio(item: Pick<JustifiedLayoutSourceItem, 'width' | 'height'
     return clampAspectRatio(item.width / item.height);
 }
 
-function buildRoundedWidths(aspectRatios: number[], rowHeight: number, contentWidth: number) {
-    const widths = aspectRatios.map((ratio) => Math.max(1, Math.round(ratio * rowHeight)));
-    const roundedTotal = widths.reduce((sum, width) => sum + width, 0);
-    const delta = contentWidth - roundedTotal;
-
-    if (delta !== 0) {
-        widths[widths.length - 1] = Math.max(1, widths[widths.length - 1] + delta);
-    }
-
-    return widths;
+function buildScaledWidths(aspectRatios: number[], rowHeight: number) {
+    return aspectRatios.map((ratio) => Math.max(1, ratio * rowHeight));
 }
 
 function buildRow(
@@ -60,21 +55,26 @@ function buildRow(
     options: Required<BuildJustifiedLayoutRowsOptions>,
     isLastRow: boolean,
 ): JustifiedLayoutRow {
-    const gapWidth = options.gap * Math.max(0, items.length - 1);
+    const gapCount = Math.max(0, items.length - 1);
     const ratioSum = items.reduce((sum, item) => sum + item.aspectRatio, 0);
-    const targetContentWidth = Math.max(1, options.containerWidth - gapWidth);
-    const stretchedHeight = Math.floor(targetContentWidth / ratioSum);
+    const targetContentWidth = Math.max(1, options.containerWidth - (options.gap * gapCount));
+    const stretchedHeight = targetContentWidth / ratioSum;
     const rowHeight = isLastRow
         ? options.targetRowHeight
         : Math.min(options.maxRowHeight, Math.max(1, stretchedHeight));
-    const contentWidth = isLastRow
-        ? Math.max(1, Math.round(ratioSum * rowHeight))
-        : targetContentWidth;
-    const widths = buildRoundedWidths(items.map((item) => item.aspectRatio), rowHeight, contentWidth);
+    const widths = buildScaledWidths(items.map((item) => item.aspectRatio), rowHeight);
+    const contentWidth = widths.reduce((sum, width) => sum + width, 0);
+    const resolvedGap = isLastRow || gapCount === 0
+        ? options.gap
+        : Math.max(0, (options.containerWidth - contentWidth) / gapCount);
 
     return {
         height: rowHeight,
-        width: widths.reduce((sum, width) => sum + width, 0) + gapWidth,
+        width: isLastRow
+            ? contentWidth + (options.gap * gapCount)
+            : options.containerWidth,
+        gap: resolvedGap,
+        isFinalRow: isLastRow,
         items: items.map((item, index) => ({
             id: item.id,
             index: item.index,
@@ -99,7 +99,7 @@ export function buildJustifiedLayoutRows(
     let pendingRow: Array<{ id: string; index: number; aspectRatio: number }> = [];
 
     items.forEach((item, index) => {
-        pendingRow.push({ id: item.id, index, aspectRatio: getAspectRatio(item) });
+        pendingRow.push({ id: item.id, index: item.index ?? index, aspectRatio: getAspectRatio(item) });
         const pendingWidth = pendingRow.reduce((sum, rowItem) => sum + (rowItem.aspectRatio * resolvedOptions.targetRowHeight), 0)
             + (resolvedOptions.gap * Math.max(0, pendingRow.length - 1));
 

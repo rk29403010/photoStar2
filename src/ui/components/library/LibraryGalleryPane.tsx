@@ -7,6 +7,7 @@ import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import type { RefObject } from 'react';
 import { LayoutEngine } from '../layout/LayoutEngine';
 import { LibraryToolbar } from './LibraryToolbar';
+import type { GalleryTimeSectionMode } from '../layout/galleryTimeSections';
 
 interface LibraryGalleryPaneProps {
     toolbar: {
@@ -44,6 +45,7 @@ interface LibraryGalleryPaneProps {
         isScrollSettled?: boolean;
         targetRowHeight?: number;
         onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+        timeSectionMode?: GalleryTimeSectionMode;
     };
     rejected: {
         showRejected?: boolean;

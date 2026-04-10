@@ -35,6 +35,7 @@ interface TileOverlaysProps {
     showFaces: boolean;
     debug: boolean;
     intent: TileIntent;
+    isImageVisible: boolean;
     isScrollSettled: boolean;
 }
 
@@ -302,11 +303,13 @@ export const TileOverlays: React.FC<TileOverlaysProps> = ({
     showFaces,
     debug,
     intent,
+    isImageVisible,
     isScrollSettled,
 }) => {
     const overlayVisibility = getTileOverlayVisibility({
         isHovered,
         isScrollSettled,
+        isImageVisible,
         showGroupIds,
         isGroupRepresentative,
     });
@@ -315,7 +318,7 @@ export const TileOverlays: React.FC<TileOverlaysProps> = ({
         <>
             {selected && <SelectedStarBadge />}
             <SensitivityBadgeView badge={sensitivityBadge} />
-            <StackBadge count={stackCount} />
+            <StackBadge count={overlayVisibility.showStackBadge ? stackCount : null} />
             <GroupModeBadge show={overlayVisibility.showGroupModeBadge} />
             <GroupIdPills
                 memberships={groupMemberships}

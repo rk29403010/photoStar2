@@ -16,7 +16,7 @@ import {
     shouldUpdatePagingStateFromAssetResponse,
 } from '@shared/utils/libraryPagingState';
 
-const INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init', 'people-init', 'system-jobs-init'] as const;
+const INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init'] as const;
 const INITIAL_SYNC_REQUEST_ID_SET = new Set<string>(INITIAL_SYNC_REQUEST_IDS);
 
 function dedupeAssetsById(assets: Asset[]): Asset[] {

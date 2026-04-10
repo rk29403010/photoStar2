@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode, type UIEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type UIEvent } from 'react';
 import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
@@ -9,8 +9,8 @@ import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandl
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
-import type { LibraryGalleryPane } from './library/LibraryGalleryPane';
-import { LibraryPanel } from './library/LibraryPanel';
+import { LibraryPanelContent } from './library/LibraryPanelContent';
+import { EmptyState, LoadingState } from './library/LibraryStates';
 import { getGalleryInfoPanelAsset } from './library/galleryInfoPanelModel';
 import { getAvailableTags, getSelectedTag } from './library/libraryTagFilterModel';
 import { getActiveTimelineSeek, isTimelineSortMode } from './library/libraryTimelineModel';
@@ -20,10 +20,17 @@ import {
     handleInfoPanelVisibilityChange,
     useViewportTimelineBucketIndex,
 } from './library/libraryViewTimeline';
-import { getDefaultGalleryLayoutMode, shouldPrefetchBufferedRows } from './library/galleryBrowseRailModel';
+import {
+    getDefaultGalleryLayoutMode,
+    getKeyboardScrollDelta,
+    GALLERY_ROW_GAP_PX,
+    shouldPrefetchBufferedRows,
+    type GalleryScrollDirection,
+} from './library/galleryBrowseRailModel';
 import { useGalleryBrowseRailState } from './library/libraryBrowseRailState';
+import type { GalleryTimeSectionMode } from './layout/galleryTimeSections';
 
-interface LibraryViewProps {
+export interface LibraryViewProps {
     stats: LibraryStats | null;
     assets: Asset[];
     galleryTimelineSeek: GalleryTimelineSeek | null;
@@ -71,33 +78,25 @@ interface LibraryViewProps {
 
 const EMPTY_LIBRARY_SELECTION = createEmptyLibrarySelectionState();
 
-function LoadingState({ backendStatus, backendReady }: { backendStatus: string; backendReady: boolean }) {
-    return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', gap: 16 }}>
-            <div className="animate-pulse" style={{ fontSize: '2rem' }}>⌛</div>
-            <div style={{ textAlign: 'center' }}>
-                <div>{backendStatus.includes('Error') ? backendStatus : 'Initialising photo library...'}</div>
-                {!backendReady && !backendStatus.includes('Error') && <div style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: 4 }}>Establishing connection to backend service...</div>}
-            </div>
-        </div>
-    );
-}
-
-function EmptyState() {
-    return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', gap: 16 }}>
-            <div style={{ fontSize: '3rem', opacity: 0.3 }}>📂</div>
-            <div style={{ fontWeight: 500 }}>No photos found in library.</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Click &quot;Actions &gt; Scan Folder&quot; to import photos.</div>
-        </div>
-    );
-}
-
-function shouldLoadMore(element: HTMLDivElement, browseRowHeight: number) {
-    const remaining = element.scrollHeight - element.scrollTop - element.clientHeight;
-    const remainingRows = remaining / Math.max(1, browseRowHeight);
-    const viewportRowCount = Math.max(1, Math.ceil(element.clientHeight / Math.max(1, browseRowHeight)));
-    return shouldPrefetchBufferedRows(remainingRows, viewportRowCount);
+function shouldLoadMore(params: {
+    element: HTMLDivElement;
+    browseRowHeight: number;
+    scrollDirection: GalleryScrollDirection;
+    pixelsPerMs: number;
+    averageBatchLoadMs: number;
+}) {
+    const rowExtent = Math.max(1, params.browseRowHeight + GALLERY_ROW_GAP_PX);
+    const remaining = params.element.scrollHeight - params.element.scrollTop - params.element.clientHeight;
+    const remainingRows = remaining / rowExtent;
+    const viewportRowCount = Math.max(1, Math.ceil(params.element.clientHeight / rowExtent));
+    return shouldPrefetchBufferedRows({
+        remainingRows,
+        viewportRowCount,
+        scrollDirection: params.scrollDirection,
+        pixelsPerMs: params.pixelsPerMs,
+        rowHeight: params.browseRowHeight,
+        averageBatchLoadMs: params.averageBatchLoadMs,
+    });
 }
 
 function canRequestMoreAssets(params: {
@@ -122,14 +121,34 @@ function shouldAutoRequestMoreAssets(params: {
     container: HTMLDivElement | null;
     displayAssetCount: number;
     browseRowHeight: number;
+    averageBatchLoadMs: number;
 }) {
     return Boolean(
         params.active
         && !params.isSeekingTimeline
         && params.container
         && params.displayAssetCount > 0
-        && shouldLoadMore(params.container, params.browseRowHeight)
+        && shouldLoadMore({
+            element: params.container,
+            browseRowHeight: params.browseRowHeight,
+            scrollDirection: 'down',
+            pixelsPerMs: 0,
+            averageBatchLoadMs: params.averageBatchLoadMs,
+        })
     );
+}
+
+function isTypingTarget(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) {return false;}
+    return target instanceof HTMLInputElement
+        || target instanceof HTMLTextAreaElement
+        || target instanceof HTMLSelectElement
+        || target.isContentEditable;
+}
+
+function getTimeSectionMode(sortMode: LibrarySortMode, layoutMode: GalleryLayoutMode): GalleryTimeSectionMode {
+    if (layoutMode !== 'justified') {return 'none';}
+    return sortMode === 'date' || sortMode === 'reverse-date' ? 'decade' : 'none';
 }
 
 function getRejectedAssetCount(showRejected?: boolean, rejectedAssets?: Asset[]) {
@@ -168,7 +187,7 @@ function useLibrarySortController(params: {
     groupSimilarPhotos: boolean;
     onGalleryOrderChange: (order: GalleryOrder) => void;
     onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
-    scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
+    scrollRef: MutableRefObject<HTMLDivElement | null>;
 }) {
     const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
     const { groupSimilarPhotos, onGalleryOrderChange, onGalleryTimelineSeek, scrollRef } = params;
@@ -192,6 +211,7 @@ function useLibrarySortController(params: {
 }
 
 function useLibraryPaging(params: {
+    scrollRef: MutableRefObject<HTMLDivElement | null>;
     active: boolean;
     isSeekingTimeline: boolean;
     displayAssetCount: number;
@@ -200,27 +220,73 @@ function useLibraryPaging(params: {
     isLoadingMoreAssets?: boolean;
     onLoadMoreAssets?: () => Promise<void>;
 }) {
-    const { active, isSeekingTimeline, displayAssetCount, browseRowHeight, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets } = params;
-    const scrollRef = useRef<HTMLDivElement | null>(null);
+    const { active, isSeekingTimeline, displayAssetCount, browseRowHeight, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets, scrollRef } = params;
+    const averageBatchLoadMsRef = useRef(320);
+    const lastScrollSampleRef = useRef<{ top: number; at: number }>({ top: 0, at: 0 });
 
-    const requestMoreAssets = useCallback(() => {
+    const requestMoreAssets = useCallback(async () => {
         if (!canRequestMoreAssets({ active, isSeekingTimeline, hasMoreAssets, isLoadingMoreAssets, onLoadMoreAssets })) {return;}
-        void onLoadMoreAssets?.();
+        const startedAt = performance.now();
+        await onLoadMoreAssets?.();
+        const elapsed = performance.now() - startedAt;
+        averageBatchLoadMsRef.current = Math.round((averageBatchLoadMsRef.current * 0.7) + (elapsed * 0.3));
     }, [active, hasMoreAssets, isLoadingMoreAssets, isSeekingTimeline, onLoadMoreAssets]);
 
     const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-        if (shouldLoadMore(event.currentTarget, browseRowHeight)) {
-            requestMoreAssets();
+        const now = performance.now();
+        const previousSample = lastScrollSampleRef.current;
+        const deltaTop = event.currentTarget.scrollTop - previousSample.top;
+        const deltaTime = Math.max(1, now - previousSample.at);
+        const pixelsPerMs = deltaTop / deltaTime;
+        const scrollDirection: GalleryScrollDirection = deltaTop > 0 ? 'down' : deltaTop < 0 ? 'up' : 'idle';
+        lastScrollSampleRef.current = { top: event.currentTarget.scrollTop, at: now };
+
+        if (shouldLoadMore({
+            element: event.currentTarget,
+            browseRowHeight,
+            scrollDirection,
+            pixelsPerMs,
+            averageBatchLoadMs: averageBatchLoadMsRef.current,
+        })) {
+            void requestMoreAssets();
         }
     }, [browseRowHeight, requestMoreAssets]);
 
     useEffect(() => {
-        const container = scrollRef.current;
-        if (!shouldAutoRequestMoreAssets({ active, isSeekingTimeline, container, displayAssetCount, browseRowHeight })) {return;}
-        requestMoreAssets();
-    }, [active, browseRowHeight, displayAssetCount, isSeekingTimeline, requestMoreAssets]);
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!active || isTypingTarget(event.target)) {return;}
+            const container = scrollRef.current;
+            if (!container) {return;}
+            const delta = getKeyboardScrollDelta({
+                key: event.key,
+                browseRowHeight,
+                viewportHeight: container.clientHeight,
+                rowGap: GALLERY_ROW_GAP_PX,
+            });
+            if (delta === 0) {return;}
 
-    return { scrollRef, handleScroll };
+            event.preventDefault();
+            container.scrollBy({ top: delta, behavior: 'auto' });
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [active, browseRowHeight, scrollRef]);
+
+    useEffect(() => {
+        const container = scrollRef.current;
+        if (!shouldAutoRequestMoreAssets({
+            active,
+            isSeekingTimeline,
+            container,
+            displayAssetCount,
+            browseRowHeight,
+            averageBatchLoadMs: averageBatchLoadMsRef.current,
+        })) {return;}
+        void requestMoreAssets();
+    }, [active, browseRowHeight, displayAssetCount, isSeekingTimeline, requestMoreAssets, scrollRef]);
+
+    return { handleScroll };
 }
 
 function useLibraryInfoAsset(
@@ -242,71 +308,6 @@ function useLibraryInfoAsset(
 
     return selectedInfoAsset;
 }
-function getLibraryPanelProps(params: {
-    props: LibraryViewProps;
-    scrollRef: ReturnType<typeof useLibraryPaging>['scrollRef'];
-    handleLibraryScroll: ReturnType<typeof useLibraryPaging>['handleScroll'];
-    toolbar: ComponentProps<typeof LibraryGalleryPane>['toolbar'];
-    timelineRail?: ReactNode;
-    displayItems: ReturnType<typeof useDisplayAssets>;
-    selection: LibrarySelectionState;
-    hoveredGroupId: string | null;
-    setHoveredGroupId: (groupId: string | null) => void;
-    layoutMode: GalleryLayoutMode;
-    selectedInfoAsset: Asset | null;
-    handleShowInfoPanelChange: (show: boolean) => void;
-    browseRowHeight: number;
-    isScrollSettled: boolean;
-    setTopVisibleSelectionKey: (selectionKey: string | null) => void;
-}) {
-    return {
-        scrollRef: params.scrollRef,
-        handleScroll: params.handleLibraryScroll,
-        toolbar: params.toolbar,
-        timelineRail: params.timelineRail,
-        layout: {
-            items: params.displayItems,
-            onAssetClick: params.props.onAssetClick,
-            selectedAssetId: params.props.selectedAssetId,
-            activeFilter: params.props.activeFilter,
-            showFaces: params.props.showFaces,
-            onUntagAsset: params.props.onUntagAsset,
-            librarySelection: params.selection,
-            onLibrarySelectionChange: params.props.onLibrarySelectionChange,
-            declusteredAssets: params.props.declusteredAssets,
-            onHoverAssetChange: params.props.onHoverAssetChange,
-            showGroupIds: params.props.showGroupIds,
-            hoveredGroupId: params.hoveredGroupId,
-            onHoveredGroupIdChange: params.setHoveredGroupId,
-            layoutMode: params.layoutMode,
-            scrollContainerRef: params.scrollRef,
-            showInfoPanel: params.props.showInfoPanel,
-            isScrollSettled: params.isScrollSettled,
-            targetRowHeight: params.browseRowHeight,
-            onTopVisibleSelectionKeyChange: params.setTopVisibleSelectionKey,
-        },
-        rejected: {
-            showRejected: params.props.showRejected,
-            rejectedAssets: params.props.rejectedAssets,
-            onAssetClick: params.props.onAssetClick,
-            selectedAssetId: params.props.selectedAssetId,
-        },
-        isSeekingTimeline: params.props.isSeekingTimeline,
-        galleryTimelineSeek: params.props.galleryTimelineSeek,
-        showInfoPanel: params.props.showInfoPanel,
-        activeInfoTab: params.props.activeInfoTab,
-        onActiveInfoTabChange: params.props.onActiveInfoTabChange,
-        onShowInfoPanelChange: params.handleShowInfoPanelChange,
-        selectedInfoAsset: params.selectedInfoAsset,
-        onAssignAssetTag: params.props.onAssignAssetTag,
-        onRemoveAssetTag: params.props.onRemoveAssetTag,
-        onSetReviewItemStatus: params.props.onSetReviewItemStatus,
-        onFlagPhotoDateCorrection: params.props.onFlagPhotoDateCorrection,
-        browseRowHeight: params.browseRowHeight,
-        isScrollSettled: params.isScrollSettled,
-    } satisfies ComponentProps<typeof LibraryPanel>;
-}
-
 function useLibraryChrome(params: {
     props: LibraryViewProps;
     sortMode: LibrarySortMode;
@@ -349,21 +350,68 @@ function useLibraryChrome(params: {
     return { toolbar, timelineRail };
 }
 
+function getLibraryPanelContentProps(params: {
+    props: LibraryViewProps;
+    handleLibraryScroll: (event: UIEvent<HTMLDivElement>) => void;
+    toolbar: ComponentProps<typeof LibraryPanelContent>['toolbar'];
+    timelineRail?: ComponentProps<typeof LibraryPanelContent>['timelineRail'];
+    displayItems: ReturnType<typeof useDisplayAssets>;
+    selection: LibrarySelectionState;
+    hoveredGroupId: string | null;
+    setHoveredGroupId: (groupId: string | null) => void;
+    layoutMode: GalleryLayoutMode;
+    handleShowInfoPanelChange: (show: boolean) => void;
+    selectedInfoAsset: Asset | null;
+    browseRowHeight: number;
+    isScrollSettled: boolean;
+    setTopVisibleSelectionKey: (selectionKey: string | null) => void;
+    timeSectionMode: GalleryTimeSectionMode;
+}): Omit<ComponentProps<typeof LibraryPanelContent>, 'scrollRef'> {
+    return {
+        handleLibraryScroll: params.handleLibraryScroll,
+        toolbar: params.toolbar,
+        timelineRail: params.timelineRail,
+        displayItems: params.displayItems,
+        onAssetClick: params.props.onAssetClick,
+        selectedAssetId: params.props.selectedAssetId,
+        activeFilter: params.props.activeFilter,
+        showFaces: params.props.showFaces,
+        onUntagAsset: params.props.onUntagAsset,
+        selection: params.selection,
+        onLibrarySelectionChange: params.props.onLibrarySelectionChange,
+        declusteredAssets: params.props.declusteredAssets,
+        onHoverAssetChange: params.props.onHoverAssetChange,
+        showGroupIds: params.props.showGroupIds,
+        hoveredGroupId: params.hoveredGroupId,
+        setHoveredGroupId: params.setHoveredGroupId,
+        layoutMode: params.layoutMode,
+        showInfoPanel: params.props.showInfoPanel,
+        isSeekingTimeline: params.props.isSeekingTimeline,
+        galleryTimelineSeek: params.props.galleryTimelineSeek,
+        activeInfoTab: params.props.activeInfoTab,
+        onActiveInfoTabChange: params.props.onActiveInfoTabChange,
+        onShowInfoPanelChange: params.handleShowInfoPanelChange,
+        selectedInfoAsset: params.selectedInfoAsset,
+        onAssignAssetTag: params.props.onAssignAssetTag,
+        onRemoveAssetTag: params.props.onRemoveAssetTag,
+        onSetReviewItemStatus: params.props.onSetReviewItemStatus,
+        onFlagPhotoDateCorrection: params.props.onFlagPhotoDateCorrection,
+        browseRowHeight: params.browseRowHeight,
+        isScrollSettled: params.isScrollSettled,
+        setTopVisibleSelectionKey: params.setTopVisibleSelectionKey,
+        timeSectionMode: params.timeSectionMode,
+        showRejected: params.props.showRejected,
+        rejectedAssets: params.props.rejectedAssets,
+    };
+}
+
 export function LibraryView(props: LibraryViewProps) {
     const [layoutMode, setLayoutMode] = useState<GalleryLayoutMode>(getDefaultGalleryLayoutMode);
     const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
     const [topVisibleSelectionKey, setTopVisibleSelectionKey] = useState<string | null>(null);
+    const scrollRef = useRef<HTMLDivElement | null>(null);
     const { browseRowHeight, isScrollSettled, markScrollActivity } = useGalleryBrowseRailState();
     const selection = props.librarySelection ?? EMPTY_LIBRARY_SELECTION;
-    const { scrollRef, handleScroll } = useLibraryPaging({
-        active: props.active,
-        isSeekingTimeline: props.isSeekingTimeline,
-        displayAssetCount: props.assets.length,
-        browseRowHeight,
-        hasMoreAssets: props.hasMoreAssets,
-        isLoadingMoreAssets: props.isLoadingMoreAssets,
-        onLoadMoreAssets: props.onLoadMoreAssets,
-    });
     const { sortMode, setSortMode } = useLibrarySortController({
         groupSimilarPhotos: props.groupSimilarPhotos,
         onGalleryOrderChange: props.onGalleryOrderChange,
@@ -371,6 +419,17 @@ export function LibraryView(props: LibraryViewProps) {
         scrollRef,
     });
     const displayItems = useDisplayAssets(props.assets, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
+    const { handleScroll } = useLibraryPaging({
+        scrollRef,
+        active: props.active,
+        isSeekingTimeline: props.isSeekingTimeline,
+        displayAssetCount: displayItems.length,
+        browseRowHeight,
+        hasMoreAssets: props.hasMoreAssets,
+        isLoadingMoreAssets: props.isLoadingMoreAssets,
+        onLoadMoreAssets: props.onLoadMoreAssets,
+    });
+    const timeSectionMode = useMemo(() => getTimeSectionMode(sortMode, layoutMode), [layoutMode, sortMode]);
     const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({
         assets: props.assets,
         sortMode,
@@ -413,9 +472,8 @@ export function LibraryView(props: LibraryViewProps) {
         return <EmptyState />;
     }
 
-    const panelProps = getLibraryPanelProps({
+    const panelProps = getLibraryPanelContentProps({
         props,
-        scrollRef,
         handleLibraryScroll,
         toolbar,
         timelineRail,
@@ -424,12 +482,13 @@ export function LibraryView(props: LibraryViewProps) {
         hoveredGroupId,
         setHoveredGroupId,
         layoutMode,
-        selectedInfoAsset,
         handleShowInfoPanelChange,
+        selectedInfoAsset,
         browseRowHeight,
         isScrollSettled,
         setTopVisibleSelectionKey,
+        timeSectionMode,
     });
 
-    return <LibraryPanel {...panelProps} />;
+    return <LibraryPanelContent {...panelProps} scrollRef={scrollRef} />;
 }

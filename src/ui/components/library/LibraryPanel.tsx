@@ -95,6 +95,7 @@ export function LibraryPanel({
         minHeight: 0,
         minWidth: 0,
         overflowY: 'auto',
+        overflowX: 'hidden',
         '--gallery-browse-row-height': `${browseRowHeight}px`,
     };
 

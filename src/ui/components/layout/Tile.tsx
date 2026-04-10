@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Asset, TileIntent } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
@@ -27,6 +27,7 @@ interface TileMediaProps {
     imgSrc: string | null;
     loadingMode: 'eager' | 'lazy';
     fetchPriority: 'high' | 'auto';
+    onImageVisibleChange: (visible: boolean) => void;
 }
 
 const TILE_FADE_IN_KEYFRAMES = `
@@ -101,20 +102,27 @@ function getTileProps(props: TileProps) {
     };
 }
 
-const LoadedTileImage: React.FC<{ imgSrc: string; loadingMode: 'eager' | 'lazy'; fetchPriority: 'high' | 'auto' }> = ({ imgSrc, loadingMode, fetchPriority }) => {
+const LoadedTileImage: React.FC<{
+    imgSrc: string;
+    loadingMode: 'eager' | 'lazy';
+    fetchPriority: 'high' | 'auto';
+    onImageVisibleChange: (visible: boolean) => void;
+}> = ({ imgSrc, loadingMode, fetchPriority, onImageVisibleChange }) => {
     const [isLoaded, setIsLoaded] = useState(false);
+    const markLoaded = useCallback(() => {
+        setIsLoaded(true);
+        onImageVisibleChange(true);
+    }, [onImageVisibleChange]);
     const handleImageRef = useCallback((image: HTMLImageElement | null) => {
         if (image && image.complete && image.naturalWidth > 0) {
-            setIsLoaded(true);
+            markLoaded();
         }
-    }, []);
+    }, [markLoaded]);
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative', background: '#050505' }}>
             {!isLoaded && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(12, 12, 12, 0.85))', color: '#6b7280', fontSize: '0.7rem', letterSpacing: '0.04em' }}>
-                    Loading preview...
-                </div>
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(12, 12, 12, 0.85))' }} />
             )}
             <img
                 ref={handleImageRef}
@@ -122,15 +130,18 @@ const LoadedTileImage: React.FC<{ imgSrc: string; loadingMode: 'eager' | 'lazy';
                 loading={loadingMode}
                 fetchPriority={fetchPriority}
                 decoding="async"
-                onLoad={() => setIsLoaded(true)}
-                onError={() => setIsLoaded(true)}
+                onLoad={markLoaded}
+                onError={() => {
+                    setIsLoaded(true);
+                    onImageVisibleChange(false);
+                }}
                 style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: isLoaded ? 1 : 0, transition: 'opacity 0.2s ease-out', display: 'block' }}
             />
         </div>
     );
 };
 
-const TileMedia: React.FC<TileMediaProps> = ({ imgSrc, loadingMode, fetchPriority }) => {
+const TileMedia: React.FC<TileMediaProps> = ({ imgSrc, loadingMode, fetchPriority, onImageVisibleChange }) => {
     if (!imgSrc) {
         return (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', fontSize: '0.8rem', flexDirection: 'column' }}>
@@ -140,7 +151,7 @@ const TileMedia: React.FC<TileMediaProps> = ({ imgSrc, loadingMode, fetchPriorit
         );
     }
 
-    return <LoadedTileImage key={imgSrc} imgSrc={imgSrc} loadingMode={loadingMode} fetchPriority={fetchPriority} />;
+    return <LoadedTileImage key={imgSrc} imgSrc={imgSrc} loadingMode={loadingMode} fetchPriority={fetchPriority} onImageVisibleChange={onImageVisibleChange} />;
 };
 
 export const Tile: React.FC<TileProps> = (props) => {
@@ -161,13 +172,18 @@ export const Tile: React.FC<TileProps> = (props) => {
         onHoveredGroupIdChange,
         isScrollSettled,
     } = getTileProps(props);
-    const imgSrc = resolveImageUrl(asset.preview_path);
+    const imgSrc = asset.preview_data_url ?? resolveImageUrl(asset.preview_path);
     const sensitivityBadge = getSensitivityDisplay(asset);
     const { isHovered, handleMouseEnter, handleMouseLeave } = useTileHoverState(asset, onHoverAssetChange);
+    const [isImageVisible, setIsImageVisible] = useState(false);
+
+    useEffect(() => {
+        setIsImageVisible(false);
+    }, [imgSrc]);
 
     return (
         <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={getTileContainerStyle(selected)}>
-            <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} />
+            <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} onImageVisibleChange={setIsImageVisible} />
             <TileOverlays
                 selected={selected}
                 sensitivityBadge={sensitivityBadge}
@@ -186,6 +202,7 @@ export const Tile: React.FC<TileProps> = (props) => {
                 showFaces={showFaces}
                 debug={debug}
                 intent={intent}
+                isImageVisible={isImageVisible}
                 isScrollSettled={isScrollSettled}
             />
             <style>{TILE_FADE_IN_KEYFRAMES}</style>
