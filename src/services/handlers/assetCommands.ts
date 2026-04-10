@@ -12,7 +12,7 @@ import {
 } from './assetGroupingQueryFragments';
 import { buildFilterSubquery } from './assetQueryFilters';
 import { buildAssetDetailFragments, buildLatestDerivedResultJoin, type AssetDetailLevel } from '../../shared/sql/derivedResults';
-
+import { attachInlinePreviewDataUrls } from './galleryInlinePreview';
 type AssetRow = {
     id: string;
     original_path: string;
@@ -105,7 +105,6 @@ type AssetQueryParts = {
     sql: string;
     params: (string | number)[];
 };
-
 function getDetailLevel(payload: AssetQueryPayload | undefined): AssetDetailLevel {
     return payload?.detailLevel === 'gallery' ? 'gallery' : 'full';
 }
@@ -396,16 +395,19 @@ function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
     return buildUngroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence);
 }
 
-function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
+async function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
     const { id, payload, originWs, dbManager, respond } = ctx;
     const requestPayload = (payload || {}) as AssetQueryPayload;
     const query = getAssetsQuery(requestPayload);
     const rows = dbManager.getDb().prepare(query.sql).all(...query.params) as AssetRow[];
     const loadPhotoMetadata = requestPayload.includeEvidence === true ? createPhotoMetadataBundleLoader(dbManager) : undefined;
     const assets = dedupeAssetsById(rows.map((row) => toAsset(row, loadPhotoMetadata?.(row.id))));
+    const responseAssets = requestPayload.detailLevel === 'gallery'
+        ? await attachInlinePreviewDataUrls(assets)
+        : assets;
     const limit = requestPayload.limit || 500;
     const offset = requestPayload.offset || 0;
-    respond(id, 'ok', { assets, hasMore: rows.length === limit, limit, offset }, null, originWs);
+    respond(id, 'ok', { assets: responseAssets, hasMore: rows.length === limit, limit, offset }, null, originWs);
 }
 
 function respondAssetDetail(ctx: Parameters<CommandHandlerMap['get_asset_detail']>[0]) {
@@ -426,9 +428,9 @@ function respondAssetDetail(ctx: Parameters<CommandHandlerMap['get_asset_detail'
 }
 
 export const assetCommandHandlers: CommandHandlerMap = {
-    get_assets: (ctx) => {
+    get_assets: async (ctx) => {
         try {
-            respondAssetList(ctx);
+            await respondAssetList(ctx);
         } catch (error) {
             ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
         }

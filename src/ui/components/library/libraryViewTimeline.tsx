@@ -7,56 +7,37 @@ import { LibraryTimelineRail } from './LibraryTimelineRail';
 import { createSelectionKeyTimelineBucketIndex, isTimelineSortMode } from './libraryTimelineModel';
 
 function findViewportTimelineBucketIndex(
-    scrollContainer: HTMLDivElement | null,
+    visibleSelectionKey: string | null,
+    fallbackSelectionKey: string | null,
     selectionKeyToBucketIndex: Map<string, number>,
 ) {
-    if (!scrollContainer) {
+    const selectionKey = visibleSelectionKey ?? fallbackSelectionKey;
+    if (!selectionKey) {
         return null;
     }
-
-    const containerTop = scrollContainer.getBoundingClientRect().top;
-    const tiles = Array.from(scrollContainer.querySelectorAll<HTMLElement>('[data-selection-key]'));
-    let nearestBucketIndex: number | null = null;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-
-    for (const tile of tiles) {
-        const selectionKey = tile.getAttribute('data-selection-key');
-        if (!selectionKey) {
-            continue;
-        }
-        const bucketIndex = selectionKeyToBucketIndex.get(selectionKey);
-        if (bucketIndex == null) {
-            continue;
-        }
-        const distance = Math.abs(tile.getBoundingClientRect().top - containerTop);
-        if (distance < nearestDistance) {
-            nearestDistance = distance;
-            nearestBucketIndex = bucketIndex;
-        }
-    }
-
-    return nearestBucketIndex;
+    return selectionKeyToBucketIndex.get(selectionKey) ?? null;
 }
 
 export function useViewportTimelineBucketIndex(params: {
-    scrollRef: { current: HTMLDivElement | null };
     displayItems: LibrarySelectableItem[];
     timeline: LibraryStats['timeline'] | undefined;
     activeTimelineSeek: GalleryTimelineSeek | null;
+    visibleSelectionKey: string | null;
 }) {
     const [viewportBucketIndex, setViewportBucketIndex] = useState<number | null>(null);
     const selectionKeyToBucketIndex = createSelectionKeyTimelineBucketIndex(params.displayItems, params.timeline);
+    const fallbackSelectionKey = params.displayItems[0]?.selectionKey ?? null;
 
-    const updateViewportBucketIndex = useCallback((scrollContainer: HTMLDivElement | null) => {
-        const nextViewportBucketIndex = findViewportTimelineBucketIndex(scrollContainer, selectionKeyToBucketIndex);
+    const updateViewportBucketIndex = useCallback((visibleSelectionKey: string | null) => {
+        const nextViewportBucketIndex = findViewportTimelineBucketIndex(visibleSelectionKey, fallbackSelectionKey, selectionKeyToBucketIndex);
         if (nextViewportBucketIndex != null) {
             setViewportBucketIndex(nextViewportBucketIndex);
         }
-    }, [selectionKeyToBucketIndex]);
+    }, [fallbackSelectionKey, selectionKeyToBucketIndex]);
 
     useEffect(() => {
-        updateViewportBucketIndex(params.scrollRef.current);
-    }, [params.activeTimelineSeek, params.scrollRef, updateViewportBucketIndex]);
+        updateViewportBucketIndex(params.visibleSelectionKey);
+    }, [params.activeTimelineSeek, params.visibleSelectionKey, updateViewportBucketIndex]);
 
     return { viewportBucketIndex, updateViewportBucketIndex };
 }

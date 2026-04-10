@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LayoutModeRenderer } from './LayoutModeRenderer';
 import { getSingleClickTileAction, shouldOpenAssetOnDoubleClick } from './layoutTileInteractionModel';
+import { GALLERY_EAGER_PREVIEW_COUNT, GALLERY_ROW_GAP_PX, GALLERY_TILE_GAP_PX } from '../library/galleryBrowseRailModel';
 import {
     createEmptyLibrarySelectionState,
     getLibrarySelectionCount,
@@ -14,6 +15,7 @@ import {
     type LibrarySelectableItem,
     type LibrarySelectionState,
 } from '@shared/utils/librarySelectionState';
+import { buildGalleryTimeSections, type GalleryTimeSectionMode } from './galleryTimeSections';
 
 interface LayoutEngineProps {
     items: LibrarySelectableItem[];
@@ -31,16 +33,18 @@ interface LayoutEngineProps {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     layoutMode?: GalleryLayoutMode;
+    scrollContainerRef?: RefObject<HTMLDivElement | null>;
     showInfoPanel?: boolean;
+    isScrollSettled?: boolean;
+    targetRowHeight?: number;
+    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    timeSectionMode?: GalleryTimeSectionMode;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
 
 interface SelectionInteractionState {
-    dragSelectionRef: MutableRefObject<{
-        active: boolean;
-        anchorIndex: number | null;
-    }>;
+    dragSelectionRef: MutableRefObject<{ active: boolean; anchorIndex: number | null }>;
     isSelecting: boolean;
     setIsSelecting: (value: boolean) => void;
     pressTimer: MutableRefObject<number | null>;
@@ -67,6 +71,7 @@ interface LayoutTileProps {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     showInfoPanel: boolean;
+    isScrollSettled: boolean;
     shellStyleOverride?: CSSProperties;
 }
 
@@ -75,11 +80,9 @@ interface LayoutTileEventHandlers {
     onDoubleClick: () => void;
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
     onPointerEnter: (event: ReactPointerEvent<HTMLDivElement>) => void;
-    onPointerLeave: () => void;
-    onPointerUp: () => void;
+    onPointerLeave: () => void; onPointerUp: () => void;
 }
 
-const PRIORITY_TILE_COUNT = 60;
 const LONG_PRESS_MS = 420;
 
 const computeLayout = (items: LibrarySelectableItem[], layoutMode: GalleryLayoutMode): LayoutItem[] => items.map((item) => {
@@ -130,16 +133,10 @@ function useSelectionInteractions(
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
 ): SelectionInteractionState {
     const [isSelecting, setIsSelecting] = useState(false);
-    const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({
-        active: false,
-        anchorIndex: null,
-    });
+    const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({ active: false, anchorIndex: null });
     const pressTimer = useRef<number | null>(null);
     const stopDragging = useCallback(() => {
-        dragSelectionRef.current = {
-            ...dragSelectionRef.current,
-            active: false,
-        };
+        dragSelectionRef.current = { ...dragSelectionRef.current, active: false };
     }, []);
 
     useSelectAllShortcut(layoutItems, onLibrarySelectionChange, setIsSelecting);
@@ -331,6 +328,7 @@ function LayoutTile({
     hoveredGroupId,
     onHoveredGroupIdChange,
     showInfoPanel,
+    isScrollSettled,
     shellStyleOverride,
 }: LayoutTileProps) {
     const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
@@ -352,7 +350,6 @@ function LayoutTile({
         selectionState,
         showInfoPanel,
     });
-
     return (
         <div
             key={layoutItem.item.selectionKey}
@@ -374,12 +371,13 @@ function LayoutTile({
                 showFaces={showFaces}
                 onUntagAsset={onUntagAsset}
                 onHoverAssetChange={onHoverAssetChange}
-                imageLoading={prioritizeImage ? 'eager' : 'lazy'}
+                imageLoading="eager"
                 imageFetchPriority={prioritizeImage ? 'high' : 'auto'}
                 isGroupRepresentative={layoutItem.item.entityType === 'group'}
-                showGroupIds={showGroupIds}
+                showGroupIds={Boolean(showGroupIds)}
                 hoveredGroupId={hoveredGroupId}
                 onHoveredGroupIdChange={onHoveredGroupIdChange}
+                isScrollSettled={isScrollSettled}
             />
         </div>
     );
@@ -403,6 +401,7 @@ function renderLayoutTile(params: {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     showInfoPanel: boolean;
+    isScrollSettled: boolean;
     shellStyleOverride?: CSSProperties;
 }) {
     const layoutItem = params.layoutItems[params.index];
@@ -422,13 +421,14 @@ function renderLayoutTile(params: {
             onLibrarySelectionChange={params.onLibrarySelectionChange}
             declusteredAssets={params.declusteredAssets}
             selectionState={params.selectionState}
-            prioritizeImage={params.index < PRIORITY_TILE_COUNT}
+            prioritizeImage={params.index < GALLERY_EAGER_PREVIEW_COUNT}
             onHoverAssetChange={params.onHoverAssetChange}
             layoutItems={params.layoutItems}
             showGroupIds={params.showGroupIds}
             hoveredGroupId={params.hoveredGroupId}
             onHoveredGroupIdChange={params.onHoveredGroupIdChange}
             showInfoPanel={params.showInfoPanel}
+            isScrollSettled={params.isScrollSettled}
             shellStyleOverride={params.shellStyleOverride}
         />
     );
@@ -450,20 +450,27 @@ export function LayoutEngine({
     hoveredGroupId,
     onHoveredGroupIdChange,
     layoutMode = 'tiled',
+    scrollContainerRef,
     showInfoPanel = false,
+    isScrollSettled = true,
+    targetRowHeight,
+    onTopVisibleSelectionKeyChange,
+    timeSectionMode = 'none',
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(items, layoutMode), [items, layoutMode]);
+    const justifiedSections = useMemo(() => buildGalleryTimeSections(items, timeSectionMode), [items, timeSectionMode]);
     const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
-
     return (
         <LayoutModeRenderer
             layoutMode={layoutMode}
-            justifiedItems={layoutItems.map((layoutItem) => ({
-                id: layoutItem.item.selectionKey,
-                width: layoutItem.item.asset.width,
-                height: layoutItem.item.asset.height,
-            }))}
+            justifiedItems={layoutItems.map((layoutItem) => ({ id: layoutItem.item.selectionKey, width: layoutItem.item.asset.width, height: layoutItem.item.asset.height }))}
+            justifiedSections={justifiedSections}
+            scrollContainerRef={scrollContainerRef}
             itemCount={layoutItems.length}
+            tileGap={GALLERY_TILE_GAP_PX}
+            rowGap={GALLERY_ROW_GAP_PX}
+            targetRowHeight={targetRowHeight}
+            onTopVisibleSelectionKeyChange={onTopVisibleSelectionKeyChange}
             renderTile={(index, shellStyleOverride) => renderLayoutTile({
                 layoutItems,
                 index,
@@ -482,6 +489,7 @@ export function LayoutEngine({
                 hoveredGroupId,
                 onHoveredGroupIdChange,
                 showInfoPanel,
+                isScrollSettled,
                 shellStyleOverride,
             })}
         />
