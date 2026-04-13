@@ -33,6 +33,7 @@
     "../../src/shared/**/*.ts"
   ],
   "exclude": [
+    "../../src/**/*.test.ts",
     "../../dist",
     "../../node_modules",
     "../../deployments/desktop/tauri/target",

@@ -11,6 +11,7 @@ import {
     createWebSocketBackendTransport,
     type BackendTransport,
 } from '@boundary/transport/usePhotoLibrary.transport';
+import { createQueuedMessageProcessor } from '@boundary/runtime/usePhotoLibrary.connection.queue';
 import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { createMessageHandler, createSnapshotSyncController, currentFilter } from '@boundary/runtime/usePhotoLibrary.connection.messages';
@@ -375,7 +376,11 @@ function createConnectionLifecycle(paramsRef: ParamsRef) {
         },
     };
 
-    ctx.handleBackendMessage = createMessageHandler(paramsRef, ctx.snapshotSync.noteInitialSyncResponse);
+    const directMessageHandler = createMessageHandler(paramsRef, ctx.snapshotSync.noteInitialSyncResponse);
+    ctx.handleBackendMessage = directMessageHandler;
+    const queuedMessageProcessor = createQueuedMessageProcessor({
+        processMessage: directMessageHandler,
+    });
 
     const startupFailureTimeout = createStartupFailureTimeout(ctx);
     const startConnection = async () => {
@@ -387,9 +392,11 @@ function createConnectionLifecycle(paramsRef: ParamsRef) {
     };
     const scheduleReconnect = createReconnectScheduler(ctx, startConnection);
 
+    ctx.handleBackendMessage = queuedMessageProcessor.enqueue;
     void startConnection();
 
     return () => {
+        queuedMessageProcessor.cancel();
         cleanupConnectionLifecycle(ctx, startupFailureTimeout);
     };
 }

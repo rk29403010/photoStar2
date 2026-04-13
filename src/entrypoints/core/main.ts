@@ -17,6 +17,7 @@ import { buildPhotoMetadataBundle } from '../../services/photoMetadata/bundle';
 import { createPhotoMetadataManualAssertionsService } from '../../services/photoMetadata/manualAssertions';
 import { createPhotoMetadataRepository } from '../../services/photoMetadata/repository';
 import { loadLocalEnvFile } from './loadLocalEnv';
+import { shouldForwardEventToFrontend } from './frontendEventForwarding';
 import {
     buildStartupFailureMessage,
     isFactoryResetCommand,
@@ -155,6 +156,10 @@ function persistJobEvent(event: DomainEvent) {
 }
 
 function forwardEventToFrontend(event: DomainEvent) {
+    if (!shouldForwardEventToFrontend(event)) {
+        return;
+    }
+
     respond('event_stream', 'event', event);
 }
 

@@ -22,5 +22,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts", "tooling/scripts/repo/*.d.ts"]
+  "include": [
+    "vite.config.ts",
+    "tooling/scripts/repo/*.d.ts",
+    "src/entrypoints/core/**/*.test.ts"
+  ]
 }
