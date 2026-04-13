@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { countSubstantiveLines } from '../../tooling/scripts/repo/complexity-report.js';
+import { makeWatchlistRow } from '../../tooling/scripts/repo/boundary-watchlist.js';
 import {
     buildManagedSpawnInvocation,
     getManagedScriptConfig,
@@ -30,6 +31,28 @@ test('countSubstantiveLines ignores blank and comment-only lines', () => {
     const loc = countSubstantiveLines(sourceText);
 
     assert.equal(loc, 4);
+});
+
+test('makeWatchlistRow summarizes near-boundary file risk from file and function metrics', () => {
+    const row = makeWatchlistRow({
+        file: 'src/ui/components/LibraryView.tsx',
+        fileLines: 459,
+        functionCount: 4,
+        maxFunctionLines: 72,
+        maxCyclomatic: 9,
+        maxCognitive: 18,
+    });
+
+    assert.deepEqual(row, {
+        file: 'src/ui/components/LibraryView.tsx',
+        fileLines: 459,
+        functionCount: 4,
+        maxFunctionLines: 72,
+        maxCyclomatic: 9,
+        maxCognitive: 18,
+        triggers: ['fileLines', 'functionLines', 'cyclomatic', 'cognitive'],
+        score: 14,
+    });
 });
 
 test('getResumeScript prefers persisted script and falls back to desktop runtime', () => {
@@ -131,6 +154,7 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['quality:changed'], 'npm run lint:fast:changed && npm run complexity:changed');
     assert.equal(scripts['quality:changed:full'], 'npm run lint:fast:changed && npm run lint:changed && npm run complexity:changed');
     assert.equal(scripts['benchmark:quality'], 'node tooling/scripts/repo/benchmark-quality.js');
+    assert.equal(scripts['boundary:watch'], 'node tooling/scripts/repo/boundary-watchlist.js');
     assert.equal(scripts['dev:pause'], 'node tooling/scripts/repo/dev-session.js pause');
     assert.equal(scripts['dev:resume'], 'node tooling/scripts/repo/dev-session.js resume');
     assert.equal(scripts['thread:list'], 'node tooling/scripts/repo/thread-state.js list');

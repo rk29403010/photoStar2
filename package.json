@@ -55,6 +55,7 @@
     "quality:changed": "npm run lint:fast:changed && npm run complexity:changed",
     "quality:changed:full": "npm run lint:fast:changed && npm run lint:changed && npm run complexity:changed",
     "complexity:report": "node tooling/scripts/repo/complexity-report.js",
+    "boundary:watch": "node tooling/scripts/repo/boundary-watchlist.js",
     "complexity:staged": "node tooling/scripts/repo/complexity-changed-files.mjs --staged",
     "complexity:changed": "node tooling/scripts/repo/complexity-changed-files.mjs --changed",
     "codegrok:index": "py -3.12 tooling/scripts/repo/codegrok_cli.py index",

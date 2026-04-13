@@ -13,6 +13,7 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - No `any` unless there is a documented boundary reason.
 - Prefer small, named helpers over nested conditionals.
 - Prefer object parameters once a function grows beyond a few positional arguments.
+- In React render code, do not pass refs into plain helper functions that return JSX. Keep refs at the JSX/component boundary or inside hooks/effects/event handlers so `react-hooks/refs` does not flag possible render-time ref reads.
 - Do not add new lint disables unless the reason is written inline.
 - Do not commit code that fails `npm run quality`.
 - For partial work, at minimum make changed files pass `npm run quality:staged`.
@@ -29,6 +30,32 @@ These rules exist because generated code drifts toward noise unless the repo pus
 7. Before editing application code while a managed dev session is running, pause it with `npm run dev:pause`; once edits and immediate verification are complete, resume it with `npm run dev:resume`.
 8. Run `npm run quality` before handing over larger changes.
 9. Use `npm run complexity:report -- --top 20 --min-cyclomatic 10` if code starts to sprawl.
+
+## Runtime-First Debugging Protocol
+
+- Treat live-behavior bugs as evidence-gathering tasks first and code-change tasks second.
+- For user-visible bugs or regressions involving rendered UI, scrolling, selection, navigation, layout, timing, async state, desktop-runtime behavior, persistence, or cross-layer synchronization, gather runtime evidence before attempting a fix.
+- Do not rely on static code reading alone for issues whose correctness is judged by running the app. Unit tests, wiring tests, and code inspection are useful support, but they are not sufficient on their own for these bug classes.
+- Before the first fix attempt on a runtime-facing bug, do all of the following when feasible:
+  - reproduce the issue with exact steps;
+  - run the relevant thread-owned runtime;
+  - identify the failing boundary or state transition with logs, instrumentation, screenshots, browser/devtools inspection, or targeted probes;
+  - state the concrete observed behavior before editing code.
+- Prefer temporary instrumentation at the narrowest useful boundary over broad speculative refactors. Log the specific state, event, or payload needed to distinguish competing explanations.
+- If a bug affects visible interaction behavior, prefer adding or updating a repeatable repro harness such as a targeted runtime test, browser automation flow, or focused integration test before polishing the implementation.
+- When a thread already owns a managed runtime, use that runtime for investigation before proposing further fixes unless there is a clear reason not to.
+
+## Failed-Fix Escalation
+
+- If the first fix attempt does not resolve the reported behavior, stop and gather new evidence before making another code change.
+- Do not stack multiple speculative fixes onto the same bug without fresh runtime evidence between attempts.
+- After two unsuccessful fix attempts on the same behavior, switch from implementation mode to root-cause isolation mode:
+  - add or refine instrumentation;
+  - narrow the failing layer or boundary;
+  - compare against a known-good path or working reference;
+  - update the user on the observed evidence before making more edits.
+- Repeated plausible fixes without behavioral change are a process failure. The correct response is to strengthen the evidence, not to keep patching.
+- For interactive or timing-sensitive bugs, do not claim a fix based only on code inspection. Reproduce the original scenario and verify the observed behavior changed in the running app or an equivalent runtime harness.
 
 ## Git ownership and commit protocol
 
@@ -98,6 +125,7 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - If the user says `just do it` or `JDI`, treat that as an explicit instruction to skip superpowers/skill workflows and take the fastest safe execution path for the current request.
 - The `just do it` / `JDI` shortcut applies only to small, low-risk work in this repository. Do not use it for architectural changes, large multi-step features, risky migrations, security-sensitive work, or anything that would normally need design clarification.
 - Even in `just do it` / `JDI` mode, still follow the quality and verification expectations in this file, keep exploration tight, and ask a brief question if a risky ambiguity would otherwise force a guess.
+- `just do it` / `JDI` does not waive the runtime-first debugging protocol for runtime-facing bugs. Fast iteration still requires evidence before repeated fixes.
 - Do not require formal design docs or multi-step planning unless the user asks for them or the task is ambiguous, architectural, or spans multiple subsystems.
 - Keep exploration tight: read the directly relevant files first instead of reloading broad repo context by default.
 - During iteration, prefer targeted verification plus `npm run quality:staged`; reserve `npm run quality` for handoff, larger changes, or when config/runtime wiring changed.
