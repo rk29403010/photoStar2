@@ -12,14 +12,10 @@ import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
 import { LibraryPanelContent } from './library/LibraryPanelContent';
 import { EmptyState, LoadingState } from './library/LibraryStates';
 import { getGalleryInfoPanelAsset } from './library/galleryInfoPanelModel';
-import { getAvailableTags, getSelectedTag } from './library/libraryTagFilterModel';
-import { getActiveTimelineSeek, isTimelineSortMode } from './library/libraryTimelineModel';
-import {
-    getLibraryToolbarProps,
-    getTimelineRailElement,
-    handleInfoPanelVisibilityChange,
-    useViewportTimelineBucketIndex,
-} from './library/libraryViewTimeline';
+import { isTimelineSortMode } from './library/libraryTimelineModel';
+import { useTimelineSeekScrollReset } from './library/libraryTimelineSeekScrollReset';
+import { useLibraryTimelineJump } from './library/libraryTimelineJump';
+import { useLibraryPresentationModel, useLoadedTimelineSectionIds } from './library/libraryViewHelpers';
 import {
     getDefaultGalleryLayoutMode,
     getKeyboardScrollDelta,
@@ -308,47 +304,7 @@ function useLibraryInfoAsset(
 
     return selectedInfoAsset;
 }
-function useLibraryChrome(params: {
-    props: LibraryViewProps;
-    sortMode: LibrarySortMode;
-    setSortMode: (mode: LibrarySortMode) => void;
-    layoutMode: GalleryLayoutMode;
-    setLayoutMode: (mode: GalleryLayoutMode) => void;
-    activeTimelineSeek: GalleryTimelineSeek | null;
-    viewportBucketIndex: number | null;
-    handleShowInfoPanelChange: (show: boolean) => void;
-}) {
-    const rawSelectedTag = params.props.activeFilter?.type === 'tag' ? params.props.activeFilter.value : '';
-    const availableTags = useMemo(
-        () => params.props.availableTags ?? getAvailableTags(params.props.assets, rawSelectedTag),
-        [params.props.assets, params.props.availableTags, rawSelectedTag],
-    );
-    const selectedTag = useMemo(() => getSelectedTag(availableTags, rawSelectedTag), [availableTags, rawSelectedTag]);
-    const toolbar = getLibraryToolbarProps({
-        sortMode: params.sortMode,
-        setSortMode: params.setSortMode,
-        layoutMode: params.layoutMode,
-        setLayoutMode: params.setLayoutMode,
-        selectedTag,
-        availableTags,
-        onTagFilterChange: params.props.onTagFilterChange,
-        groupSimilarPhotos: params.props.groupSimilarPhotos,
-        onGroupSimilarPhotosChange: params.props.onGroupSimilarPhotosChange,
-        showGroupIds: params.props.showGroupIds,
-        onShowGroupIdsChange: params.props.onShowGroupIdsChange,
-        showInfoPanel: params.props.showInfoPanel,
-        handleShowInfoPanelChange: params.handleShowInfoPanelChange,
-    });
-    const timelineRail = getTimelineRailElement({
-        timeline: params.props.stats?.timeline,
-        sortMode: params.sortMode,
-        activeTimelineSeek: params.activeTimelineSeek,
-        viewportBucketIndex: params.viewportBucketIndex,
-        onGalleryTimelineSeek: params.props.onGalleryTimelineSeek,
-    });
 
-    return { toolbar, timelineRail };
-}
 
 function getLibraryPanelContentProps(params: {
     props: LibraryViewProps;
@@ -366,6 +322,7 @@ function getLibraryPanelContentProps(params: {
     isScrollSettled: boolean;
     setTopVisibleSelectionKey: (selectionKey: string | null) => void;
     timeSectionMode: GalleryTimeSectionMode;
+    timelineJumpRequest?: ComponentProps<typeof LibraryPanelContent>['timelineJumpRequest'];
 }): Omit<ComponentProps<typeof LibraryPanelContent>, 'scrollRef'> {
     return {
         handleLibraryScroll: params.handleLibraryScroll,
@@ -400,15 +357,28 @@ function getLibraryPanelContentProps(params: {
         isScrollSettled: params.isScrollSettled,
         setTopVisibleSelectionKey: params.setTopVisibleSelectionKey,
         timeSectionMode: params.timeSectionMode,
+        timelineJumpRequest: params.timelineJumpRequest,
         showRejected: params.props.showRejected,
         rejectedAssets: params.props.rejectedAssets,
     };
 }
 
+function renderLibraryViewStatus(params: {
+    loading: boolean;
+    backendReady: boolean;
+    backendStatus: string;
+    assetCount: number;
+    rejectedAssetCount: number;
+}) {
+    if (shouldShowLoadingState({ loading: params.loading, backendReady: params.backendReady, assetCount: params.assetCount })) {
+        return <LoadingState backendStatus={params.backendStatus} backendReady={params.backendReady} />;
+    }
+    return shouldShowEmptyState(params.assetCount, params.rejectedAssetCount) ? <EmptyState /> : null;
+}
+
 export function LibraryView(props: LibraryViewProps) {
     const [layoutMode, setLayoutMode] = useState<GalleryLayoutMode>(getDefaultGalleryLayoutMode);
     const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
-    const [topVisibleSelectionKey, setTopVisibleSelectionKey] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const { browseRowHeight, isScrollSettled, markScrollActivity } = useGalleryBrowseRailState();
     const selection = props.librarySelection ?? EMPTY_LIBRARY_SELECTION;
@@ -419,6 +389,8 @@ export function LibraryView(props: LibraryViewProps) {
         scrollRef,
     });
     const displayItems = useDisplayAssets(props.assets, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
+    const timeSectionMode = useMemo(() => getTimeSectionMode(sortMode, layoutMode), [layoutMode, sortMode]);
+    const loadedTimelineSectionIds = useLoadedTimelineSectionIds(displayItems, timeSectionMode);
     const { handleScroll } = useLibraryPaging({
         scrollRef,
         active: props.active,
@@ -429,49 +401,42 @@ export function LibraryView(props: LibraryViewProps) {
         isLoadingMoreAssets: props.isLoadingMoreAssets,
         onLoadMoreAssets: props.onLoadMoreAssets,
     });
-    const timeSectionMode = useMemo(() => getTimeSectionMode(sortMode, layoutMode), [layoutMode, sortMode]);
-    const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({
-        assets: props.assets,
+    const { handleTimelineJump, timelineJumpRequest } = useLibraryTimelineJump({
+        hasMoreAssets: props.hasMoreAssets,
+        onLoadMoreAssets: props.onLoadMoreAssets,
+        loadedSectionIds: loadedTimelineSectionIds,
+        layoutMode,
         sortMode,
-        timeline: props.stats?.timeline,
-        galleryTimelineSeek: props.galleryTimelineSeek,
-    }), [props.assets, props.galleryTimelineSeek, props.stats?.timeline, sortMode]);
-    const { viewportBucketIndex, updateViewportBucketIndex } = useViewportTimelineBucketIndex({
-        displayItems,
-        timeline: props.stats?.timeline,
-        activeTimelineSeek,
-        visibleSelectionKey: topVisibleSelectionKey,
+        onGalleryTimelineSeek: props.onGalleryTimelineSeek,
     });
-    const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails);
-    const rejectedAssetCount = getRejectedAssetCount(props.showRejected, props.rejectedAssets);
-    const handleShowInfoPanelChange = useCallback((show: boolean) => {
-        handleInfoPanelVisibilityChange(show, props.onShowInfoPanelChange, props.onLibrarySelectionChange);
-    }, [props.onLibrarySelectionChange, props.onShowInfoPanelChange]);
-    const handleLibraryScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-        markScrollActivity();
-        handleScroll(event);
-    }, [handleScroll, markScrollActivity]);
-    useEffect(() => {
-        updateViewportBucketIndex(topVisibleSelectionKey);
-    }, [topVisibleSelectionKey, updateViewportBucketIndex]);
-    const { toolbar, timelineRail } = useLibraryChrome({
+    const {
+        setTopVisibleSelectionKey,
+        handleLibraryScroll,
+        toolbar,
+        timelineRail,
+        handleShowInfoPanelChange,
+    } = useLibraryPresentationModel({
         props,
         sortMode,
         setSortMode,
         layoutMode,
         setLayoutMode,
-        activeTimelineSeek,
-        viewportBucketIndex,
-        handleShowInfoPanelChange,
+        displayItems,
+        markScrollActivity,
+        handleScroll,
+        handleTimelineJump,
     });
-
-    if (shouldShowLoadingState({ loading: props.loading, backendReady: props.backendReady, assetCount: props.assets.length })) {
-        return <LoadingState backendStatus={props.backendStatus} backendReady={props.backendReady} />;
-    }
-    if (shouldShowEmptyState(props.assets.length, rejectedAssetCount)) {
-        return <EmptyState />;
-    }
-
+    useTimelineSeekScrollReset(scrollRef, props.galleryTimelineSeek, props.isSeekingTimeline);
+    const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails);
+    const rejectedAssetCount = getRejectedAssetCount(props.showRejected, props.rejectedAssets);
+    const statusView = renderLibraryViewStatus({
+        loading: props.loading,
+        backendReady: props.backendReady,
+        backendStatus: props.backendStatus,
+        assetCount: props.assets.length,
+        rejectedAssetCount,
+    });
+    if (statusView) {return statusView;}
     const panelProps = getLibraryPanelContentProps({
         props,
         handleLibraryScroll,
@@ -488,6 +453,7 @@ export function LibraryView(props: LibraryViewProps) {
         isScrollSettled,
         setTopVisibleSelectionKey,
         timeSectionMode,
+        timelineJumpRequest,
     });
 
     return <LibraryPanelContent {...panelProps} scrollRef={scrollRef} />;

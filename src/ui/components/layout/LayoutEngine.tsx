@@ -16,7 +16,7 @@ import {
     type LibrarySelectionState,
 } from '@shared/utils/librarySelectionState';
 import { buildGalleryTimeSections, type GalleryTimeSectionMode } from './galleryTimeSections';
-
+import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
 interface LayoutEngineProps {
     items: LibrarySelectableItem[];
     debug?: boolean;
@@ -39,6 +39,7 @@ interface LayoutEngineProps {
     targetRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
     timeSectionMode?: GalleryTimeSectionMode;
+    timelineJumpRequest?: TimelineJumpRequest | null;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
@@ -456,6 +457,7 @@ export function LayoutEngine({
     targetRowHeight,
     onTopVisibleSelectionKeyChange,
     timeSectionMode = 'none',
+    timelineJumpRequest,
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(items, layoutMode), [items, layoutMode]);
     const justifiedSections = useMemo(() => buildGalleryTimeSections(items, timeSectionMode), [items, timeSectionMode]);
@@ -471,6 +473,7 @@ export function LayoutEngine({
             rowGap={GALLERY_ROW_GAP_PX}
             targetRowHeight={targetRowHeight}
             onTopVisibleSelectionKeyChange={onTopVisibleSelectionKeyChange}
+            timelineJumpRequest={timelineJumpRequest}
             renderTile={(index, shellStyleOverride) => renderLayoutTile({
                 layoutItems,
                 index,

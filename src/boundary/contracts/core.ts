@@ -293,6 +293,8 @@ export type GalleryTimelineSeek =
 export interface LibraryStats {
     count: number;
     timeline?: LibraryTimelineSummary;
+    groupedTimeline?: LibraryTimelineSummary;
+    ungroupedTimeline?: LibraryTimelineSummary;
     [key: string]: unknown;
 }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
 import { buildJustifiedLayoutRows } from '@shared/utils/libraryJustifiedLayout';
 
 interface JustifiedLayoutProps {
@@ -15,6 +16,7 @@ interface JustifiedLayoutProps {
     targetRowHeight?: number;
     maxRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    timelineJumpRequest?: TimelineJumpRequest | null;
     renderTile: (index: number, size: { width: number; height: number }) => ReactNode;
 }
 
@@ -65,9 +67,11 @@ function renderLayoutEntry(
     props: Pick<JustifiedLayoutProps, 'gap' | 'rowGap' | 'renderTile'>,
 ) {
     if (entry.kind === 'header') {
+        const sectionId = entry.key.endsWith('-header') ? entry.key.slice(0, -'-header'.length) : entry.key;
         return (
             <div
                 key={entry.key}
+                data-time-section-id={sectionId}
                 style={{
                     width: '100%',
                     maxWidth: '1800px',
@@ -128,6 +132,8 @@ function useContainerWidth() {
 
 export function JustifiedLayout(props: JustifiedLayoutProps) {
     const { containerRef, containerWidth } = useContainerWidth();
+    const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+    const [customScrollParent, setCustomScrollParent] = useState<HTMLDivElement | undefined>(props.scrollContainerRef?.current ?? undefined);
     const normalizedSections = useMemo(() => getNormalizedSections({ items: props.items, sections: props.sections }), [props.items, props.sections]);
     const entries = useMemo<LayoutEntry[]>(() => {
         if (containerWidth <= 0) {return [];}
@@ -138,18 +144,42 @@ export function JustifiedLayout(props: JustifiedLayoutProps) {
             maxRowHeight: props.maxRowHeight,
         });
     }, [containerWidth, normalizedSections, props.gap, props.maxRowHeight, props.targetRowHeight]);
-    const handleRangeChanged = useCallback((range: { startIndex: number }) => {
-        props.onTopVisibleSelectionKeyChange?.(entries[range.startIndex]?.selectionKey ?? null);
-    }, [entries, props]);
+    const sectionEntryIndexes = useMemo(() => new Map(
+        entries.flatMap((entry, index) => (
+            entry.kind === 'header'
+                ? [[entry.key.endsWith('-header') ? entry.key.slice(0, -'-header'.length) : entry.key, index] as const]
+                : []
+        )),
+    ), [entries]);
+    const handleRangeChanged = useCallback((_range: { startIndex: number }) => {}, []);
 
     useEffect(() => {
-        props.onTopVisibleSelectionKeyChange?.(entries[0]?.selectionKey ?? null);
-    }, [entries, props]);
+        setCustomScrollParent(props.scrollContainerRef?.current ?? undefined);
+    }, [props.scrollContainerRef]);
+
+    useEffect(() => {
+        const sectionId = props.timelineJumpRequest?.sectionId;
+        if (!sectionId) {
+            return;
+        }
+
+        const entryIndex = sectionEntryIndexes.get(sectionId);
+        if (entryIndex == null) {
+            return;
+        }
+
+        virtuosoRef.current?.scrollToIndex({
+            index: entryIndex,
+            align: 'start',
+            behavior: 'auto',
+        });
+    }, [props.timelineJumpRequest, sectionEntryIndexes]);
 
     return (
         <div ref={containerRef} style={{ width: '100%' }}>
             <Virtuoso
-                customScrollParent={props.scrollContainerRef?.current ?? undefined}
+                ref={virtuosoRef}
+                customScrollParent={customScrollParent}
                 data={entries}
                 increaseViewportBy={{ top: 160, bottom: 220 }}
                 rangeChanged={handleRangeChanged}
