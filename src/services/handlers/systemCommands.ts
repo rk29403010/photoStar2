@@ -6,7 +6,7 @@ import { buildPhotoMetadataBundle } from '../photoMetadata/bundle';
 import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 import type { CommandContext, CommandHandlerMap } from './types';
 import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
-import { buildLibraryTimelineSummary } from './libraryTimelineStats';
+import { buildLibraryTimelineStats } from './libraryTimelineStats';
 
 function respondError(ctx: CommandContext, error: unknown) {
     ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
@@ -153,8 +153,8 @@ export const systemCommandHandlers: CommandHandlerMap = {
             const db = ctx.dbManager.getDb();
             const count = db.prepare('SELECT COUNT(*) as count FROM assets').get() as { count: number };
             const history = db.prepare('SELECT path, last_scanned_at FROM folder_history ORDER BY last_scanned_at DESC LIMIT 5').all();
-            const timeline = buildLibraryTimelineSummary(db);
-            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, timeline }, null, ctx.originWs);
+            const timelineStats = buildLibraryTimelineStats(db);
+            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, ...timelineStats }, null, ctx.originWs);
         } catch (error) {
             respondError(ctx, error);
         }

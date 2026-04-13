@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GalleryTimelineSeek, LibraryStats } from '@contracts/core';
+import type { GalleryTimelineSeek, LibraryTimelineSummary } from '@contracts/core';
 import { clearLibrarySelection, type LibrarySelectableItem, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LibraryTimelineRail } from './LibraryTimelineRail';
 import { createSelectionKeyTimelineBucketIndex, isTimelineSortMode } from './libraryTimelineModel';
+import { getTopVisibleSelectionKeyFromScrollContainer } from './libraryVisibleSelectionKey';
 
 function findViewportTimelineBucketIndex(
     visibleSelectionKey: string | null,
@@ -20,7 +21,7 @@ function findViewportTimelineBucketIndex(
 
 export function useViewportTimelineBucketIndex(params: {
     displayItems: LibrarySelectableItem[];
-    timeline: LibraryStats['timeline'] | undefined;
+    timeline: LibraryTimelineSummary | null;
     activeTimelineSeek: GalleryTimelineSeek | null;
     visibleSelectionKey: string | null;
 }) {
@@ -39,7 +40,11 @@ export function useViewportTimelineBucketIndex(params: {
         updateViewportBucketIndex(params.visibleSelectionKey);
     }, [params.activeTimelineSeek, params.visibleSelectionKey, updateViewportBucketIndex]);
 
-    return { viewportBucketIndex, updateViewportBucketIndex };
+    const syncViewportBucketIndexFromScrollContainer = useCallback((container: HTMLDivElement) => {
+        updateViewportBucketIndex(getTopVisibleSelectionKeyFromScrollContainer(container));
+    }, [updateViewportBucketIndex]);
+
+    return { viewportBucketIndex, updateViewportBucketIndex, syncViewportBucketIndexFromScrollContainer };
 }
 
 export function getLibraryToolbarProps(params: {
@@ -75,7 +80,7 @@ export function getLibraryToolbarProps(params: {
 }
 
 export function getTimelineRailElement(params: {
-    timeline: LibraryStats['timeline'] | undefined;
+    timeline: LibraryTimelineSummary | null;
     sortMode: LibrarySortMode;
     activeTimelineSeek: GalleryTimelineSeek | null;
     viewportBucketIndex: number | null;

@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode, RefObject } from 'react';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { JustifiedLayout } from './JustifiedLayout';
 import type { GalleryTimeSection } from './galleryTimeSections';
+import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
 
 interface LayoutModeRendererProps {
     layoutMode: GalleryLayoutMode;
@@ -13,6 +14,7 @@ interface LayoutModeRendererProps {
     rowGap?: number;
     targetRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    timelineJumpRequest?: TimelineJumpRequest | null;
     renderTile: (index: number, shellStyleOverride?: CSSProperties) => ReactNode;
 }
 
@@ -41,6 +43,7 @@ export function LayoutModeRenderer(props: LayoutModeRendererProps) {
                 rowGap={props.rowGap}
                 targetRowHeight={props.targetRowHeight}
                 onTopVisibleSelectionKeyChange={props.onTopVisibleSelectionKeyChange}
+                timelineJumpRequest={props.timelineJumpRequest}
                 renderTile={(index, size) => props.renderTile(index, {
                     width: size.width,
                     height: size.height,

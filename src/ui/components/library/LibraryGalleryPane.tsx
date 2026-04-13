@@ -8,6 +8,7 @@ import type { RefObject } from 'react';
 import { LayoutEngine } from '../layout/LayoutEngine';
 import { LibraryToolbar } from './LibraryToolbar';
 import type { GalleryTimeSectionMode } from '../layout/galleryTimeSections';
+import type { TimelineJumpRequest } from './libraryTimelineJump';
 
 interface LibraryGalleryPaneProps {
     toolbar: {
@@ -46,6 +47,7 @@ interface LibraryGalleryPaneProps {
         targetRowHeight?: number;
         onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
         timeSectionMode?: GalleryTimeSectionMode;
+        timelineJumpRequest?: TimelineJumpRequest | null;
     };
     rejected: {
         showRejected?: boolean;

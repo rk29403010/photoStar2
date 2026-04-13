@@ -7,6 +7,7 @@ import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import type { GalleryTimeSectionMode } from '../layout/galleryTimeSections';
 import type { MutableRefObject, ReactNode, UIEvent } from 'react';
 import { LibraryPanel } from './LibraryPanel';
+import type { TimelineJumpRequest } from './libraryTimelineJump';
 
 interface LibraryPanelContentProps {
     scrollRef: MutableRefObject<HTMLDivElement | null>;
@@ -60,6 +61,7 @@ interface LibraryPanelContentProps {
     isScrollSettled: boolean;
     setTopVisibleSelectionKey: (selectionKey: string | null) => void;
     timeSectionMode: GalleryTimeSectionMode;
+    timelineJumpRequest?: TimelineJumpRequest | null;
     showRejected?: boolean;
     rejectedAssets?: Asset[];
 }
@@ -92,6 +94,7 @@ export function LibraryPanelContent(props: LibraryPanelContentProps) {
                 targetRowHeight: props.browseRowHeight,
                 onTopVisibleSelectionKeyChange: props.setTopVisibleSelectionKey,
                 timeSectionMode: props.timeSectionMode,
+                timelineJumpRequest: props.timelineJumpRequest,
             }}
             rejected={{
                 showRejected: props.showRejected,

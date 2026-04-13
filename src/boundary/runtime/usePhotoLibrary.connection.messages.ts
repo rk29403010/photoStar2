@@ -13,6 +13,7 @@ import { getAssetUpdateInstruction } from './assetUpdateEvents';
 import {
     isAssetPageResponseId,
     isAssetResponseId,
+    isPreservedPagingAssetRefreshId,
     shouldUpdatePagingStateFromAssetResponse,
 } from '@shared/utils/libraryPagingState';
 
@@ -98,15 +99,7 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
             return nextAssets;
         });
         params.setIsLoadingMoreAssets(false);
-    } else if (msg.id === 'assets-init' && params.hasCompletedInitialSync) {
-        params.setAssets((previousAssets) => {
-            previousAssetCount = previousAssets.length;
-            const nextAssets = appendAssets(previousAssets, assets);
-            nextAssetCount = nextAssets.length;
-            nextPreviewCount = countPreviewAssets(nextAssets);
-            return nextAssets;
-        });
-    } else {
+    } else if (isPreservedPagingAssetRefreshId(msg.id)) {
         params.setAssets((previousAssets) => {
             previousAssetCount = previousAssets.length;
             const nextAssets = mergeRefreshedAssetPage(previousAssets, assets, {
@@ -115,6 +108,13 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
             nextAssetCount = nextAssets.length;
             nextPreviewCount = countPreviewAssets(nextAssets);
             return nextAssets;
+        });
+    } else {
+        params.setAssets((previousAssets) => {
+            previousAssetCount = previousAssets.length;
+            nextAssetCount = assets.length;
+            nextPreviewCount = incomingPreviewCount;
+            return assets;
         });
     }
 

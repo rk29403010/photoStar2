@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { GalleryTimelineSeek, LibraryTimelineSummary } from '@contracts/core';
 import { findTimelineBucketIndex, getTimelineSeekForBucket } from './libraryTimelineModel';
+import { getTimelineRailDisplayedIndex, getTimelineRailOrderedIndexes } from './libraryTimelineRailModel';
 
 interface LibraryTimelineRailProps {
     timeline: LibraryTimelineSummary;
@@ -17,86 +18,99 @@ function getDensityOpacity(count: number, maxCount: number) {
     return 0.18 + (count / maxCount) * 0.72;
 }
 
-function getDisplayedSeekLabel(params: {
-    buckets: LibraryTimelineSummary['buckets'];
-    activeSeek: GalleryTimelineSeek | null;
-    viewportBucketIndex: number | null;
-    draftIndex: number | null;
-}) {
-    if (params.activeSeek?.kind === 'unknown') {
-        return 'Unknown date';
-    }
-    const index = params.draftIndex ?? params.viewportBucketIndex ?? findTimelineBucketIndex(params.buckets, params.activeSeek);
-    return index >= 0 ? params.buckets[index]?.label ?? 'Timeline' : 'Timeline';
-}
-
-function getNewestFirstBuckets(timeline: LibraryTimelineSummary) {
-    return timeline.buckets.reduceRight<LibraryTimelineSummary['buckets']>((reversedBuckets, bucket) => {
-        reversedBuckets.push(bucket);
-        return reversedBuckets;
-    }, []);
-}
-
 function shouldHideTimelineRail(timeline: LibraryTimelineSummary) {
     return timeline.buckets.length === 0 && timeline.unknownDateCount <= 0;
 }
 
-function getTimelineRangeValue(draftIndex: number | null, activeIndex: number) {
-    return draftIndex ?? Math.max(activeIndex, 0);
-}
-
-function getViewportRangeValue(draftIndex: number | null, viewportBucketIndex: number | null, activeIndex: number) {
-    if (draftIndex != null) {
-        return getTimelineRangeValue(draftIndex, activeIndex);
-    }
-    if (viewportBucketIndex != null && viewportBucketIndex >= 0) {
-        return viewportBucketIndex;
-    }
-    return Math.max(activeIndex, 0);
-}
-
-function commitTimelineDraft(params: {
+function seekTimelineBucket(params: {
     buckets: LibraryTimelineSummary['buckets'];
-    draftIndex: number | null;
+    targetIndex: number;
     sortMode: 'date' | 'reverse-date';
     onSeekChange: (seek: GalleryTimelineSeek | null) => void;
-    setIsDragging: (dragging: boolean) => void;
 }) {
-    const bucket = params.draftIndex == null || params.draftIndex < 0 ? null : params.buckets[params.draftIndex];
-    params.setIsDragging(false);
+    const bucket = params.targetIndex < 0 ? null : params.buckets[params.targetIndex];
     if (!bucket) {
         return;
     }
     params.onSeekChange(getTimelineSeekForBucket(bucket, params.sortMode));
 }
 
-function TimelineRangeInput(props: {
-    bucketCount: number;
-    draftIndex: number | null;
-    viewportBucketIndex: number | null;
-    activeIndex: number;
-    onDraftIndexChange: (index: number) => void;
-    onCommit: () => void;
+function TimelineRailHeader() {
+    return <span style={{ color: '#9ca3af', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Timeline</span>;
+}
+
+function TimelineRailBucketButton(props: {
+    bucket: LibraryTimelineSummary['buckets'][number];
+    isDisplayed: boolean;
+    maxBucketCount: number;
+    onClick: () => void;
 }) {
-    if (props.bucketCount <= 0) {
-        return null;
-    }
+    return (
+        <button
+            type="button"
+            title={`${props.bucket.label}: ${props.bucket.count} photo${props.bucket.count === 1 ? '' : 's'}`}
+            onClick={props.onClick}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                minHeight: 0,
+                borderRadius: 999,
+                border: props.isDisplayed ? '1px solid rgba(255,255,255,0.98)' : '1px solid rgba(148,163,184,0.16)',
+                background: props.isDisplayed
+                    ? 'rgba(241,245,249,0.98)'
+                    : `rgba(96,165,250,${getDensityOpacity(props.bucket.count, props.maxBucketCount)})`,
+                boxShadow: props.isDisplayed ? '0 0 0 2px rgba(255,255,255,0.2)' : 'none',
+                color: props.isDisplayed ? '#0f172a' : '#e5e7eb',
+                fontSize: '0.72rem',
+                fontWeight: props.isDisplayed ? 700 : 500,
+                cursor: 'pointer',
+                padding: '0 6px',
+                transform: props.isDisplayed ? 'scale(1.03)' : 'scale(1)',
+                transition: 'background 120ms ease, color 120ms ease, transform 120ms ease, box-shadow 120ms ease',
+            }}
+        >
+            {props.bucket.label}
+        </button>
+    );
+}
+
+function TimelineRailTrack(props: {
+    timeline: LibraryTimelineSummary;
+    displayedIndex: number;
+    sortMode: 'date' | 'reverse-date';
+    onSeekChange: (seek: GalleryTimelineSeek | null) => void;
+}) {
+    const maxBucketCount = useMemo(() => props.timeline.buckets.reduce((maxCount, bucket) => Math.max(maxCount, bucket.count), 0), [props.timeline.buckets]);
+    const orderedIndexes = useMemo(() => getTimelineRailOrderedIndexes(props.timeline.buckets.length), [props.timeline.buckets.length]);
 
     return (
-        <input
-            type="range"
-            min={0}
-            max={Math.max(props.bucketCount - 1, 0)}
-            step={1}
-            value={getViewportRangeValue(props.draftIndex, props.viewportBucketIndex, props.activeIndex)}
-            aria-label="Library timeline"
-            onChange={(event) => props.onDraftIndexChange(Number(event.target.value))}
-            onPointerUp={props.onCommit}
-            onMouseUp={props.onCommit}
-            onKeyUp={props.onCommit}
-            onBlur={props.onCommit}
-            style={{ width: 20, height: '100%', writingMode: 'vertical-lr', accentColor: '#60a5fa', cursor: 'pointer', transform: 'rotate(180deg)' }}
-        />
+        <div style={{ display: 'grid', flex: 1, minHeight: 0, gridTemplateRows: `repeat(${Math.max(props.timeline.buckets.length, 1)}, minmax(0, 1fr))`, gap: 4, alignItems: 'stretch' }}>
+            {orderedIndexes.map((bucketIndex) => {
+                const bucket = props.timeline.buckets[bucketIndex];
+                if (!bucket) {
+                    return null;
+                }
+
+                return (
+                    <TimelineRailBucketButton
+                        key={bucket.label}
+                        bucket={bucket}
+                        isDisplayed={props.displayedIndex === bucketIndex}
+                        maxBucketCount={maxBucketCount}
+                        onClick={() => {
+                            seekTimelineBucket({
+                                buckets: props.timeline.buckets,
+                                targetIndex: bucketIndex,
+                                sortMode: props.sortMode,
+                                onSeekChange: props.onSeekChange,
+                            });
+                        }}
+                    />
+                );
+            })}
+        </div>
     );
 }
 
@@ -121,74 +135,30 @@ function UnknownDateButton(props: {
 }
 
 export function LibraryTimelineRail(props: LibraryTimelineRailProps) {
-    const [draftIndex, setDraftIndex] = useState<number | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
-    const bucketCount = props.timeline.buckets.length;
     const activeIndex = findTimelineBucketIndex(props.timeline.buckets, props.activeSeek);
-    const maxBucketCount = useMemo(() => props.timeline.buckets.reduce((maxCount, bucket) => Math.max(maxCount, bucket.count), 0), [props.timeline.buckets]);
-    const newestFirstBuckets = useMemo(() => getNewestFirstBuckets(props.timeline), [props.timeline]);
-
-    useEffect(() => {
-        if (isDragging) {
-            return;
-        }
-        setDraftIndex(activeIndex >= 0 ? activeIndex : null);
-    }, [activeIndex, isDragging]);
+    const displayedIndex = getTimelineRailDisplayedIndex({
+        viewportBucketIndex: props.viewportBucketIndex,
+        activeIndex,
+    });
 
     if (shouldHideTimelineRail(props.timeline)) {
         return null;
     }
 
-    const commitDraftSeek = () => commitTimelineDraft({
-        buckets: props.timeline.buckets,
-        draftIndex,
-        sortMode: props.sortMode,
-        onSeekChange: props.onSeekChange,
-        setIsDragging,
-    });
-
     return (
         <div style={{ width: 92, minWidth: 92, display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 8px 14px 10px', borderRight: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(180deg, rgba(10,10,10,0.98), rgba(15,23,42,0.92))' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ color: '#9ca3af', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Timeline</span>
-                <span style={{ color: '#e5e7eb', fontSize: '0.82rem', fontWeight: 600 }}>{getDisplayedSeekLabel({ buckets: props.timeline.buckets, activeSeek: props.activeSeek, viewportBucketIndex: props.viewportBucketIndex, draftIndex: isDragging ? draftIndex : null })}</span>
-            </div>
-            <div style={{ display: 'flex', flex: 1, minHeight: 0, alignItems: 'stretch', gap: 8 }}>
-                <TimelineRangeInput
-                    bucketCount={bucketCount}
-                    draftIndex={draftIndex}
-                    viewportBucketIndex={props.viewportBucketIndex}
-                    activeIndex={activeIndex}
-                    onDraftIndexChange={(index) => {
-                        setIsDragging(true);
-                        setDraftIndex(index);
-                    }}
-                    onCommit={commitDraftSeek}
-                />
-                <div style={{ display: 'grid', flex: 1, gridTemplateRows: `repeat(${Math.max(bucketCount, 1)}, minmax(0, 1fr))`, gap: 4, alignItems: 'stretch' }}>
-                {newestFirstBuckets.map((bucket: LibraryTimelineSummary['buckets'][number]) => (
-                    <div
-                        key={bucket.label}
-                        title={`${bucket.label}: ${bucket.count} photo${bucket.count === 1 ? '' : 's'}`}
-                        style={{
-                            width: 14,
-                            justifySelf: 'center',
-                            borderRadius: 999,
-                            background: `rgba(96,165,250,${getDensityOpacity(bucket.count, maxBucketCount)})`,
-                            outline: props.viewportBucketIndex === props.timeline.buckets.indexOf(bucket) ? '1px solid rgba(191,219,254,0.9)' : 'none',
-                            boxShadow: activeIndex === props.timeline.buckets.indexOf(bucket) ? '0 0 0 2px rgba(96,165,250,0.18)' : 'none',
-                        }}
-                    />
-                ))}
-                </div>
-            </div>
+            <TimelineRailHeader />
+            <TimelineRailTrack
+                timeline={props.timeline}
+                displayedIndex={displayedIndex}
+                sortMode={props.sortMode}
+                onSeekChange={props.onSeekChange}
+            />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <UnknownDateButton
                     unknownDateCount={props.timeline.unknownDateCount}
                     activeSeek={props.activeSeek}
                     onClick={() => {
-                        setIsDragging(false);
-                        setDraftIndex(null);
                         props.onSeekChange({ kind: 'unknown' });
                     }}
                 />
