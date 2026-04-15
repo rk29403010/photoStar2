@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import { usePersistedState } from '@ui/hooks/usePersistedState';
 import { WorkflowDetailPanel } from './WorkflowDetailPanel';
@@ -114,6 +114,18 @@ function useWorkflowWorkspaceData(
     const [model, setModel] = useState<WorkflowVisualiserModel | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const loadWorkflowVisualiser = useEffectEvent(async (
+        nextWorkflowId: string,
+        nextSelectedRunId: string | null,
+        onLoaded: (nextModel: WorkflowVisualiserModel) => void,
+        onFailed: (nextError: unknown) => void,
+    ) => {
+        try {
+            onLoaded(await onGetWorkflowVisualiser(nextWorkflowId, nextSelectedRunId));
+        } catch (nextError) {
+            onFailed(nextError);
+        }
+    });
 
     useEffect(() => {
         let cancelled = false;
@@ -125,8 +137,10 @@ function useWorkflowWorkspaceData(
             }
             setError(null);
 
-            void onGetWorkflowVisualiser(workflowId, selectedRunId)
-                .then((nextModel) => {
+            void loadWorkflowVisualiser(
+                workflowId,
+                selectedRunId,
+                (nextModel) => {
                     if (cancelled) {return;}
                     setModel(nextModel);
                     const refreshIntervalMs = getWorkflowWorkspaceRefreshIntervalMs(nextModel);
@@ -135,11 +149,12 @@ function useWorkflowWorkspaceData(
                             fetchModel(false);
                         }, refreshIntervalMs);
                     }
-                })
-                .catch((nextError: unknown) => {
+                },
+                (nextError: unknown) => {
                     if (cancelled) {return;}
                     setError(String(nextError));
-                })
+                },
+            )
                 .finally(() => {
                     if (cancelled) {return;}
                     setLoading(false);
@@ -154,7 +169,7 @@ function useWorkflowWorkspaceData(
                 clearTimeout(timeoutId);
             }
         };
-    }, [onGetWorkflowVisualiser, selectedRunId, workflowId]);
+    }, [selectedRunId, workflowId]);
 
     return { model, loading, error };
 }
