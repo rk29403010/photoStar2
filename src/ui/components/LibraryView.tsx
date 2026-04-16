@@ -5,6 +5,7 @@ import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { buildVisibleGalleryItems } from '@shared/utils/libraryGallerySelection';
+import { getLibraryViewState } from '@shared/utils/libraryViewState';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { createEmptyLibrarySelectionState } from '@shared/utils/librarySelectionState';
@@ -33,6 +34,7 @@ export interface LibraryViewProps {
     isSeekingTimeline: boolean;
     availableTags?: string[];
     loading: boolean;
+    isRefreshingLibrary: boolean;
     active: boolean;
     backendReady: boolean;
     backendStatus: string;
@@ -149,15 +151,6 @@ function getTimeSectionMode(sortMode: LibrarySortMode, layoutMode: GalleryLayout
 
 function getRejectedAssetCount(showRejected?: boolean, rejectedAssets?: Asset[]) {
     return showRejected && rejectedAssets ? rejectedAssets.length : 0;
-}
-
-function shouldShowLoadingState(params: { loading: boolean; backendReady: boolean; assetCount: number }) {
-    const { loading, backendReady, assetCount } = params;
-    return assetCount === 0 && (loading || !backendReady);
-}
-
-function shouldShowEmptyState(assetCount: number, rejectedAssetCount: number) {
-    return assetCount === 0 && rejectedAssetCount === 0;
 }
 
 function useDisplayAssets(
@@ -369,11 +362,20 @@ function renderLibraryViewStatus(params: {
     backendStatus: string;
     assetCount: number;
     rejectedAssetCount: number;
+    isRefreshingLibrary: boolean;
 }) {
-    if (shouldShowLoadingState({ loading: params.loading, backendReady: params.backendReady, assetCount: params.assetCount })) {
+    const viewState = getLibraryViewState({
+        assetCount: params.assetCount,
+        rejectedAssetCount: params.rejectedAssetCount,
+        loading: params.loading,
+        backendReady: params.backendReady,
+        isRefreshingLibrary: params.isRefreshingLibrary,
+    });
+
+    if (viewState === 'loading') {
         return <LoadingState backendStatus={params.backendStatus} backendReady={params.backendReady} />;
     }
-    return shouldShowEmptyState(params.assetCount, params.rejectedAssetCount) ? <EmptyState /> : null;
+    return viewState === 'empty' ? <EmptyState /> : null;
 }
 
 export function LibraryView(props: LibraryViewProps) {
@@ -435,6 +437,7 @@ export function LibraryView(props: LibraryViewProps) {
         backendStatus: props.backendStatus,
         assetCount: props.assets.length,
         rejectedAssetCount,
+        isRefreshingLibrary: props.isRefreshingLibrary,
     });
     if (statusView) {return statusView;}
     const panelProps = getLibraryPanelContentProps({

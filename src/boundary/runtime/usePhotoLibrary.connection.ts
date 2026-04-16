@@ -28,6 +28,7 @@ export interface ConnectionStateParams {
     setHasCompletedInitialSync: (value: boolean) => void;
     setHasMoreAssets: (value: boolean) => void;
     setIsLoadingMoreAssets: (value: boolean) => void;
+    setIsRefreshingLibrary: (value: boolean) => void;
     setIsSeekingTimeline: (value: boolean) => void;
     setStatus: (value: string) => void;
     setError: (value: string | null) => void;
