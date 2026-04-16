@@ -36,6 +36,7 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Treat live-behavior bugs as evidence-gathering tasks first and code-change tasks second.
 - For user-visible bugs or regressions involving rendered UI, scrolling, selection, navigation, layout, timing, async state, desktop-runtime behavior, persistence, or cross-layer synchronization, gather runtime evidence before attempting a fix.
 - Do not rely on static code reading alone for issues whose correctness is judged by running the app. Unit tests, wiring tests, and code inspection are useful support, but they are not sufficient on their own for these bug classes.
+- For UI action wiring, do not stop at "the prop exists somewhere". Trace the full live path: action creation/composition, parent callback binding, every intermediate prop handoff, render-time conditional, and the final visible UI in the running app.
 - Before the first fix attempt on a runtime-facing bug, do all of the following when feasible:
   - reproduce the issue with exact steps;
   - run the relevant thread-owned runtime;
@@ -56,6 +57,7 @@ These rules exist because generated code drifts toward noise unless the repo pus
   - update the user on the observed evidence before making more edits.
 - Repeated plausible fixes without behavioral change are a process failure. The correct response is to strengthen the evidence, not to keep patching.
 - For interactive or timing-sensitive bugs, do not claim a fix based only on code inspection. Reproduce the original scenario and verify the observed behavior changed in the running app or an equivalent runtime harness.
+- After a failed UI wiring fix, add or tighten a regression test that covers the full vertical slice, not just one layer. Prefer checks that prove the action is composed into the exported action set and threaded into the rendered component path, not merely that a label string exists in a leaf component.
 
 ## Git ownership and commit protocol
 
