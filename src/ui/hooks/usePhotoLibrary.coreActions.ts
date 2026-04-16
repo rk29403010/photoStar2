@@ -4,6 +4,7 @@ import type { DevRuntimeImpact } from '@contracts/devRuntime';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import { shouldRefreshLibraryForFilterStackChange } from '@shared/utils/libraryFilterStack';
 import { removeAssetsById, restoreAssetsByReference } from '@shared/utils/photoBinLocalState';
 import type { GalleryOrder, RefreshLibraryOptions } from './usePhotoLibrary.gallery';
 import type { usePhotoLibraryState } from './usePhotoLibrary.state';
@@ -17,17 +18,18 @@ function useFilterStackActions(params: {
     filterStackRef: PhotoLibraryState['filterStackRef'];
     setFilterStack: PhotoLibraryState['setFilterStack'];
     transport: PhotoLibraryState['transport'];
-    setAssets: PhotoLibraryState['setAssets'];
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
 }) {
-    const { filterStackRef, refreshLibrary, setAssets, setFilterStack, transport } = params;
+    const { filterStackRef, refreshLibrary, setFilterStack, transport } = params;
 
     const updateFilterStack = useCallback((newStack: LibraryFilter[]) => {
+        const currentStack = filterStackRef.current;
+        const shouldRefresh = shouldRefreshLibraryForFilterStackChange(currentStack, newStack);
+        if (!shouldRefresh) {return;}
         setFilterStack(newStack);
         if (!transport) {return;}
-        setAssets([]);
         refreshLibrary();
-    }, [refreshLibrary, setAssets, setFilterStack, transport]);
+    }, [filterStackRef, refreshLibrary, setFilterStack, transport]);
 
     const pushFilter = useCallback((filter: LibraryFilter) => {
         updateFilterStack([...filterStackRef.current, filter]);
@@ -58,25 +60,22 @@ function useGalleryPreferenceActions(params: {
     setGalleryTimelineSeek: PhotoLibraryState['setGalleryTimelineSeek'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
-    setAssets: PhotoLibraryState['setAssets'];
     transport: PhotoLibraryState['transport'];
 }) {
-    const { galleryOrderRef, gallerySeekRef, setIsSeekingTimeline, setGalleryTimelineSeek, groupSimilarPhotosRef, refreshLibrary, setAssets, transport } = params;
+    const { galleryOrderRef, gallerySeekRef, setIsSeekingTimeline, setGalleryTimelineSeek, groupSimilarPhotosRef, refreshLibrary, transport } = params;
 
     const setGroupSimilarPhotos = useCallback((enabled: boolean) => {
         groupSimilarPhotosRef.current = enabled;
         if (!transport) {return;}
-        setAssets([]);
         refreshLibrary({ withGroupCounts: enabled });
-    }, [groupSimilarPhotosRef, refreshLibrary, setAssets, transport]);
+    }, [groupSimilarPhotosRef, refreshLibrary, transport]);
 
     const setGalleryOrder = useCallback((order: GalleryOrder) => {
         if (galleryOrderRef.current === order) {return;}
         galleryOrderRef.current = order;
         if (!transport) {return;}
-        setAssets([]);
         refreshLibrary({ galleryOrder: order });
-    }, [galleryOrderRef, refreshLibrary, setAssets, transport]);
+    }, [galleryOrderRef, refreshLibrary, transport]);
 
     const seekGalleryTimeline = useCallback((seek: GalleryTimelineSeek | null) => {
         gallerySeekRef.current = seek;
@@ -133,7 +132,6 @@ export function useCoreActions(params: {
         filterStackRef,
         setFilterStack,
         transport,
-        setAssets,
         refreshLibrary,
     });
     const galleryPreferenceActions = useGalleryPreferenceActions({
@@ -143,7 +141,6 @@ export function useCoreActions(params: {
         setGalleryTimelineSeek,
         groupSimilarPhotosRef,
         refreshLibrary,
-        setAssets,
         transport,
     });
 

@@ -73,6 +73,7 @@ interface AppMainContentProps {
   ingestStatusMessage: string | null;
   hasMoreAssets: boolean;
   isLoadingMoreAssets: boolean;
+  isRefreshingLibrary: boolean;
   onLoadMoreAssets: () => Promise<void>;
   onGalleryOrderChange: (order: GalleryOrder) => void;
   onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
@@ -154,6 +155,7 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
         isSeekingTimeline={props.isSeekingTimeline}
         availableTags={availableTags.map((tag) => tag.canonicalLabel)}
         loading={props.status.includes('Initializing')}
+        isRefreshingLibrary={props.isRefreshingLibrary}
         backendReady={props.backendReady}
         backendStatus={props.status}
         hasMoreAssets={props.hasMoreAssets}

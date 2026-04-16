@@ -70,6 +70,7 @@ export function usePhotoLibraryState() {
     const [hasCompletedInitialSync, setHasCompletedInitialSync] = useState(false);
     const [hasMoreAssets, setHasMoreAssets] = useState(true);
     const [isLoadingMoreAssets, setIsLoadingMoreAssets] = useState(false);
+    const [isRefreshingLibrary, setIsRefreshingLibrary] = useState(false);
 
     const [stats, setStats] = useState<LibraryStats | null>(null);
     const [assets, setAssets] = useState<Asset[]>([]);
@@ -107,6 +108,8 @@ export function usePhotoLibraryState() {
         setHasMoreAssets,
         isLoadingMoreAssets,
         setIsLoadingMoreAssets,
+        isRefreshingLibrary,
+        setIsRefreshingLibrary,
         stats,
         setStats,
         assets,

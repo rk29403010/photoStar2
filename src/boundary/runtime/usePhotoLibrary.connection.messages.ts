@@ -13,6 +13,7 @@ import { getAssetUpdateInstruction } from './assetUpdateEvents';
 import {
     isAssetPageResponseId,
     isAssetResponseId,
+    isReplacementAssetRefreshId,
     isPreservedPagingAssetRefreshId,
     shouldUpdatePagingStateFromAssetResponse,
 } from '@shared/utils/libraryPagingState';
@@ -84,6 +85,9 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
     if (!isAssetPageResponseId(msg.id)) {
         params.setIsSeekingTimeline(false);
     }
+    if (isReplacementAssetRefreshId(msg.id)) {
+        params.setIsRefreshingLibrary(false);
+    }
 
     let previousAssetCount = 0;
     let nextAssetCount = 0;
@@ -153,7 +157,8 @@ function handleErrorMessage(msg: WsResponse, params: ConnectionStateParams) {
     if (isAssetPageResponseId(msg.id)) {
         params.setIsLoadingMoreAssets(false);
     }
-    if (isAssetResponseId(msg.id) && !isAssetPageResponseId(msg.id)) {
+    if (isReplacementAssetRefreshId(msg.id)) {
+        params.setIsRefreshingLibrary(false);
         params.setIsSeekingTimeline(false);
     }
     if (!msg.error) {return;}

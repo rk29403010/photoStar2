@@ -17,3 +17,9 @@ export function isAssetResponseId(id: string | undefined) {
 export function shouldUpdatePagingStateFromAssetResponse(id: string | undefined) {
     return isAssetResponseId(id) && !isPreservedPagingAssetRefreshId(id);
 }
+
+export function isReplacementAssetRefreshId(id: string | undefined) {
+    return isAssetResponseId(id)
+        && !isAssetPageResponseId(id)
+        && !isPreservedPagingAssetRefreshId(id);
+}

@@ -38,11 +38,12 @@ function useLibraryRefreshAction(params: {
     sendCommand: SendCommandFn;
     setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
+    setIsRefreshingLibrary: PhotoLibraryState['setIsRefreshingLibrary'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
-    const { filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef } = params;
+    const { filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, setIsRefreshingLibrary, groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef } = params;
 
     return useCallback((options: RefreshLibraryOptions = {}) => {
         const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, options);
@@ -50,6 +51,7 @@ function useLibraryRefreshAction(params: {
         if (!options.preservePagingState) {
             setHasMoreAssets(true);
             setIsLoadingMoreAssets(false);
+            setIsRefreshingLibrary(true);
         }
 
         void sendCommand('get_stats');
@@ -59,7 +61,7 @@ function useLibraryRefreshAction(params: {
         }
 
         void sendCommand('get_assets', payload);
-    }, [filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets]);
+    }, [filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, setIsRefreshingLibrary]);
 }
 
 function useAssetLoadingActions(params: {
@@ -142,6 +144,7 @@ function useRefreshActions(params: {
     setAssets: PhotoLibraryState['setAssets'];
     setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
+    setIsRefreshingLibrary: PhotoLibraryState['setIsRefreshingLibrary'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
@@ -156,6 +159,7 @@ function useRefreshActions(params: {
         setAssets,
         setHasMoreAssets,
         setIsLoadingMoreAssets,
+        setIsRefreshingLibrary,
         groupSimilarPhotosRef,
         galleryOrderRef,
         gallerySeekRef,
@@ -167,6 +171,7 @@ function useRefreshActions(params: {
         sendCommand,
         setHasMoreAssets,
         setIsLoadingMoreAssets,
+        setIsRefreshingLibrary,
         groupSimilarPhotosRef,
         galleryOrderRef,
         gallerySeekRef,
@@ -354,6 +359,7 @@ function useComposedActions(
         setAssets: state.setAssets,
         setHasMoreAssets: state.setHasMoreAssets,
         setIsLoadingMoreAssets: state.setIsLoadingMoreAssets,
+        setIsRefreshingLibrary: state.setIsRefreshingLibrary,
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
         galleryOrderRef: state.galleryOrderRef,
         gallerySeekRef: state.gallerySeekRef,
