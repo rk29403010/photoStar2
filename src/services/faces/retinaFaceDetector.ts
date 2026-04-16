@@ -11,6 +11,7 @@ import {
     mapPointFromModelToImage,
     type ModelToImageTransform,
 } from './faceImageGeometry';
+import { suppressDuplicateFaceCandidates } from './faceDetectionSuppression';
 
 const MODEL_FILENAME = 'det_10g.onnx';
 const INPUT_WIDTH = 640;
@@ -137,7 +138,7 @@ export class RetinaFaceDetector {
                 ...(results['477'].data as Float32Array),
                 ...(results['500'].data as Float32Array),
             ]);
-            return this.nonMaxSuppress(this.buildCandidates(scores, boxes, landmarks, transform));
+            return suppressDuplicateFaceCandidates(this.buildCandidates(scores, boxes, landmarks, transform));
         } catch {
             return [];
         }
@@ -191,36 +192,5 @@ export class RetinaFaceDetector {
         }
 
         return candidates;
-    }
-
-    private nonMaxSuppress(candidates: FaceDetectionCandidate[]): FaceDetectionCandidate[] {
-        candidates.sort((left, right) => right.score - left.score);
-        const kept: FaceDetectionCandidate[] = [];
-
-        while (candidates.length > 0) {
-            const best = candidates.shift();
-            if (!best) {
-                continue;
-            }
-            kept.push(best);
-            for (let index = candidates.length - 1; index >= 0; index -= 1) {
-                if (this.iou(best.box, candidates[index].box) > 0.4) {
-                    candidates.splice(index, 1);
-                }
-            }
-        }
-
-        return kept;
-    }
-
-    private iou(boxA: number[], boxB: number[]): number {
-        const xA = Math.max(boxA[0], boxB[0]);
-        const yA = Math.max(boxA[1], boxB[1]);
-        const xB = Math.min(boxA[2], boxB[2]);
-        const yB = Math.min(boxA[3], boxB[3]);
-        const intersection = Math.max(0, xB - xA) * Math.max(0, yB - yA);
-        const areaA = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1]);
-        const areaB = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1]);
-        return intersection / (areaA + areaB - intersection);
     }
 }

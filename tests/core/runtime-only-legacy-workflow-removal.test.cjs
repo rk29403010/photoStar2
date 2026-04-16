@@ -210,6 +210,34 @@ test('runtime-only ai metadata command scopes to a single asset when mediaId is 
     }
 });
 
+test('runtime-only face workflow command scopes to a single asset when mediaId is provided', async () => {
+    const tempDir = createTempDir();
+    let harness;
+
+    try {
+        harness = await createRuntimeHarness(tempDir);
+        insertAsset(harness.dbManager, 'asset-1');
+        insertAsset(harness.dbManager, 'asset-2');
+
+        harness.handleSystemCommand(createCommandContext(
+            harness,
+            tempDir,
+            'start_library_face_workflow',
+            { mediaId: 'asset-2' }
+        ));
+        const response = await harness.collector.takeLast();
+        assert.equal(response.status, 'ok');
+
+        const detail = await waitForRunCompletion(harness, response.data.runId);
+        assert.equal(detail.summary.workflowId, 'library_face_pipeline_v1');
+        assert.equal(detail.summary.totalItems, 1);
+        assert.equal(detail.summary.completedItems, 1);
+    } finally {
+        harness?.dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
 test('database startup removes legacy workflow queue tables and settings', () => {
     const tempDir = createTempDir('photo-star-runtime-only-db-');
     const dbPath = path.join(tempDir, 'library.db');

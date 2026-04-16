@@ -28,6 +28,7 @@ export interface SinglePhotoOverlayProps {
     onMoveToBin?: (assetId: string) => Promise<void>;
     onRestoreFromBin?: (assetId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onOrbitLoaded: (assets: Asset[]) => void;
@@ -106,6 +107,7 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
     onMoveToBin,
     onRestoreFromBin,
     onExtractAiMetadata,
+    onRerunFaceDetection,
     onOpenSettings,
     onGetGroupOrbit,
     onOrbitLoaded,
@@ -156,6 +158,7 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
             onMoveToBin={onMoveToBin}
             onRestoreFromBin={onRestoreFromBin}
             onExtractAiMetadata={onExtractAiMetadata}
+            onRerunFaceDetection={onRerunFaceDetection}
             onOpenSettings={onOpenSettings}
             onGetGroupOrbit={onGetGroupOrbit}
             onOrbitLoaded={onOrbitLoaded}

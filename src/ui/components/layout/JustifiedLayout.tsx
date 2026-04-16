@@ -133,6 +133,7 @@ function useContainerWidth() {
 export function JustifiedLayout(props: JustifiedLayoutProps) {
     const { containerRef, containerWidth } = useContainerWidth();
     const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+    const lastAppliedTimelineJumpNonceRef = useRef<number | null>(null);
     const [customScrollParent, setCustomScrollParent] = useState<HTMLDivElement | undefined>(props.scrollContainerRef?.current ?? undefined);
     const normalizedSections = useMemo(() => getNormalizedSections({ items: props.items, sections: props.sections }), [props.items, props.sections]);
     const entries = useMemo<LayoutEntry[]>(() => {
@@ -159,7 +160,10 @@ export function JustifiedLayout(props: JustifiedLayoutProps) {
 
     useEffect(() => {
         const sectionId = props.timelineJumpRequest?.sectionId;
-        if (!sectionId) {
+        if (!sectionId || !props.timelineJumpRequest) {
+            return;
+        }
+        if (lastAppliedTimelineJumpNonceRef.current === props.timelineJumpRequest.nonce) {
             return;
         }
 
@@ -168,6 +172,7 @@ export function JustifiedLayout(props: JustifiedLayoutProps) {
             return;
         }
 
+        lastAppliedTimelineJumpNonceRef.current = props.timelineJumpRequest.nonce;
         virtuosoRef.current?.scrollToIndex({
             index: entryIndex,
             align: 'start',

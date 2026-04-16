@@ -81,10 +81,9 @@ export function buildFilterSubquery(
     }
 
     const visibilitySubquery = 'AND a.binned_at IS NULL';
-
-    return `${visibilitySubquery}${
-        buildTagFilterSubquery(filter, params)
+    const filterBody = buildTagFilterSubquery(filter, params)
         ?? buildPersonFilterSubquery(filter, params)
-        ?? ''
-    }`;
+        ?? '';
+
+    return filterBody ? `${visibilitySubquery} ${filterBody}` : visibilitySubquery;
 }

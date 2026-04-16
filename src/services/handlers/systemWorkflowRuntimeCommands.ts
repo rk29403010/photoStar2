@@ -207,7 +207,10 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         });
     },
     start_library_face_workflow: async (ctx) => {
-        startAssetWorkflow(ctx, undefined, {
+        const payload = ctx.payload as {
+            mediaId?: string;
+        } | undefined;
+        startAssetWorkflow(ctx, payload, {
             workflowId: 'library_face_pipeline_v1',
         });
     },

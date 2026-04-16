@@ -14,6 +14,7 @@ import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLi
 import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
+import { startWorkflowWithOverlayJob } from '@boundary/runtime/workflowOverlayJobs';
 import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 export { createPhotoMetadataActions } from './photoMetadataActions';
@@ -46,7 +47,9 @@ type ScanActionParams = {
     refreshSystemJobs: () => void;
 };
 
-type PipelineActionParams = Pick<SharedWorkflowActionParams, 'request'>;
+type PipelineActionParams = Pick<SharedWorkflowActionParams, 'addJob' | 'request' | 'refreshLibrary' | 'refreshSystemJobs'> & {
+    updateJobState: (id: string, state: BackgroundJob['state']) => void;
+};
 
 type SystemActionParams = SharedWorkflowActionParams & {
     setStatus: (status: string) => void;
@@ -284,36 +287,43 @@ export function createScanActions(params: ScanActionParams) {
 }
 
 export function createPipelineActions(params: PipelineActionParams) {
-    const { request } = params;
-
-    const startWorkflow = async (idPrefix: string, command: string, payload: Record<string, unknown> = {}) => {
-        return request<string>({
-            idPrefix: `${idPrefix}_${Date.now()}`,
-            command,
-            payload,
-            timeoutMs: 10000,
-            select: (data) => String(data?.runId || ''),
-        });
-    };
+    const startWorkflow = (
+        idPrefix: string,
+        command: string,
+        stage: PipelineStage,
+        title: string,
+        payload: Record<string, unknown> = {},
+    ) => startWorkflowWithOverlayJob({
+        request: params.request,
+        addJob: params.addJob,
+        updateJobState: params.updateJobState,
+        refreshLibrary: params.refreshLibrary,
+        refreshSystemJobs: params.refreshSystemJobs,
+        idPrefix,
+        command,
+        payload,
+        stage,
+        title,
+    });
 
     return {
-        generatePreviews: () => startWorkflow('start_library_previews', 'start_library_preview_workflow'),
-        detectFaces: () => startWorkflow('start_library_face', 'start_library_face_workflow'),
-        clusterFaces: () => startWorkflow('start_library_grouping_from_faces', 'start_library_grouping'),
-        scanSensitive: () => startWorkflow('start_library_sensitive', 'start_library_sensitive_scan_workflow'),
-        scanSensitiveAll: () => startWorkflow('start_library_sensitive_force', 'start_library_sensitive_scan_workflow'),
+        generatePreviews: () => startWorkflow('start_library_previews', 'start_library_preview_workflow', 'preview_generation', 'Generating Library Previews'),
+        detectFaces: (mediaId?: string) => startWorkflow('start_library_face', 'start_library_face_workflow', 'face_analysis', mediaId ? 'Analysing Faces for Photo' : 'Analysing Faces', mediaId ? { mediaId } : {}),
+        clusterFaces: () => startWorkflow('start_library_grouping_from_faces', 'start_library_grouping', 'similarity_cluster', 'Clustering Similar Faces'),
+        scanSensitive: () => startWorkflow('start_library_sensitive', 'start_library_sensitive_scan_workflow', 'sensitive_scan', 'Scanning Sensitive Content'),
+        scanSensitiveAll: () => startWorkflow('start_library_sensitive_force', 'start_library_sensitive_scan_workflow', 'sensitive_scan', 'Scanning Sensitive Content'),
         extractAiMetadata: (
             mediaId?: string,
             imageStrategy: 'overview_only' | 'overview_plus_tiles' = 'overview_only',
             aiMode: AiMode = 'live',
         ) => (
             mediaId
-                ? startWorkflow('start_selected_subject_metadata', 'start_selected_subject_metadata_workflow', {
+                ? startWorkflow('start_selected_subject_metadata', 'start_selected_subject_metadata_workflow', 'ai_metadata', 'Generating AI Metadata', {
                     aiMode,
                     imageStrategy,
                     selectedSubjects: [{ subjectType: 'asset', subjectId: mediaId }],
                 })
-                : startWorkflow('start_library_ai_metadata', 'start_library_ai_metadata_workflow', {
+                : startWorkflow('start_library_ai_metadata', 'start_library_ai_metadata_workflow', 'ai_metadata', 'Generating AI Metadata', {
                     aiMode,
                 })
         ),
@@ -384,7 +394,6 @@ export function createSystemActions(params: SystemActionParams) {
         refreshPeople,
         refreshSystemJobs,
     });
-
     return {
         stopJob: async (jobId: string) => {
             if (!transport) {return;}
@@ -410,16 +419,6 @@ export function createSystemActions(params: SystemActionParams) {
             timeoutMs: 10000,
             select: (data) => data as unknown as JobErrorSnapshot,
         }),
-        resetFaces: async () => {
-            setStatus('Resetting faces...');
-            setPeople([]);
-            await sendCommand('reset_faces');
-            setTimeout(() => {
-                refreshLibrary();
-                refreshPeople();
-                setStatus('Faces reset.');
-            }, 1000);
-        },
         resetLibrary: resetActions.resetLibrary,
         factoryResetLibrary: resetActions.factoryResetLibrary,
     };

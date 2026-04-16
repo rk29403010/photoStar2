@@ -7,6 +7,7 @@ import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 import { createTagVocabularyActions } from '@boundary/runtime/tagVocabularyActions';
+import { scheduleWorkflowRunRefresh } from '@boundary/runtime/workflowOverlayJobs';
 import { replaceGroupRepresentative } from '@ui/components/single-photo/singlePhotoAssetModel';
 import { fetchAssetTagContext } from '@ui/hooks/assetTagContext';
 
@@ -48,64 +49,6 @@ interface TagActionParams {
     request: RequestFn;
     setAssets: SetAssets;
     refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;
-}
-
-type WorkflowRunDetailResponse = {
-    summary?: {
-        status?: string;
-    };
-};
-
-async function getWorkflowRunDetail(request: RequestFn, runId: string): Promise<WorkflowRunDetailResponse> {
-    return request<WorkflowRunDetailResponse>({
-        idPrefix: `workflow_run_status_${runId}`,
-        command: 'get_workflow_run_detail',
-        payload: { runId },
-        timeoutMs: 10000,
-        select: (data) => data as WorkflowRunDetailResponse,
-    });
-}
-
-function scheduleWorkflowRunRefresh(params: Pick<BuildActionParams, 'request' | 'updateJobState' | 'refreshLibrary' | 'refreshSystemJobs'> & {
-    localJobId: string;
-    runId: string;
-    onCompleted?: () => void;
-}) {
-    const poll = async () => {
-        params.refreshLibrary({ preservePagingState: true });
-        params.refreshSystemJobs();
-
-        try {
-            const detail = await getWorkflowRunDetail(params.request, params.runId);
-            const status = String(detail.summary?.status || '');
-
-            if (status === 'completed') {
-                params.updateJobState(params.localJobId, 'completed');
-                params.refreshLibrary();
-                params.refreshSystemJobs();
-                params.onCompleted?.();
-                return;
-            }
-
-            if (status === 'failed') {
-                params.updateJobState(params.localJobId, 'failed');
-                params.refreshSystemJobs();
-                return;
-            }
-        } catch {
-            params.updateJobState(params.localJobId, 'failed');
-            params.refreshSystemJobs();
-            return;
-        }
-
-        window.setTimeout(() => {
-            void poll();
-        }, 1500);
-    };
-
-    window.setTimeout(() => {
-        void poll();
-    }, 1500);
 }
 
 export function createCoreActions(params: CoreActionParams) {

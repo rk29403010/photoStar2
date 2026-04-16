@@ -27,6 +27,7 @@ interface ActionOverlaysProps {
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     analysisState: AnalysisUiState;
     setAnalysisState: (state: AnalysisUiState) => void;
@@ -62,6 +63,7 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
     onSetCanonical,
     onExplodeGroup,
     onExtractAiMetadata,
+    onRerunFaceDetection,
     onOpenSettings,
     analysisState,
     setAnalysisState,
@@ -96,6 +98,7 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
             onSetCanonical={onSetCanonical}
             onExplodeGroup={onExplodeGroup}
             onExtractAiMetadata={onExtractAiMetadata}
+            onRerunFaceDetection={onRerunFaceDetection}
             analysisState={analysisState}
             setAnalysisState={setAnalysisState}
             setAnalysisError={setAnalysisError}

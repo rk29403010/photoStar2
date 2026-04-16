@@ -28,6 +28,7 @@ interface SinglePhotoViewProps {
     onMoveToBin?: (assetId: string) => Promise<void>;
     onRestoreFromBin?: (assetId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
@@ -353,6 +354,7 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
     onMoveToBin,
     onRestoreFromBin,
     onExtractAiMetadata,
+    onRerunFaceDetection,
     onGetGroupOrbit,
     onSetCanonical,
     onExplodeGroup,
@@ -412,6 +414,7 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
             onMoveToBin={onMoveToBin}
             onRestoreFromBin={onRestoreFromBin}
             onExtractAiMetadata={onExtractAiMetadata}
+            onRerunFaceDetection={onRerunFaceDetection}
             onOpenSettings={onOpenSettings}
             onGetGroupOrbit={onGetGroupOrbit}
             onOrbitLoaded={handleOrbitLoaded}

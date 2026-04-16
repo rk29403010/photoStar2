@@ -33,6 +33,7 @@ interface AppOverlaysProps {
   onScanSensitive: () => void;
   onScanSensitiveAll: () => void;
   onExtractAiMetadata: (assetId?: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+  onRerunFaceDetection: (assetId: string) => Promise<string | undefined>;
   onRefresh: () => void;
   onResetFaces: () => void;
   onResetAll: () => void;
@@ -127,6 +128,7 @@ export function AppOverlays(props: AppOverlaysProps) {
           onMoveToBin={props.onMoveToBin}
           onRestoreFromBin={props.onRestoreFromBin}
           onExtractAiMetadata={props.onExtractAiMetadata}
+          onRerunFaceDetection={props.onRerunFaceDetection}
           onOpenSettings={props.onOpenSettingsFromPhoto}
           onLoadAssetEvidence={props.onLoadAssetEvidence}
           onGetGroupOrbit={props.onGetGroupOrbit}

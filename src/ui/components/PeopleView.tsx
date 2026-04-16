@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Person } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
@@ -83,18 +83,17 @@ function usePeopleSelection(onSelectionChange?: (count: number) => void) {
     const [isMultiSelect, setIsMultiSelect] = useState(false);
     const timerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
 
+    useEffect(() => {
+        onSelectionChange?.(selectedIds.size);
+    }, [onSelectionChange, selectedIds]);
+
     const updateSelected = (updater: (prev: Set<string>) => Set<string>) => {
-        setSelectedIds(prev => {
-            const next = updater(prev);
-            onSelectionChange?.(next.size);
-            return next;
-        });
+        setSelectedIds((prev) => updater(prev));
     };
 
     const clearSelection = () => {
         setIsMultiSelect(false);
         setSelectedIds(new Set());
-        onSelectionChange?.(0);
     };
 
     const startLongPressSelect = (id: string) => {

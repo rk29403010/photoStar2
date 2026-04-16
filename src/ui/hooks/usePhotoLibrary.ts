@@ -13,6 +13,7 @@ import {
     useLibraryTransport,
 } from '@boundary/runtime/usePhotoLibrary.commands';
 import { createAlbumActions, createBuildActions, createGroupActions, createTagActions } from '@boundary/runtime/usePhotoLibrary.actions';
+import { createFaceSystemActions } from '@boundary/runtime/usePhotoLibrary.faceSystemActions';
 import { createWorkflowRecoveryActions } from '@boundary/runtime/workflowRecoveryActions';
 import {
     buildAssetRefreshPayload,
@@ -301,6 +302,7 @@ function useSystemWorkflowActions(params: {
 function useWorkflowActions(params: {
     state: PhotoLibraryState;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
+    updateJobState: (id: string, state: 'queued' | 'starting' | 'running' | 'paused' | 'retrying' | 'completed' | 'failed' | 'cancelled' | 'idle') => void;
     removeJob: (id: string) => void;
     sendCommand: SendCommandFn;
     request: RequestFn;
@@ -308,7 +310,7 @@ function useWorkflowActions(params: {
     refreshPeople: () => void;
     refreshSystemJobs: () => void;
 }) {
-    const { state, addJob, removeJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
+    const { state, addJob, updateJobState, removeJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
 
     const scanActions = useScanWorkflowActions({
         state,
@@ -318,7 +320,13 @@ function useWorkflowActions(params: {
         refreshSystemJobs,
     });
 
-    const pipelineActions = useMemo(() => createPipelineActions({ request }), [request]);
+    const pipelineActions = useMemo(() => createPipelineActions({
+        request,
+        addJob,
+        updateJobState,
+        refreshLibrary,
+        refreshSystemJobs,
+    }), [addJob, refreshLibrary, refreshSystemJobs, request, updateJobState]);
 
     const systemActions = useSystemWorkflowActions({
         state,
@@ -339,6 +347,59 @@ function useWorkflowActions(params: {
     const recoveryActions = useMemo(() => createWorkflowRecoveryActions({ request }), [request]);
 
     return useMemo(() => ({ ...scanActions, ...pipelineActions, ...systemActions, ...settingsActions, ...recoveryActions }), [pipelineActions, recoveryActions, scanActions, settingsActions, systemActions]);
+}
+
+function useSupplementaryActions(params: {
+    state: PhotoLibraryState;
+    request: RequestFn;
+    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    updateJobState: (id: string, state: 'queued' | 'starting' | 'running' | 'paused' | 'retrying' | 'completed' | 'failed' | 'cancelled' | 'idle') => void;
+    sendCommand: SendCommandFn;
+    refreshActions: ReturnType<typeof useRefreshActions>;
+}) {
+    const { state, request, addJob, updateJobState, sendCommand, refreshActions } = params;
+
+    const albumActions = useMemo(() => createAlbumActions({ request }), [request]);
+    const photoMetadataActions = useMemo(() => createPhotoMetadataActions({ request }), [request]);
+    const groupActions = useMemo(() => createGroupActions({
+        request,
+        refreshLibrary: refreshActions.refreshLibrary,
+        setAssets: state.setAssets,
+    }), [refreshActions.refreshLibrary, request, state.setAssets]);
+    const tagActions = useMemo(() => createTagActions({
+        request,
+        setAssets: state.setAssets,
+        refreshLibrary: refreshActions.refreshLibrary,
+    }), [refreshActions.refreshLibrary, request, state.setAssets]);
+    const buildActions = useMemo(() => createBuildActions({
+        transport: state.transport,
+        request,
+        addJob,
+        updateJobState,
+        refreshLibrary: refreshActions.refreshLibrary,
+        refreshSystemJobs: refreshActions.refreshSystemJobs,
+        loadAssetDetails: refreshActions.loadAssetDetails,
+    }), [addJob, refreshActions.loadAssetDetails, refreshActions.refreshLibrary, refreshActions.refreshSystemJobs, request, state.transport, updateJobState]);
+    const faceSystemActions = useMemo(() => createFaceSystemActions({
+        addJob,
+        request,
+        updateJobState,
+        sendCommand,
+        setStatus: state.setStatus,
+        setPeople: state.setPeople,
+        refreshLibrary: refreshActions.refreshLibrary,
+        refreshPeople: refreshActions.refreshPeople,
+        refreshSystemJobs: refreshActions.refreshSystemJobs,
+    }), [addJob, refreshActions.refreshLibrary, refreshActions.refreshPeople, refreshActions.refreshSystemJobs, request, sendCommand, state.setPeople, state.setStatus, updateJobState]);
+
+    return {
+        albumActions,
+        photoMetadataActions,
+        groupActions,
+        tagActions,
+        buildActions,
+        faceSystemActions,
+    };
 }
 
 function useComposedActions(
@@ -367,6 +428,7 @@ function useComposedActions(
     const workflowActions = useWorkflowActions({
         state,
         addJob,
+        updateJobState,
         removeJob,
         sendCommand,
         request,
@@ -389,38 +451,26 @@ function useComposedActions(
         setIsSeekingTimeline: state.setIsSeekingTimeline,
         setGalleryTimelineSeek: state.setGalleryTimelineSeek,
     });
-    const albumActions = useMemo(() => createAlbumActions({ request }), [request]);
-    const photoMetadataActions = useMemo(() => createPhotoMetadataActions({ request }), [request]);
-    const groupActions = useMemo(() => createGroupActions({
-        request,
-        refreshLibrary: refreshActions.refreshLibrary,
-        setAssets: state.setAssets,
-    }), [refreshActions.refreshLibrary, request, state.setAssets]);
-    const tagActions = useMemo(() => createTagActions({
-        request,
-        setAssets: state.setAssets,
-        refreshLibrary: refreshActions.refreshLibrary,
-    }), [refreshActions.refreshLibrary, request, state.setAssets]);
-    const buildActions = useMemo(() => createBuildActions({
-        transport: state.transport,
+    const supplementaryActions = useSupplementaryActions({
+        state,
         request,
         addJob,
         updateJobState,
-        refreshLibrary: refreshActions.refreshLibrary,
-        refreshSystemJobs: refreshActions.refreshSystemJobs,
-        loadAssetDetails: refreshActions.loadAssetDetails,
-    }), [addJob, refreshActions.loadAssetDetails, refreshActions.refreshLibrary, refreshActions.refreshSystemJobs, request, state.transport, updateJobState]);
+        sendCommand,
+        refreshActions,
+    });
 
     return useMemo(() => ({
         ...workflowActions,
         ...refreshActions,
         ...coreActions,
-        ...albumActions,
-        ...photoMetadataActions,
-        ...groupActions,
-        ...tagActions,
-        ...buildActions,
-    }), [albumActions, buildActions, coreActions, groupActions, photoMetadataActions, refreshActions, tagActions, workflowActions]);
+        ...supplementaryActions.albumActions,
+        ...supplementaryActions.photoMetadataActions,
+        ...supplementaryActions.groupActions,
+        ...supplementaryActions.tagActions,
+        ...supplementaryActions.buildActions,
+        ...supplementaryActions.faceSystemActions,
+    }), [coreActions, refreshActions, supplementaryActions, workflowActions]);
 }
 
 export function usePhotoLibrary() {

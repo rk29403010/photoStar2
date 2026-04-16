@@ -28,6 +28,7 @@ interface ControlsOverlayProps {
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     analysisState: AnalysisUiState;
     setAnalysisState: (state: AnalysisUiState) => void;
     setAnalysisError: (err: string | null) => void;
@@ -48,6 +49,7 @@ interface ActionMenuProps {
     setAnalyzingAssetId: (id: string | null) => void;
     setAnalyzingJobId: (id: string | null) => void;
     onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onMoveToBin?: (assetId: string) => Promise<void>;
     onRestoreFromBin?: (assetId: string) => Promise<void>;
@@ -151,6 +153,19 @@ async function handleAnalyzeImage(
     }
 }
 
+async function handleRerunFaceDetection(
+    event: React.MouseEvent<HTMLButtonElement>,
+    props: ActionMenuProps,
+) {
+    if (!props.onRerunFaceDetection) {
+        return;
+    }
+
+    event.stopPropagation();
+    await props.onRerunFaceDetection(props.asset.id);
+    closeActionMenu(props.setShowActionMenu);
+}
+
 function handleCancelAnalysis(event: React.MouseEvent<HTMLButtonElement>, props: ActionMenuProps) {
     event.stopPropagation();
     props.setAnalysisState('cancelling');
@@ -243,6 +258,19 @@ function AiActionMenuItem(props: ActionMenuProps) {
     }
 
     return null;
+}
+
+function FaceDetectionMenuItem(props: ActionMenuProps) {
+    if (!props.onRerunFaceDetection) {
+        return null;
+    }
+
+    return (
+        <>
+            <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
+            <MenuItem color="#67e8f9" active={false} icon="🧠" label="Rerun Face Detection" onClick={(event) => handleRerunFaceDetection(event, props)} />
+        </>
+    );
 }
 
 function SensitivityMenuItems({ asset, onSetSensitivity, setShowActionMenu }: Pick<ActionMenuProps, 'asset' | 'onSetSensitivity' | 'setShowActionMenu'>) {
@@ -353,6 +381,7 @@ const ActionMenu: React.FC<ActionMenuProps> = (props) => {
     return (
         <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: '#111827', border: '1px solid #1f2937', borderRadius: '10px', padding: '6px', minWidth: '200px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <AiActionMenuItem {...props} />
+            <FaceDetectionMenuItem {...props} />
             <GroupMenuItems asset={props.asset} onSetCanonical={props.onSetCanonical} onExplodeGroup={props.onExplodeGroup} setShowActionMenu={props.setShowActionMenu} />
             <BinMenuItem asset={props.asset} onMoveToBin={props.onMoveToBin} onRestoreFromBin={props.onRestoreFromBin} setShowActionMenu={props.setShowActionMenu} />
             <SensitivityMenuItems asset={props.asset} onSetSensitivity={props.onSetSensitivity} setShowActionMenu={props.setShowActionMenu} />
@@ -382,6 +411,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     onSetCanonical,
     onExplodeGroup,
     onExtractAiMetadata,
+    onRerunFaceDetection,
     analysisState,
     setAnalysisState,
     setAnalysisError,
@@ -391,8 +421,9 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     showInfoPanel,
     setShowInfoPanel,
     controlsVisible
-}) => (
-    <>
+}) => {
+    return (
+        <>
         <TopBar
             assetsLength={assetsLength}
             currentIndex={currentIndex}
@@ -412,6 +443,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
                         setAnalyzingAssetId={setAnalyzingAssetId}
                         setAnalyzingJobId={setAnalyzingJobId}
                         onExtractAiMetadata={onExtractAiMetadata}
+                        onRerunFaceDetection={onRerunFaceDetection}
                         onSetSensitivity={onSetSensitivity}
                         onMoveToBin={onMoveToBin}
                         onRestoreFromBin={onRestoreFromBin}
@@ -439,5 +471,6 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             controlsVisible={controlsVisible}
             getOverlayVisibilityStyle={getOverlayVisibilityStyle}
         />
-    </>
-);
+        </>
+    );
+};

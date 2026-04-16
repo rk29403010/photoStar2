@@ -45,6 +45,15 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Prefer temporary instrumentation at the narrowest useful boundary over broad speculative refactors. Log the specific state, event, or payload needed to distinguish competing explanations.
 - If a bug affects visible interaction behavior, prefer adding or updating a repeatable repro harness such as a targeted runtime test, browser automation flow, or focused integration test before polishing the implementation.
 - When a thread already owns a managed runtime, use that runtime for investigation before proposing further fixes unless there is a clear reason not to.
+- For new or changed menu actions, verify the whole vertical slice before claiming success:
+  - the action exists in the exported action set or command creator;
+  - the parent/container binds the callback;
+  - every intermediate component or helper forwards the prop or handler;
+  - the render-time conditional that shows the menu item is satisfied in the live app;
+  - the correct menu button is opened in runtime, not a different similarly named control;
+  - clicking the item reaches the intended command or workflow start path;
+  - any expected user feedback appears, such as a toast, status line, drawer, progress panel, or refreshed view.
+- For menu items that start workflows or background work, verify both the command start path and the user-visible progress path. A successful backend run without the expected progress surface is not a complete fix.
 
 ## Failed-Fix Escalation
 
