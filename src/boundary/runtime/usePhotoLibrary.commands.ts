@@ -412,6 +412,7 @@ export function createSystemActions(params: SystemActionParams) {
         }),
         resetFaces: async () => {
             setStatus('Resetting faces...');
+            setPeople([]);
             await sendCommand('reset_faces');
             setTimeout(() => {
                 refreshLibrary();

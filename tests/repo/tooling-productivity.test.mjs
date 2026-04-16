@@ -7,6 +7,7 @@ import { countSubstantiveLines } from '../../tooling/scripts/repo/complexity-rep
 import { makeWatchlistRow } from '../../tooling/scripts/repo/boundary-watchlist.js';
 import {
     buildManagedSpawnInvocation,
+    createManagedDevEnv,
     getManagedScriptConfig,
     getManagedSpawnOptions,
     getResumeScript,
@@ -85,13 +86,28 @@ test('managed dev session spawn options keep shell disabled by default', () => {
     );
 });
 
+test('managed dev session env injects resolved per-worktree ports', () => {
+    const managedEnv = createManagedDevEnv(
+        {},
+        path.join(workspaceRoot, '.worktrees', 'investigate-library-people-pause-states'),
+    );
+
+    assert.match(managedEnv.VITE_PORT, /^\d+$/);
+    assert.match(managedEnv.VITE_BACKEND_PORT, /^\d+$/);
+    assert.notEqual(managedEnv.VITE_PORT, '5173');
+    assert.notEqual(managedEnv.VITE_BACKEND_PORT, '5174');
+});
+
 test('managed dev session uses cmd.exe wrapping for Windows command launchers', () => {
+    const env = createManagedDevEnv({}, workspaceRoot);
+
     assert.deepEqual(
         buildManagedSpawnInvocation({
             command: 'npm.cmd',
             args: ['run', 'dev:desktop-runtime'],
             stdio: 'ignore',
             detached: true,
+            env,
             platform: 'win32',
         }),
         {
@@ -99,7 +115,7 @@ test('managed dev session uses cmd.exe wrapping for Windows command launchers', 
             args: ['/d', '/s', '/c', 'npm.cmd run dev:desktop-runtime'],
             options: {
                 cwd: workspaceRoot,
-                env: process.env,
+                env,
                 stdio: 'ignore',
                 detached: true,
                 shell: false,
@@ -112,12 +128,14 @@ test('managed dev session uses cmd.exe wrapping for Windows command launchers', 
 test('managed dev session does not cmd-wrap direct node launches on Windows', () => {
     const command = process.execPath;
     const args = ['node_modules/concurrently/dist/bin/concurrently.js', '--version'];
+    const env = createManagedDevEnv({}, workspaceRoot);
 
     assert.deepEqual(
         buildManagedSpawnInvocation({
             command,
             args,
             stdio: 'inherit',
+            env,
             platform: 'win32',
         }),
         {
@@ -125,7 +143,7 @@ test('managed dev session does not cmd-wrap direct node launches on Windows', ()
             args,
             options: {
                 cwd: workspaceRoot,
-                env: process.env,
+                env,
                 stdio: 'inherit',
                 detached: false,
                 shell: false,

@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildSpawnInvocation, getSpawnOptions, getTaskkillExecutable, runCommandSync } from './process-invocation.js';
+import { resolveDevRuntimePorts } from './dev-runtime-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
@@ -94,11 +95,12 @@ export function getManagedScriptConfig(scriptName) {
 export function getManagedSpawnOptions({
     stdio,
     detached = false,
+    env = process.env,
     platform = process.platform,
 } = {}) {
     return getSpawnOptions({
         cwd: workspaceRoot,
-        env: process.env,
+        env,
         stdio,
         detached,
         platform,
@@ -110,17 +112,27 @@ export function buildManagedSpawnInvocation({
     args,
     stdio,
     detached = false,
+    env = process.env,
     platform = process.platform,
 }) {
     return buildSpawnInvocation({
         command,
         args,
         cwd: workspaceRoot,
-        env: process.env,
+        env,
         stdio,
         detached,
         platform,
     });
+}
+
+export function createManagedDevEnv(env = process.env, cwd = workspaceRoot) {
+    const { webPort, backendPort } = resolveDevRuntimePorts(env, cwd);
+    return {
+        ...env,
+        VITE_PORT: String(webPort),
+        VITE_BACKEND_PORT: String(backendPort),
+    };
 }
 
 function spawnManagedScript(scriptName) {
@@ -129,10 +141,12 @@ function spawnManagedScript(scriptName) {
         throw new Error(`Unsupported managed dev script: ${scriptName}`);
     }
 
+    const managedEnv = createManagedDevEnv();
     const invocation = buildManagedSpawnInvocation({
         command: scriptConfig.command,
         args: scriptConfig.args,
         stdio: 'inherit',
+        env: managedEnv,
     });
     return spawn(invocation.command, invocation.args, invocation.options);
 }
@@ -209,11 +223,13 @@ function resumeManagedSession(requestedScript) {
         ? requestedScript
         : getResumeScript(readSession());
 
+    const managedEnv = createManagedDevEnv();
     const invocation = buildManagedSpawnInvocation({
         command: npmExecutable,
         args: ['run', scriptToRun],
         stdio: 'ignore',
         detached: true,
+        env: managedEnv,
     });
     const child = spawn(invocation.command, invocation.args, invocation.options);
 

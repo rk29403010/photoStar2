@@ -73,6 +73,8 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Treat each chat thread as one task capsule: one worktree, one branch, one goal.
 - Use the shared thread tracker for worktree bookkeeping instead of relying on stash names or memory. The tracker is shared across linked worktrees through Git's common directory.
 - For every new chat conversation or explicit thread split, create a dedicated worktree first with `npm run thread:new -- --task "<task name>"` unless the user explicitly asks to stay on `main`.
+- As soon as work starts in a worktree, tell the user explicitly that the task is being done in a worktree, give the full worktree path, and give the branch name. Do not leave the user to infer this.
+- Whenever handing off work that should be manually run or tested in a worktree, include a single paste-ready Git Bash code block with exactly two lines: first `cd` into the worktree folder, then the correct run command, typically `npm.cmd run dev:desktop-runtime`. Prefer this exact format unless a different command is genuinely required.
 - Treat follow-up requests inside the same chat conversation as work on that same worktree unless the user explicitly asks to branch off into a new thread.
 - When starting an independent task in its own worktree, register it early with `npm run thread:register -- --task "<task name>"`.
 - Treat `thread:register` as bookkeeping for an already-existing worktree. It does not create isolation on its own.
@@ -94,6 +96,7 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 - Treat worktree isolation and runtime ownership as separate decisions.
 - Every independent task still gets its own worktree with `npm run thread:new -- --task "<task name>"` unless the user explicitly asks to stay on `main`.
+- Prefer to keep feature work in worktrees until the user has manually tested it and said it is done. Do not merge work back into `main` before that unless the user explicitly asks for it.
 - New threads start as `edit-only` by default. That means the thread has its own worktree but does not automatically start a managed dev session.
 - Promote a thread to `runtime-owning` with `npm run thread:start-dev` when the task needs branch-local manual verification, interactive debugging, or runtime-specific inspection.
 - For this repo, do not assume automated tests or quality scripts prove the feature works from a user point of view. They are regression guards, not a substitute for running the branch.

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
     buildThreadBootstrapPlan,
+    buildSharedNodeModulesPlan,
     normalizeThreadSlug,
     resolveRepositoryRootFromCommonDir,
     resolvePreferredWorktreeDirectory,
@@ -53,6 +54,19 @@ test('buildThreadBootstrapPlan derives branch and worktree path from the task sl
             slug: 'automatic-thread-worktrees',
             branch: 'codex/automatic-thread-worktrees',
             worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
+        },
+    );
+});
+
+test('buildSharedNodeModulesPlan points worktrees at the main workspace dependencies', () => {
+    assert.deepEqual(
+        buildSharedNodeModulesPlan({
+            workspaceRoot,
+            worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
+        }),
+        {
+            sourceNodeModulesPath: path.join(workspaceRoot, 'node_modules'),
+            targetNodeModulesPath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees', 'node_modules'),
         },
     );
 });

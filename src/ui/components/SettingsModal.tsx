@@ -15,12 +15,19 @@ interface SettingsModalProps {
 }
 
 type Tab = 'system' | 'ui' | 'workflows' | 'jobs';
+type FaceMatchingMode = 'strict' | 'balanced' | 'loose';
 type SettingsMap = { [key: string]: string };
 
 const dbKeys = [
     'system_log_level', 'system_max_threads', 'workflow_auto_scan',
-    'ai_metadata_v2_api_key', 'gemini_api_key', 'gemini_csv_path', 'job_cluster_threshold',
+    'ai_metadata_v2_api_key', 'gemini_api_key', 'gemini_csv_path', 'job_cluster_threshold', 'job_face_matching_mode',
     'job_ai_model_scout', 'job_ai_model_refine',
+];
+
+const FACE_MATCHING_MODE_OPTIONS: Array<{ value: FaceMatchingMode; label: string; description: string }> = [
+    { value: 'strict', label: 'Strict', description: 'Prioritizes fewer false matches.' },
+    { value: 'balanced', label: 'Balanced', description: 'Default blend of precision and recall.' },
+    { value: 'loose', label: 'Loose', description: 'Allows broader grouping when needed.' },
 ];
 
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -157,8 +164,25 @@ function AiJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onCha
 }
 
 function ClusterJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange: (k: string, v: string) => void }) {
+    const faceMatchingMode = (dbSettings.job_face_matching_mode || 'balanced') as FaceMatchingMode;
+
     return (
         <div className="space-y-4 rounded-lg border border-[#333] bg-[#242424] p-4">
+            <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">Face Matching Mode</label>
+                <select
+                    value={faceMatchingMode}
+                    onChange={(e) => onChange('job_face_matching_mode', e.target.value)}
+                    className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-purple-500"
+                >
+                    {FACE_MATCHING_MODE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                </select>
+                <p className="mt-1 text-[10px] text-gray-300">
+                    {FACE_MATCHING_MODE_OPTIONS.find((option) => option.value === faceMatchingMode)?.description || 'Default blend of precision and recall.'}
+                </p>
+            </div>
             <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-gray-300">Cluster Distance Threshold</label>
                 <input type="number" step="0.01" value={dbSettings.job_cluster_threshold || '0.55'} onChange={(e) => onChange('job_cluster_threshold', e.target.value)} className="w-full rounded border border-[#333] bg-[#111] px-3 py-2 text-sm outline-none focus:border-purple-500" />

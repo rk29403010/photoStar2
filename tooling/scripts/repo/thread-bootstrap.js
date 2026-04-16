@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from 'node:fs';
+import { existsSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -92,6 +92,16 @@ export function buildThreadBootstrapPlan({
     };
 }
 
+export function buildSharedNodeModulesPlan({
+    workspaceRoot: targetWorkspaceRoot,
+    worktreePath,
+}) {
+    return {
+        sourceNodeModulesPath: path.join(targetWorkspaceRoot, 'node_modules'),
+        targetNodeModulesPath: path.join(worktreePath, 'node_modules'),
+    };
+}
+
 export function resolveRepositoryRootFromCommonDir(commonDirPath) {
     const normalizedPath = path.resolve(commonDirPath);
     const segments = normalizedPath.split(path.sep);
@@ -170,6 +180,27 @@ function ensureWorktreePathAvailable(worktreePath) {
 
 function createWorktree({ branch, worktreePath, cwd }) {
     runGitText(['worktree', 'add', worktreePath, '-b', branch], cwd);
+}
+
+function ensureSharedNodeModulesLink({
+    workspaceRoot: targetWorkspaceRoot,
+    worktreePath,
+}) {
+    const { sourceNodeModulesPath, targetNodeModulesPath } = buildSharedNodeModulesPlan({
+        workspaceRoot: targetWorkspaceRoot,
+        worktreePath,
+    });
+
+    if (!existsSync(sourceNodeModulesPath) || existsSync(targetNodeModulesPath)) {
+        return false;
+    }
+
+    symlinkSync(
+        sourceNodeModulesPath,
+        targetNodeModulesPath,
+        process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    return true;
 }
 
 function registerNewThread({
@@ -253,6 +284,10 @@ function main() {
         worktreePath: plan.worktreePath,
         cwd: workspaceRoot,
     });
+    const linkedSharedNodeModules = ensureSharedNodeModulesLink({
+        workspaceRoot,
+        worktreePath: plan.worktreePath,
+    });
     registerNewThread({
         task: plan.task,
         owner,
@@ -275,6 +310,9 @@ function main() {
     console.log(`Created thread "${plan.task}".`);
     console.log(`Branch: ${plan.branch}`);
     console.log(`Worktree: ${plan.worktreePath}`);
+    if (linkedSharedNodeModules) {
+        console.log('Linked worktree node_modules to the main workspace node_modules.');
+    }
   }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

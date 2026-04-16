@@ -3,9 +3,9 @@ version = 1
 name = "photoStar2"
 
 [setup]
-script = ""
+script = "tooling/scripts/repo/codex-worktree-setup.cmd"
 
 [[actions]]
 name = "Debug"
 icon = "tool"
-command = "npm run dev:desktop-runtime"
+command = "tooling/scripts/repo/codex-worktree-debug.cmd"

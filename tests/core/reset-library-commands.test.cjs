@@ -60,6 +60,16 @@ function createResetContext({ dbManager, respond, libDir, activeJobs }) {
     };
 }
 
+function seedFaceResetFixture(db) {
+    db.prepare("INSERT INTO assets (id, original_path, created_at) VALUES ('asset-1', 'C:/photos/one.jpg', '2026-03-13T00:00:00.000Z')").run();
+    db.prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data, created_at) VALUES ('face-detect-1', 'asset-1', 'face_detection', 'detector', '1.0', '{\"faces\":[{\"box\":{\"x\":0.1,\"y\":0.1,\"width\":0.2,\"height\":0.2}}]}', '2026-03-13T00:00:00.000Z')").run();
+    db.prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data, created_at) VALUES ('face-rec-1', 'asset-1', 'face_recognition', 'recognizer', '1.0', '{\"embeddings\":[[0.1,0.2,0.3]]}', '2026-03-13T00:00:00.000Z')").run();
+    db.prepare("INSERT INTO people (id, name, thumbnail_path, created_at) VALUES ('person-1', 'Alice', 'C:/tmp/person-1.webp', '2026-03-13T00:00:00.000Z')").run();
+    db.prepare("INSERT INTO face_assignments (asset_id, face_index, person_id, confidence, created_at) VALUES ('asset-1', 0, 'person-1', 0.99, '2026-03-13T00:00:00.000Z')").run();
+    db.prepare("INSERT INTO manual_face_names (original_path, face_index, name, created_at) VALUES ('C:/photos/one.jpg', 0, 'Alice', '2026-03-13T00:00:00.000Z')").run();
+    db.prepare("INSERT INTO manual_face_isolations (original_path, face_index, from_person_id, created_at) VALUES ('C:/photos/one.jpg', 0, 'person-1', '2026-03-13T00:00:00.000Z')").run();
+}
+
 test('soft reset recreates schema while preserving manual tables, settings, and folder history', async () => {
     const tempDir = createTempDir();
     const previewsDir = path.join(tempDir, 'previews');
@@ -152,6 +162,42 @@ test('factory reset recreates schema with only built-in defaults remaining', asy
         assert.equal(count(db, 'folder_history'), 0);
         assert.equal(db.prepare("SELECT value FROM settings WHERE id = 'custom-setting'").get(), undefined);
         assert.ok(db.prepare("SELECT value FROM settings WHERE id = 'cleanup_legacy_ai_metadata_split_v1'").get().value);
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('reset faces clears derived face results, people assignments, and manual face overrides', async () => {
+    const tempDir = createTempDir();
+    const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const dbManager = new DatabaseManager(tempDir);
+    const collector = createResponseCollector();
+
+    try {
+        seedFaceResetFixture(dbManager.getDb());
+
+        handleSystemCommand({
+            ...createResetContext({
+                dbManager,
+                respond: collector.respond,
+                libDir: tempDir,
+                activeJobs: new Map(),
+            }),
+            command: 'reset_faces',
+        });
+
+        const response = collector.takeLast();
+        assert.equal(response.status, 'ok');
+
+        const db = dbManager.getDb();
+        assert.equal(count(db, 'people'), 0);
+        assert.equal(count(db, 'face_assignments'), 0);
+        assert.equal(count(db, 'manual_face_names'), 0);
+        assert.equal(count(db, 'manual_face_isolations'), 0);
+        assert.equal(db.prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'face_detection'").get().count, 0);
+        assert.equal(db.prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'face_recognition'").get().count, 0);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

@@ -97,6 +97,18 @@ function resetGroupingData(ctx: CommandContext) {
     ctx.respond(ctx.id, 'ok', { message: 'Grouping data reset.' }, null, ctx.originWs);
 }
 
+function resetFaceData(ctx: CommandContext) {
+    const db = ctx.dbManager.getDb();
+    db.transaction(() => {
+        db.prepare("DELETE FROM derived_results WHERE task IN ('face_detection', 'face_recognition')").run();
+        db.prepare('DELETE FROM face_assignments').run();
+        db.prepare('DELETE FROM people').run();
+        db.prepare('DELETE FROM manual_face_names').run();
+        db.prepare('DELETE FROM manual_face_isolations').run();
+    })();
+    ctx.respond(ctx.id, 'ok', { message: 'Face data reset.' }, null, ctx.originWs);
+}
+
 export const systemCommandHandlers: CommandHandlerMap = {
     ping: (ctx) => {
         ctx.respond(ctx.id, 'ok', { message: 'pong', timestamp: Date.now() }, null, ctx.originWs);
@@ -199,8 +211,7 @@ export const systemCommandHandlers: CommandHandlerMap = {
 
     reset_faces: (ctx) => {
         try {
-            ctx.dbManager.getDb().prepare("DELETE FROM derived_results WHERE task = 'face_detection'").run();
-            ctx.respond(ctx.id, 'ok', { message: 'Face detection results cleared' }, null, ctx.originWs);
+            resetFaceData(ctx);
         } catch (error) {
             respondError(ctx, error);
         }

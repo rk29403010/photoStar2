@@ -53,6 +53,7 @@ interface UseLibraryFilterHandlersParams {
     actions: ReturnType<typeof usePhotoLibrary>['actions'];
     setView: (view: AppView) => void;
     setPeopleSelectionCount: (count: number) => void;
+    setSelectedAssetId: (assetId: string | null) => void;
 }
 
 interface UseLibraryFilterStateResetParams {
@@ -63,6 +64,7 @@ interface UseLibraryFilterStateResetParams {
     setDeclusteredAssets: Dispatch<SetStateAction<Set<string>>>;
     setLibrarySelection: (selection: LibrarySelectionState) => void;
     setPeopleSelectionCount: (count: number) => void;
+    setSelectedAssetId: (assetId: string | null) => void;
     setShowRejected: (showRejected: boolean | ((prev: boolean) => boolean)) => void;
     setView: (view: AppView) => void;
     showRejected: boolean;
@@ -133,6 +135,7 @@ function useAppActionHandlers(params: UseAppActionHandlersParams) {
         setDeclusteredAssets,
         setLibrarySelection,
         setPeopleSelectionCount,
+        setSelectedAssetId,
         setShowRejected,
         setView,
         showRejected,
@@ -235,6 +238,7 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
         setDeclusteredAssets,
         setLibrarySelection,
         setPeopleSelectionCount,
+        setSelectedAssetId,
         setShowRejected,
         setView,
         showRejected,
@@ -284,10 +288,11 @@ function useLibraryFilterStateResetHandlers(params: UseLibraryFilterStateResetPa
     }, [actions, setDeclusteredAssets]);
 
     const handlePeopleFilter = useCallback((filter: LibraryFilter) => {
+        setSelectedAssetId(null);
         actions.pushFilter(filter);
         setView('library');
         setPeopleSelectionCount(0);
-    }, [actions, setPeopleSelectionCount, setView]);
+    }, [actions, setPeopleSelectionCount, setSelectedAssetId, setView]);
 
     const handleOpenAlbum = useCallback((albumId: string, albumTitle: string) => {
         actions.pushFilter({ type: 'album', albumId, description: albumTitle, personIds: [] });
