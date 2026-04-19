@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
+import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import { ControlsOverlay } from './ActionOverlayControls';
 import type { AnalysisUiState } from './ActionOverlayControls';
 import { AnalysisErrorDialog } from './AnalysisErrorDialog';
@@ -26,7 +27,7 @@ interface ActionOverlaysProps {
     onRestoreFromBin?: (assetId: string) => Promise<void>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
     onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     analysisState: AnalysisUiState;

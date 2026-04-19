@@ -266,3 +266,43 @@ test('rerun_missing_folder_ai_metadata starts a new selected-subject workflow fo
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('start_selected_subject_metadata_workflow preserves requested analysis mode parameters', async () => {
+    const tempDir = createTempDir();
+    const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
+    let harness;
+
+    try {
+        harness = await createCommandHarness(tempDir);
+        harness.dbManager.getDb().prepare(`
+            INSERT INTO assets (id, original_path, file_hash, file_size, width, height, exif_datetime, created_at)
+            VALUES ('asset-1', ?, NULL, 1, 100, 100, NULL, CURRENT_TIMESTAMP)
+        `).run(path.join(tempDir, 'asset-1.png'));
+
+        handleSystemCommand({
+            id: 'cmd-selected-metadata',
+            command: 'start_selected_subject_metadata_workflow',
+            payload: {
+                aiMode: 'live',
+                imageStrategy: 'overview_plus_tiles',
+                metadataPass: 'refine',
+                selectedSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
+            },
+            dbManager: harness.dbManager,
+            eventBus: {},
+            activeJobs: new Map(),
+            LIB_DIR: tempDir,
+            respond: harness.collector.respond,
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+        });
+
+        const response = await harness.collector.takeById('cmd-selected-metadata');
+        const detail = harness.store.getRunDetail(response.data.runId);
+        assert.equal(detail.parameters.imageStrategy, 'overview_plus_tiles');
+        assert.equal(detail.parameters.metadataPass, 'refine');
+        assert.equal(detail.parameters.aiMode, 'live');
+    } finally {
+        harness?.dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});

@@ -20,6 +20,13 @@ function buildSharedMetadataSchema(): string {
     return `Return a single JSON object matching this archival metadata schema exactly.
 Keep the answer conservative and useful for long-term archive indexing.
 Prefer Unknown, null, or empty arrays over guessing.
+Use the full original photo as the coordinate space for every bounding box.
+The origin is the top-left corner of the full original photo.
+Use a normalized 0 to 1000 grid for bounding boxes, where x and y are the top-left corner and width/height are box size.
+Do not use bottom-left coordinates, cropped-image coordinates, or pixel units.
+For person subjects, the bounding box must tightly frame the visible head and face area, including hair if visible.
+Do not use a rough row location, empty background, windows, torso-only boxes, or full-body boxes when a face is visible.
+If the face is too small or unclear to box tightly, omit that subject instead of guessing a loose location box.
 
 {
   "type": "string (Landscape, Group portrait, Family portrait, Document, Newspaper clipping, Drawing, Painting, Selfie, Gravestone)",

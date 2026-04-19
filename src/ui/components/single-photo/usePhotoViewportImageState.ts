@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Asset } from '@contracts/core';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import {
@@ -8,6 +8,38 @@ import {
     resolveViewportStageAsset,
     shouldShowViewportFaceOverlays,
 } from './photoViewportImageState';
+
+function getViewportDebugLabel(asset: Asset, imagePath: string | null): string {
+    const filename = (imagePath ?? asset.original_path ?? asset.preview_path ?? asset.id).split(/[/\\]/).pop();
+    return `${asset.id} (${filename ?? 'unknown'})`;
+}
+
+function logViewportImageRequested(asset: Asset, requestedImagePath: string | null, requestedImageSrc: string) {
+    console.info(
+        `[PhotoViewport] Requesting full image for ${getViewportDebugLabel(asset, requestedImagePath)} via ${requestedImageSrc.startsWith('http') ? 'bridge' : 'asset'} source`,
+    );
+}
+
+function logViewportImageCommitted(
+    asset: Asset,
+    requestedAt: number | null,
+    committedAt: number,
+) {
+    console.info(
+        `[PhotoViewport] Committing pending image for ${getViewportDebugLabel(asset, resolveViewportImageSrc(asset))}; preload wait=${requestedAt === null ? 'n/a' : `${Math.round(committedAt - requestedAt)}ms`}`,
+    );
+}
+
+function logViewportImageReady(
+    asset: Asset,
+    requestedImagePath: string | null,
+    committedAt: number | null,
+    completedAt: number,
+) {
+    console.info(
+        `[PhotoViewport] Active image ready for ${getViewportDebugLabel(asset, requestedImagePath)}; decode wait=${committedAt === null ? 'n/a' : `${Math.round(completedAt - committedAt)}ms`}`,
+    );
+}
 
 export function usePhotoViewportImageState(params: {
     asset: Asset;
@@ -22,6 +54,8 @@ export function usePhotoViewportImageState(params: {
     const [pendingAsset, setPendingAsset] = useState<Asset | null>(null);
     const [pendingImageSrc, setPendingImageSrc] = useState<string | null>(null);
     const [isActiveImageReady, setIsActiveImageReady] = useState(false);
+    const pendingImageRequestedAtRef = useRef<number | null>(null);
+    const activeImageCommittedAtRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!requestedImageSrc) {
@@ -42,7 +76,10 @@ export function usePhotoViewportImageState(params: {
 
         setPendingAsset(asset);
         setPendingImageSrc(requestedImageSrc);
-    }, [activeAsset, activeImageSrc, asset, requestedImageSrc]);
+        pendingImageRequestedAtRef.current = performance.now();
+        logViewportImageRequested(asset, requestedImagePath, requestedImageSrc);
+    }, [activeAsset, activeImageSrc, asset, requestedImagePath, requestedImageSrc]);
+
     const isAlreadyActiveState = activeAsset?.id === asset.id && activeImageSrc === requestedImageSrc;
     const stageAsset = resolveViewportStageAsset({
         committedAsset: activeAsset,
@@ -70,10 +107,9 @@ export function usePhotoViewportImageState(params: {
         isImageTransitionPending,
         showFaceOverlays,
         commitPendingImage: () => {
-            if (!pendingAsset) {
-                return;
-            }
-
+            if (!pendingAsset) {return;}
+            activeImageCommittedAtRef.current = performance.now();
+            logViewportImageCommitted(pendingAsset, pendingImageRequestedAtRef.current, activeImageCommittedAtRef.current);
             const nextState = commitViewportPendingImage({
                 activeAsset,
                 activeImageSrc,
@@ -87,6 +123,10 @@ export function usePhotoViewportImageState(params: {
             setPendingImageSrc(nextState.pendingImageSrc);
             setIsActiveImageReady(nextState.isActiveImageReady);
         },
-        markActiveImageReady: () => setIsActiveImageReady(true),
+        markActiveImageReady: () => {
+            const completedAt = performance.now();
+            logViewportImageReady(asset, requestedImagePath, activeImageCommittedAtRef.current, completedAt);
+            setIsActiveImageReady(true);
+        },
     };
 }

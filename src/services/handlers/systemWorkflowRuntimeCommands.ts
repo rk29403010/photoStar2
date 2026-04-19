@@ -244,6 +244,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         const payload = ctx.payload as {
             aiMode?: 'mock' | 'live' | 'off';
             imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+            metadataPass?: 'scout' | 'refine';
             mediaId?: string;
             selectedSubjects?: SelectionSubject[];
         } | undefined;
@@ -259,7 +260,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             parameters: {
                 aiMode: payload?.aiMode ?? 'live',
                 imageStrategy: payload?.imageStrategy ?? 'overview_only',
-                metadataPass: 'refine',
+                metadataPass: payload?.metadataPass ?? 'scout',
                 selectedSubjects,
             },
         });

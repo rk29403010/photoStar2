@@ -1,7 +1,8 @@
 import { execSync } from 'node:child_process';
 import { createReadStream, existsSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
+import { createServer, type Server, type ServerResponse, type IncomingMessage } from 'node:http';
 import * as os from 'node:os';
+import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { closeSupersededUiConnections, getOpenUiConnectionCount, type DevBridgeWebSocket } from './devBridgeWebSocket';
 import { formatEventEnvelopeForConsole } from '../../shared/utils/eventLogSummary';
@@ -57,6 +58,70 @@ function getPortOwners(port: number): number[] {
     }
 }
 
+function getImageRequestLogger(filePath: string) {
+    const requestStartedAt = Date.now();
+    const fileLabel = path.basename(filePath);
+    const requestId = Math.random().toString(36).slice(2, 8);
+
+    return {
+        fileLabel,
+        logStart: (message: string) => {
+            console.error(`[Dev][Image#${requestId}] ${fileLabel} ${message}`);
+        },
+        logEnd: (message: string) => {
+            console.error(`[Dev][Image#${requestId}] ${fileLabel} ${message} in ${Date.now() - requestStartedAt}ms`);
+        },
+    };
+}
+
+function attachImageResponseLogging(
+    stream: ReturnType<typeof createReadStream>,
+    res: ServerResponse<IncomingMessage>,
+    imageLog: ReturnType<typeof getImageRequestLogger>,
+) {
+    let completed = false;
+    stream.on('open', () => {
+        imageLog.logStart('stream opened');
+    });
+    res.on('finish', () => {
+        completed = true;
+        imageLog.logEnd(`response finished status=${res.statusCode}`);
+    });
+    res.on('close', () => {
+        if (!completed) {
+            imageLog.logEnd(`response aborted status=${res.statusCode}`);
+        }
+    });
+    stream.on('error', (error) => {
+        res.writeHead(500);
+        res.end('Error reading file');
+        imageLog.logEnd(`read error: ${String(error)}`);
+    });
+}
+
+function streamImageFile(filePath: string, res: ServerResponse<IncomingMessage>) {
+    const imageLog = getImageRequestLogger(filePath);
+    if (!existsSync(filePath)) {
+        imageLog.logEnd('missing file');
+        return false;
+    }
+
+    const ext = filePath.split('.').pop()?.toLowerCase() || '';
+    const mimeTypes: Record<string, string> = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        webp: 'image/webp',
+        gif: 'image/gif',
+    };
+    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    imageLog.logStart('request received');
+    const stream = createReadStream(filePath);
+    stream.pipe(res);
+    attachImageResponseLogging(stream, res, imageLog);
+    return true;
+}
+
 function createImageServer() {
     return createServer((req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -73,22 +138,7 @@ function createImageServer() {
                 const pathParam = req.url.split('path=')[1];
                 if (pathParam) {
                     const filePath = decodeURIComponent(pathParam);
-                    if (existsSync(filePath)) {
-                        const ext = filePath.split('.').pop()?.toLowerCase() || '';
-                        const mimeTypes: Record<string, string> = {
-                            png: 'image/png',
-                            jpg: 'image/jpeg',
-                            jpeg: 'image/jpeg',
-                            webp: 'image/webp',
-                            gif: 'image/gif',
-                        };
-                        res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-                        const stream = createReadStream(filePath);
-                        stream.pipe(res);
-                        stream.on('error', () => {
-                            res.writeHead(500);
-                            res.end('Error reading file');
-                        });
+                    if (streamImageFile(filePath, res)) {
                         return;
                     }
                 }

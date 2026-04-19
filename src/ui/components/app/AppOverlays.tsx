@@ -1,11 +1,15 @@
+import { useEffect, useState } from 'react';
 import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { BackgroundJob } from '@contracts/jobs';
+import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
+import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { TaskDrawer } from '../jobs/TaskDrawer';
 import { ActionPanel } from '../ActionPanel';
 import { SettingsModal } from '../SettingsModal';
 import { SinglePhotoView } from '../SinglePhotoView';
+import { resolveSinglePhotoOverlaySelection } from './singlePhotoOverlaySelection';
 
 type InfoTab = 'file' | 'analysis' | 'people' | 'json';
 
@@ -32,7 +36,8 @@ interface AppOverlaysProps {
   onRecalculatePhotoDates: () => Promise<string>;
   onScanSensitive: () => void;
   onScanSensitiveAll: () => void;
-  onExtractAiMetadata: (assetId?: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+  onExtractAiMetadata: (assetId?: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+  onGetWorkflowRunDetail: (runId: string) => Promise<WorkflowRunDetailResponse>;
   onRerunFaceDetection: (assetId: string) => Promise<string | undefined>;
   onRefresh: () => void;
   onResetFaces: () => void;
@@ -71,9 +76,71 @@ interface AppOverlaysProps {
   onTaskDrawerMinimizedChange: (minimized: boolean) => void;
 }
 
+function useSinglePhotoOverlayState(props: Pick<AppOverlaysProps, 'assets' | 'selectedAssetId'>) {
+  const [fallbackSelectedAsset, setFallbackSelectedAsset] = useState<Asset | null>(null);
+  const currentSelectedAsset = props.selectedAssetId
+    ? props.assets.find((asset) => asset.id === props.selectedAssetId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (!props.selectedAssetId) {
+      setFallbackSelectedAsset(null);
+      return;
+    }
+
+    if (currentSelectedAsset) {
+      setFallbackSelectedAsset(currentSelectedAsset);
+    }
+  }, [currentSelectedAsset, props.selectedAssetId]);
+
+  const { overlayAssets, selectedIndex } = resolveSinglePhotoOverlaySelection({
+    assets: props.assets,
+    selectedAssetId: props.selectedAssetId,
+    fallbackSelectedAsset,
+  });
+
+  return {
+    overlayAssets,
+    selectedIndex,
+    hasSelectedAsset: props.selectedAssetId !== null && selectedIndex >= 0,
+  };
+}
+
+function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], selectedIndex: number) {
+  return (
+    <SinglePhotoView
+      assets={overlayAssets}
+      initialIndex={selectedIndex}
+      onClose={() => props.setSelectedAssetId(null)}
+      onAssetFocusChange={props.setSelectedAssetId}
+      onPrioritize={props.onPrioritize}
+      showInfoPanel={props.showInfoPanel}
+      onShowInfoPanelChange={props.setShowInfoPanel}
+      activeInfoTab={props.activeInfoTab}
+      onActiveInfoTabChange={props.setActiveInfoTab}
+      onFaceClick={props.onFaceClick}
+      onIsolateFace={props.onIsolateFace}
+      onSetSensitivity={props.onSetSensitivity}
+      onMoveToBin={props.onMoveToBin}
+      onRestoreFromBin={props.onRestoreFromBin}
+      onExtractAiMetadata={props.onExtractAiMetadata}
+      onGetWorkflowRunDetail={props.onGetWorkflowRunDetail}
+      onRerunFaceDetection={props.onRerunFaceDetection}
+      onOpenSettings={props.onOpenSettingsFromPhoto}
+      onLoadAssetEvidence={props.onLoadAssetEvidence}
+      onGetGroupOrbit={props.onGetGroupOrbit}
+      onSetCanonical={props.onSetCanonical}
+      onExplodeGroup={props.onExplodeGroup}
+      onAssignAssetTag={props.onAssignAssetTag}
+      onRemoveAssetTag={props.onRemoveAssetTag}
+      onSetReviewItemStatus={props.onSetReviewItemStatus}
+      onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+    />
+  );
+}
+
 export function AppOverlays(props: AppOverlaysProps) {
-  const selectedIndex = props.selectedAssetId ? props.assets.findIndex((asset) => asset.id === props.selectedAssetId) : -1;
-  const hasSelectedAsset = selectedIndex >= 0;
+  const { overlayAssets, selectedIndex, hasSelectedAsset } = useSinglePhotoOverlayState(props);
 
   return (
     <>
@@ -112,33 +179,7 @@ export function AppOverlays(props: AppOverlaysProps) {
       />
 
       {hasSelectedAsset && (
-        <SinglePhotoView
-          assets={props.assets}
-          initialIndex={selectedIndex}
-          onClose={() => props.setSelectedAssetId(null)}
-          onAssetFocusChange={props.setSelectedAssetId}
-          onPrioritize={props.onPrioritize}
-          showInfoPanel={props.showInfoPanel}
-          onShowInfoPanelChange={props.setShowInfoPanel}
-          activeInfoTab={props.activeInfoTab}
-          onActiveInfoTabChange={props.setActiveInfoTab}
-          onFaceClick={props.onFaceClick}
-          onIsolateFace={props.onIsolateFace}
-          onSetSensitivity={props.onSetSensitivity}
-          onMoveToBin={props.onMoveToBin}
-          onRestoreFromBin={props.onRestoreFromBin}
-          onExtractAiMetadata={props.onExtractAiMetadata}
-          onRerunFaceDetection={props.onRerunFaceDetection}
-          onOpenSettings={props.onOpenSettingsFromPhoto}
-          onLoadAssetEvidence={props.onLoadAssetEvidence}
-          onGetGroupOrbit={props.onGetGroupOrbit}
-          onSetCanonical={props.onSetCanonical}
-          onExplodeGroup={props.onExplodeGroup}
-          onAssignAssetTag={props.onAssignAssetTag}
-          onRemoveAssetTag={props.onRemoveAssetTag}
-          onSetReviewItemStatus={props.onSetReviewItemStatus}
-          onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
-        />
+        renderSinglePhotoView(props, overlayAssets, selectedIndex)
       )}
 
       <TaskDrawer

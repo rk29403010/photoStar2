@@ -46,6 +46,16 @@ const AUTH_PERMISSION_PATTERNS = [
     '403',
 ] as const;
 
+const NETWORK_FETCH_PATTERNS = [
+    'fetch failed',
+    'econnreset',
+    'enotfound',
+    'econnrefused',
+    'etimedout',
+    'network error',
+    'socket hang up',
+] as const;
+
 function includesAnyPattern(value: string, patterns: readonly string[]): boolean {
     return patterns.some((pattern) => value.includes(pattern));
 }
@@ -57,6 +67,10 @@ function isModelUnavailableError(lowerMessage: string): boolean {
 
 function isAuthOrPermissionError(lowerMessage: string): boolean {
     return includesAnyPattern(lowerMessage, AUTH_PERMISSION_PATTERNS);
+}
+
+function isNetworkFetchError(lowerMessage: string): boolean {
+    return includesAnyPattern(lowerMessage, NETWORK_FETCH_PATTERNS);
 }
 
 export function getUnrecoverableAiReason(error: Error): string | null {
@@ -77,6 +91,10 @@ export function getUnrecoverableAiReason(error: Error): string | null {
 
     if (isAuthOrPermissionError(lowerMessage)) {
         return `AI API auth/permission error: ${message}`;
+    }
+
+    if (isNetworkFetchError(lowerMessage)) {
+        return 'Unable to reach Gemini right now. Check your internet connection and try again.';
     }
 
     return null;

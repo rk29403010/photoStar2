@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
+import type { AiMetadataRequestOptions, AiMetadataImageStrategy, AiMetadataPass } from '@shared/aiMetadata/analysisOptions';
 import { TopBar, ZoomBar } from './ActionOverlayChrome';
 import { NavButtons } from './ActionOverlayNavButtons';
 import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getLibraryBinActionLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
@@ -27,7 +28,7 @@ interface ControlsOverlayProps {
     onRestoreFromBin?: (assetId: string) => Promise<void>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
     onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     analysisState: AnalysisUiState;
     setAnalysisState: (state: AnalysisUiState) => void;
@@ -48,7 +49,7 @@ interface ActionMenuProps {
     setAnalysisError: (err: string | null) => void;
     setAnalyzingAssetId: (id: string | null) => void;
     setAnalyzingJobId: (id: string | null) => void;
-    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
     onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onMoveToBin?: (assetId: string) => Promise<void>;
@@ -126,7 +127,7 @@ function getNextSensitivityStatus(currentStatus: string | null | undefined, next
 async function handleAnalyzeImage(
     event: React.MouseEvent<HTMLButtonElement>,
     props: ActionMenuProps,
-    imageStrategy: 'overview_only' | 'overview_plus_tiles' = 'overview_only',
+    options: AiMetadataRequestOptions,
 ) {
     const { asset, onExtractAiMetadata, setAnalysisError, setAnalysisState, setAnalyzingAssetId, setAnalyzingJobId, setShowActionMenu } = props;
 
@@ -141,7 +142,7 @@ async function handleAnalyzeImage(
     closeActionMenu(setShowActionMenu);
 
     try {
-        const jobId = await onExtractAiMetadata(asset.id, imageStrategy);
+        const jobId = await onExtractAiMetadata(asset.id, options);
         if (jobId) {
             setAnalyzingJobId(jobId);
         }
@@ -151,6 +152,10 @@ async function handleAnalyzeImage(
         setAnalysisState('error');
         setAnalyzingJobId(null);
     }
+}
+
+function buildAnalysisOptions(imageStrategy: AiMetadataImageStrategy, metadataPass: AiMetadataPass): AiMetadataRequestOptions {
+    return { imageStrategy, metadataPass };
 }
 
 async function handleRerunFaceDetection(
@@ -247,8 +252,20 @@ function AiActionMenuItem(props: ActionMenuProps) {
     if (props.analysisState === 'idle') {
         return (
             <>
-                <MenuItem color="#c084fc" active={false} icon="✨" label="Analyze Image" onClick={(event) => handleAnalyzeImage(event, props)} />
-                <MenuItem color="#6366f1" active={false} icon="🧩" label="Analyze Image (Tiled)" onClick={(event) => handleAnalyzeImage(event, props, 'overview_plus_tiles')} />
+                <MenuItem
+                    color="#c084fc"
+                    active={false}
+                    icon="✨"
+                    label="Quick Analysis"
+                    onClick={(event) => handleAnalyzeImage(event, props, buildAnalysisOptions('overview_only', 'scout'))}
+                />
+                <MenuItem
+                    color="#6366f1"
+                    active={false}
+                    icon="🧩"
+                    label="Detailed Analysis"
+                    onClick={(event) => handleAnalyzeImage(event, props, buildAnalysisOptions('overview_plus_tiles', 'refine'))}
+                />
             </>
         );
     }
