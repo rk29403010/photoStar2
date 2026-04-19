@@ -1,12 +1,7 @@
 import type { JobState, PipelineStage } from '@contracts/jobs';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
+import { requestWorkflowRunDetail } from '@boundary/runtime/workflowRunDetail';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
-
-type WorkflowRunDetailResponse = {
-    summary?: {
-        status?: string;
-    };
-};
 
 type ScheduleWorkflowRunRefreshParams = {
     request: RequestFn;
@@ -32,28 +27,18 @@ type StartWorkflowWithOverlayJobParams = {
     onCompleted?: () => void;
 };
 
-async function getWorkflowRunDetail(request: RequestFn, runId: string): Promise<WorkflowRunDetailResponse> {
-    return request<WorkflowRunDetailResponse>({
-        idPrefix: `workflow_run_status_${runId}`,
-        command: 'get_workflow_run_detail',
-        payload: { runId },
-        timeoutMs: 10000,
-        select: (data) => data as WorkflowRunDetailResponse,
-    });
-}
-
 export function scheduleWorkflowRunRefresh(params: ScheduleWorkflowRunRefreshParams) {
     const poll = async () => {
         params.refreshLibrary({ preservePagingState: true });
         params.refreshSystemJobs();
 
         try {
-            const detail = await getWorkflowRunDetail(params.request, params.runId);
+            const detail = await requestWorkflowRunDetail(params.request, params.runId);
             const status = String(detail.summary?.status || '');
 
             if (status === 'completed') {
                 params.updateJobState(params.localJobId, 'completed');
-                params.refreshLibrary();
+                params.refreshLibrary({ preservePagingState: true });
                 params.refreshSystemJobs();
                 params.onCompleted?.();
                 return;

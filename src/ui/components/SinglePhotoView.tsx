@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Dispatch, FC, SetStateAction } from 'react';
 import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
-import type { PanelState, AnalysisState } from './single-photo/PhotoViewport';
+import type { PanelState } from './single-photo/PhotoViewport';
 import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
 import {
     applyStarSelection,
@@ -15,6 +15,15 @@ import { CONTROLS_IDLE_MS } from './single-photo/singlePhotoOverlayLayout';
 import { useSinglePhotoAssetLifecycle } from './single-photo/useSinglePhotoAssetLifecycle';
 import { usePhotoMetadataEvidenceLoader } from './single-photo/usePhotoMetadataEvidenceLoader';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
+import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
+import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
+import {
+    buildAnalysisState,
+    type AnalysisUiBundle,
+    useAnalysisTracking,
+    useAnalysisUiState,
+    useAnalysisWorkflowFailureTracking,
+} from './single-photo/singlePhotoAnalysisState';
 
 interface SinglePhotoViewProps {
     assets: Asset[];
@@ -27,7 +36,8 @@ interface SinglePhotoViewProps {
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onMoveToBin?: (assetId: string) => Promise<void>;
     onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
     onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
@@ -48,17 +58,6 @@ interface SinglePhotoViewProps {
     onActiveInfoTabChange?: (t: 'file' | 'analysis' | 'people' | 'json') => void;
 }
 
-type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
-type AnalysisUiBundle = {
-    analysisState: AnalysisUiState;
-    setAnalysisState: Dispatch<SetStateAction<AnalysisUiState>>;
-    analysisError: string | null;
-    setAnalysisError: Dispatch<SetStateAction<string | null>>;
-    analyzingAssetId: string | null;
-    setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>;
-    analyzingJobId: string | null;
-    setAnalyzingJobId: Dispatch<SetStateAction<string | null>>;
-};
 type ControlsState = {
     currentIndex: number;
     setCurrentIndex: Dispatch<SetStateAction<number>>;
@@ -172,82 +171,6 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
     };
 }
 
-function useAnalysisUiState(): AnalysisUiBundle {
-    const [analyzingAssetId, setAnalyzingAssetId] = useState<string | null>(null);
-    const [analyzingJobId, setAnalyzingJobId] = useState<string | null>(null);
-    const [analysisState, setAnalysisState] = useState<AnalysisUiState>('idle');
-    const [analysisError, setAnalysisError] = useState<string | null>(null);
-    return {
-        analysisState,
-        setAnalysisState,
-        analysisError,
-        setAnalysisError,
-        analyzingAssetId,
-        setAnalyzingAssetId,
-        analyzingJobId,
-        setAnalyzingJobId
-    };
-}
-
-function useAnalysisTracking(params: {
-    analyzingAssetId: string | null;
-    currentAssetId: string | undefined;
-    assetAiMetadata: Asset['ai_metadata'] | undefined;
-    setAnalysisError: Dispatch<SetStateAction<string | null>>;
-    setAnalysisState: Dispatch<SetStateAction<AnalysisUiState>>;
-    setAnalyzingJobId: Dispatch<SetStateAction<string | null>>;
-    setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>;
-    setShowInfoPanel: (v: boolean) => void;
-}) {
-    const {
-        analyzingAssetId,
-        currentAssetId,
-        assetAiMetadata,
-        setAnalysisError,
-        setAnalysisState,
-        setAnalyzingJobId,
-        setAnalyzingAssetId,
-        setShowInfoPanel
-    } = params;
-
-    useEffect(() => {
-        if (!analyzingAssetId || currentAssetId !== analyzingAssetId) {return;}
-
-        if (!assetAiMetadata) {
-            return;
-        }
-
-        setTimeout(() => {
-            setAnalysisError(null);
-            setAnalysisState('idle');
-            setAnalyzingAssetId(null);
-            setAnalyzingJobId(null);
-            setShowInfoPanel(true);
-        }, 0);
-    }, [
-        analyzingAssetId,
-        currentAssetId,
-        assetAiMetadata,
-        setAnalysisError,
-        setAnalysisState,
-        setAnalyzingJobId,
-        setAnalyzingAssetId,
-        setShowInfoPanel
-    ]);
-}
-
-function buildAnalysisState(bundle: AnalysisUiBundle): AnalysisState {
-    return {
-        analysisState: bundle.analysisState,
-        setAnalysisState: bundle.setAnalysisState,
-        analysisError: bundle.analysisError,
-        setAnalysisError: bundle.setAnalysisError,
-        analyzingAssetId: bundle.analyzingAssetId,
-        setAnalyzingAssetId: bundle.setAnalyzingAssetId,
-        setAnalyzingJobId: bundle.setAnalyzingJobId
-    };
-}
-
 function useSinglePhotoAssetState(params: {
     assets: Asset[];
     initialIndex: number;
@@ -286,6 +209,7 @@ function useSinglePhotoViewState(params: {
     initialIndex: number;
     panelState: ReturnType<typeof usePanelState>;
     analysisUi: AnalysisUiBundle;
+    onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
     onAssetFocusChange?: (assetId: string) => void;
@@ -330,6 +254,16 @@ function useSinglePhotoViewState(params: {
         setAnalyzingAssetId: params.analysisUi.setAnalyzingAssetId,
         setShowInfoPanel: params.panelState.setShowInfoPanel,
     });
+    useAnalysisWorkflowFailureTracking({
+        analysisState: params.analysisUi.analysisState,
+        analyzingAssetId: params.analysisUi.analyzingAssetId,
+        analyzingJobId: params.analysisUi.analyzingJobId,
+        onGetWorkflowRunDetail: params.onGetWorkflowRunDetail,
+        setAnalysisError: params.analysisUi.setAnalysisError,
+        setAnalysisState: params.analysisUi.setAnalysisState,
+        setAnalyzingJobId: params.analysisUi.setAnalyzingJobId,
+        setAnalyzingAssetId: params.analysisUi.setAnalyzingAssetId,
+    });
 
     return {
         asset,
@@ -342,34 +276,59 @@ function useSinglePhotoViewState(params: {
     };
 }
 
-export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
-    assets,
-    initialIndex,
-    onClose,
-    onAssetFocusChange,
-    onPrioritize,
-    onFaceClick,
-    onIsolateFace,
-    onSetSensitivity,
-    onMoveToBin,
-    onRestoreFromBin,
-    onExtractAiMetadata,
-    onRerunFaceDetection,
-    onGetGroupOrbit,
-    onSetCanonical,
-    onExplodeGroup,
-    onOpenSettings,
-    onLoadAssetEvidence,
-    onAssignAssetTag,
-    onRemoveAssetTag,
-    onSetReviewItemStatus,
-    onFlagPhotoDateCorrection,
-    showInfoPanel,
-    onShowInfoPanelChange,
-    activeInfoTab,
-    onActiveInfoTabChange
-}) => {
-    const panelState = usePanelState({ showInfoPanel, onShowInfoPanelChange, activeInfoTab, onActiveInfoTabChange });
+function renderSinglePhotoOverlay(params: {
+    asset: Asset;
+    viewAssets: Asset[];
+    controls: ControlsState;
+    panelState: ReturnType<typeof usePanelState>;
+    analysisUi: AnalysisUiBundle;
+    props: SinglePhotoViewProps;
+    handleOrbitLoaded: (assets: Asset[]) => void;
+    handleSetCanonical: (groupId: string, assetId: string) => Promise<void>;
+    handleExplodeGroup: (groupId: string) => Promise<void>;
+    handleSelectAsset: (assetId: string) => void;
+}) {
+    return (
+        <SinglePhotoOverlay
+            asset={params.asset}
+            assets={params.viewAssets}
+            currentIndex={params.controls.currentIndex}
+            showControls={params.controls.showControls}
+            setShowControls={params.controls.setShowControls}
+            showFaces={params.controls.showFaces}
+            setShowFaces={params.controls.setShowFaces}
+            showActionMenu={params.controls.showActionMenu}
+            setShowActionMenu={params.controls.setShowActionMenu}
+            hoveredFaceKey={params.controls.hoveredFaceKey}
+            setHoveredFaceKey={params.controls.setHoveredFaceKey}
+            panelState={params.panelState}
+            onClose={params.props.onClose}
+            onFaceClick={params.props.onFaceClick}
+            onIsolateFace={params.props.onIsolateFace}
+            onSetSensitivity={params.props.onSetSensitivity}
+            onMoveToBin={params.props.onMoveToBin}
+            onRestoreFromBin={params.props.onRestoreFromBin}
+            onExtractAiMetadata={params.props.onExtractAiMetadata}
+            onRerunFaceDetection={params.props.onRerunFaceDetection}
+            onOpenSettings={params.props.onOpenSettings}
+            onGetGroupOrbit={params.props.onGetGroupOrbit}
+            onOrbitLoaded={params.handleOrbitLoaded}
+            onSelectAsset={params.handleSelectAsset}
+            onSetCanonical={params.handleSetCanonical}
+            onExplodeGroup={params.handleExplodeGroup}
+            onAssignAssetTag={params.props.onAssignAssetTag}
+            onRemoveAssetTag={params.props.onRemoveAssetTag}
+            onSetReviewItemStatus={params.props.onSetReviewItemStatus}
+            onFlagPhotoDateCorrection={params.props.onFlagPhotoDateCorrection}
+            onChangeIndex={params.controls.onChangeIndex}
+            onRevealControls={params.controls.revealControls}
+            analysis={buildAnalysisState(params.analysisUi)}
+        />
+    );
+}
+
+export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
+    const panelState = usePanelState(props);
     const analysisUi = useAnalysisUiState();
     const {
         asset,
@@ -380,54 +339,30 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = ({
         handleExplodeGroup,
         handleSelectAsset,
     } = useSinglePhotoViewState({
-        assets,
-        initialIndex,
+        assets: props.assets,
+        initialIndex: props.initialIndex,
         panelState,
         analysisUi,
-        onSetCanonical,
-        onExplodeGroup,
-        onAssetFocusChange,
-        onPrioritize,
-        onLoadAssetEvidence,
+        onGetWorkflowRunDetail: props.onGetWorkflowRunDetail,
+        onSetCanonical: props.onSetCanonical,
+        onExplodeGroup: props.onExplodeGroup,
+        onAssetFocusChange: props.onAssetFocusChange,
+        onPrioritize: props.onPrioritize,
+        onLoadAssetEvidence: props.onLoadAssetEvidence,
     });
 
     if (!asset) {return null;}
 
-    return (
-        <SinglePhotoOverlay
-            asset={asset}
-            assets={viewAssets}
-            currentIndex={controls.currentIndex}
-            showControls={controls.showControls}
-            setShowControls={controls.setShowControls}
-            showFaces={controls.showFaces}
-            setShowFaces={controls.setShowFaces}
-            showActionMenu={controls.showActionMenu}
-            setShowActionMenu={controls.setShowActionMenu}
-            hoveredFaceKey={controls.hoveredFaceKey}
-            setHoveredFaceKey={controls.setHoveredFaceKey}
-            panelState={panelState}
-            onClose={onClose}
-            onFaceClick={onFaceClick}
-            onIsolateFace={onIsolateFace}
-            onSetSensitivity={onSetSensitivity}
-            onMoveToBin={onMoveToBin}
-            onRestoreFromBin={onRestoreFromBin}
-            onExtractAiMetadata={onExtractAiMetadata}
-            onRerunFaceDetection={onRerunFaceDetection}
-            onOpenSettings={onOpenSettings}
-            onGetGroupOrbit={onGetGroupOrbit}
-            onOrbitLoaded={handleOrbitLoaded}
-            onSelectAsset={handleSelectAsset}
-            onSetCanonical={handleSetCanonical}
-            onExplodeGroup={handleExplodeGroup}
-            onAssignAssetTag={onAssignAssetTag}
-            onRemoveAssetTag={onRemoveAssetTag}
-            onSetReviewItemStatus={onSetReviewItemStatus}
-            onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
-            onChangeIndex={controls.onChangeIndex}
-            onRevealControls={controls.revealControls}
-            analysis={buildAnalysisState(analysisUi)}
-        />
-    );
+    return renderSinglePhotoOverlay({
+        asset,
+        viewAssets,
+        controls,
+        panelState,
+        analysisUi,
+        props,
+        handleOrbitLoaded,
+        handleSetCanonical,
+        handleExplodeGroup,
+        handleSelectAsset,
+    });
 };

@@ -35,3 +35,9 @@ test('usePhotoLibrary composes addJob and updateJobState into manual workflow ac
     assert.match(source, /createPipelineActions\(\{\s*request,\s*addJob,\s*updateJobState,\s*refreshLibrary,\s*refreshSystemJobs,\s*\}\)/s);
     assert.match(source, /createFaceSystemActions\(\{\s*addJob,\s*request,\s*updateJobState,/s);
 });
+
+test('overlay job completion preserves paging state when refreshing the library', () => {
+    const source = read('src/boundary/runtime/workflowOverlayJobs.ts');
+
+    assert.match(source, /status === 'completed'[\s\S]*refreshLibrary\(\{ preservePagingState: true \}\)/);
+});

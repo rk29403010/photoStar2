@@ -3,6 +3,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import './App.css';
 import { LoadingScreen } from './components/LoadingScreen';
 import { usePhotoLibrary } from './hooks/usePhotoLibrary';
+import { useSelectedAssetDetails } from './hooks/useSelectedAssetDetails';
+import { useSelectionRecovery } from './hooks/useSelectionRecovery';
 import { canUseNativeDirectoryPicker } from '@boundary/runtime/backend';
 import type { LibraryFilter } from './hooks/usePhotoLibrary';
 import type { BackgroundJob } from '@contracts/jobs';
@@ -19,6 +21,7 @@ import { promptBulkTagSelection, promptBulkUntagSelection } from './hooks/librar
 import {
     LoadedAppShell,
 } from './components/app/LoadedAppShell';
+import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import {
     getActiveOverlayJobs,
     getConnectionUiState,
@@ -82,27 +85,6 @@ async function requestScanPath(): Promise<string | null> {
     }
 
     return window.prompt('Enter absolute path to scan (e.g. C:/Users/robin/Photos):');
-}
-
-function useSelectionRecovery(
-    assets: ReturnType<typeof usePhotoLibrary>['assets'],
-    selectedAssetId: string | null,
-    setSelectedAssetId: (assetId: string | null) => void,
-    setStatusMessage: (message: string | null) => void,
-) {
-    useEffect(() => {
-        if (!selectedAssetId || assets.length === 0) {return;}
-        if (assets.some((asset) => asset.id === selectedAssetId)) {return;}
-
-        setSelectedAssetId(null);
-        const showTimer = window.setTimeout(() => setStatusMessage('Previously selected photo is no longer available.'), 0);
-        const clearTimer = window.setTimeout(() => setStatusMessage(null), 5000);
-
-        return () => {
-            window.clearTimeout(showTimer);
-            window.clearTimeout(clearTimer);
-        };
-    }, [assets, selectedAssetId, setSelectedAssetId, setStatusMessage]);
 }
 
 function useAppActionHandlers(params: UseAppActionHandlersParams) {
@@ -359,8 +341,8 @@ function useExtractAiMetadataHandler(
     actions: ReturnType<typeof usePhotoLibrary>['actions'],
     aiMode: ReturnType<typeof useAppUiState>['aiMode'],
 ) {
-    return useCallback((assetId?: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => {
-        return actions.extractAiMetadata(assetId, imageStrategy, aiMode);
+    return useCallback((assetId?: string, options?: AiMetadataRequestOptions) => {
+        return actions.extractAiMetadata(assetId, options, aiMode);
     }, [actions, aiMode]);
 }
 
@@ -386,16 +368,6 @@ function useOverlayJobState(
     }, [activeOverlayJobs.length, setIsTaskDrawerMinimized]);
 
     return { activeOverlayJobs, handleOverlayStopJob };
-}
-
-function useSelectedAssetDetails(
-    loadAssetDetails: ReturnType<typeof usePhotoLibrary>['actions']['loadAssetDetails'],
-    selectedAssetId: string | null,
-) {
-    useEffect(() => {
-        if (!selectedAssetId) {return;}
-        void loadAssetDetails(selectedAssetId);
-    }, [loadAssetDetails, selectedAssetId]);
 }
 
 function useAppShellState(photoLibrary: ReturnType<typeof usePhotoLibrary>) {
@@ -447,7 +419,13 @@ export default function App() {
         view: uiState.view,
     });
 
-    useSelectionRecovery(assets, uiState.selectedAssetId, uiState.setSelectedAssetId, uiState.setStatusMessage);
+    useSelectionRecovery({
+        assets,
+        selectedAssetId: uiState.selectedAssetId,
+        isRefreshingLibrary: photoLibrary.isRefreshingLibrary,
+        setSelectedAssetId: uiState.setSelectedAssetId,
+        setStatusMessage: uiState.setStatusMessage,
+    });
     const loadAssetDetails = actions.loadAssetDetails;
     const setGroupSimilarPhotos = actions.setGroupSimilarPhotos;
     const { activeOverlayJobs, handleOverlayStopJob } = overlayJobState;
@@ -468,6 +446,7 @@ export default function App() {
                 aiMode={uiState.aiMode}
                 setAiMode={uiState.setAiMode}
                 handleExtractAiMetadata={handleExtractAiMetadata}
+                getWorkflowRunDetail={photoLibrary.actions.getWorkflowRunDetail}
                 totalPhotoCount={stats?.count ?? 0}
             activeOverlayJobs={activeOverlayJobs}
             handleOverlayStopJob={handleOverlayStopJob}

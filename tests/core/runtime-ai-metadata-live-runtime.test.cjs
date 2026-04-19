@@ -304,3 +304,48 @@ test('generateLiveAiMetadata sends overview plus numbered tile crops in tiled mo
         await removeDirWithRetry(tempDir);
     }
 });
+
+test('generateLiveAiMetadata sanitizes expected Gemini network fetch failures', async () => {
+    const tempDir = createTempDir();
+    let dbManager = null;
+
+    try {
+        const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+        const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+        const imagePath = await writeFallbackImage({ tempDir });
+        dbManager = new DatabaseManager(tempDir);
+        dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
+
+        class FailingGoogleGenerativeAI {
+            getGenerativeModel() {
+                return {
+                    async generateContent() {
+                        throw new Error('[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: fetch failed');
+                    },
+                };
+            }
+        }
+
+        await assert.rejects(
+            liveRuntime.generateLiveAiMetadata({
+                dbManager,
+                row: {
+                    id: 'asset-network-1',
+                    original_path: imagePath,
+                    sensitivity_status: null,
+                    sensitivity_score: null,
+                },
+                imageStrategy: 'overview_only',
+                GoogleGenerativeAIClass: FailingGoogleGenerativeAI,
+            }),
+            /Unable to reach Gemini right now\. Check your internet connection and try again\./,
+        );
+    } finally {
+        try {
+            dbManager?.close();
+        } catch {
+            // ignore cleanup failures during test teardown
+        }
+        await removeDirWithRetry(tempDir);
+    }
+});

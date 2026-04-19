@@ -1,5 +1,6 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
 import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from './InfoPanel';
 import { PhotoViewport } from './PhotoViewport';
@@ -27,7 +28,7 @@ export interface SinglePhotoOverlayProps {
     onSetSensitivity?: (assetId: string, status: string | null) => void;
     onMoveToBin?: (assetId: string) => Promise<void>;
     onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, imageStrategy?: 'overview_only' | 'overview_plus_tiles') => Promise<string | undefined>;
+    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
     onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     onOpenSettings?: () => void;
     onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;

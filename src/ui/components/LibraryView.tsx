@@ -284,14 +284,21 @@ function useLibraryInfoAsset(
     showInfoPanel: boolean,
     onEnsureAssetDetails?: (assetId: string) => void,
 ) {
+    const requestedInfoAssetIdRef = useRef<string | null>(null);
     const selectedInfoAsset = useMemo(() => getGalleryInfoPanelAsset(displayItems, selection), [displayItems, selection]);
     const selectedInfoAssetId = selectedInfoAsset?.id ?? null;
 
     useEffect(() => {
         if (!showInfoPanel || !selectedInfoAssetId) {
+            requestedInfoAssetIdRef.current = null;
             return;
         }
 
+        if (requestedInfoAssetIdRef.current === selectedInfoAssetId) {
+            return;
+        }
+
+        requestedInfoAssetIdRef.current = selectedInfoAssetId;
         onEnsureAssetDetails?.(selectedInfoAssetId);
     }, [onEnsureAssetDetails, selectedInfoAssetId, showInfoPanel]);
 

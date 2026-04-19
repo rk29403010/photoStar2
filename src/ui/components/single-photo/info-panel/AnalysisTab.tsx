@@ -89,7 +89,7 @@ const EmptyAnalysisState: React.FC = () => (
   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#374151' }}>
     <div style={{ fontSize: 32, marginBottom: 10 }}>🤔</div>
     <div style={{ fontSize: 13 }}>No analysis yet</div>
-    <div style={{ fontSize: 11, color: '#1e293b', marginTop: 4 }}>Use Actions → Analyze Image</div>
+    <div style={{ fontSize: 11, color: '#1e293b', marginTop: 4 }}>Use Actions → Quick Analysis or Detailed Analysis</div>
   </div>
 );
 

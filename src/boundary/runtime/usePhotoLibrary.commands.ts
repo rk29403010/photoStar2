@@ -15,6 +15,8 @@ import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibra
 import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { startWorkflowWithOverlayJob } from '@boundary/runtime/workflowOverlayJobs';
+import { requestWorkflowRunDetail } from '@boundary/runtime/workflowRunDetail';
+import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 export { createPhotoMetadataActions } from './photoMetadataActions';
@@ -85,18 +87,6 @@ function clearWorkflowRefreshLoop(workflowRefreshTimeout: ScanActionParams['work
     }
 }
 
-type WorkflowRunDetailResponse = {
-    summary?: {
-        status?: string;
-    };
-    steps?: Array<{
-        nodeId: string;
-        status: string;
-        totalItems: number;
-        completedItems: number;
-    }>;
-};
-
 function createUiFeedEntry(source: UiFeedEntry['source'], label: string, detail: string, requestId?: string): UiFeedEntry {
     return {
         id: `${source}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -106,16 +96,6 @@ function createUiFeedEntry(source: UiFeedEntry['source'], label: string, detail:
         detail,
         requestId,
     };
-}
-
-async function getWorkflowRunDetail(request: RequestFn, runId: string): Promise<WorkflowRunDetailResponse> {
-    return request<WorkflowRunDetailResponse>({
-        idPrefix: `workflow_run_status_${runId}`,
-        command: 'get_workflow_run_detail',
-        payload: { runId },
-        timeoutMs: 10000,
-        select: (data) => data as WorkflowRunDetailResponse,
-    });
 }
 
 function scheduleWorkflowRefresh(params: Pick<
@@ -138,7 +118,7 @@ function scheduleWorkflowRefresh(params: Pick<
         });
 
         try {
-            const detail = await getWorkflowRunDetail(params.request, runId);
+            const detail = await requestWorkflowRunDetail(params.request, runId);
             const status = String(detail.summary?.status || '');
             params.setIngestStatusMessage(buildIngestStatusMessage(detail));
             params.addUiFeedEntry(createUiFeedEntry('workflow_poll', 'Workflow detail', buildWorkflowPollDetail(detail), runId));
@@ -314,13 +294,14 @@ export function createPipelineActions(params: PipelineActionParams) {
         scanSensitiveAll: () => startWorkflow('start_library_sensitive_force', 'start_library_sensitive_scan_workflow', 'sensitive_scan', 'Scanning Sensitive Content'),
         extractAiMetadata: (
             mediaId?: string,
-            imageStrategy: 'overview_only' | 'overview_plus_tiles' = 'overview_only',
+            options: AiMetadataRequestOptions = {},
             aiMode: AiMode = 'live',
         ) => (
             mediaId
                 ? startWorkflow('start_selected_subject_metadata', 'start_selected_subject_metadata_workflow', 'ai_metadata', 'Generating AI Metadata', {
                     aiMode,
-                    imageStrategy,
+                    imageStrategy: options.imageStrategy ?? 'overview_only',
+                    metadataPass: options.metadataPass ?? 'scout',
                     selectedSubjects: [{ subjectType: 'asset', subjectId: mediaId }],
                 })
                 : startWorkflow('start_library_ai_metadata', 'start_library_ai_metadata_workflow', 'ai_metadata', 'Generating AI Metadata', {

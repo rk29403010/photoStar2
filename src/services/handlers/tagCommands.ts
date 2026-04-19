@@ -93,21 +93,24 @@ function assertAssetsExist(db: ReturnType<DatabaseManager['getDb']>, assetIds: s
     }
 }
 
-function resolveTagDefinitionId(
+function resolveProvidedTagDefinitionId(
+    repository: ReturnType<typeof createTagRepository>,
+    tagDefinitionId: string,
+) {
+    const definition = repository.getTagDefinition(tagDefinitionId);
+    if (!definition) {
+        throw new Error(`Tag ${tagDefinitionId} not found`);
+    }
+    if (definition.status !== 'active') {
+        throw new Error(`Tag ${definition.canonicalLabel} is retired`);
+    }
+    return definition.id;
+}
+
+function resolveTagDefinitionIdByLabel(
     repository: ReturnType<typeof createTagRepository>,
     payload: TagSelectionPayload,
 ) {
-    if (payload.tagDefinitionId) {
-        const definition = repository.getTagDefinition(payload.tagDefinitionId);
-        if (!definition) {
-            throw new Error(`Tag ${payload.tagDefinitionId} not found`);
-        }
-        if (definition.status !== 'active') {
-            throw new Error(`Tag ${definition.canonicalLabel} is retired`);
-        }
-        return definition.id;
-    }
-
     const rawLabel = payload.tagLabel?.trim() ?? '';
     if (!rawLabel) {
         throw new Error('tagDefinitionId or tagLabel is required');
@@ -127,6 +130,17 @@ function resolveTagDefinitionId(
         status: 'active',
         category: payload.category ?? null,
     });
+}
+
+function resolveTagDefinitionId(
+    repository: ReturnType<typeof createTagRepository>,
+    payload: TagSelectionPayload,
+) {
+    if (payload.tagDefinitionId) {
+        return resolveProvidedTagDefinitionId(repository, payload.tagDefinitionId);
+    }
+
+    return resolveTagDefinitionIdByLabel(repository, payload);
 }
 
 function getProposedTagLabel(payloadJson: string) {
