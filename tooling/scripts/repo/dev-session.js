@@ -17,7 +17,6 @@ const concurrentlyScript = path.resolve(
     'bin',
     'concurrently.js',
 );
-const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const defaultResumeScript = 'dev:desktop-runtime';
 
 const MANAGED_DEV_SCRIPTS = {
@@ -135,6 +134,25 @@ export function createManagedDevEnv(env = process.env, cwd = workspaceRoot) {
     };
 }
 
+export function buildManagedResumeInvocation({
+    scriptName,
+    env = process.env,
+    cwd = workspaceRoot,
+    platform = process.platform,
+}) {
+    const { command, args } = getManagedScriptConfig(scriptName);
+
+    return buildSpawnInvocation({
+        command,
+        args,
+        cwd,
+        env,
+        stdio: 'ignore',
+        detached: true,
+        platform,
+    });
+}
+
 function spawnManagedScript(scriptName) {
     const scriptConfig = MANAGED_DEV_SCRIPTS[scriptName];
     if (!scriptConfig) {
@@ -224,11 +242,8 @@ function resumeManagedSession(requestedScript) {
         : getResumeScript(readSession());
 
     const managedEnv = createManagedDevEnv();
-    const invocation = buildManagedSpawnInvocation({
-        command: npmExecutable,
-        args: ['run', scriptToRun],
-        stdio: 'ignore',
-        detached: true,
+    const invocation = buildManagedResumeInvocation({
+        scriptName: scriptToRun,
         env: managedEnv,
     });
     const child = spawn(invocation.command, invocation.args, invocation.options);

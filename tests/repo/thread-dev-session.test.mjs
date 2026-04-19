@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+    buildCombinedThreadNote,
     buildThreadDevSessionNote,
     getDefaultThreadTask,
 } from '../../tooling/scripts/repo/thread-dev-session.js';
@@ -32,6 +33,17 @@ test('buildThreadDevSessionNote includes script and resolved ports', () => {
             script: 'dev:desktop-runtime',
             webPort: 6231,
             backendPort: 6232,
+        }),
+        'dev:desktop-runtime @ http://localhost:6231 (backend 6232)',
+    );
+});
+
+test('buildCombinedThreadNote avoids duplicating the same session note', () => {
+    assert.equal(
+        buildCombinedThreadNote({
+            existingNote: 'dev:desktop-runtime @ http://localhost:6231 (backend 6232)',
+            providedNote: '',
+            sessionNote: 'dev:desktop-runtime @ http://localhost:6231 (backend 6232)',
         }),
         'dev:desktop-runtime @ http://localhost:6231 (backend 6232)',
     );

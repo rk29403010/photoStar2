@@ -30,4 +30,6 @@ test('manual recovery script keeps the port-kill behavior available on demand', 
     assert.equal(scripts['dev:kill-ports'], 'node tooling/scripts/repo/kill-ports.js');
     assert.equal(scripts['dev:pause'], 'node tooling/scripts/repo/dev-session.js pause');
     assert.equal(scripts['dev:resume'], 'node tooling/scripts/repo/dev-session.js resume');
+    assert.equal(scripts['thread:stop-dev'], 'node tooling/scripts/repo/thread-dev-session.js stop');
+    assert.equal(scripts['thread:doctor'], 'node tooling/scripts/repo/thread-doctor.js');
 });

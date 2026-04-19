@@ -41,9 +41,9 @@
       "smart"
     ],
     "max-lines": [
-      "error",
+      "warn",
       {
-        "max": 500
+        "max": 800
       }
     ],
     "max-lines-per-function": [

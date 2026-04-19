@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { countSubstantiveLines } from '../../tooling/scripts/repo/complexity-report.js';
 import { makeWatchlistRow } from '../../tooling/scripts/repo/boundary-watchlist.js';
 import {
+    buildManagedResumeInvocation,
     buildManagedSpawnInvocation,
     createManagedDevEnv,
     getManagedScriptConfig,
@@ -153,6 +154,31 @@ test('managed dev session does not cmd-wrap direct node launches on Windows', ()
     );
 });
 
+test('managed dev session background resume launches the long-lived script directly', () => {
+    const env = createManagedDevEnv({}, workspaceRoot);
+
+    assert.deepEqual(
+        buildManagedResumeInvocation({
+            scriptName: 'dev:desktop-runtime',
+            env,
+            cwd: workspaceRoot,
+            platform: 'win32',
+        }),
+        {
+            command: process.execPath,
+            args: getManagedScriptConfig('dev:desktop-runtime').args,
+            options: {
+                cwd: workspaceRoot,
+                env,
+                stdio: 'ignore',
+                detached: true,
+                shell: false,
+                windowsHide: true,
+            },
+        },
+    );
+});
+
 test('managed dev session routes web logs through the prefixed watcher wrapper', () => {
     assert.match(
         getManagedScriptConfig('dev:desktop-runtime').args[5],
@@ -182,4 +208,6 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['thread:close'], 'node tooling/scripts/repo/thread-state.js close');
     assert.equal(scripts['thread:new'], 'node tooling/scripts/repo/thread-bootstrap.js');
     assert.equal(scripts['thread:start-dev'], 'node tooling/scripts/repo/thread-dev-session.js');
+    assert.equal(scripts['thread:stop-dev'], 'node tooling/scripts/repo/thread-dev-session.js stop');
+    assert.equal(scripts['thread:doctor'], 'node tooling/scripts/repo/thread-doctor.js');
 });

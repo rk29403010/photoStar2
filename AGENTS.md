@@ -4,11 +4,11 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 ## Required standard
 
-- Keep files reviewable. Prefer extracting helpers before a file approaches 500 lines.
+- Keep files reviewable, but do not scatter cohesive code just to satisfy a low line-count limit. Treat 800 lines as a refactor prompt and 1200 lines in app code as the hard stop.
 - Keep functions reviewable. Prefer extracting logic before a function approaches 90 lines or complexity 10.
-- Treat the complexity/file-size gates as hard constraints while generating code, not cleanup work for later.
+- Treat function complexity and function-size gates as hard constraints while generating code, not cleanup work for later. Treat file size as an advisory signal until app code approaches the higher hard limit.
 - Start extracting before the hard limits: if a changed TS/TSX function is likely to reach cyclomatic 8, cognitive 15, or 70 LOC, split logic into named helpers/components before adding more branches.
-- Start splitting files before the hard limit: if a changed file is likely to exceed ~450 lines, move UI sections, helpers, or orchestration logic into focused modules.
+- Start splitting files before the hard limit when there is a clean responsibility boundary to extract. Use ~800 lines as the point to pause and consider a split, and avoid pushing app code past 1200 lines.
 - Do not assume `src/App.tsx` or other application TS/TSX files are generated; treat them as maintained source unless the file itself clearly says otherwise.
 - No `any` unless there is a documented boundary reason.
 - Prefer small, named helpers over nested conditionals.
@@ -21,10 +21,10 @@ These rules exist because generated code drifts toward noise unless the repo pus
 
 ## Expected workflow
 
-1. For TS/TSX edits, check touched file size first; if a file is near 450 lines, extract before adding behavior.
+1. For TS/TSX edits, check touched file size first; if a file is nearing 800 lines, pause and decide whether there is a clean responsibility split before adding more behavior.
 2. Make the change.
 3. Run `npm run quality:staged` while iterating.
-4. Treat `npm run lint:fast:staged` as the fast guardrail for cyclomatic complexity plus file and function LOC, because `oxlint` now enforces `complexity`, `max-lines`, and `max-lines-per-function`.
+4. Treat `npm run lint:fast:staged` as the fast guardrail for cyclomatic complexity plus function LOC. It also warns when files exceed the advisory 800-line threshold.
 5. If you touched branch-heavy TS/TSX, React render shells, coordinator/orchestration code, or added several boolean conditions, run `npm run complexity:staged` immediately, not just before commit. This remains the cognitive-complexity backstop.
 6. If the index is noisy or contains unrelated staged files, run the changed-file scripts with explicit ownership lists instead of broad staged mode, for example `npm run complexity:staged -- --files=src/foo.ts,src/bar.tsx`.
 7. Before editing application code while a managed dev session is running, pause it with `npm run dev:pause`; once edits and immediate verification are complete, resume it with `npm run dev:resume`.

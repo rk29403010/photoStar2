@@ -8,6 +8,7 @@ import {
     createEmptyThreadRegistry,
     getManagedSessionState,
     getWorktreeNameFromPath,
+    refreshThreadRegistry,
     renderThreadList,
     upsertThreadEntry,
 } from '../../tooling/scripts/repo/thread-state.js';
@@ -147,4 +148,103 @@ test('renderThreadList keeps active threads ahead of closed threads', () => {
     assert.match(output, /active \| A task \| codex\/a/);
     assert.match(output, /merged \| B task \| codex\/b/);
     assert.ok(output.indexOf('active | A task') < output.indexOf('merged | B task'));
+});
+
+test('renderThreadList collapses duplicate note segments for display', () => {
+    const registry = createEmptyThreadRegistry();
+
+    upsertThreadEntry(registry, {
+        cwd: path.join(workspaceRoot, '.worktrees', 'codex-a'),
+        task: 'A task',
+        status: 'merged',
+        branch: 'codex/a',
+        lastCommit: 'aaa1111',
+        dirty: false,
+        dirtyCount: 0,
+        running: 'none',
+        worktreeName: 'codex-a',
+        worktreePath: path.join(workspaceRoot, '.worktrees', 'codex-a'),
+        owner: 'thread-a',
+        note: 'dev:desktop-runtime @ http://localhost:6231 (backend 6232) | dev:desktop-runtime @ http://localhost:6231 (backend 6232) | Investigating',
+        updatedAt: '2026-03-30T09:00:00.000Z',
+    });
+
+    const output = renderThreadList(registry);
+
+    assert.match(output, /note:dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\) \| Investigating/);
+    assert.doesNotMatch(output, /note:.*dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\).*dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\).*Investigating/);
+});
+
+test('refreshThreadRegistry overlays live snapshots onto registered entries', () => {
+    const registry = createEmptyThreadRegistry();
+    const cwd = path.join(workspaceRoot, '.worktrees', 'codex-library-selection');
+
+    upsertThreadEntry(registry, {
+        cwd,
+        task: 'Library selection',
+        status: 'active',
+        branch: 'codex/library-selection',
+        lastCommit: 'abc1234',
+        dirty: false,
+        dirtyCount: 0,
+        running: 'none',
+        worktreeName: 'codex-library-selection',
+        worktreePath: cwd,
+        owner: 'thread-1',
+        note: 'Ready',
+        updatedAt: '2026-03-30T10:00:00.000Z',
+    });
+
+    const refreshed = refreshThreadRegistry(registry, (targetCwd) => ({
+        cwd: targetCwd,
+        branch: 'codex/library-selection',
+        lastCommit: 'def5678',
+        dirty: true,
+        dirtyCount: 2,
+        running: 'dev:desktop-runtime',
+        worktreeName: 'codex-library-selection',
+        worktreePath: targetCwd,
+    }));
+
+    assert.equal(refreshed.entries[0].lastCommit, 'def5678');
+    assert.equal(refreshed.entries[0].dirty, true);
+    assert.equal(refreshed.entries[0].running, 'dev:desktop-runtime');
+    assert.equal(refreshed.entries[0].note, 'Ready');
+});
+
+test('refreshThreadRegistry collapses duplicate note segments while preserving order', () => {
+    const registry = createEmptyThreadRegistry();
+    const cwd = path.join(workspaceRoot, '.worktrees', 'codex-library-selection');
+
+    upsertThreadEntry(registry, {
+        cwd,
+        task: 'Library selection',
+        status: 'active',
+        branch: 'codex/library-selection',
+        lastCommit: 'abc1234',
+        dirty: false,
+        dirtyCount: 0,
+        running: 'none',
+        worktreeName: 'codex-library-selection',
+        worktreePath: cwd,
+        owner: 'thread-1',
+        note: 'dev:desktop-runtime @ http://localhost:6231 (backend 6232) | dev:desktop-runtime @ http://localhost:6231 (backend 6232) | Investigating',
+        updatedAt: '2026-03-30T10:00:00.000Z',
+    });
+
+    const refreshed = refreshThreadRegistry(registry, (targetCwd) => ({
+        cwd: targetCwd,
+        branch: 'codex/library-selection',
+        lastCommit: 'abc1234',
+        dirty: false,
+        dirtyCount: 0,
+        running: 'none',
+        worktreeName: 'codex-library-selection',
+        worktreePath: targetCwd,
+    }));
+
+    assert.equal(
+        refreshed.entries[0].note,
+        'dev:desktop-runtime @ http://localhost:6231 (backend 6232) | Investigating',
+    );
 });

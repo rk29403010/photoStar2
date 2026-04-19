@@ -29,6 +29,18 @@
     "vite.config.ts.timestamp-*.mjs"
   ],
   "rules": {
+    "max-lines": [
+      "warn",
+      {
+        "max": 800
+      }
+    ],
+    "max-lines-per-function": [
+      "error",
+      {
+        "max": 90
+      }
+    ],
     "curly": "error",
     "eqeqeq": [
       "error",
@@ -52,6 +64,21 @@
     "unicorn/prefer-add-event-listener": "off"
   },
   "overrides": [
+    {
+      "files": [
+        "src/**/*.{ts,tsx,js,jsx}",
+        "src/**/*.mjs",
+        "src/**/*.cjs"
+      ],
+      "rules": {
+        "max-lines": [
+          "error",
+          {
+            "max": 1200
+          }
+        ]
+      }
+    },
     {
       "files": [
         "src/ui/**/*.{ts,tsx,js,jsx}",

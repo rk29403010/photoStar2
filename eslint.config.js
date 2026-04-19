@@ -11,10 +11,11 @@ import tseslint from 'typescript-eslint'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 const reviewabilityRules = {
-  // Keep files and functions reviewable for both humans and AI tools.
-  'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
+  // Keep functions reviewable; file size gets a softer global warning and a higher app-code cap below.
   'max-lines-per-function': ['error', { max: 90, skipBlankLines: true, skipComments: true, IIFEs: true }],
 }
+const advisoryFileSizeRule = ['warn', { max: 800, skipBlankLines: true, skipComments: true }]
+const applicationFileSizeRule = ['error', { max: 1200, skipBlankLines: true, skipComments: true }]
 const correctnessRules = {
   curly: ['error', 'all'],
   eqeqeq: ['error', 'smart'],
@@ -55,6 +56,7 @@ export default defineConfig([
       globals: globals.node,
     },
     rules: {
+      'max-lines': advisoryFileSizeRule,
       ...reviewabilityRules,
       ...correctnessRules,
     },
@@ -68,6 +70,7 @@ export default defineConfig([
       globals: globals.node,
     },
     rules: {
+      'max-lines': advisoryFileSizeRule,
       ...reviewabilityRules,
       ...correctnessRules,
     },
@@ -86,6 +89,7 @@ export default defineConfig([
       },
     },
     rules: {
+      'max-lines': advisoryFileSizeRule,
       ...reviewabilityRules,
       ...correctnessRules,
       '@typescript-eslint/consistent-type-exports': 'error',
@@ -127,6 +131,12 @@ export default defineConfig([
       'react/prop-types': 'off',
       'react/self-closing-comp': 'error',
       'react-hooks/set-state-in-effect': 'off',
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx,js,jsx}'],
+    rules: {
+      'max-lines': applicationFileSizeRule,
     },
   },
   {

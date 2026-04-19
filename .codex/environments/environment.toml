@@ -9,3 +9,13 @@ script = "tooling/scripts/repo/codex-worktree-setup.cmd"
 name = "Debug"
 icon = "tool"
 command = "tooling/scripts/repo/codex-worktree-debug.cmd"
+
+[[actions]]
+name = "Stop Debug"
+icon = "stop"
+command = "tooling/scripts/repo/codex-worktree-stop-debug.cmd"
+
+[[actions]]
+name = "Doctor"
+icon = "pulse"
+command = "tooling/scripts/repo/codex-worktree-doctor.cmd"

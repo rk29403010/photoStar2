@@ -40,6 +40,19 @@ function normalizePathForKey(targetPath) {
     return path.resolve(targetPath).replace(/\\/g, '/').toLowerCase();
 }
 
+function normalizeThreadNote(note) {
+    if (typeof note !== 'string' || note.trim() === '') {
+        return '';
+    }
+
+    const segments = note
+        .split(' | ')
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+
+    return [...new Set(segments)].join(' | ');
+}
+
 export function getWorktreeNameFromPath(targetPath) {
     const normalized = path.resolve(targetPath).replace(/\\/g, '/');
     const match = normalized.match(/(?:^|\/)(?:\.worktrees|worktrees)\/([^/]+)/i);
@@ -78,6 +91,7 @@ export function upsertThreadEntry(registry, entry) {
     const nextEntry = {
         ...existingEntry,
         ...entry,
+        note: normalizeThreadNote(entry.note ?? existingEntry?.note ?? ''),
         createdAt: existingEntry?.createdAt ?? entry.updatedAt,
     };
 
@@ -122,7 +136,7 @@ export function renderThreadList(registry) {
             const dirtyLabel = entry.dirty ? `dirty:${entry.dirtyCount}` : 'clean';
             const runningLabel = entry.running && entry.running !== 'none' ? entry.running : 'none';
             const ownerLabel = entry.owner ? ` | owner:${entry.owner}` : '';
-            const noteLabel = entry.note ? ` | note:${entry.note}` : '';
+            const noteLabel = entry.note ? ` | note:${normalizeThreadNote(entry.note)}` : '';
             return `${entry.status} | ${entry.task} | ${entry.branch} | ${entry.worktreeName} | ${dirtyLabel} | running:${runningLabel} | commit:${entry.lastCommit}${ownerLabel}${noteLabel}`;
         })
         .join('\n');
@@ -158,6 +172,35 @@ export function readThreadRegistry(registryPath) {
 export function writeThreadRegistry(registryPath, registry) {
     mkdirSync(path.dirname(registryPath), { recursive: true });
     writeFileSync(registryPath, `${JSON.stringify(normalizeRegistry(registry), null, 2)}\n`);
+}
+
+export function refreshThreadRegistry(registry, collectSnapshot = collectThreadSnapshot) {
+    const nextRegistry = normalizeRegistry(registry);
+    const nextEntries = nextRegistry.entries.map((entry) => {
+        if (isClosedStatus(entry.status)) {
+            return entry;
+        }
+
+        try {
+            const snapshot = collectSnapshot(entry.cwd);
+            return {
+                ...entry,
+                ...snapshot,
+                note: normalizeThreadNote(entry.note),
+            };
+        } catch {
+            return {
+                ...entry,
+                note: normalizeThreadNote(entry.note),
+                running: 'none',
+            };
+        }
+    });
+
+    return {
+        ...nextRegistry,
+        entries: nextEntries,
+    };
 }
 
 function parseArgs(argv) {
@@ -334,7 +377,7 @@ function handleClose(args, registryPath) {
 }
 
 function handleStatus(registryPath) {
-    const registry = readThreadRegistry(registryPath);
+    const registry = refreshThreadRegistry(readThreadRegistry(registryPath));
     const snapshot = collectThreadSnapshot(process.cwd());
     const entry = registry.entries.find((candidate) => normalizePathForKey(candidate.cwd) === normalizePathForKey(snapshot.worktreePath));
     if (!entry) {
@@ -362,7 +405,7 @@ function handleStatus(registryPath) {
 }
 
 function handleList(registryPath) {
-    console.log(renderThreadList(readThreadRegistry(registryPath)));
+    console.log(renderThreadList(refreshThreadRegistry(readThreadRegistry(registryPath))));
 }
 
 function main() {

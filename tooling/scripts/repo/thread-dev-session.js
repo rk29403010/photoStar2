@@ -6,6 +6,7 @@ import { runCommandSync } from './process-invocation.js';
 import {
     collectThreadSnapshot,
     readThreadRegistry,
+    refreshThreadRegistry,
     resolveThreadRegistryPath,
     upsertThreadEntry,
     writeThreadRegistry,
@@ -52,18 +53,29 @@ export function buildThreadDevSessionNote({ script, webPort, backendPort }) {
     return `${script} @ http://localhost:${webPort} (backend ${backendPort})`;
 }
 
-function buildCombinedThreadNote({ existingNote, providedNote, sessionNote }) {
-    const noteSegments = [sessionNote];
+export function buildCombinedThreadNote({ existingNote, providedNote, sessionNote }) {
+    const noteSegments = [];
+    const pushUniqueNote = (value) => {
+        if (typeof value !== 'string') {
+            return;
+        }
+
+        const trimmedValue = value.trim();
+        if (trimmedValue === '' || noteSegments.includes(trimmedValue)) {
+            return;
+        }
+
+        noteSegments.push(trimmedValue);
+    };
+
+    pushUniqueNote(sessionNote);
 
     if (typeof providedNote === 'string' && providedNote.trim() !== '') {
-        noteSegments.push(providedNote.trim());
+        pushUniqueNote(providedNote);
         return noteSegments.join(' | ');
     }
 
-    if (typeof existingNote === 'string' && existingNote.trim() !== '') {
-        noteSegments.push(existingNote.trim());
-    }
-
+    pushUniqueNote(existingNote);
     return noteSegments.join(' | ');
 }
 
@@ -106,6 +118,10 @@ function runDevSessionCommand(command, script, cwd = process.cwd()) {
 function startManagedDevSession(script, cwd = process.cwd()) {
     runDevSessionCommand('pause', null, cwd);
     runDevSessionCommand('resume', script, cwd);
+}
+
+function stopManagedDevSession(cwd = process.cwd()) {
+    runDevSessionCommand('pause', null, cwd);
 }
 
 function findExistingThreadEntry(registry, cwd) {
@@ -151,7 +167,7 @@ function buildThreadUpdate({
 
 function updateCurrentThreadEntry({ task, owner, note, script, cwd = process.cwd(), env = process.env }) {
     const registryPath = resolveThreadRegistryPath(cwd);
-    const registry = readThreadRegistry(registryPath);
+    const registry = refreshThreadRegistry(readThreadRegistry(registryPath));
     const snapshot = collectThreadSnapshot(cwd);
     const existingEntry = findExistingThreadEntry(registry, snapshot.cwd);
     const { webPort, backendPort } = resolveDevRuntimePorts(env, snapshot.worktreePath);
@@ -183,8 +199,42 @@ function updateCurrentThreadEntry({ task, owner, note, script, cwd = process.cwd
     };
 }
 
+function clearCurrentThreadRuntime({ cwd = process.cwd() }) {
+    const registryPath = resolveThreadRegistryPath(cwd);
+    const registry = refreshThreadRegistry(readThreadRegistry(registryPath));
+    const snapshot = collectThreadSnapshot(cwd);
+    const existingEntry = findExistingThreadEntry(registry, snapshot.cwd);
+    if (!existingEntry) {
+        return {
+            worktreeName: snapshot.worktreeName,
+            task: getDefaultThreadTask(snapshot),
+        };
+    }
+
+    upsertThreadEntry(registry, {
+        ...existingEntry,
+        ...snapshot,
+        running: 'none',
+        updatedAt: new Date().toISOString(),
+    });
+    writeThreadRegistry(registryPath, registry);
+
+    return {
+        worktreeName: snapshot.worktreeName,
+        task: existingEntry.task,
+    };
+}
+
 function main() {
     const args = parseArgs(process.argv.slice(2));
+    const command = typeof args._[0] === 'string' ? args._[0].trim() : 'start';
+    if (command === 'stop') {
+        stopManagedDevSession(process.cwd());
+        const result = clearCurrentThreadRuntime({ cwd: process.cwd() });
+        console.log(`Stopped managed dev session for ${result.worktreeName} as "${result.task}".`);
+        return;
+    }
+
     const script = ensureSupportedScript(
         typeof args.script === 'string' ? args.script.trim() : 'dev:desktop-runtime',
     );
