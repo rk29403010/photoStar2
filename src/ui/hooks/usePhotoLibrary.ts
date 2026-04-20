@@ -49,10 +49,14 @@ function useLibraryRefreshAction(params: {
     return useCallback((options: RefreshLibraryOptions = {}) => {
         const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, options);
 
+        // `preservePagingState` refreshes still replace the visible asset page (via a background request),
+        // so downstream UI should treat them as a refresh-in-flight to avoid "missing selection" recovery
+        // from kicking users out of single-photo view mid-workflow.
+        setIsRefreshingLibrary(true);
+
         if (!options.preservePagingState) {
             setHasMoreAssets(true);
             setIsLoadingMoreAssets(false);
-            setIsRefreshingLibrary(true);
         }
 
         void sendCommand('get_stats');

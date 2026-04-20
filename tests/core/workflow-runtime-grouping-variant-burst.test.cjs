@@ -12,6 +12,66 @@ const {
     seedSimilarityGroup,
 } = require('./workflow-runtime-grouping.helpers.cjs');
 
+function seedStaleProposedVariantScenario(dbManager, paths, ids) {
+    const { firstPath, secondPath, thirdPath } = paths;
+    const { firstId, secondId, thirdId } = ids;
+
+    seedAsset(dbManager, {
+        id: firstId,
+        originalPath: firstPath,
+        fileHash: 'stale-hash-a',
+        fileSize: 10,
+        width: 400,
+        height: 300,
+        exifDate: '2026-01-01T12:00:00.000Z',
+    });
+    seedAsset(dbManager, {
+        id: secondId,
+        originalPath: secondPath,
+        fileHash: 'stale-hash-b',
+        fileSize: 11,
+        width: 401,
+        height: 301,
+        exifDate: '2026-01-01T12:00:01.000Z',
+    });
+    seedAsset(dbManager, {
+        id: thirdId,
+        originalPath: thirdPath,
+        fileHash: 'stale-hash-c',
+        fileSize: 12,
+        width: 402,
+        height: 302,
+        exifDate: '2026-01-01T12:00:02.000Z',
+    });
+
+    seedAssetFeatures(dbManager, {
+        assetId: firstId,
+        fileHash: 'stale-hash-a',
+        phash64: '000000000000001f',
+        dhash64: '000000000000001f',
+    });
+    seedAssetFeatures(dbManager, {
+        assetId: secondId,
+        fileHash: 'stale-hash-b',
+        phash64: '00000000000000f8',
+        dhash64: '00000000000000f8',
+    });
+    seedAssetFeatures(dbManager, {
+        assetId: thirdId,
+        fileHash: 'stale-hash-c',
+        phash64: '00000000000007c0',
+        dhash64: '00000000000007c0',
+    });
+    seedSimilarityGroup(dbManager, {
+        groupId: uuidv4(),
+        type: 'variant_set',
+        status: 'proposed',
+        canonicalAssetId: firstId,
+        assetIds: [firstId, thirdId],
+        paramsJson: { threshold: 10 },
+    });
+}
+
 test('runtime variant grouping does not merge transitive visual neighbors into one group', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
@@ -275,60 +335,7 @@ test('runtime variant grouping replaces stale proposed groups for impacted asset
         const secondId = uuidv4();
         const thirdId = uuidv4();
 
-        seedAsset(dbManager, {
-            id: firstId,
-            originalPath: firstPath,
-            fileHash: 'stale-hash-a',
-            fileSize: 10,
-            width: 400,
-            height: 300,
-            exifDate: '2026-01-01T12:00:00.000Z',
-        });
-        seedAsset(dbManager, {
-            id: secondId,
-            originalPath: secondPath,
-            fileHash: 'stale-hash-b',
-            fileSize: 11,
-            width: 401,
-            height: 301,
-            exifDate: '2026-01-01T12:00:01.000Z',
-        });
-        seedAsset(dbManager, {
-            id: thirdId,
-            originalPath: thirdPath,
-            fileHash: 'stale-hash-c',
-            fileSize: 12,
-            width: 402,
-            height: 302,
-            exifDate: '2026-01-01T12:00:02.000Z',
-        });
-
-        seedAssetFeatures(dbManager, {
-            assetId: firstId,
-            fileHash: 'stale-hash-a',
-            phash64: '000000000000001f',
-            dhash64: '000000000000001f',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: secondId,
-            fileHash: 'stale-hash-b',
-            phash64: '00000000000000f8',
-            dhash64: '00000000000000f8',
-        });
-        seedAssetFeatures(dbManager, {
-            assetId: thirdId,
-            fileHash: 'stale-hash-c',
-            phash64: '00000000000007c0',
-            dhash64: '00000000000007c0',
-        });
-        seedSimilarityGroup(dbManager, {
-            groupId: uuidv4(),
-            type: 'variant_set',
-            status: 'proposed',
-            canonicalAssetId: firstId,
-            assetIds: [firstId, thirdId],
-            paramsJson: { threshold: 10 },
-        });
+        seedStaleProposedVariantScenario(dbManager, { firstPath, secondPath, thirdPath }, { firstId, secondId, thirdId });
 
         await runGroupingWorkflow({
             dbManager,
