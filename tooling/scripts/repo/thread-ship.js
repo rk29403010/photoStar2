@@ -15,8 +15,8 @@ const gitExecutable = process.platform === 'win32' ? 'git.exe' : 'git';
 const nodeExecutable = process.execPath;
 const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-export function getShipIgnorePaths() {
-    return ['artifacts', '.local'];
+export function getShipIgnorePaths({ includeArtifacts = false } = {}) {
+    return includeArtifacts ? ['.local'] : ['artifacts', '.local'];
 }
 
 function normalizePath(value) {
@@ -231,7 +231,9 @@ function cleanupMergedWorktree({ branch, worktreePath, mainWorktreePath }) {
 function main() {
     const cwd = process.cwd();
     const args = parseArgs(process.argv.slice(2));
-    const ignorePaths = getShipIgnorePaths();
+    const ignorePaths = getShipIgnorePaths({
+        includeArtifacts: args['include-artifacts'] === true,
+    });
     const snapshot = collectThreadSnapshot(cwd);
     ensureWorktreeContext(snapshot);
 

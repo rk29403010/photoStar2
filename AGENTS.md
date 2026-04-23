@@ -169,3 +169,10 @@ These rules exist because generated code drifts toward noise unless the repo pus
 - Favour boring control flow over dense one-liners.
 - If a component or module is getting large, split by responsibility instead of adding comments to excuse it.
 - In React, keep the top-level component body mostly to state/hooks/wiring; move derived data and conditional UI fragments into helpers or child components before the render body becomes branch-heavy.
+
+## Artifacts policy
+
+- Treat `artifacts/` as disposable generated output by default, not durable project knowledge.
+- Do not put plans, specs, design docs, or other long-lived documentation in `artifacts/` if they are meant to be kept in Git. Put those in versioned repo-owned locations such as `docs/` or `docs/superpowers/`.
+- Repo quality checks may ignore `artifacts/`, and the `Ship` action may exclude `artifacts/` by default.
+- If a task truly requires versioning files under `artifacts/`, that must be an explicit choice for that task rather than the default behavior.

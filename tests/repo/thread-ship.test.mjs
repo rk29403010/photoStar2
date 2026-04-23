@@ -61,4 +61,5 @@ test('ship commit message prefers explicit task name', () => {
 
 test('ship ignore paths include generated artifacts', () => {
     assert.deepEqual(getShipIgnorePaths(), ['artifacts', '.local']);
+    assert.deepEqual(getShipIgnorePaths({ includeArtifacts: true }), ['.local']);
 });
