@@ -125,6 +125,33 @@ export function closeThreadEntry(registry, cwd, status, timestamp = new Date().t
     return existingEntry;
 }
 
+export function findThreadEntry(registry, options = {}) {
+    const nextRegistry = normalizeRegistry(registry);
+    const task = typeof options.task === 'string' ? options.task.trim().toLowerCase() : '';
+    const branch = typeof options.branch === 'string' ? options.branch.trim() : '';
+    const cwd = typeof options.cwd === 'string' ? options.cwd.trim() : '';
+    const worktreeName = typeof options.worktreeName === 'string' ? options.worktreeName.trim().toLowerCase() : '';
+
+    if (cwd) {
+        const entryKey = normalizePathForKey(cwd);
+        return nextRegistry.entries.find((candidate) => normalizePathForKey(candidate.cwd) === entryKey) ?? null;
+    }
+
+    if (branch) {
+        return nextRegistry.entries.find((candidate) => candidate.branch === branch) ?? null;
+    }
+
+    if (task) {
+        return nextRegistry.entries.find((candidate) => candidate.task.trim().toLowerCase() === task) ?? null;
+    }
+
+    if (worktreeName) {
+        return nextRegistry.entries.find((candidate) => candidate.worktreeName.trim().toLowerCase() === worktreeName) ?? null;
+    }
+
+    return null;
+}
+
 export function renderThreadList(registry) {
     const nextRegistry = normalizeRegistry(registry);
     if (nextRegistry.entries.length === 0) {
@@ -379,33 +406,42 @@ function handleClose(args, registryPath) {
 
     const registry = readThreadRegistry(registryPath);
     const snapshot = collectThreadSnapshot(process.cwd());
-    const existingEntry = registry.entries.find((candidate) => normalizePathForKey(candidate.cwd) === normalizePathForKey(snapshot.worktreePath));
+    const targetEntry = findThreadEntry(registry, {
+        cwd: typeof args.cwd === 'string' ? args.cwd : '',
+        branch: typeof args.branch === 'string' ? args.branch : '',
+        task: typeof args.task === 'string' ? args.task : '',
+        worktreeName: typeof args.worktree === 'string' ? args.worktree : '',
+    });
+    const existingEntry = targetEntry
+        ?? registry.entries.find((candidate) => normalizePathForKey(candidate.cwd) === normalizePathForKey(snapshot.worktreePath));
     if (!existingEntry) {
         throw new Error('No registered thread found for this worktree. Run thread:register first.');
     }
 
     if (status === 'merged' && !isBranchMergedIntoTargets({
-        branch: snapshot.branch,
-        cwd: snapshot.worktreePath,
+        branch: existingEntry.branch,
+        cwd: process.cwd(),
     })) {
         throw new Error(
-            `Cannot close ${snapshot.worktreeName} as merged because ${snapshot.branch} is not contained in main or origin/main.`,
+            `Cannot close ${existingEntry.worktreeName} as merged because ${existingEntry.branch} is not contained in main or origin/main.`,
         );
     }
 
     const timestamp = new Date().toISOString();
+    const nextEntry = normalizePathForKey(existingEntry.cwd) === normalizePathForKey(snapshot.worktreePath)
+        ? { ...existingEntry, ...snapshot }
+        : { ...existingEntry };
     upsertThreadEntry(registry, {
-        ...existingEntry,
-        ...snapshot,
+        ...nextEntry,
         status,
         note: typeof args.note === 'string' ? args.note.trim() : existingEntry.note,
         running: 'none',
         updatedAt: timestamp,
     });
-    closeThreadEntry(registry, snapshot.worktreePath, status, timestamp);
+    closeThreadEntry(registry, existingEntry.cwd, status, timestamp);
     writeThreadRegistry(registryPath, registry);
 
-    console.log(`Closed ${snapshot.worktreeName} as ${status}.`);
+    console.log(`Closed ${existingEntry.worktreeName} as ${status}.`);
 }
 
 function handleStatus(registryPath) {

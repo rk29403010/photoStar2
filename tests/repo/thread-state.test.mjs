@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
     closeThreadEntry,
     createEmptyThreadRegistry,
+    findThreadEntry,
     getManagedSessionState,
     getWorktreeNameFromPath,
     isBranchMergedIntoTargets,
@@ -137,6 +138,32 @@ test('closeThreadEntry records a closed state and closedAt timestamp', () => {
     assert.equal(registry.entries[0].status, 'merged');
     assert.equal(registry.entries[0].closedAt, '2026-03-30T11:30:00.000Z');
     assert.equal(registry.entries[0].running, 'none');
+});
+
+test('findThreadEntry resolves registered threads by task, branch, cwd, or worktree name', () => {
+    const registry = createEmptyThreadRegistry();
+    const cwd = path.join(workspaceRoot, '.worktrees', 'post-restart-app-smoke-test');
+
+    upsertThreadEntry(registry, {
+        cwd,
+        task: 'Post Restart App Smoke Test',
+        status: 'ready-to-merge',
+        branch: 'codex/post-restart-app-smoke-test',
+        lastCommit: '23ef6e6',
+        dirty: false,
+        dirtyCount: 0,
+        running: 'none',
+        worktreeName: 'post-restart-app-smoke-test',
+        worktreePath: cwd,
+        owner: '',
+        note: '',
+        updatedAt: '2026-04-23T10:00:00.000Z',
+    });
+
+    assert.equal(findThreadEntry(registry, { task: 'post restart app smoke test' })?.branch, 'codex/post-restart-app-smoke-test');
+    assert.equal(findThreadEntry(registry, { branch: 'codex/post-restart-app-smoke-test' })?.task, 'Post Restart App Smoke Test');
+    assert.equal(findThreadEntry(registry, { cwd })?.worktreeName, 'post-restart-app-smoke-test');
+    assert.equal(findThreadEntry(registry, { worktreeName: 'post-restart-app-smoke-test' })?.lastCommit, '23ef6e6');
 });
 
 test('isBranchMergedIntoTargets only reports merged when git proves containment', () => {
