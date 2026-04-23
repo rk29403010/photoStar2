@@ -34,6 +34,7 @@ type RequestFn = ReturnType<typeof useLibraryTransport>['request'];
 type SendCommandFn = (command: string, payload?: Record<string, unknown>) => Promise<void>;
 
 function useLibraryRefreshAction(params: {
+    assets: PhotoLibraryState['assets'];
     filterStackRef: PhotoLibraryState['filterStackRef'];
     request: RequestFn;
     sendCommand: SendCommandFn;
@@ -44,10 +45,24 @@ function useLibraryRefreshAction(params: {
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
-    const { filterStackRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, setIsRefreshingLibrary, groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef } = params;
+    const {
+        assets,
+        filterStackRef,
+        request,
+        sendCommand,
+        setHasMoreAssets,
+        setIsLoadingMoreAssets,
+        setIsRefreshingLibrary,
+        groupSimilarPhotosRef,
+        galleryOrderRef,
+        gallerySeekRef,
+    } = params;
 
     return useCallback((options: RefreshLibraryOptions = {}) => {
-        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, options);
+        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, {
+            ...options,
+            loadedAssetCount: options.preservePagingState ? assets.length : options.loadedAssetCount,
+        });
 
         // `preservePagingState` refreshes still replace the visible asset page (via a background request),
         // so downstream UI should treat them as a refresh-in-flight to avoid "missing selection" recovery
@@ -66,7 +81,7 @@ function useLibraryRefreshAction(params: {
         }
 
         void sendCommand('get_assets', payload);
-    }, [filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, setIsRefreshingLibrary]);
+    }, [assets.length, filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, setIsRefreshingLibrary]);
 }
 
 function useAssetLoadingActions(params: {
@@ -171,6 +186,7 @@ function useRefreshActions(params: {
     } = params;
 
     const refreshLibrary = useLibraryRefreshAction({
+        assets,
         filterStackRef,
         request,
         sendCommand,
