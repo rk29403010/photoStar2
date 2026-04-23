@@ -6,7 +6,14 @@ import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
 import type { PhotoMetadataBlock } from '../photoMetadata/types';
+import { normalizePhotoMetadataBlockBoxes } from '../photoMetadata/coordinateNormalization';
 import { isPhotoMetadataBlock } from '../photoMetadata/validation';
+import {
+    assertGeminiResponseContract,
+    isGeminiResponseContractError,
+    remapGeminiResponseBoxesFromTileSpace,
+    repairGeminiOverviewOnlyResponseMetadata,
+} from './geminiResponseBoxes';
 import { buildGeminiFlashPrompt, buildGeminiProPrompt } from './geminiPrompts';
 import {
     buildGeminiFlashResponseSchema,
@@ -54,6 +61,10 @@ type PreparedImagePayload = {
     filename: string;
     exifDataString: string;
     imageParts: PreparedImagePart[];
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileCoordinateInstructions: string[];
+    tileRegions: IndexedCropRegion[];
 };
 type MetadataPass = 'scout' | 'refine';
 export type LiveMetadataEvidence = StoredAiMetadataResult & {
@@ -61,6 +72,8 @@ export type LiveMetadataEvidence = StoredAiMetadataResult & {
     metadataSourceKind: MetadataSourceKind;
     approvedKeywords: string[];
     tagProposals: string[];
+    imageWidth?: number | null;
+    imageHeight?: number | null;
 };
 type CropRegion = {
     left: number;
@@ -68,10 +81,18 @@ type CropRegion = {
     width: number;
     height: number;
 };
+type IndexedCropRegion = CropRegion & {
+    imageIndex: number;
+};
 
 const GEMINI_IMAGE_MAX_DIMENSION = 768;
 const TILE_OVERLAP_RATIO = 0.2;
 const TILE_COUNT = 4;
+const GEMINI_GENERATION_CONFIG_BASE = {
+    candidateCount: 1,
+    temperature: 0,
+    topK: 1,
+} as const;
 
 function validateApiKey(dbManager: DatabaseManager): string {
     const apiKey = dbManager.getSetting('ai_metadata_v2_api_key')
@@ -183,23 +204,125 @@ function buildTileCropRegions(width: number, height: number): CropRegion[] {
     return buildGridCropRegions(width, height);
 }
 
-async function buildOverviewPlusTiles(fileBuffer: Buffer): Promise<PreparedImagePart[]> {
+async function buildOverviewPlusTiles(fileBuffer: Buffer): Promise<{
+    imageParts: PreparedImagePart[];
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileCoordinateInstructions: string[];
+    tileRegions: IndexedCropRegion[];
+}> {
     const image = sharp(fileBuffer).rotate();
     const metadata = await image.metadata();
     const width = metadata.width ?? 0;
     const height = metadata.height ?? 0;
     const overview = await toGeminiJpeg(await image.clone().toBuffer());
     if (width <= 0 || height <= 0) {
-        return [overview];
+        return {
+            imageParts: [overview],
+            imageWidth: null,
+            imageHeight: null,
+            tileCoordinateInstructions: [],
+            tileRegions: [],
+        };
     }
 
     const tiles: PreparedImagePart[] = [];
+    const tileCoordinateInstructions: string[] = [];
+    const tileRegions: IndexedCropRegion[] = [];
+    let imageIndex = 2;
     for (const crop of buildTileCropRegions(width, height)) {
         const tileBuffer = await image.clone().extract(crop).toBuffer();
         tiles.push(await toGeminiJpeg(tileBuffer));
+        tileRegions.push({
+            imageIndex,
+            ...crop,
+        });
+        tileCoordinateInstructions.push(
+            `Image ${imageIndex} covers the full-photo pixel region left=${crop.left}, top=${crop.top}, width=${crop.width}, height=${crop.height}.`,
+        );
+        imageIndex += 1;
     }
 
-    return [overview, ...tiles];
+    return {
+        imageParts: [overview, ...tiles],
+        imageWidth: width,
+        imageHeight: height,
+        tileCoordinateInstructions,
+        tileRegions,
+    };
+}
+
+async function readExifDataString(fileBuffer: Buffer): Promise<string> {
+    try {
+        const Parser = await import('exif-parser');
+        const parser = Parser.create(fileBuffer) as { parse: () => { tags: Record<string, unknown> } };
+        return JSON.stringify(parser.parse().tags);
+    } catch {
+        return '';
+    }
+}
+
+async function buildOverviewOnlyPreparedParts(fileBuffer: Buffer): Promise<{
+    imageParts: PreparedImagePart[];
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileCoordinateInstructions: string[];
+    tileRegions: IndexedCropRegion[];
+}> {
+    const oriented = sharp(fileBuffer).rotate();
+    const metadata = await oriented.metadata();
+    const width = metadata.width ?? 0;
+    const height = metadata.height ?? 0;
+    const overview = await toGeminiJpeg(await oriented.toBuffer());
+    const safeWidth = width > 0 ? width : null;
+    const safeHeight = height > 0 ? height : null;
+
+    return {
+        imageParts: [overview],
+        imageWidth: safeWidth,
+        imageHeight: safeHeight,
+        tileCoordinateInstructions: [],
+        tileRegions: [],
+    };
+}
+
+async function buildPreparedImageParts(
+    fileBuffer: Buffer,
+    imageStrategy: ImageStrategy,
+): Promise<{
+    imageParts: PreparedImagePart[];
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileCoordinateInstructions: string[];
+    tileRegions: IndexedCropRegion[];
+}> {
+    if (imageStrategy === 'overview_plus_tiles') {
+        return buildOverviewPlusTiles(fileBuffer);
+    }
+
+    return buildOverviewOnlyPreparedParts(fileBuffer);
+}
+
+function buildFallbackPreparedImagePayload(
+    row: ParsedAiMetadataRow,
+    filename: string,
+    exifDataString: string,
+    fileBuffer: Buffer,
+): PreparedImagePayload {
+    const ext = extname(row.original_path).toLowerCase().replace('.', '') || 'jpeg';
+    const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    return {
+        filename,
+        exifDataString,
+        imageParts: [{
+            imageBase64: fileBuffer.toString('base64'),
+            mimeType,
+        }],
+        imageWidth: row.width,
+        imageHeight: row.height,
+        tileCoordinateInstructions: [],
+        tileRegions: [],
+    };
 }
 
 async function prepareImagePayload(
@@ -208,36 +331,21 @@ async function prepareImagePayload(
 ): Promise<PreparedImagePayload> {
     const filename = row.original_path.split(/[/\\]/).pop() || '';
     const fileBuffer = await fs.readFile(row.original_path);
-
-    let exifDataString = '';
-    try {
-        const Parser = await import('exif-parser');
-        const parser = Parser.create(fileBuffer) as { parse: () => { tags: Record<string, unknown> } };
-        exifDataString = JSON.stringify(parser.parse().tags);
-    } catch {
-        exifDataString = '';
-    }
+    const exifDataString = await readExifDataString(fileBuffer);
 
     try {
-        const imageParts = imageStrategy === 'overview_plus_tiles'
-            ? await buildOverviewPlusTiles(fileBuffer)
-            : [await toGeminiJpeg(fileBuffer)];
+        const preparedImageParts = await buildPreparedImageParts(fileBuffer, imageStrategy);
         return {
             filename,
             exifDataString,
-            imageParts,
+            imageParts: preparedImageParts.imageParts,
+            imageWidth: preparedImageParts.imageWidth ?? row.width,
+            imageHeight: preparedImageParts.imageHeight ?? row.height,
+            tileCoordinateInstructions: preparedImageParts.tileCoordinateInstructions,
+            tileRegions: preparedImageParts.tileRegions,
         };
     } catch {
-        const ext = extname(row.original_path).toLowerCase().replace('.', '') || 'jpeg';
-        const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-        return {
-            filename,
-            exifDataString,
-            imageParts: [{
-                imageBase64: fileBuffer.toString('base64'),
-                mimeType,
-            }],
-        };
+        return buildFallbackPreparedImagePayload(row, filename, exifDataString, fileBuffer);
     }
 }
 
@@ -275,17 +383,42 @@ async function generateContent(
     prompt: string,
     imageParts: PreparedImagePart[],
     responseSchema: GeminiResponseSchema,
+    logContext: {
+        assetId: string;
+        metadataPass: MetadataPass;
+        imageStrategy: ImageStrategy;
+    },
 ): Promise<GeminiResponse> {
     recordRequest(modelName);
     const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
+            ...GEMINI_GENERATION_CONFIG_BASE,
             responseMimeType: 'application/json',
             responseSchema,
         },
     });
-    const response = await model.generateContent(buildGeminiRequest(prompt, imageParts));
-    return parseGeminiResponse(response.response.text());
+    const startedAt = Date.now();
+    try {
+        const response = await model.generateContent(buildGeminiRequest(prompt, imageParts));
+        const elapsedMs = Date.now() - startedAt;
+        console.log(`[AI Metadata] Gemini call ${modelName} completed in ${elapsedMs}ms for asset ${logContext.assetId} (${logContext.metadataPass})`);
+        const parsedResponse = parseGeminiResponse(response.response.text());
+        const contractReadyResponse = repairGeminiOverviewOnlyResponseMetadata(
+            parsedResponse,
+            logContext.imageStrategy,
+        );
+        assertGeminiResponseContract({
+            response: contractReadyResponse,
+            imageStrategy: logContext.imageStrategy,
+            imagePartCount: imageParts.length,
+        });
+        return contractReadyResponse;
+    } catch (error) {
+        const elapsedMs = Date.now() - startedAt;
+        console.warn(`[AI Metadata] Gemini call ${modelName} failed after ${elapsedMs}ms for asset ${logContext.assetId} (${logContext.metadataPass})`);
+        throw error;
+    }
 }
 
 type GeminiResponseSchema = ReturnType<typeof buildGeminiFlashResponseSchema>;
@@ -303,10 +436,37 @@ function buildLiveMetadataEvidence(params: {
     modelVersion: string;
     response: GeminiResponse;
     approvedTagVocabulary: string[];
+    assetId: string;
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileRegions: IndexedCropRegion[];
 }): LiveMetadataEvidence {
-    const sanitizedResponse = sanitizeGeminiResponseTags(params.response, params.approvedTagVocabulary);
+    const remappedResponse = remapGeminiResponseBoxesFromTileSpace({
+        response: params.response,
+        tileRegions: params.tileRegions,
+        imageWidth: params.imageWidth,
+        imageHeight: params.imageHeight,
+    });
+    const rawMetadataBlock = extractMetadataBlock(remappedResponse);
+    const normalizedMetadataBlock = normalizePhotoMetadataBlockBoxes(rawMetadataBlock, {
+        width: params.imageWidth,
+        height: params.imageHeight,
+    });
+    const droppedSubjects = rawMetadataBlock.subjects.length - normalizedMetadataBlock.subjects.length;
+    const droppedRegions = rawMetadataBlock.regions_of_interest.length - normalizedMetadataBlock.regions_of_interest.length;
+    if (droppedSubjects > 0 || droppedRegions > 0) {
+        console.warn(
+            `[AI Metadata] Dropped ${droppedSubjects} subject boxes and ${droppedRegions} ROI boxes that could not be normalized for asset ${params.assetId}`,
+        );
+    }
+
+    const sanitizedResponse = sanitizeGeminiResponseTags({
+        ...remappedResponse,
+        subjects: normalizedMetadataBlock.subjects,
+        regions_of_interest: normalizedMetadataBlock.regions_of_interest,
+    }, params.approvedTagVocabulary);
     const metadataBlock = {
-        ...extractMetadataBlock(params.response),
+        ...normalizedMetadataBlock,
         keywords: sanitizedResponse.approvedKeywords,
     };
     return {
@@ -314,9 +474,11 @@ function buildLiveMetadataEvidence(params: {
         modelVersion: params.modelVersion,
         data: sanitizedResponse.storedResponse,
         metadataBlock,
-        metadataSourceKind: resolveGeminiMetadataSourceKind(params.response),
+        metadataSourceKind: resolveGeminiMetadataSourceKind(remappedResponse),
         approvedKeywords: sanitizedResponse.approvedKeywords,
         tagProposals: sanitizedResponse.tagProposals,
+        imageWidth: params.imageWidth,
+        imageHeight: params.imageHeight,
     };
 }
 
@@ -324,6 +486,11 @@ async function tryProModel(
     genAI: GoogleGenerativeAI,
     prompt: string,
     imageParts: PreparedImagePart[],
+    logContext: {
+        assetId: string;
+        metadataPass: MetadataPass;
+        imageStrategy: ImageStrategy;
+    },
 ): Promise<GeminiResponse | null> {
     if (isDailyQuotaExceeded(MODEL_REFINE)) {
         return null;
@@ -333,15 +500,27 @@ async function tryProModel(
     }
 
     try {
-        const parsed = await generateContent(
-            genAI,
-            MODEL_REFINE,
-            prompt,
-            imageParts,
-            buildGeminiProResponseSchema(),
-        );
-        parsed._analysis_tier = 'pro';
-        return parsed;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+                const parsed = await generateContent(
+                    genAI,
+                    MODEL_REFINE,
+                    prompt,
+                    imageParts,
+                    buildGeminiProResponseSchema(logContext.imageStrategy),
+                    logContext,
+                );
+                parsed._analysis_tier = 'pro';
+                return parsed;
+            } catch (error) {
+                if (isGeminiResponseContractError(error) && attempt === 0) {
+                    console.warn(`[AI Metadata] Retrying ${MODEL_REFINE} after contract-invalid response for asset ${logContext.assetId}`);
+                    continue;
+                }
+                throw error;
+            }
+        }
+        return null;
     } catch (error) {
         const quotaType = classifyAndRecordError(MODEL_REFINE, error as Error);
         if (quotaType === 'rate_limit' && shouldWaitForModel(MODEL_REFINE)) {
@@ -351,7 +530,8 @@ async function tryProModel(
                 MODEL_REFINE,
                 prompt,
                 imageParts,
-                buildGeminiProResponseSchema(),
+                buildGeminiProResponseSchema(logContext.imageStrategy),
+                logContext,
             );
             retryParsed._analysis_tier = 'pro';
             return retryParsed;
@@ -365,6 +545,11 @@ async function tryFlashModel(
     modelName: string,
     prompt: string,
     imageParts: PreparedImagePart[],
+    logContext: {
+        assetId: string;
+        metadataPass: MetadataPass;
+        imageStrategy: ImageStrategy;
+    },
 ): Promise<GeminiResponse> {
     if (isDailyQuotaExceeded(modelName)) {
         throw new Error('DAILY_QUOTA_EXCEEDED');
@@ -378,11 +563,16 @@ async function tryFlashModel(
                 modelName,
                 prompt,
                 imageParts,
-                buildGeminiFlashResponseSchema(),
+                buildGeminiFlashResponseSchema(logContext.imageStrategy),
+                logContext,
             );
             parsed._analysis_tier = 'flash';
             return parsed;
         } catch (error) {
+            if (isGeminiResponseContractError(error) && attempt === 0) {
+                console.warn(`[AI Metadata] Retrying ${modelName} after contract-invalid response for asset ${logContext.assetId}`);
+                continue;
+            }
             const quotaType = classifyAndRecordError(modelName, error as Error);
             if (quotaType === 'daily_quota') {
                 throw new Error('DAILY_QUOTA_EXCEEDED');
@@ -434,6 +624,69 @@ function emitPendingEvents(eventSink: EventSink | undefined, assetId: string, sc
     });
 }
 
+function buildEvidenceParams(params: {
+    provider: string;
+    modelVersion: string;
+    response: GeminiResponse;
+    approvedTagVocabulary: string[];
+    assetId: string;
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileRegions: IndexedCropRegion[];
+}) {
+    return {
+        provider: params.provider,
+        modelVersion: params.modelVersion,
+        response: params.response,
+        approvedTagVocabulary: params.approvedTagVocabulary,
+        assetId: params.assetId,
+        imageWidth: params.imageWidth,
+        imageHeight: params.imageHeight,
+        tileRegions: params.tileRegions,
+    };
+}
+
+function buildModelEvidence(params: {
+    modelVersion: string;
+    response: GeminiResponse;
+    approvedTagVocabulary: string[];
+    assetId: string;
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileRegions: IndexedCropRegion[];
+}) {
+    return buildLiveMetadataEvidence(buildEvidenceParams({
+        provider: 'google',
+        modelVersion: params.modelVersion,
+        response: params.response,
+        approvedTagVocabulary: params.approvedTagVocabulary,
+        assetId: params.assetId,
+        imageWidth: params.imageWidth,
+        imageHeight: params.imageHeight,
+        tileRegions: params.tileRegions,
+    }));
+}
+
+function buildPromptContext(params: {
+    filename: string;
+    exifDataString: string;
+    imageStrategy: ImageStrategy;
+    approvedTagVocabulary: string[];
+    tileCoordinateInstructions: string[];
+    originalImagePixelWidth: number | null;
+    originalImagePixelHeight: number | null;
+}) {
+    return {
+        filename: params.filename,
+        exifDataString: params.exifDataString,
+        imageStrategy: params.imageStrategy,
+        approvedTagVocabulary: params.approvedTagVocabulary,
+        tileCoordinateInstructions: params.tileCoordinateInstructions,
+        originalImagePixelWidth: params.originalImagePixelWidth,
+        originalImagePixelHeight: params.originalImagePixelHeight,
+    };
+}
+
 export async function generateLiveAiMetadata(params: {
     dbManager: DatabaseManager;
     row: ParsedAiMetadataRow;
@@ -448,27 +701,55 @@ export async function generateLiveAiMetadata(params: {
     const genAI = new GoogleGenerativeAIClass(modelConfig.apiKey);
     const db = params.dbManager.getDb();
     const approvedTagVocabulary = loadApprovedTagVocabulary(params.dbManager);
-    const { filename, exifDataString, imageParts } = await prepareImagePayload(params.row, params.imageStrategy);
+    const {
+        filename,
+        exifDataString,
+        imageParts,
+        imageWidth,
+        imageHeight,
+        tileCoordinateInstructions,
+        tileRegions,
+    } = await prepareImagePayload(params.row, params.imageStrategy);
     const metadataPass = params.metadataPass ?? 'scout';
+    const promptContext = buildPromptContext({
+        filename,
+        exifDataString,
+        imageStrategy: params.imageStrategy,
+        approvedTagVocabulary,
+        tileCoordinateInstructions,
+        originalImagePixelWidth: imageWidth,
+        originalImagePixelHeight: imageHeight,
+    });
 
     try {
         const shouldRunRefineFirst = metadataPass === 'refine' && modelConfig.refineModel === MODEL_REFINE;
         if (shouldRunRefineFirst) {
-            const proPrompt = buildGeminiProPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy, approvedTagVocabulary });
-            const proResult = await tryProModel(genAI, proPrompt, imageParts);
+            const proPrompt = buildGeminiProPrompt(promptContext);
+            const proResult = await tryProModel(genAI, proPrompt, imageParts, {
+                assetId: params.row.id,
+                metadataPass,
+                imageStrategy: params.imageStrategy,
+            });
             if (proResult) {
                 clearProPendingRecord(db, params.row.id);
-                return buildLiveMetadataEvidence({
-                    provider: 'google',
+                return buildModelEvidence({
                     modelVersion: MODEL_REFINE,
                     response: proResult,
                     approvedTagVocabulary,
+                    assetId: params.row.id,
+                    imageWidth,
+                    imageHeight,
+                    tileRegions,
                 });
             }
         }
 
-        const flashPrompt = buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy: params.imageStrategy, approvedTagVocabulary });
-        const flashResult = await tryFlashModel(genAI, modelConfig.scoutModel, flashPrompt, imageParts);
+        const flashPrompt = buildGeminiFlashPrompt(promptContext);
+        const flashResult = await tryFlashModel(genAI, modelConfig.scoutModel, flashPrompt, imageParts, {
+            assetId: params.row.id,
+            metadataPass,
+            imageStrategy: params.imageStrategy,
+        });
         if (shouldRunRefineFirst) {
             flashResult._pending_pro = true;
             const pendingReason: PendingReason = isDailyQuotaExceeded(MODEL_REFINE) ? 'daily_quota' : 'rate_limit';
@@ -478,11 +759,14 @@ export async function generateLiveAiMetadata(params: {
             clearProPendingRecord(db, params.row.id);
         }
 
-        return buildLiveMetadataEvidence({
-            provider: 'google',
+        return buildModelEvidence({
             modelVersion: modelConfig.scoutModel,
             response: flashResult,
             approvedTagVocabulary,
+            assetId: params.row.id,
+            imageWidth,
+            imageHeight,
+            tileRegions,
         });
     } catch (error) {
         const unrecoverableReason = getUnrecoverableAiReason(error as Error);

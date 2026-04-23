@@ -27,7 +27,7 @@ try {
     if (os.platform() === 'win32') {
         const portList = ports.join(',');
         execSync(
-            `powershell -NoProfile -Command "Stop-Process -Id (Get-NetTCPConnection -LocalPort ${portList} -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue"`,
+            `powershell -NoProfile -Command "$pids=(Get-NetTCPConnection -LocalPort ${portList} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }"`,
             { stdio: 'ignore' }
         );
     } else {

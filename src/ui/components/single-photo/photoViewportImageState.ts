@@ -27,6 +27,67 @@ export function resolveViewportStageAsset(params: {
     return requestedAsset;
 }
 
+export function shouldQueueViewportImageTransition(params: {
+    activeAssetId: string | null;
+    requestedAssetId: string;
+    activeImageSrc: string | null;
+    requestedImageSrc: string;
+    pendingAssetId: string | null;
+    pendingImageSrc: string | null;
+}): boolean {
+    const {
+        activeAssetId,
+        requestedAssetId,
+        activeImageSrc,
+        requestedImageSrc,
+        pendingAssetId,
+        pendingImageSrc,
+    } = params;
+
+    const isAlreadyActive = activeAssetId === requestedAssetId && activeImageSrc === requestedImageSrc;
+    if (isAlreadyActive) {
+        return false;
+    }
+
+    return !(pendingAssetId === requestedAssetId && pendingImageSrc === requestedImageSrc);
+}
+
+export function getViewportImageTransitionKey(params: {
+    requestedAssetId: string;
+    requestedImageSrc: string;
+}): string {
+    return `${params.requestedAssetId}::${params.requestedImageSrc}`;
+}
+
+export function shouldSuppressRepeatedViewportTransition(params: {
+    lastRequestedTransitionKey: string | null;
+    requestedAssetId: string;
+    requestedImageSrc: string;
+}): boolean {
+    return params.lastRequestedTransitionKey === getViewportImageTransitionKey({
+        requestedAssetId: params.requestedAssetId,
+        requestedImageSrc: params.requestedImageSrc,
+    });
+}
+
+export function isViewportImageTransitionAlreadyActive(params: {
+    activeAssetId: string | null;
+    requestedAssetId: string;
+    activeImageSrc: string | null;
+    requestedImageSrc: string;
+}): boolean {
+    return params.activeAssetId === params.requestedAssetId && params.activeImageSrc === params.requestedImageSrc;
+}
+
+export function isViewportImageTransitionAlreadyPending(params: {
+    pendingAssetId: string | null;
+    requestedAssetId: string;
+    pendingImageSrc: string | null;
+    requestedImageSrc: string;
+}): boolean {
+    return params.pendingAssetId === params.requestedAssetId && params.pendingImageSrc === params.requestedImageSrc;
+}
+
 export function shouldShowViewportFaceOverlays(params: {
     showFaces: boolean;
     alwaysShowForPanel: boolean;

@@ -1,9 +1,11 @@
+import type { Asset } from '@contracts/core';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
 
 export function shouldCompleteAnalysisRun(params: {
     analyzingAssetId: string | null;
     currentAssetId: string | undefined;
-    hasAiMetadata: boolean;
+    currentAiMetadata: Asset['ai_metadata'] | undefined;
+    runStartAiMetadata: Asset['ai_metadata'] | undefined;
     completedAssetId: string | null;
 }): boolean {
     if (!params.analyzingAssetId) {
@@ -14,7 +16,11 @@ export function shouldCompleteAnalysisRun(params: {
         return false;
     }
 
-    if (!params.hasAiMetadata) {
+    if (!params.currentAiMetadata) {
+        return false;
+    }
+
+    if (params.currentAiMetadata === params.runStartAiMetadata) {
         return false;
     }
 

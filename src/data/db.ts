@@ -73,15 +73,22 @@ function normalizeFaceDetectionPayload(data: string): string | null {
   }
 }
 
-function normalizePhotoMetadataBlockPayload(data: string): string | null {
+function normalizePhotoMetadataBlockPayload(
+  data: string,
+  dimensions?: { width: number | null; height: number | null },
+): string | null {
   try {
-    return JSON.stringify(normalizePhotoMetadataBlockBoxes(JSON.parse(data)));
+    return JSON.stringify(normalizePhotoMetadataBlockBoxes(JSON.parse(data), dimensions));
   } catch {
     return null;
   }
 }
 
-function normalizePhotoMetadataProjectionPayload(data: string | null, kind: 'subjects' | 'regions'): string | null {
+function normalizePhotoMetadataProjectionPayload(
+  data: string | null,
+  kind: 'subjects' | 'regions',
+  dimensions?: { width: number | null; height: number | null },
+): string | null {
   if (!data) {
     return data;
   }
@@ -89,8 +96,8 @@ function normalizePhotoMetadataProjectionPayload(data: string | null, kind: 'sub
   try {
     const parsed = JSON.parse(data);
     const normalized = kind === 'subjects'
-      ? normalizePhotoMetadataSubjects(parsed)
-      : normalizePhotoMetadataRegionsOfInterest(parsed);
+      ? normalizePhotoMetadataSubjects(parsed, dimensions)
+      : normalizePhotoMetadataRegionsOfInterest(parsed, dimensions);
     return JSON.stringify(normalized);
   } catch {
     return null;
@@ -114,21 +121,32 @@ function backfillStoredPhotoCoordinates(db: Database.Database): void {
       }
 
       const blockRows = db.prepare(`
-        SELECT id, data
-        FROM photo_metadata_blocks
-      `).all() as Array<{ id: string; data: string }>;
+        SELECT b.id, b.data, a.width, a.height
+        FROM photo_metadata_blocks b
+        JOIN assets a ON a.id = b.asset_id
+      `).all() as Array<{ id: string; data: string; width: number | null; height: number | null }>;
       const updateMetadataBlock = db.prepare('UPDATE photo_metadata_blocks SET data = ? WHERE id = ?');
       for (const row of blockRows) {
-        const normalized = normalizePhotoMetadataBlockPayload(row.data);
+        const normalized = normalizePhotoMetadataBlockPayload(row.data, {
+          width: row.width,
+          height: row.height,
+        });
         if (normalized) {
           updateMetadataBlock.run(normalized, row.id);
         }
       }
 
       const projectionRows = db.prepare(`
-        SELECT asset_id, subjects_json, regions_of_interest_json
-        FROM photo_metadata_projection
-      `).all() as Array<{ asset_id: string; subjects_json: string | null; regions_of_interest_json: string | null }>;
+        SELECT p.asset_id, p.subjects_json, p.regions_of_interest_json, a.width, a.height
+        FROM photo_metadata_projection p
+        JOIN assets a ON a.id = p.asset_id
+      `).all() as Array<{
+        asset_id: string;
+        subjects_json: string | null;
+        regions_of_interest_json: string | null;
+        width: number | null;
+        height: number | null;
+      }>;
       const updateProjection = db.prepare(`
         UPDATE photo_metadata_projection
         SET subjects_json = ?, regions_of_interest_json = ?, updated_at = CURRENT_TIMESTAMP
@@ -136,8 +154,14 @@ function backfillStoredPhotoCoordinates(db: Database.Database): void {
       `);
       for (const row of projectionRows) {
         updateProjection.run(
-          normalizePhotoMetadataProjectionPayload(row.subjects_json, 'subjects') ?? row.subjects_json,
-          normalizePhotoMetadataProjectionPayload(row.regions_of_interest_json, 'regions') ?? row.regions_of_interest_json,
+          normalizePhotoMetadataProjectionPayload(row.subjects_json, 'subjects', {
+            width: row.width,
+            height: row.height,
+          }) ?? row.subjects_json,
+          normalizePhotoMetadataProjectionPayload(row.regions_of_interest_json, 'regions', {
+            width: row.width,
+            height: row.height,
+          }) ?? row.regions_of_interest_json,
           row.asset_id,
         );
       }

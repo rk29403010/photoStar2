@@ -258,19 +258,42 @@ function readManagedDevSession(worktreePath) {
     }
 }
 
-function runGitText(args, cwd) {
-    const result = runCommandSync({
+function runGit(args, cwd) {
+    return runCommandSync({
         command: gitExecutable,
         args,
         cwd,
         encoding: 'utf8',
     });
+}
+
+function runGitText(args, cwd) {
+    const result = runGit(args, cwd);
 
     if ((result.status ?? 1) !== 0) {
         throw new Error(`Git command failed: ${args.join(' ')}`);
     }
 
     return result.stdout.trim();
+}
+
+export function isBranchMergedIntoTargets(
+    { branch, cwd = workspaceRoot, targets = ['main', 'origin/main'] },
+    executeGit = runGit,
+) {
+    if (typeof branch !== 'string' || branch.trim() === '') {
+        return false;
+    }
+
+    return targets.some((target) => {
+        const targetRefResult = executeGit(['rev-parse', '--verify', target], cwd);
+        if ((targetRefResult.status ?? 1) !== 0) {
+            return false;
+        }
+
+        const mergeCheckResult = executeGit(['merge-base', '--is-ancestor', branch, target], cwd);
+        return (mergeCheckResult.status ?? 1) === 0;
+    });
 }
 
 export function collectThreadSnapshot(cwd = workspaceRoot) {
@@ -359,6 +382,15 @@ function handleClose(args, registryPath) {
     const existingEntry = registry.entries.find((candidate) => normalizePathForKey(candidate.cwd) === normalizePathForKey(snapshot.worktreePath));
     if (!existingEntry) {
         throw new Error('No registered thread found for this worktree. Run thread:register first.');
+    }
+
+    if (status === 'merged' && !isBranchMergedIntoTargets({
+        branch: snapshot.branch,
+        cwd: snapshot.worktreePath,
+    })) {
+        throw new Error(
+            `Cannot close ${snapshot.worktreeName} as merged because ${snapshot.branch} is not contained in main or origin/main.`,
+        );
     }
 
     const timestamp = new Date().toISOString();

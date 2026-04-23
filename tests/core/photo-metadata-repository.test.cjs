@@ -15,8 +15,8 @@ function createDatabaseManager(storagePath) {
 
 function seedAsset(db) {
     db.prepare(`
-        INSERT INTO assets (id, original_path, created_at)
-        VALUES ('asset-1', 'C:/photos/family-1968.jpg', '2026-03-27T09:00:00.000Z')
+        INSERT INTO assets (id, original_path, width, height, created_at)
+        VALUES ('asset-1', 'C:/photos/family-1968.jpg', 2000, 1200, '2026-03-27T09:00:00.000Z')
     `).run();
 }
 
@@ -344,6 +344,96 @@ test('database startup backfills legacy stored coordinate payloads into canonica
             assert.deepEqual(JSON.parse(migratedBlockRow.data).regions_of_interest[0].bounding_box, { x: 0.25, y: 0.5, width: 0.12, height: 0.11 });
             assert.deepEqual(JSON.parse(migratedProjectionRow.subjects_json)[0].bounding_box, { x: 0.7, y: 0.14, width: 0.18, height: 0.32 });
             assert.deepEqual(JSON.parse(migratedProjectionRow.regions_of_interest_json)[0].bounding_box, { x: 0.25, y: 0.5, width: 0.12, height: 0.11 });
+        } finally {
+            reopened.close();
+        }
+    } finally {
+        try {
+            dbManager.close();
+        } catch {
+            // already closed
+        }
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('database startup backfills obvious pixel-space photo metadata boxes using asset dimensions', async () => {
+    const tempDir = createTempDir();
+    const dbManager = createDatabaseManager(tempDir);
+
+    try {
+        const db = dbManager.getDb();
+        seedAsset(db);
+        db.prepare(`
+            INSERT INTO photo_metadata_blocks (id, asset_id, source_kind, provider, model_version, schema_version, data)
+            VALUES ('block-pixel-1', 'asset-1', 'gemini_flash_scout', 'google', 'gemini-2.5-flash-preview', 1, ?)
+        `).run(JSON.stringify({
+            ...buildMetadataBlock(),
+            subjects: [{
+                label: 'Subject1',
+                bounding_box: { x: 1200, y: 120, width: 500, height: 360 },
+                type: 'person',
+                location_desc: 'centre',
+                gender: null,
+                animal_type: null,
+                age_range: null,
+                dob_range: null,
+                emotion: null,
+                gaze: null,
+                features: null,
+                uniform: null,
+                suggested_names: [],
+            }],
+            regions_of_interest: [{
+                label: 'Bookshelf',
+                kind: 'object',
+                bounding_box: { x: 1000, y: 0, width: 1000, height: 1200 },
+                significance: null,
+            }],
+        }));
+        db.prepare(`
+            INSERT INTO photo_metadata_projection (
+                asset_id, subjects_json, regions_of_interest_json, created_at, updated_at
+            ) VALUES (
+                'asset-1', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+        `).run(
+            JSON.stringify([{ label: 'Subject1', bounding_box: { x: 1200, y: 120, width: 500, height: 360 } }]),
+            JSON.stringify([{ label: 'Bookshelf', kind: 'object', bounding_box: { x: 1000, y: 0, width: 1000, height: 1200 } }]),
+        );
+
+        dbManager.close();
+
+        const reopened = createDatabaseManager(tempDir);
+        try {
+            const reopenedDb = reopened.getDb();
+            const migratedBlockRow = reopenedDb.prepare(`
+                SELECT data FROM photo_metadata_blocks WHERE id = 'block-pixel-1'
+            `).get();
+            const migratedProjectionRow = reopenedDb.prepare(`
+                SELECT subjects_json, regions_of_interest_json
+                FROM photo_metadata_projection
+                WHERE asset_id = 'asset-1'
+            `).get();
+
+            assert.deepEqual(JSON.parse(migratedBlockRow.data).subjects[0].bounding_box, {
+                x: 0.6,
+                y: 0.1,
+                width: 0.25,
+                height: 0.3,
+            });
+            assert.deepEqual(JSON.parse(migratedBlockRow.data).regions_of_interest[0].bounding_box, {
+                x: 0.5,
+                y: 0,
+                width: 0.5,
+                height: 1,
+            });
+            assert.deepEqual(JSON.parse(migratedProjectionRow.subjects_json)[0].bounding_box, {
+                x: 0.6,
+                y: 0.1,
+                width: 0.25,
+                height: 0.3,
+            });
         } finally {
             reopened.close();
         }

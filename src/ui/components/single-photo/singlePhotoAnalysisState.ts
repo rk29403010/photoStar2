@@ -56,17 +56,39 @@ export function useAnalysisTracking(params: {
         setShowInfoPanel
     } = params;
     const completedAssetIdRef = useRef<string | null>(null);
+    const runStartAiMetadataRef = useRef<Asset['ai_metadata'] | undefined>(undefined);
+    const activeRunAssetIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (!analyzingAssetId) {
+            completedAssetIdRef.current = null;
+            runStartAiMetadataRef.current = undefined;
+            activeRunAssetIdRef.current = null;
+            return;
+        }
+
+        if (activeRunAssetIdRef.current === analyzingAssetId) {
+            return;
+        }
+
+        activeRunAssetIdRef.current = analyzingAssetId;
+        if (currentAssetId === analyzingAssetId) {
+            runStartAiMetadataRef.current = assetAiMetadata;
+        }
+    }, [
+        analyzingAssetId,
+        currentAssetId,
+        assetAiMetadata,
+    ]);
 
     useEffect(() => {
         if (!shouldCompleteAnalysisRun({
             analyzingAssetId,
             currentAssetId,
-            hasAiMetadata: Boolean(assetAiMetadata),
+            currentAiMetadata: assetAiMetadata,
+            runStartAiMetadata: runStartAiMetadataRef.current,
             completedAssetId: completedAssetIdRef.current,
         })) {
-            if (!analyzingAssetId) {
-                completedAssetIdRef.current = null;
-            }
             return;
         }
 
@@ -76,6 +98,7 @@ export function useAnalysisTracking(params: {
             setAnalysisState('idle');
             setAnalyzingAssetId(null);
             setAnalyzingJobId(null);
+            runStartAiMetadataRef.current = undefined;
             setShowInfoPanel(true);
         }, 0);
 

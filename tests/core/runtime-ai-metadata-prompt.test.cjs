@@ -11,6 +11,8 @@ function expectSharedMetadataFields(prompt) {
     assert.match(prompt, /"kind": "string \(signage, handwriting, clothing, vehicle, architecture, inscription, document, object, other\)"/i);
     assert.match(prompt, /"significance": "string or null"/i);
     assert.match(prompt, /"suggested_names": \["string"\]/i);
+    assert.match(prompt, /"source_image_index": "number or null/i);
+    assert.match(prompt, /"bounding_box_coordinate_space": "full_photo \| crop_local \| null"/i);
     assert.match(prompt, /"uniform": "string or null"/i);
     assert.match(prompt, /"features": "string or null"/i);
     assert.match(prompt, /"gaze": "string or null"/i);
@@ -20,8 +22,15 @@ function expectSharedMetadataFields(prompt) {
     assert.match(prompt, /origin is the top-left corner/i);
     assert.match(prompt, /Use a normalized 0 to 1000 grid/i);
     assert.match(prompt, /Do not use bottom-left coordinates/i);
+    assert.match(prompt, /Set "source_image_index" to the image part/i);
+    assert.match(prompt, /set "bounding_box_coordinate_space" to "crop_local"/i);
+    assert.match(prompt, /If multiple image parts are provided, only reference image parts that were actually sent/i);
+    assert.match(prompt, /only return exact digits when they are clearly legible/i);
     assert.match(prompt, /bounding box must tightly frame the visible head and face area/i);
     assert.match(prompt, /omit that subject instead of guessing a loose location box/i);
+    assert.match(prompt, /=== Bounding box coordinate contract/i);
+    assert.match(prompt, /thousandths of the full image/i);
+    assert.match(prompt, /Never derive coordinates from the preview raster/i);
 }
 
 test('buildGemini prompts request the same shared archival metadata fields', async () => {
@@ -47,4 +56,50 @@ test('buildGemini prompts request the same shared archival metadata fields', asy
     assert.match(proPrompt, /fuller narrative/i);
     assert.match(flashPrompt, /short one-line summary/i);
     assert.match(flashPrompt, /fuller narrative/i);
+});
+
+test('buildGemini tiled prompts include crop bounds while keeping full-photo normalized coordinates', async () => {
+    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/aiMetadata/geminiPrompts.js');
+
+    const prompt = buildGeminiFlashPrompt({
+        filename: 'Group Photo.jpg',
+        exifDataString: '{}',
+        imageStrategy: 'overview_plus_tiles',
+        tileCoordinateInstructions: [
+            'Image 2 covers the full-photo pixel region left=0, top=0, width=1000, height=600.',
+            'Image 3 covers the full-photo pixel region left=1000, top=0, width=1000, height=600.',
+        ],
+    });
+
+    assert.match(prompt, /Image 2 covers the full-photo pixel region left=0, top=0, width=1000, height=600\./i);
+    assert.match(prompt, /return every bounding box in full-photo normalized 0 to 1000 coordinates/i);
+    assert.doesNotMatch(prompt, /crop-local coordinates are allowed/i);
+});
+
+test('buildGemini overview-only prompts constrain source image references to the overview image', async () => {
+    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/aiMetadata/geminiPrompts.js');
+
+    const prompt = buildGeminiFlashPrompt({
+        filename: 'Doorway Portrait.jpg',
+        exifDataString: '{}',
+        imageStrategy: 'overview_only',
+    });
+
+    assert.match(prompt, /every "source_image_index" must be 1 or null/i);
+    assert.match(prompt, /Do not reference image parts 2 through 5/i);
+    assert.match(prompt, /Set "bounding_box_coordinate_space" to the string "full_photo"/i);
+});
+
+test('buildGemini prompts repeat EXIF-oriented pixel dimensions in the coordinate contract when provided', async () => {
+    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/aiMetadata/geminiPrompts.js');
+
+    const prompt = buildGeminiFlashPrompt({
+        filename: 'b3s8_09.jpg',
+        exifDataString: '{}',
+        imageStrategy: 'overview_only',
+        originalImagePixelWidth: 2883,
+        originalImagePixelHeight: 5151,
+    });
+
+    assert.match(prompt, /2883 wide × 5151 tall/i);
 });

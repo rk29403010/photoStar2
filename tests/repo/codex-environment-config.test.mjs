@@ -23,7 +23,8 @@ test('Codex worktree scripts rely on Codex source and worktree environment varia
 
     assert.match(debugScript, /CODEX_WORKTREE_PATH/);
     assert.match(debugScript, /CODEX_SOURCE_TREE_PATH/);
-    assert.match(debugScript, /npm\.cmd run thread:start-dev -- --script dev:desktop-runtime/);
+    assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-dev-session\.js --foreground --force-foreground --script dev:desktop-runtime/);
+    assert.doesNotMatch(debugScript, /npm\.cmd run thread:start-dev/);
     assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-runtime-url\.js/);
     assert.match(debugScript, /echo Debug URL: %RUNTIME_URL%/);
 

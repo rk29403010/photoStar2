@@ -21,6 +21,14 @@ const SUPPORTED_MANAGED_SCRIPTS = new Set([
     'dev:desktop-runtime:debug',
 ]);
 
+export function shouldStartManagedDevSessionInForeground({
+    foreground = false,
+    stdoutIsTTY = process.stdout.isTTY,
+    forceForeground = false,
+} = {}) {
+    return foreground && (forceForeground || Boolean(stdoutIsTTY));
+}
+
 function parseArgs(argv) {
     const parsed = { _: [] };
 
@@ -115,9 +123,15 @@ function runDevSessionCommand(command, script, cwd = process.cwd()) {
     }
 }
 
-function startManagedDevSession(script, cwd = process.cwd()) {
+function startManagedDevSession(script, options = {}) {
+    const { cwd = process.cwd(), foreground = false, forceForeground = false } = options;
     runDevSessionCommand('pause', null, cwd);
+    if (shouldStartManagedDevSessionInForeground({ foreground, forceForeground })) {
+        return { mode: 'foreground' };
+    }
+
     runDevSessionCommand('resume', script, cwd);
+    return { mode: 'background' };
 }
 
 function stopManagedDevSession(cwd = process.cwd()) {
@@ -238,8 +252,14 @@ function main() {
     const script = ensureSupportedScript(
         typeof args.script === 'string' ? args.script.trim() : 'dev:desktop-runtime',
     );
+    const foreground = args.foreground === true;
+    const forceForeground = args['force-foreground'] === true;
 
-    startManagedDevSession(script, process.cwd());
+    const startMode = startManagedDevSession(script, {
+        cwd: process.cwd(),
+        foreground,
+        forceForeground,
+    });
     const result = updateCurrentThreadEntry({
         task: typeof args.task === 'string' ? args.task : '',
         owner: typeof args.owner === 'string' ? args.owner : '',
@@ -249,6 +269,20 @@ function main() {
 
     console.log(`Started ${script} for ${result.worktreeName} as "${result.task}".`);
     console.log(result.sessionNote);
+    if (startMode.mode === 'foreground') {
+        const runArgs = [
+            path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'dev-session.js'),
+            'run',
+            script,
+        ];
+        const runResult = runCommandSync({
+            command: nodeExecutable,
+            args: runArgs,
+            cwd: process.cwd(),
+            stdio: 'inherit',
+        });
+        process.exit(runResult.status ?? 0);
+    }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

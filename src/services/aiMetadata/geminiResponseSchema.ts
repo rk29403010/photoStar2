@@ -1,5 +1,7 @@
 import { SchemaType, type ResponseSchema } from '@google/generative-ai';
 
+export type GeminiMetadataImageStrategy = 'overview_only' | 'overview_plus_tiles';
+
 function requiredString(description: string, nullable = false): ResponseSchema {
     return {
         type: SchemaType.STRING,
@@ -15,16 +17,45 @@ function requiredNumber(description: string): ResponseSchema {
     };
 }
 
+function optionalNumber(description: string): ResponseSchema {
+    return {
+        type: SchemaType.NUMBER,
+        description,
+        nullable: true,
+    };
+}
+
 function createBoundingBoxSchema(): ResponseSchema {
+    const axisRule = 'Use thousandths of the full original upright photo (0=left/top edge, 1000=right/bottom edge along that axis). Values must stay within 0..1000 inclusive; x+width and y+height must not exceed 1000. Never use the downscaled JPEG pixel grid.';
     return {
         type: SchemaType.OBJECT,
         properties: {
-            x: requiredNumber('Left position of the subject or region in the image.'),
-            y: requiredNumber('Top position of the subject or region in the image.'),
-            width: requiredNumber('Width of the subject or region in the image.'),
-            height: requiredNumber('Height of the subject or region in the image.'),
+            x: requiredNumber(`Left edge in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
+            y: requiredNumber(`Top edge in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
+            width: requiredNumber(`Width in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
+            height: requiredNumber(`Height in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
         },
         required: ['x', 'y', 'width', 'height'],
+    };
+}
+
+function createBoundingBoxCoordinateSpaceSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
+    if (imageStrategy === 'overview_only') {
+        return {
+            type: SchemaType.STRING,
+            format: 'enum',
+            enum: ['full_photo'],
+            description: 'Always full_photo when only the overview image is attached.',
+            nullable: true,
+        };
+    }
+
+    return {
+        type: SchemaType.STRING,
+        format: 'enum',
+        enum: ['full_photo', 'crop_local'],
+        description: 'full_photo: thousandths of the full original. crop_local: thousandths of the referenced crop image (must set source_image_index to 2-5).',
+        nullable: true,
     };
 }
 
@@ -74,12 +105,14 @@ function createAuthenticitySchema(): ResponseSchema {
     };
 }
 
-function createSubjectSchema(): ResponseSchema {
+function createSubjectSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
     return {
         type: SchemaType.OBJECT,
         properties: {
             label: requiredString('Unique subject label such as Subject1.'),
             bounding_box: createBoundingBoxSchema(),
+            source_image_index: optionalNumber('Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.'),
+            bounding_box_coordinate_space: createBoundingBoxCoordinateSpaceSchema(imageStrategy),
             type: requiredString('Subject type such as person or pet.'),
             location_desc: requiredString('Relative position of the subject within the image.'),
             gender: requiredString('Estimated gender, or unknown when unclear.', true),
@@ -114,20 +147,22 @@ function createSubjectSchema(): ResponseSchema {
     };
 }
 
-function createRegionOfInterestSchema(): ResponseSchema {
+function createRegionOfInterestSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
     return {
         type: SchemaType.OBJECT,
         properties: {
             label: requiredString('Short label for the region of interest.'),
             kind: requiredString('Region kind such as signage, handwriting, clothing, vehicle, architecture, or object.'),
             bounding_box: createBoundingBoxSchema(),
+            source_image_index: optionalNumber('Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.'),
+            bounding_box_coordinate_space: createBoundingBoxCoordinateSpaceSchema(imageStrategy),
             significance: requiredString('Why the region matters for archive analysis.', true),
         },
         required: ['label', 'kind', 'bounding_box', 'significance'],
     };
 }
 
-function createBaseResponseSchema(): ResponseSchema {
+function createBaseResponseSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
     return {
         type: SchemaType.OBJECT,
         properties: {
@@ -139,12 +174,12 @@ function createBaseResponseSchema(): ResponseSchema {
             subjects: {
                 type: SchemaType.ARRAY,
                 description: 'Detected people or pets in the image.',
-                items: createSubjectSchema(),
+                items: createSubjectSchema(imageStrategy),
             },
             regions_of_interest: {
                 type: SchemaType.ARRAY,
                 description: 'Important detail regions that matter for archive research.',
-                items: createRegionOfInterestSchema(),
+                items: createRegionOfInterestSchema(imageStrategy),
             },
             keywords: {
                 type: SchemaType.ARRAY,
@@ -183,14 +218,18 @@ function createBaseResponseSchema(): ResponseSchema {
     };
 }
 
-function buildGeminiResponseSchema(): ResponseSchema {
-    return createBaseResponseSchema();
+function buildGeminiResponseSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
+    return createBaseResponseSchema(imageStrategy);
 }
 
-export function buildGeminiFlashResponseSchema(): ResponseSchema {
-    return buildGeminiResponseSchema();
+export function buildGeminiFlashResponseSchema(
+    imageStrategy: GeminiMetadataImageStrategy = 'overview_plus_tiles',
+): ResponseSchema {
+    return buildGeminiResponseSchema(imageStrategy);
 }
 
-export function buildGeminiProResponseSchema(): ResponseSchema {
-    return buildGeminiResponseSchema();
+export function buildGeminiProResponseSchema(
+    imageStrategy: GeminiMetadataImageStrategy = 'overview_plus_tiles',
+): ResponseSchema {
+    return buildGeminiResponseSchema(imageStrategy);
 }

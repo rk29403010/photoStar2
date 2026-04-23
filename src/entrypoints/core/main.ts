@@ -57,6 +57,8 @@ let workflowRuntime: {
     orchestrator: WorkflowRuntimeOrchestrator;
 } | null = null;
 let startupError: Error | null = null;
+const pendingAssetRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const ASSET_REFRESH_DEBOUNCE_MS = 75;
 
 function initialiseCoreServices() {
     const nextDbManager = new DatabaseManager(LIB_DIR);
@@ -282,11 +284,9 @@ function buildUpdatedAsset(row: AssetUpdatedRow) {
     };
 }
 
-function handleAssetUpdatedEvent(event: DomainEvent) {
-    if (event.type !== 'AssetUpdated') {return;}
-
+function flushAssetUpdatedEvent(assetId: string) {
     try {
-        const row = loadUpdatedAssetRow(event.assetId);
+        const row = loadUpdatedAssetRow(assetId);
         if (!row) {return;}
 
         const asset = buildUpdatedAsset(row);
@@ -295,6 +295,20 @@ function handleAssetUpdatedEvent(event: DomainEvent) {
     } catch (err) {
         console.error('[AssetUpdated] Failed to re-query asset:', err);
     }
+}
+
+function handleAssetUpdatedEvent(event: DomainEvent) {
+    if (event.type !== 'AssetUpdated') {return;}
+
+    const existingTimer = pendingAssetRefreshTimers.get(event.assetId);
+    if (existingTimer) {
+        clearTimeout(existingTimer);
+    }
+
+    pendingAssetRefreshTimers.set(event.assetId, setTimeout(() => {
+        pendingAssetRefreshTimers.delete(event.assetId);
+        flushAssetUpdatedEvent(event.assetId);
+    }, ASSET_REFRESH_DEBOUNCE_MS));
 }
 
 // Define the schema for incoming WebSocket commands

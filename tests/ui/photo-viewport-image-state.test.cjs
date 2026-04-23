@@ -41,6 +41,69 @@ test('resolveViewportStageAsset falls back to the requested asset when no commit
     );
 });
 
+test('viewport image transitions ignore duplicate pending requests for the same asset image', async () => {
+    const { shouldQueueViewportImageTransition } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
+
+    assert.equal(shouldQueueViewportImageTransition({
+        activeAssetId: 'asset-1',
+        requestedAssetId: 'asset-2',
+        activeImageSrc: 'active.jpg',
+        requestedImageSrc: 'requested.jpg',
+        pendingAssetId: 'asset-2',
+        pendingImageSrc: 'requested.jpg',
+    }), false);
+});
+
+test('viewport image transitions still start when the requested asset image changes', async () => {
+    const { shouldQueueViewportImageTransition } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
+
+    assert.equal(shouldQueueViewportImageTransition({
+        activeAssetId: 'asset-1',
+        requestedAssetId: 'asset-2',
+        activeImageSrc: 'active.jpg',
+        requestedImageSrc: 'requested.jpg',
+        pendingAssetId: 'asset-2',
+        pendingImageSrc: 'older-request.jpg',
+    }), true);
+});
+
+test('viewport image transitions stop once the requested image is already active', async () => {
+    const { shouldQueueViewportImageTransition } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
+
+    assert.equal(shouldQueueViewportImageTransition({
+        activeAssetId: 'asset-2',
+        requestedAssetId: 'asset-2',
+        activeImageSrc: 'requested.jpg',
+        requestedImageSrc: 'requested.jpg',
+        pendingAssetId: null,
+        pendingImageSrc: null,
+    }), false);
+});
+
+test('repeated viewport transition requests for the same asset image can be suppressed while a preload is already in flight', async () => {
+    const {
+        getViewportImageTransitionKey,
+        shouldSuppressRepeatedViewportTransition,
+    } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
+
+    const transitionKey = getViewportImageTransitionKey({
+        requestedAssetId: 'asset-2',
+        requestedImageSrc: 'requested.jpg',
+    });
+
+    assert.equal(transitionKey, 'asset-2::requested.jpg');
+    assert.equal(shouldSuppressRepeatedViewportTransition({
+        lastRequestedTransitionKey: transitionKey,
+        requestedAssetId: 'asset-2',
+        requestedImageSrc: 'requested.jpg',
+    }), true);
+    assert.equal(shouldSuppressRepeatedViewportTransition({
+        lastRequestedTransitionKey: transitionKey,
+        requestedAssetId: 'asset-2',
+        requestedImageSrc: 'next-request.jpg',
+    }), false);
+});
+
 test('shouldShowViewportFaceOverlays waits for the displayed image to finish loading', async () => {
     const { shouldShowViewportFaceOverlays } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
 

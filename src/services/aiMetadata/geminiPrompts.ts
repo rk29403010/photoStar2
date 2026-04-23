@@ -3,17 +3,69 @@ export interface GeminiPromptInput {
     exifDataString: string;
     imageStrategy?: 'overview_only' | 'overview_plus_tiles';
     approvedTagVocabulary?: string[];
+    tileCoordinateInstructions?: string[];
+    /** Oriented pixel width/height of the full original (matches sharp().rotate() / attached overview). */
+    originalImagePixelWidth?: number | null;
+    originalImagePixelHeight?: number | null;
 }
 
-function buildImagePartInstructions(imageStrategy: GeminiPromptInput['imageStrategy']): string {
-    if (imageStrategy !== 'overview_plus_tiles') {
-        return 'The prompt includes one image representing the original photo.';
+function buildImagePartInstructions(params: {
+    imageStrategy: GeminiPromptInput['imageStrategy'];
+    tileCoordinateInstructions?: string[];
+}): string {
+    if (params.imageStrategy !== 'overview_plus_tiles') {
+        return `The prompt includes one image representing the original photo.
+Because only one image is provided, every "source_image_index" must be 1 or null.
+Do not reference image parts 2 through 5 in this request.`;
     }
+
+    const tileCoordinateInstructions = params.tileCoordinateInstructions?.length
+        ? `\n${params.tileCoordinateInstructions.join('\n')}`
+        : '';
 
     return `Image 1 is the full overview of the original photo.
 Images 2 through 5 are detail crops from the same original photo.
 Treat all image parts as coordinated views of one photo, not as separate unrelated photos.
-Use the overview for whole-scene context and the crops for local detail such as faces, clothing, signage, inscriptions, or small background clues.`;
+Use the overview for whole-scene context and the crops for local detail such as faces, clothing, signage, inscriptions, or small background clues.${tileCoordinateInstructions}
+Each crop description gives original-photo pixel bounds for reference only.
+Even when using a crop, return every bounding box in full-photo normalized 0 to 1000 coordinates.`;
+}
+
+function buildCoordinateContractSection(params: {
+    imageStrategy: GeminiPromptInput['imageStrategy'];
+    originalImagePixelWidth?: number | null;
+    originalImagePixelHeight?: number | null;
+}): string {
+    const width = params.originalImagePixelWidth;
+    const height = params.originalImagePixelHeight;
+    const hasDimensions = typeof width === 'number'
+        && typeof height === 'number'
+        && Number.isFinite(width)
+        && Number.isFinite(height)
+        && width > 0
+        && height > 0;
+
+    const dimensionLine = hasDimensions
+        ? `Full original photo pixel size after EXIF orientation (same content as the attached overview): ${Math.round(width)} wide × ${Math.round(height)} tall.`
+        : 'Full original photo width and height in pixels could not be read; treat the attached overview as the complete original frame.';
+
+    const singleImageRules = params.imageStrategy !== 'overview_plus_tiles'
+        ? `Only one overview image is attached. For every subject and every region_of_interest entry:
+- Set "bounding_box_coordinate_space" to the string "full_photo" (never "crop_local").
+- Set "source_image_index" to 1 or null (never 2–5).
+`
+        : '';
+
+    return `=== Bounding box coordinate contract (mandatory) ===
+${dimensionLine}
+${singleImageRules}
+Global rules for every bounding_box:
+- One axis-aligned system for the entire original upright photo. Origin (0,0) is the top-left of the visible original; x increases right, y increases down.
+- Express x, y, width, and height as thousandths of the full image: use numbers from 0 through 1000 inclusive where 0 is the left or top edge and 1000 corresponds to the right or bottom edge along that axis (linear fractions of width for x/width and of height for y/height).
+- The attached JPEG(s) may be downscaled for upload. Never derive coordinates from the preview raster dimensions. Map mentally from what you see in the preview back to the full original frame described above.
+- Use the same full_photo grid for every subject and ROI so boxes stay aligned on long, narrow, or very large originals.
+- Each box must match the visible feature in the photo; do not place different subjects using different implicit canvases or mixed coordinate origins.
+`;
 }
 
 function buildSharedMetadataSchema(): string {
@@ -23,10 +75,16 @@ Prefer Unknown, null, or empty arrays over guessing.
 Use the full original photo as the coordinate space for every bounding box.
 The origin is the top-left corner of the full original photo.
 Use a normalized 0 to 1000 grid for bounding boxes, where x and y are the top-left corner and width/height are box size.
-Do not use bottom-left coordinates, cropped-image coordinates, or pixel units.
+Do not use bottom-left coordinates, cropped-image coordinates, or raw pixel counts from the downscaled attachment.
+Set "source_image_index" to the image part that most directly supports each subject or region.
+Set "bounding_box_coordinate_space" to "full_photo" when the box already uses full original photo coordinates.
+If you must estimate the box inside a detail crop instead, set "bounding_box_coordinate_space" to "crop_local" and use that crop's own normalized 0 to 1000 grid.
+If only one image is provided, "source_image_index" must be 1 or null.
+If multiple image parts are provided, only reference image parts that were actually sent.
 For person subjects, the bounding box must tightly frame the visible head and face area, including hair if visible.
 Do not use a rough row location, empty background, windows, torso-only boxes, or full-body boxes when a face is visible.
 If the face is too small or unclear to box tightly, omit that subject instead of guessing a loose location box.
+For signage or house numbers, only return exact digits when they are clearly legible. If uncertain, use a generic label such as "House number plaque" instead of inventing digits.
 
 {
   "type": "string (Landscape, Group portrait, Family portrait, Document, Newspaper clipping, Drawing, Painting, Selfie, Gravestone)",
@@ -44,6 +102,8 @@ If the face is too small or unclear to box tightly, omit that subject instead of
     {
       "label": "string (e.g. Subject1, unique per subject)",
       "bounding_box": { "x": number, "y": number, "width": number, "height": number },
+      "source_image_index": "number or null (1 for overview, 2-5 for detail crop)",
+      "bounding_box_coordinate_space": "full_photo | crop_local | null",
       "type": "person | pet",
       "location_desc": "string (e.g. '2nd from left')",
       "gender": "male | female | other | unknown",
@@ -62,6 +122,8 @@ If the face is too small or unclear to box tightly, omit that subject instead of
       "label": "string",
       "kind": "string (signage, handwriting, clothing, vehicle, architecture, inscription, document, object, other)",
       "bounding_box": { "x": number, "y": number, "width": number, "height": number },
+      "source_image_index": "number or null (1 for overview, 2-5 for detail crop)",
+      "bounding_box_coordinate_space": "full_photo | crop_local | null",
       "significance": "string or null"
     }
   ],
@@ -87,6 +149,9 @@ function buildPromptBody(params: {
     analysisPreamble: string;
     imageStrategy?: GeminiPromptInput['imageStrategy'];
     approvedTagVocabulary?: string[];
+    tileCoordinateInstructions?: string[];
+    originalImagePixelWidth?: number | null;
+    originalImagePixelHeight?: number | null;
 }): string {
     const approvedVocabulary = params.approvedTagVocabulary ?? [];
     const approvedVocabularyInstructions = approvedVocabulary.length > 0
@@ -110,30 +175,61 @@ ${params.analysisPreamble}
 Context metadata:
 - Filename: ${params.filename}
 - EXIF Data: ${params.exifDataString || 'none'}
-${buildImagePartInstructions(params.imageStrategy)}
+${buildImagePartInstructions({
+    imageStrategy: params.imageStrategy,
+    tileCoordinateInstructions: params.tileCoordinateInstructions,
+})}
+
+${buildCoordinateContractSection({
+    imageStrategy: params.imageStrategy,
+    originalImagePixelWidth: params.originalImagePixelWidth,
+    originalImagePixelHeight: params.originalImagePixelHeight,
+})}
 
 ${buildSharedMetadataSchema()}
 
 ${approvedVocabularyInstructions}`;
 }
 
-export function buildGeminiProPrompt({ filename, exifDataString, imageStrategy, approvedTagVocabulary }: GeminiPromptInput): string {
+export function buildGeminiProPrompt({
+    filename,
+    exifDataString,
+    imageStrategy,
+    approvedTagVocabulary,
+    tileCoordinateInstructions,
+    originalImagePixelWidth,
+    originalImagePixelHeight,
+}: GeminiPromptInput): string {
     return buildPromptBody({
         filename,
         exifDataString,
         imageStrategy,
         approvedTagVocabulary,
+        tileCoordinateInstructions,
+        originalImagePixelWidth,
+        originalImagePixelHeight,
         intro: 'You are an expert photo archivist and AI analyst with access to extended thinking.',
         analysisPreamble: 'Use step-by-step reasoning to carefully analyse this image, then respond ONLY with valid JSON.',
     });
 }
 
-export function buildGeminiFlashPrompt({ filename, exifDataString, imageStrategy, approvedTagVocabulary }: GeminiPromptInput): string {
+export function buildGeminiFlashPrompt({
+    filename,
+    exifDataString,
+    imageStrategy,
+    approvedTagVocabulary,
+    tileCoordinateInstructions,
+    originalImagePixelWidth,
+    originalImagePixelHeight,
+}: GeminiPromptInput): string {
     return buildPromptBody({
         filename,
         exifDataString,
         imageStrategy,
         approvedTagVocabulary,
+        tileCoordinateInstructions,
+        originalImagePixelWidth,
+        originalImagePixelHeight,
         intro: 'You are a photo archivist.',
         analysisPreamble: 'Analyse this image with careful archival judgement and return ONLY valid JSON.',
     });

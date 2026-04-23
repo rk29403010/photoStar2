@@ -4,7 +4,10 @@ import { createTagRepository } from '../tags/tagRepository';
 import type { PhotoMetadataProjectionInput, PhotoMetadataProjectionRow } from '../photoMetadata/repository';
 import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 import type { PhotoMetadataBlock } from '../photoMetadata/types';
-import { normalizePhotoMetadataBlockBoxes } from '../photoMetadata/coordinateNormalization';
+import {
+    normalizePhotoMetadataBlockBoxes,
+    type PhotoMetadataCoordinateSpace,
+} from '../photoMetadata/coordinateNormalization';
 
 type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
 type MetadataSourceRank = 0 | 1 | 2;
@@ -159,11 +162,12 @@ export function persistPhotoMetadataEvidence(params: {
     provider: string;
     modelVersion: string;
     metadataBlock: PhotoMetadataBlock;
+    imageDimensions?: PhotoMetadataCoordinateSpace;
     approvedKeywords?: string[];
     tagProposals?: string[];
 }): string {
     const repository = createPhotoMetadataRepository({ dbManager: params.dbManager });
-    const normalizedMetadataBlock = normalizePhotoMetadataBlockBoxes(params.metadataBlock);
+    const normalizedMetadataBlock = normalizePhotoMetadataBlockBoxes(params.metadataBlock, params.imageDimensions);
     const blockId = repository.insertMetadataBlock({
         assetId: params.assetId,
         sourceKind: params.sourceKind,

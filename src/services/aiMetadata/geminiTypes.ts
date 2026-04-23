@@ -14,6 +14,8 @@ export type GeminiResponse = PhotoMetadataBlock & {
 export interface ParsedAiMetadataRow {
     id: string;
     original_path: string;
+    width: number | null;
+    height: number | null;
     sensitivity_status: string | null;
     sensitivity_score: number | null;
 }

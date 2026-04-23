@@ -2,6 +2,7 @@ import type React from 'react';
 import type { Asset } from '@contracts/core';
 import { getNextZoomScale } from './zoomMath';
 import { DEFAULT_INFO_PANEL_WIDTH, getTopBarStyle } from './singlePhotoOverlayLayout';
+import { getAnalysisStatusContainerStyle } from './singlePhotoAnalysisStatus';
 
 interface TopBarProps {
     asset: Asset;
@@ -9,7 +10,7 @@ interface TopBarProps {
     currentIndex: number;
     showActionMenu: boolean;
     setShowActionMenu: (show: boolean) => void;
-    analysisStatus: React.ReactNode;
+    persistentAnalysisStatus: React.ReactNode;
     actionMenu: React.ReactNode;
     onClose: () => void;
     controlsVisible: boolean;
@@ -54,34 +55,47 @@ export const TopBar: React.FC<TopBarProps> = ({
     currentIndex,
     showActionMenu,
     setShowActionMenu,
-    analysisStatus,
+    persistentAnalysisStatus,
     actionMenu,
     onClose,
     controlsVisible,
     showInfoPanel,
     getOverlayVisibilityStyle,
 }) => (
-    <div
-        style={getTopBarStyle({
-            controlsVisible,
-            showInfoPanel,
-            infoPanelWidth: DEFAULT_INFO_PANEL_WIDTH,
-            visibilityStyle: getOverlayVisibilityStyle(controlsVisible),
-        })}
-        onClick={(event) => {
-            event.stopPropagation();
-            if (showActionMenu) {
-                setShowActionMenu(false);
-            }
-        }}
-    >
-        <div style={{ fontSize: '13px', opacity: 0.6, display: 'flex', alignItems: 'center' }}>{currentIndex + 1} / {assetsLength}</div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            {analysisStatus}
-            {actionMenu}
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', fontSize: '22px', cursor: 'pointer', opacity: 0.7, lineHeight: 1, padding: '2px 4px' }}>✕</button>
+    <>
+        <div
+            style={getTopBarStyle({
+                controlsVisible,
+                showInfoPanel,
+                infoPanelWidth: DEFAULT_INFO_PANEL_WIDTH,
+                visibilityStyle: getOverlayVisibilityStyle(controlsVisible),
+            })}
+            onClick={(event) => {
+                event.stopPropagation();
+                if (showActionMenu) {
+                    setShowActionMenu(false);
+                }
+            }}
+        >
+            <div style={{ fontSize: '13px', opacity: 0.6, display: 'flex', alignItems: 'center' }}>{currentIndex + 1} / {assetsLength}</div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {actionMenu}
+                <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', fontSize: '22px', cursor: 'pointer', opacity: 0.7, lineHeight: 1, padding: '2px 4px' }}>✕</button>
+            </div>
         </div>
-    </div>
+        {persistentAnalysisStatus ? (
+            <div
+                style={getAnalysisStatusContainerStyle({
+                    controlsVisible,
+                    showInfoPanel,
+                    infoPanelWidth: DEFAULT_INFO_PANEL_WIDTH,
+                })}
+                onClick={(event) => event.stopPropagation()}
+            >
+                {persistentAnalysisStatus}
+            </div>
+        ) : null}
+    </>
 );
 
 export const ZoomBar: React.FC<ZoomBarProps> = ({

@@ -59,12 +59,15 @@ test('analysis workflow tracking ignores non-failed runs', async () => {
 
 test('analysis completion guard only resolves a successful run once per asset', async () => {
     const { shouldCompleteAnalysisRun } = await import('../../src/ui/components/single-photo/singlePhotoAnalysisTracking.ts');
+    const firstResult = { summary: 'first' };
+    const refreshedResult = { summary: 'second' };
 
     assert.equal(
         shouldCompleteAnalysisRun({
             analyzingAssetId: 'asset-1',
             currentAssetId: 'asset-1',
-            hasAiMetadata: true,
+            currentAiMetadata: refreshedResult,
+            runStartAiMetadata: undefined,
             completedAssetId: null,
         }),
         true,
@@ -74,7 +77,8 @@ test('analysis completion guard only resolves a successful run once per asset', 
         shouldCompleteAnalysisRun({
             analyzingAssetId: 'asset-1',
             currentAssetId: 'asset-1',
-            hasAiMetadata: true,
+            currentAiMetadata: refreshedResult,
+            runStartAiMetadata: undefined,
             completedAssetId: 'asset-1',
         }),
         false,
@@ -84,9 +88,32 @@ test('analysis completion guard only resolves a successful run once per asset', 
         shouldCompleteAnalysisRun({
             analyzingAssetId: 'asset-1',
             currentAssetId: 'asset-2',
-            hasAiMetadata: true,
+            currentAiMetadata: refreshedResult,
+            runStartAiMetadata: undefined,
             completedAssetId: null,
         }),
         false,
+    );
+
+    assert.equal(
+        shouldCompleteAnalysisRun({
+            analyzingAssetId: 'asset-1',
+            currentAssetId: 'asset-1',
+            currentAiMetadata: firstResult,
+            runStartAiMetadata: firstResult,
+            completedAssetId: null,
+        }),
+        false,
+    );
+
+    assert.equal(
+        shouldCompleteAnalysisRun({
+            analyzingAssetId: 'asset-1',
+            currentAssetId: 'asset-1',
+            currentAiMetadata: refreshedResult,
+            runStartAiMetadata: firstResult,
+            completedAssetId: null,
+        }),
+        true,
     );
 });

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { countSubstantiveLines } from '../../tooling/scripts/repo/complexity-report.js';
 import { makeWatchlistRow } from '../../tooling/scripts/repo/boundary-watchlist.js';
 import {
+    buildLegacyManagedProcessCleanupInvocation,
+    buildManagedPortCleanupInvocation,
     buildManagedResumeInvocation,
     buildManagedSpawnInvocation,
     createManagedDevEnv,
@@ -99,6 +101,43 @@ test('managed dev session env injects resolved per-worktree ports', () => {
     assert.notEqual(managedEnv.VITE_BACKEND_PORT, '5174');
 });
 
+test('managed dev session cleanup targets the resolved runtime ports on Windows', () => {
+    const env = createManagedDevEnv({}, workspaceRoot);
+
+    assert.deepEqual(
+        buildManagedPortCleanupInvocation({
+            env,
+            cwd: workspaceRoot,
+            platform: 'win32',
+        }),
+        {
+            command: 'powershell.exe',
+            args: [
+                '-NoProfile',
+                '-Command',
+                '$pids=(Get-NetTCPConnection -LocalPort 5173,5174 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }',
+            ],
+        },
+    );
+});
+
+test('managed dev session cleanup targets legacy npm wrapper processes on Windows', () => {
+    assert.deepEqual(
+        buildLegacyManagedProcessCleanupInvocation({
+            cwd: workspaceRoot,
+            platform: 'win32',
+        }),
+        {
+            command: 'powershell.exe',
+            args: [
+                '-NoProfile',
+                '-Command',
+                "$pids=(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.CommandLine -like '*C:\\Users\\robin\\Projects\\photoStar2*concurrently.js*') -or ($_.CommandLine -like '*npm-cli.js*run dev:core*') -or ($_.CommandLine -like '*npm-cli.js*run dev:web:watch*') } | Select-Object -ExpandProperty ProcessId -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }",
+            ],
+        },
+    );
+});
+
 test('managed dev session uses cmd.exe wrapping for Windows command launchers', () => {
     const env = createManagedDevEnv({}, workspaceRoot);
 
@@ -181,13 +220,11 @@ test('managed dev session background resume launches the long-lived script direc
 
 test('managed dev session routes web logs through the prefixed watcher wrapper', () => {
     assert.match(
-        getManagedScriptConfig('dev:desktop-runtime').args[5],
-        /^npm run dev:web:watch:desktop$/,
+        getManagedScriptConfig('dev:desktop-runtime').args[0],
+        /managed-dev-runtime\.js$/,
     );
-    assert.match(
-        getManagedScriptConfig('dev:desktop-runtime:debug').args[5],
-        /^npm run dev:web:watch:debug$/,
-    );
+    assert.deepEqual(getManagedScriptConfig('dev:desktop-runtime').args.slice(1), ['--profile', 'desktop']);
+    assert.deepEqual(getManagedScriptConfig('dev:desktop-runtime:debug').args.slice(1), ['--profile', 'debug']);
 });
 
 test('package scripts expose faster quality, benchmarking, and dev pause controls', async () => {

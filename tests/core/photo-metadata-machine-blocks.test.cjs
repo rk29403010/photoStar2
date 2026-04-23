@@ -36,11 +36,25 @@ async function createImage(tempDir) {
     return imagePath;
 }
 
-function seedAsset(db, imagePath) {
+async function createLargeImage(tempDir) {
+    const sharp = (await import('sharp')).default;
+    const imagePath = path.join(tempDir, 'large-photo.png');
+    await sharp({
+        create: {
+            width: 2000,
+            height: 1200,
+            channels: 3,
+            background: { r: 80, g: 110, b: 140 },
+        },
+    }).png().toFile(imagePath);
+    return imagePath;
+}
+
+function seedAsset(db, imagePath, dimensions = { width: null, height: null }) {
     db.prepare(`
-        INSERT INTO assets (id, original_path, created_at)
-        VALUES ('asset-1', ?, '2026-03-27T09:00:00.000Z')
-    `).run(imagePath);
+        INSERT INTO assets (id, original_path, width, height, created_at)
+        VALUES ('asset-1', ?, ?, ?, '2026-03-27T09:00:00.000Z')
+    `).run(imagePath, dimensions.width, dimensions.height);
 }
 
 function buildGeminiResponse(overrides = {}) {
@@ -97,6 +111,32 @@ function buildGeminiResponse(overrides = {}) {
         },
         ...overrides,
     };
+}
+
+function buildPixelSpaceGeminiResponse() {
+    return buildGeminiResponse({
+        subjects: [{
+            label: 'Subject1',
+            bounding_box: { x: 1200, y: 120, width: 500, height: 360 },
+            type: 'person',
+            location_desc: 'centre',
+            gender: 'male',
+            animal_type: null,
+            age_range: 'adult',
+            dob_range: '1930s',
+            emotion: 'neutral',
+            gaze: 'towards camera',
+            features: 'dark jacket',
+            uniform: null,
+            suggested_names: ['Billy'],
+        }],
+        regions_of_interest: [{
+            label: 'Dinner table',
+            kind: 'scene_context',
+            bounding_box: { x: 1000, y: 0, width: 1000, height: 1200 },
+            significance: 'family meal evidence',
+        }],
+    });
 }
 
 function buildFakeGoogleGenerativeAI(response) {
@@ -212,6 +252,14 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
     }
 });
 
+test('generate ai metadata uses a longer default timeout for refine passes', async () => {
+    const { resolveLiveMetadataTimeoutMs } = require('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+
+    assert.equal(resolveLiveMetadataTimeoutMs({ metadataPass: 'scout' }), 120_000);
+    assert.equal(resolveLiveMetadataTimeoutMs({ metadataPass: 'refine' }), 300_000);
+    assert.equal(resolveLiveMetadataTimeoutMs({ metadataPass: 'refine', configuredTimeoutMs: 45_000 }), 45_000);
+});
+
 test('generateLiveAiMetadata preserves pending pro status on flash fallback compatibility rows', async () => {
     const tempDir = createTempDir();
     const imagePath = await createImage(tempDir);
@@ -312,6 +360,48 @@ test('generateAiMetadataModule persists machine blocks and projection rows from 
         const parsedBlock = JSON.parse(blockRow.data);
         assert.deepEqual(parsedBlock.subjects[0].bounding_box, { x: 0.01, y: 0.02, width: 0.1, height: 0.12 });
         assert.deepEqual(parsedBlock.regions_of_interest[0].bounding_box, { x: 0.03, y: 0.04, width: 0.06, height: 0.04 });
+    } finally {
+        harness.dbManager.close();
+        await removeDirWithRetry(tempDir);
+    }
+});
+
+test('generateAiMetadataModule persists obvious pixel-space Gemini boxes in canonical normalized coordinates', async () => {
+    const tempDir = createTempDir();
+    const imagePath = await createLargeImage(tempDir);
+    const harness = await createHarness(tempDir, {
+        aiRuntime: {
+            async generateLiveMetadata() {
+                return {
+                    provider: 'google',
+                    modelVersion: 'gemini-2.5-flash',
+                    data: buildPixelSpaceGeminiResponse(),
+                    metadataSourceKind: 'gemini_flash_scout',
+                    metadataBlock: buildPixelSpaceGeminiResponse(),
+                };
+            },
+        },
+    });
+
+    try {
+        seedAsset(harness.dbManager.getDb(), imagePath, { width: 2000, height: 1200 });
+
+        await harness.module.run({
+            runId: 'run-1',
+            subject: { subjectType: 'asset', subjectId: 'asset-1' },
+            parameters: { aiMode: 'live', imageStrategy: 'overview_only' },
+        });
+
+        const blockRow = harness.dbManager.getDb().prepare(`
+            SELECT data
+            FROM photo_metadata_blocks
+            WHERE asset_id = 'asset-1'
+            LIMIT 1
+        `).get();
+
+        const parsedBlock = JSON.parse(blockRow.data);
+        assert.deepEqual(parsedBlock.subjects[0].bounding_box, { x: 0.6, y: 0.1, width: 0.25, height: 0.3 });
+        assert.deepEqual(parsedBlock.regions_of_interest[0].bounding_box, { x: 0.5, y: 0, width: 0.5, height: 1 });
     } finally {
         harness.dbManager.close();
         await removeDirWithRetry(tempDir);

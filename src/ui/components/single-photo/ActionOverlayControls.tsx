@@ -3,6 +3,7 @@ import type { Asset } from '@contracts/core';
 import type { AiMetadataRequestOptions, AiMetadataImageStrategy, AiMetadataPass } from '@shared/aiMetadata/analysisOptions';
 import { TopBar, ZoomBar } from './ActionOverlayChrome';
 import { NavButtons } from './ActionOverlayNavButtons';
+import { getAnalysisStatusBadgeStyle, isAnalysisStatusVisible } from './singlePhotoAnalysisStatus';
 import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getLibraryBinActionLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
 
 export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
@@ -377,20 +378,32 @@ function GroupMenuItems(props: Pick<ActionMenuProps, 'asset' | 'onSetCanonical' 
     );
 }
 
-const AnalysisStatus: React.FC<{ analysisState: AnalysisUiState; analyzingAssetId: string | null; asset: Asset }> = ({ analysisState, analyzingAssetId, asset }) => {
-    const isTargetAsset = analyzingAssetId === asset.id && !asset.ai_metadata;
-    if (!isTargetAsset) {return null;}
+function renderAnalysisStatus({
+    analysisState,
+    analyzingAssetId,
+    asset,
+}: {
+    analysisState: AnalysisUiState;
+    analyzingAssetId: string | null;
+    asset: Asset;
+}): React.ReactNode {
+    if (!isAnalysisStatusVisible({
+        analyzingAssetId,
+        assetId: asset.id,
+    })) {
+        return null;
+    }
 
     if (analysisState === 'analyzing') {
-        return <div className="animate-pulse" style={{ color: '#c084fc', fontSize: '13px', background: 'rgba(192,132,252,0.1)', padding: '4px 10px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(192,132,252,0.3)' }}><span style={{ fontSize: '13px' }}>✨</span> Analyzing…</div>;
+        return <div className="animate-pulse" style={getAnalysisStatusBadgeStyle('analyzing')}><span style={{ fontSize: '13px' }}>✨</span> Analyzing…</div>;
     }
 
     if (analysisState === 'cancelling') {
-        return <div className="animate-pulse" style={{ color: '#f59e0b', fontSize: '13px', background: 'rgba(245,158,11,0.1)', padding: '4px 10px', borderRadius: '16px', border: '1px solid rgba(245,158,11,0.3)' }}>Cancelling…</div>;
+        return <div className="animate-pulse" style={getAnalysisStatusBadgeStyle('cancelling')}>Cancelling…</div>;
     }
 
     return null;
-};
+}
 
 const ActionMenu: React.FC<ActionMenuProps> = (props) => {
     if (!props.show) {return null;}
@@ -405,6 +418,31 @@ const ActionMenu: React.FC<ActionMenuProps> = (props) => {
         </div>
     );
 };
+
+function renderActionMenuTrigger(props: ActionMenuProps) {
+    const { show, setShowActionMenu } = props;
+
+    return (
+        <div style={{ position: 'relative' }}>
+            <button
+                onClick={(event) => {
+                    event.stopPropagation();
+                    setShowActionMenu(!show);
+                }}
+                style={actionButtonStyle}
+                onMouseOver={(event) => {
+                    event.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+                }}
+                onMouseOut={(event) => {
+                    event.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                }}
+            >
+                Actions ▾
+            </button>
+            <ActionMenu {...props} />
+        </div>
+    );
+}
 
 export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     asset,
@@ -439,6 +477,29 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     setShowInfoPanel,
     controlsVisible
 }) => {
+    const persistentAnalysisStatus = renderAnalysisStatus({
+        analysisState,
+        analyzingAssetId,
+        asset,
+    });
+    const actionMenuTrigger = renderActionMenuTrigger({
+        show: showActionMenu,
+        asset,
+        analysisState,
+        setAnalysisState,
+        setAnalysisError,
+        setAnalyzingAssetId,
+        setAnalyzingJobId,
+        onExtractAiMetadata,
+        onRerunFaceDetection,
+        onSetSensitivity,
+        onMoveToBin,
+        onRestoreFromBin,
+        onSetCanonical,
+        onExplodeGroup,
+        setShowActionMenu,
+    });
+
     return (
         <>
         <TopBar
@@ -447,29 +508,8 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             showActionMenu={showActionMenu}
             setShowActionMenu={setShowActionMenu}
             asset={asset}
-            analysisStatus={<AnalysisStatus analysisState={analysisState} analyzingAssetId={analyzingAssetId} asset={asset} />}
-            actionMenu={(
-                <div style={{ position: 'relative' }}>
-                    <button onClick={(event) => { event.stopPropagation(); setShowActionMenu(!showActionMenu); }} style={actionButtonStyle} onMouseOver={(event) => { event.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }} onMouseOut={(event) => { event.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}>Actions ▾</button>
-                    <ActionMenu
-                        show={showActionMenu}
-                        asset={asset}
-                        analysisState={analysisState}
-                        setAnalysisState={setAnalysisState}
-                        setAnalysisError={setAnalysisError}
-                        setAnalyzingAssetId={setAnalyzingAssetId}
-                        setAnalyzingJobId={setAnalyzingJobId}
-                        onExtractAiMetadata={onExtractAiMetadata}
-                        onRerunFaceDetection={onRerunFaceDetection}
-                        onSetSensitivity={onSetSensitivity}
-                        onMoveToBin={onMoveToBin}
-                        onRestoreFromBin={onRestoreFromBin}
-                        onSetCanonical={onSetCanonical}
-                        onExplodeGroup={onExplodeGroup}
-                        setShowActionMenu={setShowActionMenu}
-                    />
-                </div>
-            )}
+            persistentAnalysisStatus={persistentAnalysisStatus}
+            actionMenu={actionMenuTrigger}
             onClose={onClose}
             controlsVisible={controlsVisible}
             showInfoPanel={showInfoPanel}

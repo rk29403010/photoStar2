@@ -8,6 +8,7 @@ import {
     createEmptyThreadRegistry,
     getManagedSessionState,
     getWorktreeNameFromPath,
+    isBranchMergedIntoTargets,
     refreshThreadRegistry,
     renderThreadList,
     upsertThreadEntry,
@@ -15,6 +16,37 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');
+const exampleBranch = 'codex/example';
+const mergedIntoOriginMainResponses = new Map([
+    ['rev-parse --verify main', { status: 0, stdout: 'main\n' }],
+    [`merge-base --is-ancestor ${exampleBranch} main`, { status: 1, stdout: '' }],
+    ['rev-parse --verify origin/main', { status: 0, stdout: 'origin/main\n' }],
+    [`merge-base --is-ancestor ${exampleBranch} origin/main`, { status: 0, stdout: '' }],
+]);
+const mergedNowhereResponses = new Map([
+    ['rev-parse --verify main', { status: 0, stdout: 'main\n' }],
+    [`merge-base --is-ancestor ${exampleBranch} main`, { status: 1, stdout: '' }],
+    ['rev-parse --verify origin/main', { status: 0, stdout: 'origin/main\n' }],
+    [`merge-base --is-ancestor ${exampleBranch} origin/main`, { status: 1, stdout: '' }],
+]);
+
+function executeGitMergedIntoOriginMain(args) {
+    const response = mergedIntoOriginMainResponses.get(args.join(' '));
+    if (response) {
+        return response;
+    }
+
+    throw new Error(`Unexpected git call: ${args.join(' ')}`);
+}
+
+function executeGitMergedNowhere(args) {
+    const response = mergedNowhereResponses.get(args.join(' '));
+    if (response) {
+        return response;
+    }
+
+    throw new Error(`Unexpected git call: ${args.join(' ')}`);
+}
 
 test('getWorktreeNameFromPath returns main for the primary workspace', () => {
     assert.equal(getWorktreeNameFromPath(workspaceRoot), 'main');
@@ -105,6 +137,44 @@ test('closeThreadEntry records a closed state and closedAt timestamp', () => {
     assert.equal(registry.entries[0].status, 'merged');
     assert.equal(registry.entries[0].closedAt, '2026-03-30T11:30:00.000Z');
     assert.equal(registry.entries[0].running, 'none');
+});
+
+test('isBranchMergedIntoTargets only reports merged when git proves containment', () => {
+    const calls = [];
+    const executeGit = (args) => {
+        calls.push(args.join(' '));
+        return executeGitMergedIntoOriginMain(args);
+    };
+
+    assert.equal(
+        isBranchMergedIntoTargets(
+            {
+                branch: exampleBranch,
+                cwd: workspaceRoot,
+            },
+            executeGit,
+        ),
+        true,
+    );
+    assert.deepEqual(calls, [
+        `rev-parse --verify main`,
+        `merge-base --is-ancestor ${exampleBranch} main`,
+        `rev-parse --verify origin/main`,
+        `merge-base --is-ancestor ${exampleBranch} origin/main`,
+    ]);
+});
+
+test('isBranchMergedIntoTargets returns false when no tracked target contains the branch', () => {
+    assert.equal(
+        isBranchMergedIntoTargets(
+            {
+                branch: exampleBranch,
+                cwd: workspaceRoot,
+            },
+            executeGitMergedNowhere,
+        ),
+        false,
+    );
 });
 
 test('renderThreadList keeps active threads ahead of closed threads', () => {

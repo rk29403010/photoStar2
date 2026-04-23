@@ -9,28 +9,21 @@ import { resolveDevRuntimePorts } from './dev-runtime-config.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 const sessionFilePath = path.join(workspaceRoot, '.local', 'dev-session.json');
-const concurrentlyScript = path.resolve(
-    workspaceRoot,
-    'node_modules',
-    'concurrently',
-    'dist',
-    'bin',
-    'concurrently.js',
-);
+const managedRuntimeScript = path.resolve(workspaceRoot, 'tooling', 'scripts', 'repo', 'managed-dev-runtime.js');
 const defaultResumeScript = 'dev:desktop-runtime';
 
 const MANAGED_DEV_SCRIPTS = {
     dev: {
         command: process.execPath,
-        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:watch', 'npm run dev:core'],
+        args: [managedRuntimeScript, '--profile', 'default'],
     },
     'dev:desktop-runtime': {
         command: process.execPath,
-        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:watch:desktop', 'npm run dev:core'],
+        args: [managedRuntimeScript, '--profile', 'desktop'],
     },
     'dev:desktop-runtime:debug': {
         command: process.execPath,
-        args: [concurrentlyScript, '--names', 'web,core', '--prefix-colors', 'cyan.bold,magenta.bold', 'npm run dev:web:watch:debug', 'npm run dev:core'],
+        args: [managedRuntimeScript, '--profile', 'debug'],
     },
 };
 
@@ -74,6 +67,48 @@ function isManagedScript(scriptName) {
     return Object.hasOwn(MANAGED_DEV_SCRIPTS, scriptName);
 }
 
+export function buildManagedPortCleanupInvocation({
+    env = process.env,
+    cwd = workspaceRoot,
+    platform = process.platform,
+} = {}) {
+    const { webPort, backendPort } = resolveDevRuntimePorts(env, cwd);
+    const portList = `${webPort},${backendPort}`;
+    if (platform === 'win32') {
+        return {
+            command: 'powershell.exe',
+            args: [
+                '-NoProfile',
+                '-Command',
+                `$pids=(Get-NetTCPConnection -LocalPort ${portList} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }`,
+            ],
+        };
+    }
+
+    return {
+        command: 'sh',
+        args: ['-lc', `lsof -ti:${portList.replace(',', ',')} | xargs -r kill -9`],
+    };
+}
+
+export function buildLegacyManagedProcessCleanupInvocation({
+    cwd = workspaceRoot,
+    platform = process.platform,
+} = {}) {
+    if (platform !== 'win32') {
+        return null;
+    }
+
+    return {
+        command: 'powershell.exe',
+        args: [
+            '-NoProfile',
+            '-Command',
+            `$pids=(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.CommandLine -like '*${cwd}*concurrently.js*') -or ($_.CommandLine -like '*npm-cli.js*run dev:core*') -or ($_.CommandLine -like '*npm-cli.js*run dev:web:watch*') } | Select-Object -ExpandProperty ProcessId -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }`,
+        ],
+    };
+}
+
 export function getResumeScript(session) {
     const lastScript = session?.lastScript;
     return isManagedScript(lastScript) ? lastScript : defaultResumeScript;
@@ -89,6 +124,34 @@ export function getManagedScriptConfig(scriptName) {
         command: scriptConfig.command,
         args: [...scriptConfig.args],
     };
+}
+
+function cleanupManagedPorts({
+    env = process.env,
+    cwd = workspaceRoot,
+    platform = process.platform,
+}) {
+    const legacyInvocation = buildLegacyManagedProcessCleanupInvocation({ cwd, platform });
+    if (legacyInvocation) {
+        runCommandSync({
+            command: legacyInvocation.command,
+            args: legacyInvocation.args,
+            cwd,
+            env,
+            stdio: 'ignore',
+            platform,
+        });
+    }
+
+    const invocation = buildManagedPortCleanupInvocation({ env, cwd, platform });
+    runCommandSync({
+        command: invocation.command,
+        args: invocation.args,
+        cwd,
+        env,
+        stdio: 'ignore',
+        platform,
+    });
 }
 
 export function getManagedSpawnOptions({
@@ -160,6 +223,10 @@ function spawnManagedScript(scriptName) {
     }
 
     const managedEnv = createManagedDevEnv();
+    cleanupManagedPorts({
+        env: managedEnv,
+        cwd: workspaceRoot,
+    });
     const invocation = buildManagedSpawnInvocation({
         command: scriptConfig.command,
         args: scriptConfig.args,
@@ -227,6 +294,7 @@ function pauseManagedSession() {
     const session = readSession();
     const killed = killPidTree(session?.pid);
     clearSessionPid();
+    cleanupManagedPorts({ cwd: workspaceRoot });
 
     if (killed) {
         console.log(`[dev-session] Paused ${session?.lastScript ?? 'dev session'}.`);
@@ -242,6 +310,10 @@ function resumeManagedSession(requestedScript) {
         : getResumeScript(readSession());
 
     const managedEnv = createManagedDevEnv();
+    cleanupManagedPorts({
+        env: managedEnv,
+        cwd: workspaceRoot,
+    });
     const invocation = buildManagedResumeInvocation({
         scriptName: scriptToRun,
         env: managedEnv,

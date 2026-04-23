@@ -6,7 +6,8 @@ if "%TARGET_PATH%"=="" set "TARGET_PATH=%CODEX_SOURCE_TREE_PATH%"
 if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"
 
 cd /d "%TARGET_PATH%" || exit /b 1
-call npm.cmd run thread:start-dev -- --script dev:desktop-runtime
+echo [codex-debug] Starting managed desktop runtime...
+call node.exe tooling\scripts\repo\thread-dev-session.js --foreground --force-foreground --script dev:desktop-runtime
 for /f "usebackq delims=" %%I in (`node.exe tooling\scripts\repo\thread-runtime-url.js`) do (
     if not defined RUNTIME_URL (
         set "RUNTIME_URL=%%I"

@@ -41,14 +41,15 @@ export interface GenerateAiMetadataModuleOptions {
     };
 }
 
-const DEFAULT_LIVE_METADATA_TIMEOUT_MS = 120_000;
+const DEFAULT_SCOUT_LIVE_METADATA_TIMEOUT_MS = 120_000;
+const DEFAULT_REFINE_LIVE_METADATA_TIMEOUT_MS = 300_000;
 
 function loadAssetRow(
     db: ReturnType<DatabaseManager['getDb']>,
     assetId: string,
 ): ParsedAiMetadataRow | null {
     const row = db.prepare(`
-        SELECT a.id, a.original_path, a.sensitivity_score, am.sensitivity_status
+        SELECT a.id, a.original_path, a.width, a.height, a.sensitivity_score, am.sensitivity_status
         FROM assets a
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
@@ -76,6 +77,19 @@ function resolveImageStrategy(value: unknown): 'overview_only' | 'overview_plus_
 
 function resolveMetadataPass(value: unknown): 'scout' | 'refine' {
     return value === 'refine' ? 'refine' : 'scout';
+}
+
+export function resolveLiveMetadataTimeoutMs(params: {
+    metadataPass: 'scout' | 'refine';
+    configuredTimeoutMs?: number;
+}): number {
+    if (typeof params.configuredTimeoutMs === 'number') {
+        return params.configuredTimeoutMs;
+    }
+
+    return params.metadataPass === 'refine'
+        ? DEFAULT_REFINE_LIVE_METADATA_TIMEOUT_MS
+        : DEFAULT_SCOUT_LIVE_METADATA_TIMEOUT_MS;
 }
 
 function assertLiveAiConfiguration(
@@ -153,6 +167,7 @@ function isLiveMetadataResult(result: StoredAiMetadataResult | LiveMetadataEvide
 function persistMachineMetadataEvidence(params: {
     dbManager: DatabaseManager;
     assetId: string;
+    row: ParsedAiMetadataRow;
     result: StoredAiMetadataResult | LiveMetadataEvidence;
 }): void {
     if (isLiveMetadataResult(params.result)) {
@@ -163,6 +178,10 @@ function persistMachineMetadataEvidence(params: {
             provider: params.result.provider,
             modelVersion: params.result.modelVersion,
             metadataBlock: params.result.metadataBlock,
+            imageDimensions: {
+                width: params.result.imageWidth ?? params.row.width ?? null,
+                height: params.result.imageHeight ?? params.row.height ?? null,
+            },
             approvedKeywords: params.result.approvedKeywords,
             tagProposals: params.result.tagProposals,
         });
@@ -181,7 +200,6 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
     const liveRuntime = options.aiRuntime ?? {
         generateLiveMetadata: generateLiveAiMetadata,
     };
-    const liveMetadataTimeoutMs = options.liveMetadataTimeoutMs ?? DEFAULT_LIVE_METADATA_TIMEOUT_MS;
 
     return {
         id: 'runtime.generate_ai_metadata',
@@ -193,6 +211,10 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
             const aiMode = resolveAiMode(context.parameters.aiMode);
             const imageStrategy = resolveImageStrategy(context.parameters.imageStrategy);
             const metadataPass = resolveMetadataPass(context.parameters.metadataPass);
+            const liveMetadataTimeoutMs = resolveLiveMetadataTimeoutMs({
+                metadataPass,
+                configuredTimeoutMs: options.liveMetadataTimeoutMs,
+            });
 
             if (aiMode === 'off') {
                 return { outputs: [] };
@@ -226,6 +248,7 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
             persistMachineMetadataEvidence({
                 dbManager: options.dbManager,
                 assetId: context.subject.subjectId,
+                row,
                 result,
             });
             options.eventBus?.emit({

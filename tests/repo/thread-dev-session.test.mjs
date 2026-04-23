@@ -5,6 +5,7 @@ import {
     buildCombinedThreadNote,
     buildThreadDevSessionNote,
     getDefaultThreadTask,
+    shouldStartManagedDevSessionInForeground,
 } from '../../tooling/scripts/repo/thread-dev-session.js';
 
 test('getDefaultThreadTask prefers linked worktree names over branch names', () => {
@@ -46,5 +47,24 @@ test('buildCombinedThreadNote avoids duplicating the same session note', () => {
             sessionNote: 'dev:desktop-runtime @ http://localhost:6231 (backend 6232)',
         }),
         'dev:desktop-runtime @ http://localhost:6231 (backend 6232)',
+    );
+});
+
+test('foreground dev sessions only attach when explicitly requested from an interactive terminal', () => {
+    assert.equal(
+        shouldStartManagedDevSessionInForeground({ foreground: true, stdoutIsTTY: true }),
+        true,
+    );
+    assert.equal(
+        shouldStartManagedDevSessionInForeground({ foreground: true, stdoutIsTTY: false }),
+        false,
+    );
+    assert.equal(
+        shouldStartManagedDevSessionInForeground({ foreground: false, stdoutIsTTY: true }),
+        false,
+    );
+    assert.equal(
+        shouldStartManagedDevSessionInForeground({ foreground: true, stdoutIsTTY: false, forceForeground: true }),
+        true,
     );
 });
