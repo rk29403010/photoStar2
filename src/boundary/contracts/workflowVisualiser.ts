@@ -110,9 +110,15 @@ export interface WorkflowVisualiserDetail {
     failedSubjects: WorkflowVisualiserFailedSubject[];
 }
 
+export interface WorkflowVisualiserWorkflowSummary {
+    workflowId: string;
+    displayName: string;
+}
+
 export interface WorkflowVisualiserModel {
     workflowId: string;
     displayName: string;
+    availableWorkflows: WorkflowVisualiserWorkflowSummary[];
     selectedRun: WorkflowVisualiserRunSummary | null;
     availableRuns: WorkflowRunListItem[];
     tabs: {

@@ -11,6 +11,7 @@ import type {
     WorkflowVisualiserProgressionStage,
     WorkflowVisualiserRunSummary,
     WorkflowVisualiserStatus,
+    WorkflowVisualiserWorkflowSummary,
     WorkflowVisualiserTextSection,
 } from '@contracts/workflowVisualiser';
 import type { WorkflowDefinition } from '../workflowRuntime/contracts';
@@ -19,6 +20,7 @@ import { getWorkflowRunsSnapshot } from './systemWorkflowRunSnapshot';
 
 type BuildWorkflowVisualiserParams = {
     workflowDefinition: WorkflowDefinition;
+    availableWorkflows: WorkflowVisualiserWorkflowSummary[];
     runDetail: WorkflowRunDetail | null;
     availableRuns: WorkflowRunListItem[];
     allRuns: WorkflowRunListItem[];
@@ -409,14 +411,26 @@ function buildSelectedRun(
     };
 }
 
+export function getWorkflowDisplayName(definition: WorkflowDefinition): string {
+    return definition.presentation?.defaultRunLabel ?? toTitleCase(definition.id);
+}
+
+export function buildWorkflowVisualiserWorkflowSummary(definition: WorkflowDefinition): WorkflowVisualiserWorkflowSummary {
+    return {
+        workflowId: definition.id,
+        displayName: getWorkflowDisplayName(definition),
+    };
+}
+
 export function buildWorkflowVisualiserModel(params: BuildWorkflowVisualiserParams): WorkflowVisualiserModel {
-    const displayName = params.workflowDefinition.presentation?.defaultRunLabel ?? toTitleCase(params.workflowDefinition.id);
+    const displayName = getWorkflowDisplayName(params.workflowDefinition);
     const graph = buildGraph(params.workflowDefinition, params.runDetail);
     const progression = buildProgression(params.workflowDefinition, params.runDetail);
 
     return {
         workflowId: params.workflowDefinition.id,
         displayName,
+        availableWorkflows: params.availableWorkflows,
         selectedRun: buildSelectedRun(params.runDetail, params.availableRuns, params.allRuns, params.workflowDefinition.id),
         availableRuns: params.availableRuns,
         tabs: {
@@ -464,6 +478,7 @@ function selectRunId(params: {
 export function getWorkflowVisualiserModel(params: {
     db: DbLike;
     workflowDefinition: WorkflowDefinition;
+    availableWorkflowDefinitions: WorkflowDefinition[];
     getRunDetail: (runId: string) => WorkflowRunDetail;
     requestedRunId?: string | null;
 }): WorkflowVisualiserModel {
@@ -477,6 +492,7 @@ export function getWorkflowVisualiserModel(params: {
 
     return buildWorkflowVisualiserModel({
         workflowDefinition: params.workflowDefinition,
+        availableWorkflows: params.availableWorkflowDefinitions.map(buildWorkflowVisualiserWorkflowSummary),
         runDetail: selectedRunId ? params.getRunDetail(selectedRunId) : null,
         availableRuns,
         allRuns,

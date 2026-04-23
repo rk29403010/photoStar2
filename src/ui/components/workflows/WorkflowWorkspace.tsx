@@ -22,6 +22,7 @@ import {
 
 interface WorkflowWorkspaceProps {
     workflowId: string;
+    onWorkflowIdChange: (workflowId: string) => void;
     onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
     onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
 }
@@ -220,6 +221,7 @@ function WorkflowWorkspaceContent(params: {
 
 function renderWorkflowWorkspaceReadyState(params: {
     model: WorkflowVisualiserModel;
+    workflowId: string;
     activeTab: WorkflowWorkspaceTabId;
     selectedRunSelection: string | null;
     selectedDetailId: string | null;
@@ -228,6 +230,7 @@ function renderWorkflowWorkspaceReadyState(params: {
     setPersistedViewport: (viewport: WorkflowSequenceMapViewport) => void;
     setSelectedDetailId: (detailId: string | null) => void;
     setSelectedRunSelection: (runSelection: string | null) => void;
+    onWorkflowIdChange: (workflowId: string) => void;
     retryAction: ReturnType<typeof useWorkflowRetryAction>;
 }) {
     const supportsInspector = tabSupportsInspector(params.activeTab);
@@ -237,6 +240,12 @@ function renderWorkflowWorkspaceReadyState(params: {
         <div className="mx-auto flex h-full w-full flex-col gap-5 overflow-y-auto bg-[#0a0a0a] p-6">
             <WorkflowWorkspaceHeader
                 model={params.model}
+                selectedWorkflowId={params.workflowId}
+                onSelectWorkflow={(nextWorkflowId) => {
+                    params.onWorkflowIdChange(nextWorkflowId);
+                    params.setSelectedRunSelection(null);
+                    params.setSelectedDetailId(null);
+                }}
                 activeTab={params.activeTab}
                 onSelectTab={(nextTab) => {
                     params.setPersistedTab(nextTab);
@@ -284,7 +293,7 @@ function renderWorkflowWorkspaceReadyState(params: {
     );
 }
 
-export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser, onRerunMissingFolderAiMetadata }: WorkflowWorkspaceProps) {
+export function WorkflowWorkspace({ workflowId, onWorkflowIdChange, onGetWorkflowVisualiser, onRerunMissingFolderAiMetadata }: WorkflowWorkspaceProps) {
     const [selectedRunSelection, setSelectedRunSelection] = useState<string | null>(null);
     const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
     const {
@@ -304,6 +313,7 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser, onRerun
     });
 
     useEffect(() => {
+        setSelectedRunSelection(null);
         setSelectedDetailId(null);
     }, [workflowId]);
 
@@ -317,6 +327,7 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser, onRerun
 
     return renderWorkflowWorkspaceReadyState({
         model,
+        workflowId,
         activeTab,
         selectedRunSelection,
         selectedDetailId,
@@ -325,6 +336,7 @@ export function WorkflowWorkspace({ workflowId, onGetWorkflowVisualiser, onRerun
         setPersistedViewport,
         setSelectedDetailId,
         setSelectedRunSelection,
+        onWorkflowIdChange,
         retryAction,
     });
 }

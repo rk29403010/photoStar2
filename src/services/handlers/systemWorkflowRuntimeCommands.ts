@@ -3,6 +3,7 @@ import { getWorkflowVisualiserModel } from './systemWorkflowVisualiser';
 import { buildPhotoMetadataBundle } from '../photoMetadata/bundle';
 import { createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
 import { createPhotoMetadataRepository } from '../photoMetadata/repository';
+import type { WorkflowDefinition } from '../workflowRuntime/contracts';
 
 function getWorkflowRuntime(ctx: CommandContext) {
     if (!ctx.workflowRuntime) {
@@ -79,6 +80,22 @@ function normalizeSelectedSubjects(payload: {
 
 function parseAiMode(value: unknown): 'mock' | 'live' | 'off' {
     return value === 'mock' || value === 'live' || value === 'off' ? value : 'live';
+}
+
+const DEFAULT_WORKFLOW_VISUALISER_ID = 'folder_ingest_v1';
+
+function resolveWorkflowDefinition(workflowDefinitions: WorkflowDefinition[], requestedWorkflowId: string | undefined): WorkflowDefinition {
+    const requestedDefinition = workflowDefinitions.find((definition) => definition.id === requestedWorkflowId);
+    if (requestedDefinition) {
+        return requestedDefinition;
+    }
+
+    const fallbackDefinition = workflowDefinitions.find((definition) => definition.id === DEFAULT_WORKFLOW_VISUALISER_ID);
+    if (fallbackDefinition) {
+        return fallbackDefinition;
+    }
+
+    throw new Error(`unknown workflow '${requestedWorkflowId ?? ''}'`);
 }
 
 function loadMissingFolderAiMetadataSubjects(ctx: CommandContext, folderPath: string): AssetSubject[] {
@@ -279,10 +296,12 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
     get_workflow_visualiser: (ctx) => {
         const workflowRuntime = getWorkflowRuntime(ctx);
         const payload = ctx.payload as { workflowId: string; runId?: string | null } | undefined;
-        const workflowDefinition = workflowRuntime.workflows.get(String(payload?.workflowId ?? ''));
+        const workflowDefinitions = workflowRuntime.workflows.list();
+        const workflowDefinition = resolveWorkflowDefinition(workflowDefinitions, typeof payload?.workflowId === 'string' ? payload.workflowId : undefined);
         const model = getWorkflowVisualiserModel({
             db: ctx.dbManager.getDb(),
             workflowDefinition,
+            availableWorkflowDefinitions: workflowDefinitions,
             getRunDetail: (runId) => workflowRuntime.store.getRunDetail(runId),
             requestedRunId: payload?.runId,
         });

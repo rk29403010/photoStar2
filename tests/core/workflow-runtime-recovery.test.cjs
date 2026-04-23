@@ -306,3 +306,38 @@ test('start_selected_subject_metadata_workflow preserves requested analysis mode
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('workflow visualiser falls back to folder ingest for unknown workflow ids and exposes all registered workflows', async () => {
+    const tempDir = createTempDir();
+    const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
+    let harness;
+
+    try {
+        harness = await createCommandHarness(tempDir);
+
+        handleSystemCommand({
+            id: 'cmd-unknown-workflow',
+            command: 'get_workflow_visualiser',
+            payload: { workflowId: 'missing_workflow_v1' },
+            dbManager: harness.dbManager,
+            eventBus: {},
+            activeJobs: new Map(),
+            LIB_DIR: tempDir,
+            respond: harness.collector.respond,
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+        });
+
+        const response = await harness.collector.takeById('cmd-unknown-workflow');
+        assert.equal(response.status, 'ok');
+        assert.equal(response.data.workflowId, 'folder_ingest_v1');
+        assert.deepEqual(
+            response.data.availableWorkflows.map((workflow) => workflow.workflowId),
+            ['folder_ingest_v1', 'selected_subject_metadata_v1'],
+        );
+        assert.equal(response.data.availableWorkflows[0].displayName, 'Folder ingest');
+        assert.equal(response.data.availableWorkflows[1].displayName, 'Selected subject metadata workflow');
+    } finally {
+        harness?.dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});

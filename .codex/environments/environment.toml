@@ -3,19 +3,19 @@ version = 1
 name = "photoStar2"
 
 [setup]
-script = "tooling/scripts/repo/codex-worktree-setup.cmd"
+script = "cmd.exe /d /c tooling\\scripts\\repo\\codex-worktree-setup.cmd"
 
 [[actions]]
 name = "Debug"
 icon = "tool"
-command = "tooling/scripts/repo/codex-worktree-debug.cmd"
+command = "cmd.exe /d /c tooling\\scripts\\repo\\codex-worktree-debug.cmd"
 
 [[actions]]
 name = "Stop Debug"
 icon = "stop"
-command = "tooling/scripts/repo/codex-worktree-stop-debug.cmd"
+command = "cmd.exe /d /c tooling\\scripts\\repo\\codex-worktree-stop-debug.cmd"
 
 [[actions]]
 name = "Doctor"
 icon = "pulse"
-command = "tooling/scripts/repo/codex-worktree-doctor.cmd"
+command = "cmd.exe /d /c tooling\\scripts\\repo\\codex-worktree-doctor.cmd"
