@@ -16,6 +16,30 @@ test('App renders a single overlay shell and keeps workflow visualiser wiring', 
     assert.match(appSource, /useSelectedAssetDetails\(loadAssetDetails, uiState\.selectedAssetId\)/);
 });
 
+test('workflow view wiring persists the selected workflow and stops hardcoding folder ingest in app content', () => {
+    const uiStateSource = readFileSync(path.join(workspaceRoot, 'src/ui/hooks/useAppRuntimeUi.ts'), 'utf8');
+    const loadedShellSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/app/LoadedAppShell.tsx'), 'utf8');
+    const appMainContentSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/app/AppMainContent.tsx'), 'utf8');
+    const workflowWorkspaceSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/workflows/WorkflowWorkspace.tsx'), 'utf8');
+
+    assert.match(uiStateSource, /const \[selectedWorkflowId, setSelectedWorkflowId\] = usePersistedState<string>\('ps_selected_workflow_id', 'folder_ingest_v1'\);/);
+    assert.match(loadedShellSource, /selectedWorkflowId=\{props\.uiState\.selectedWorkflowId\}/);
+    assert.match(loadedShellSource, /onSelectWorkflowId=\{props\.uiState\.setSelectedWorkflowId\}/);
+    assert.doesNotMatch(appMainContentSource, /workflowId="folder_ingest_v1"/);
+    assert.match(appMainContentSource, /workflowId=\{props\.selectedWorkflowId\}/);
+    assert.match(appMainContentSource, /onWorkflowIdChange=\{props\.onSelectWorkflowId\}/);
+    assert.doesNotMatch(workflowWorkspaceSource, /onWorkflowIdChange\(model\.workflowId\)/);
+});
+
+test('persisted ui state only writes to localStorage after React commits state', () => {
+    const persistedStateSource = readFileSync(path.join(workspaceRoot, 'src/ui/hooks/usePersistedState.ts'), 'utf8');
+    const localStorageWrites = persistedStateSource.match(/localStorage\.setItem\(/g) ?? [];
+
+    assert.equal(localStorageWrites.length, 1);
+    assert.match(persistedStateSource, /useEffect\(\(\) => \{/);
+    assert.doesNotMatch(persistedStateSource, /setStateInner\(prev => \{[\s\S]*localStorage\.setItem\(/);
+});
+
 test('single-photo overlay only syncs library-backed asset ids while navigating', () => {
     const singlePhotoSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/SinglePhotoView.tsx'), 'utf8');
     const assetModelSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/single-photo/singlePhotoAssetModel.ts'), 'utf8');

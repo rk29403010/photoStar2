@@ -35,14 +35,8 @@ export function usePersistedState<T>(key: string, fallback: T): [T, (v: T | ((pr
     }, [key, state]);
 
     const setState = useCallback((v: T | ((prev: T) => T)) => {
-        setStateInner(prev => {
-            const next = typeof v === 'function' ? (v as (prev: T) => T)(prev) : v;
-            try {
-                localStorage.setItem(key, JSON.stringify(next));
-            } catch { /* ignore */ }
-            return next;
-        });
-    }, [key]);
+        setStateInner(prev => (typeof v === 'function' ? (v as (prev: T) => T)(prev) : v));
+    }, []);
 
     return [state, setState];
 }
