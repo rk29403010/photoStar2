@@ -42,6 +42,8 @@ type TagDetailPayload = {
 
 interface AppMainContentProps {
   view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  selectedWorkflowId: string;
+  onSelectWorkflowId: (workflowId: string) => void;
   stats: LibraryStats | null;
   assets: Asset[];
   galleryTimelineSeek: GalleryTimelineSeek | null;
@@ -258,7 +260,8 @@ export function AppMainContent(props: AppMainContentProps) {
 
       {props.view === 'workflows' && (
         <WorkflowWorkspace
-          workflowId="folder_ingest_v1"
+          workflowId={props.selectedWorkflowId}
+          onWorkflowIdChange={props.onSelectWorkflowId}
           onGetWorkflowVisualiser={props.onGetWorkflowVisualiser}
           onRerunMissingFolderAiMetadata={props.onRerunMissingFolderAiMetadata}
         />

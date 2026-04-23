@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { WorkflowVisualiserLinkedRun, WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import type { WorkflowVisualiserLinkedRun, WorkflowVisualiserModel, WorkflowVisualiserWorkflowSummary } from '@contracts/workflowVisualiser';
 import {
     getWorkflowWorkspaceRetryFeedback,
     getWorkflowWorkspaceRetryLabel,
@@ -10,6 +10,8 @@ import {
 
 interface WorkflowWorkspaceHeaderProps {
     model: WorkflowVisualiserModel;
+    selectedWorkflowId: string;
+    onSelectWorkflow: (workflowId: string) => void;
     activeTab: WorkflowWorkspaceTabId;
     onSelectTab: (tabId: WorkflowWorkspaceTabId) => void;
     selectedRunValue: string;
@@ -25,6 +27,8 @@ interface WorkflowWorkspaceHeaderProps {
 
 export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = ({
     model,
+    selectedWorkflowId,
+    onSelectWorkflow,
     activeTab,
     onSelectTab,
     selectedRunValue,
@@ -46,6 +50,11 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
                     <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400">Workflow Visualiser</div>
                     <h2 className="mt-2 text-2xl font-light text-gray-100">{model.displayName}</h2>
                     <p className="mt-2 max-w-3xl text-sm text-gray-400">{model.tabs.overview.summary.description}</p>
+                    <WorkflowSelector
+                        availableWorkflows={model.availableWorkflows}
+                        selectedWorkflowId={selectedWorkflowId}
+                        onSelectWorkflow={onSelectWorkflow}
+                    />
                 </div>
 
                 <RunContextPanel
@@ -76,6 +85,31 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
         </header>
     );
 };
+
+function WorkflowSelector(props: {
+    availableWorkflows: WorkflowVisualiserWorkflowSummary[];
+    selectedWorkflowId: string;
+    onSelectWorkflow: (workflowId: string) => void;
+}) {
+    return (
+        <label className="mt-4 flex max-w-sm flex-col gap-2 text-[11px] uppercase tracking-[0.24em] text-gray-500">
+            Workflow
+            <select
+                value={props.selectedWorkflowId}
+                onChange={(event) => {
+                    props.onSelectWorkflow(event.target.value);
+                }}
+                className="rounded-lg border border-gray-700 bg-[#151515] px-3 py-2 text-sm normal-case tracking-normal text-gray-200 outline-none"
+            >
+                {props.availableWorkflows.map((workflow) => (
+                    <option key={workflow.workflowId} value={workflow.workflowId}>
+                        {workflow.displayName}
+                    </option>
+                ))}
+            </select>
+        </label>
+    );
+}
 
 function formatLinkedRun(run: WorkflowVisualiserLinkedRun): string {
     return `${run.displayName} · ${run.status} · ${run.completedItems}/${run.totalItems}`;

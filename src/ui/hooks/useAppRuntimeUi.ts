@@ -53,6 +53,7 @@ function useDevRuntimeImpact(
 
 export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpact>) {
   const [view, setView] = usePersistedState<AppView>('ps_view', 'library');
+  const [selectedWorkflowId, setSelectedWorkflowId] = usePersistedState<string>('ps_selected_workflow_id', 'folder_ingest_v1');
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
   const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);
   const [activeInfoTab, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'file');
@@ -78,6 +79,8 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   return {
     view,
     setView,
+    selectedWorkflowId,
+    setSelectedWorkflowId,
     selectedAssetId,
     setSelectedAssetId,
     showInfoPanel,
