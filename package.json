@@ -30,6 +30,7 @@
     "thread:start-dev": "node tooling/scripts/repo/thread-dev-session.js",
     "thread:stop-dev": "node tooling/scripts/repo/thread-dev-session.js stop",
     "thread:doctor": "node tooling/scripts/repo/thread-doctor.js",
+    "thread:ship": "node tooling/scripts/repo/thread-ship.js",
     "ai-metadata:debug": "node tooling/scripts/repo/ai-metadata-debug.mjs",
     "ai-metadata:bundle": "node tooling/scripts/repo/ai-metadata-bundle.mjs",
     "ai-metadata:studio-pack": "node tooling/scripts/repo/ai-metadata-studio-pack.mjs",
@@ -75,8 +76,8 @@
     "benchmark:quality": "node tooling/scripts/repo/benchmark-quality.js",
     "preview": "vite preview",
     "tauri": "tauri",
-    "lint:md": "markdownlint \"**/*.md\"",
-    "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target"
+    "lint:md": "markdownlint \"**/*.md\" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts",
+    "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -9,6 +9,7 @@ test('Codex environment setup and Debug action use repo-owned worktree scripts',
     assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Debug"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-debug\.cmd"/);
     assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Stop Debug"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-stop-debug\.cmd"/);
     assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Doctor"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-doctor\.cmd"/);
+    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Ship"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-ship\.cmd"/);
 });
 
 test('Codex worktree scripts fail fast when the worktree context is missing', () => {
@@ -16,6 +17,7 @@ test('Codex worktree scripts fail fast when the worktree context is missing', ()
     const debugScript = readFileSync('tooling/scripts/repo/codex-worktree-debug.cmd', 'utf8');
     const stopDebugScript = readFileSync('tooling/scripts/repo/codex-worktree-stop-debug.cmd', 'utf8');
     const doctorScript = readFileSync('tooling/scripts/repo/codex-worktree-doctor.cmd', 'utf8');
+    const shipScript = readFileSync('tooling/scripts/repo/codex-worktree-ship.cmd', 'utf8');
 
     assert.match(setupScript, /CODEX_SOURCE_TREE_PATH/);
     assert.match(setupScript, /CODEX_WORKTREE_PATH/);
@@ -38,4 +40,9 @@ test('Codex worktree scripts fail fast when the worktree context is missing', ()
     assert.match(doctorScript, /if "%CODEX_WORKTREE_PATH%"==""/);
     assert.match(doctorScript, /Missing CODEX_WORKTREE_PATH/);
     assert.match(doctorScript, /npm\.cmd run thread:doctor/);
+
+    assert.match(shipScript, /CODEX_WORKTREE_PATH/);
+    assert.match(shipScript, /if "%CODEX_WORKTREE_PATH%"==""/);
+    assert.match(shipScript, /Missing CODEX_WORKTREE_PATH/);
+    assert.match(shipScript, /node\.exe tooling\\scripts\\repo\\thread-ship\.js/);
 });

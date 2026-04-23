@@ -19,3 +19,8 @@ command = "cmd.exe /d /c tooling\\scripts\\repo\\codex-worktree-stop-debug.cmd"
 name = "Doctor"
 icon = "pulse"
 command = "cmd.exe /d /c tooling\\scripts\\repo\\codex-worktree-doctor.cmd"
+
+[[actions]]
+name = "Ship"
+icon = "tool"
+command = "cmd.exe /d /c tooling\\scripts\\repo\\codex-worktree-ship.cmd"
