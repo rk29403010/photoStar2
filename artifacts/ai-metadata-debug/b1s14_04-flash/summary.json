@@ -1,0 +1,1315 @@
+{
+  "asset": {
+    "id": "873853de-fb13-4b32-9418-3ee349ecc013",
+    "original_path": "C:\\Users\\robin\\Pictures\\Family History\\Family History - Croot-Sheldrake\\b1s14_04.jpg",
+    "width": 2981,
+    "height": 4853
+  },
+  "request": {
+    "metadataPass": "scout",
+    "imageStrategy": "overview_only",
+    "repeats": 3,
+    "modelOverride": null,
+    "promptHashesUnique": 1,
+    "responseHashesUnique": 2,
+    "imageHashesUnique": 1
+  },
+  "summary": [
+    {
+      "run": 1,
+      "model": "gemini-2.5-flash",
+      "promptHash": "93c4ec53a8f2747d722828a80b64b51926a104aa984e6683c83e60858b1dbb3d",
+      "promptLength": 5563,
+      "schemaHash": "1d79d40f67f1464e6d9ab066e85e04292cfb3a024fb613005a35b5204c7d0e09",
+      "generationConfig": {
+        "candidateCount": 1,
+        "temperature": 0,
+        "topK": 1,
+        "responseMimeType": "application/json",
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "High-level image type or category.",
+              "nullable": false
+            },
+            "caption": {
+              "type": "string",
+              "description": "Short one-line summary of the photo.",
+              "nullable": false
+            },
+            "description": {
+              "type": "string",
+              "description": "Fuller narrative description of the photo.",
+              "nullable": false
+            },
+            "estimated_date": {
+              "type": "object",
+              "properties": {
+                "most_likely_date": {
+                  "type": "string",
+                  "description": "Most likely ISO date or a coarse year/decade string.",
+                  "nullable": true
+                },
+                "min_date": {
+                  "type": "string",
+                  "description": "Earliest plausible ISO date for the photo.",
+                  "nullable": true
+                },
+                "max_date": {
+                  "type": "string",
+                  "description": "Latest plausible ISO date for the photo.",
+                  "nullable": true
+                },
+                "display_label": {
+                  "type": "string",
+                  "description": "Human-readable label for the estimated date range.",
+                  "nullable": false
+                },
+                "rationale": {
+                  "type": "string",
+                  "description": "Short explanation for the chosen date range.",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "most_likely_date",
+                "min_date",
+                "max_date",
+                "display_label",
+                "rationale"
+              ]
+            },
+            "location": {
+              "type": "string",
+              "description": "Estimated location or Unknown.",
+              "nullable": false
+            },
+            "subjects": {
+              "type": "array",
+              "description": "Detected people or pets in the image.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Unique subject label such as Subject1.",
+                    "nullable": false
+                  },
+                  "bounding_box": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "Left position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "Top position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "width": {
+                        "type": "number",
+                        "description": "Width in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "height": {
+                        "type": "number",
+                        "description": "Height in the full original photo on a normalized 0 to 1000 grid."
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  },
+                  "source_image_index": {
+                    "type": "number",
+                    "description": "Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.",
+                    "nullable": true
+                  },
+                  "bounding_box_coordinate_space": {
+                    "type": "string",
+                    "description": "Bounding-box coordinate space: full_photo or crop_local.",
+                    "nullable": true
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Subject type such as person or pet.",
+                    "nullable": false
+                  },
+                  "location_desc": {
+                    "type": "string",
+                    "description": "Relative position of the subject within the image.",
+                    "nullable": false
+                  },
+                  "gender": {
+                    "type": "string",
+                    "description": "Estimated gender, or unknown when unclear.",
+                    "nullable": true
+                  },
+                  "animal_type": {
+                    "type": "string",
+                    "description": "Animal type for pets when present.",
+                    "nullable": true
+                  },
+                  "age_range": {
+                    "type": "string",
+                    "description": "Estimated age range.",
+                    "nullable": true
+                  },
+                  "dob_range": {
+                    "type": "string",
+                    "description": "Estimated birth decade or range.",
+                    "nullable": true
+                  },
+                  "emotion": {
+                    "type": "string",
+                    "description": "Estimated emotion.",
+                    "nullable": true
+                  },
+                  "gaze": {
+                    "type": "string",
+                    "description": "Estimated gaze direction.",
+                    "nullable": true
+                  },
+                  "features": {
+                    "type": "string",
+                    "description": "Distinctive visible features.",
+                    "nullable": true
+                  },
+                  "uniform": {
+                    "type": "string",
+                    "description": "Uniform or notable clothing if present.",
+                    "nullable": true
+                  },
+                  "suggested_names": {
+                    "type": "array",
+                    "description": "Potential names suggested by the image or filename context.",
+                    "items": {
+                      "type": "string",
+                      "description": "Suggested person or pet name.",
+                      "nullable": false
+                    }
+                  }
+                },
+                "required": [
+                  "label",
+                  "bounding_box",
+                  "type",
+                  "location_desc",
+                  "gender",
+                  "animal_type",
+                  "age_range",
+                  "dob_range",
+                  "emotion",
+                  "gaze",
+                  "features",
+                  "uniform",
+                  "suggested_names"
+                ]
+              }
+            },
+            "regions_of_interest": {
+              "type": "array",
+              "description": "Important detail regions that matter for archive research.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Short label for the region of interest.",
+                    "nullable": false
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "Region kind such as signage, handwriting, clothing, vehicle, architecture, or object.",
+                    "nullable": false
+                  },
+                  "bounding_box": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "Left position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "Top position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "width": {
+                        "type": "number",
+                        "description": "Width in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "height": {
+                        "type": "number",
+                        "description": "Height in the full original photo on a normalized 0 to 1000 grid."
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  },
+                  "source_image_index": {
+                    "type": "number",
+                    "description": "Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.",
+                    "nullable": true
+                  },
+                  "bounding_box_coordinate_space": {
+                    "type": "string",
+                    "description": "Bounding-box coordinate space: full_photo or crop_local.",
+                    "nullable": true
+                  },
+                  "significance": {
+                    "type": "string",
+                    "description": "Why the region matters for archive analysis.",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "label",
+                  "kind",
+                  "bounding_box",
+                  "significance"
+                ]
+              }
+            },
+            "keywords": {
+              "type": "array",
+              "description": "Approved canonical tags chosen from the provided vocabulary.",
+              "items": {
+                "type": "string",
+                "description": "Keyword.",
+                "nullable": false
+              }
+            },
+            "tag_proposals": {
+              "type": "array",
+              "description": "Candidate new tags for useful concepts missing from the approved canonical vocabulary.",
+              "items": {
+                "type": "string",
+                "description": "Tag proposal.",
+                "nullable": false
+              }
+            },
+            "emotional_impact": {
+              "type": "string",
+              "description": "Summary of the image mood or emotional impact.",
+              "nullable": false
+            },
+            "quality": {
+              "type": "object",
+              "properties": {
+                "technical": {
+                  "type": "number",
+                  "description": "Technical quality score."
+                },
+                "lighting": {
+                  "type": "number",
+                  "description": "Lighting quality score."
+                },
+                "composition": {
+                  "type": "number",
+                  "description": "Composition quality score."
+                },
+                "emotional": {
+                  "type": "number",
+                  "description": "Emotional resonance score."
+                },
+                "discard": {
+                  "type": "boolean",
+                  "description": "Whether this image should likely be discarded."
+                }
+              },
+              "required": [
+                "technical",
+                "lighting",
+                "composition",
+                "emotional",
+                "discard"
+              ]
+            },
+            "recommended_enhancements": {
+              "type": "array",
+              "description": "Recommended restoration or enhancement actions.",
+              "items": {
+                "type": "string",
+                "description": "Enhancement suggestion.",
+                "nullable": false
+              }
+            },
+            "authenticity": {
+              "type": "object",
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "description": "Estimated authenticity score."
+                },
+                "reasons": {
+                  "type": "array",
+                  "description": "Reasons supporting the authenticity estimate.",
+                  "items": {
+                    "type": "string",
+                    "description": "Authenticity reason.",
+                    "nullable": false
+                  }
+                }
+              },
+              "required": [
+                "score",
+                "reasons"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "caption",
+            "description",
+            "estimated_date",
+            "location",
+            "subjects",
+            "regions_of_interest",
+            "keywords",
+            "tag_proposals",
+            "emotional_impact",
+            "quality",
+            "recommended_enhancements",
+            "authenticity"
+          ]
+        }
+      },
+      "imagePartCount": 1,
+      "imagePartHashes": [
+        "d75f5c5cf5dd6d7097a7d66f1e2759f902f940776f01d477db65f0e3b8cad0a0"
+      ],
+      "imagePartLengths": [
+        71828
+      ],
+      "responseHash": "c6605f3845597cdc1acedc14f1d58587c61273b64e5dde7b8e6ff2c97841c433",
+      "parsedSummary": {
+        "subjects": [
+          {
+            "label": "Subject1",
+            "box": {
+              "x": 170,
+              "y": 240,
+              "width": 120,
+              "height": 100
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          },
+          {
+            "label": "Subject2",
+            "box": {
+              "x": 440,
+              "y": 300,
+              "width": 80,
+              "height": 80
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          },
+          {
+            "label": "Subject3",
+            "box": {
+              "x": 590,
+              "y": 240,
+              "width": 110,
+              "height": 100
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          }
+        ],
+        "regions_of_interest": [
+          {
+            "label": "House number 42",
+            "kind": "signage",
+            "box": {
+              "x": 440,
+              "y": 170,
+              "width": 80,
+              "height": 40
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          },
+          {
+            "label": "Front door with textured glass",
+            "kind": "architecture",
+            "box": {
+              "x": 300,
+              "y": 170,
+              "width": 400,
+              "height": 600
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          }
+        ]
+      },
+      "responseText": "{\n  \"type\": \"Group portrait\",\n  \"caption\": \"An older couple with a baby standing in front of a brick house.\",\n  \"description\": \"A black and white photograph captures an older man, an older woman, and a baby standing outdoors in front of a brick house. The man, wearing a suit and glasses, stands on the left, looking down at the baby. The woman, on the right, holds the baby and smiles, also looking at the child. The baby, dressed in light clothing, looks downwards. The background features a dark-colored roof overhang and a front door with multiple textured glass panes. A house number '42' is visible above the door. The overall scene suggests a family moment, possibly grandparents with a grandchild.\",\n  \"estimated_date\": {\n    \"most_likely_date\": \"1958\",\n    \"min_date\": \"1955\",\n    \"max_date\": \"1960\",\n    \"display_label\": \"late 1950s\",\n    \"rationale\": \"The fashion and architectural styles, including the clothing of the adults and the design of the house, strongly suggest the late 1950s.\"\n  },\n  \"location\": \"Unknown\",\n  \"subjects\": [\n    {\n      \"label\": \"Subject1\",\n      \"bounding_box\": {\n        \"x\": 170,\n        \"y\": 240,\n        \"width\": 120,\n        \"height\": 100\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Left side, standing\",\n      \"gender\": \"male\",\n      \"animal_type\": null,\n      \"age_range\": \"60s\",\n      \"dob_range\": \"1890s-1900s\",\n      \"emotion\": \"content\",\n      \"gaze\": \"downwards, towards baby\",\n      \"features\": \"wearing glasses, short hair\",\n      \"uniform\": \"suit jacket, tie, patterned vest\",\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    },\n    {\n      \"label\": \"Subject2\",\n      \"bounding_box\": {\n        \"x\": 440,\n        \"y\": 300,\n        \"width\": 80,\n        \"height\": 80\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Center, held by woman\",\n      \"gender\": \"unknown\",\n      \"animal_type\": null,\n      \"age_range\": \"infant (6-18 months)\",\n      \"dob_range\": \"1950s-1960s\",\n      \"emotion\": \"neutral\",\n      \"gaze\": \"downwards\",\n      \"features\": \"short dark hair\",\n      \"uniform\": \"light-colored top\",\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    },\n    {\n      \"label\": \"Subject3\",\n      \"bounding_box\": {\n        \"x\": 590,\n        \"y\": 240,\n        \"width\": 110,\n        \"height\": 100\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Right side, holding baby\",\n      \"gender\": \"female\",\n      \"animal_type\": null,\n      \"age_range\": \"50s-60s\",\n      \"dob_range\": \"1890s-1910s\",\n      \"emotion\": \"smiling\",\n      \"gaze\": \"towards baby\",\n      \"features\": \"curled dark hair\",\n      \"uniform\": \"patterned dress\",\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    }\n  ],\n  \"regions_of_interest\": [\n    {\n      \"label\": \"House number 42\",\n      \"kind\": \"signage\",\n      \"bounding_box\": {\n        \"x\": 440,\n        \"y\": 170,\n        \"width\": 80,\n        \"height\": 40\n      },\n      \"significance\": \"Identifies the address of the location.\",\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    },\n    {\n      \"label\": \"Front door with textured glass\",\n      \"kind\": \"architecture\",\n      \"bounding_box\": {\n        \"x\": 300,\n        \"y\": 170,\n        \"width\": 400,\n        \"height\": 600\n      },\n      \"significance\": \"Provides context for the setting and architectural style of the period.\",\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    }\n  ],\n  \"keywords\": [\n    \"late 1950s\",\n    \"20th century\"\n  ],\n  \"tag_proposals\": [\n    \"family portrait\",\n    \"grandparents\",\n    \"baby\",\n    \"house\",\n    \"door\",\n    \"brick house\",\n    \"black and white photo\",\n    \"outdoor portrait\"\n  ],\n  \"emotional_impact\": \"The image conveys a warm, tender, and nostalgic feeling, capturing a loving family moment.\",\n  \"quality\": {\n    \"technical\": 7,\n    \"lighting\": 8,\n    \"composition\": 8,\n    \"emotional\": 9,\n    \"discard\": false\n  },\n  \"recommended_enhancements\": [\n    \"Dust and scratch removal\",\n    \"Contrast adjustment\",\n    \"Sharpening\"\n  ],\n  \"authenticity\": {\n    \"score\": 10,\n    \"reasons\": [\n      \"Consistent photographic style for the estimated era\",\n      \"No signs of digital manipulation or anachronisms\"\n    ]\n  }\n}"
+    },
+    {
+      "run": 2,
+      "model": "gemini-2.5-flash",
+      "promptHash": "93c4ec53a8f2747d722828a80b64b51926a104aa984e6683c83e60858b1dbb3d",
+      "promptLength": 5563,
+      "schemaHash": "1d79d40f67f1464e6d9ab066e85e04292cfb3a024fb613005a35b5204c7d0e09",
+      "generationConfig": {
+        "candidateCount": 1,
+        "temperature": 0,
+        "topK": 1,
+        "responseMimeType": "application/json",
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "High-level image type or category.",
+              "nullable": false
+            },
+            "caption": {
+              "type": "string",
+              "description": "Short one-line summary of the photo.",
+              "nullable": false
+            },
+            "description": {
+              "type": "string",
+              "description": "Fuller narrative description of the photo.",
+              "nullable": false
+            },
+            "estimated_date": {
+              "type": "object",
+              "properties": {
+                "most_likely_date": {
+                  "type": "string",
+                  "description": "Most likely ISO date or a coarse year/decade string.",
+                  "nullable": true
+                },
+                "min_date": {
+                  "type": "string",
+                  "description": "Earliest plausible ISO date for the photo.",
+                  "nullable": true
+                },
+                "max_date": {
+                  "type": "string",
+                  "description": "Latest plausible ISO date for the photo.",
+                  "nullable": true
+                },
+                "display_label": {
+                  "type": "string",
+                  "description": "Human-readable label for the estimated date range.",
+                  "nullable": false
+                },
+                "rationale": {
+                  "type": "string",
+                  "description": "Short explanation for the chosen date range.",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "most_likely_date",
+                "min_date",
+                "max_date",
+                "display_label",
+                "rationale"
+              ]
+            },
+            "location": {
+              "type": "string",
+              "description": "Estimated location or Unknown.",
+              "nullable": false
+            },
+            "subjects": {
+              "type": "array",
+              "description": "Detected people or pets in the image.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Unique subject label such as Subject1.",
+                    "nullable": false
+                  },
+                  "bounding_box": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "Left position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "Top position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "width": {
+                        "type": "number",
+                        "description": "Width in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "height": {
+                        "type": "number",
+                        "description": "Height in the full original photo on a normalized 0 to 1000 grid."
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  },
+                  "source_image_index": {
+                    "type": "number",
+                    "description": "Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.",
+                    "nullable": true
+                  },
+                  "bounding_box_coordinate_space": {
+                    "type": "string",
+                    "description": "Bounding-box coordinate space: full_photo or crop_local.",
+                    "nullable": true
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Subject type such as person or pet.",
+                    "nullable": false
+                  },
+                  "location_desc": {
+                    "type": "string",
+                    "description": "Relative position of the subject within the image.",
+                    "nullable": false
+                  },
+                  "gender": {
+                    "type": "string",
+                    "description": "Estimated gender, or unknown when unclear.",
+                    "nullable": true
+                  },
+                  "animal_type": {
+                    "type": "string",
+                    "description": "Animal type for pets when present.",
+                    "nullable": true
+                  },
+                  "age_range": {
+                    "type": "string",
+                    "description": "Estimated age range.",
+                    "nullable": true
+                  },
+                  "dob_range": {
+                    "type": "string",
+                    "description": "Estimated birth decade or range.",
+                    "nullable": true
+                  },
+                  "emotion": {
+                    "type": "string",
+                    "description": "Estimated emotion.",
+                    "nullable": true
+                  },
+                  "gaze": {
+                    "type": "string",
+                    "description": "Estimated gaze direction.",
+                    "nullable": true
+                  },
+                  "features": {
+                    "type": "string",
+                    "description": "Distinctive visible features.",
+                    "nullable": true
+                  },
+                  "uniform": {
+                    "type": "string",
+                    "description": "Uniform or notable clothing if present.",
+                    "nullable": true
+                  },
+                  "suggested_names": {
+                    "type": "array",
+                    "description": "Potential names suggested by the image or filename context.",
+                    "items": {
+                      "type": "string",
+                      "description": "Suggested person or pet name.",
+                      "nullable": false
+                    }
+                  }
+                },
+                "required": [
+                  "label",
+                  "bounding_box",
+                  "type",
+                  "location_desc",
+                  "gender",
+                  "animal_type",
+                  "age_range",
+                  "dob_range",
+                  "emotion",
+                  "gaze",
+                  "features",
+                  "uniform",
+                  "suggested_names"
+                ]
+              }
+            },
+            "regions_of_interest": {
+              "type": "array",
+              "description": "Important detail regions that matter for archive research.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Short label for the region of interest.",
+                    "nullable": false
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "Region kind such as signage, handwriting, clothing, vehicle, architecture, or object.",
+                    "nullable": false
+                  },
+                  "bounding_box": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "Left position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "Top position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "width": {
+                        "type": "number",
+                        "description": "Width in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "height": {
+                        "type": "number",
+                        "description": "Height in the full original photo on a normalized 0 to 1000 grid."
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  },
+                  "source_image_index": {
+                    "type": "number",
+                    "description": "Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.",
+                    "nullable": true
+                  },
+                  "bounding_box_coordinate_space": {
+                    "type": "string",
+                    "description": "Bounding-box coordinate space: full_photo or crop_local.",
+                    "nullable": true
+                  },
+                  "significance": {
+                    "type": "string",
+                    "description": "Why the region matters for archive analysis.",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "label",
+                  "kind",
+                  "bounding_box",
+                  "significance"
+                ]
+              }
+            },
+            "keywords": {
+              "type": "array",
+              "description": "Approved canonical tags chosen from the provided vocabulary.",
+              "items": {
+                "type": "string",
+                "description": "Keyword.",
+                "nullable": false
+              }
+            },
+            "tag_proposals": {
+              "type": "array",
+              "description": "Candidate new tags for useful concepts missing from the approved canonical vocabulary.",
+              "items": {
+                "type": "string",
+                "description": "Tag proposal.",
+                "nullable": false
+              }
+            },
+            "emotional_impact": {
+              "type": "string",
+              "description": "Summary of the image mood or emotional impact.",
+              "nullable": false
+            },
+            "quality": {
+              "type": "object",
+              "properties": {
+                "technical": {
+                  "type": "number",
+                  "description": "Technical quality score."
+                },
+                "lighting": {
+                  "type": "number",
+                  "description": "Lighting quality score."
+                },
+                "composition": {
+                  "type": "number",
+                  "description": "Composition quality score."
+                },
+                "emotional": {
+                  "type": "number",
+                  "description": "Emotional resonance score."
+                },
+                "discard": {
+                  "type": "boolean",
+                  "description": "Whether this image should likely be discarded."
+                }
+              },
+              "required": [
+                "technical",
+                "lighting",
+                "composition",
+                "emotional",
+                "discard"
+              ]
+            },
+            "recommended_enhancements": {
+              "type": "array",
+              "description": "Recommended restoration or enhancement actions.",
+              "items": {
+                "type": "string",
+                "description": "Enhancement suggestion.",
+                "nullable": false
+              }
+            },
+            "authenticity": {
+              "type": "object",
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "description": "Estimated authenticity score."
+                },
+                "reasons": {
+                  "type": "array",
+                  "description": "Reasons supporting the authenticity estimate.",
+                  "items": {
+                    "type": "string",
+                    "description": "Authenticity reason.",
+                    "nullable": false
+                  }
+                }
+              },
+              "required": [
+                "score",
+                "reasons"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "caption",
+            "description",
+            "estimated_date",
+            "location",
+            "subjects",
+            "regions_of_interest",
+            "keywords",
+            "tag_proposals",
+            "emotional_impact",
+            "quality",
+            "recommended_enhancements",
+            "authenticity"
+          ]
+        }
+      },
+      "imagePartCount": 1,
+      "imagePartHashes": [
+        "d75f5c5cf5dd6d7097a7d66f1e2759f902f940776f01d477db65f0e3b8cad0a0"
+      ],
+      "imagePartLengths": [
+        71828
+      ],
+      "responseHash": "ec1397f62abde9109ca6e52bc509b0c08c2f49e651b2c3d436b33cef43325b55",
+      "parsedSummary": {
+        "subjects": [
+          {
+            "label": "Subject1",
+            "box": {
+              "x": 190,
+              "y": 290,
+              "width": 150,
+              "height": 150
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          },
+          {
+            "label": "Subject2",
+            "box": {
+              "x": 450,
+              "y": 440,
+              "width": 100,
+              "height": 100
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          },
+          {
+            "label": "Subject3",
+            "box": {
+              "x": 600,
+              "y": 400,
+              "width": 150,
+              "height": 150
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          }
+        ],
+        "regions_of_interest": [
+          {
+            "label": "House number 44",
+            "kind": "signage",
+            "box": {
+              "x": 440,
+              "y": 240,
+              "width": 100,
+              "height": 50
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          }
+        ]
+      },
+      "responseText": "{\n  \"type\": \"Group portrait\",\n  \"caption\": \"An older couple with a baby standing in front of a house door.\",\n  \"description\": \"A black and white photograph captures an older man, an older woman, and a baby standing together in front of a residential door. The man, wearing a suit and glasses, stands on the left, looking towards the baby. The woman, dressed in a patterned dress, holds the baby on her right hip, looking at the baby with a smile. The baby, dressed in light clothing, looks downwards. The door behind them features multiple glass panes, some with a textured pattern, and a house number \\\"44\\\" is visible above the door. The brick exterior of the house is visible on the right.\",\n  \"estimated_date\": {\n    \"most_likely_date\": \"1955\",\n    \"min_date\": \"1950\",\n    \"max_date\": \"1960\",\n    \"display_label\": \"mid 1950s\",\n    \"rationale\": \"Clothing styles, particularly the woman's dress and hairstyle, and the general photographic aesthetic are consistent with the mid-1950s.\"\n  },\n  \"location\": \"Unknown\",\n  \"subjects\": [\n    {\n      \"label\": \"Subject1\",\n      \"bounding_box\": {\n        \"x\": 190,\n        \"y\": 290,\n        \"width\": 150,\n        \"height\": 150\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Left side, standing\",\n      \"gender\": \"male\",\n      \"animal_type\": null,\n      \"age_range\": \"60s\",\n      \"dob_range\": \"1890s-1900s\",\n      \"emotion\": \"Neutral\",\n      \"gaze\": \"Towards Subject2\",\n      \"features\": \"Glasses, mustache\",\n      \"uniform\": \"Suit and tie\",\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    },\n    {\n      \"label\": \"Subject2\",\n      \"bounding_box\": {\n        \"x\": 450,\n        \"y\": 440,\n        \"width\": 100,\n        \"height\": 100\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Center, held by Subject3\",\n      \"gender\": \"unknown\",\n      \"animal_type\": null,\n      \"age_range\": \"Infant (0-2 years)\",\n      \"dob_range\": \"1950s\",\n      \"emotion\": \"Neutral\",\n      \"gaze\": \"Downwards\",\n      \"features\": null,\n      \"uniform\": null,\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    },\n    {\n      \"label\": \"Subject3\",\n      \"bounding_box\": {\n        \"x\": 600,\n        \"y\": 400,\n        \"width\": 150,\n        \"height\": 150\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Right side, holding Subject2\",\n      \"gender\": \"female\",\n      \"animal_type\": null,\n      \"age_range\": \"50s-60s\",\n      \"dob_range\": \"1890s-1900s\",\n      \"emotion\": \"Smiling\",\n      \"gaze\": \"Towards Subject2\",\n      \"features\": \"Curly hair\",\n      \"uniform\": \"Patterned dress\",\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    }\n  ],\n  \"regions_of_interest\": [\n    {\n      \"label\": \"House number 44\",\n      \"kind\": \"signage\",\n      \"bounding_box\": {\n        \"x\": 440,\n        \"y\": 240,\n        \"width\": 100,\n        \"height\": 50\n      },\n      \"significance\": \"Identifies the specific residence.\",\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    }\n  ],\n  \"keywords\": [\n    \"mid 1950s\",\n    \"summer\"\n  ],\n  \"tag_proposals\": [\n    \"Family\",\n    \"Grandparents\",\n    \"Baby\",\n    \"Residential building\",\n    \"Door\",\n    \"Black and white photograph\"\n  ],\n  \"emotional_impact\": \"Warm, familial, nostalgic, and tender, depicting a moment of connection between generations.\",\n  \"quality\": {\n    \"technical\": 7,\n    \"lighting\": 8,\n    \"composition\": 7,\n    \"emotional\": 9,\n    \"discard\": false\n  },\n  \"recommended_enhancements\": [\n    \"Dust and scratch removal\",\n    \"Contrast adjustment\",\n    \"Sharpening\"\n  ],\n  \"authenticity\": {\n    \"score\": 10,\n    \"reasons\": [\n      \"Appears to be an original, unaltered black and white photographic print from the mid-20th century.\",\n      \"EXIF data indicates a recent scan, not manipulation of the original image content.\"\n    ]\n  }\n}"
+    },
+    {
+      "run": 3,
+      "model": "gemini-2.5-flash",
+      "promptHash": "93c4ec53a8f2747d722828a80b64b51926a104aa984e6683c83e60858b1dbb3d",
+      "promptLength": 5563,
+      "schemaHash": "1d79d40f67f1464e6d9ab066e85e04292cfb3a024fb613005a35b5204c7d0e09",
+      "generationConfig": {
+        "candidateCount": 1,
+        "temperature": 0,
+        "topK": 1,
+        "responseMimeType": "application/json",
+        "responseSchema": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "High-level image type or category.",
+              "nullable": false
+            },
+            "caption": {
+              "type": "string",
+              "description": "Short one-line summary of the photo.",
+              "nullable": false
+            },
+            "description": {
+              "type": "string",
+              "description": "Fuller narrative description of the photo.",
+              "nullable": false
+            },
+            "estimated_date": {
+              "type": "object",
+              "properties": {
+                "most_likely_date": {
+                  "type": "string",
+                  "description": "Most likely ISO date or a coarse year/decade string.",
+                  "nullable": true
+                },
+                "min_date": {
+                  "type": "string",
+                  "description": "Earliest plausible ISO date for the photo.",
+                  "nullable": true
+                },
+                "max_date": {
+                  "type": "string",
+                  "description": "Latest plausible ISO date for the photo.",
+                  "nullable": true
+                },
+                "display_label": {
+                  "type": "string",
+                  "description": "Human-readable label for the estimated date range.",
+                  "nullable": false
+                },
+                "rationale": {
+                  "type": "string",
+                  "description": "Short explanation for the chosen date range.",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "most_likely_date",
+                "min_date",
+                "max_date",
+                "display_label",
+                "rationale"
+              ]
+            },
+            "location": {
+              "type": "string",
+              "description": "Estimated location or Unknown.",
+              "nullable": false
+            },
+            "subjects": {
+              "type": "array",
+              "description": "Detected people or pets in the image.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Unique subject label such as Subject1.",
+                    "nullable": false
+                  },
+                  "bounding_box": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "Left position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "Top position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "width": {
+                        "type": "number",
+                        "description": "Width in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "height": {
+                        "type": "number",
+                        "description": "Height in the full original photo on a normalized 0 to 1000 grid."
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  },
+                  "source_image_index": {
+                    "type": "number",
+                    "description": "Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.",
+                    "nullable": true
+                  },
+                  "bounding_box_coordinate_space": {
+                    "type": "string",
+                    "description": "Bounding-box coordinate space: full_photo or crop_local.",
+                    "nullable": true
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Subject type such as person or pet.",
+                    "nullable": false
+                  },
+                  "location_desc": {
+                    "type": "string",
+                    "description": "Relative position of the subject within the image.",
+                    "nullable": false
+                  },
+                  "gender": {
+                    "type": "string",
+                    "description": "Estimated gender, or unknown when unclear.",
+                    "nullable": true
+                  },
+                  "animal_type": {
+                    "type": "string",
+                    "description": "Animal type for pets when present.",
+                    "nullable": true
+                  },
+                  "age_range": {
+                    "type": "string",
+                    "description": "Estimated age range.",
+                    "nullable": true
+                  },
+                  "dob_range": {
+                    "type": "string",
+                    "description": "Estimated birth decade or range.",
+                    "nullable": true
+                  },
+                  "emotion": {
+                    "type": "string",
+                    "description": "Estimated emotion.",
+                    "nullable": true
+                  },
+                  "gaze": {
+                    "type": "string",
+                    "description": "Estimated gaze direction.",
+                    "nullable": true
+                  },
+                  "features": {
+                    "type": "string",
+                    "description": "Distinctive visible features.",
+                    "nullable": true
+                  },
+                  "uniform": {
+                    "type": "string",
+                    "description": "Uniform or notable clothing if present.",
+                    "nullable": true
+                  },
+                  "suggested_names": {
+                    "type": "array",
+                    "description": "Potential names suggested by the image or filename context.",
+                    "items": {
+                      "type": "string",
+                      "description": "Suggested person or pet name.",
+                      "nullable": false
+                    }
+                  }
+                },
+                "required": [
+                  "label",
+                  "bounding_box",
+                  "type",
+                  "location_desc",
+                  "gender",
+                  "animal_type",
+                  "age_range",
+                  "dob_range",
+                  "emotion",
+                  "gaze",
+                  "features",
+                  "uniform",
+                  "suggested_names"
+                ]
+              }
+            },
+            "regions_of_interest": {
+              "type": "array",
+              "description": "Important detail regions that matter for archive research.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Short label for the region of interest.",
+                    "nullable": false
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "Region kind such as signage, handwriting, clothing, vehicle, architecture, or object.",
+                    "nullable": false
+                  },
+                  "bounding_box": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "Left position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "Top position in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "width": {
+                        "type": "number",
+                        "description": "Width in the full original photo on a normalized 0 to 1000 grid."
+                      },
+                      "height": {
+                        "type": "number",
+                        "description": "Height in the full original photo on a normalized 0 to 1000 grid."
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  },
+                  "source_image_index": {
+                    "type": "number",
+                    "description": "Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.",
+                    "nullable": true
+                  },
+                  "bounding_box_coordinate_space": {
+                    "type": "string",
+                    "description": "Bounding-box coordinate space: full_photo or crop_local.",
+                    "nullable": true
+                  },
+                  "significance": {
+                    "type": "string",
+                    "description": "Why the region matters for archive analysis.",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "label",
+                  "kind",
+                  "bounding_box",
+                  "significance"
+                ]
+              }
+            },
+            "keywords": {
+              "type": "array",
+              "description": "Approved canonical tags chosen from the provided vocabulary.",
+              "items": {
+                "type": "string",
+                "description": "Keyword.",
+                "nullable": false
+              }
+            },
+            "tag_proposals": {
+              "type": "array",
+              "description": "Candidate new tags for useful concepts missing from the approved canonical vocabulary.",
+              "items": {
+                "type": "string",
+                "description": "Tag proposal.",
+                "nullable": false
+              }
+            },
+            "emotional_impact": {
+              "type": "string",
+              "description": "Summary of the image mood or emotional impact.",
+              "nullable": false
+            },
+            "quality": {
+              "type": "object",
+              "properties": {
+                "technical": {
+                  "type": "number",
+                  "description": "Technical quality score."
+                },
+                "lighting": {
+                  "type": "number",
+                  "description": "Lighting quality score."
+                },
+                "composition": {
+                  "type": "number",
+                  "description": "Composition quality score."
+                },
+                "emotional": {
+                  "type": "number",
+                  "description": "Emotional resonance score."
+                },
+                "discard": {
+                  "type": "boolean",
+                  "description": "Whether this image should likely be discarded."
+                }
+              },
+              "required": [
+                "technical",
+                "lighting",
+                "composition",
+                "emotional",
+                "discard"
+              ]
+            },
+            "recommended_enhancements": {
+              "type": "array",
+              "description": "Recommended restoration or enhancement actions.",
+              "items": {
+                "type": "string",
+                "description": "Enhancement suggestion.",
+                "nullable": false
+              }
+            },
+            "authenticity": {
+              "type": "object",
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "description": "Estimated authenticity score."
+                },
+                "reasons": {
+                  "type": "array",
+                  "description": "Reasons supporting the authenticity estimate.",
+                  "items": {
+                    "type": "string",
+                    "description": "Authenticity reason.",
+                    "nullable": false
+                  }
+                }
+              },
+              "required": [
+                "score",
+                "reasons"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "caption",
+            "description",
+            "estimated_date",
+            "location",
+            "subjects",
+            "regions_of_interest",
+            "keywords",
+            "tag_proposals",
+            "emotional_impact",
+            "quality",
+            "recommended_enhancements",
+            "authenticity"
+          ]
+        }
+      },
+      "imagePartCount": 1,
+      "imagePartHashes": [
+        "d75f5c5cf5dd6d7097a7d66f1e2759f902f940776f01d477db65f0e3b8cad0a0"
+      ],
+      "imagePartLengths": [
+        71828
+      ],
+      "responseHash": "ec1397f62abde9109ca6e52bc509b0c08c2f49e651b2c3d436b33cef43325b55",
+      "parsedSummary": {
+        "subjects": [
+          {
+            "label": "Subject1",
+            "box": {
+              "x": 190,
+              "y": 290,
+              "width": 150,
+              "height": 150
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          },
+          {
+            "label": "Subject2",
+            "box": {
+              "x": 450,
+              "y": 440,
+              "width": 100,
+              "height": 100
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          },
+          {
+            "label": "Subject3",
+            "box": {
+              "x": 600,
+              "y": 400,
+              "width": 150,
+              "height": 150
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          }
+        ],
+        "regions_of_interest": [
+          {
+            "label": "House number 44",
+            "kind": "signage",
+            "box": {
+              "x": 440,
+              "y": 240,
+              "width": 100,
+              "height": 50
+            },
+            "source_image_index": 1,
+            "space": "full_photo"
+          }
+        ]
+      },
+      "responseText": "{\n  \"type\": \"Group portrait\",\n  \"caption\": \"An older couple with a baby standing in front of a house door.\",\n  \"description\": \"A black and white photograph captures an older man, an older woman, and a baby standing together in front of a residential door. The man, wearing a suit and glasses, stands on the left, looking towards the baby. The woman, dressed in a patterned dress, holds the baby on her right hip, looking at the baby with a smile. The baby, dressed in light clothing, looks downwards. The door behind them features multiple glass panes, some with a textured pattern, and a house number \\\"44\\\" is visible above the door. The brick exterior of the house is visible on the right.\",\n  \"estimated_date\": {\n    \"most_likely_date\": \"1955\",\n    \"min_date\": \"1950\",\n    \"max_date\": \"1960\",\n    \"display_label\": \"mid 1950s\",\n    \"rationale\": \"Clothing styles, particularly the woman's dress and hairstyle, and the general photographic aesthetic are consistent with the mid-1950s.\"\n  },\n  \"location\": \"Unknown\",\n  \"subjects\": [\n    {\n      \"label\": \"Subject1\",\n      \"bounding_box\": {\n        \"x\": 190,\n        \"y\": 290,\n        \"width\": 150,\n        \"height\": 150\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Left side, standing\",\n      \"gender\": \"male\",\n      \"animal_type\": null,\n      \"age_range\": \"60s\",\n      \"dob_range\": \"1890s-1900s\",\n      \"emotion\": \"Neutral\",\n      \"gaze\": \"Towards Subject2\",\n      \"features\": \"Glasses, mustache\",\n      \"uniform\": \"Suit and tie\",\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    },\n    {\n      \"label\": \"Subject2\",\n      \"bounding_box\": {\n        \"x\": 450,\n        \"y\": 440,\n        \"width\": 100,\n        \"height\": 100\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Center, held by Subject3\",\n      \"gender\": \"unknown\",\n      \"animal_type\": null,\n      \"age_range\": \"Infant (0-2 years)\",\n      \"dob_range\": \"1950s\",\n      \"emotion\": \"Neutral\",\n      \"gaze\": \"Downwards\",\n      \"features\": null,\n      \"uniform\": null,\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    },\n    {\n      \"label\": \"Subject3\",\n      \"bounding_box\": {\n        \"x\": 600,\n        \"y\": 400,\n        \"width\": 150,\n        \"height\": 150\n      },\n      \"type\": \"person\",\n      \"location_desc\": \"Right side, holding Subject2\",\n      \"gender\": \"female\",\n      \"animal_type\": null,\n      \"age_range\": \"50s-60s\",\n      \"dob_range\": \"1890s-1900s\",\n      \"emotion\": \"Smiling\",\n      \"gaze\": \"Towards Subject2\",\n      \"features\": \"Curly hair\",\n      \"uniform\": \"Patterned dress\",\n      \"suggested_names\": [],\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    }\n  ],\n  \"regions_of_interest\": [\n    {\n      \"label\": \"House number 44\",\n      \"kind\": \"signage\",\n      \"bounding_box\": {\n        \"x\": 440,\n        \"y\": 240,\n        \"width\": 100,\n        \"height\": 50\n      },\n      \"significance\": \"Identifies the specific residence.\",\n      \"bounding_box_coordinate_space\": \"full_photo\",\n      \"source_image_index\": 1\n    }\n  ],\n  \"keywords\": [\n    \"mid 1950s\",\n    \"summer\"\n  ],\n  \"tag_proposals\": [\n    \"Family\",\n    \"Grandparents\",\n    \"Baby\",\n    \"Residential building\",\n    \"Door\",\n    \"Black and white photograph\"\n  ],\n  \"emotional_impact\": \"Warm, familial, nostalgic, and tender, depicting a moment of connection between generations.\",\n  \"quality\": {\n    \"technical\": 7,\n    \"lighting\": 8,\n    \"composition\": 7,\n    \"emotional\": 9,\n    \"discard\": false\n  },\n  \"recommended_enhancements\": [\n    \"Dust and scratch removal\",\n    \"Contrast adjustment\",\n    \"Sharpening\"\n  ],\n  \"authenticity\": {\n    \"score\": 10,\n    \"reasons\": [\n      \"Appears to be an original, unaltered black and white photographic print from the mid-20th century.\",\n      \"EXIF data indicates a recent scan, not manipulation of the original image content.\"\n    ]\n  }\n}"
+    }
+  ]
+}

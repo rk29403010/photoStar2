@@ -1,0 +1,128 @@
+{
+  "type": "Group portrait",
+  "caption": "An older couple with a baby standing in front of a house door.",
+  "description": "A black and white photograph captures an older man, an older woman, and a baby standing together in front of a residential door. The man, wearing a suit and glasses, stands on the left, looking towards the baby. The woman, dressed in a patterned dress, holds the baby on her right hip, looking at the baby with a smile. The baby, dressed in light clothing, looks downwards. The door behind them features multiple glass panes, some with a textured pattern, and a house number \"44\" is visible above the door. The brick exterior of the house is visible on the right.",
+  "estimated_date": {
+    "most_likely_date": "1955",
+    "min_date": "1950",
+    "max_date": "1960",
+    "display_label": "mid 1950s",
+    "rationale": "Clothing styles, particularly the woman's dress and hairstyle, and the general photographic aesthetic are consistent with the mid-1950s."
+  },
+  "location": "Unknown",
+  "subjects": [
+    {
+      "label": "Subject1",
+      "bounding_box": {
+        "x": 190,
+        "y": 290,
+        "width": 150,
+        "height": 150
+      },
+      "type": "person",
+      "location_desc": "Left side, standing",
+      "gender": "male",
+      "animal_type": null,
+      "age_range": "60s",
+      "dob_range": "1890s-1900s",
+      "emotion": "Neutral",
+      "gaze": "Towards Subject2",
+      "features": "Glasses, mustache",
+      "uniform": "Suit and tie",
+      "suggested_names": [],
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    },
+    {
+      "label": "Subject2",
+      "bounding_box": {
+        "x": 450,
+        "y": 440,
+        "width": 100,
+        "height": 100
+      },
+      "type": "person",
+      "location_desc": "Center, held by Subject3",
+      "gender": "unknown",
+      "animal_type": null,
+      "age_range": "Infant (0-2 years)",
+      "dob_range": "1950s",
+      "emotion": "Neutral",
+      "gaze": "Downwards",
+      "features": null,
+      "uniform": null,
+      "suggested_names": [],
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    },
+    {
+      "label": "Subject3",
+      "bounding_box": {
+        "x": 600,
+        "y": 400,
+        "width": 150,
+        "height": 150
+      },
+      "type": "person",
+      "location_desc": "Right side, holding Subject2",
+      "gender": "female",
+      "animal_type": null,
+      "age_range": "50s-60s",
+      "dob_range": "1890s-1900s",
+      "emotion": "Smiling",
+      "gaze": "Towards Subject2",
+      "features": "Curly hair",
+      "uniform": "Patterned dress",
+      "suggested_names": [],
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    }
+  ],
+  "regions_of_interest": [
+    {
+      "label": "House number 44",
+      "kind": "signage",
+      "bounding_box": {
+        "x": 440,
+        "y": 240,
+        "width": 100,
+        "height": 50
+      },
+      "significance": "Identifies the specific residence.",
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    }
+  ],
+  "keywords": [
+    "mid 1950s",
+    "summer"
+  ],
+  "tag_proposals": [
+    "Family",
+    "Grandparents",
+    "Baby",
+    "Residential building",
+    "Door",
+    "Black and white photograph"
+  ],
+  "emotional_impact": "Warm, familial, nostalgic, and tender, depicting a moment of connection between generations.",
+  "quality": {
+    "technical": 7,
+    "lighting": 8,
+    "composition": 7,
+    "emotional": 9,
+    "discard": false
+  },
+  "recommended_enhancements": [
+    "Dust and scratch removal",
+    "Contrast adjustment",
+    "Sharpening"
+  ],
+  "authenticity": {
+    "score": 10,
+    "reasons": [
+      "Appears to be an original, unaltered black and white photographic print from the mid-20th century.",
+      "EXIF data indicates a recent scan, not manipulation of the original image content."
+    ]
+  }
+}

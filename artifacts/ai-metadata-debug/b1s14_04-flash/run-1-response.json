@@ -1,0 +1,143 @@
+{
+  "type": "Group portrait",
+  "caption": "An older couple with a baby standing in front of a brick house.",
+  "description": "A black and white photograph captures an older man, an older woman, and a baby standing outdoors in front of a brick house. The man, wearing a suit and glasses, stands on the left, looking down at the baby. The woman, on the right, holds the baby and smiles, also looking at the child. The baby, dressed in light clothing, looks downwards. The background features a dark-colored roof overhang and a front door with multiple textured glass panes. A house number '42' is visible above the door. The overall scene suggests a family moment, possibly grandparents with a grandchild.",
+  "estimated_date": {
+    "most_likely_date": "1958",
+    "min_date": "1955",
+    "max_date": "1960",
+    "display_label": "late 1950s",
+    "rationale": "The fashion and architectural styles, including the clothing of the adults and the design of the house, strongly suggest the late 1950s."
+  },
+  "location": "Unknown",
+  "subjects": [
+    {
+      "label": "Subject1",
+      "bounding_box": {
+        "x": 170,
+        "y": 240,
+        "width": 120,
+        "height": 100
+      },
+      "type": "person",
+      "location_desc": "Left side, standing",
+      "gender": "male",
+      "animal_type": null,
+      "age_range": "60s",
+      "dob_range": "1890s-1900s",
+      "emotion": "content",
+      "gaze": "downwards, towards baby",
+      "features": "wearing glasses, short hair",
+      "uniform": "suit jacket, tie, patterned vest",
+      "suggested_names": [],
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    },
+    {
+      "label": "Subject2",
+      "bounding_box": {
+        "x": 440,
+        "y": 300,
+        "width": 80,
+        "height": 80
+      },
+      "type": "person",
+      "location_desc": "Center, held by woman",
+      "gender": "unknown",
+      "animal_type": null,
+      "age_range": "infant (6-18 months)",
+      "dob_range": "1950s-1960s",
+      "emotion": "neutral",
+      "gaze": "downwards",
+      "features": "short dark hair",
+      "uniform": "light-colored top",
+      "suggested_names": [],
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    },
+    {
+      "label": "Subject3",
+      "bounding_box": {
+        "x": 590,
+        "y": 240,
+        "width": 110,
+        "height": 100
+      },
+      "type": "person",
+      "location_desc": "Right side, holding baby",
+      "gender": "female",
+      "animal_type": null,
+      "age_range": "50s-60s",
+      "dob_range": "1890s-1910s",
+      "emotion": "smiling",
+      "gaze": "towards baby",
+      "features": "curled dark hair",
+      "uniform": "patterned dress",
+      "suggested_names": [],
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    }
+  ],
+  "regions_of_interest": [
+    {
+      "label": "House number 42",
+      "kind": "signage",
+      "bounding_box": {
+        "x": 440,
+        "y": 170,
+        "width": 80,
+        "height": 40
+      },
+      "significance": "Identifies the address of the location.",
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    },
+    {
+      "label": "Front door with textured glass",
+      "kind": "architecture",
+      "bounding_box": {
+        "x": 300,
+        "y": 170,
+        "width": 400,
+        "height": 600
+      },
+      "significance": "Provides context for the setting and architectural style of the period.",
+      "bounding_box_coordinate_space": "full_photo",
+      "source_image_index": 1
+    }
+  ],
+  "keywords": [
+    "late 1950s",
+    "20th century"
+  ],
+  "tag_proposals": [
+    "family portrait",
+    "grandparents",
+    "baby",
+    "house",
+    "door",
+    "brick house",
+    "black and white photo",
+    "outdoor portrait"
+  ],
+  "emotional_impact": "The image conveys a warm, tender, and nostalgic feeling, capturing a loving family moment.",
+  "quality": {
+    "technical": 7,
+    "lighting": 8,
+    "composition": 8,
+    "emotional": 9,
+    "discard": false
+  },
+  "recommended_enhancements": [
+    "Dust and scratch removal",
+    "Contrast adjustment",
+    "Sharpening"
+  ],
+  "authenticity": {
+    "score": 10,
+    "reasons": [
+      "Consistent photographic style for the estimated era",
+      "No signs of digital manipulation or anachronisms"
+    ]
+  }
+}
