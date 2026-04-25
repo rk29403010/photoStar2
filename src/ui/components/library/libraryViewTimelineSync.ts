@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type UIEvent } from 'react';
+import { useCallback, useState, type UIEvent } from 'react';
 import type { GalleryTimelineSeek, LibraryTimelineSummary } from '@contracts/core';
 import type { LibrarySelectableItem } from '@shared/utils/librarySelectionState';
 import { getTopVisibleSelectionKeyFromScrollContainer } from './libraryVisibleSelectionKey';
@@ -13,7 +13,7 @@ export function useLibraryTimelineSync(params: {
 }) {
     const { activeTimelineSeek, displayItems, handleScroll, markScrollActivity, timeline } = params;
     const [topVisibleSelectionKey, setTopVisibleSelectionKey] = useState<string | null>(null);
-    const { viewportBucketIndex, updateViewportBucketIndex, syncViewportBucketIndexFromScrollContainer } = useViewportTimelineBucketIndex({
+    const { viewportBucketIndex, syncViewportBucketIndexFromScrollContainer } = useViewportTimelineBucketIndex({
         displayItems,
         timeline,
         activeTimelineSeek,
@@ -26,10 +26,6 @@ export function useLibraryTimelineSync(params: {
         markScrollActivity();
         handleScroll(event);
     }, [handleScroll, markScrollActivity, syncViewportBucketIndexFromScrollContainer]);
-
-    useEffect(() => {
-        updateViewportBucketIndex(topVisibleSelectionKey);
-    }, [topVisibleSelectionKey, updateViewportBucketIndex]);
 
     return {
         topVisibleSelectionKey,

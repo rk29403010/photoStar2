@@ -15,7 +15,7 @@ export function buildOrderClause(params: { galleryOrder: AssetGalleryOrder; defa
     const chronologicalDirection = galleryOrder === 'oldest_first' ? 'ASC' : defaultDirection;
     const photoDateOrder = `CASE WHEN a.photo_created_at IS NULL THEN 1 ELSE 0 END ASC, a.photo_created_at ${chronologicalDirection}, a.created_at ${chronologicalDirection}`;
     if (galleryOrder === 'previewed_first') {
-        return `CASE WHEN p.path IS NULL THEN 1 ELSE 0 END ASC, ${photoDateOrder}`;
+        return `CASE WHEN p.path IS NULL THEN 1 ELSE 0 END ASC, a.created_at ASC, ${photoDateOrder}, a.id ASC`;
     }
 
     return photoDateOrder;

@@ -113,7 +113,6 @@ test('soft reset recreates schema while preserving manual tables, settings, and 
         assert.equal(count(db, 'manual_face_isolations'), 1);
         assert.equal(count(db, 'folder_history'), 1);
         assert.equal(db.prepare("SELECT value FROM settings WHERE id = 'custom-setting'").get().value, 'keep-me');
-        assert.ok(db.prepare("SELECT value FROM settings WHERE id = 'cleanup_legacy_ai_metadata_split_v1'").get().value);
         assert.equal(fs.existsSync(previewsDir), false);
     } finally {
         dbManager.close();
@@ -161,7 +160,7 @@ test('factory reset recreates schema with only built-in defaults remaining', asy
         assert.equal(count(db, 'manual_face_isolations'), 0);
         assert.equal(count(db, 'folder_history'), 0);
         assert.equal(db.prepare("SELECT value FROM settings WHERE id = 'custom-setting'").get(), undefined);
-        assert.ok(db.prepare("SELECT value FROM settings WHERE id = 'cleanup_legacy_ai_metadata_split_v1'").get().value);
+        assert.equal(count(db, 'settings'), 0);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

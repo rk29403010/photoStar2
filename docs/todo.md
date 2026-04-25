@@ -158,6 +158,11 @@ I would like a global setting
 1. Move to Vite+ <https://voidzero.dev/posts/announcing-vite-plus-alpha>
 2. Introduce
 3. Move to ts7 when available
+4. Tidy detached-workflow test cleanup noise in `test:core`.
+   - Context: `npm.cmd run test:core` now passes `220/220`, but the run still prints a few noisy console errors from detached workflow tests while background tasks are finishing.
+   - Current understanding: the failures no longer break the suite, but some tests still let detached runs outlive the test body long enough for `dbManager.close()` to race final status updates.
+   - Likely focus areas: detached workflow command/telemetry/recovery-style tests that call `startDetached(...)`, then close temp DBs once their main assertion passes.
+   - Goal: make the tests wait for full detached-run completion or otherwise shut down cleanly so `test:core` output is quiet as well as green.
 
 UI Improvements
 

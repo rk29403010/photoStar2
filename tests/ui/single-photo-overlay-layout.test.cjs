@@ -32,7 +32,7 @@ test('single photo overlay wires the info panel close button back to the shared 
     const overlaySource = fs.readFileSync('src/ui/components/single-photo/SinglePhotoOverlay.tsx', 'utf8');
     const infoPanelSource = fs.readFileSync('src/ui/components/single-photo/InfoPanel.tsx', 'utf8');
 
-    assert.match(overlaySource, /onClose=\{\(\) => panelState\.setShowInfoPanel\(false\)\}/);
+    assert.match(overlaySource, /onClose=\{\(\) => props\.panelState\.setShowInfoPanel\(false\)\}/);
     assert.match(infoPanelSource, /onClose\?: \(\) => void/);
     assert.match(infoPanelSource, /title="Hide info panel"/);
 });

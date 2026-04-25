@@ -395,7 +395,7 @@ function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
     return buildUngroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence);
 }
 
-async function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
+function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>[0]) {
     const { id, payload, originWs, dbManager, respond } = ctx;
     const requestPayload = (payload || {}) as AssetQueryPayload;
     const query = getAssetsQuery(requestPayload);
@@ -403,7 +403,7 @@ async function respondAssetList(ctx: Parameters<CommandHandlerMap['get_assets']>
     const loadPhotoMetadata = requestPayload.includeEvidence === true ? createPhotoMetadataBundleLoader(dbManager) : undefined;
     const assets = dedupeAssetsById(rows.map((row) => toAsset(row, loadPhotoMetadata?.(row.id))));
     const responseAssets = requestPayload.detailLevel === 'gallery'
-        ? await attachInlinePreviewDataUrls(assets)
+        ? attachInlinePreviewDataUrls(assets)
         : assets;
     const limit = requestPayload.limit || 500;
     const offset = requestPayload.offset || 0;
@@ -428,9 +428,9 @@ function respondAssetDetail(ctx: Parameters<CommandHandlerMap['get_asset_detail'
 }
 
 export const assetCommandHandlers: CommandHandlerMap = {
-    get_assets: async (ctx) => {
+    get_assets: (ctx) => {
         try {
-            await respondAssetList(ctx);
+            respondAssetList(ctx);
         } catch (error) {
             ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
         }

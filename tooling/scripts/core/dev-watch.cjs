@@ -51,7 +51,7 @@ function isIgnoredPath(normalizedPath) {
 }
 
 function shouldLogPath(filePath) {
-    const normalizedPath = filePath.replace(/\\/g, '/');
+    const normalizedPath = `/${toDisplayPath(filePath)}`.replace(/\\/g, '/');
     if (isIgnoredPath(normalizedPath)) {
         return false;
     }

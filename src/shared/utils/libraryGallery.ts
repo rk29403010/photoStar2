@@ -56,6 +56,13 @@ function compareAssetDates(left: Asset, right: Asset, direction: 'asc' | 'desc')
     const leftRank = getTimestampRank(left.photo_created_at);
     const rightRank = getTimestampRank(right.photo_created_at);
     if (leftRank === rightRank) {
+        const leftCreatedAtRank = getTimestampRank(left.created_at);
+        const rightCreatedAtRank = getTimestampRank(right.created_at);
+        if (leftCreatedAtRank !== rightCreatedAtRank) {
+            return direction === 'asc'
+                ? leftCreatedAtRank - rightCreatedAtRank
+                : rightCreatedAtRank - leftCreatedAtRank;
+        }
         return compareAssetIds(left, right);
     }
     if (leftRank === Number.NEGATIVE_INFINITY) {

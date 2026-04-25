@@ -16,6 +16,7 @@ export const VariantFilmstripOverlay: FC<{
 
     return (
         <VariantFilmstrip
+            key={`${asset.id}:${asset.group_id ?? 'ungrouped'}`}
             groupId={asset.group_id!}
             selectedAsset={asset}
             onGetGroupOrbit={onGetGroupOrbit!}

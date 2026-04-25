@@ -20,7 +20,7 @@ test('photo date review action is wired from App through the single-photo file t
     assert.match(loadedShellSource, /onFlagPhotoDateCorrection=\{props\.handleFlagPhotoDateCorrection\}/);
     assert.match(overlaysSource, /onFlagPhotoDateCorrection=\{props\.onFlagPhotoDateCorrection\}/);
     assert.match(singlePhotoSource, /onFlagPhotoDateCorrection\?: \(input: PhotoDateCorrectionInput\) => Promise<void>;/);
-    assert.match(singlePhotoSource, /onFlagPhotoDateCorrection=\{onFlagPhotoDateCorrection\}/);
+    assert.match(singlePhotoSource, /onFlagPhotoDateCorrection=\{params\.props\.onFlagPhotoDateCorrection\}/);
     assert.match(overlaySource, /onFlagPhotoDateCorrection=\{onFlagPhotoDateCorrection\}/);
     assert.match(infoPanelSource, /onFlagPhotoDateCorrection=\{onFlagPhotoDateCorrection\}/);
     assert.match(fileTabSource, /onFlagPhotoDateCorrection\?: \(input: PhotoDateCorrectionInput\) => Promise<void>/);

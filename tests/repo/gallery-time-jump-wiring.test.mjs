@@ -43,7 +43,7 @@ test('gallery exposes a global timeline rail with decade jump buttons and stable
     assert.match(visibleSelectionSource, /querySelectorAll<HTMLElement>\('\[data-selection-key\]'\)/);
     assert.match(timelineHelpersSource, /visibleSelectionKey: string \| null;/);
     assert.doesNotMatch(timelineHelpersSource, /querySelectorAll<HTMLElement>\('\[data-selection-key\]'\)/);
-    assert.match(timelineHelpersSource, /updateViewportBucketIndex\(params\.visibleSelectionKey\)/);
+    assert.match(timelineHelpersSource, /const viewportBucketIndex = findViewportTimelineBucketIndex\(params\.visibleSelectionKey, fallbackSelectionKey, selectionKeyToBucketIndex\);/);
     assert.doesNotMatch(timelineRailSource, /type="range"/);
     assert.match(timelineRailSource, /TimelineRailBucketButton/);
     assert.match(timelineRailSource, /onClick=\{\(\) =>/);

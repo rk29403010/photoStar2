@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type {
   Album,
   Asset,
@@ -134,15 +134,21 @@ function getPanelStyle(active: boolean) {
   };
 }
 
+function createVisibleAssetCache(initialAssets: Asset[]) {
+  let visibleAssets = initialAssets;
+
+  return {
+    update(nextAssets: Asset[], ingestActive: boolean) {
+      visibleAssets = buildStablePreviewAssets(visibleAssets, nextAssets, ingestActive);
+      return visibleAssets;
+    },
+  };
+}
+
 function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | null) {
   const ingestActive = Boolean(ingestStatusMessage);
-  const [visibleAssets, setVisibleAssets] = useState<Asset[]>(() => buildStablePreviewAssets([], assets, ingestActive));
-
-  useEffect(() => {
-    setVisibleAssets((previousAssets) => buildStablePreviewAssets(previousAssets, assets, ingestActive));
-  }, [assets, ingestActive]);
-
-  return visibleAssets;
+  const [cache] = useState(() => createVisibleAssetCache(buildStablePreviewAssets([], assets, ingestActive)));
+  return cache.update(assets, ingestActive);
 }
 
 function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets: Asset[]; activeFilter?: LibraryFilter }) {

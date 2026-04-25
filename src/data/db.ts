@@ -331,6 +331,11 @@ export class DatabaseManager {
   }
 
   public close(): void {
+    try {
+      this.db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {
+      // ignore checkpoint failures during shutdown
+    }
     this.db.close();
   }
 
@@ -343,5 +348,4 @@ export class DatabaseManager {
     this.db.prepare('INSERT OR REPLACE INTO settings (id, value) VALUES (?, ?)').run(key, value);
   }
 }
-
 

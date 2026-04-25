@@ -16,9 +16,8 @@ test('buildAnalysisDetails surfaces mock metadata fields in the analysis tab mod
 
     assert.deepEqual(details, {
         mode: 'mock',
-        caption: 'Mock caption for efe2a408-3e4f-4830-803d-0fbb322722c6',
         tags: ['mock-tag'],
-        notes: 'Deterministic mock response',
+        description: 'Deterministic mock response',
     });
 });
 

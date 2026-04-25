@@ -40,7 +40,7 @@ test('buildGroupIdPillModels assigns stable symbols and stable per-group colors'
         [
             { label: '1234', symbol: '*' },
             { label: '9abc', symbol: '~' },
-            { label: 'ffff', symbol: '=' },
+            { label: 'ffff', symbol: '≡' },
         ]
     );
     assert.match(pills[0].background, /^hsla\(/);

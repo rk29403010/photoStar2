@@ -288,7 +288,7 @@ function buildTabItems(props: ActionPanelProps): Record<ActionTab, ActionCardIte
     };
 }
 
-export function ActionPanel(props: ActionPanelProps) {
+function OpenActionPanel(props: ActionPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<ActionTab>('ingest');
     const tabItems = buildTabItems(props);
@@ -306,16 +306,6 @@ export function ActionPanel(props: ActionPanelProps) {
 
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [props]);
-
-    useEffect(() => {
-        if (props.isOpen) {
-            setActiveTab('ingest');
-        }
-    }, [props.isOpen]);
-
-    if (!props.isOpen) {
-        return null;
-    }
 
     const activeTabDefinition = ACTION_TABS.find((tab) => tab.id === activeTab) ?? ACTION_TABS[0];
 
@@ -348,4 +338,12 @@ export function ActionPanel(props: ActionPanelProps) {
             </div>
         </div>
     );
+}
+
+export function ActionPanel(props: ActionPanelProps) {
+    if (!props.isOpen) {
+        return null;
+    }
+
+    return <OpenActionPanel key="open-action-panel" {...props} />;
 }

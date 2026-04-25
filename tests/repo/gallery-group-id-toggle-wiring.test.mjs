@@ -13,5 +13,6 @@ test('gallery exposes persisted show-group-ids state and wires it through to lib
     assert.match(loadedAppShellSource, /showGroupIds=\{props\.uiState\.showGroupIds\}/);
     assert.match(mainContentSource, /onShowGroupIdsChange=\{props\.onShowGroupIdsChange\}/);
     assert.match(toolbarSource, /Show group IDs/);
-    assert.match(layoutEngineSource, /showGroupIds=\{showGroupIds\}/);
+    assert.match(layoutEngineSource, /showGroupIds=\{Boolean\(showGroupIds\)\}/);
+    assert.match(layoutEngineSource, /showGroupIds=\{params\.showGroupIds\}/);
 });

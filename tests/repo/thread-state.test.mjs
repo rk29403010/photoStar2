@@ -17,6 +17,10 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');
+const worktreeRootMarker = `${path.sep}.worktrees${path.sep}`;
+const primaryWorkspaceRoot = workspaceRoot.includes(worktreeRootMarker)
+    ? workspaceRoot.slice(0, workspaceRoot.indexOf(worktreeRootMarker))
+    : workspaceRoot;
 const exampleBranch = 'codex/example';
 const mergedIntoOriginMainResponses = new Map([
     ['rev-parse --verify main', { status: 0, stdout: 'main\n' }],
@@ -50,12 +54,12 @@ function executeGitMergedNowhere(args) {
 }
 
 test('getWorktreeNameFromPath returns main for the primary workspace', () => {
-    assert.equal(getWorktreeNameFromPath(workspaceRoot), 'main');
+    assert.equal(getWorktreeNameFromPath(primaryWorkspaceRoot), 'main');
 });
 
 test('getWorktreeNameFromPath returns trailing worktree directory name for linked worktrees', () => {
     assert.equal(
-        getWorktreeNameFromPath(path.join(workspaceRoot, '.worktrees', 'codex-library-selection')),
+        getWorktreeNameFromPath(path.join(primaryWorkspaceRoot, '.worktrees', 'codex-library-selection')),
         'codex-library-selection',
     );
 });
@@ -245,6 +249,37 @@ test('renderThreadList keeps active threads ahead of closed threads', () => {
     assert.match(output, /active \| A task \| codex\/a/);
     assert.match(output, /merged \| B task \| codex\/b/);
     assert.ok(output.indexOf('active | A task') < output.indexOf('merged | B task'));
+});
+
+test('renderThreadList surfaces worktree path and runtime ports', () => {
+    const registry = createEmptyThreadRegistry();
+    const worktreePath = path.join(workspaceRoot, '.worktrees', 'codex-runtime');
+
+    upsertThreadEntry(registry, {
+        cwd: worktreePath,
+        task: 'Runtime task',
+        status: 'active',
+        branch: 'codex/runtime-task',
+        lastCommit: 'aaa1111',
+        dirty: false,
+        dirtyCount: 0,
+        running: 'dev:desktop-runtime',
+        appUrl: 'http://localhost:6231',
+        webPort: 6231,
+        backendPort: 6232,
+        worktreeName: 'codex-runtime',
+        worktreePath,
+        owner: '',
+        note: '',
+        updatedAt: '2026-03-30T09:00:00.000Z',
+    });
+
+    const output = renderThreadList(registry);
+
+    assert.match(output, /running:dev:desktop-runtime/);
+    assert.match(output, /app:http:\/\/localhost:6231/);
+    assert.match(output, /backend:6232/);
+    assert.match(output, new RegExp(`path:${worktreePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 });
 
 test('renderThreadList collapses duplicate note segments for display', () => {

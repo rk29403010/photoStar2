@@ -20,7 +20,7 @@ test('mounted rail tiles only force eager preview loading for the front of the v
     const { GALLERY_EAGER_PREVIEW_COUNT, GALLERY_ROW_GAP_PX, GALLERY_TILE_GAP_PX } = await import('../../src/ui/components/library/galleryBrowseRailModel.ts');
 
     assert.equal(GALLERY_EAGER_PREVIEW_COUNT, 12);
-    assert.equal(GALLERY_ROW_GAP_PX, 10);
+    assert.equal(GALLERY_ROW_GAP_PX, 12);
     assert.equal(GALLERY_TILE_GAP_PX, 6);
 });
 

@@ -31,6 +31,16 @@ function createResponseCollector() {
     };
 }
 
+async function waitForRunStatus(store, runId, expectedStatus) {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+        if (store.getRunSummary(runId).status === expectedStatus) {
+            return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`workflow run '${runId}' did not reach status '${expectedStatus}'`);
+}
+
 test('workflow runtime commands start a run and return drill-down summaries', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -86,6 +96,7 @@ test('workflow runtime commands start a run and return drill-down summaries', as
         const startResponse = await collector.takeLast();
         assert.equal(startResponse.status, 'ok');
         assert.ok(startResponse.data.runId);
+        await waitForRunStatus(store, startResponse.data.runId, 'completed');
 
         handleSystemCommand({
             id: 'cmd-2',

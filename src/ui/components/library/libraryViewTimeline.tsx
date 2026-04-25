@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import type { GalleryTimelineSeek, LibraryTimelineSummary } from '@contracts/core';
 import { clearLibrarySelection, type LibrarySelectableItem, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LibraryTimelineRail } from './LibraryTimelineRail';
 import { createSelectionKeyTimelineBucketIndex, isTimelineSortMode } from './libraryTimelineModel';
-import { getTopVisibleSelectionKeyFromScrollContainer } from './libraryVisibleSelectionKey';
 
 function findViewportTimelineBucketIndex(
     visibleSelectionKey: string | null,
@@ -25,26 +24,12 @@ export function useViewportTimelineBucketIndex(params: {
     activeTimelineSeek: GalleryTimelineSeek | null;
     visibleSelectionKey: string | null;
 }) {
-    const [viewportBucketIndex, setViewportBucketIndex] = useState<number | null>(null);
     const selectionKeyToBucketIndex = createSelectionKeyTimelineBucketIndex(params.displayItems, params.timeline);
     const fallbackSelectionKey = params.displayItems[0]?.selectionKey ?? null;
+    const viewportBucketIndex = findViewportTimelineBucketIndex(params.visibleSelectionKey, fallbackSelectionKey, selectionKeyToBucketIndex);
+    const syncViewportBucketIndexFromScrollContainer = useCallback((_container: HTMLDivElement) => {}, []);
 
-    const updateViewportBucketIndex = useCallback((visibleSelectionKey: string | null) => {
-        const nextViewportBucketIndex = findViewportTimelineBucketIndex(visibleSelectionKey, fallbackSelectionKey, selectionKeyToBucketIndex);
-        if (nextViewportBucketIndex != null) {
-            setViewportBucketIndex(nextViewportBucketIndex);
-        }
-    }, [fallbackSelectionKey, selectionKeyToBucketIndex]);
-
-    useEffect(() => {
-        updateViewportBucketIndex(params.visibleSelectionKey);
-    }, [params.activeTimelineSeek, params.visibleSelectionKey, updateViewportBucketIndex]);
-
-    const syncViewportBucketIndexFromScrollContainer = useCallback((container: HTMLDivElement) => {
-        updateViewportBucketIndex(getTopVisibleSelectionKeyFromScrollContainer(container));
-    }, [updateViewportBucketIndex]);
-
-    return { viewportBucketIndex, updateViewportBucketIndex, syncViewportBucketIndexFromScrollContainer };
+    return { viewportBucketIndex, syncViewportBucketIndexFromScrollContainer };
 }
 
 export function getLibraryToolbarProps(params: {
