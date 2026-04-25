@@ -180,23 +180,18 @@ function useLibrarySortController(params: {
 }) {
     const [sortMode, setSortMode] = useState<LibrarySortMode>('date');
     const { groupSimilarPhotos, onGalleryOrderChange, onGalleryTimelineSeek, scrollRef } = params;
-
-    useEffect(() => {
-        if (groupSimilarPhotos && sortMode === 'group') {
-            setSortMode('filename');
-        }
-    }, [groupSimilarPhotos, sortMode]);
+    const effectiveSortMode = getEffectiveLibrarySortMode(sortMode, groupSimilarPhotos);
 
     useEffect(() => {
         const scrollContainer = scrollRef.current;
-        onGalleryOrderChange(getGalleryOrderForSortMode(sortMode));
-        if (!isTimelineSortMode(sortMode)) {
+        onGalleryOrderChange(getGalleryOrderForSortMode(effectiveSortMode));
+        if (!isTimelineSortMode(effectiveSortMode)) {
             onGalleryTimelineSeek(null);
         }
         scrollContainer?.scrollTo({ top: 0, behavior: 'auto' });
-    }, [onGalleryOrderChange, onGalleryTimelineSeek, scrollRef, sortMode]);
+    }, [effectiveSortMode, onGalleryOrderChange, onGalleryTimelineSeek, scrollRef]);
 
-    return { sortMode, setSortMode };
+    return { sortMode: effectiveSortMode, setSortMode };
 }
 
 function useLibraryPaging(params: {

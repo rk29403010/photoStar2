@@ -26,5 +26,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Enforce lint gates on changed files
-        run: npm run lint:changed
+      - name: Run quality gate
+        run: npm run quality:changed:full
+
+      - name: Run repo wiring tests
+        run: npm run test:repo
+
+      - name: Run UI model tests
+        run: npm run test:ui

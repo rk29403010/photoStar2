@@ -1,5 +1,5 @@
 import type { Asset } from '@contracts/core';
-import { getLibraryBinActionLabel as getSharedLibraryBinActionLabel } from '../app/libraryBinActionModel';
+import { getLibraryBinActionLabel as getSharedLibraryBinActionLabel } from '../app/libraryBinActionModel.ts';
 
 type GroupedAsset = Asset & { role?: string | null };
 

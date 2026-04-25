@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+    buildThreadBootstrapSummary,
     buildThreadBootstrapPlan,
     buildSharedNodeModulesPlan,
     normalizeThreadSlug,
@@ -56,6 +57,25 @@ test('buildThreadBootstrapPlan derives branch and worktree path from the task sl
             worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
         },
     );
+});
+
+test('buildThreadBootstrapSummary preserves managed runtime URL output', () => {
+    const output = buildThreadBootstrapSummary({
+        plan: {
+            task: 'Automatic Thread Worktrees',
+            branch: 'codex/automatic-thread-worktrees',
+            worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
+        },
+        linkedSharedNodeModules: true,
+        devSessionOutput: [
+            'Started dev:desktop-runtime for automatic-thread-worktrees as "Automatic Thread Worktrees".',
+            'dev:desktop-runtime @ http://localhost:6231 (backend 6232)',
+        ].join('\n'),
+    });
+
+    assert.match(output, /Branch: codex\/automatic-thread-worktrees/);
+    assert.match(output, /Worktree: .*automatic-thread-worktrees/);
+    assert.match(output, /http:\/\/localhost:6231 \(backend 6232\)/);
 });
 
 test('buildSharedNodeModulesPlan points worktrees at the main workspace dependencies', () => {

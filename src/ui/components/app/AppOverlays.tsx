@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { BackgroundJob } from '@contracts/jobs';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
@@ -76,22 +76,28 @@ interface AppOverlaysProps {
   onTaskDrawerMinimizedChange: (minimized: boolean) => void;
 }
 
+function createSelectedAssetCache() {
+  let fallbackSelectedAsset: Asset | null = null;
+
+  return {
+    update(selectedAssetId: string | null, currentSelectedAsset: Asset | null) {
+      if (!selectedAssetId) {
+        fallbackSelectedAsset = null;
+      } else if (currentSelectedAsset) {
+        fallbackSelectedAsset = currentSelectedAsset;
+      }
+
+      return fallbackSelectedAsset;
+    },
+  };
+}
+
 function useSinglePhotoOverlayState(props: Pick<AppOverlaysProps, 'assets' | 'selectedAssetId'>) {
-  const [fallbackSelectedAsset, setFallbackSelectedAsset] = useState<Asset | null>(null);
+  const cache = useMemo(() => createSelectedAssetCache(), []);
   const currentSelectedAsset = props.selectedAssetId
     ? props.assets.find((asset) => asset.id === props.selectedAssetId) ?? null
     : null;
-
-  useEffect(() => {
-    if (!props.selectedAssetId) {
-      setFallbackSelectedAsset(null);
-      return;
-    }
-
-    if (currentSelectedAsset) {
-      setFallbackSelectedAsset(currentSelectedAsset);
-    }
-  }, [currentSelectedAsset, props.selectedAssetId]);
+  const fallbackSelectedAsset = cache.update(props.selectedAssetId, currentSelectedAsset);
 
   const { overlayAssets, selectedIndex } = resolveSinglePhotoOverlaySelection({
     assets: props.assets,

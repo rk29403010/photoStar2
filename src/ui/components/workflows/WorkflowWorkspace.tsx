@@ -33,11 +33,6 @@ function useWorkflowWorkspacePersistence(workflowId: string) {
     const [activeTab, setActiveTab] = useState<WorkflowWorkspaceTabId>(() => persistedTabs[workflowId] ?? getDefaultWorkflowWorkspaceTab());
     const [sequenceViewport, setSequenceViewport] = useState<WorkflowSequenceMapViewport | null>(() => persistedViewports[workflowId] ?? null);
 
-    useEffect(() => {
-        setActiveTab(persistedTabs[workflowId] ?? getDefaultWorkflowWorkspaceTab());
-        setSequenceViewport(persistedViewports[workflowId] ?? null);
-    }, [persistedTabs, persistedViewports, workflowId]);
-
     return {
         activeTab,
         sequenceViewport,
@@ -293,7 +288,7 @@ function renderWorkflowWorkspaceReadyState(params: {
     );
 }
 
-export function WorkflowWorkspace({ workflowId, onWorkflowIdChange, onGetWorkflowVisualiser, onRerunMissingFolderAiMetadata }: WorkflowWorkspaceProps) {
+function ActiveWorkflowWorkspace({ workflowId, onWorkflowIdChange, onGetWorkflowVisualiser, onRerunMissingFolderAiMetadata }: WorkflowWorkspaceProps) {
     const [selectedRunSelection, setSelectedRunSelection] = useState<string | null>(null);
     const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
     const {
@@ -311,11 +306,6 @@ export function WorkflowWorkspace({ workflowId, onWorkflowIdChange, onGetWorkflo
         setSelectedDetailId,
         onRerunMissingFolderAiMetadata,
     });
-
-    useEffect(() => {
-        setSelectedRunSelection(null);
-        setSelectedDetailId(null);
-    }, [workflowId]);
 
     if (loading) {
         return renderWorkflowWorkspaceState('Loading workflow visualiser...', 'idle');
@@ -339,4 +329,8 @@ export function WorkflowWorkspace({ workflowId, onWorkflowIdChange, onGetWorkflo
         onWorkflowIdChange,
         retryAction,
     });
+}
+
+export function WorkflowWorkspace(props: WorkflowWorkspaceProps) {
+    return <ActiveWorkflowWorkspace key={props.workflowId} {...props} />;
 }

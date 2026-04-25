@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 
 type GalleryAssetPreview = {
     id: string;
@@ -15,22 +15,22 @@ function getPreviewMimeType(previewPath: string) {
     return 'image/webp';
 }
 
-async function toInlinePreviewDataUrl(previewPath: string | undefined) {
+function toInlinePreviewDataUrl(previewPath: string | undefined) {
     if (!previewPath) {return undefined;}
 
     try {
-        const bytes = await readFile(previewPath);
+        const bytes = readFileSync(previewPath);
         return `data:${getPreviewMimeType(previewPath)};base64,${bytes.toString('base64')}`;
     } catch {
         return undefined;
     }
 }
 
-export async function attachInlinePreviewDataUrls<T extends GalleryAssetPreview>(assets: T[]) {
-    const decoratedAssets = await Promise.all(assets.map(async (asset) => ({
+export function attachInlinePreviewDataUrls<T extends GalleryAssetPreview>(assets: T[]) {
+    const decoratedAssets = assets.map((asset) => ({
         ...asset,
-        preview_data_url: await toInlinePreviewDataUrl(asset.preview_path),
-    })));
+        preview_data_url: toInlinePreviewDataUrl(asset.preview_path),
+    }));
 
     return decoratedAssets as Array<T & { preview_data_url?: string }>;
 }

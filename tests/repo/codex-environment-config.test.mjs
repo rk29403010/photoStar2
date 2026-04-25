@@ -42,7 +42,9 @@ test('Codex worktree scripts fail fast when the worktree context is missing', ()
     assert.match(doctorScript, /npm\.cmd run thread:doctor/);
 
     assert.match(shipScript, /CODEX_WORKTREE_PATH/);
-    assert.match(shipScript, /if "%CODEX_WORKTREE_PATH%"==""/);
-    assert.match(shipScript, /Missing CODEX_WORKTREE_PATH/);
+    assert.match(shipScript, /set "TARGET_PATH=%CODEX_WORKTREE_PATH%"/);
+    assert.match(shipScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);
+    assert.match(shipScript, /if \/I "%CURRENT_BRANCH%"=="main"/);
+    assert.match(shipScript, /Ship must be run from a dedicated worktree branch, not from main/);
     assert.match(shipScript, /node\.exe tooling\\scripts\\repo\\thread-ship\.js/);
 });

@@ -115,13 +115,15 @@ test('managed dev session cleanup targets the resolved runtime ports on Windows'
             args: [
                 '-NoProfile',
                 '-Command',
-                '$pids=(Get-NetTCPConnection -LocalPort 5173,5174 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }',
+                `$pids=(Get-NetTCPConnection -LocalPort ${env.VITE_PORT},${env.VITE_BACKEND_PORT} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }`,
             ],
         },
     );
 });
 
 test('managed dev session cleanup targets legacy npm wrapper processes on Windows', () => {
+    const workspacePattern = workspaceRoot.replace(/\//g, '\\');
+
     assert.deepEqual(
         buildLegacyManagedProcessCleanupInvocation({
             cwd: workspaceRoot,
@@ -132,7 +134,7 @@ test('managed dev session cleanup targets legacy npm wrapper processes on Window
             args: [
                 '-NoProfile',
                 '-Command',
-                "$pids=(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.CommandLine -like '*C:\\Users\\robin\\Projects\\photoStar2*concurrently.js*') -or ($_.CommandLine -like '*npm-cli.js*run dev:core*') -or ($_.CommandLine -like '*npm-cli.js*run dev:web:watch*') } | Select-Object -ExpandProperty ProcessId -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }",
+                `$pids=(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.CommandLine -like '*${workspacePattern}*concurrently.js*') -or ($_.CommandLine -like '*npm-cli.js*run dev:core*') -or ($_.CommandLine -like '*npm-cli.js*run dev:web:watch*') } | Select-Object -ExpandProperty ProcessId -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }`,
             ],
         },
     );
@@ -234,6 +236,12 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
 
     assert.equal(scripts['quality:changed'], 'npm run lint:fast:changed && npm run complexity:changed');
     assert.equal(scripts['quality:changed:full'], 'npm run lint:fast:changed && npm run lint:changed && npm run complexity:changed');
+    assert.match(scripts.quality, /npm run test:repo/);
+    assert.match(scripts.quality, /npm run test:ui/);
+    assert.equal(scripts.test, 'npm run test:repo');
+    assert.equal(scripts['test:repo'], 'node --test tests/repo/*.test.mjs');
+    assert.equal(scripts['test:ui'], 'node --test tests/ui/*.test.cjs');
+    assert.equal(scripts['test:core'], 'npm run build:core:ts && node --test tests/core/*.test.cjs');
     assert.equal(scripts['benchmark:quality'], 'node tooling/scripts/repo/benchmark-quality.js');
     assert.equal(scripts['boundary:watch'], 'node tooling/scripts/repo/boundary-watchlist.js');
     assert.equal(scripts['dev:pause'], 'node tooling/scripts/repo/dev-session.js pause');

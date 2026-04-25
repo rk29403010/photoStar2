@@ -14,5 +14,5 @@ test('photo viewport keeps group navigation tied to the selected asset during im
     assert.match(assetModelSource, /export function resolveActiveSinglePhotoGroupId\(asset: Asset, previousActiveGroupId: string \| null\): string \| null/);
     assert.match(viewportSource, /selectedAsset: Asset;/);
     assert.match(viewportSource, /asset=\{selectedAsset\}/);
-    assert.match(viewportSource, /resolveActiveSinglePhotoGroupId\(props\.asset, previousActiveGroupId\)/);
+    assert.match(viewportSource, /resolveActiveSinglePhotoGroupId\(props\.asset, requestedActiveGroupId\)/);
 });

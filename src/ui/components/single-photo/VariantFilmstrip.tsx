@@ -22,7 +22,6 @@ interface VariantFilmstripProps {
 
 function useOrbit(groupId: string, onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>, onOrbitLoaded: (assets: Asset[]) => void) {
     const [orbit, setOrbit] = useState<SimilarityOrbit | null>(null);
-    const [loading, setLoading] = useState(true);
     const onGetGroupOrbitRef = useRef(onGetGroupOrbit);
     const onOrbitLoadedRef = useRef(onOrbitLoaded);
 
@@ -36,7 +35,6 @@ function useOrbit(groupId: string, onGetGroupOrbit: (groupId: string) => Promise
 
     useEffect(() => {
         let mounted = true;
-        setLoading(true);
         onGetGroupOrbitRef.current(groupId)
             .then((nextOrbit) => {
                 if (!mounted) {
@@ -47,18 +45,14 @@ function useOrbit(groupId: string, onGetGroupOrbit: (groupId: string) => Promise
                 onOrbitLoadedRef.current(nextOrbit.items.map((item) => item.asset));
             })
             .catch(console.error)
-            .finally(() => {
-                if (mounted) {
-                    setLoading(false);
-                }
-            });
+            .finally(() => {});
 
         return () => {
             mounted = false;
         };
     }, [groupId]);
 
-    return { orbit, loading };
+    return { orbit, loading: orbit === null };
 }
 
 function getVariantTileOpacity(isSelected: boolean): string {
@@ -267,21 +261,41 @@ export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({
     onActiveGroupChange,
 }) => {
     const [activeGroupId, setActiveGroupId] = useState(groupId);
-    const { orbit, loading } = useOrbit(activeGroupId, onGetGroupOrbit, onOrbitLoaded);
+
+    return (
+        <VariantFilmstripOrbit
+            key={activeGroupId}
+            activeGroupId={activeGroupId}
+            selectedAsset={selectedAsset}
+            onGetGroupOrbit={onGetGroupOrbit}
+            onOrbitLoaded={onOrbitLoaded}
+            onSelectAsset={onSelectAsset}
+            onActiveGroupChange={onActiveGroupChange}
+            onOpenGroup={setActiveGroupId}
+        />
+    );
+};
+
+function VariantFilmstripOrbit(props: {
+    activeGroupId: string;
+    selectedAsset: Asset;
+    onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
+    onOrbitLoaded: (assets: Asset[]) => void;
+    onSelectAsset: (assetId: string) => void;
+    onActiveGroupChange?: (groupId: string) => void;
+    onOpenGroup: (groupId: string) => void;
+}) {
+    const { orbit, loading } = useOrbit(props.activeGroupId, props.onGetGroupOrbit, props.onOrbitLoaded);
     const lastReportedGroupIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-        setActiveGroupId(groupId);
-    }, [groupId]);
-
-    useEffect(() => {
-        if (!orbit || !onActiveGroupChange || lastReportedGroupIdRef.current === orbit.group_id) {
+        if (!orbit || !props.onActiveGroupChange || lastReportedGroupIdRef.current === orbit.group_id) {
             return;
         }
 
         lastReportedGroupIdRef.current = orbit.group_id;
-        onActiveGroupChange(orbit.group_id);
-    }, [onActiveGroupChange, orbit]);
+        props.onActiveGroupChange(orbit.group_id);
+    }, [orbit, props]);
 
     if (loading || !orbit || orbit.items.length <= 1) {
         return null;
@@ -304,7 +318,7 @@ export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({
             overflow: 'hidden',
         }}>
             <FilmStripSprockets />
-            <OrbitHeader orbit={orbit} onOpenParent={setActiveGroupId} />
+            <OrbitHeader orbit={orbit} onOpenParent={props.onOpenGroup} />
             <div style={{
                 display: 'flex',
                 gap: 10,
@@ -316,12 +330,12 @@ export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({
                     <VariantMemberTile
                         key={`${item.kind}:${item.group_id}:${item.asset.id}`}
                         item={item}
-                        selectedAsset={selectedAsset}
-                        onSelectAsset={onSelectAsset}
-                        onOpenGroup={setActiveGroupId}
+                        selectedAsset={props.selectedAsset}
+                        onSelectAsset={props.onSelectAsset}
+                        onOpenGroup={props.onOpenGroup}
                     />
                 ))}
             </div>
         </div>
     );
-};
+}

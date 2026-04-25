@@ -257,6 +257,29 @@ function startManagedDevSession({
         const stderr = result.stderr?.trim();
         throw new Error(stderr || 'Unable to start managed dev session for new thread.');
     }
+
+    return result.stdout?.trim() ?? '';
+}
+
+export function buildThreadBootstrapSummary({
+    plan,
+    linkedSharedNodeModules,
+    devSessionOutput,
+}) {
+    const lines = [
+        `Created thread "${plan.task}".`,
+        `Branch: ${plan.branch}`,
+        `Worktree: ${plan.worktreePath}`,
+    ];
+
+    if (linkedSharedNodeModules) {
+        lines.push('Linked worktree node_modules to the main workspace node_modules.');
+    }
+    if (devSessionOutput) {
+        lines.push(devSessionOutput);
+    }
+
+    return lines.join('\n');
 }
 
 function main() {
@@ -295,9 +318,10 @@ function main() {
         worktreePath: plan.worktreePath,
     });
 
+    let devSessionOutput = '';
     if (args['start-dev']) {
         const script = typeof args.script === 'string' ? args.script.trim() : 'dev:desktop-runtime';
-        startManagedDevSession({
+        devSessionOutput = startManagedDevSession({
             task: plan.task,
             owner,
             note,
@@ -307,12 +331,11 @@ function main() {
         });
     }
 
-    console.log(`Created thread "${plan.task}".`);
-    console.log(`Branch: ${plan.branch}`);
-    console.log(`Worktree: ${plan.worktreePath}`);
-    if (linkedSharedNodeModules) {
-        console.log('Linked worktree node_modules to the main workspace node_modules.');
-    }
+    console.log(buildThreadBootstrapSummary({
+        plan,
+        linkedSharedNodeModules,
+        devSessionOutput,
+    }));
   }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

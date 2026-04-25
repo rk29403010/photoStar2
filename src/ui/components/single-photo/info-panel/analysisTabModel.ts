@@ -1,5 +1,5 @@
 import type { Asset } from '@contracts/core';
-import { buildPhotoMetadataAnalysisSummary } from './photoMetadataPanelModel';
+import { buildPhotoMetadataAnalysisSummary } from './photoMetadataPanelModel.ts';
 
 export interface AnalysisDetails {
   mode?: string;

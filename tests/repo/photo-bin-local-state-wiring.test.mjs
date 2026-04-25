@@ -24,5 +24,6 @@ test('photo bin actions use local asset state helpers instead of widening preser
     assert.match(coreActionsSource, /restoreAssetsInState:/);
     assert.match(hookSource, /actions\.removeAssetsFromState\(assetIds\)/);
     assert.match(hookSource, /actions\.restoreAssetsInState\(restoredAssets, referenceAssets\)/);
-    assert.doesNotMatch(gallerySource, /loadedAssetCount\?: number;/);
+    assert.match(gallerySource, /loadedAssetCount\?: number;/);
+    assert.match(gallerySource, /options\.preservePagingState\s*\?\s*Math\.max\(ASSET_PAGE_SIZE, options\.loadedAssetCount \?\? 0\)/);
 });

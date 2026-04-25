@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { Asset, TileIntent } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
@@ -175,15 +175,12 @@ export const Tile: React.FC<TileProps> = (props) => {
     const imgSrc = asset.preview_data_url ?? resolveImageUrl(asset.preview_path);
     const sensitivityBadge = getSensitivityDisplay(asset);
     const { isHovered, handleMouseEnter, handleMouseLeave } = useTileHoverState(asset, onHoverAssetChange);
-    const [isImageVisible, setIsImageVisible] = useState(false);
-
-    useEffect(() => {
-        setIsImageVisible(false);
-    }, [imgSrc]);
+    const [visibleImageSrc, setVisibleImageSrc] = useState<string | null>(null);
+    const isImageVisible = visibleImageSrc === imgSrc;
 
     return (
         <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={getTileContainerStyle(selected)}>
-            <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} onImageVisibleChange={setIsImageVisible} />
+            <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} onImageVisibleChange={(visible) => setVisibleImageSrc(visible ? imgSrc : null)} />
             <TileOverlays
                 selected={selected}
                 sensitivityBadge={sensitivityBadge}

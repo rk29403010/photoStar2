@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveDevRuntimePorts } from './dev-runtime-config.js';
 import { runCommandSync } from './process-invocation.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -79,6 +80,22 @@ function sortEntries(entries) {
 
         return left.task.localeCompare(right.task);
     });
+}
+
+function getThreadAppLabel(entry, runningLabel) {
+    if (runningLabel === 'none') {
+        return 'none';
+    }
+
+    if (typeof entry.appUrl === 'string' && entry.appUrl.trim() !== '') {
+        return entry.appUrl;
+    }
+
+    if (Number.isInteger(entry.webPort)) {
+        return `http://localhost:${entry.webPort}`;
+    }
+
+    return 'unknown';
 }
 
 export function upsertThreadEntry(registry, entry) {
@@ -162,9 +179,12 @@ export function renderThreadList(registry) {
         .map((entry) => {
             const dirtyLabel = entry.dirty ? `dirty:${entry.dirtyCount}` : 'clean';
             const runningLabel = entry.running && entry.running !== 'none' ? entry.running : 'none';
+            const appLabel = getThreadAppLabel(entry, runningLabel);
+            const backendLabel = Number.isInteger(entry.backendPort) ? String(entry.backendPort) : 'unknown';
+            const pathLabel = entry.worktreePath ?? entry.cwd;
             const ownerLabel = entry.owner ? ` | owner:${entry.owner}` : '';
             const noteLabel = entry.note ? ` | note:${normalizeThreadNote(entry.note)}` : '';
-            return `${entry.status} | ${entry.task} | ${entry.branch} | ${entry.worktreeName} | ${dirtyLabel} | running:${runningLabel} | commit:${entry.lastCommit}${ownerLabel}${noteLabel}`;
+            return `${entry.status} | ${entry.task} | ${entry.branch} | ${entry.worktreeName} | ${dirtyLabel} | running:${runningLabel} | app:${appLabel} | backend:${backendLabel} | path:${pathLabel} | commit:${entry.lastCommit}${ownerLabel}${noteLabel}`;
         })
         .join('\n');
 }
@@ -329,6 +349,7 @@ export function collectThreadSnapshot(cwd = workspaceRoot) {
     const lastCommit = runGitText(['rev-parse', '--short', 'HEAD'], cwd);
     const gitStatus = runGitText(['status', '--short'], cwd);
     const dirtyCount = gitStatus === '' ? 0 : gitStatus.split(/\r?\n/).filter(Boolean).length;
+    const { webPort, backendPort } = resolveDevRuntimePorts(process.env, worktreePath);
 
     return {
         cwd: worktreePath,
@@ -337,6 +358,9 @@ export function collectThreadSnapshot(cwd = workspaceRoot) {
         dirty: dirtyCount > 0,
         dirtyCount,
         running: readManagedDevSession(worktreePath),
+        appUrl: `http://localhost:${webPort}`,
+        webPort,
+        backendPort,
         worktreeName: getWorktreeNameFromPath(worktreePath),
         worktreePath,
     };

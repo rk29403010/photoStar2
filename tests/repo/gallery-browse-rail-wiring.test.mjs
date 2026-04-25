@@ -12,8 +12,8 @@ test('justified gallery rail uses virtualized rows and visible-selection callbac
     assert.match(justifiedLayoutSource, /rangeChanged=/);
     assert.doesNotMatch(justifiedLayoutSource, /setTopVisibleSelectionKeyFromRange/);
     assert.match(justifiedLayoutSource, /customScrollParent=/);
-    assert.match(justifiedLayoutSource, /useState<HTMLDivElement \| undefined>/);
-    assert.match(justifiedLayoutSource, /setCustomScrollParent\(props\.scrollContainerRef\?\.current \?\? undefined\)/);
+    assert.match(justifiedLayoutSource, /const customScrollParent = props\.scrollContainerRef\?\.current \?\? undefined;/);
+    assert.doesNotMatch(justifiedLayoutSource, /setCustomScrollParent/);
     assert.match(layoutModeRendererSource, /scrollContainerRef/);
     assert.match(layoutModeRendererSource, /onTopVisibleSelectionKeyChange/);
     assert.match(layoutModeRendererSource, /targetRowHeight/);

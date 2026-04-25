@@ -164,8 +164,8 @@ function buildThreadUpdate({
     timestamp,
 }) {
     return {
-        ...snapshot,
         ...existingEntry,
+        ...snapshot,
         task,
         status: 'active',
         owner,

@@ -8,6 +8,27 @@ function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-workflow-branching-'));
 }
 
+function sleep(ms) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function removeDirWithRetries(targetDir) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+        try {
+            fs.rmSync(targetDir, { recursive: true, force: true });
+            return;
+        } catch (error) {
+            if (error?.code !== 'EBUSY') {
+                throw error;
+            }
+            if (attempt === 19) {
+                return;
+            }
+            sleep(100);
+        }
+    }
+}
+
 function createDeferred() {
     let resolve;
     const promise = new Promise((innerResolve) => {
@@ -137,11 +158,10 @@ async function createBranchingFixture(tempDir) {
     const workflows = new runtime.WorkflowRegistry({ subjects, modules });
     const store = new runtime.ExecutionStore(dbManager);
 
-    registerBranchingWorkflow({ subjects, workflows });
-
     return {
         runtime,
         dbManager,
+        subjects,
         modules,
         workflows,
         store,
@@ -178,6 +198,7 @@ test('orchestrator lets sibling branches advance while a deeper branch is still 
             faceVectorGate,
             groupSimilarCompleted,
         });
+        registerBranchingWorkflow({ subjects: fixture.subjects, workflows: fixture.workflows });
 
         const orchestrator = new fixture.runtime.WorkflowRuntimeOrchestrator({
             store: fixture.store,
@@ -214,6 +235,6 @@ test('orchestrator lets sibling branches advance while a deeper branch is still 
         assert.ok(groupSimilarIndex < faceVectorsEndIndex);
     } finally {
         dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        removeDirWithRetries(tempDir);
     }
 });

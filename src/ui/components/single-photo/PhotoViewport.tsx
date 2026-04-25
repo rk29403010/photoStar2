@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Dispatch, FC, MouseEvent, RefObject, SetStateAction } from 'react';
 import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
@@ -361,7 +361,8 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scale, setScale, pan, setPan, isDragging, handleMouseDown, resetPanZoom } = usePanZoom(containerRef);
     const groupActions = useViewportGroupActions(props.onSetCanonical, props.onExplodeGroup);
-    const [activeGroupId, setActiveGroupId] = useState<string | null>(() => resolveActiveSinglePhotoGroupId(props.asset, null));
+    const [requestedActiveGroupId, setRequestedActiveGroupId] = useState<string | null>(null);
+    const activeGroupId = resolveActiveSinglePhotoGroupId(props.asset, requestedActiveGroupId);
     const actionAsset = applyActiveGroupContext(props.asset, activeGroupId);
     const alwaysShowForPanel = props.panelState.showInfoPanel && props.panelState.activeInfoTab === 'people';
     const {
@@ -378,10 +379,6 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
         alwaysShowForPanel,
     });
     const stageSize = useViewportStageDimensions(containerRef, stageAsset);
-
-    useEffect(() => {
-        setActiveGroupId((previousActiveGroupId) => resolveActiveSinglePhotoGroupId(props.asset, previousActiveGroupId));
-    }, [props.asset]);
 
     useKeyboardNavigation({
         assetsLength: props.assetsLength,
@@ -440,7 +437,7 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             onActiveImageLoad={markActiveImageReady}
             onPendingImageLoad={commitPendingImage}
             actionAsset={actionAsset}
-            onActiveGroupChange={setActiveGroupId}
+            onActiveGroupChange={setRequestedActiveGroupId}
         />
     );
 };

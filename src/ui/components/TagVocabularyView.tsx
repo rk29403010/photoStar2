@@ -263,7 +263,6 @@ function useTagVocabularyActions(params: {
 
 export function TagVocabularyView(props: TagVocabularyViewProps) {
     const [searchText, setSearchText] = useState('');
-    const [renameLabel, setRenameLabel] = useState('');
     const [aliasLabel, setAliasLabel] = useState('');
     const [mergeTargetLabel, setMergeTargetLabel] = useState('');
     const data = useTagVocabularyData(props);
@@ -278,11 +277,6 @@ export function TagVocabularyView(props: TagVocabularyViewProps) {
         refreshTags: data.refreshTags,
         setErrorMessage: data.setErrorMessage,
     });
-
-    useEffect(() => {
-        setRenameLabel(data.selectedDetail?.tag.canonicalLabel ?? '');
-    }, [data.selectedDetail]);
-
     return (
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', background: '#06080d', color: '#e5e7eb', padding: 24, display: 'grid', gridTemplateRows: 'auto auto 1fr', gap: 20 }}>
             <VocabularyHeader tagCount={data.tags.length} loading={data.loading} onRefresh={() => void data.refresh()} />
@@ -292,17 +286,16 @@ export function TagVocabularyView(props: TagVocabularyViewProps) {
                     <TagList tags={filteredTags} selectedTagId={data.selectedTagId} onSelect={(tagDefinitionId) => { data.setSelectedTagId(tagDefinitionId); data.setErrorMessage(null); }} />
                 </div>
                 <div style={{ minHeight: 0, overflowY: 'auto' }}>
-                    <TagDetailPanel
+                    <TagDetailPanelEditor
+                        key={data.selectedDetail?.tag.id ?? 'empty'}
                         tags={data.tags}
                         selectedDetail={data.selectedDetail}
                         busyAction={actions.busyAction}
-                        renameLabel={renameLabel}
                         aliasLabel={aliasLabel}
                         mergeTargetLabel={mergeTargetLabel}
-                        onRenameLabelChange={setRenameLabel}
                         onAliasLabelChange={setAliasLabel}
                         onMergeTargetLabelChange={setMergeTargetLabel}
-                        onRename={() => void actions.renameTag(renameLabel.trim())}
+                        onRename={(renameLabel) => void actions.renameTag(renameLabel.trim())}
                         onAddAlias={() => void actions.createAlias(aliasLabel.trim()).then(() => setAliasLabel(''))}
                         onDeleteAlias={(tagAliasId) => void actions.deleteAlias(tagAliasId)}
                         onMerge={() => void actions.mergeTag(mergeTargetLabel).then(() => setMergeTargetLabel(''))}
@@ -310,5 +303,39 @@ export function TagVocabularyView(props: TagVocabularyViewProps) {
                 </div>
             </div>
         </div>
+    );
+}
+
+function TagDetailPanelEditor(props: {
+    tags: TagDefinitionSummary[];
+    selectedDetail: TagDetail | null;
+    busyAction: BusyAction;
+    aliasLabel: string;
+    mergeTargetLabel: string;
+    onAliasLabelChange: (value: string) => void;
+    onMergeTargetLabelChange: (value: string) => void;
+    onRename: (renameLabel: string) => void;
+    onAddAlias: () => void;
+    onDeleteAlias: (tagAliasId: string) => void;
+    onMerge: () => void;
+}) {
+    const [renameLabel, setRenameLabel] = useState(props.selectedDetail?.tag.canonicalLabel ?? '');
+
+    return (
+        <TagDetailPanel
+            tags={props.tags}
+            selectedDetail={props.selectedDetail}
+            busyAction={props.busyAction}
+            renameLabel={renameLabel}
+            aliasLabel={props.aliasLabel}
+            mergeTargetLabel={props.mergeTargetLabel}
+            onRenameLabelChange={setRenameLabel}
+            onAliasLabelChange={props.onAliasLabelChange}
+            onMergeTargetLabelChange={props.onMergeTargetLabelChange}
+            onRename={() => props.onRename(renameLabel)}
+            onAddAlias={props.onAddAlias}
+            onDeleteAlias={props.onDeleteAlias}
+            onMerge={props.onMerge}
+        />
     );
 }
