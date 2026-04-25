@@ -92,7 +92,7 @@ function getDefaultBackendHost(): string {
     }
 
     const host = window.location.hostname.trim();
-    if (!host || host === '0.0.0.0') {
+    if (!host || host === '0.0.0.0' || host === 'localhost') {
         return '127.0.0.1';
     }
 

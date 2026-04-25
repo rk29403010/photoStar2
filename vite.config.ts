@@ -7,6 +7,7 @@ import { resolveDevRuntimePorts } from './tooling/scripts/repo/dev-runtime-confi
 
 const workspaceRoot = path.resolve(__dirname)
 const webRoot = path.resolve(workspaceRoot, 'src/entrypoints/web')
+const appSourceGlob = `${path.resolve(workspaceRoot, 'src').replaceAll(path.sep, '/')}/**/*.{ts,tsx}`
 const { webPort } = resolveDevRuntimePorts(process.env)
 
 const errorForwarderPlugin = (): Plugin => ({
@@ -67,7 +68,7 @@ export default defineConfig({
       typescript: true,
       eslint: {
         useFlatConfig: true,
-        lintCommand: 'eslint "src/**/*.{ts,tsx}"',
+        lintCommand: `eslint "${appSourceGlob}"`,
       },
       overlay: false,
     })

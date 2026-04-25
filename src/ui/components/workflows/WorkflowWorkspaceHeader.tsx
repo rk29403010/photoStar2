@@ -45,17 +45,12 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
 
     return (
         <header className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-400">Workflow Visualiser</div>
-                    <h2 className="mt-2 text-2xl font-light text-gray-100">{model.displayName}</h2>
-                    <p className="mt-2 max-w-3xl text-sm text-gray-400">{model.tabs.overview.summary.description}</p>
-                    <WorkflowSelector
-                        availableWorkflows={model.availableWorkflows}
-                        selectedWorkflowId={selectedWorkflowId}
-                        onSelectWorkflow={onSelectWorkflow}
-                    />
-                </div>
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <WorkflowSelector
+                    availableWorkflows={model.availableWorkflows}
+                    selectedWorkflowId={selectedWorkflowId}
+                    onSelectWorkflow={onSelectWorkflow}
+                />
 
                 <RunContextPanel
                     model={model}
@@ -92,14 +87,14 @@ function WorkflowSelector(props: {
     onSelectWorkflow: (workflowId: string) => void;
 }) {
     return (
-        <label className="mt-4 flex max-w-sm flex-col gap-2 text-[11px] uppercase tracking-[0.24em] text-gray-500">
-            Workflow
+        <div className="flex w-full max-w-sm flex-col">
             <select
                 value={props.selectedWorkflowId}
                 onChange={(event) => {
                     props.onSelectWorkflow(event.target.value);
                 }}
-                className="rounded-lg border border-gray-700 bg-[#151515] px-3 py-2 text-sm normal-case tracking-normal text-gray-200 outline-none"
+                aria-label="Workflow"
+                className="rounded-lg border border-gray-700 bg-[#151515] px-3 py-2 text-sm text-gray-200 outline-none"
             >
                 {props.availableWorkflows.map((workflow) => (
                     <option key={workflow.workflowId} value={workflow.workflowId}>
@@ -107,7 +102,7 @@ function WorkflowSelector(props: {
                     </option>
                 ))}
             </select>
-        </label>
+        </div>
     );
 }
 
@@ -124,13 +119,9 @@ function RunContextPanel(props: {
     retryFeedback: string | null;
 }) {
     return (
-        <div className="min-w-[260px] rounded-xl border border-gray-800 bg-[#0a0a0a] p-3">
-            <div className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Run Context</div>
-            <div className="mt-2 text-sm text-gray-200">
-                {props.model.selectedRun ? `${props.model.selectedRun.status} · ${props.model.selectedRun.completedItems}/${props.model.selectedRun.totalItems}` : 'Definition only'}
-            </div>
+        <div className="w-full min-w-[260px] xl:max-w-xl">
             {props.linkedRecoveryRuns.length > 0 ? (
-                <div className="mt-2 space-y-1 text-xs text-emerald-200">
+                <div className="mb-2 space-y-1 text-xs text-emerald-200">
                     {props.linkedRecoveryRuns.map((run) => (
                         <div key={run.runId}>
                             Recovered by {formatLinkedRun(run)}
@@ -143,7 +134,8 @@ function RunContextPanel(props: {
                 onChange={(event) => {
                     props.onSelectRun(event.target.value === WORKFLOW_DEFINITION_ONLY_RUN_ID ? WORKFLOW_DEFINITION_ONLY_RUN_ID : event.target.value || null);
                 }}
-                className="mt-3 w-full rounded-lg border border-gray-700 bg-[#151515] px-3 py-2 text-sm text-gray-200 outline-none"
+                aria-label="Run context"
+                className="w-full rounded-lg border border-gray-700 bg-[#151515] px-3 py-2 text-sm text-gray-200 outline-none"
             >
                 <option value={WORKFLOW_DEFINITION_ONLY_RUN_ID}>Definition only</option>
                 {props.model.availableRuns.map((run) => (
