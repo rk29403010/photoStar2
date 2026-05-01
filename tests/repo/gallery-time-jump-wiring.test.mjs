@@ -41,9 +41,9 @@ test('gallery exposes a global timeline rail with decade jump buttons and stable
     assert.match(libraryViewSource, /useTimelineSeekScrollReset\(scrollRef, props\.galleryTimelineSeek, props\.isSeekingTimeline\)/);
     assert.match(timelineScrollResetSource, /scrollRef\.current\?\.scrollTo\(\{ top: 0, behavior: 'auto' \}\)/);
     assert.match(visibleSelectionSource, /querySelectorAll<HTMLElement>\('\[data-selection-key\]'\)/);
-    assert.match(timelineHelpersSource, /visibleSelectionKey: string \| null;/);
+    assert.match(timelineHelpersSource, /visibleSectionId: string \| null;/);
     assert.doesNotMatch(timelineHelpersSource, /querySelectorAll<HTMLElement>\('\[data-selection-key\]'\)/);
-    assert.match(timelineHelpersSource, /const viewportBucketIndex = findViewportTimelineBucketIndex\(params\.visibleSelectionKey, fallbackSelectionKey, selectionKeyToBucketIndex\);/);
+    assert.match(timelineHelpersSource, /const viewportBucketIndex = findViewportTimelineBucketIndex\(params\.visibleSectionId, sectionIdToBucketIndex\);/);
     assert.doesNotMatch(timelineRailSource, /type="range"/);
     assert.match(timelineRailSource, /TimelineRailBucketButton/);
     assert.match(timelineRailSource, /onClick=\{\(\) =>/);
@@ -73,6 +73,8 @@ test('gallery exposes a global timeline rail with decade jump buttons and stable
     assert.match(connectionMessagesSource, /return assets;/);
     assert.match(layoutEngineSource, /data-selection-key=\{layoutItem\.item\.selectionKey\}/);
     assert.match(justifiedLayoutSource, /data-time-section-id=\{sectionId\}/);
+    assert.match(justifiedLayoutSource, /rangeChanged=\{handleRangeChanged\}/);
+    assert.match(justifiedLayoutSource, /onTopVisibleSelectionKeyChange\?\.\(entries\[range\.startIndex\]\?\.selectionKey \?\? null\)/);
     assert.match(timelineJumpSource, /getTimelineSectionIdForSeek/);
     assert.match(timelineJumpSource, /loadedSectionIdsRef/);
     assert.match(timelineJumpSource, /timelineJumpRequest/);

@@ -10,12 +10,13 @@ test('justified gallery rail uses virtualized rows and visible-selection callbac
     assert.match(justifiedLayoutSource, /from 'react-virtuoso'/);
     assert.match(justifiedLayoutSource, /<Virtuoso/);
     assert.match(justifiedLayoutSource, /rangeChanged=/);
-    assert.doesNotMatch(justifiedLayoutSource, /setTopVisibleSelectionKeyFromRange/);
+    assert.match(justifiedLayoutSource, /onTopVisibleSelectionKeyChange\?\.\(entries\[range\.startIndex\]\?\.selectionKey \?\? null\)/);
     assert.match(justifiedLayoutSource, /customScrollParent=/);
     assert.match(justifiedLayoutSource, /const customScrollParent = props\.scrollContainerRef\?\.current \?\? undefined;/);
     assert.doesNotMatch(justifiedLayoutSource, /setCustomScrollParent/);
     assert.match(layoutModeRendererSource, /scrollContainerRef/);
     assert.match(layoutModeRendererSource, /onTopVisibleSelectionKeyChange/);
+    assert.match(layoutModeRendererSource, /restoreSelectionKey=\{props\.restoreSelectionKey\}/);
     assert.match(layoutModeRendererSource, /targetRowHeight/);
     assert.match(layoutEngineSource, /targetRowHeight\?: number;/);
     assert.match(layoutEngineSource, /onTopVisibleSelectionKeyChange\?: \(selectionKey: string \| null\) => void;/);

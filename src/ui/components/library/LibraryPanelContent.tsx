@@ -60,6 +60,8 @@ interface LibraryPanelContentProps {
     browseRowHeight: number;
     isScrollSettled: boolean;
     setTopVisibleSelectionKey: (selectionKey: string | null) => void;
+    setTopVisibleSectionId: (sectionId: string | null) => void;
+    restoreSelectionKey: string | null;
     timeSectionMode: GalleryTimeSectionMode;
     timelineJumpRequest?: TimelineJumpRequest | null;
     showRejected?: boolean;
@@ -93,8 +95,10 @@ export function LibraryPanelContent(props: LibraryPanelContentProps) {
                 isScrollSettled: props.isScrollSettled,
                 targetRowHeight: props.browseRowHeight,
                 onTopVisibleSelectionKeyChange: props.setTopVisibleSelectionKey,
+                onTopVisibleSectionIdChange: props.setTopVisibleSectionId,
                 timeSectionMode: props.timeSectionMode,
                 timelineJumpRequest: props.timelineJumpRequest,
+                restoreSelectionKey: props.restoreSelectionKey,
             }}
             rejected={{
                 showRejected: props.showRejected,

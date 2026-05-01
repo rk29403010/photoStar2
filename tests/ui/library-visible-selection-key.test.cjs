@@ -51,3 +51,19 @@ test('visible selection helper falls back to the first intersecting tile when ev
 
     assert.equal(getTopVisibleSelectionKeyFromScrollContainer(container), 'photo:overlap');
 });
+
+test('visible selection helper uses visual position instead of DOM order', async () => {
+    const { getTopVisibleSelectionKeyFromScrollContainer } = await import('../../src/ui/components/library/libraryVisibleSelectionKey.ts');
+
+    const container = buildContainer({
+        top: 100,
+        bottom: 500,
+        tiles: [
+            buildTile('photo:later-in-dom', 220, 340),
+            buildTile('photo:topmost', 120, 210),
+            buildTile('photo:lower', 345, 460),
+        ],
+    });
+
+    assert.equal(getTopVisibleSelectionKeyFromScrollContainer(container), 'photo:topmost');
+});

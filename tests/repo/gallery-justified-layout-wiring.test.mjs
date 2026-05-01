@@ -9,5 +9,5 @@ test('gallery exposes justified layout mode through the shared type and toolbar 
 
     assert.match(layoutModeSource, /'tiled' \| 'grid' \| 'justified'/);
     assert.match(toolbarSource, /<option value="justified">Justified<\/option>/);
-    assert.match(libraryViewSource, /useState<GalleryLayoutMode>\(getDefaultGalleryLayoutMode\)/);
+    assert.match(libraryViewSource, /usePersistedState<GalleryLayoutMode>\('ps_library_layout_mode', getDefaultGalleryLayoutMode\(\)\)/);
 });

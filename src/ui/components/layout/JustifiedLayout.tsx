@@ -16,13 +16,19 @@ interface JustifiedLayoutProps {
     targetRowHeight?: number;
     maxRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    onTopVisibleSectionIdChange?: (sectionId: string | null) => void;
     timelineJumpRequest?: TimelineJumpRequest | null;
+    restoreSelectionKey?: string | null;
     renderTile: (index: number, size: { width: number; height: number }) => ReactNode;
 }
 
 type LayoutEntry =
     | { kind: 'header'; key: string; label: string; selectionKey: string | null }
     | { kind: 'row'; key: string; row: ReturnType<typeof buildJustifiedLayoutRows>[number]; selectionKey: string | null };
+
+function getSectionIdFromEntryKey(entryKey: string) {
+    return entryKey.endsWith('-header') ? entryKey.slice(0, -'-header'.length) : entryKey;
+}
 
 function getNormalizedSections(props: Pick<JustifiedLayoutProps, 'items' | 'sections'>) {
     return props.sections ?? [{
@@ -67,7 +73,7 @@ function renderLayoutEntry(
     props: Pick<JustifiedLayoutProps, 'gap' | 'rowGap' | 'renderTile'>,
 ) {
     if (entry.kind === 'header') {
-        const sectionId = entry.key.endsWith('-header') ? entry.key.slice(0, -'-header'.length) : entry.key;
+        const sectionId = getSectionIdFromEntryKey(entry.key);
         return (
             <div
                 key={entry.key}
@@ -130,36 +136,89 @@ function useContainerWidth() {
     return { containerRef, containerWidth };
 }
 
-export function JustifiedLayout(props: JustifiedLayoutProps) {
-    const { containerRef, containerWidth } = useContainerWidth();
-    const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-    const lastAppliedTimelineJumpNonceRef = useRef<number | null>(null);
-    const customScrollParent = props.scrollContainerRef?.current ?? undefined;
-    const normalizedSections = useMemo(() => getNormalizedSections({ items: props.items, sections: props.sections }), [props.items, props.sections]);
-    const entries = useMemo<LayoutEntry[]>(() => {
-        if (containerWidth <= 0) {return [];}
-        return buildLayoutEntries(normalizedSections, {
-            containerWidth: Math.max(1, containerWidth),
-            gap: props.gap,
-            targetRowHeight: props.targetRowHeight,
-            maxRowHeight: props.maxRowHeight,
-        });
-    }, [containerWidth, normalizedSections, props.gap, props.maxRowHeight, props.targetRowHeight]);
-    const sectionEntryIndexes = useMemo(() => new Map(
-        entries.flatMap((entry, index) => (
-            entry.kind === 'header'
-                ? [[entry.key.endsWith('-header') ? entry.key.slice(0, -'-header'.length) : entry.key, index] as const]
-                : []
-        )),
-    ), [entries]);
-    const handleRangeChanged = useCallback((_range: { startIndex: number }) => {}, []);
+function getEntrySectionIds(entries: LayoutEntry[], sections: ReturnType<typeof getNormalizedSections>) {
+    const sectionIds: Array<string | null> = [];
+    let currentSectionId = sections[0]?.id ?? null;
+
+    entries.forEach((entry) => {
+        if (entry.kind === 'header') {
+            currentSectionId = getSectionIdFromEntryKey(entry.key);
+        }
+        sectionIds.push(currentSectionId);
+    });
+
+    return sectionIds;
+}
+
+function useVisibleStateSeed(params: {
+    entries: LayoutEntry[];
+    entrySectionIds: Array<string | null>;
+    onTopVisibleSectionIdChange?: (sectionId: string | null) => void;
+    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+}) {
+    const hasSeededVisibleStateRef = useRef(false);
+    const { entries, entrySectionIds, onTopVisibleSectionIdChange, onTopVisibleSelectionKeyChange } = params;
 
     useEffect(() => {
-        const sectionId = props.timelineJumpRequest?.sectionId;
-        if (!sectionId || !props.timelineJumpRequest) {
+        if (hasSeededVisibleStateRef.current || entries.length === 0) {
             return;
         }
-        if (lastAppliedTimelineJumpNonceRef.current === props.timelineJumpRequest.nonce) {
+
+        hasSeededVisibleStateRef.current = true;
+        onTopVisibleSelectionKeyChange?.(entries[0]?.selectionKey ?? null);
+        onTopVisibleSectionIdChange?.(entrySectionIds[0] ?? null);
+    }, [entries, entrySectionIds, onTopVisibleSectionIdChange, onTopVisibleSelectionKeyChange]);
+}
+
+function useRestoreSelection(params: {
+    customScrollParent?: HTMLDivElement;
+    entries: LayoutEntry[];
+    restoreSelectionKey?: string | null;
+    virtuosoRef: RefObject<VirtuosoHandle | null>;
+}) {
+    const hasRestoredSelectionRef = useRef(false);
+    const { customScrollParent, entries, restoreSelectionKey, virtuosoRef } = params;
+
+    useEffect(() => {
+        if (hasRestoredSelectionRef.current) {
+            return;
+        }
+        if (!restoreSelectionKey || entries.length === 0) {
+            return;
+        }
+        if (customScrollParent && customScrollParent.scrollTop > 0) {
+            hasRestoredSelectionRef.current = true;
+            return;
+        }
+
+        const restoreIndex = entries.findIndex((entry) => entry.selectionKey === restoreSelectionKey);
+        if (restoreIndex < 0) {
+            return;
+        }
+
+        hasRestoredSelectionRef.current = true;
+        virtuosoRef.current?.scrollToIndex({
+            index: restoreIndex,
+            align: 'start',
+            behavior: 'auto',
+        });
+    }, [customScrollParent, entries, restoreSelectionKey, virtuosoRef]);
+}
+
+function useTimelineJumpScroll(params: {
+    sectionEntryIndexes: Map<string, number>;
+    timelineJumpRequest?: TimelineJumpRequest | null;
+    virtuosoRef: RefObject<VirtuosoHandle | null>;
+}) {
+    const lastAppliedTimelineJumpNonceRef = useRef<number | null>(null);
+    const { sectionEntryIndexes, timelineJumpRequest, virtuosoRef } = params;
+
+    useEffect(() => {
+        const sectionId = timelineJumpRequest?.sectionId;
+        if (!sectionId || !timelineJumpRequest) {
+            return;
+        }
+        if (lastAppliedTimelineJumpNonceRef.current === timelineJumpRequest.nonce) {
             return;
         }
 
@@ -168,13 +227,54 @@ export function JustifiedLayout(props: JustifiedLayoutProps) {
             return;
         }
 
-        lastAppliedTimelineJumpNonceRef.current = props.timelineJumpRequest.nonce;
+        lastAppliedTimelineJumpNonceRef.current = timelineJumpRequest.nonce;
         virtuosoRef.current?.scrollToIndex({
             index: entryIndex,
             align: 'start',
             behavior: 'auto',
         });
-    }, [props.timelineJumpRequest, sectionEntryIndexes]);
+    }, [sectionEntryIndexes, timelineJumpRequest, virtuosoRef]);
+}
+
+export function JustifiedLayout(props: JustifiedLayoutProps) {
+    const {
+        gap,
+        maxRowHeight,
+        onTopVisibleSectionIdChange,
+        onTopVisibleSelectionKeyChange,
+        restoreSelectionKey,
+        targetRowHeight,
+        timelineJumpRequest,
+    } = props;
+    const { containerRef, containerWidth } = useContainerWidth();
+    const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+    const customScrollParent = props.scrollContainerRef?.current ?? undefined;
+    const normalizedSections = useMemo(() => getNormalizedSections({ items: props.items, sections: props.sections }), [props.items, props.sections]);
+    const entries = useMemo<LayoutEntry[]>(() => {
+        if (containerWidth <= 0) {return [];}
+        return buildLayoutEntries(normalizedSections, {
+            containerWidth: Math.max(1, containerWidth),
+            gap,
+            targetRowHeight,
+            maxRowHeight,
+        });
+    }, [containerWidth, gap, maxRowHeight, normalizedSections, targetRowHeight]);
+    const sectionEntryIndexes = useMemo(() => new Map(
+        entries.flatMap((entry, index) => (
+            entry.kind === 'header'
+                ? [[getSectionIdFromEntryKey(entry.key), index] as const]
+                : []
+        )),
+    ), [entries]);
+    const entrySectionIds = useMemo(() => getEntrySectionIds(entries, normalizedSections), [entries, normalizedSections]);
+    const handleRangeChanged = useCallback((range: { startIndex: number }) => {
+        onTopVisibleSelectionKeyChange?.(entries[range.startIndex]?.selectionKey ?? null);
+        onTopVisibleSectionIdChange?.(entrySectionIds[range.startIndex] ?? null);
+    }, [entries, entrySectionIds, onTopVisibleSectionIdChange, onTopVisibleSelectionKeyChange]);
+
+    useVisibleStateSeed({ entries, entrySectionIds, onTopVisibleSectionIdChange, onTopVisibleSelectionKeyChange });
+    useRestoreSelection({ customScrollParent, entries, restoreSelectionKey, virtuosoRef });
+    useTimelineJumpScroll({ sectionEntryIndexes, timelineJumpRequest, virtuosoRef });
 
     return (
         <div ref={containerRef} style={{ width: '100%' }}>

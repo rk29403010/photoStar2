@@ -4,29 +4,32 @@ import { clearLibrarySelection, type LibrarySelectableItem, type LibrarySelectio
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LibraryTimelineRail } from './LibraryTimelineRail';
-import { createSelectionKeyTimelineBucketIndex, isTimelineSortMode } from './libraryTimelineModel';
+import { isTimelineSortMode } from './libraryTimelineModel';
+
+function getTimelineSectionIdForBucketStartYear(startYear: number) {
+    return `decade-${startYear}`;
+}
 
 function findViewportTimelineBucketIndex(
-    visibleSelectionKey: string | null,
-    fallbackSelectionKey: string | null,
-    selectionKeyToBucketIndex: Map<string, number>,
+    visibleSectionId: string | null,
+    sectionIdToBucketIndex: Map<string, number>,
 ) {
-    const selectionKey = visibleSelectionKey ?? fallbackSelectionKey;
-    if (!selectionKey) {
+    if (!visibleSectionId) {
         return null;
     }
-    return selectionKeyToBucketIndex.get(selectionKey) ?? null;
+    return sectionIdToBucketIndex.get(visibleSectionId) ?? null;
 }
 
 export function useViewportTimelineBucketIndex(params: {
     displayItems: LibrarySelectableItem[];
     timeline: LibraryTimelineSummary | null;
     activeTimelineSeek: GalleryTimelineSeek | null;
-    visibleSelectionKey: string | null;
+    visibleSectionId: string | null;
 }) {
-    const selectionKeyToBucketIndex = createSelectionKeyTimelineBucketIndex(params.displayItems, params.timeline);
-    const fallbackSelectionKey = params.displayItems[0]?.selectionKey ?? null;
-    const viewportBucketIndex = findViewportTimelineBucketIndex(params.visibleSelectionKey, fallbackSelectionKey, selectionKeyToBucketIndex);
+    const sectionIdToBucketIndex = new Map(
+        (params.timeline?.buckets ?? []).map((bucket, index) => [getTimelineSectionIdForBucketStartYear(bucket.startYear), index] as const),
+    );
+    const viewportBucketIndex = findViewportTimelineBucketIndex(params.visibleSectionId, sectionIdToBucketIndex);
     const syncViewportBucketIndexFromScrollContainer = useCallback((_container: HTMLDivElement) => {}, []);
 
     return { viewportBucketIndex, syncViewportBucketIndexFromScrollContainer };

@@ -163,6 +163,9 @@ I would like a global setting
    - Current understanding: the failures no longer break the suite, but some tests still let detached runs outlive the test body long enough for `dbManager.close()` to race final status updates.
    - Likely focus areas: detached workflow command/telemetry/recovery-style tests that call `startDetached(...)`, then close temp DBs once their main assertion passes.
    - Goal: make the tests wait for full detached-run completion or otherwise shut down cleanly so `test:core` output is quiet as well as green.
+5. Review parked branch `codex/improve-face-recognition-grouping` separately before merging.
+   - Context: main cleanup on 2026-05-01 found this as the only non-merged branch besides the timeline branch.
+   - Current state: it is explicitly labeled WIP and contains very broad artifact/tooling/source/test churn, so it was not treated as merge-ready.
 
 UI Improvements
 

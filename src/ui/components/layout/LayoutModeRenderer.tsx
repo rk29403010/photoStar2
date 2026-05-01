@@ -14,7 +14,9 @@ interface LayoutModeRendererProps {
     rowGap?: number;
     targetRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    onTopVisibleSectionIdChange?: (sectionId: string | null) => void;
     timelineJumpRequest?: TimelineJumpRequest | null;
+    restoreSelectionKey?: string | null;
     renderTile: (index: number, shellStyleOverride?: CSSProperties) => ReactNode;
 }
 
@@ -43,7 +45,9 @@ export function LayoutModeRenderer(props: LayoutModeRendererProps) {
                 rowGap={props.rowGap}
                 targetRowHeight={props.targetRowHeight}
                 onTopVisibleSelectionKeyChange={props.onTopVisibleSelectionKeyChange}
+                onTopVisibleSectionIdChange={props.onTopVisibleSectionIdChange}
                 timelineJumpRequest={props.timelineJumpRequest}
+                restoreSelectionKey={props.restoreSelectionKey}
                 renderTile={(index, size) => props.renderTile(index, {
                     width: size.width,
                     height: size.height,

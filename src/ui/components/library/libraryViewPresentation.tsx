@@ -33,11 +33,11 @@ export function useLibraryViewPresentation(params: {
 }) {
     const timeline = useMemo(() => getTimelineSummaryForGalleryMode(params.stats, params.groupSimilarPhotos), [params.groupSimilarPhotos, params.stats]);
     const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({
-        assets: params.assets,
+        displayItems: params.displayItems,
         sortMode: params.sortMode,
         timeline,
         galleryTimelineSeek: params.galleryTimelineSeek,
-    }), [params.assets, params.galleryTimelineSeek, params.sortMode, timeline]);
+    }), [params.displayItems, params.galleryTimelineSeek, params.sortMode, timeline]);
     const timelineSync = useLibraryTimelineSync({
         displayItems: params.displayItems,
         timeline,

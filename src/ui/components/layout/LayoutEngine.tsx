@@ -38,8 +38,10 @@ interface LayoutEngineProps {
     isScrollSettled?: boolean;
     targetRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    onTopVisibleSectionIdChange?: (sectionId: string | null) => void;
     timeSectionMode?: GalleryTimeSectionMode;
     timelineJumpRequest?: TimelineJumpRequest | null;
+    restoreSelectionKey?: string | null;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
@@ -456,8 +458,10 @@ export function LayoutEngine({
     isScrollSettled = true,
     targetRowHeight,
     onTopVisibleSelectionKeyChange,
+    onTopVisibleSectionIdChange,
     timeSectionMode = 'none',
     timelineJumpRequest,
+    restoreSelectionKey,
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(items, layoutMode), [items, layoutMode]);
     const justifiedSections = useMemo(() => buildGalleryTimeSections(items, timeSectionMode), [items, timeSectionMode]);
@@ -473,7 +477,9 @@ export function LayoutEngine({
             rowGap={GALLERY_ROW_GAP_PX}
             targetRowHeight={targetRowHeight}
             onTopVisibleSelectionKeyChange={onTopVisibleSelectionKeyChange}
+            onTopVisibleSectionIdChange={onTopVisibleSectionIdChange}
             timelineJumpRequest={timelineJumpRequest}
+            restoreSelectionKey={restoreSelectionKey}
             renderTile={(index, shellStyleOverride) => renderLayoutTile({
                 layoutItems,
                 index,

@@ -46,8 +46,10 @@ interface LibraryGalleryPaneProps {
         isScrollSettled?: boolean;
         targetRowHeight?: number;
         onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+        onTopVisibleSectionIdChange?: (sectionId: string | null) => void;
         timeSectionMode?: GalleryTimeSectionMode;
         timelineJumpRequest?: TimelineJumpRequest | null;
+        restoreSelectionKey?: string | null;
     };
     rejected: {
         showRejected?: boolean;

@@ -146,7 +146,12 @@ export function LibraryTimelineRail(props: LibraryTimelineRailProps) {
     }
 
     return (
-        <div style={{ width: 92, minWidth: 92, display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 8px 14px 10px', borderRight: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(180deg, rgba(10,10,10,0.98), rgba(15,23,42,0.92))' }}>
+        <div
+            data-timeline-active-index={String(activeIndex)}
+            data-timeline-displayed-index={String(displayedIndex)}
+            data-timeline-viewport-index={props.viewportBucketIndex == null ? 'null' : String(props.viewportBucketIndex)}
+            style={{ width: 92, minWidth: 92, display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 8px 14px 10px', borderRight: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(180deg, rgba(10,10,10,0.98), rgba(15,23,42,0.92))' }}
+        >
             <TimelineRailHeader />
             <TimelineRailTrack
                 timeline={props.timeline}
