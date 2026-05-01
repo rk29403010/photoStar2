@@ -168,4 +168,36 @@ UI Improvements
 
 1. Sort by date - add ability to group by date, and to filter by date range, and to view photos in a timeline view.
 2. Option for a date histogram view - showing number of photos in each year, and each month.
-3.
+3. Add a lightweight, stable runtime smoke test for the gallery timeline decade controls.
+   - Context: the timeline jump fix in `codex/fix-timeline-decade-jump` is covered by repo/UI tests and was manually verified with both an isolated Chrome/CDP probe and a later in-app browser decade sequence.
+   - Goal: turn the `1940s` deep-jump and multi-decade click checks into a repeatable repo-owned smoke test that verifies the gallery pages forward and scrolls without issuing offset-0 refreshes.
+4. Wire grouped timeline startup selection into the real date-mode state once the dedicated timeline slice lands.
+   - Context: Task 2 added grouped timeline payload builders, command helpers, and initial-sync/message support, but the switch that decides when date mode should request `get_timeline_groups` is intentionally deferred to the later grouped-timeline state work.
+5. Tighten grouped timeline payload normalization once the backend response shape is fully settled.
+   - Context: Task 3 now consumes grouped timeline responses into a dedicated UI slice, but the transport layer currently accepts a small set of fallback payload keys (`timelineGroups` / `groupSummaries` / `groups`, `timelineGroupPage` / `page`, `timelineJumpTarget` / `jumpTarget`) because the backend handler shape is still in flux.
+   - Goal: collapse this to one canonical payload contract after the grouped renderer path in Task 4/5 lands.
+
+## 2026-04-26 - Grouped timeline smoke coverage
+
+- Add a runtime-facing smoke test that exercises decade jump -> grouped page load -> visible-group highlight sync in date/justified mode, so regressions in `GroupedVirtuoso` range mapping are caught before release.
+
+## 2026-04-30 - Timeline rail active decade still mis-syncs in grouped date view
+
+- After moving the live work back into `codex/fix-timeline-decade-jump`, the runtime at `http://localhost:6093` still shows the solid rail highlight on `1890s`/`1900s` while the gallery viewport is visibly at `2010s`/`2000s`.
+- Current mitigations already applied in the worktree: removed the flat-list fallback selection key in `libraryViewTimeline.tsx`, sorted visible tiles by on-screen position in `libraryVisibleSelectionKey.ts`, and seeded `getActiveTimelineSeek(...)` from `displayItems` instead of the raw `assets` array.
+- Next debug target: inspect the grouped timeline state path (`timelineGallery.visibleGroupIndex` plus any backend ordering assumptions in the grouped timeline summaries) because the rail highlight is still being driven by a decade index that does not match the rendered grouped headers.
+
+## 2026-04-30 - Resume-position persistence still needs a dedicated restore path
+
+- The timeline reliability pass now fixes the wrong active decade mapping and the duplicate scroll reset on seek completion, but it does not yet persist the grouped gallery viewport across app restart/resume.
+- If we want the library to reopen on the same photos, we need a persisted restore token for the visible timeline group or anchor asset instead of relying on transient in-memory scroll state.
+- Grouped timeline backend handlers are still missing for `get_timeline_groups`, `get_timeline_group_page`, and `get_timeline_jump_target`; the live justified/date rail now uses loaded display items plus `GroupedVirtuoso` directly, but the backend command family still needs either implementation or removal.
+
+## 2026-05-01 - Timeline grouped rail still not resolved
+
+- Removed the startup dependency on the missing grouped-timeline backend RPC family (`get_timeline_groups` in initial sync and refresh), so date/justified mode can boot from the full asset dataset without hanging on `Loading library data (WS)...`.
+- Corrected the attempted `GroupedVirtuoso` jump API misuse (`scrollToIndex({ groupIndex })` was wrong for the documented grouped scroll example).
+- The live `6093` app still shows the same decade-gap symptom after startup in browser verification, and browser automation click probes are not observing decade-bean movement even when the user reports some manual jumps work.
+- Next isolation target: verify the actual section data being handed to the date/justified renderer, then trace the real click path from `LibraryTimelineRail` into `useDateTimelineJumpModel` in the live runtime.
+
+- Timeline rail grouped-scroll handoff: click state now matches top header for direct decade jumps, but grouped justified scroll still shows decade-highlight lag around some boundaries (for example 1950s -> 1960s). The remaining suspect is visible-group state propagation during scroll, not the jump path itself.

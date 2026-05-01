@@ -24,7 +24,7 @@ test('timeline rail highlight follows the viewport decade before the active seek
     assert.equal(getTimelineRailDisplayedIndex({
         viewportBucketIndex: null,
         activeIndex: 2,
-    }), 2);
+    }), -1);
 
     assert.equal(getTimelineRailDisplayedIndex({
         viewportBucketIndex: null,

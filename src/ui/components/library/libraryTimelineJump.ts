@@ -4,7 +4,8 @@ import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 
 export type TimelineJumpRequest = {
-    sectionId: string;
+    groupId: string;
+    groupIndex: number | null;
     nonce: number;
 };
 
@@ -25,75 +26,98 @@ function canUseClientTimelineJump(layoutMode: GalleryLayoutMode, sortMode: Libra
     return layoutMode === 'justified' && (sortMode === 'date' || sortMode === 'reverse-date');
 }
 
+function useLatestTimelineJumpRefs(params: {
+    loadedGroupIds: Set<string>;
+}) {
+    const loadedGroupIdsRef = useRef(params.loadedGroupIds);
+
+    useEffect(() => {
+        loadedGroupIdsRef.current = params.loadedGroupIds;
+    }, [params.loadedGroupIds]);
+
+    return { loadedGroupIdsRef };
+}
+
 export function useLibraryTimelineJump(params: {
-    hasMoreAssets?: boolean;
-    onLoadMoreAssets?: () => Promise<void>;
-    loadedSectionIds: Set<string>;
+    loadedGroupIds: Set<string>;
+    loadingByGroupId: Partial<Record<string, boolean>>;
+    onLoadTimelineGroupPage?: (groupId: string) => void;
+    onRequestTimelineJumpTarget?: (groupId: string) => void;
+    timelineGroupIndexById: Map<string, number>;
     layoutMode: GalleryLayoutMode;
     sortMode: LibrarySortMode;
     onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
 }) {
-    const { hasMoreAssets, onLoadMoreAssets, loadedSectionIds, layoutMode, sortMode, onGalleryTimelineSeek } = params;
+    const {
+        loadedGroupIds,
+        loadingByGroupId,
+        onLoadTimelineGroupPage,
+        timelineGroupIndexById,
+        layoutMode,
+        sortMode,
+        onGalleryTimelineSeek,
+    } = params;
     const [timelineJumpRequest, setTimelineJumpRequest] = useState<TimelineJumpRequest | null>(null);
-    const hasMoreAssetsRef = useRef(Boolean(hasMoreAssets));
-    const onLoadMoreAssetsRef = useRef(onLoadMoreAssets);
-    const loadedSectionIdsRef = useRef(loadedSectionIds);
     const jumpNonceRef = useRef(0);
+    const { loadedGroupIdsRef } = useLatestTimelineJumpRefs({
+        loadedGroupIds,
+    });
 
-    useEffect(() => {
-        hasMoreAssetsRef.current = Boolean(hasMoreAssets);
-    }, [hasMoreAssets]);
-
-    useEffect(() => {
-        onLoadMoreAssetsRef.current = onLoadMoreAssets;
-    }, [onLoadMoreAssets]);
-
-    useEffect(() => {
-        loadedSectionIdsRef.current = loadedSectionIds;
-    }, [loadedSectionIds]);
-
-    const requestTimelineJump = useCallback((sectionId: string) => {
+    const requestTimelineJump = useCallback((groupId: string, groupIndex: number | null) => {
         jumpNonceRef.current += 1;
-        setTimelineJumpRequest({ sectionId, nonce: jumpNonceRef.current });
+        setTimelineJumpRequest({ groupId, groupIndex, nonce: jumpNonceRef.current });
     }, []);
+
+    const jumpToTimelineGroup = useCallback((groupId: string | null, fallbackSeek: GalleryTimelineSeek | null) => {
+        if (!canUseClientTimelineJump(layoutMode, sortMode)) {
+            onGalleryTimelineSeek(fallbackSeek);
+            return;
+        }
+
+        if (!groupId) {
+            onGalleryTimelineSeek(fallbackSeek);
+            return;
+        }
+
+        const groupIndex = timelineGroupIndexById.get(groupId) ?? null;
+
+        if (groupIndex != null) {
+            requestTimelineJump(groupId, groupIndex);
+            return;
+        }
+
+        if (loadedGroupIdsRef.current.has(groupId)) {
+            requestTimelineJump(groupId, groupIndex);
+            return;
+        }
+
+        if (onLoadTimelineGroupPage) {
+            if (!loadingByGroupId[groupId]) {
+                onLoadTimelineGroupPage(groupId);
+            }
+            requestTimelineJump(groupId, groupIndex);
+            return;
+        }
+
+        onGalleryTimelineSeek(fallbackSeek);
+    }, [
+        layoutMode,
+        loadingByGroupId,
+        loadedGroupIdsRef,
+        onGalleryTimelineSeek,
+        onLoadTimelineGroupPage,
+        requestTimelineJump,
+        sortMode,
+        timelineGroupIndexById,
+    ]);
 
     return {
         timelineJumpRequest,
         handleTimelineJump: useCallback((seek: GalleryTimelineSeek | null) => {
-            if (!canUseClientTimelineJump(layoutMode, sortMode)) {
-                onGalleryTimelineSeek(seek);
-                return;
-            }
-
-            const sectionId = getTimelineSectionIdForSeek(seek);
-            if (!sectionId) {
-                onGalleryTimelineSeek(seek);
-                return;
-            }
-
-            if (loadedSectionIdsRef.current.has(sectionId)) {
-                requestTimelineJump(sectionId);
-                return;
-            }
-
-            if (!hasMoreAssetsRef.current || !onLoadMoreAssetsRef.current) {
-                onGalleryTimelineSeek(seek);
-                return;
-            }
-
-            void (async () => {
-                while (hasMoreAssetsRef.current && onLoadMoreAssetsRef.current) {
-                    await onLoadMoreAssetsRef.current();
-                    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-                    if (loadedSectionIdsRef.current.has(sectionId)) {
-                        requestTimelineJump(sectionId);
-                        return;
-                    }
-                }
-
-                onGalleryTimelineSeek(seek);
-            })();
-        }, [layoutMode, onGalleryTimelineSeek, requestTimelineJump, sortMode]),
+            const groupId = getTimelineSectionIdForSeek(seek);
+            jumpToTimelineGroup(groupId, seek);
+        }, [jumpToTimelineGroup]),
+        jumpToTimelineGroup,
     };
 }
 

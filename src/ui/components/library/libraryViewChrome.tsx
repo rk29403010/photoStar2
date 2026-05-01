@@ -25,6 +25,7 @@ export function useLibraryChrome(params: {
     showInfoPanel: boolean;
     handleShowInfoPanelChange: (show: boolean) => void;
     onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
+    onTimelineBucketJump: (bucket: NonNullable<LibraryTimelineSummary>['buckets'][number]) => void;
 }) {
     const rawSelectedTag = params.activeFilter?.type === 'tag' ? params.activeFilter.value : '';
     const availableTags = useMemo(
@@ -53,6 +54,7 @@ export function useLibraryChrome(params: {
         activeTimelineSeek: params.activeTimelineSeek,
         viewportBucketIndex: params.viewportBucketIndex,
         onGalleryTimelineSeek: params.onGalleryTimelineSeek,
+        onTimelineBucketJump: params.onTimelineBucketJump,
     });
 
     return { toolbar, timelineRail };

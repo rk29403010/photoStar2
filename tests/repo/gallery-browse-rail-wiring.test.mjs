@@ -9,11 +9,15 @@ test('justified gallery rail uses virtualized rows and visible-selection callbac
 
     assert.match(justifiedLayoutSource, /from 'react-virtuoso'/);
     assert.match(justifiedLayoutSource, /<Virtuoso/);
-    assert.match(justifiedLayoutSource, /rangeChanged=/);
+    assert.match(justifiedLayoutSource, /rangeChanged=\{\(range\) => \{/);
+    assert.match(justifiedLayoutSource, /props\.onTopVisibleSelectionKeyChange\?\.\(rows\[range\.startIndex\]\?\.items\[0\]\?\.id \?\? null\)/);
+    assert.match(justifiedLayoutSource, /itemContent=\{\(_, row\) => renderLayoutRow\(row, props\)\}/);
     assert.doesNotMatch(justifiedLayoutSource, /setTopVisibleSelectionKeyFromRange/);
     assert.match(justifiedLayoutSource, /customScrollParent=/);
-    assert.match(justifiedLayoutSource, /const customScrollParent = props\.scrollContainerRef\?\.current \?\? undefined;/);
-    assert.doesNotMatch(justifiedLayoutSource, /setCustomScrollParent/);
+    assert.match(justifiedLayoutSource, /const \[customScrollParent, setCustomScrollParent\] = useState<HTMLDivElement \| undefined>\(\)/);
+    assert.match(justifiedLayoutSource, /const nextScrollParent = scrollContainerRef\?\.current \?\? undefined/);
+    assert.match(justifiedLayoutSource, /const customScrollParent = useCustomScrollParent\(props\.scrollContainerRef\)/);
+    assert.match(justifiedLayoutSource, /if \(props\.scrollContainerRef && !customScrollParent\)/);
     assert.match(layoutModeRendererSource, /scrollContainerRef/);
     assert.match(layoutModeRendererSource, /onTopVisibleSelectionKeyChange/);
     assert.match(layoutModeRendererSource, /targetRowHeight/);

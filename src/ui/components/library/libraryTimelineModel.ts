@@ -38,12 +38,12 @@ export function findTimelineBucketIndex(buckets: LibraryTimelineBucket[], seek: 
     ));
 }
 
-function getLeadingDatedAsset(assets: Asset[]) {
-    return assets.find((asset) => typeof asset.photo_created_at === 'string' && asset.photo_created_at.length > 0) ?? null;
+function getLeadingDatedDisplayItem(items: LibrarySelectableItem[]) {
+    return items.find((item) => typeof item.asset.photo_created_at === 'string' && item.asset.photo_created_at.length > 0) ?? null;
 }
 
 export function getActiveTimelineSeek(params: {
-    assets: Asset[];
+    displayItems: LibrarySelectableItem[];
     sortMode: LibrarySortMode;
     timeline: LibraryTimelineSummary | null | undefined;
     galleryTimelineSeek: GalleryTimelineSeek | null;
@@ -55,12 +55,12 @@ export function getActiveTimelineSeek(params: {
         return null;
     }
 
-    const datedAsset = getLeadingDatedAsset(params.assets);
-    if (!datedAsset?.photo_created_at) {
+    const timestamp = getLeadingDatedDisplayItem(params.displayItems)?.asset.photo_created_at ?? null;
+    if (!timestamp) {
         return null;
     }
 
-    const bucket = params.timeline.buckets.find((entry) => isDateWithinBucket(datedAsset.photo_created_at ?? '', entry));
+    const bucket = params.timeline.buckets.find((entry) => isDateWithinBucket(timestamp, entry));
     return bucket ? getTimelineSeekForBucket(bucket, params.sortMode) : null;
 }
 

@@ -1,19 +1,22 @@
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { JustifiedLayout } from './JustifiedLayout';
-import type { GalleryTimeSection } from './galleryTimeSections';
+import type { GalleryTimeSection, GalleryTimeSectionMode } from './galleryTimeSections';
 import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
+import { GroupedTimelineLayout } from './GroupedTimelineLayout';
 
 interface LayoutModeRendererProps {
     layoutMode: GalleryLayoutMode;
     justifiedItems: Array<{ id: string; width?: number; height?: number }>;
     justifiedSections?: GalleryTimeSection[];
+    timeSectionMode?: GalleryTimeSectionMode;
     scrollContainerRef?: RefObject<HTMLDivElement | null>;
     itemCount: number;
     tileGap?: number;
     rowGap?: number;
     targetRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
     timelineJumpRequest?: TimelineJumpRequest | null;
     renderTile: (index: number, shellStyleOverride?: CSSProperties) => ReactNode;
 }
@@ -21,29 +24,54 @@ interface LayoutModeRendererProps {
 export function LayoutModeRenderer(props: LayoutModeRendererProps) {
     if (props.layoutMode === 'justified') {
         const indexById = new Map(props.justifiedItems.map((item, index) => [item.id, index]));
+        const justifiedSectionEntries = props.justifiedSections?.map((section) => ({
+            id: section.id,
+            label: section.label,
+            items: section.items.flatMap((item) => {
+                const index = indexById.get(item.selectionKey);
+                if (index == null) {return [];}
+                return [{
+                    id: item.selectionKey,
+                    index,
+                    width: item.asset.width,
+                    height: item.asset.height,
+                }];
+            }),
+        }));
+
+        if (props.timeSectionMode === 'decade' && justifiedSectionEntries) {
+            return (
+                <GroupedTimelineLayout
+                    sections={justifiedSectionEntries}
+                    scrollContainerRef={props.scrollContainerRef}
+                    gap={props.tileGap}
+                    rowGap={props.rowGap}
+                    targetRowHeight={props.targetRowHeight}
+                    onTopVisibleSelectionKeyChange={props.onTopVisibleSelectionKeyChange}
+                    onVisibleGroupChange={props.onVisibleTimelineGroupChange}
+                    timelineJumpRequest={props.timelineJumpRequest}
+                    renderTile={(index, size) => props.renderTile(index, {
+                        width: size.width,
+                        height: size.height,
+                        flex: '0 0 auto',
+                    })}
+                />
+            );
+        }
+
         return (
             <JustifiedLayout
-                items={props.justifiedItems}
-                sections={props.justifiedSections?.map((section) => ({
-                    id: section.id,
-                    label: section.label,
-                    items: section.items.flatMap((item) => {
-                        const index = indexById.get(item.selectionKey);
-                        if (index == null) {return [];}
-                        return [{
-                        id: item.selectionKey,
-                        index,
-                        width: item.asset.width,
-                        height: item.asset.height,
-                        }];
-                    }),
+                items={props.justifiedItems.map((item, index) => ({
+                    id: item.id,
+                    index,
+                    width: item.width,
+                    height: item.height,
                 }))}
                 scrollContainerRef={props.scrollContainerRef}
                 gap={props.tileGap}
                 rowGap={props.rowGap}
                 targetRowHeight={props.targetRowHeight}
                 onTopVisibleSelectionKeyChange={props.onTopVisibleSelectionKeyChange}
-                timelineJumpRequest={props.timelineJumpRequest}
                 renderTile={(index, size) => props.renderTile(index, {
                     width: size.width,
                     height: size.height,

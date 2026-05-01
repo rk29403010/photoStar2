@@ -3,8 +3,10 @@ import type { Asset, GalleryTimelineSeek, LibraryStats, Person } from '@contract
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { BackendTransport } from '@boundary/transport/usePhotoLibrary.transport';
 import type { FolderHistoryItem, LibraryFilter, NotificationItem, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
+import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
 import type { GalleryOrder } from './usePhotoLibrary.gallery';
 import { appendUiFeedEntry } from '@shared/utils/libraryUiDiagnostics';
+import { useTimelineGalleryState } from './useTimelineGalleryState';
 
 function useNotificationState() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -92,8 +94,10 @@ export function usePhotoLibraryState() {
     const workflowRefreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [ingestStatusMessage, setIngestStatusMessage] = useState<string | null>(null);
     const groupSimilarPhotosRef = useRef(true);
+    const galleryDataModeRef = useRef<LibraryGalleryDataMode>('grouped-timeline');
     const galleryOrderRef = useRef<GalleryOrder>('default');
     const gallerySeekState = useGallerySeekState();
+    const timelineGalleryState = useTimelineGalleryState();
 
     return {
         status,
@@ -137,8 +141,10 @@ export function usePhotoLibraryState() {
         activeWorkflowRunId,
         workflowRefreshTimeout,
         groupSimilarPhotosRef,
+        galleryDataModeRef,
         galleryOrderRef,
         ...gallerySeekState,
+        ...timelineGalleryState,
         ...logState,
         ingestStatusMessage,
         setIngestStatusMessage,

@@ -51,3 +51,44 @@ test('visible selection helper falls back to the first intersecting tile when ev
 
     assert.equal(getTopVisibleSelectionKeyFromScrollContainer(container), 'photo:overlap');
 });
+
+function buildSection(sectionId, top, bottom) {
+    return {
+        dataset: { timeSectionId: sectionId },
+        getBoundingClientRect() {
+            return { top, bottom };
+        },
+    };
+}
+
+test('visible timeline group helper prefers the first meaningfully visible section from the top', async () => {
+    const { getTopVisibleTimelineGroupIdFromScrollContainer } = await import('../../src/ui/components/library/libraryVisibleSelectionKey.ts');
+
+    const container = buildContainer({
+        top: 100,
+        bottom: 500,
+        tiles: [
+            buildSection('decade-2010', 40, 140),
+            buildSection('decade-2000', 145, 280),
+            buildSection('decade-1990', 285, 420),
+        ],
+    });
+
+    assert.equal(getTopVisibleTimelineGroupIdFromScrollContainer(container), 'decade-2010');
+});
+
+test('visible timeline group helper prefers the section crossing the top edge over a barely visible previous section', async () => {
+    const { getTopVisibleTimelineGroupIdFromScrollContainer } = await import('../../src/ui/components/library/libraryVisibleSelectionKey.ts');
+
+    const container = buildContainer({
+        top: 100,
+        bottom: 500,
+        tiles: [
+            buildSection('decade-1950', 96, 104),
+            buildSection('decade-1960', 98, 140),
+            buildSection('decade-1970', 180, 240),
+        ],
+    });
+
+    assert.equal(getTopVisibleTimelineGroupIdFromScrollContainer(container), 'decade-1960');
+});

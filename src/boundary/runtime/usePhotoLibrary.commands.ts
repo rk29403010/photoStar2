@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { Asset, LibraryStats, Person } from '@contracts/core';
+import type { Asset, LibraryStats, Person, TimelineGroupId } from '@contracts/core';
 import type {
     BackgroundJob,
     DataStatsSnapshot,
@@ -18,7 +18,14 @@ import { startWorkflowWithOverlayJob } from '@boundary/runtime/workflowOverlayJo
 import { requestWorkflowRunDetail } from '@boundary/runtime/workflowRunDetail';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
-import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
+import {
+    buildTimelineGroupPagePayload,
+    buildTimelineGroupsPayload,
+    buildTimelineJumpTargetPayload,
+    getCurrentFilter,
+    type GalleryOrder,
+    type RefreshLibraryOptions,
+} from '@ui/hooks/usePhotoLibrary.gallery';
 export { createPhotoMetadataActions } from './photoMetadataActions';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
@@ -455,6 +462,43 @@ export function createRefreshActions(sendCommand: SendCommand, filterStackRef: {
         },
         refreshSystemJobs: () => {
             void sendCommand('get_system_jobs');
+        },
+    };
+}
+
+export function createTimelinePagingActions(
+    sendCommand: SendCommand,
+    filterStackRef: { current: LibraryFilter[] },
+    galleryOrderRef: { current: GalleryOrder },
+    timelineState?: {
+        setTimelineGroupLoading: (groupId: TimelineGroupId, isLoading: boolean) => void;
+        setTimelineActiveJumpTarget: (target: { groupId: TimelineGroupId } | null) => void;
+    },
+) {
+    return {
+        refreshTimelineGroups: () => {
+            void sendCommand('get_timeline_groups', buildTimelineGroupsPayload({
+                filter: getCurrentFilter(filterStackRef),
+                galleryOrder: galleryOrderRef.current,
+            }));
+        },
+        loadTimelineGroupPage: (groupId: string, options: { cursor?: string | null; limit?: number } = {}) => {
+            timelineState?.setTimelineGroupLoading(groupId as TimelineGroupId, true);
+            void sendCommand('get_timeline_group_page', buildTimelineGroupPagePayload({
+                filter: getCurrentFilter(filterStackRef),
+                galleryOrder: galleryOrderRef.current,
+                groupId,
+                cursor: options.cursor ?? null,
+                limit: options.limit,
+            }));
+        },
+        requestTimelineJumpTarget: (groupId: string) => {
+            timelineState?.setTimelineActiveJumpTarget({ groupId: groupId as TimelineGroupId });
+            void sendCommand('get_timeline_jump_target', buildTimelineJumpTargetPayload({
+                filter: getCurrentFilter(filterStackRef),
+                galleryOrder: galleryOrderRef.current,
+                groupId,
+            }));
         },
     };
 }

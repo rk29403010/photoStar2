@@ -5,6 +5,7 @@ import { useJobManager } from './useJobManager';
 import { usePhotoLibraryState } from './usePhotoLibrary.state';
 import { usePhotoLibraryConnection } from '@boundary/runtime/usePhotoLibrary.connection';
 import {
+    createTimelinePagingActions,
     createPhotoMetadataActions,
     createPipelineActions,
     createScanActions,
@@ -41,7 +42,9 @@ function useLibraryRefreshAction(params: {
     setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
     setIsRefreshingLibrary: PhotoLibraryState['setIsRefreshingLibrary'];
+    resetTimelineGallery: PhotoLibraryState['resetTimelineGallery'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
+    galleryDataModeRef: PhotoLibraryState['galleryDataModeRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
@@ -53,13 +56,15 @@ function useLibraryRefreshAction(params: {
         setHasMoreAssets,
         setIsLoadingMoreAssets,
         setIsRefreshingLibrary,
+        resetTimelineGallery,
         groupSimilarPhotosRef,
+        galleryDataModeRef,
         galleryOrderRef,
         gallerySeekRef,
     } = params;
 
     return useCallback((options: RefreshLibraryOptions = {}) => {
-        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryOrderRef, gallerySeekRef, filterStackRef, {
+        const payload = buildAssetRefreshPayload(groupSimilarPhotosRef, galleryDataModeRef, galleryOrderRef, gallerySeekRef, filterStackRef, {
             ...options,
             loadedAssetCount: options.preservePagingState ? assets.length : options.loadedAssetCount,
         });
@@ -70,6 +75,7 @@ function useLibraryRefreshAction(params: {
         setIsRefreshingLibrary(true);
 
         if (!options.preservePagingState) {
+            resetTimelineGallery();
             setHasMoreAssets(true);
             setIsLoadingMoreAssets(false);
         }
@@ -81,7 +87,7 @@ function useLibraryRefreshAction(params: {
         }
 
         void sendCommand('get_assets', payload);
-    }, [assets.length, filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, setIsRefreshingLibrary]);
+    }, [assets.length, filterStackRef, galleryDataModeRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, request, resetTimelineGallery, sendCommand, setHasMoreAssets, setIsLoadingMoreAssets, setIsRefreshingLibrary]);
 }
 
 function useAssetLoadingActions(params: {
@@ -93,6 +99,7 @@ function useAssetLoadingActions(params: {
     setAssets: PhotoLibraryState['setAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
+    galleryDataModeRef: PhotoLibraryState['galleryDataModeRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
@@ -105,6 +112,7 @@ function useAssetLoadingActions(params: {
         setAssets,
         setIsLoadingMoreAssets,
         groupSimilarPhotosRef,
+        galleryDataModeRef,
         galleryOrderRef,
         gallerySeekRef,
     } = params;
@@ -121,6 +129,7 @@ function useAssetLoadingActions(params: {
                     assetCount: assets.length,
                     filterStackRef,
                     groupSimilarPhotosRef,
+                    galleryDataModeRef,
                     galleryOrderRef,
                     gallerySeekRef,
                 }),
@@ -130,7 +139,7 @@ function useAssetLoadingActions(params: {
         } finally {
             setIsLoadingMoreAssets(false);
         }
-    }, [assets.length, filterStackRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, hasMoreAssets, isLoadingMoreAssets, request, setIsLoadingMoreAssets]);
+    }, [assets.length, filterStackRef, galleryDataModeRef, galleryOrderRef, gallerySeekRef, groupSimilarPhotosRef, hasMoreAssets, isLoadingMoreAssets, request, setIsLoadingMoreAssets]);
 
     const loadAssetDetails = useCallback(async (
         assetId: string,
@@ -165,7 +174,9 @@ function useRefreshActions(params: {
     setHasMoreAssets: PhotoLibraryState['setHasMoreAssets'];
     setIsLoadingMoreAssets: PhotoLibraryState['setIsLoadingMoreAssets'];
     setIsRefreshingLibrary: PhotoLibraryState['setIsRefreshingLibrary'];
+    resetTimelineGallery: PhotoLibraryState['resetTimelineGallery'];
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
+    galleryDataModeRef: PhotoLibraryState['galleryDataModeRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
 }) {
@@ -180,7 +191,9 @@ function useRefreshActions(params: {
         setHasMoreAssets,
         setIsLoadingMoreAssets,
         setIsRefreshingLibrary,
+        resetTimelineGallery,
         groupSimilarPhotosRef,
+        galleryDataModeRef,
         galleryOrderRef,
         gallerySeekRef,
     } = params;
@@ -193,7 +206,9 @@ function useRefreshActions(params: {
         setHasMoreAssets,
         setIsLoadingMoreAssets,
         setIsRefreshingLibrary,
+        resetTimelineGallery,
         groupSimilarPhotosRef,
+        galleryDataModeRef,
         galleryOrderRef,
         gallerySeekRef,
     });
@@ -215,6 +230,7 @@ function useRefreshActions(params: {
         setAssets,
         setIsLoadingMoreAssets,
         groupSimilarPhotosRef,
+        galleryDataModeRef,
         galleryOrderRef,
         gallerySeekRef,
     });
@@ -441,7 +457,9 @@ function useComposedActions(
         setHasMoreAssets: state.setHasMoreAssets,
         setIsLoadingMoreAssets: state.setIsLoadingMoreAssets,
         setIsRefreshingLibrary: state.setIsRefreshingLibrary,
+        resetTimelineGallery: state.resetTimelineGallery,
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
+        galleryDataModeRef: state.galleryDataModeRef,
         galleryOrderRef: state.galleryOrderRef,
         gallerySeekRef: state.gallerySeekRef,
     });
@@ -466,11 +484,21 @@ function useComposedActions(
         filterStackRef: state.filterStackRef,
         refreshLibrary: refreshActions.refreshLibrary,
         groupSimilarPhotosRef: state.groupSimilarPhotosRef,
+        galleryDataModeRef: state.galleryDataModeRef,
         galleryOrderRef: state.galleryOrderRef,
         gallerySeekRef: state.gallerySeekRef,
         setIsSeekingTimeline: state.setIsSeekingTimeline,
         setGalleryTimelineSeek: state.setGalleryTimelineSeek,
     });
+    const timelinePagingActions = useMemo(() => createTimelinePagingActions(
+        sendCommand,
+        state.filterStackRef,
+        state.galleryOrderRef,
+        {
+            setTimelineGroupLoading: state.setTimelineGroupLoading,
+            setTimelineActiveJumpTarget: state.setTimelineActiveJumpTarget,
+        },
+    ), [sendCommand, state.filterStackRef, state.galleryOrderRef, state.setTimelineActiveJumpTarget, state.setTimelineGroupLoading]);
     const supplementaryActions = useSupplementaryActions({
         state,
         request,
@@ -484,13 +512,15 @@ function useComposedActions(
         ...workflowActions,
         ...refreshActions,
         ...coreActions,
+        ...timelinePagingActions,
+        setTimelineVisibleGroup: state.setTimelineVisibleGroup,
         ...supplementaryActions.albumActions,
         ...supplementaryActions.photoMetadataActions,
         ...supplementaryActions.groupActions,
         ...supplementaryActions.tagActions,
         ...supplementaryActions.buildActions,
         ...supplementaryActions.faceSystemActions,
-    }), [coreActions, refreshActions, supplementaryActions, workflowActions]);
+    }), [coreActions, refreshActions, state.setTimelineVisibleGroup, supplementaryActions, timelinePagingActions, workflowActions]);
 }
 
 export function usePhotoLibrary() {

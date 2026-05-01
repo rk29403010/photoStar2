@@ -4,7 +4,7 @@ import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import type { LibrarySelectableItem, LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
-import type { GalleryTimeSectionMode } from '../layout/galleryTimeSections';
+import type { GalleryTimeSection, GalleryTimeSectionMode } from '../layout/galleryTimeSections';
 import type { MutableRefObject, ReactNode, UIEvent } from 'react';
 import { LibraryPanel } from './LibraryPanel';
 import type { TimelineJumpRequest } from './libraryTimelineJump';
@@ -60,6 +60,8 @@ interface LibraryPanelContentProps {
     browseRowHeight: number;
     isScrollSettled: boolean;
     setTopVisibleSelectionKey: (selectionKey: string | null) => void;
+    onTimelineVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+    justifiedSections?: GalleryTimeSection[];
     timeSectionMode: GalleryTimeSectionMode;
     timelineJumpRequest?: TimelineJumpRequest | null;
     showRejected?: boolean;
@@ -93,6 +95,8 @@ export function LibraryPanelContent(props: LibraryPanelContentProps) {
                 isScrollSettled: props.isScrollSettled,
                 targetRowHeight: props.browseRowHeight,
                 onTopVisibleSelectionKeyChange: props.setTopVisibleSelectionKey,
+                onVisibleTimelineGroupChange: props.onTimelineVisibleGroupChange,
+                justifiedSections: props.justifiedSections,
                 timeSectionMode: props.timeSectionMode,
                 timelineJumpRequest: props.timelineJumpRequest,
             }}
