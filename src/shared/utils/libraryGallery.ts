@@ -1,6 +1,7 @@
 import type { Asset } from '@contracts/core';
 
 export type LibrarySortMode = 'filename' | 'date' | 'reverse-date' | 'group';
+export type LibraryGalleryDataMode = 'flat' | 'grouped-timeline';
 
 export interface CurrentPhotoStatus {
     filename: string;
@@ -29,6 +30,14 @@ export function getEffectiveLibrarySortMode(mode: LibrarySortMode, groupSimilarP
     }
 
     return mode;
+}
+
+export function getLibraryGalleryDataMode(sortMode: LibrarySortMode): LibraryGalleryDataMode {
+    if (sortMode === 'date' || sortMode === 'reverse-date') {
+        return 'grouped-timeline';
+    }
+
+    return 'flat';
 }
 
 function getSensitivityLabel(asset: Pick<Asset, 'sensitivity_status' | 'sensitivity_score'>): string {

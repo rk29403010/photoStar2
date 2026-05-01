@@ -1,31 +1,14 @@
 import type { Asset } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
-import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import { buildVisibleGalleryItems } from '@shared/utils/libraryGallerySelection';
 import { createEmptyLibrarySelectionState, type LibrarySelectableItem, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import type { RefObject } from 'react';
 import { LayoutEngine } from '../layout/LayoutEngine';
-import { LibraryToolbar } from './LibraryToolbar';
-import type { GalleryTimeSectionMode } from '../layout/galleryTimeSections';
+import type { GalleryTimeSection, GalleryTimeSectionMode } from '../layout/galleryTimeSections';
 import type { TimelineJumpRequest } from './libraryTimelineJump';
 
 interface LibraryGalleryPaneProps {
-    toolbar: {
-        sortMode: LibrarySortMode;
-        onSortModeChange: (mode: LibrarySortMode) => void;
-        layoutMode: GalleryLayoutMode;
-        onLayoutModeChange: (mode: GalleryLayoutMode) => void;
-        selectedTag: string;
-        availableTags: string[];
-        onTagChange: (tag: string) => void;
-        groupSimilarPhotos: boolean;
-        onGroupSimilarPhotosChange: (enabled: boolean) => void;
-        showGroupIds: boolean;
-        onShowGroupIdsChange: (enabled: boolean) => void;
-        showInfoPanel: boolean;
-        onShowInfoPanelChange: (show: boolean) => void;
-    };
     layout: {
         items: LibrarySelectableItem[];
         onAssetClick?: (id: string) => void;
@@ -46,10 +29,10 @@ interface LibraryGalleryPaneProps {
         isScrollSettled?: boolean;
         targetRowHeight?: number;
         onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-        onTopVisibleSectionIdChange?: (sectionId: string | null) => void;
+        onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+        justifiedSections?: GalleryTimeSection[];
         timeSectionMode?: GalleryTimeSectionMode;
         timelineJumpRequest?: TimelineJumpRequest | null;
-        restoreSelectionKey?: string | null;
     };
     rejected: {
         showRejected?: boolean;
@@ -83,7 +66,6 @@ function RejectedSection({ showRejected, rejectedAssets, onAssetClick, selectedA
 export function LibraryGalleryPane(props: LibraryGalleryPaneProps) {
     return (
         <>
-            <LibraryToolbar {...props.toolbar} />
             <LayoutEngine {...props.layout} debug={false} />
             <RejectedSection {...props.rejected} />
         </>

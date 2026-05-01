@@ -1,4 +1,4 @@
-import type { Asset, Person } from '@contracts/core';
+import type { Asset, Person, TimelineGalleryPage, TimelineGroupId, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { WsResponse } from '@contracts/schemas';
 import { WsResponseSchema } from '@contracts/schemas';
@@ -9,6 +9,7 @@ import type { ConnectionStateParams, ParamsRef } from '@boundary/runtime/usePhot
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { mergeRefreshedAssetPage } from '@shared/utils/libraryAssetRefresh';
 import { buildEventFeedDetail, countPreviewAssets } from '@shared/utils/libraryUiDiagnostics';
+import { isTimelineGroupPageRequestId, isTimelineJumpTargetRequestId } from '@shared/utils/libraryTimelineRequestIds';
 import { getAssetUpdateInstruction } from './assetUpdateEvents';
 import {
     isAssetPageResponseId,
@@ -18,8 +19,8 @@ import {
     shouldUpdatePagingStateFromAssetResponse,
 } from '@shared/utils/libraryPagingState';
 
-const INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init'] as const;
-const INITIAL_SYNC_REQUEST_ID_SET = new Set<string>(INITIAL_SYNC_REQUEST_IDS);
+const BASE_INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init'] as const;
+const INITIAL_SYNC_REQUEST_ID_SET = new Set<string>(BASE_INITIAL_SYNC_REQUEST_IDS);
 
 function dedupeAssetsById(assets: Asset[]): Asset[] {
     const deduped = new Map<string, Asset>();
@@ -64,6 +65,78 @@ function getAssetResponseLabel(id: string | undefined, hasCompletedInitialSync: 
         return hasCompletedInitialSync ? 'Assets re-sync response' : 'Assets initial sync';
     }
     return 'Assets refresh response';
+}
+
+function isTimelineGroupPageResponseId(id: string | undefined): boolean {
+    return isTimelineGroupPageRequestId(id);
+}
+
+function isTimelineJumpTargetResponseId(id: string | undefined): boolean {
+    return isTimelineJumpTargetRequestId(id);
+}
+
+function isTimelineGroupSummary(value: unknown): value is TimelineGroupSummary {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    const candidate = value as Partial<TimelineGroupSummary>;
+    return typeof candidate.id === 'string'
+        && typeof candidate.label === 'string'
+        && typeof candidate.sortKey === 'string'
+        && typeof candidate.itemCount === 'number'
+        && typeof candidate.isLoaded === 'boolean';
+}
+
+function isTimelineGalleryPage(value: unknown): value is TimelineGalleryPage {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    const candidate = value as Partial<TimelineGalleryPage>;
+    return typeof candidate.groupId === 'string'
+        && Array.isArray(candidate.items)
+        && typeof candidate.isFullyLoaded === 'boolean'
+        && (typeof candidate.nextCursor === 'string' || candidate.nextCursor === null);
+}
+
+function isTimelineJumpTarget(value: unknown): value is TimelineJumpTarget {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    const candidate = value as Partial<TimelineJumpTarget>;
+    return typeof candidate.groupId === 'string';
+}
+
+function readTimelineGroupSummaries(data: Record<string, unknown>) {
+    const candidateCollections = [data.timelineGroups, data.groupSummaries, data.groups];
+    for (const candidate of candidateCollections) {
+        if (Array.isArray(candidate) && candidate.every(isTimelineGroupSummary)) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function readTimelineGalleryPage(data: Record<string, unknown>) {
+    const candidatePages = [data.timelineGroupPage, data.page];
+    for (const candidate of candidatePages) {
+        if (isTimelineGalleryPage(candidate)) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function readTimelineJumpTarget(data: Record<string, unknown>) {
+    const candidateTargets = [data.timelineJumpTarget, data.jumpTarget];
+    for (const candidate of candidateTargets) {
+        if (isTimelineJumpTarget(candidate)) {
+            return candidate;
+        }
+    }
+    return null;
 }
 
 function applySnapshotPayload(data: Record<string, unknown>, params: ConnectionStateParams) {
@@ -137,12 +210,53 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
     });
 }
 
+function applyTimelineOkPayload(data: Record<string, unknown>, params: ConnectionStateParams) {
+    const timelineGroupSummaries = readTimelineGroupSummaries(data);
+    if (timelineGroupSummaries) {
+        params.setTimelineGroupSummaries(timelineGroupSummaries);
+    }
+
+    const timelineGroupPage = readTimelineGalleryPage(data);
+    if (timelineGroupPage) {
+        params.upsertTimelineGroupPage(timelineGroupPage);
+    }
+
+    const timelineJumpTarget = readTimelineJumpTarget(data);
+    if (timelineJumpTarget) {
+        params.setTimelineActiveJumpTarget(timelineJumpTarget);
+    }
+
+    return { timelineGroupPage };
+}
+
+function applyTimelineResponseFlags(params: {
+    msg: WsResponse;
+    data: Record<string, unknown>;
+    connection: ConnectionStateParams;
+    timelineGroupPage: TimelineGalleryPage | null;
+}) {
+    if (isTimelineJumpTargetResponseId(params.msg.id)) {
+        params.connection.setIsSeekingTimeline(false);
+    }
+
+    if (!isTimelineGroupPageResponseId(params.msg.id)) {
+        return;
+    }
+
+    const groupId = params.timelineGroupPage?.groupId ?? params.data.groupId;
+    if (typeof groupId === 'string') {
+        params.connection.setTimelineGroupLoading(groupId as TimelineGroupId, false);
+    }
+}
+
 function handleOkMessage(msg: WsResponse, params: ConnectionStateParams) {
     const data = msg.data;
     if (!data) {return;}
     if (data.message === 'pong') {params.addLog('Pong received');}
     if (data.count !== undefined) {params.setStats(data);}
+    const { timelineGroupPage } = applyTimelineOkPayload(data, params);
     applySnapshotPayload(data, params);
+    applyTimelineResponseFlags({ msg, data, connection: params, timelineGroupPage });
     if (!data.assets) {return;}
 
     const assets = dedupeAssetsById(data.assets as Asset[]);
@@ -157,9 +271,19 @@ function handleErrorMessage(msg: WsResponse, params: ConnectionStateParams) {
     if (isAssetPageResponseId(msg.id)) {
         params.setIsLoadingMoreAssets(false);
     }
+    if (isTimelineGroupPageResponseId(msg.id)) {
+        const groupId = msg.data?.groupId;
+        if (typeof groupId === 'string') {
+            params.setTimelineGroupLoading(groupId as TimelineGroupId, false);
+        }
+    }
     if (isReplacementAssetRefreshId(msg.id)) {
         params.setIsRefreshingLibrary(false);
         params.setIsSeekingTimeline(false);
+    }
+    if (isTimelineJumpTargetResponseId(msg.id)) {
+        params.setIsSeekingTimeline(false);
+        params.setTimelineActiveJumpTarget(null);
     }
     if (!msg.error) {return;}
     params.addLog(`Command ${msg.id ?? 'unknown'} failed: ${msg.error}`);
@@ -282,8 +406,9 @@ function handleEventMessage(msg: WsResponse, params: ConnectionStateParams) {
     applyEventAssetUpdates(event, params);
 }
 
-function createPendingInitialSyncIds(): Set<string> {
-    return new Set<string>(INITIAL_SYNC_REQUEST_IDS);
+function createPendingInitialSyncIds(includeTimelineGroups: boolean): Set<string> {
+    void includeTimelineGroups;
+    return new Set<string>(BASE_INITIAL_SYNC_REQUEST_IDS);
 }
 
 function isInitialSyncResponse(msg: WsResponse): boolean {
@@ -298,7 +423,7 @@ function getSnapshotStatus(hasCompletedInitialSync: boolean, transportLabel: str
 
 export function createSnapshotSyncController(paramsRef: ParamsRef) {
     let activeTransportLabel = 'WS';
-    let pendingInitialSyncIds = createPendingInitialSyncIds();
+    let pendingInitialSyncIds = createPendingInitialSyncIds(false);
     let initialSyncErrors: string[] = [];
 
     const finishSnapshotSync = () => {
@@ -313,9 +438,9 @@ export function createSnapshotSyncController(paramsRef: ParamsRef) {
     };
 
     return {
-        beginSnapshotSync(transportLabel: string) {
+        beginSnapshotSync(transportLabel: string, options: { includeTimelineGroups?: boolean } = {}) {
             activeTransportLabel = transportLabel;
-            pendingInitialSyncIds = createPendingInitialSyncIds();
+            pendingInitialSyncIds = createPendingInitialSyncIds(options.includeTimelineGroups === true);
             initialSyncErrors = [];
             paramsRef.current.setStatus(getSnapshotStatus(paramsRef.current.hasCompletedInitialSync, transportLabel));
             paramsRef.current.setError(null);

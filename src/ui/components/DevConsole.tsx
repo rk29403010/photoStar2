@@ -66,10 +66,16 @@ function useConsoleCapture() {
         const origError = console.error;
         const origInfo = console.info;
 
-        console.log = (...args: unknown[]) => { origLog(...args); addEntry('log', args); };
-        console.warn = (...args: unknown[]) => { origWarn(...args); addEntry('warn', args); };
-        console.error = (...args: unknown[]) => { origError(...args); addEntry('error', args); };
-        console.info = (...args: unknown[]) => { origInfo(...args); addEntry('info', args); };
+        const queueEntry = (level: ConsoleEntryLevel, args: unknown[]) => {
+            queueMicrotask(() => {
+                addEntry(level, args);
+            });
+        };
+
+        console.log = (...args: unknown[]) => { origLog(...args); queueEntry('log', args); };
+        console.warn = (...args: unknown[]) => { origWarn(...args); queueEntry('warn', args); };
+        console.error = (...args: unknown[]) => { origError(...args); queueEntry('error', args); };
+        console.info = (...args: unknown[]) => { origInfo(...args); queueEntry('info', args); };
 
         return () => {
             console.log = origLog;

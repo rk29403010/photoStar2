@@ -4,6 +4,7 @@ import type { DevRuntimeImpact } from '@contracts/devRuntime';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
 import { shouldRefreshLibraryForFilterStackChange } from '@shared/utils/libraryFilterStack';
 import { removeAssetsById, restoreAssetsByReference } from '@shared/utils/photoBinLocalState';
 import type { GalleryOrder, RefreshLibraryOptions } from './usePhotoLibrary.gallery';
@@ -54,6 +55,7 @@ function useFilterStackActions(params: {
 }
 
 function useGalleryPreferenceActions(params: {
+    galleryDataModeRef: PhotoLibraryState['galleryDataModeRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
     setIsSeekingTimeline: PhotoLibraryState['setIsSeekingTimeline'];
@@ -62,13 +64,21 @@ function useGalleryPreferenceActions(params: {
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     transport: PhotoLibraryState['transport'];
 }) {
-    const { galleryOrderRef, gallerySeekRef, setIsSeekingTimeline, setGalleryTimelineSeek, groupSimilarPhotosRef, refreshLibrary, transport } = params;
+    const { galleryDataModeRef, galleryOrderRef, gallerySeekRef, setIsSeekingTimeline, setGalleryTimelineSeek, groupSimilarPhotosRef, refreshLibrary, transport } = params;
 
     const setGroupSimilarPhotos = useCallback((enabled: boolean) => {
+        if (groupSimilarPhotosRef.current === enabled) {return;}
         groupSimilarPhotosRef.current = enabled;
         if (!transport) {return;}
         refreshLibrary({ withGroupCounts: enabled });
     }, [groupSimilarPhotosRef, refreshLibrary, transport]);
+
+    const setGalleryDataMode = useCallback((mode: LibraryGalleryDataMode) => {
+        if (galleryDataModeRef.current === mode) {return;}
+        galleryDataModeRef.current = mode;
+        if (!transport) {return;}
+        refreshLibrary();
+    }, [galleryDataModeRef, refreshLibrary, transport]);
 
     const setGalleryOrder = useCallback((order: GalleryOrder) => {
         if (galleryOrderRef.current === order) {return;}
@@ -85,7 +95,7 @@ function useGalleryPreferenceActions(params: {
         refreshLibrary({ gallerySeek: seek });
     }, [gallerySeekRef, refreshLibrary, setGalleryTimelineSeek, setIsSeekingTimeline, transport]);
 
-    return { setGalleryOrder, setGroupSimilarPhotos, seekGalleryTimeline };
+    return { setGalleryDataMode, setGalleryOrder, setGroupSimilarPhotos, seekGalleryTimeline };
 }
 
 export function useCoreActions(params: {
@@ -98,6 +108,7 @@ export function useCoreActions(params: {
     filterStackRef: PhotoLibraryState['filterStackRef'];
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     groupSimilarPhotosRef: PhotoLibraryState['groupSimilarPhotosRef'];
+    galleryDataModeRef: PhotoLibraryState['galleryDataModeRef'];
     galleryOrderRef: PhotoLibraryState['galleryOrderRef'];
     gallerySeekRef: PhotoLibraryState['gallerySeekRef'];
     setIsSeekingTimeline: PhotoLibraryState['setIsSeekingTimeline'];
@@ -113,6 +124,7 @@ export function useCoreActions(params: {
         filterStackRef,
         refreshLibrary,
         groupSimilarPhotosRef,
+        galleryDataModeRef,
         galleryOrderRef,
         gallerySeekRef,
         setIsSeekingTimeline,
@@ -135,6 +147,7 @@ export function useCoreActions(params: {
         refreshLibrary,
     });
     const galleryPreferenceActions = useGalleryPreferenceActions({
+        galleryDataModeRef,
         galleryOrderRef,
         gallerySeekRef,
         setIsSeekingTimeline,

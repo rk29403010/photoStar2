@@ -4,6 +4,7 @@ import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandl
 import type { ComponentProps, CSSProperties, ReactNode, RefObject, UIEvent } from 'react';
 import { GalleryInfoPanel } from './GalleryInfoPanel';
 import { LibraryGalleryPane } from './LibraryGalleryPane';
+import { LibraryToolbar } from './LibraryToolbar';
 
 function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
     if (seek?.kind === 'unknown') {
@@ -46,7 +47,7 @@ function TimelineSeekOverlay({ seek }: { seek: GalleryTimelineSeek | null }) {
 export interface LibraryPanelProps {
     scrollRef: RefObject<HTMLDivElement | null>;
     handleScroll: (event: UIEvent<HTMLDivElement>) => void;
-    toolbar: ComponentProps<typeof LibraryGalleryPane>['toolbar'];
+    toolbar: ComponentProps<typeof LibraryToolbar>;
     timelineRail?: ReactNode;
     layout: ComponentProps<typeof LibraryGalleryPane>['layout'];
     rejected: ComponentProps<typeof LibraryGalleryPane>['rejected'];
@@ -102,13 +103,16 @@ export function LibraryPanel({
     return (
         <div style={{ position: 'relative', flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden', background: '#0a0a0a' }}>
             {timelineRail}
-            <div
-                ref={scrollRef}
-                onScroll={handleScroll}
-                data-scroll-settled={isScrollSettled ? 'true' : 'false'}
-                style={scrollContainerStyle}
-            >
-                <LibraryGalleryPane toolbar={toolbar} layout={layout} rejected={rejected} />
+            <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <LibraryToolbar {...toolbar} />
+                <div
+                    ref={scrollRef}
+                    onScroll={handleScroll}
+                    data-scroll-settled={isScrollSettled ? 'true' : 'false'}
+                    style={scrollContainerStyle}
+                >
+                    <LibraryGalleryPane layout={layout} rejected={rejected} />
+                </div>
             </div>
             {isSeekingTimeline && layout.items.length > 0 && <TimelineSeekOverlay seek={galleryTimelineSeek} />}
             {showInfoPanel && (

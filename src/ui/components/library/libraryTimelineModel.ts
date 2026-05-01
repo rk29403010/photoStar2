@@ -55,8 +55,7 @@ export function getActiveTimelineSeek(params: {
         return null;
     }
 
-    const datedItem = getLeadingDatedDisplayItem(params.displayItems);
-    const timestamp = datedItem?.asset.photo_created_at ?? null;
+    const timestamp = getLeadingDatedDisplayItem(params.displayItems)?.asset.photo_created_at ?? null;
     if (!timestamp) {
         return null;
     }

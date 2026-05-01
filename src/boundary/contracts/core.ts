@@ -1,3 +1,13 @@
+export type {
+    TimelineGroupId,
+    TimelineGroupSummary,
+    TimelineGroupRow,
+    TimelineGroupAssetItem,
+    TimelineGroupItem,
+    TimelineGalleryPage,
+    TimelineJumpTarget,
+} from './timelineGallery';
+
 export type TileIntent = 'utility' | 'normal' | 'emphasis' | 'hero';
 
 export const PERSON_COLORS = [

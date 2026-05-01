@@ -19,11 +19,13 @@ import type {
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
+import type { TimelineGalleryStateSlice } from '@ui/hooks/useTimelineGalleryState';
 import { useAvailableTags } from '@ui/hooks/useAvailableTags';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { AlbumsView } from '../AlbumsView';
@@ -45,6 +47,7 @@ interface AppMainContentProps {
   selectedWorkflowId: string;
   onSelectWorkflowId: (workflowId: string) => void;
   stats: LibraryStats | null;
+  timelineGallery: TimelineGalleryStateSlice;
   assets: Asset[];
   galleryTimelineSeek: GalleryTimelineSeek | null;
   isSeekingTimeline: boolean;
@@ -77,6 +80,10 @@ interface AppMainContentProps {
   isLoadingMoreAssets: boolean;
   isRefreshingLibrary: boolean;
   onLoadMoreAssets: () => Promise<void>;
+  onLoadTimelineGroupPage: (groupId: string) => void;
+  onRequestTimelineJumpTarget: (groupId: string) => void;
+  onTimelineVisibleGroupChange: (groupId: string | null, groupIndex: number | null) => void;
+  onGalleryDataModeChange: (mode: LibraryGalleryDataMode) => void;
   onGalleryOrderChange: (order: GalleryOrder) => void;
   onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
   onAssetClick: (id: string | null) => void;
@@ -158,6 +165,7 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
     <div style={getPanelStyle(props.view === 'library')}>
       <LibraryView
         stats={props.stats}
+        timelineGallery={props.timelineGallery}
         assets={props.visibleLibraryAssets}
         galleryTimelineSeek={props.galleryTimelineSeek}
         isSeekingTimeline={props.isSeekingTimeline}
@@ -169,6 +177,10 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
         hasMoreAssets={props.hasMoreAssets}
         isLoadingMoreAssets={props.isLoadingMoreAssets}
         onLoadMoreAssets={props.onLoadMoreAssets}
+        onLoadTimelineGroupPage={props.onLoadTimelineGroupPage}
+        onRequestTimelineJumpTarget={props.onRequestTimelineJumpTarget}
+        onTimelineVisibleGroupChange={props.onTimelineVisibleGroupChange}
+        onGalleryDataModeChange={props.onGalleryDataModeChange}
         onGalleryOrderChange={props.onGalleryOrderChange}
         onGalleryTimelineSeek={props.onGalleryTimelineSeek}
         active={props.libraryActive}

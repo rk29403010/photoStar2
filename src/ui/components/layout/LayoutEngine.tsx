@@ -15,7 +15,7 @@ import {
     type LibrarySelectableItem,
     type LibrarySelectionState,
 } from '@shared/utils/librarySelectionState';
-import { buildGalleryTimeSections, type GalleryTimeSectionMode } from './galleryTimeSections';
+import { buildGalleryTimeSections, type GalleryTimeSection, type GalleryTimeSectionMode } from './galleryTimeSections';
 import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
 interface LayoutEngineProps {
     items: LibrarySelectableItem[];
@@ -38,10 +38,10 @@ interface LayoutEngineProps {
     isScrollSettled?: boolean;
     targetRowHeight?: number;
     onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onTopVisibleSectionIdChange?: (sectionId: string | null) => void;
+    onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+    justifiedSections?: GalleryTimeSection[];
     timeSectionMode?: GalleryTimeSectionMode;
     timelineJumpRequest?: TimelineJumpRequest | null;
-    restoreSelectionKey?: string | null;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
@@ -458,28 +458,31 @@ export function LayoutEngine({
     isScrollSettled = true,
     targetRowHeight,
     onTopVisibleSelectionKeyChange,
-    onTopVisibleSectionIdChange,
+    onVisibleTimelineGroupChange,
+    justifiedSections: explicitJustifiedSections,
     timeSectionMode = 'none',
     timelineJumpRequest,
-    restoreSelectionKey,
 }: LayoutEngineProps) {
     const layoutItems = useMemo(() => computeLayout(items, layoutMode), [items, layoutMode]);
-    const justifiedSections = useMemo(() => buildGalleryTimeSections(items, timeSectionMode), [items, timeSectionMode]);
+    const justifiedSections = useMemo(
+        () => explicitJustifiedSections ?? buildGalleryTimeSections(items, timeSectionMode),
+        [explicitJustifiedSections, items, timeSectionMode],
+    );
     const selectionState = useSelectionInteractions(layoutItems, onLibrarySelectionChange);
     return (
         <LayoutModeRenderer
             layoutMode={layoutMode}
             justifiedItems={layoutItems.map((layoutItem) => ({ id: layoutItem.item.selectionKey, width: layoutItem.item.asset.width, height: layoutItem.item.asset.height }))}
             justifiedSections={justifiedSections}
+            timeSectionMode={timeSectionMode}
             scrollContainerRef={scrollContainerRef}
             itemCount={layoutItems.length}
             tileGap={GALLERY_TILE_GAP_PX}
             rowGap={GALLERY_ROW_GAP_PX}
             targetRowHeight={targetRowHeight}
             onTopVisibleSelectionKeyChange={onTopVisibleSelectionKeyChange}
-            onTopVisibleSectionIdChange={onTopVisibleSectionIdChange}
+            onVisibleTimelineGroupChange={onVisibleTimelineGroupChange}
             timelineJumpRequest={timelineJumpRequest}
-            restoreSelectionKey={restoreSelectionKey}
             renderTile={(index, shellStyleOverride) => renderLayoutTile({
                 layoutItems,
                 index,

@@ -1,5 +1,5 @@
 import { useMemo, type UIEvent } from 'react';
-import type { GalleryTimelineSeek, LibraryStats } from '@contracts/core';
+import type { GalleryTimelineSeek, LibraryStats, TimelineGroupId } from '@contracts/core';
 import type { Asset } from '@contracts/core';
 import type { LibraryFilter } from '@ui/hooks/usePhotoLibrary';
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
@@ -30,6 +30,9 @@ export function useLibraryViewPresentation(params: {
     showInfoPanel: boolean;
     handleShowInfoPanelChange: (show: boolean) => void;
     onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
+    onTimelineBucketJump: (bucket: NonNullable<LibraryStats['timeline']>['buckets'][number]) => void;
+    timelineVisibleGroupId: TimelineGroupId | null;
+    timelineVisibleGroupIndex: number | null;
 }) {
     const timeline = useMemo(() => getTimelineSummaryForGalleryMode(params.stats, params.groupSimilarPhotos), [params.groupSimilarPhotos, params.stats]);
     const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({
@@ -42,6 +45,8 @@ export function useLibraryViewPresentation(params: {
         displayItems: params.displayItems,
         timeline,
         activeTimelineSeek,
+        visibleTimelineGroupId: params.timelineVisibleGroupId,
+        visibleTimelineGroupIndex: params.timelineVisibleGroupIndex,
         markScrollActivity: params.markScrollActivity,
         handleScroll: params.handleScroll,
     });
@@ -64,6 +69,7 @@ export function useLibraryViewPresentation(params: {
         showInfoPanel: params.showInfoPanel,
         handleShowInfoPanelChange: params.handleShowInfoPanelChange,
         onGalleryTimelineSeek: params.onGalleryTimelineSeek,
+        onTimelineBucketJump: params.onTimelineBucketJump,
     });
 
     return {

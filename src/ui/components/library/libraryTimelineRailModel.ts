@@ -5,7 +5,7 @@ export function getTimelineRailDisplayedIndex(params: {
     if (params.viewportBucketIndex != null && params.viewportBucketIndex >= 0) {
         return params.viewportBucketIndex;
     }
-    return Math.max(params.activeIndex, -1);
+    return -1;
 }
 
 export function getTimelineRailOrderedIndexes(bucketCount: number) {

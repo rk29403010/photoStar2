@@ -1,36 +1,59 @@
 import { useCallback } from 'react';
-import type { GalleryTimelineSeek, LibraryTimelineSummary } from '@contracts/core';
+import type { GalleryTimelineSeek, LibraryTimelineSummary, TimelineGroupId } from '@contracts/core';
 import { clearLibrarySelection, type LibrarySelectableItem, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LibraryTimelineRail } from './LibraryTimelineRail';
-import { isTimelineSortMode } from './libraryTimelineModel';
+import { createSelectionKeyTimelineBucketIndex, isTimelineSortMode } from './libraryTimelineModel';
 
-function getTimelineSectionIdForBucketStartYear(startYear: number) {
+function getTimelineGroupIdForBucketStartYear(startYear: number): TimelineGroupId {
     return `decade-${startYear}`;
 }
 
 function findViewportTimelineBucketIndex(
-    visibleSectionId: string | null,
-    sectionIdToBucketIndex: Map<string, number>,
+    visibleSelectionKey: string | null,
+    selectionKeyToBucketIndex: Map<string, number>,
 ) {
-    if (!visibleSectionId) {
+    if (!visibleSelectionKey) {
         return null;
     }
-    return sectionIdToBucketIndex.get(visibleSectionId) ?? null;
+    return selectionKeyToBucketIndex.get(visibleSelectionKey) ?? null;
 }
 
 export function useViewportTimelineBucketIndex(params: {
     displayItems: LibrarySelectableItem[];
     timeline: LibraryTimelineSummary | null;
     activeTimelineSeek: GalleryTimelineSeek | null;
-    visibleSectionId: string | null;
+    visibleSelectionKey: string | null;
+    scrollVisibleTimelineGroupId: TimelineGroupId | null;
+    visibleTimelineGroupId: TimelineGroupId | null;
+    visibleTimelineGroupIndex: number | null;
 }) {
-    const sectionIdToBucketIndex = new Map(
-        (params.timeline?.buckets ?? []).map((bucket, index) => [getTimelineSectionIdForBucketStartYear(bucket.startYear), index] as const),
-    );
-    const viewportBucketIndex = findViewportTimelineBucketIndex(params.visibleSectionId, sectionIdToBucketIndex);
     const syncViewportBucketIndexFromScrollContainer = useCallback((_container: HTMLDivElement) => {}, []);
+    const visibleTimelineGroupId = params.visibleTimelineGroupId ?? params.scrollVisibleTimelineGroupId;
+
+    if (visibleTimelineGroupId && params.timeline) {
+        const groupedBucketIndex = params.timeline.buckets.findIndex((bucket) => (
+            getTimelineGroupIdForBucketStartYear(bucket.startYear) === visibleTimelineGroupId
+        ));
+        if (groupedBucketIndex >= 0) {
+            return {
+                viewportBucketIndex: groupedBucketIndex,
+                syncViewportBucketIndexFromScrollContainer,
+            };
+        }
+    }
+
+    if (typeof params.visibleTimelineGroupIndex === 'number') {
+        return {
+            viewportBucketIndex: null,
+            syncViewportBucketIndexFromScrollContainer,
+        };
+    }
+
+    const selectionKeyToBucketIndex = createSelectionKeyTimelineBucketIndex(params.displayItems, params.timeline);
+    const selectionBucketIndex = findViewportTimelineBucketIndex(params.visibleSelectionKey, selectionKeyToBucketIndex);
+    const viewportBucketIndex = selectionBucketIndex;
 
     return { viewportBucketIndex, syncViewportBucketIndexFromScrollContainer };
 }
@@ -73,6 +96,7 @@ export function getTimelineRailElement(params: {
     activeTimelineSeek: GalleryTimelineSeek | null;
     viewportBucketIndex: number | null;
     onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
+    onTimelineBucketJump: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
 }) {
     if (!params.timeline || !isTimelineSortMode(params.sortMode)) {
         return undefined;
@@ -85,6 +109,7 @@ export function getTimelineRailElement(params: {
             activeSeek={params.activeTimelineSeek}
             viewportBucketIndex={params.viewportBucketIndex}
             onSeekChange={params.onGalleryTimelineSeek}
+            onBucketJump={params.onTimelineBucketJump}
         />
     );
 }

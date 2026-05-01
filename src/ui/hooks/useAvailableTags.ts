@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TagDefinitionSummary } from '@contracts/core';
 
 export function useAvailableTags(
@@ -6,6 +6,11 @@ export function useAvailableTags(
     loadAvailableTags: () => Promise<TagDefinitionSummary[]>,
 ) {
     const [availableTags, setAvailableTags] = useState<TagDefinitionSummary[]>([]);
+    const loadAvailableTagsRef = useRef(loadAvailableTags);
+
+    useEffect(() => {
+        loadAvailableTagsRef.current = loadAvailableTags;
+    }, [loadAvailableTags]);
 
     useEffect(() => {
         if (!enabled) {
@@ -13,7 +18,7 @@ export function useAvailableTags(
         }
 
         let cancelled = false;
-        void loadAvailableTags()
+        void loadAvailableTagsRef.current()
             .then((tags) => {
                 if (!cancelled) {
                     setAvailableTags(tags);
@@ -28,7 +33,7 @@ export function useAvailableTags(
         return () => {
             cancelled = true;
         };
-    }, [enabled, loadAvailableTags]);
+    }, [enabled]);
 
     return availableTags;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Command, type Child } from '@tauri-apps/plugin-shell';
-import type { Asset, GalleryTimelineSeek, LibraryStats, Person } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, LibraryStats, Person, TimelineGalleryPage, TimelineGroupId, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import { getBackendTransportKind, getBackendWsUrl } from '@boundary/runtime/backend';
 import type { DomainEvent } from '@contracts/events';
@@ -16,7 +16,8 @@ import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/u
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { createMessageHandler, createSnapshotSyncController, currentFilter } from '@boundary/runtime/usePhotoLibrary.connection.messages';
 import { getRetryState } from '@boundary/runtime/usePhotoLibrary.connection.retry';
-import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
+import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
+import { GROUPED_TIMELINE_ASSET_LIMIT, type GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
 
 const FAST_RECONNECT_WINDOW_MS = 5000;
 const INITIAL_STARTUP_TIMEOUT_MS = 10000;
@@ -30,6 +31,10 @@ export interface ConnectionStateParams {
     setIsLoadingMoreAssets: (value: boolean) => void;
     setIsRefreshingLibrary: (value: boolean) => void;
     setIsSeekingTimeline: (value: boolean) => void;
+    setTimelineGroupSummaries: (groupSummaries: TimelineGroupSummary[]) => void;
+    upsertTimelineGroupPage: (page: TimelineGalleryPage) => void;
+    setTimelineGroupLoading: (groupId: TimelineGroupId, isLoading: boolean) => void;
+    setTimelineActiveJumpTarget: (target: TimelineJumpTarget | null) => void;
     setStatus: (value: string) => void;
     setError: (value: string | null) => void;
     setTransport: Dispatch<SetStateAction<BackendTransport | null>>;
@@ -51,6 +56,7 @@ export interface ConnectionStateParams {
     refreshAssetById?: (assetId: string) => void;
     filterStackRef: { current: LibraryFilter[] };
     groupSimilarPhotosRef: { current: boolean };
+    galleryDataModeRef: { current: LibraryGalleryDataMode };
     galleryOrderRef: { current: GalleryOrder };
     gallerySeekRef: { current: GalleryTimelineSeek | null };
 }
@@ -61,7 +67,7 @@ type StartConnectionDeps = {
     paramsRef: ParamsRef;
     handleBackendMessage: (line: string) => void;
     activeJobs: ActiveJobs;
-    onTransportConnected: (transportLabel: string) => void;
+    onTransportConnected: (transportLabel: string, includeTimelineGroups: boolean) => void;
     scheduleReconnect: (message: string, status: string) => void;
     isSessionStale: () => boolean;
 };
@@ -88,10 +94,12 @@ async function sendInitialRequests(
     filter: LibraryFilter | undefined,
     withGroupCounts: boolean,
     galleryOrder: GalleryOrder,
+    includeTimelineGroups = false,
 ) {
+    const initialAssetLimit = includeTimelineGroups ? GROUPED_TIMELINE_ASSET_LIMIT : ASSET_PAGE_SIZE;
     await write(JSON.stringify({ id: '1', command: 'ping', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'stats-init', command: 'get_stats', payload: {} }) + '\n');
-    await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: ASSET_PAGE_SIZE, offset: 0, filter, detailLevel: 'gallery', galleryOrder, withGroupCounts } }) + '\n');
+    await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: initialAssetLimit, offset: 0, filter, detailLevel: 'gallery', galleryOrder, withGroupCounts } }) + '\n');
     await write(JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} }) + '\n');
     await write(JSON.stringify({ id: 'system-jobs-init', command: 'get_system_jobs', payload: {} }) + '\n');
 }
@@ -116,6 +124,10 @@ async function killChildProcess(child: Child | null) {
     await child.kill().catch(() => undefined);
 }
 
+function shouldIncludeTimelineGroups(_galleryDataMode: LibraryGalleryDataMode) {
+    return _galleryDataMode === 'grouped-timeline';
+}
+
 async function startWebSocketMode(deps: StartConnectionDeps) {
     deps.paramsRef.current.addLog('Connecting to backend service via WebSocket...');
     const ws = new WebSocket(getBackendWsUrl());
@@ -129,7 +141,8 @@ async function startWebSocketMode(deps: StartConnectionDeps) {
 
         deps.paramsRef.current.addLog('WebSocket connected.');
         deps.paramsRef.current.setTransport(createWebSocketBackendTransport(ws));
-        deps.onTransportConnected('WS');
+        const includeTimelineGroups = shouldIncludeTimelineGroups(deps.paramsRef.current.galleryDataModeRef.current);
+        deps.onTransportConnected('WS', includeTimelineGroups);
 
         try {
             await sendInitialRequests(
@@ -137,6 +150,7 @@ async function startWebSocketMode(deps: StartConnectionDeps) {
                 currentFilter(deps.paramsRef.current.filterStackRef),
                 deps.paramsRef.current.groupSimilarPhotosRef.current,
                 deps.paramsRef.current.galleryOrderRef.current,
+                includeTimelineGroups,
             );
         } catch (error) {
             if (deps.isSessionStale()) {return;}
@@ -211,7 +225,8 @@ async function startTauriMode(deps: StartConnectionDeps) {
         deps.activeJobs.child = process;
         deps.paramsRef.current.setTransport(createTauriBackendTransport(process, command.stdout));
         deps.paramsRef.current.addLog('Packaged backend service started.');
-        deps.onTransportConnected('Tauri');
+        const includeTimelineGroups = shouldIncludeTimelineGroups(deps.paramsRef.current.galleryDataModeRef.current);
+        deps.onTransportConnected('Tauri', includeTimelineGroups);
 
         try {
             await sendInitialRequests(
@@ -219,6 +234,7 @@ async function startTauriMode(deps: StartConnectionDeps) {
                 currentFilter(deps.paramsRef.current.filterStackRef),
                 deps.paramsRef.current.groupSimilarPhotosRef.current,
                 deps.paramsRef.current.galleryOrderRef.current,
+                includeTimelineGroups,
             );
         } catch (error) {
             if (deps.isSessionStale()) {return;}
@@ -305,11 +321,16 @@ function beginConnectionAttempt(ctx: ConnectionLifecycleContext): number {
     return ctx.state.connectionSessionId;
 }
 
-function handleTransportConnected(ctx: ConnectionLifecycleContext, startupFailureTimeout: ReturnType<typeof setTimeout>, transportLabel: string) {
+function handleTransportConnected(
+    ctx: ConnectionLifecycleContext,
+    startupFailureTimeout: ReturnType<typeof setTimeout>,
+    transportLabel: string,
+    includeTimelineGroups: boolean,
+) {
     clearTimeout(startupFailureTimeout);
     ctx.state.reconnectAttempt = 0;
     ctx.state.disconnectedAt = null;
-    ctx.snapshotSync.beginSnapshotSync(transportLabel);
+    ctx.snapshotSync.beginSnapshotSync(transportLabel, { includeTimelineGroups });
 }
 
 function createStartConnectionDeps(ctx: ConnectionLifecycleContext, startupFailureTimeout: ReturnType<typeof setTimeout>, scheduleReconnect: (message: string, status: string) => void, sessionId: number): StartConnectionDeps {
@@ -317,7 +338,7 @@ function createStartConnectionDeps(ctx: ConnectionLifecycleContext, startupFailu
         paramsRef: ctx.paramsRef,
         handleBackendMessage: ctx.handleBackendMessage,
         activeJobs: ctx.activeJobs,
-        onTransportConnected: (transportLabel) => handleTransportConnected(ctx, startupFailureTimeout, transportLabel),
+        onTransportConnected: (transportLabel, includeTimelineGroups) => handleTransportConnected(ctx, startupFailureTimeout, transportLabel, includeTimelineGroups),
         scheduleReconnect,
         isSessionStale: () => ctx.state.cleaningUp || sessionId !== ctx.state.connectionSessionId,
     };

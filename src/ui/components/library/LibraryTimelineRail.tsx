@@ -9,6 +9,7 @@ interface LibraryTimelineRailProps {
     activeSeek: GalleryTimelineSeek | null;
     viewportBucketIndex: number | null;
     onSeekChange: (seek: GalleryTimelineSeek | null) => void;
+    onBucketJump?: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
 }
 
 function getDensityOpacity(count: number, maxCount: number) {
@@ -27,9 +28,14 @@ function seekTimelineBucket(params: {
     targetIndex: number;
     sortMode: 'date' | 'reverse-date';
     onSeekChange: (seek: GalleryTimelineSeek | null) => void;
+    onBucketJump?: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
 }) {
     const bucket = params.targetIndex < 0 ? null : params.buckets[params.targetIndex];
     if (!bucket) {
+        return;
+    }
+    if (params.onBucketJump) {
+        params.onBucketJump(bucket);
         return;
     }
     params.onSeekChange(getTimelineSeekForBucket(bucket, params.sortMode));
@@ -47,9 +53,13 @@ function TimelineRailBucketButton(props: {
 }) {
     return (
         <button
+            className="timeline-rail-button"
             type="button"
             title={`${props.bucket.label}: ${props.bucket.count} photo${props.bucket.count === 1 ? '' : 's'}`}
             onClick={props.onClick}
+            onMouseUp={(event) => {
+                event.currentTarget.blur();
+            }}
             style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -61,14 +71,15 @@ function TimelineRailBucketButton(props: {
                 background: props.isDisplayed
                     ? 'rgba(241,245,249,0.98)'
                     : `rgba(96,165,250,${getDensityOpacity(props.bucket.count, props.maxBucketCount)})`,
-                boxShadow: props.isDisplayed ? '0 0 0 2px rgba(255,255,255,0.2)' : 'none',
+                boxShadow: 'none',
                 color: props.isDisplayed ? '#0f172a' : '#e5e7eb',
                 fontSize: '0.72rem',
                 fontWeight: props.isDisplayed ? 700 : 500,
                 cursor: 'pointer',
                 padding: '0 6px',
-                transform: props.isDisplayed ? 'scale(1.03)' : 'scale(1)',
-                transition: 'background 120ms ease, color 120ms ease, transform 120ms ease, box-shadow 120ms ease',
+                outline: 'none',
+                transform: 'scale(1)',
+                transition: 'background-color 120ms ease, border-color 120ms ease, color 120ms ease',
             }}
         >
             {props.bucket.label}
@@ -81,6 +92,7 @@ function TimelineRailTrack(props: {
     displayedIndex: number;
     sortMode: 'date' | 'reverse-date';
     onSeekChange: (seek: GalleryTimelineSeek | null) => void;
+    onBucketJump?: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
 }) {
     const maxBucketCount = useMemo(() => props.timeline.buckets.reduce((maxCount, bucket) => Math.max(maxCount, bucket.count), 0), [props.timeline.buckets]);
     const orderedIndexes = useMemo(() => getTimelineRailOrderedIndexes(props.timeline.buckets.length), [props.timeline.buckets.length]);
@@ -105,6 +117,7 @@ function TimelineRailTrack(props: {
                                 targetIndex: bucketIndex,
                                 sortMode: props.sortMode,
                                 onSeekChange: props.onSeekChange,
+                                onBucketJump: props.onBucketJump,
                             });
                         }}
                     />
@@ -158,6 +171,7 @@ export function LibraryTimelineRail(props: LibraryTimelineRailProps) {
                 displayedIndex={displayedIndex}
                 sortMode={props.sortMode}
                 onSeekChange={props.onSeekChange}
+                onBucketJump={props.onBucketJump}
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <UnknownDateButton
