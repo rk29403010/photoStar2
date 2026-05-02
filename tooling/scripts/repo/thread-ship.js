@@ -45,15 +45,19 @@ export function parseGitStatusLines(statusText, ignorePaths = getShipIgnorePaths
         .filter((entry) => !isIgnoredShipPath(entry.path, ignorePaths));
 }
 
+function pushWorktreeRecord(records, record) {
+    if (record?.worktreePath) {
+        records.push(record);
+    }
+}
+
 export function parseWorktreeList(output) {
     const records = [];
     let currentRecord = null;
 
     for (const line of String(output ?? '').split(/\r?\n/)) {
         if (line === '') {
-            if (currentRecord?.worktreePath) {
-                records.push(currentRecord);
-            }
+            pushWorktreeRecord(records, currentRecord);
             currentRecord = null;
             continue;
         }
@@ -68,9 +72,7 @@ export function parseWorktreeList(output) {
         }
     }
 
-    if (currentRecord?.worktreePath) {
-        records.push(currentRecord);
-    }
+    pushWorktreeRecord(records, currentRecord);
 
     return records;
 }
@@ -173,10 +175,8 @@ function getCurrentThreadEntry(cwd) {
     return registry.entries.find((entry) => normalizePath(entry.cwd) === normalizePath(snapshot.cwd)) ?? null;
 }
 
-function ensureWorktreeContext(snapshot) {
-    if (snapshot.worktreeName === 'main' || snapshot.branch === 'main') {
-        throw new Error('Ship must be run from a dedicated worktree branch, not from main.');
-    }
+export function getShipMode(snapshot) {
+    return snapshot.worktreeName === 'main' || snapshot.branch === 'main' ? 'main' : 'worktree';
 }
 
 function unstageIgnoredPaths(cwd, ignorePaths) {
@@ -228,20 +228,8 @@ function cleanupMergedWorktree({ branch, worktreePath, mainWorktreePath }) {
     runGit(['branch', '-d', branch], mainWorktreePath);
 }
 
-function main() {
-    const cwd = process.cwd();
-    const args = parseArgs(process.argv.slice(2));
-    const ignorePaths = getShipIgnorePaths({
-        includeArtifacts: args['include-artifacts'] === true,
-    });
-    const snapshot = collectThreadSnapshot(cwd);
-    ensureWorktreeContext(snapshot);
-
+function stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths }) {
     const entry = getCurrentThreadEntry(cwd);
-    const commitMessage = typeof args.message === 'string' && args.message.trim() !== ''
-        ? args.message.trim()
-        : getShipCommitMessage({ task: entry?.task ?? '', branch: snapshot.branch });
-
     stopManagedSession(cwd);
     stageThreadChanges(cwd, ignorePaths);
 
@@ -250,6 +238,18 @@ function main() {
         runNpm(['run', 'quality:staged'], cwd);
         runGit(['commit', '-m', commitMessage], cwd);
     }
+
+    return { entry, stagedFiles };
+}
+
+function shipMain({ cwd, commitMessage, ignorePaths }) {
+    stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths });
+    pushMain(cwd);
+    console.log('Shipped main to origin/main.');
+}
+
+function shipWorktree({ cwd, snapshot, commitMessage, ignorePaths }) {
+    stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths });
 
     const worktreeRecords = parseWorktreeList(runGitText(['worktree', 'list', '--porcelain'], cwd));
     const mainWorktreePath = resolveMainWorktreePath(worktreeRecords);
@@ -264,6 +264,26 @@ function main() {
     });
 
     console.log(`Shipped ${snapshot.branch} to main and pushed origin/main.`);
+}
+
+function main() {
+    const cwd = process.cwd();
+    const args = parseArgs(process.argv.slice(2));
+    const ignorePaths = getShipIgnorePaths({
+        includeArtifacts: args['include-artifacts'] === true,
+    });
+    const snapshot = collectThreadSnapshot(cwd);
+    const entry = getCurrentThreadEntry(cwd);
+    const commitMessage = typeof args.message === 'string' && args.message.trim() !== ''
+        ? args.message.trim()
+        : getShipCommitMessage({ task: entry?.task ?? '', branch: snapshot.branch });
+
+    if (getShipMode(snapshot) === 'main') {
+        shipMain({ cwd, commitMessage, ignorePaths });
+        return;
+    }
+
+    shipWorktree({ cwd, snapshot, commitMessage, ignorePaths });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
     getShipCommitMessage,
     getShipIgnorePaths,
+    getShipMode,
     parseGitStatusLines,
     parseWorktreeList,
     resolveMainWorktreePath,
@@ -57,6 +58,11 @@ test('ship commit message prefers explicit task name', () => {
         getShipCommitMessage({ task: '', branch: 'codex/single-photo-overlay-fixes' }),
         'Finish branch: codex/single-photo-overlay-fixes',
     );
+});
+
+test('ship mode supports main and dedicated worktree checkouts', () => {
+    assert.equal(getShipMode({ branch: 'main', worktreeName: 'main' }), 'main');
+    assert.equal(getShipMode({ branch: 'codex/task', worktreeName: 'task' }), 'worktree');
 });
 
 test('ship ignore paths include generated artifacts', () => {
