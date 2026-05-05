@@ -69,13 +69,21 @@ export function AppStatusRightSlot({
         <div
           title={indicator.title}
           style={{
-            border: `1px solid ${indicator.tone === 'error' ? '#ef4444' : indicator.tone === 'warning' ? '#f59e0b' : '#0ea5e9'}`,
-            background: indicator.tone === 'error'
-              ? 'rgba(127, 29, 29, 0.75)'
-              : indicator.tone === 'warning'
-                ? 'rgba(120, 53, 15, 0.8)'
-                : 'rgba(8, 47, 73, 0.8)',
-            color: indicator.tone === 'error' ? '#fecaca' : indicator.tone === 'warning' ? '#fde68a' : '#bae6fd',
+            border: (function () {
+              if (indicator.tone === 'error') {return '1px solid #ef4444';}
+              if (indicator.tone === 'warning') {return '1px solid #f59e0b';}
+              return '1px solid #0ea5e9';
+            }()),
+            background: (function () {
+              if (indicator.tone === 'error') {return 'rgba(127, 29, 29, 0.75)';}
+              if (indicator.tone === 'warning') {return 'rgba(120, 53, 15, 0.8)';}
+              return 'rgba(8, 47, 73, 0.8)';
+            }()),
+            color: (function () {
+              if (indicator.tone === 'error') {return '#fecaca';}
+              if (indicator.tone === 'warning') {return '#fde68a';}
+              return '#bae6fd';
+            }()),
             borderRadius: 999,
             padding: '2px 10px',
             fontSize: '11px',

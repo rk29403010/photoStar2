@@ -247,7 +247,12 @@ function useLibraryPaging(params: {
         const deltaTop = event.currentTarget.scrollTop - previousSample.top;
         const deltaTime = Math.max(1, now - previousSample.at);
         const pixelsPerMs = deltaTop / deltaTime;
-        const scrollDirection: GalleryScrollDirection = deltaTop > 0 ? 'down' : deltaTop < 0 ? 'up' : 'idle';
+        let scrollDirection: GalleryScrollDirection = 'idle';
+        if (deltaTop > 0) {
+            scrollDirection = 'down';
+        } else if (deltaTop < 0) {
+            scrollDirection = 'up';
+        }
         lastScrollSampleRef.current = { top: event.currentTarget.scrollTop, at: now };
 
         if (shouldLoadMore({

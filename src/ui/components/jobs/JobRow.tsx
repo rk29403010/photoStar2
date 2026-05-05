@@ -46,11 +46,11 @@ function StopJobButton({
             disabled={isStopping}
             onClick={onStop}
             className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
-                isStopping
-                    ? 'bg-rose-950/40 text-rose-300 cursor-wait'
-                    : isRemoveAction
-                        ? 'bg-amber-900/40 text-amber-100 hover:bg-amber-900/60 cursor-pointer'
-                        : 'bg-rose-900/40 text-rose-100 hover:bg-rose-900/60 cursor-pointer'
+                (function () {
+                    if (isStopping) {return 'bg-rose-950/40 text-rose-300 cursor-wait';}
+                    if (isRemoveAction) {return 'bg-amber-900/40 text-amber-100 hover:bg-amber-900/60 cursor-pointer';}
+                    return 'bg-rose-900/40 text-rose-100 hover:bg-rose-900/60 cursor-pointer';
+                }())
             }`}
         >
             {isStopping ? `${actionLabel}...` : actionLabel}

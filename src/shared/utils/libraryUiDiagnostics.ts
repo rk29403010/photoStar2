@@ -161,7 +161,10 @@ export function formatUiFeedEntryForClipboard(entry: UiFeedEntry): string {
         formatNumericField(entry.previewCount),
         formatNumericField(entry.previousAssetCount),
         formatNumericField(entry.nextAssetCount),
-        entry.applied === undefined ? '' : (entry.applied ? 'yes' : 'no'),
+        (function () {
+            if (entry.applied === undefined) {return '';}
+            return entry.applied ? 'yes' : 'no';
+        }()),
         entry.detail.replaceAll('\t', ' ').replaceAll('\n', ' '),
     ].join('\t');
 }

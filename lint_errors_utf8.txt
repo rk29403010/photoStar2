@@ -1,0 +1,71 @@
+﻿
+> photo-star-2@0.1.45 lint
+> eslint .
+
+
+C:\Users\robin\Projects\photoStar2\src\services\aiMetadata\liveRuntime.ts
+  313:22  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\services\handlers\systemWorkflowVisualiser.ts
+  192:25  error  Do not nest ternary expressions  no-nested-ternary
+  194:11  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\services\tags\dateTagGenerator.ts
+  15:20  error  Do not nest ternary expressions  no-nested-ternary
+  17:11  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\shared\utils\eventLogSummary.ts
+  373:20  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\shared\utils\libraryUiDiagnostics.ts
+  164:9  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\DevConsole.tsx
+  104:25  error  Do not nest ternary expressions  no-nested-ternary
+  105:23  error  Do not nest ternary expressions  no-nested-ternary
+  181:24  error  Do not nest ternary expressions  no-nested-ternary
+  206:24  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\LibraryView.tsx
+  250:57  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\PeopleView.tsx
+  246:29  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\app\AppShellDecorations.tsx
+  72:34  error  Do not nest ternary expressions  no-nested-ternary
+  73:25  error  Do not nest ternary expressions  no-nested-ternary
+  78:20  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\dashboard\RecentEventsPanel.tsx
+   74:19  error  Do not nest ternary expressions  no-nested-ternary
+  118:41  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\dashboard\UiFeedPanel.tsx
+   47:19  error  Do not nest ternary expressions  no-nested-ternary
+  127:86  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\group-diagnostics\groupDiagnosticsView.parts.tsx
+  115:19  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\jobs\JobRow.tsx
+  49:17  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\single-photo\info-panel\AnalysisTab.tsx
+  51:123  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\single-photo\info-panel\JsonTab.tsx
+  30:19  error  Do not nest ternary expressions  no-nested-ternary
+  32:7   error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\components\single-photo\info-panel\PhotoDateReviewSection.tsx
+  170:26  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\hooks\usePhotoLibrary.coreActions.ts
+  173:64  error  Do not nest ternary expressions  no-nested-ternary
+
+C:\Users\robin\Projects\photoStar2\src\ui\hooks\usePhotoLibrary.gallery.ts
+  38:26  error  Do not nest ternary expressions  no-nested-ternary
+
+Ô£û 28 problems (28 errors, 0 warnings)
+

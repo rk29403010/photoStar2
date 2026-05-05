@@ -12,13 +12,14 @@ function parseDate(value: string | null) {
 
 function getCenturyLabel(year: number) {
     const century = Math.floor((year - 1) / 100) + 1;
-    const suffix = century % 10 === 1 && century % 100 !== 11
-        ? 'st'
-        : century % 10 === 2 && century % 100 !== 12
-            ? 'nd'
-            : century % 10 === 3 && century % 100 !== 13
-                ? 'rd'
-                : 'th';
+    let suffix = 'th';
+    if (century % 10 === 1 && century % 100 !== 11) {
+        suffix = 'st';
+    } else if (century % 10 === 2 && century % 100 !== 12) {
+        suffix = 'nd';
+    } else if (century % 10 === 3 && century % 100 !== 13) {
+        suffix = 'rd';
+    }
     return `${century}${suffix} century`;
 }
 

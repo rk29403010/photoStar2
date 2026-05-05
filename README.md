@@ -129,3 +129,7 @@ npm run dev:impact
 - Worktrees are most effective for independent tasks, not for splitting one vertical feature across UI and backend layers.
 - The main workspace defaults to `5173/5174`. Worktrees under `.worktrees/<name>` or `worktrees/<name>` now get a stable automatic port offset, so parallel dev sessions do not fight by default.
 - You can still force exact ports per workspace with `VITE_PORT` and `VITE_BACKEND_PORT`.
+
+---
+Current Version: 0.1.77
+Run Timestamp: 2026-05-05T13:24:15Z

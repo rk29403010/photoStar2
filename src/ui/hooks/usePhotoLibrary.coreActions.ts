@@ -98,6 +98,33 @@ function useGalleryPreferenceActions(params: {
     return { setGalleryDataMode, setGalleryOrder, setGroupSimilarPhotos, seekGalleryTimeline };
 }
 
+function useDevActions(params: {
+    request: RequestFn;
+}) {
+    const { request } = params;
+
+    const getWorkflowVisualiser = useCallback((workflowId: string, runId?: string | null): Promise<WorkflowVisualiserModel> => request<WorkflowVisualiserModel>({
+        idPrefix: `get_workflow_visualiser_${workflowId}_${(function () {
+            if (runId === undefined) {return 'default';}
+            if (runId === null) {return 'definition';}
+            return runId;
+        }())}`,
+        command: 'get_workflow_visualiser',
+        payload: runId === undefined ? { workflowId } : { workflowId, runId },
+        timeoutMs: 10000,
+        select: (data) => data as unknown as WorkflowVisualiserModel,
+    }), [request]);
+
+    const getDevRuntimeImpact = useCallback((): Promise<DevRuntimeImpact> => request<DevRuntimeImpact>({
+        idPrefix: 'get_dev_runtime_impact',
+        command: 'get_dev_runtime_impact',
+        timeoutMs: 10000,
+        select: (data) => data as unknown as DevRuntimeImpact,
+    }), [request]);
+
+    return { getWorkflowVisualiser, getDevRuntimeImpact };
+}
+
 export function useCoreActions(params: {
     transport: PhotoLibraryState['transport'];
     sendCommand: SendCommandFn;
@@ -146,6 +173,7 @@ export function useCoreActions(params: {
         transport,
         refreshLibrary,
     });
+
     const galleryPreferenceActions = useGalleryPreferenceActions({
         galleryDataModeRef,
         galleryOrderRef,
@@ -156,6 +184,8 @@ export function useCoreActions(params: {
         refreshLibrary,
         transport,
     });
+
+    const devActions = useDevActions({ request });
 
     return useMemo(() => ({
         prioritizeAsset: (_mediaId: string) => undefined,
@@ -169,20 +199,8 @@ export function useCoreActions(params: {
         restoreAssetsInState: (restoredAssets: Asset[], referenceAssets: Asset[]) => setAssets((previousAssets) => (
             restoreAssetsByReference(previousAssets, restoredAssets, referenceAssets)
         )),
-        getWorkflowVisualiser: (workflowId: string, runId?: string | null): Promise<WorkflowVisualiserModel> => request<WorkflowVisualiserModel>({
-            idPrefix: `get_workflow_visualiser_${workflowId}_${runId === undefined ? 'default' : runId === null ? 'definition' : runId}`,
-            command: 'get_workflow_visualiser',
-            payload: runId === undefined ? { workflowId } : { workflowId, runId },
-            timeoutMs: 10000,
-            select: (data) => data as unknown as WorkflowVisualiserModel,
-        }),
-        getDevRuntimeImpact: (): Promise<DevRuntimeImpact> => request<DevRuntimeImpact>({
-            idPrefix: 'get_dev_runtime_impact',
-            command: 'get_dev_runtime_impact',
-            timeoutMs: 10000,
-            select: (data) => data as unknown as DevRuntimeImpact,
-        }),
+        ...devActions,
         ...filterStackActions,
         ...galleryPreferenceActions,
-    }), [filterStackActions, galleryPreferenceActions, getRejectedAssetsForPerson, request, sendCommand, setAssets]);
+    }), [devActions, filterStackActions, galleryPreferenceActions, getRejectedAssetsForPerson, sendCommand, setAssets]);
 }

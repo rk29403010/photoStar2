@@ -35,11 +35,12 @@ export function buildAssetRefreshPayload(
     options: RefreshLibraryOptions,
 ) {
     const prefersFullTimelineDataset = galleryDataModeRef.current === 'grouped-timeline';
-    const refreshLimit = prefersFullTimelineDataset
-        ? GROUPED_TIMELINE_ASSET_LIMIT
-        : options.preservePagingState
-        ? Math.max(ASSET_PAGE_SIZE, options.loadedAssetCount ?? 0)
-        : ASSET_PAGE_SIZE;
+    let refreshLimit = ASSET_PAGE_SIZE;
+    if (prefersFullTimelineDataset) {
+        refreshLimit = GROUPED_TIMELINE_ASSET_LIMIT;
+    } else if (options.preservePagingState) {
+        refreshLimit = Math.max(ASSET_PAGE_SIZE, options.loadedAssetCount ?? 0);
+    }
 
     return {
         limit: refreshLimit,

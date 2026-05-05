@@ -27,13 +27,18 @@ function renderKeyLabel(keyName: string | undefined, isArrayParent: boolean): Re
 }
 
 const JsonLeaf: React.FC<{ readonly value: JsonValue; readonly keyLabel: React.ReactNode; readonly comma: string; readonly indent: number; readonly wordWrap: boolean }> = ({ value, keyLabel, comma, indent, wordWrap }) => {
-  const valueEl = typeof value === 'string'
-    ? <span style={{ color: J.str, wordBreak: wordWrap ? 'break-all' : 'normal', whiteSpace: wordWrap ? 'pre-wrap' : 'nowrap' }}>&quot;{value}&quot;</span>
-    : typeof value === 'number'
-      ? <span style={{ color: J.num }}>{value}</span>
-      : typeof value === 'boolean'
-        ? <span style={{ color: J.bool }}>{String(value)}</span>
-        : <span style={{ color: J.nil }}>null</span>;
+  const valueEl = (function () {
+    if (typeof value === 'string') {
+      return <span style={{ color: J.str, wordBreak: wordWrap ? 'break-all' : 'normal', whiteSpace: wordWrap ? 'pre-wrap' : 'nowrap' }}>&quot;{value}&quot;</span>;
+    }
+    if (typeof value === 'number') {
+      return <span style={{ color: J.num }}>{value}</span>;
+    }
+    if (typeof value === 'boolean') {
+      return <span style={{ color: J.bool }}>{String(value)}</span>;
+    }
+    return <span style={{ color: J.nil }}>null</span>;
+  }());
 
   return <div style={{ paddingLeft: indent, lineHeight: '1.7', display: 'flex', gap: 2, minWidth: 0 }}>{keyLabel}{valueEl}<span style={{ color: J.brace }}>{comma}</span></div>;
 };

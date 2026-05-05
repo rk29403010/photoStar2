@@ -101,8 +101,16 @@ function DevConsoleToggle({
     readonly onClick: () => void;
 }) {
     const tone = getConsoleToggleTone(unreadCounts);
-    const borderColor = tone === 'error' ? '#ef4444' : tone === 'warning' ? WARN_AMBER : '#334155';
-    const textColor = tone === 'error' ? '#f87171' : tone === 'warning' ? WARN_AMBER : '#94a3b8';
+    const borderColor = (function () {
+        if (tone === 'error') {return '#ef4444';}
+        if (tone === 'warning') {return WARN_AMBER;}
+        return '#334155';
+    }());
+    const textColor = (function () {
+        if (tone === 'error') {return '#f87171';}
+        if (tone === 'warning') {return WARN_AMBER;}
+        return '#94a3b8';
+    }());
 
     return (
         <button
@@ -178,7 +186,11 @@ function FilterButton({
                 background: active ? '#1e293b' : 'transparent',
                 border: `1px solid ${active ? '#334155' : 'transparent'}`,
                 borderRadius: '4px',
-                color: level === 'error' ? '#f87171' : level === 'warn' ? WARN_AMBER : '#64748b',
+                color: (function () {
+                    if (level === 'error') {return '#f87171';}
+                    if (level === 'warn') {return WARN_AMBER;}
+                    return '#64748b';
+                }()),
                 padding: '2px 8px',
                 cursor: 'pointer',
                 fontSize: '10px',
@@ -203,7 +215,11 @@ function ConsoleEntryRow({ entry }: { readonly entry: ConsoleEntry }) {
                 fontWeight: 600, paddingTop: '1px', userSelect: 'none', textTransform: 'uppercase'
             }}>{entry.level}</span>
             <span style={{
-                color: entry.level === 'error' ? '#fca5a5' : entry.level === 'warn' ? WARN_AMBER : '#cbd5e1',
+                color: (function () {
+                    if (entry.level === 'error') {return '#fca5a5';}
+                    if (entry.level === 'warn') {return WARN_AMBER;}
+                    return '#cbd5e1';
+                }()),
                 wordBreak: 'break-all', whiteSpace: 'pre-wrap', lineHeight: 1.5
             }}>{entry.message}</span>
         </div>

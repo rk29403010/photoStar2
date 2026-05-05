@@ -370,7 +370,11 @@ export function formatEventEnvelopeForConsole(envelope: EventLogEnvelope): Forma
     if (formattedEvent) {
         return {
             text: formattedEvent.text,
-            level: formattedEvent.tone === 'error' ? 'error' : formattedEvent.tone === 'warning' ? 'warn' : 'log',
+            level: (function () {
+                if (formattedEvent.tone === 'error') {return 'error';}
+                if (formattedEvent.tone === 'warning') {return 'warn';}
+                return 'log';
+            }()),
         };
     }
 

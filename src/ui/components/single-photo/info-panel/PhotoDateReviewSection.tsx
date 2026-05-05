@@ -167,10 +167,12 @@ export const PhotoDateReviewSection: React.FC<{
     setStatusMessage(null);
   };
 
-  const reviewControls = onFlagPhotoDateCorrection == null
-    ? null
-    : isEditing
-      ? (
+  const reviewControls = (function () {
+    if (onFlagPhotoDateCorrection == null) {
+      return null;
+    }
+    if (isEditing) {
+      return (
         <CorrectionForm
           correctedDate={correctedDate}
           isSaving={isSaving}
@@ -182,8 +184,10 @@ export const PhotoDateReviewSection: React.FC<{
           onSave={() => { void submitCorrection(); }}
           reasonCode={reasonCode}
         />
-      )
-      : <StartReviewButton onStart={() => setIsEditing(true)} />;
+      );
+    }
+    return <StartReviewButton onStart={() => setIsEditing(true)} />;
+  }());
 
   return (
     <Section emoji="🗓️" title="Date Review">

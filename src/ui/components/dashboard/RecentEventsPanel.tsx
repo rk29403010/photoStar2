@@ -71,7 +71,11 @@ function CopyRawButton(props: {
     const { eventId, copiedEventId, copyingEventId, onCopy } = props;
     const isCopied = copiedEventId === eventId;
     const isCopying = copyingEventId === eventId;
-    const label = isCopied ? 'Raw payload copied' : isCopying ? 'Copying raw payload' : 'Copy raw payload';
+    const label = (function () {
+        if (isCopied) {return 'Raw payload copied';}
+        if (isCopying) {return 'Copying raw payload';}
+        return 'Copy raw payload';
+    }());
 
     return (
         <button
@@ -114,13 +118,12 @@ function EventsTable(props: {
                                 </td>
                                 <td className="px-3 py-2 text-[11px] text-cyan-300 uppercase tracking-wide whitespace-nowrap">{event.type}</td>
                                 <td className="px-3 py-2">
-                                    <pre className={`text-[11px] leading-4 whitespace-pre-wrap break-all font-mono ${
-                                        getEventToneForDisplay(event.payload) === 'error'
-                                            ? 'text-red-300'
-                                            : getEventToneForDisplay(event.payload) === 'warning'
-                                                ? 'text-amber-300'
-                                                : 'text-gray-200'
-                                    }`}>
+                                    <pre className={`text-[11px] leading-4 whitespace-pre-wrap break-all font-mono ${(function () {
+                                        const tone = getEventToneForDisplay(event.payload);
+                                        if (tone === 'error') {return 'text-red-300';}
+                                        if (tone === 'warning') {return 'text-amber-300';}
+                                        return 'text-gray-200';
+                                    }())}`}>
                                         {formatForEventLog(event.payload)}
                                     </pre>
                                 </td>

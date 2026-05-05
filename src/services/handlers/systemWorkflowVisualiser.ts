@@ -189,13 +189,14 @@ function summariseStage(
         };
     }, createNodeCounts());
 
-    const stageStatus = nodeIds.some((nodeId) => getStepStatus(runDetail, nodeId) === 'failed')
-        ? 'failed'
-        : nodeIds.some((nodeId) => getStepStatus(runDetail, nodeId) === 'running')
-            ? 'running'
-            : nodeIds.some((nodeId) => getStepStatus(runDetail, nodeId) === 'completed')
-                ? 'completed'
-                : 'idle';
+    let stageStatus: WorkflowVisualiserStatus = 'idle';
+    if (nodeIds.some((nodeId) => getStepStatus(runDetail, nodeId) === 'failed')) {
+        stageStatus = 'failed';
+    } else if (nodeIds.some((nodeId) => getStepStatus(runDetail, nodeId) === 'running')) {
+        stageStatus = 'running';
+    } else if (nodeIds.some((nodeId) => getStepStatus(runDetail, nodeId) === 'completed')) {
+        stageStatus = 'completed';
+    }
 
     return {
         id,

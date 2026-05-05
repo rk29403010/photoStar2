@@ -48,7 +48,20 @@ const SensitivitySection: React.FC<{ readonly asset: Asset }> = ({ asset }) => (
           <span style={{ fontSize: 22, fontWeight: 700, color: getSensitivityColor(asset.sensitivity_score) }}>{Math.round(asset.sensitivity_score)}%</span>
           <div>
             <div style={{ fontSize: 11, color: '#64748b' }}>AI sensitivity score</div>
-            {asset.sensitivity_status && <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: asset.sensitivity_status === 'safe' ? '#4ade80' : asset.sensitivity_status === 'unsafe' ? '#ef4444' : '#f59e0b' }}>Manual: {asset.sensitivity_status}</span>}
+            {asset.sensitivity_status && (
+              <span style={{
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                color: (function () {
+                  if (asset.sensitivity_status === 'safe') {return '#4ade80';}
+                  if (asset.sensitivity_status === 'unsafe') {return '#ef4444';}
+                  return '#f59e0b';
+                }())
+              }}>
+                Manual: {asset.sensitivity_status}
+              </span>
+            )}
           </div>
         </>
       ) : (

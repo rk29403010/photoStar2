@@ -1,5 +1,11 @@
 # Updates Log
 
+## [0.1.77] - 2026-05-05T13:24:00Z
+
+- Systematically refactored `no-nested-ternary` ESLint violations across the UI codebase using IIFE-based logic.
+- Reduced complexity in `usePhotoLibrary.coreActions.ts` by extracting `useDevActions`.
+- Verified global compliance with `quality:staged` gate.
+
 ## [0.1.76] - 2026-05-05T10:15:00Z
 
 - Addressed SonarQube findings by extracting a union type into `ActiveInfoTab` in `SinglePhotoView.tsx`.

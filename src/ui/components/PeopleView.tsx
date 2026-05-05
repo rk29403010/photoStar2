@@ -243,7 +243,12 @@ function buildMultiFilter(
     if (selectedIds.size === 0) {return null;}
     const selectedPeople = people.filter((person) => selectedIds.has(person.id));
     const names = selectedPeople.map((person) => person.name || 'Unknown').join(', ');
-    const typeDescription = type === 'person_any' ? 'Any of:' : type === 'person_all' ? 'All of:' : 'Only:';
+    let typeDescription = 'Only:';
+    if (type === 'person_any') {
+        typeDescription = 'Any of:';
+    } else if (type === 'person_all') {
+        typeDescription = 'All of:';
+    }
 
     return {
         type,

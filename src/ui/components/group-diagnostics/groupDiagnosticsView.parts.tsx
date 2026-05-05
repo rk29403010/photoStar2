@@ -112,7 +112,11 @@ function CopyIconButton(props: {
     const { copiedTarget, copyingTarget, label, onCopy, target, value } = props;
     const isCopied = copiedTarget === target;
     const isCopying = copyingTarget === target;
-    const title = isCopied ? `${label} copied` : isCopying ? `Copying ${label.toLowerCase()}` : `Copy ${label.toLowerCase()}`;
+    const title = (function () {
+        if (isCopied) {return `${label} copied`;}
+        if (isCopying) {return `Copying ${label.toLowerCase()}`;}
+        return `Copy ${label.toLowerCase()}`;
+    }());
 
     return (
         <button

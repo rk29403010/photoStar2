@@ -310,7 +310,12 @@ function buildFallbackPreparedImagePayload(
     fileBuffer: Buffer,
 ): PreparedImagePayload {
     const ext = extname(row.original_path).toLowerCase().replace('.', '') || 'jpeg';
-    const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    let mimeType = 'image/jpeg';
+    if (ext === 'png') {
+        mimeType = 'image/png';
+    } else if (ext === 'webp') {
+        mimeType = 'image/webp';
+    }
     return {
         filename,
         exifDataString,
