@@ -30,8 +30,8 @@ test('recognise_faces command is removed from the backend command surface', asyn
     try {
         dbManager = new DatabaseManager(tempDir);
 
-        assert.throws(() => {
-            handleSystemCommand({
+        await assert.rejects(async () => {
+            await handleSystemCommand({
                 id: 'cmd-recog',
                 command: 'recognise_faces',
                 payload: {},
@@ -61,7 +61,7 @@ test('get_system_jobs no longer includes a legacy face recognition card', async 
     try {
         dbManager = new DatabaseManager(tempDir);
 
-        handleSystemCommand({
+        await handleSystemCommand({
             id: 'cmd-system-jobs',
             command: 'get_system_jobs',
             payload: {},

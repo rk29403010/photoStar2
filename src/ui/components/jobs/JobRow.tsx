@@ -2,6 +2,31 @@ import React, { useState } from 'react';
 import type { BackgroundJob } from '@contracts/jobs';
 import { ProgressBarSoft } from "./ProgressBarSoft";
 
+function getRunningStage(job: BackgroundJob) {
+    return job.progress.stages.find((stage) => stage.state === 'running')
+        ?? job.progress.stages.find((stage) => stage.state === 'failed');
+}
+
+function toStagePercent(stage: BackgroundJob['progress']['stages'][number] | undefined) {
+    if (!stage?.total || stage.total <= 0) {
+        return undefined;
+    }
+    return ((stage.done ?? 0) / stage.total) * 100;
+}
+
+function getActionLabel(job: BackgroundJob, onStop?: (job: BackgroundJob) => void) {
+    if (typeof onStop !== 'function') {
+        return null;
+    }
+    if (job.state === 'running') {
+        return 'Stop';
+    }
+    if (job.state === 'queued') {
+        return 'Remove';
+    }
+    return null;
+}
+
 function StopJobButton({
     actionLabel,
     isStopping,
@@ -49,14 +74,10 @@ function JobProgressStats({ job }: { job: BackgroundJob }) {
 
 export function JobRow({ job, onStop }: { job: BackgroundJob, onStop?: (job: BackgroundJob) => void }) {
     const indeterminate = job.progress.overallPercent == null;
+    const runningStage = getRunningStage(job);
+    const stagePercent = toStagePercent(runningStage);
     const [isStopping, setIsStopping] = useState(false);
-    const actionLabel = typeof onStop !== 'function'
-        ? null
-        : job.state === 'running'
-            ? 'Stop'
-            : job.state === 'queued'
-                ? 'Remove'
-                : null;
+    const actionLabel = getActionLabel(job, onStop);
 
     // Reset when job changes state
     React.useEffect(() => {
@@ -86,6 +107,17 @@ export function JobRow({ job, onStop }: { job: BackgroundJob, onStop?: (job: Bac
                 indeterminate={indeterminate}
                 percent={job.progress.overallPercent}
             />
+            {runningStage ? (
+                <div className="mt-1">
+                    <ProgressBarSoft
+                        indeterminate={stagePercent == null}
+                        percent={stagePercent}
+                    />
+                    <div className="mt-1 text-[10px] text-slate-400">
+                        {runningStage.label}: {runningStage.done ?? 0}/{runningStage.total ?? 0}
+                    </div>
+                </div>
+            ) : null}
 
             <div className="text-slate-300">
                 <JobProgressStats job={job} />

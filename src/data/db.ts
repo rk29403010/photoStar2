@@ -190,6 +190,27 @@ export class DatabaseManager {
     return db;
   }
 
+  private isClosedConnectionError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    return error.message.includes('database connection is not open');
+  }
+
+  private ensureOpenDatabase(): void {
+    try {
+      this.db.prepare('SELECT 1').get();
+      return;
+    } catch (error) {
+      if (!this.isClosedConnectionError(error)) {
+        throw error;
+      }
+    }
+
+    this.db = this.openDatabase();
+    this.initSchema();
+  }
+
   private initSchema() {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
@@ -222,6 +243,7 @@ export class DatabaseManager {
   }
 
   public getDb() {
+    this.ensureOpenDatabase();
     return this.db;
   }
 
@@ -348,4 +370,3 @@ export class DatabaseManager {
     this.db.prepare('INSERT OR REPLACE INTO settings (id, value) VALUES (?, ?)').run(key, value);
   }
 }
-

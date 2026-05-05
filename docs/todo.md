@@ -198,9 +198,23 @@ UI Improvements
 
 ## 2026-05-01 - Timeline grouped rail still not resolved
 
+## 2026-05-02 - Feedback framework complexity follow-up
+
+- The feedback-framework migration passes lint, typecheck, `test:repo`, and `test:ui`, but `npm.cmd run quality` still fails on `complexity:changed` thresholds for:
+  - `src/ui/components/jobs/JobRow.tsx` (`JobRow`)
+  - `src/ui/components/app/LoadedAppShell.tsx` (`LoadedAppShell`)
+  - `src/boundary/runtime/workflowOverlayJobs.ts` (`scheduleWorkflowRunRefresh` / nested `poll`)
+  - `src/ui/hooks/useJobManager.ts` (`applyLegacyProgress`)
+- Follow-up: split these functions into smaller helpers so changed-function complexity returns to project limits (`cyclomatic<=10`, `cognitive<=20`).
+
 - Removed the startup dependency on the missing grouped-timeline backend RPC family (`get_timeline_groups` in initial sync and refresh), so date/justified mode can boot from the full asset dataset without hanging on `Loading library data (WS)...`.
 - Corrected the attempted `GroupedVirtuoso` jump API misuse (`scrollToIndex({ groupIndex })` was wrong for the documented grouped scroll example).
 - The live `6093` app still shows the same decade-gap symptom after startup in browser verification, and browser automation click probes are not observing decade-bean movement even when the user reports some manual jumps work.
 - Next isolation target: verify the actual section data being handed to the date/justified renderer, then trace the real click path from `LibraryTimelineRail` into `useDateTimelineJumpModel` in the live runtime.
 
 - Timeline rail grouped-scroll handoff: click state now matches top header for direct decade jumps, but grouped justified scroll still shows decade-highlight lag around some boundaries (for example 1950s -> 1960s). The remaining suspect is visible-group state propagation during scroll, not the jump path itself.
+
+## 2026-05-03 - Factory reset DB lock diagnostics hardening
+
+- Factory reset can fail with `EBUSY ... library.db` when another core backend process is running from a different worktree/runtime but sharing `%APPDATA%/PhotoLibraryDesktop/library.db`.
+- Follow-up: isolate per-runtime storage paths in dev sessions (or add single-instance lock enforcement) so parallel runtimes cannot contend for the same DB file.

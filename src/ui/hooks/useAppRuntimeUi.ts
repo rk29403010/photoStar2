@@ -72,6 +72,17 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const setStatusMessage = useCallback((message: string | null) => {
     setStatusBanner(message ? createStatusMessageBanner(message) : null);
   }, []);
+  const showTransientBanner = useCallback((params: {
+    message: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  }) => {
+    setStatusBanner({
+      message: params.message,
+      actionLabel: params.actionLabel,
+      onAction: params.onAction,
+    });
+  }, []);
   const [isTaskDrawerMinimized, setIsTaskDrawerMinimized] = useState(false);
   const [hoveredLibraryPhoto, setHoveredLibraryPhoto] = useState<CurrentPhotoStatus | null>(null);
   const devRuntimeImpact = useDevRuntimeImpact(import.meta.env.DEV, getDevRuntimeImpact);
@@ -112,6 +123,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
     statusBanner,
     setStatusBanner,
     setStatusMessage,
+    showTransientBanner,
     isTaskDrawerMinimized,
     setIsTaskDrawerMinimized,
     hoveredLibraryPhoto,

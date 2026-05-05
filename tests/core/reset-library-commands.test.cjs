@@ -47,6 +47,17 @@ function count(db, tableName) {
     return db.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get().count;
 }
 
+function readSchemaFingerprint(db) {
+    const rows = db.prepare(`
+        SELECT type, name, sql
+        FROM sqlite_master
+        WHERE sql IS NOT NULL
+          AND name NOT LIKE 'sqlite_%'
+        ORDER BY type ASC, name ASC
+    `).all();
+    return rows.map((row) => `${row.type}:${row.name}:${row.sql}`).join('\n');
+}
+
 function createResetContext({ dbManager, respond, libDir, activeJobs }) {
     return {
         id: 'cmd-reset',
@@ -84,7 +95,7 @@ test('soft reset recreates schema while preserving manual tables, settings, and 
     try {
         seedResetFixture(dbManager.getDb());
 
-        handleSystemCommand({
+        await handleSystemCommand({
             ...createResetContext({
                 dbManager,
                 respond: collector.respond,
@@ -131,9 +142,10 @@ test('factory reset recreates schema with only built-in defaults remaining', asy
     ]);
 
     try {
+        const baselineSchema = readSchemaFingerprint(dbManager.getDb());
         seedResetFixture(dbManager.getDb());
 
-        handleSystemCommand({
+        await handleSystemCommand({
             ...createResetContext({
                 dbManager,
                 respond: collector.respond,
@@ -161,6 +173,7 @@ test('factory reset recreates schema with only built-in defaults remaining', asy
         assert.equal(count(db, 'folder_history'), 0);
         assert.equal(db.prepare("SELECT value FROM settings WHERE id = 'custom-setting'").get(), undefined);
         assert.equal(count(db, 'settings'), 0);
+        assert.equal(readSchemaFingerprint(db), baselineSchema);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -177,7 +190,7 @@ test('reset faces clears derived face results, people assignments, and manual fa
     try {
         seedFaceResetFixture(dbManager.getDb());
 
-        handleSystemCommand({
+        await handleSystemCommand({
             ...createResetContext({
                 dbManager,
                 respond: collector.respond,
@@ -216,7 +229,7 @@ test('reset faces can target a single asset without clearing other face data', a
         dbManager.getDb().prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data, created_at) VALUES ('face-detect-2', 'asset-2', 'face_detection', 'detector', '1.0', '{\"faces\":[{\"box\":{\"x\":0.3,\"y\":0.3,\"width\":0.2,\"height\":0.2}}]}', '2026-03-13T00:00:00.000Z')").run();
         dbManager.getDb().prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data, created_at) VALUES ('face-rec-2', 'asset-2', 'face_recognition', 'recognizer', '1.0', '{\"embeddings\":[[0.4,0.5,0.6]]}', '2026-03-13T00:00:00.000Z')").run();
 
-        handleSystemCommand({
+        await handleSystemCommand({
             ...createResetContext({
                 dbManager,
                 respond: collector.respond,

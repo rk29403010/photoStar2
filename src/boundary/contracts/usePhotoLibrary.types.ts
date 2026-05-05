@@ -27,8 +27,12 @@ export type LibraryFilter = PersonLibraryFilter | AlbumLibraryFilter | TagLibrar
 
 export type NotificationItem = {
     id: string;
-    type: 'warning' | 'info';
-    message: string;
+    type: 'warning' | 'info' | 'success' | 'error';
+    title: string;
+    message?: string;
+    actionLabel?: string;
+    actionKind?: 'open_workflow' | 'open_asset' | 'retry';
+    actionPayload?: Record<string, unknown>;
 };
 
 export type FolderHistoryItem = {

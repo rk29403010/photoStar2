@@ -10,9 +10,18 @@ import { useTimelineGalleryState } from './useTimelineGalleryState';
 
 function useNotificationState() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-    const addNotification = useCallback((type: NotificationItem['type'], message: string) => {
+    const addNotification = useCallback((
+        type: NotificationItem['type'],
+        title: string,
+        options: {
+            message?: string;
+            actionLabel?: string;
+            actionKind?: NotificationItem['actionKind'];
+            actionPayload?: NotificationItem['actionPayload'];
+        } = {},
+    ) => {
         const id = `notif-${Date.now()}`;
-        setNotifications((prev) => [...prev.slice(-9), { id, type, message }]);
+        setNotifications((prev) => [...prev.slice(-9), { id, type, title, ...options }]);
     }, []);
     const dismissNotification = useCallback((id: string) => {
         setNotifications((prev) => prev.filter((item) => item.id !== id));
@@ -90,9 +99,6 @@ export function usePhotoLibraryState() {
     const logState = useLogState();
     const uiFeedState = useUiFeedState();
     const lastScanId = useRef<string | null>(null);
-    const activeWorkflowRunId = useRef<string | null>(null);
-    const workflowRefreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [ingestStatusMessage, setIngestStatusMessage] = useState<string | null>(null);
     const groupSimilarPhotosRef = useRef(true);
     const galleryDataModeRef = useRef<LibraryGalleryDataMode>('grouped-timeline');
     const galleryOrderRef = useRef<GalleryOrder>('default');
@@ -138,15 +144,11 @@ export function usePhotoLibraryState() {
         ...filterState,
         ...uiFeedState,
         lastScanId,
-        activeWorkflowRunId,
-        workflowRefreshTimeout,
         groupSimilarPhotosRef,
         galleryDataModeRef,
         galleryOrderRef,
         ...gallerySeekState,
         ...timelineGalleryState,
         ...logState,
-        ingestStatusMessage,
-        setIngestStatusMessage,
     };
 }

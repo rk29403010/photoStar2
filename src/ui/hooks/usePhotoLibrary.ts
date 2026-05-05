@@ -247,36 +247,46 @@ function useRefreshActions(params: {
 function useScanWorkflowActions(params: {
     state: PhotoLibraryState;
     request: RequestFn;
+    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    updateJobState: (id: string, state: 'queued' | 'starting' | 'running' | 'paused' | 'retrying' | 'completed' | 'failed' | 'cancelled' | 'idle') => void;
+    updateJobProgress: (id: string, payload: {
+        overallDone?: number;
+        overallTotal?: number;
+        overallPercent?: number;
+        message?: string;
+        current?: string;
+        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    }) => void;
     refreshLibrary: () => void;
     refreshPeople: () => void;
     refreshSystemJobs: () => void;
 }) {
-    const { state, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
+    const { state, request, addJob, updateJobState, updateJobProgress, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
 
     return useMemo(() => createScanActions({
         transport: state.transport,
+        addJob,
+        updateJobState,
+        updateJobProgress,
+        addNotification: state.addNotification,
         addLog: state.addLog,
-        addUiFeedEntry: state.addUiFeedEntry,
         lastScanId: state.lastScanId,
-        activeWorkflowRunId: state.activeWorkflowRunId,
-        workflowRefreshTimeout: state.workflowRefreshTimeout,
-        setIngestStatusMessage: state.setIngestStatusMessage,
         request,
         refreshLibrary,
         refreshPeople,
         refreshSystemJobs,
     }), [
-        state.addUiFeedEntry,
+        addJob,
+        state.addNotification,
+        updateJobProgress,
+        updateJobState,
         refreshLibrary,
         refreshPeople,
         refreshSystemJobs,
         request,
-        state.activeWorkflowRunId,
         state.addLog,
         state.lastScanId,
-        state.setIngestStatusMessage,
         state.transport,
-        state.workflowRefreshTimeout,
     ]);
 }
 
@@ -339,6 +349,14 @@ function useWorkflowActions(params: {
     state: PhotoLibraryState;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
     updateJobState: (id: string, state: 'queued' | 'starting' | 'running' | 'paused' | 'retrying' | 'completed' | 'failed' | 'cancelled' | 'idle') => void;
+    updateJobProgress: (id: string, payload: {
+        overallDone?: number;
+        overallTotal?: number;
+        overallPercent?: number;
+        message?: string;
+        current?: string;
+        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    }) => void;
     removeJob: (id: string) => void;
     sendCommand: SendCommandFn;
     request: RequestFn;
@@ -346,11 +364,14 @@ function useWorkflowActions(params: {
     refreshPeople: () => void;
     refreshSystemJobs: () => void;
 }) {
-    const { state, addJob, updateJobState, removeJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
+    const { state, addJob, updateJobState, updateJobProgress, removeJob, sendCommand, request, refreshLibrary, refreshPeople, refreshSystemJobs } = params;
 
     const scanActions = useScanWorkflowActions({
         state,
         request,
+        addJob,
+        updateJobState,
+        updateJobProgress,
         refreshLibrary,
         refreshPeople,
         refreshSystemJobs,
@@ -360,9 +381,11 @@ function useWorkflowActions(params: {
         request,
         addJob,
         updateJobState,
+        updateJobProgress,
+        addNotification: state.addNotification,
         refreshLibrary,
         refreshSystemJobs,
-    }), [addJob, refreshLibrary, refreshSystemJobs, request, updateJobState]);
+    }), [addJob, refreshLibrary, refreshSystemJobs, request, state.addNotification, updateJobProgress, updateJobState]);
 
     const systemActions = useSystemWorkflowActions({
         state,
@@ -438,10 +461,33 @@ function useSupplementaryActions(params: {
     };
 }
 
+function useTimelinePagingActions(
+    sendCommand: SendCommandFn,
+    state: PhotoLibraryState,
+) {
+    return useMemo(() => createTimelinePagingActions(
+        sendCommand,
+        state.filterStackRef,
+        state.galleryOrderRef,
+        {
+            setTimelineGroupLoading: state.setTimelineGroupLoading,
+            setTimelineActiveJumpTarget: state.setTimelineActiveJumpTarget,
+        },
+    ), [sendCommand, state.filterStackRef, state.galleryOrderRef, state.setTimelineActiveJumpTarget, state.setTimelineGroupLoading]);
+}
+
 function useComposedActions(
     state: PhotoLibraryState,
     addJob: (id: string, stage: PipelineStage, title: string) => void,
     updateJobState: (id: string, state: 'queued' | 'starting' | 'running' | 'paused' | 'retrying' | 'completed' | 'failed' | 'cancelled' | 'idle') => void,
+    updateJobProgress: (id: string, payload: {
+        overallDone?: number;
+        overallTotal?: number;
+        overallPercent?: number;
+        message?: string;
+        current?: string;
+        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    }) => void,
     removeJob: (id: string) => void,
     sendCommand: SendCommandFn,
     request: RequestFn,
@@ -467,6 +513,7 @@ function useComposedActions(
         state,
         addJob,
         updateJobState,
+        updateJobProgress,
         removeJob,
         sendCommand,
         request,
@@ -490,15 +537,7 @@ function useComposedActions(
         setIsSeekingTimeline: state.setIsSeekingTimeline,
         setGalleryTimelineSeek: state.setGalleryTimelineSeek,
     });
-    const timelinePagingActions = useMemo(() => createTimelinePagingActions(
-        sendCommand,
-        state.filterStackRef,
-        state.galleryOrderRef,
-        {
-            setTimelineGroupLoading: state.setTimelineGroupLoading,
-            setTimelineActiveJumpTarget: state.setTimelineActiveJumpTarget,
-        },
-    ), [sendCommand, state.filterStackRef, state.galleryOrderRef, state.setTimelineActiveJumpTarget, state.setTimelineGroupLoading]);
+    const timelinePagingActions = useTimelinePagingActions(sendCommand, state);
     const supplementaryActions = useSupplementaryActions({
         state,
         request,
@@ -533,7 +572,7 @@ export function usePhotoLibrary() {
 
     usePhotoLibraryConnection(connectionParams);
 
-    const actions = useComposedActions(state, addJob, updateJobState, removeJob, sendCommand, request);
+    const actions = useComposedActions(state, addJob, updateJobState, updateJobProgress, removeJob, sendCommand, request);
 
     return buildPhotoLibraryResult({ state, jobs, actions });
 }

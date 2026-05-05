@@ -12,6 +12,20 @@ function respondError(ctx: CommandContext, error: unknown) {
     ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
 }
 
+function toResetUserFacingError(error: unknown, mode: ResetMode): unknown {
+    if (mode !== 'factory' || !(error instanceof Error)) {
+        return error;
+    }
+
+    const message = error.message.toLowerCase();
+    const isDbBusyError = message.includes('ebusy') || message.includes('resource busy') || message.includes('library.db');
+    if (!isDbBusyError) {
+        return error;
+    }
+
+    return new Error('Factory reset failed because another PhotoStar backend process is using library.db. Stop other running backend/dev sessions, then retry Factory Reset.');
+}
+
 function launchTrackedJob(ctx: CommandContext, work: (controller: AbortController) => Promise<void>) {
     const controller = new AbortController();
     ctx.activeJobs.set(ctx.id, controller);
@@ -59,7 +73,12 @@ function vacuumDatabase(ctx: CommandContext) {
     }
 }
 
-function resetLibrary(ctx: CommandContext, mode: ResetMode) {
+async function resetLibrary(ctx: CommandContext, mode: ResetMode) {
+    if (mode === 'factory') {
+        ctx.workflowRuntime?.orchestrator.invalidateRunningRuns('Factory reset requested');
+        await ctx.workflowRuntime?.orchestrator.waitForIdle(5000);
+    }
+
     for (const [jobId, controller] of ctx.activeJobs.entries()) {
         controller.abort();
         ctx.activeJobs.delete(jobId);
@@ -212,13 +231,13 @@ export const systemCommandHandlers: CommandHandlerMap = {
         }
     },
 
-    reset_library: (ctx) => {
+    reset_library: async (ctx) => {
+        const payload = (ctx.payload || {}) as { mode?: ResetMode };
+        const mode: ResetMode = payload.mode === 'factory' ? 'factory' : 'soft';
         try {
-            const payload = (ctx.payload || {}) as { mode?: ResetMode };
-            const mode: ResetMode = payload.mode === 'factory' ? 'factory' : 'soft';
-            resetLibrary(ctx, mode);
+            await resetLibrary(ctx, mode);
         } catch (error) {
-            respondError(ctx, error);
+            respondError(ctx, toResetUserFacingError(error, mode));
         }
     },
 

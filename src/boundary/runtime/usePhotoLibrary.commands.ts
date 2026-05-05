@@ -12,12 +12,10 @@ import type {
 } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
-import type { FolderHistoryItem, LibraryFilter, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
+import type { FolderHistoryItem, LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { startWorkflowWithOverlayJob } from '@boundary/runtime/workflowOverlayJobs';
-import { requestWorkflowRunDetail } from '@boundary/runtime/workflowRunDetail';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
-import { buildIngestStatusMessage, buildWorkflowPollDetail } from '@shared/utils/libraryUiDiagnostics';
 import {
     buildTimelineGroupPagePayload,
     buildTimelineGroupsPayload,
@@ -44,12 +42,28 @@ type SharedWorkflowActionParams = {
 
 type ScanActionParams = {
     transport: BackendTransport | null;
+    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    updateJobState: (id: string, state: BackgroundJob['state']) => void;
+    updateJobProgress: (id: string, payload: {
+        overallDone?: number;
+        overallTotal?: number;
+        overallPercent?: number;
+        message?: string;
+        current?: string;
+        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    }) => void;
+    addNotification: (
+        type: 'warning' | 'info' | 'success' | 'error',
+        title: string,
+        options?: {
+            message?: string;
+            actionLabel?: string;
+            actionKind?: 'open_workflow' | 'open_asset' | 'retry';
+            actionPayload?: Record<string, unknown>;
+        }
+    ) => void;
     addLog: (message: string) => void;
-    addUiFeedEntry: (entry: UiFeedEntry) => void;
     lastScanId: { current: string | null };
-    activeWorkflowRunId: { current: string | null };
-    workflowRefreshTimeout: { current: ReturnType<typeof setTimeout> | null };
-    setIngestStatusMessage: (message: string | null) => void;
     request: RequestFn;
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     refreshPeople: () => void;
@@ -58,6 +72,24 @@ type ScanActionParams = {
 
 type PipelineActionParams = Pick<SharedWorkflowActionParams, 'addJob' | 'request' | 'refreshLibrary' | 'refreshSystemJobs'> & {
     updateJobState: (id: string, state: BackgroundJob['state']) => void;
+    updateJobProgress: (id: string, payload: {
+        overallDone?: number;
+        overallTotal?: number;
+        overallPercent?: number;
+        message?: string;
+        current?: string;
+        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    }) => void;
+    addNotification: (
+        type: 'warning' | 'info' | 'success' | 'error',
+        title: string,
+        options?: {
+            message?: string;
+            actionLabel?: string;
+            actionKind?: 'open_workflow' | 'open_asset' | 'retry';
+            actionPayload?: Record<string, unknown>;
+        }
+    ) => void;
 };
 
 type SystemActionParams = SharedWorkflowActionParams & {
@@ -85,88 +117,6 @@ function refreshLibrarySnapshots(
     params.refreshLibrary(options);
     params.refreshPeople();
     params.refreshSystemJobs();
-}
-
-function clearWorkflowRefreshLoop(workflowRefreshTimeout: ScanActionParams['workflowRefreshTimeout']) {
-    if (workflowRefreshTimeout.current !== null) {
-        clearTimeout(workflowRefreshTimeout.current);
-        workflowRefreshTimeout.current = null;
-    }
-}
-
-function createUiFeedEntry(source: UiFeedEntry['source'], label: string, detail: string, requestId?: string): UiFeedEntry {
-    return {
-        id: `${source}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: new Date().toISOString(),
-        source,
-        label,
-        detail,
-        requestId,
-    };
-}
-
-function scheduleWorkflowRefresh(params: Pick<
-    ScanActionParams,
-    'activeWorkflowRunId' | 'workflowRefreshTimeout' | 'request' | 'addLog' | 'addUiFeedEntry' | 'setIngestStatusMessage' | 'refreshLibrary' | 'refreshPeople' | 'refreshSystemJobs'
->, runId: string) {
-    params.activeWorkflowRunId.current = runId;
-    clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
-    params.setIngestStatusMessage('Scanning folder...');
-    params.addUiFeedEntry(createUiFeedEntry('workflow_poll', 'Folder ingest started', 'Waiting for workflow detail.', runId));
-
-    const poll = async () => {
-        if (params.activeWorkflowRunId.current !== runId) {
-            return;
-        }
-
-        refreshLibrarySnapshots(params, {
-            galleryOrder: 'previewed_first',
-            preservePagingState: true,
-        });
-
-        try {
-            const detail = await requestWorkflowRunDetail(params.request, runId);
-            const status = String(detail.summary?.status || '');
-            params.setIngestStatusMessage(buildIngestStatusMessage(detail));
-            params.addUiFeedEntry(createUiFeedEntry('workflow_poll', 'Workflow detail', buildWorkflowPollDetail(detail), runId));
-            if (status === 'completed' || status === 'failed') {
-                params.activeWorkflowRunId.current = null;
-                clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
-                params.setIngestStatusMessage(null);
-                refreshLibrarySnapshots(params);
-                return;
-            }
-        } catch (error) {
-            params.activeWorkflowRunId.current = null;
-            clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
-            params.setIngestStatusMessage(null);
-            params.addLog(`Folder ingest refresh stopped: ${String(error)}`);
-            params.addUiFeedEntry(createUiFeedEntry('workflow_poll', 'Workflow detail failed', String(error), runId));
-            return;
-        }
-
-        params.workflowRefreshTimeout.current = setTimeout(() => {
-            void poll();
-        }, 1500);
-    };
-
-    params.workflowRefreshTimeout.current = setTimeout(() => {
-        void poll();
-    }, 1500);
-}
-
-async function startFolderIngestRun(request: RequestFn, path: string, aiMode: AiMode): Promise<string> {
-    return request<string>({
-        idPrefix: 'start_folder_ingest',
-        command: 'start_folder_ingest',
-        payload: {
-            folderPath: path,
-            traversalMode: 'recursive',
-            aiMode,
-        },
-        timeoutMs: 10000,
-        select: (data) => String(data?.runId || ''),
-    });
 }
 
 function clearLibrarySnapshotsBeforeReset(params: Pick<
@@ -251,20 +201,32 @@ export function createScanActions(params: ScanActionParams) {
     return {
         scanLibrary: async (path: string, aiMode: AiMode = 'live') => {
             if (!params.transport) {return;}
-            const runId = await startFolderIngestRun(params.request, path, aiMode);
+            const runId = await startWorkflowWithOverlayJob({
+                request: params.request,
+                addJob: params.addJob,
+                updateJobState: params.updateJobState,
+                updateJobProgress: params.updateJobProgress,
+                refreshLibrary: params.refreshLibrary,
+                refreshSystemJobs: params.refreshSystemJobs,
+                idPrefix: 'start_folder_ingest',
+                command: 'start_folder_ingest',
+                payload: {
+                    folderPath: path,
+                    traversalMode: 'recursive',
+                    aiMode,
+                },
+                workflowId: 'folder_ingest_v1',
+                stage: 'scan',
+                title: 'Folder ingest',
+                addNotification: params.addNotification,
+            });
             params.lastScanId.current = runId;
             refreshLibrarySnapshots(params, {
                 galleryOrder: 'previewed_first',
                 preservePagingState: true,
             });
-            if (runId) {
-                scheduleWorkflowRefresh(params, runId);
-            }
         },
         stopScan: async () => {
-            clearWorkflowRefreshLoop(params.workflowRefreshTimeout);
-            params.activeWorkflowRunId.current = null;
-            params.setIngestStatusMessage(null);
             if (!params.transport || !params.lastScanId.current) {return;}
 
             params.addLog(`Aborting job ${params.lastScanId.current}`);
@@ -284,11 +246,13 @@ export function createPipelineActions(params: PipelineActionParams) {
         request: params.request,
         addJob: params.addJob,
         updateJobState: params.updateJobState,
+        updateJobProgress: params.updateJobProgress,
         refreshLibrary: params.refreshLibrary,
         refreshSystemJobs: params.refreshSystemJobs,
         idPrefix,
         command,
         payload,
+        addNotification: params.addNotification,
         stage,
         title,
     });

@@ -79,9 +79,13 @@ function isTagFilter(filter: LibraryFilter | undefined) {
 
 async function requestScanPath(): Promise<string | null> {
     if (canUseNativeDirectoryPicker()) {
-        const { open } = await import('@tauri-apps/plugin-dialog');
-        const selected = await open({ directory: true, multiple: false });
-        return selected && typeof selected === 'string' ? selected : null;
+        try {
+            const { open } = await import('@tauri-apps/plugin-dialog');
+            const selected = await open({ directory: true, multiple: false });
+            return selected && typeof selected === 'string' ? selected : null;
+        } catch (error) {
+            console.warn('Native directory picker unavailable; falling back to manual path prompt.', error);
+        }
     }
 
     return window.prompt('Enter absolute path to scan (e.g. C:/Users/robin/Photos):');
@@ -381,7 +385,7 @@ function useAppShellState(photoLibrary: ReturnType<typeof usePhotoLibrary>) {
         setLibrarySelection: uiState.setLibrarySelection,
         selectedAssetId: uiState.selectedAssetId,
         setSelectedAssetId: uiState.setSelectedAssetId,
-        setStatusBanner: uiState.setStatusBanner,
+        showTransientBanner: uiState.showTransientBanner,
     });
     const baseHandlers = useAppActionHandlers({
         assets,
@@ -424,7 +428,7 @@ export default function App() {
         selectedAssetId: uiState.selectedAssetId,
         isRefreshingLibrary: photoLibrary.isRefreshingLibrary,
         setSelectedAssetId: uiState.setSelectedAssetId,
-        setStatusMessage: uiState.setStatusMessage,
+        showTransientBanner: uiState.showTransientBanner,
     });
     const loadAssetDetails = actions.loadAssetDetails;
     const setGroupSimilarPhotos = actions.setGroupSimilarPhotos;

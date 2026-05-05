@@ -24,8 +24,8 @@ const COMMAND_ROUTES = [
 
 export type { CommandContext } from './handlers/types';
 
-export function handleSystemCommand(ctx: CommandContext): boolean {
-    const handled = executeCommandRoute(ctx, COMMAND_ROUTES);
+export async function handleSystemCommand(ctx: CommandContext): Promise<boolean> {
+    const handled = await executeCommandRoute(ctx, COMMAND_ROUTES);
     if (!handled) {
         throw new Error(`Unknown command: ${ctx.command}`);
     }

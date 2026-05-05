@@ -113,7 +113,6 @@ export function buildPhotoLibraryResult<TActions>(params: {
         workflowRuns: state.workflowRuns,
         folderHistory: state.folderHistory,
         uiFeedEntries: state.uiFeedEntries,
-        ingestStatusMessage: state.ingestStatusMessage,
         actions,
         filterStack: state.filterStack,
         notifications: state.notifications,

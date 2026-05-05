@@ -324,7 +324,7 @@ function handleIncomingLine(line: string, originWs?: WebSocket) {
     try {
         const rawMsg = JSON.parse(line);
         const msg = WsCommandSchema.parse(rawMsg);
-        handleMessage(msg, originWs);
+        void handleMessage(msg, originWs);
     } catch (_err) {
         console.error('[DEBUG] Failed to parse message:', line, _err);
     }
@@ -355,7 +355,7 @@ function recoverFromStartupFailure(): string {
     return 'Factory reset complete. Backend recovered after startup failure.';
 }
 
-function handleMessage(msg: { id: string, command: string, payload?: unknown }, originWs?: WebSocket) {
+async function handleMessage(msg: { id: string, command: string, payload?: unknown }, originWs?: WebSocket) {
     const { id, command, payload } = msg;
     try {
         if (startupError) {
@@ -375,7 +375,7 @@ function handleMessage(msg: { id: string, command: string, payload?: unknown }, 
             return;
         }
 
-        handleSystemCommand({
+        await handleSystemCommand({
             id,
             command,
             payload,
@@ -388,7 +388,16 @@ function handleMessage(msg: { id: string, command: string, payload?: unknown }, 
             respond
         });
     } catch (err: unknown) {
-        respond(id, 'error', null, err instanceof Error ? err.message : String(err), originWs);
+        const reason = err instanceof Error ? err.message : String(err);
+        respond(id, 'error', null, reason, originWs);
+        if (command.startsWith('start_') && eventBus) {
+            eventBus.emit({
+                type: 'JobFailed',
+                jobId: id,
+                severity: 'fatal',
+                reason,
+            });
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { canUseNativeDirectoryPicker } from '@boundary/runtime/backend';
 
 type ActionTab = 'ingest' | 'workflows' | 'library' | 'danger';
 
@@ -160,14 +161,18 @@ function createCloseThen(onClose: () => void) {
     };
 }
 
-function buildIngestItems(props: ActionPanelProps, closeThen: (action: () => void) => () => void): ActionCardItem[] {
+function buildIngestItems(
+    props: ActionPanelProps,
+    closeThen: (action: () => void) => () => void,
+    onSelectFolder: () => void,
+): ActionCardItem[] {
     return [
         {
             label: 'Select Folder',
             icon: '📂',
             description: 'Choose a directory and start a one-off ingest into the library runtime.',
             accentClassName: 'hover:border-blue-500/50',
-            onClick: closeThen(() => { props.onScan(); }),
+            onClick: onSelectFolder,
         },
         {
             label: 'Watched Folder',
@@ -278,20 +283,76 @@ function buildDangerItems(props: ActionPanelProps): ActionCardItem[] {
     ];
 }
 
-function buildTabItems(props: ActionPanelProps): Record<ActionTab, ActionCardItem[]> {
+function buildTabItems(
+    props: ActionPanelProps,
+    onSelectFolder: () => void,
+): Record<ActionTab, ActionCardItem[]> {
     const closeThen = createCloseThen(props.onClose);
     return {
-        ingest: buildIngestItems(props, closeThen),
+        ingest: buildIngestItems(props, closeThen, onSelectFolder),
         workflows: buildWorkflowItems(props, closeThen),
         library: buildLibraryItems(props, closeThen),
         danger: buildDangerItems(props),
     };
 }
 
+function ManualPathPrompt(props: {
+    onScan: (path: string) => void;
+    onCancel: () => void;
+}) {
+    const [manualPath, setManualPath] = useState('');
+
+    return (
+        <section className="mt-4 rounded-xl border border-[#333] bg-[#151515] p-4">
+            <h4 className="text-xs font-black uppercase tracking-widest text-gray-300">Folder To Ingest</h4>
+            <p className="mt-1 text-xs text-gray-400">Enter an absolute path (example: C:/Users/robin/Photos)</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+                <input
+                    autoFocus
+                    value={manualPath}
+                    onChange={(event) => setManualPath(event.target.value)}
+                    placeholder="C:/Users/robin/Photos"
+                    className="min-w-[280px] flex-1 rounded-lg border border-[#2d2d2d] bg-[#202020] px-3 py-2 text-sm text-gray-100"
+                />
+                <button
+                    type="button"
+                    onClick={() => {
+                        const path = manualPath.trim();
+                        if (!path) {return;}
+                        props.onScan(path);
+                    }}
+                    disabled={manualPath.trim().length === 0}
+                    className="rounded-lg border border-blue-500/50 bg-blue-500/20 px-3 py-2 text-xs font-semibold text-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    Start Ingest
+                </button>
+                <button
+                    type="button"
+                    onClick={props.onCancel}
+                    className="rounded-lg border border-[#3a3a3a] bg-[#202020] px-3 py-2 text-xs font-semibold text-gray-300"
+                >
+                    Cancel
+                </button>
+            </div>
+        </section>
+    );
+}
+
 function OpenActionPanel(props: ActionPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<ActionTab>('ingest');
-    const tabItems = buildTabItems(props);
+    const [showManualPathPrompt, setShowManualPathPrompt] = useState(false);
+    const supportsNativePicker = canUseNativeDirectoryPicker();
+    const handleSelectFolder = () => {
+        if (supportsNativePicker) {
+            props.onScan();
+            props.onClose();
+            return;
+        }
+
+        setShowManualPathPrompt(true);
+    };
+    const tabItems = buildTabItems(props, handleSelectFolder);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -326,6 +387,16 @@ function OpenActionPanel(props: ActionPanelProps) {
                 </div>
 
                 <ActionGrid items={tabItems[activeTab]} />
+                {activeTab === 'ingest' && showManualPathPrompt && (
+                    <ManualPathPrompt
+                        onScan={(path) => {
+                            props.onScan(path);
+                            setShowManualPathPrompt(false);
+                            props.onClose();
+                        }}
+                        onCancel={() => setShowManualPathPrompt(false)}
+                    />
+                )}
                 {activeTab === 'ingest' && (
                     <RecentPaths
                         entries={props.folderHistory ?? []}

@@ -19,14 +19,14 @@ export function useSelectionRecovery(params: {
     selectedAssetId: string | null;
     isRefreshingLibrary: boolean;
     setSelectedAssetId: (assetId: string | null) => void;
-    setStatusMessage: (message: string | null) => void;
+    showTransientBanner: (params: { message: string }) => void;
 }) {
     const {
         assets,
         selectedAssetId,
         isRefreshingLibrary,
         setSelectedAssetId,
-        setStatusMessage,
+        showTransientBanner,
     } = params;
 
     useEffect(() => {
@@ -35,12 +35,10 @@ export function useSelectionRecovery(params: {
         }
 
         setSelectedAssetId(null);
-        const showTimer = window.setTimeout(() => setStatusMessage('Previously selected photo is no longer available.'), 0);
-        const clearTimer = window.setTimeout(() => setStatusMessage(null), 5000);
+        const showTimer = window.setTimeout(() => showTransientBanner({ message: 'Previously selected photo is no longer available.' }), 0);
 
         return () => {
             window.clearTimeout(showTimer);
-            window.clearTimeout(clearTimer);
         };
-    }, [assets, isRefreshingLibrary, selectedAssetId, setSelectedAssetId, setStatusMessage]);
+    }, [assets, isRefreshingLibrary, selectedAssetId, setSelectedAssetId, showTransientBanner]);
 }

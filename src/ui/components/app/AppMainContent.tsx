@@ -75,7 +75,7 @@ interface AppMainContentProps {
   recentEvents: RecentEventSnapshot[];
   workflowRuns: WorkflowRunListItem[];
   uiFeedEntries: UiFeedEntry[];
-  ingestStatusMessage: string | null;
+  ingestActive: boolean;
   hasMoreAssets: boolean;
   isLoadingMoreAssets: boolean;
   isRefreshingLibrary: boolean;
@@ -152,8 +152,7 @@ function createVisibleAssetCache(initialAssets: Asset[]) {
   };
 }
 
-function useVisibleLibraryAssets(assets: Asset[], ingestStatusMessage: string | null) {
-  const ingestActive = Boolean(ingestStatusMessage);
+function useVisibleLibraryAssets(assets: Asset[], ingestActive: boolean) {
   const [cache] = useState(() => createVisibleAssetCache(buildStablePreviewAssets([], assets, ingestActive)));
   return cache.update(assets, ingestActive);
 }
@@ -216,7 +215,7 @@ function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets:
 
 export function AppMainContent(props: AppMainContentProps) {
   const activeFilter = props.filterStack.length > 0 ? props.filterStack[props.filterStack.length - 1] : undefined;
-  const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestStatusMessage);
+  const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestActive);
 
   return (
     <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>

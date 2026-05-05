@@ -22,6 +22,16 @@ type LegacyProgressPayload = {
     message?: string;
     current?: string;
     status?: string;
+    overallDone?: number;
+    overallTotal?: number;
+    overallPercent?: number;
+    stages?: Array<{
+        stageId: string;
+        label: string;
+        state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped';
+        total?: number;
+        done?: number;
+    }>;
 };
 
 function pruneJobHistory(list: BackgroundJob[]): BackgroundJob[] {
@@ -124,17 +134,42 @@ function getLegacyProgressState(status: LegacyProgressPayload['status'], current
     return currentState;
 }
 
-function applyLegacyProgress(job: BackgroundJob, payload: LegacyProgressPayload): BackgroundJob {
-    const nextProgress = { ...job.progress };
-    if (payload.processed !== undefined) {nextProgress.overallDone = payload.processed;}
-    if (payload.total !== undefined) {nextProgress.overallTotal = payload.total;}
-    if (nextProgress.overallTotal && nextProgress.overallTotal > 0) {
-        nextProgress.overallPercent = ((nextProgress.overallDone || 0) / nextProgress.overallTotal) * 100;
-    } else if (payload.status === 'complete') {
-        nextProgress.overallPercent = 100;
+function coalesceOverallDone(payload: LegacyProgressPayload): number | undefined {
+    if (payload.overallDone !== undefined) {return payload.overallDone;}
+    return payload.processed;
+}
+
+function coalesceOverallTotal(payload: LegacyProgressPayload): number | undefined {
+    if (payload.overallTotal !== undefined) {return payload.overallTotal;}
+    return payload.total;
+}
+
+function computeOverallPercent(done: number | undefined, total: number | undefined, payload: LegacyProgressPayload): number | undefined {
+    if (total && total > 0) {
+        return ((done || 0) / total) * 100;
     }
-    nextProgress.message = payload.message;
-    nextProgress.current = payload.current;
+    if (payload.overallPercent !== undefined) {
+        return payload.overallPercent;
+    }
+    if (payload.status === 'complete') {
+        return 100;
+    }
+    return undefined;
+}
+
+function applyLegacyProgress(job: BackgroundJob, payload: LegacyProgressPayload): BackgroundJob {
+    const overallDone = coalesceOverallDone(payload) ?? job.progress.overallDone;
+    const overallTotal = coalesceOverallTotal(payload) ?? job.progress.overallTotal;
+    const overallPercent = computeOverallPercent(overallDone, overallTotal, payload);
+    const nextProgress = {
+        ...job.progress,
+        overallDone,
+        overallTotal,
+        overallPercent,
+        message: payload.message,
+        current: payload.current,
+        stages: payload.stages !== undefined ? payload.stages : job.progress.stages
+    };
 
     return {
         ...job,

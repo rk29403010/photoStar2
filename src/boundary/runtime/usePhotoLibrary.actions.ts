@@ -206,6 +206,7 @@ export function createBuildActions(params: BuildActionParams) {
                 refreshSystemJobs,
                 localJobId,
                 runId,
+                title: 'Runtime Grouping (Duplicates, Variants & Bursts)',
             });
 
             return runId;
@@ -236,6 +237,7 @@ export function createBuildActions(params: BuildActionParams) {
                 refreshSystemJobs,
                 localJobId,
                 runId,
+                title: assetId ? 'Recalculating Photo Date' : 'Recalculating Photo Dates',
                 onCompleted: assetId ? () => {
                     void params.loadAssetDetails(assetId, { includeEvidence: true });
                 } : undefined,

@@ -49,7 +49,16 @@ export interface ConnectionStateParams {
     setFolderHistory: Dispatch<SetStateAction<FolderHistoryItem[]>>;
     setRejectedAssets: Dispatch<SetStateAction<Asset[]>>;
     addUiFeedEntry: (entry: UiFeedEntry) => void;
-    addNotification: (type: 'warning' | 'info', message: string) => void;
+    addNotification: (
+        type: 'warning' | 'info' | 'success' | 'error',
+        title: string,
+        options?: {
+            message?: string;
+            actionLabel?: string;
+            actionKind?: 'open_workflow' | 'open_asset' | 'retry';
+            actionPayload?: Record<string, unknown>;
+        }
+    ) => void;
     addLog: (message: string) => void;
     processEvent: (event: DomainEvent) => void;
     updateJobProgress: (jobId: string, payload: { processed?: number; total?: number; message?: string; current?: string; status?: string }) => void;

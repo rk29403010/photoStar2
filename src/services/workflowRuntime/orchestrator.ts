@@ -111,9 +111,16 @@ function mergeSubjects(existing: SubjectRef[], incoming: SubjectRef[]): SubjectR
 
 export class WorkflowRuntimeOrchestrator {
     private readonly telemetry: WorkflowRuntimeTelemetry;
+    private runGeneration = 0;
+    private readonly activeRunIds = new Set<string>();
 
     constructor(private readonly deps: WorkflowRuntimeOrchestratorDependencies) {
         this.telemetry = deps.telemetry ?? new WorkflowRuntimeTelemetry();
+    }
+
+    public invalidateRunningRuns(reason = 'Workflow runtime invalidated'): void {
+        this.runGeneration += 1;
+        console.warn(`[Workflow] Invalidated in-flight runs: ${reason}`);
     }
 
     public async start(input: CreateWorkflowRunInput): Promise<string> {
@@ -130,13 +137,25 @@ export class WorkflowRuntimeOrchestrator {
         return runId;
     }
 
+    public async waitForIdle(timeoutMs = 3000): Promise<void> {
+        const deadline = Date.now() + timeoutMs;
+        while (this.activeRunIds.size > 0) {
+            if (Date.now() >= deadline) {
+                throw new Error(`Timed out waiting for workflow runtime to become idle (${this.activeRunIds.size} run(s) still active).`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+    }
+
     private async executeRun(runId: string, input: CreateWorkflowRunInput): Promise<void> {
+        const runGeneration = this.runGeneration;
         const workflow = this.deps.workflows.get(input.workflowId);
         const orderedNodes = topologicallySortNodes(workflow.nodes);
+        this.activeRunIds.add(runId);
 
         this.telemetry.runStarted(runId, workflow.id);
         try {
-            await this.executeWorkflowNodes(runId, workflow, orderedNodes, input.inputSubjects, input.parameters ?? {});
+            await this.executeWorkflowNodes(runId, workflow, orderedNodes, input.inputSubjects, input.parameters ?? {}, runGeneration);
             this.deps.store.updateWorkflowRunStatus(runId, 'completed');
             this.telemetry.runCompleted(runId, workflow.id);
         } catch (error) {
@@ -144,6 +163,8 @@ export class WorkflowRuntimeOrchestrator {
             this.deps.store.updateWorkflowRunStatus(runId, 'failed');
             this.telemetry.runFailed(runId, workflow.id, errorMessage);
             throw error;
+        } finally {
+            this.activeRunIds.delete(runId);
         }
     }
 
@@ -153,16 +174,25 @@ export class WorkflowRuntimeOrchestrator {
         orderedNodes: WorkflowNodeDefinition[],
         inputSubjects: SubjectRef[],
         parameters: Record<string, unknown>,
+        runGeneration: number,
     ): Promise<void> {
         const state = this.createExecutionState(orderedNodes);
         this.seedRootSubjects(state, inputSubjects);
 
         while (this.hasPendingWork(state)) {
-            this.startReadyNodes(runId, workflow, parameters, state);
+            this.assertRunGeneration(runGeneration, runId);
+            this.startReadyNodes(runId, workflow, parameters, runGeneration, state);
             await this.waitForRunningTask(state);
         }
 
         await this.throwIfExecutionFailed(state);
+    }
+
+    private assertRunGeneration(expectedRunGeneration: number, runId: string): void {
+        if (expectedRunGeneration === this.runGeneration) {
+            return;
+        }
+        throw new Error(`workflow run '${runId}' cancelled: runtime reset`);
     }
 
     private createExecutionState(orderedNodes: WorkflowNodeDefinition[]): WorkflowExecutionState {
@@ -196,6 +226,7 @@ export class WorkflowRuntimeOrchestrator {
         runId: string,
         workflow: WorkflowMilestonesPresentation,
         parameters: Record<string, unknown>,
+        runGeneration: number,
         state: WorkflowExecutionState,
     ): void {
         while (state.readyNodeIds.length > 0) {
@@ -217,6 +248,7 @@ export class WorkflowRuntimeOrchestrator {
                 runId,
                 workflow,
                 parameters,
+                runGeneration,
                 state,
                 node,
                 nodeId,
@@ -228,6 +260,7 @@ export class WorkflowRuntimeOrchestrator {
         runId: string;
         workflow: WorkflowMilestonesPresentation;
         parameters: Record<string, unknown>;
+        runGeneration: number;
         state: WorkflowExecutionState;
         node: WorkflowNodeDefinition;
         nodeId: string;
@@ -239,6 +272,7 @@ export class WorkflowRuntimeOrchestrator {
             node: params.node,
             nodeSubjects,
             parameters: params.parameters,
+            runGeneration: params.runGeneration,
             remainingUpstreamCounts: params.state.remainingUpstreamCounts,
             subjectsByNode: params.state.subjectsByNode,
             readyNodeIds: params.state.readyNodeIds,
@@ -276,10 +310,12 @@ export class WorkflowRuntimeOrchestrator {
         node: WorkflowNodeDefinition;
         nodeSubjects: SubjectRef[];
         parameters: Record<string, unknown>;
+        runGeneration: number;
         remainingUpstreamCounts: Map<string, number>;
         subjectsByNode: Map<string, SubjectRef[]>;
         readyNodeIds: string[];
     }): Promise<void> {
+        this.assertRunGeneration(params.runGeneration, params.runId);
         const outputSubjects = params.node.kind === 'control'
             ? executeControlNode(params.node as WorkflowControlNodeDefinition, params.nodeSubjects)
             : await this.executeModuleNode(
@@ -288,7 +324,9 @@ export class WorkflowRuntimeOrchestrator {
                 params.node as WorkflowModuleNodeDefinition,
                 params.nodeSubjects,
                 params.parameters,
+                params.runGeneration,
             );
+        this.assertRunGeneration(params.runGeneration, params.runId);
 
         this.queueReadyDownstreamNodes({
             node: params.node,
@@ -325,12 +363,13 @@ export class WorkflowRuntimeOrchestrator {
         node: WorkflowModuleNodeDefinition,
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
+        runGeneration: number,
     ): Promise<SubjectRef[]> {
         if (node.runMode === 'once_per_batch') {
-            return this.executeBatchModuleNode(runId, workflow, node, subjects, parameters);
+            return this.executeBatchModuleNode(runId, workflow, node, subjects, parameters, runGeneration);
         }
 
-        return this.executePerSubjectModuleNode(runId, workflow, node, subjects, parameters);
+        return this.executePerSubjectModuleNode(runId, workflow, node, subjects, parameters, runGeneration);
     }
 
     private async executePerSubjectModuleNode(
@@ -339,7 +378,9 @@ export class WorkflowRuntimeOrchestrator {
         node: WorkflowModuleNodeDefinition,
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
+        runGeneration: number,
     ): Promise<SubjectRef[]> {
+        this.assertRunGeneration(runGeneration, runId);
         const stepRunId = this.deps.store.recordStepRun({
             workflowRunId: runId,
             nodeId: node.id,
@@ -350,8 +391,10 @@ export class WorkflowRuntimeOrchestrator {
         const emittedSubjects: SubjectRef[] = [];
 
         for (const subject of subjects) {
+            this.assertRunGeneration(runGeneration, runId);
             try {
                 const result = await module.run({ runId, subject, batchSubjects: [subject], parameters });
+                this.assertRunGeneration(runGeneration, runId);
                 for (const emittedSubject of result.emittedSubjects ?? []) {
                     emittedSubjects.push(emittedSubject);
                 }
@@ -383,6 +426,7 @@ export class WorkflowRuntimeOrchestrator {
             }
         }
 
+        this.assertRunGeneration(runGeneration, runId);
         this.updateCompletedMilestones(runId, workflow.presentation?.milestones ?? [], node.completesMilestones ?? []);
         this.deps.store.recordStepRun({
             stepRunId,
@@ -399,7 +443,9 @@ export class WorkflowRuntimeOrchestrator {
         node: WorkflowModuleNodeDefinition,
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
+        runGeneration: number,
     ): Promise<SubjectRef[]> {
+        this.assertRunGeneration(runGeneration, runId);
         const stepRunId = this.deps.store.recordStepRun({
             workflowRunId: runId,
             nodeId: node.id,
@@ -419,6 +465,7 @@ export class WorkflowRuntimeOrchestrator {
                 batchSubjects: subjects,
                 parameters,
             });
+            this.assertRunGeneration(runGeneration, runId);
             this.deps.store.recordSubjectExecution({
                 workflowRunId: runId,
                 stepRunId,

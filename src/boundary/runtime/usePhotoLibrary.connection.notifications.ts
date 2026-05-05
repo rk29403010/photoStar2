@@ -28,18 +28,26 @@ function buildQuotaWarningMessage(event: Record<string, unknown>): string {
 
 export function applyQuotaNotifications(
     event: Record<string, unknown>,
-    addNotification: (type: 'warning' | 'info', message: string) => void
+    addNotification: (
+        type: 'warning' | 'info' | 'success' | 'error',
+        title: string,
+        options?: { message?: string }
+    ) => void
 ) {
     if (event.type === 'AiMetadataConfigurationError') {
-        addNotification('warning', String(event.message || 'Live AI metadata is not configured.'));
+        addNotification('warning', 'AI metadata configuration issue', {
+            message: String(event.message || 'Live AI metadata is not configured.'),
+        });
     }
 
     if (event.type === 'QuotaWarning') {
-        addNotification('warning', buildQuotaWarningMessage(event));
+        addNotification('warning', 'AI quota warning', { message: buildQuotaWarningMessage(event) });
     }
 
     if (event.type === 'ProAnalysisPending') {
         const count = Array.isArray(event.assetIds) ? event.assetIds.length : 0;
-        addNotification('info', `ℹ️ ${count} photo(s) queued for enhanced analysis with ${String(event.proModel)} when quota resets.`);
+        addNotification('info', 'Pro analysis queued', {
+            message: `${count} photo(s) queued for enhanced analysis with ${String(event.proModel)} when quota resets.`,
+        });
     }
 }

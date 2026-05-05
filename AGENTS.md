@@ -7,10 +7,12 @@ repo checks over prose, memory, or vibes.
 
 1. Confirm worktree, branch, and dirty state.
 2. Read the directly relevant files.
-3. Make the smallest complete vertical change.
-4. Run targeted checks while iterating.
-5. Run the right handoff gate before claiming success.
-6. Add a concise `docs/todo.md` entry for any follow-up, caveat, or cleanup item
+3. Consult `docs/ai/AI_PROJECT_MAP.md` for project intelligence, routing, and domain knowledge before exploring.
+4. Update `docs/ai/AI_PROJECT_MAP.md` whenever making structural changes, adding modules/workflows, or changing data models.
+5. Make the smallest complete vertical change.
+6. Run targeted checks while iterating.
+7. Run the right handoff gate before claiming success.
+8. Add a concise `docs/todo.md` entry for any follow-up, caveat, or cleanup item
    mentioned to the user.
 
 ## Windows Commands
@@ -56,6 +58,15 @@ repo checks over prose, memory, or vibes.
 - Do not pass refs into plain JSX helper functions; keep refs at component,
   hook, effect, or event-handler boundaries.
 - Do not add lint disables unless the reason is written inline.
+
+## Feedback Framework
+
+- All new user-visible feedback must go through the shared feedback framework and must declare a mode before implementation.
+- Use `tracked` for manual multi-step or multi-item processes with long-running progress.
+- Use `inline` for slower single-item manual flows that need local contextual feedback.
+- Use `transient` for short-lived notices, status updates, and undo affordances.
+- Do not add direct ad hoc status-bar strings, toasts, task popups, or inline badges outside the shared framework adapters.
+- Workflow/manual task feedback must consume shared workflow/job event wiring instead of introducing side-channel polling or state paths.
 
 ## Runtime Evidence
 

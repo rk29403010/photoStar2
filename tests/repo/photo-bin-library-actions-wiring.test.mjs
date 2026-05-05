@@ -44,7 +44,7 @@ test('library and single-photo actions switch between Move to Bin and Restore', 
     assert.match(selectionSource, /selection\.groupIds\.has\(asset\.group_id\)/);
     assert.match(hookSource, /export function usePhotoBinActions/);
     assert.match(hookSource, /assets: Asset\[\];/);
-    assert.match(hookSource, /setStatusBanner\(\{/);
+    assert.match(hookSource, /showTransientBanner\(\{/);
     assert.match(hookSource, /actionLabel: 'Undo'/);
     assert.match(hookSource, /getLibrarySelectionAssetIds\(librarySelection, assets\)/);
     assert.match(hookSource, /await actions\.moveToBin\(assetIds\)/);

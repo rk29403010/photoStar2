@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { clearLibrarySelection, getLibrarySelectionAssetIds, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { Asset } from '@contracts/core';
-import { createStatusMessageBanner, type StatusBanner } from '@ui/components/app/statusBannerModel';
 
 type PhotoLibraryActions = {
     moveToBin: (assetIds: string[]) => Promise<void>;
@@ -18,7 +17,7 @@ interface UsePhotoBinActionsParams {
     setLibrarySelection: (selection: LibrarySelectionState) => void;
     selectedAssetId: string | null;
     setSelectedAssetId: (assetId: string | null) => void;
-    setStatusBanner: (banner: StatusBanner | null) => void;
+    showTransientBanner: (params: { message: string; actionLabel?: string; onAction?: () => void }) => void;
 }
 
 function shouldClearFocusedAsset(selectedAssetId: string | null, assetIds: string[]) {
@@ -33,7 +32,7 @@ export function usePhotoBinActions(params: UsePhotoBinActionsParams) {
         setLibrarySelection,
         selectedAssetId,
         setSelectedAssetId,
-        setStatusBanner,
+        showTransientBanner,
     } = params;
 
     const restoreAssetIds = useCallback(async (
@@ -56,8 +55,8 @@ export function usePhotoBinActions(params: UsePhotoBinActionsParams) {
             actions.removeAssetsFromState(assetIds);
         }
         actions.refreshLibrary({ preservePagingState: true });
-        setStatusBanner(createStatusMessageBanner(assetIds.length === 1 ? 'Photo restored from Bin.' : `${assetIds.length} photos restored from Bin.`));
-    }, [actions, assets, selectedAssetId, setSelectedAssetId, setStatusBanner]);
+        showTransientBanner({ message: assetIds.length === 1 ? 'Photo restored from Bin.' : `${assetIds.length} photos restored from Bin.` });
+    }, [actions, assets, selectedAssetId, setSelectedAssetId, showTransientBanner]);
 
     const moveAssetIdsToBin = useCallback(async (assetIds: string[]) => {
         if (assetIds.length === 0) {
@@ -75,14 +74,14 @@ export function usePhotoBinActions(params: UsePhotoBinActionsParams) {
         await actions.moveToBin(assetIds);
         actions.removeAssetsFromState(assetIds);
         actions.refreshLibrary({ preservePagingState: true });
-        setStatusBanner({
+        showTransientBanner({
             message: assetIds.length === 1 ? 'Photo moved to Bin.' : `${assetIds.length} photos moved to Bin.`,
             actionLabel: 'Undo',
             onAction: () => {
                 void restoreAssetIds(assetIds, movedAssets, referenceAssets);
             },
         });
-    }, [actions, assets, restoreAssetIds, selectedAssetId, setLibrarySelection, setSelectedAssetId, setStatusBanner]);
+    }, [actions, assets, restoreAssetIds, selectedAssetId, setLibrarySelection, setSelectedAssetId, showTransientBanner]);
 
     const restoreSelectionFromBin = useCallback(async () => {
         await restoreAssetIds(getLibrarySelectionAssetIds(librarySelection, assets));
