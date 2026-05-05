@@ -5,13 +5,13 @@ import type { Asset } from '@contracts/core';
 const J = { key: '#93c5fd', str: '#86efac', num: '#fcd34d', bool: '#67e8f9', nil: '#f87171', brace: '#94a3b8', index: '#475569' } as const;
 type JsonValue = unknown;
 
-interface JsonNodeProps {
-  value: JsonValue;
-  keyName?: string;
-  depth: number;
-  isLast: boolean;
-  wordWrap: boolean;
-  defaultOpen: boolean;
+type JsonNodeProps = {
+  readonly value: JsonValue;
+  readonly keyName?: string;
+  readonly depth: number;
+  readonly isLast: boolean;
+  readonly wordWrap: boolean;
+  readonly defaultOpen: boolean;
 }
 
 function getEntries(value: JsonValue): [string, unknown][] {
@@ -26,7 +26,7 @@ function renderKeyLabel(keyName: string | undefined, isArrayParent: boolean): Re
   return <><span style={{ color: J.key }}>&quot;{keyName}&quot;</span><span style={{ color: J.brace }}>:&nbsp;</span></>;
 }
 
-const JsonLeaf: React.FC<{ value: JsonValue; keyLabel: React.ReactNode; comma: string; indent: number; wordWrap: boolean }> = ({ value, keyLabel, comma, indent, wordWrap }) => {
+const JsonLeaf: React.FC<{ readonly value: JsonValue; readonly keyLabel: React.ReactNode; readonly comma: string; readonly indent: number; readonly wordWrap: boolean }> = ({ value, keyLabel, comma, indent, wordWrap }) => {
   const valueEl = typeof value === 'string'
     ? <span style={{ color: J.str, wordBreak: wordWrap ? 'break-all' : 'normal', whiteSpace: wordWrap ? 'pre-wrap' : 'nowrap' }}>&quot;{value}&quot;</span>
     : typeof value === 'number'
@@ -38,7 +38,7 @@ const JsonLeaf: React.FC<{ value: JsonValue; keyLabel: React.ReactNode; comma: s
   return <div style={{ paddingLeft: indent, lineHeight: '1.7', display: 'flex', gap: 2, minWidth: 0 }}>{keyLabel}{valueEl}<span style={{ color: J.brace }}>{comma}</span></div>;
 };
 
-const JsonBranch: React.FC<{ value: JsonValue; entries: [string, unknown][]; keyLabel: React.ReactNode; comma: string; isArray: boolean; wordWrap: boolean; defaultOpen: boolean; depth: number }> = ({ value, entries, keyLabel, comma, isArray, wordWrap, defaultOpen, depth }) => {
+const JsonBranch: React.FC<{ readonly value: JsonValue; readonly entries: [string, unknown][]; readonly keyLabel: React.ReactNode; readonly comma: string; readonly isArray: boolean; readonly wordWrap: boolean; readonly defaultOpen: boolean; readonly depth: number }> = ({ value, entries, keyLabel, comma, isArray, wordWrap, defaultOpen, depth }) => {
   const [open, setOpen] = useState(defaultOpen);
   const summary = isArray ? <span style={{ color: J.brace }}>[<span style={{ color: J.index, fontSize: 9 }}> {entries.length} </span>]</span> : <span style={{ color: J.brace }}>{'{'}…{'}'}</span>;
 
@@ -69,7 +69,7 @@ const JsonNode: React.FC<JsonNodeProps> = ({ value, keyName, depth, isLast, word
   return <JsonBranch value={value} entries={entries} keyLabel={keyLabel} comma={comma} isArray={Array.isArray(value)} wordWrap={wordWrap} defaultOpen={defaultOpen} depth={depth} />;
 };
 
-export const JsonTab: React.FC<{ asset: Asset }> = ({ asset }) => {
+export const JsonTab: React.FC<{ readonly asset: Asset }> = ({ asset }) => {
   const [wordWrap, setWordWrap] = useState(false);
   const jsonStr = JSON.stringify({ ...asset, faces: asset.faces?.map((f) => ({ ...f, embedding: undefined })), face_embeddings: undefined }, null, 2);
   const sanitised = JSON.parse(jsonStr) as Record<string, unknown>;

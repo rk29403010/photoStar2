@@ -1,4 +1,4 @@
-export function LoadingState({ backendStatus, backendReady }: { backendStatus: string; backendReady: boolean }) {
+export function LoadingState({ backendStatus, backendReady }: { readonly backendStatus: string; readonly backendReady: boolean }) {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', gap: 16 }}>
             <div className="animate-pulse" style={{ fontSize: '2rem' }}>⌛</div>

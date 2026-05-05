@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 
-interface SettingsModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    getSetting: (key: string) => Promise<string>;
-    setSetting: (key: string, value: string) => Promise<void>;
-    theme: string;
-    setTheme: (v: string) => void;
-    animationsEnabled: boolean;
-    setAnimationsEnabled: (v: boolean) => void;
-    aiMode: AiMode;
-    setAiMode: (mode: AiMode) => void;
+type SettingsModalProps = {
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly getSetting: (key: string) => Promise<string>;
+    readonly setSetting: (key: string, value: string) => Promise<void>;
+    readonly theme: string;
+    readonly setTheme: (v: string) => void;
+    readonly animationsEnabled: boolean;
+    readonly setAnimationsEnabled: (v: boolean) => void;
+    readonly aiMode: AiMode;
+    readonly setAiMode: (mode: AiMode) => void;
 }
 
 type Tab = 'system' | 'ui' | 'workflows' | 'jobs';
@@ -37,7 +37,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'jobs', label: 'Registered Jobs' },
 ];
 
-function TabButton({ activeTab, tab, label, onClick }: { activeTab: Tab; tab: Tab; label: string; onClick: (tab: Tab) => void }) {
+function TabButton({ activeTab, tab, label, onClick }: { readonly activeTab: Tab; readonly tab: Tab; readonly label: string; readonly onClick: (tab: Tab) => void }) {
     return (
         <button
             onClick={() => onClick(tab)}
@@ -48,7 +48,7 @@ function TabButton({ activeTab, tab, label, onClick }: { activeTab: Tab; tab: Ta
     );
 }
 
-function SystemTab({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange: (k: string, v: string) => void }) {
+function SystemTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
     return (
         <div className="space-y-6">
             <h3 className="border-b border-[#333] pb-2 text-lg font-semibold text-blue-400">System Settings</h3>
@@ -111,7 +111,7 @@ function UiTab({
     );
 }
 
-function WorkflowsTab({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange: (k: string, v: string) => void }) {
+function WorkflowsTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
     return (
         <div className="space-y-6">
             <h3 className="border-b border-[#333] pb-2 text-lg font-semibold text-orange-400">Workflows</h3>
@@ -131,7 +131,7 @@ function WorkflowsTab({ dbSettings, onChange }: { dbSettings: SettingsMap; onCha
     );
 }
 
-function AiJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange: (k: string, v: string) => void }) {
+function AiJobSection({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
     return (
         <div className="space-y-4 rounded-lg border border-[#333] bg-[#242424] p-4">
             <div>
@@ -163,7 +163,7 @@ function AiJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onCha
     );
 }
 
-function ClusterJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange: (k: string, v: string) => void }) {
+function ClusterJobSection({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
     const faceMatchingMode = (dbSettings.job_face_matching_mode || 'balanced') as FaceMatchingMode;
 
     return (
@@ -192,7 +192,7 @@ function ClusterJobSection({ dbSettings, onChange }: { dbSettings: SettingsMap; 
     );
 }
 
-function JobsTab({ dbSettings, onChange }: { dbSettings: SettingsMap; onChange: (k: string, v: string) => void }) {
+function JobsTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
     return (
         <div className="space-y-8">
             <div><h3 className="mb-4 border-b border-[#333] pb-2 text-lg font-semibold text-purple-400">Workflow: library_ai_metadata_v1</h3><AiJobSection dbSettings={dbSettings} onChange={onChange} /></div>
@@ -265,8 +265,8 @@ function SettingsSidebar({
     activeTab,
     onChange,
 }: {
-    activeTab: Tab;
-    onChange: (tab: Tab) => void;
+    readonly activeTab: Tab;
+    readonly onChange: (tab: Tab) => void;
 }) {
     return (
         <div className="flex w-64 flex-col border-r border-[#333] bg-[#111] py-4">
@@ -288,15 +288,15 @@ function SettingsContent({
     aiMode,
     setAiMode,
 }: {
-    activeTab: Tab;
-    dbSettings: SettingsMap;
-    onDbChange: (k: string, v: string) => void;
-    theme: string;
-    setTheme: (v: string) => void;
-    animationsEnabled: boolean;
-    setAnimationsEnabled: (v: boolean) => void;
-    aiMode: AiMode;
-    setAiMode: (mode: AiMode) => void;
+    readonly activeTab: Tab;
+    readonly dbSettings: SettingsMap;
+    readonly onDbChange: (k: string, v: string) => void;
+    readonly theme: string;
+    readonly setTheme: (v: string) => void;
+    readonly animationsEnabled: boolean;
+    readonly setAnimationsEnabled: (v: boolean) => void;
+    readonly aiMode: AiMode;
+    readonly setAiMode: (mode: AiMode) => void;
 }) {
     if (activeTab === 'system') {
         return <SystemTab dbSettings={dbSettings} onChange={onDbChange} />;
@@ -327,9 +327,9 @@ function SettingsFooter({
     saveStatus,
     onSave,
 }: {
-    activeTab: Tab;
-    saveStatus: string | null;
-    onSave: () => void;
+    readonly activeTab: Tab;
+    readonly saveStatus: string | null;
+    readonly onSave: () => void;
 }) {
     if (activeTab === 'ui') {
         return null;

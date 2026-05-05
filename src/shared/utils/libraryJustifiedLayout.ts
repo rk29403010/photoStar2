@@ -1,11 +1,11 @@
-export interface JustifiedLayoutSourceItem {
+export type JustifiedLayoutSourceItem = {
     id: string;
     index?: number;
     width?: number;
     height?: number;
 }
 
-export interface JustifiedLayoutItem {
+export type JustifiedLayoutItem = {
     id: string;
     index: number;
     width: number;
@@ -13,7 +13,7 @@ export interface JustifiedLayoutItem {
     aspectRatio: number;
 }
 
-export interface JustifiedLayoutRow {
+export type JustifiedLayoutRow = {
     items: JustifiedLayoutItem[];
     height: number;
     width: number;
@@ -21,7 +21,7 @@ export interface JustifiedLayoutRow {
     isFinalRow: boolean;
 }
 
-export interface BuildJustifiedLayoutRowsOptions {
+export type BuildJustifiedLayoutRowsOptions = {
     containerWidth: number;
     gap?: number;
     targetRowHeight?: number;

@@ -8,7 +8,7 @@ export type AppConnectionOverlayState = {
   tone: 'warning' | 'info';
 };
 
-export function ErrorBanner({ error }: { error: string }) {
+export function ErrorBanner({ error }: { readonly error: string }) {
   return (
     <div style={{ background: 'rgba(255, 68, 68, 0.1)', borderBottom: '1px solid #ff4444', color: '#ff4444', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '500', zIndex: 100 }}>
       <span>{error}</span>
@@ -21,8 +21,8 @@ function TaskDrawerStatusButton({
   jobCount,
   onRestore,
 }: {
-  jobCount: number;
-  onRestore: () => void;
+  readonly jobCount: number;
+  readonly onRestore: () => void;
 }) {
   if (jobCount <= 0) {
     return null;
@@ -54,10 +54,10 @@ export function AppStatusRightSlot({
   onRestoreTaskDrawer,
   devRuntimeImpact,
 }: {
-  isTaskDrawerMinimized: boolean;
-  activeOverlayJobCount: number;
-  onRestoreTaskDrawer: () => void;
-  devRuntimeImpact: DevRuntimeImpact | null;
+  readonly isTaskDrawerMinimized: boolean;
+  readonly activeOverlayJobCount: number;
+  readonly onRestoreTaskDrawer: () => void;
+  readonly devRuntimeImpact: DevRuntimeImpact | null;
 }) {
   const visibleJobCount = isTaskDrawerMinimized ? activeOverlayJobCount : 0;
   const indicator = getDevRuntimeImpactIndicator(devRuntimeImpact);
@@ -98,10 +98,10 @@ function ConnectionOverlay({
   message,
   tone,
 }: {
-  title: string;
-  status: string;
-  message: string;
-  tone: 'warning' | 'info';
+  readonly title: string;
+  readonly status: string;
+  readonly message: string;
+  readonly tone: 'warning' | 'info';
 }) {
   const accentColor = tone === 'warning' ? '#fca5a5' : '#93c5fd';
   const borderColor = tone === 'warning' ? 'rgba(248, 113, 113, 0.4)' : 'rgba(96, 165, 250, 0.35)';
@@ -121,8 +121,8 @@ export function ConnectionOverlayLayer({
   connectionOverlay,
   status,
 }: {
-  connectionOverlay: AppConnectionOverlayState | null;
-  status: string;
+  readonly connectionOverlay: AppConnectionOverlayState | null;
+  readonly status: string;
 }) {
   if (!connectionOverlay) {
     return null;

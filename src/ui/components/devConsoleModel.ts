@@ -1,6 +1,6 @@
 export type ConsoleEntryLevel = 'log' | 'warn' | 'error' | 'info';
 
-export interface UnreadConsoleCounts {
+export type UnreadConsoleCounts = {
     warnings: number;
     errors: number;
 }

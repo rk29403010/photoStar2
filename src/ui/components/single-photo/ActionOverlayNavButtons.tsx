@@ -48,13 +48,13 @@ const navButtonInnerStyle = (isImageTransitionPending: boolean): React.CSSProper
 });
 
 function NavButton(props: {
-    label: string;
-    side: 'left' | 'right';
-    enabled: boolean;
-    controlsVisible: boolean;
-    isImageTransitionPending: boolean;
-    showInfoPanel: boolean;
-    onClick: () => void;
+    readonly label: string;
+    readonly side: 'left' | 'right';
+    readonly enabled: boolean;
+    readonly controlsVisible: boolean;
+    readonly isImageTransitionPending: boolean;
+    readonly showInfoPanel: boolean;
+    readonly onClick: () => void;
 }) {
     const { label, side, enabled, controlsVisible, isImageTransitionPending, showInfoPanel, onClick } = props;
     const sidePosition = side === 'left'
@@ -88,13 +88,13 @@ function NavButton(props: {
 }
 
 export const NavButtons: React.FC<{
-    currentIndex: number;
-    assetsLength: number;
-    onPrevious: () => void;
-    onNext: () => void;
-    controlsVisible: boolean;
-    showInfoPanel: boolean;
-    isImageTransitionPending: boolean;
+    readonly currentIndex: number;
+    readonly assetsLength: number;
+    readonly onPrevious: () => void;
+    readonly onNext: () => void;
+    readonly controlsVisible: boolean;
+    readonly showInfoPanel: boolean;
+    readonly isImageTransitionPending: boolean;
 }> = ({ currentIndex, assetsLength, onPrevious, onNext, controlsVisible, showInfoPanel, isImageTransitionPending }) => (
     <>
         <NavButton label="◀" side="left" enabled={currentIndex > 0} controlsVisible={controlsVisible} isImageTransitionPending={isImageTransitionPending} showInfoPanel={showInfoPanel} onClick={onPrevious} />

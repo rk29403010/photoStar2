@@ -4,31 +4,31 @@ import { getNextZoomScale } from './zoomMath';
 import { DEFAULT_INFO_PANEL_WIDTH, getTopBarStyle } from './singlePhotoOverlayLayout';
 import { getAnalysisStatusContainerStyle } from './singlePhotoAnalysisStatus';
 
-interface TopBarProps {
-    asset: Asset;
-    assetsLength: number;
-    currentIndex: number;
-    showActionMenu: boolean;
-    setShowActionMenu: (show: boolean) => void;
-    persistentAnalysisStatus: React.ReactNode;
-    actionMenu: React.ReactNode;
-    onClose: () => void;
-    controlsVisible: boolean;
-    showInfoPanel: boolean;
-    getOverlayVisibilityStyle: (controlsVisible: boolean) => React.CSSProperties;
+type TopBarProps = {
+    readonly asset: Asset;
+    readonly assetsLength: number;
+    readonly currentIndex: number;
+    readonly showActionMenu: boolean;
+    readonly setShowActionMenu: (show: boolean) => void;
+    readonly persistentAnalysisStatus: React.ReactNode;
+    readonly actionMenu: React.ReactNode;
+    readonly onClose: () => void;
+    readonly controlsVisible: boolean;
+    readonly showInfoPanel: boolean;
+    readonly getOverlayVisibilityStyle: (controlsVisible: boolean) => React.CSSProperties;
 }
 
-interface ZoomBarProps {
-    scale: number;
-    setScale: (scale: number) => void;
-    setPan: (pan: { x: number; y: number }) => void;
-    resetPanZoom: () => void;
-    showFaces: boolean;
-    setShowFaces: (show: boolean) => void;
-    showInfoPanel: boolean;
-    setShowInfoPanel: (show: boolean) => void;
-    controlsVisible: boolean;
-    getOverlayVisibilityStyle: (controlsVisible: boolean) => React.CSSProperties;
+type ZoomBarProps = {
+    readonly scale: number;
+    readonly setScale: (scale: number) => void;
+    readonly setPan: (pan: { x: number; y: number }) => void;
+    readonly resetPanZoom: () => void;
+    readonly showFaces: boolean;
+    readonly setShowFaces: (show: boolean) => void;
+    readonly showInfoPanel: boolean;
+    readonly setShowInfoPanel: (show: boolean) => void;
+    readonly controlsVisible: boolean;
+    readonly getOverlayVisibilityStyle: (controlsVisible: boolean) => React.CSSProperties;
 }
 
 const zoomButtonStyle: React.CSSProperties = {

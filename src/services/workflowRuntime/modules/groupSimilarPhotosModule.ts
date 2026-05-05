@@ -13,7 +13,7 @@ import {
     buildVariantGroupingGraph,
 } from './grouping/groupingQueries';
 
-export interface GroupSimilarPhotosModuleOptions {
+export type GroupSimilarPhotosModuleOptions = {
     dbManager: DatabaseManager;
 }
 

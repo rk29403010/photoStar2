@@ -3,7 +3,7 @@ import type { DomainEvent } from '../../events/types';
 import { resolvePeopleAssignments } from '../../faces/peopleResolution';
 import type { ModuleDefinition } from '../contracts';
 
-export interface ResolvePeopleModuleOptions {
+export type ResolvePeopleModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: DomainEvent) => void;

@@ -2,20 +2,20 @@ import type { ReactNode } from 'react';
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 
-interface LibraryToolbarProps {
-    sortMode: LibrarySortMode;
-    onSortModeChange: (mode: LibrarySortMode) => void;
-    layoutMode: GalleryLayoutMode;
-    onLayoutModeChange: (mode: GalleryLayoutMode) => void;
-    selectedTag: string;
-    availableTags: string[];
-    onTagChange: (tag: string) => void;
-    groupSimilarPhotos: boolean;
-    onGroupSimilarPhotosChange: (enabled: boolean) => void;
-    showGroupIds: boolean;
-    onShowGroupIdsChange: (enabled: boolean) => void;
-    showInfoPanel: boolean;
-    onShowInfoPanelChange: (show: boolean) => void;
+type LibraryToolbarProps = {
+    readonly sortMode: LibrarySortMode;
+    readonly onSortModeChange: (mode: LibrarySortMode) => void;
+    readonly layoutMode: GalleryLayoutMode;
+    readonly onLayoutModeChange: (mode: GalleryLayoutMode) => void;
+    readonly selectedTag: string;
+    readonly availableTags: string[];
+    readonly onTagChange: (tag: string) => void;
+    readonly groupSimilarPhotos: boolean;
+    readonly onGroupSimilarPhotosChange: (enabled: boolean) => void;
+    readonly showGroupIds: boolean;
+    readonly onShowGroupIdsChange: (enabled: boolean) => void;
+    readonly showInfoPanel: boolean;
+    readonly onShowInfoPanelChange: (show: boolean) => void;
 }
 
 function getToggleButtonStyle(active: boolean, colors: { activeBackground: string; activeColor: string; activeBorder: string }) {
@@ -37,10 +37,10 @@ function ToggleButton({
     onClick,
     colors,
 }: {
-    label: string;
-    active: boolean;
-    onClick: () => void;
-    colors: { activeBackground: string; activeColor: string; activeBorder: string };
+    readonly label: string;
+    readonly active: boolean;
+    readonly onClick: () => void;
+    readonly colors: { activeBackground: string; activeColor: string; activeBorder: string };
 }) {
     return (
         <button type="button" aria-pressed={active} onClick={onClick} style={getToggleButtonStyle(active, colors)}>
@@ -56,11 +56,11 @@ function ToolbarSelect<T extends string>({
     onChange,
     children,
 }: {
-    label: string;
-    ariaLabel: string;
-    value: T;
-    onChange: (value: T) => void;
-    children: ReactNode;
+    readonly label: string;
+    readonly ariaLabel: string;
+    readonly value: T;
+    readonly onChange: (value: T) => void;
+    readonly children: ReactNode;
 }) {
     return (
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>

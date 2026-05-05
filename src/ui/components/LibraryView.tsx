@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type MutableRefObject, type UIEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject, type UIEvent } from 'react';
 import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
@@ -28,56 +28,56 @@ import type { GalleryTimeSection, GalleryTimeSectionMode } from './layout/galler
 import type { TimelineGalleryStateSlice } from '@ui/hooks/useTimelineGalleryState';
 import { usePersistedState } from '../hooks/usePersistedState';
 
-export interface LibraryViewProps {
-    stats: LibraryStats | null;
-    timelineGallery: TimelineGalleryStateSlice;
-    assets: Asset[];
-    galleryTimelineSeek: GalleryTimelineSeek | null;
-    isSeekingTimeline: boolean;
-    availableTags?: string[];
-    loading: boolean;
-    isRefreshingLibrary: boolean;
-    active: boolean;
-    backendReady: boolean;
-    backendStatus: string;
-    hasMoreAssets?: boolean;
-    isLoadingMoreAssets?: boolean;
-    onLoadMoreAssets?: () => Promise<void>;
-    onLoadTimelineGroupPage?: (groupId: string) => void;
-    onRequestTimelineJumpTarget?: (groupId: string) => void;
-    onTimelineVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-    onGalleryDataModeChange: (mode: LibraryGalleryDataMode) => void;
-    onGalleryOrderChange: (order: GalleryOrder) => void;
-    onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
-    onAssetClick?: (id: string) => void;
-    selectedAssetId?: string | null;
-    activeFilter?: LibraryFilter;
-    onTagFilterChange: (tag: string) => void;
-    showFaces?: boolean;
-    onUntagAsset?: (assetId: string, personId: string) => void;
-    librarySelection?: LibrarySelectionState;
-    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
-    showInfoPanel: boolean;
-    onShowInfoPanelChange: (show: boolean) => void;
-    activeInfoTab: InfoTab;
-    onActiveInfoTabChange: (tab: InfoTab) => void;
-    groupSimilarPhotos: boolean;
-    onGroupSimilarPhotosChange: (enabled: boolean) => void;
-    showGroupIds: boolean;
-    onShowGroupIdsChange: (enabled: boolean) => void;
-    declusteredAssets?: Set<string>;
-    showRejected?: boolean;
-    rejectedAssets?: Asset[];
-    onHoverAssetChange?: (asset: Asset | null) => void;
-    onEnsureAssetDetails?: (assetId: string) => void;
-    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
-    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
-    onSetReviewItemStatus?: (payload: {
+export type LibraryViewProps = {
+    readonly stats: LibraryStats | null;
+    readonly timelineGallery: TimelineGalleryStateSlice;
+    readonly assets: Asset[];
+    readonly galleryTimelineSeek: GalleryTimelineSeek | null;
+    readonly isSeekingTimeline: boolean;
+    readonly availableTags?: string[];
+    readonly loading: boolean;
+    readonly isRefreshingLibrary: boolean;
+    readonly active: boolean;
+    readonly backendReady: boolean;
+    readonly backendStatus: string;
+    readonly hasMoreAssets?: boolean;
+    readonly isLoadingMoreAssets?: boolean;
+    readonly onLoadMoreAssets?: () => Promise<void>;
+    readonly onLoadTimelineGroupPage?: (groupId: string) => void;
+    readonly onRequestTimelineJumpTarget?: (groupId: string) => void;
+    readonly onTimelineVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+    readonly onGalleryDataModeChange: (mode: LibraryGalleryDataMode) => void;
+    readonly onGalleryOrderChange: (order: GalleryOrder) => void;
+    readonly onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
+    readonly onAssetClick?: (id: string) => void;
+    readonly selectedAssetId?: string | null;
+    readonly activeFilter?: LibraryFilter;
+    readonly onTagFilterChange: (tag: string) => void;
+    readonly showFaces?: boolean;
+    readonly onUntagAsset?: (assetId: string, personId: string) => void;
+    readonly librarySelection?: LibrarySelectionState;
+    readonly onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    readonly showInfoPanel: boolean;
+    readonly onShowInfoPanelChange: (show: boolean) => void;
+    readonly activeInfoTab: InfoTab;
+    readonly onActiveInfoTabChange: (tab: InfoTab) => void;
+    readonly groupSimilarPhotos: boolean;
+    readonly onGroupSimilarPhotosChange: (enabled: boolean) => void;
+    readonly showGroupIds: boolean;
+    readonly onShowGroupIdsChange: (enabled: boolean) => void;
+    readonly declusteredAssets?: Set<string>;
+    readonly showRejected?: boolean;
+    readonly rejectedAssets?: Asset[];
+    readonly onHoverAssetChange?: (asset: Asset | null) => void;
+    readonly onEnsureAssetDetails?: (assetId: string) => void;
+    readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    readonly onSetReviewItemStatus?: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
     }) => Promise<void>;
-    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
 const EMPTY_LIBRARY_SELECTION = createEmptyLibrarySelectionState();
@@ -194,7 +194,7 @@ function useLibrarySortController(params: {
     onGalleryDataModeChange: (mode: LibraryGalleryDataMode) => void;
     onGalleryOrderChange: (order: GalleryOrder) => void;
     onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
-    scrollRef: MutableRefObject<HTMLDivElement | null>;
+    scrollRef: RefObject<HTMLDivElement | null>;
 }) {
     const [sortMode, setSortMode] = usePersistedState<LibrarySortMode>('ps_library_sort_mode', 'date');
     const { active, groupSimilarPhotos, onGalleryDataModeChange, onGalleryOrderChange, onGalleryTimelineSeek, scrollRef } = params;
@@ -220,7 +220,7 @@ function useLibrarySortController(params: {
 }
 
 function useLibraryPaging(params: {
-    scrollRef: MutableRefObject<HTMLDivElement | null>;
+    scrollRef: RefObject<HTMLDivElement | null>;
     active: boolean;
     isSeekingTimeline: boolean;
     displayAssetCount: number;

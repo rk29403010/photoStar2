@@ -18,23 +18,23 @@ import type { AppActionHandlers, ConnectionUiState } from './appShellModel';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import type { TimelineGroupId } from '@contracts/core';
 
-interface LoadedAppShellProps {
-    photoLibrary: ReturnType<typeof usePhotoLibrary>;
-    handlers: AppActionHandlers;
-    aiMode: ReturnType<typeof useAppUiState>['aiMode'];
-    setAiMode: ReturnType<typeof useAppUiState>['setAiMode'];
-    handleExtractAiMetadata: (assetId?: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
-    getWorkflowRunDetail: (runId: string) => Promise<WorkflowRunDetailResponse>;
-    totalPhotoCount: number;
-    activeOverlayJobs: BackgroundJob[];
-    handleOverlayStopJob: (job: BackgroundJob) => void;
-    connectionUiState: ConnectionUiState;
-    groupDiagnosticsReport: GroupDiagnosticsReport | null;
-    isLoadingGroupDiagnostics: boolean;
-    onOpenGroupDiagnostics: () => void;
-    onRefreshGroupDiagnostics: () => void;
-    handleFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
-    uiState: ReturnType<typeof useAppUiState>;
+type LoadedAppShellProps = {
+    readonly photoLibrary: ReturnType<typeof usePhotoLibrary>;
+    readonly handlers: AppActionHandlers;
+    readonly aiMode: ReturnType<typeof useAppUiState>['aiMode'];
+    readonly setAiMode: ReturnType<typeof useAppUiState>['setAiMode'];
+    readonly handleExtractAiMetadata: (assetId?: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    readonly getWorkflowRunDetail: (runId: string) => Promise<WorkflowRunDetailResponse>;
+    readonly totalPhotoCount: number;
+    readonly activeOverlayJobs: BackgroundJob[];
+    readonly handleOverlayStopJob: (job: BackgroundJob) => void;
+    readonly connectionUiState: ConnectionUiState;
+    readonly groupDiagnosticsReport: GroupDiagnosticsReport | null;
+    readonly isLoadingGroupDiagnostics: boolean;
+    readonly onOpenGroupDiagnostics: () => void;
+    readonly onRefreshGroupDiagnostics: () => void;
+    readonly handleFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly uiState: ReturnType<typeof useAppUiState>;
 }
 
 function getTrackedActivityMessage(activeOverlayJobs: BackgroundJob[]): string | null {

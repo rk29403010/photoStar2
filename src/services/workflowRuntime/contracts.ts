@@ -6,28 +6,28 @@ export type CapabilityClass =
     | 'mutate_library'
     | 'external_api';
 
-export interface SubjectSummaryDefinition {
+export type SubjectSummaryDefinition = {
     titleField: string;
     subtitleField?: string;
     thumbnailStrategy?: 'asset' | 'none';
 }
 
-export interface SubjectUiDefinition {
+export type SubjectUiDefinition = {
     badges?: string[];
     detailSections: string[];
 }
 
-export interface SubjectRelationDefinition {
+export type SubjectRelationDefinition = {
     type: string;
     target: string;
 }
 
-export interface SubjectLabelDefinition {
+export type SubjectLabelDefinition = {
     singular: string;
     plural: string;
 }
 
-export interface SubjectTypeDefinition {
+export type SubjectTypeDefinition = {
     id: string;
     version: number;
     durable: boolean;
@@ -38,7 +38,7 @@ export interface SubjectTypeDefinition {
     labels?: SubjectLabelDefinition;
 }
 
-export interface WorkflowModuleNodeDefinition {
+export type WorkflowModuleNodeDefinition = {
     id: string;
     kind: 'module';
     moduleId: string;
@@ -48,7 +48,7 @@ export interface WorkflowModuleNodeDefinition {
     presentation?: WorkflowNodePresentationDefinition;
 }
 
-export interface WorkflowControlNodeDefinition {
+export type WorkflowControlNodeDefinition = {
     id: string;
     kind: 'control';
     controlType: 'for_each' | 'batch' | 'collect' | 'approval_gate';
@@ -60,35 +60,35 @@ export type WorkflowNodeDefinition = WorkflowModuleNodeDefinition | WorkflowCont
 
 export type WorkflowParameterValueType = 'string' | 'boolean' | 'enum';
 
-export interface WorkflowParameterDefinition {
+export type WorkflowParameterDefinition = {
     id: string;
     valueType: WorkflowParameterValueType;
     required: boolean;
     options?: string[];
 }
 
-export interface WorkflowMilestoneDefinition {
+export type WorkflowMilestoneDefinition = {
     id: string;
     label: string;
 }
 
-export interface WorkflowCountNounDefinition {
+export type WorkflowCountNounDefinition = {
     singular: string;
     plural: string;
 }
 
-export interface WorkflowNodePresentationDefinition {
+export type WorkflowNodePresentationDefinition = {
     label?: string;
     countNoun?: WorkflowCountNounDefinition;
     artifactNoun?: WorkflowCountNounDefinition;
 }
 
-export interface WorkflowPresentationDefinition {
+export type WorkflowPresentationDefinition = {
     defaultRunLabel: string;
     milestones: WorkflowMilestoneDefinition[];
 }
 
-export interface ModuleArtifactOutputDefinition {
+export type ModuleArtifactOutputDefinition = {
     kind: 'artifact';
     artifactType: string;
     subjectType: string;
@@ -96,7 +96,7 @@ export interface ModuleArtifactOutputDefinition {
 
 export type ModuleOutputDefinition = ModuleArtifactOutputDefinition;
 
-export interface RuntimeModuleContext {
+export type RuntimeModuleContext = {
     runId: string;
     subject: {
         subjectType: string;
@@ -109,7 +109,7 @@ export interface RuntimeModuleContext {
     parameters: Record<string, unknown>;
 }
 
-export interface RuntimeModuleRunResult {
+export type RuntimeModuleRunResult = {
     outputs: ModuleOutputDefinition[];
     emittedSubjects?: Array<{
         subjectType: string;
@@ -117,7 +117,7 @@ export interface RuntimeModuleRunResult {
     }>;
 }
 
-export interface ModuleDefinition {
+export type ModuleDefinition = {
     id: string;
     version: number;
     capability: CapabilityClass;
@@ -126,7 +126,7 @@ export interface ModuleDefinition {
     run: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult> | RuntimeModuleRunResult;
 }
 
-export interface WorkflowDefinition {
+export type WorkflowDefinition = {
     id: string;
     version: number;
     inputs: string[];

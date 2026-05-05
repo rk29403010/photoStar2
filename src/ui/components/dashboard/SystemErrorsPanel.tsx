@@ -32,9 +32,9 @@ function getRangeLabel(total: number, currentPage: number, pageSize: number) {
 }
 
 const ErrorsHeader: React.FC<{
-    modules: JobErrorModuleSummary[];
-    moduleFilter: string | null;
-    onModuleFilterChange: (moduleId: string | null) => void;
+    readonly modules: JobErrorModuleSummary[];
+    readonly moduleFilter: string | null;
+    readonly onModuleFilterChange: (moduleId: string | null) => void;
 }> = ({ modules, moduleFilter, onModuleFilterChange }) => (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -58,15 +58,15 @@ const ErrorsHeader: React.FC<{
     </div>
 );
 
-function ErrorMeta({ item }: { item: JobErrorListItem }) {
+function ErrorMeta({ item }: { readonly item: JobErrorListItem }) {
     const meta = [item.jobId, item.task, item.stage].filter(Boolean).join(' • ');
     if (!meta) {return null;}
     return <div className="mt-1 text-[11px] text-gray-500">{meta}</div>;
 }
 
 const ErrorsTable: React.FC<{
-    items: JobErrorListItem[];
-    loading?: boolean;
+    readonly items: JobErrorListItem[];
+    readonly loading?: boolean;
 }> = ({ items, loading }) => (
     <div className="overflow-hidden rounded-lg border border-gray-800/70">
         <table className="min-w-full divide-y divide-gray-800 text-left">
@@ -110,10 +110,10 @@ const ErrorsTable: React.FC<{
 );
 
 const ErrorsPagination: React.FC<{
-    total: number;
-    currentPage: number;
-    pageSize: number;
-    onPageChange: (page: number) => void;
+    readonly total: number;
+    readonly currentPage: number;
+    readonly pageSize: number;
+    readonly onPageChange: (page: number) => void;
 }> = ({ total, currentPage, pageSize, onPageChange }) => {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const canPrev = currentPage > 1;
@@ -156,11 +156,11 @@ function getSnapshotValues(snapshot: JobErrorSnapshot | null) {
 }
 
 export const SystemErrorsPanel: React.FC<{
-    snapshot: JobErrorSnapshot | null;
-    loading?: boolean;
-    moduleFilter: string | null;
-    onModuleFilterChange: (moduleId: string | null) => void;
-    onPageChange: (page: number) => void;
+    readonly snapshot: JobErrorSnapshot | null;
+    readonly loading?: boolean;
+    readonly moduleFilter: string | null;
+    readonly onModuleFilterChange: (moduleId: string | null) => void;
+    readonly onPageChange: (page: number) => void;
 }> = ({ snapshot, loading, moduleFilter, onModuleFilterChange, onPageChange }) => {
     const { modules, items, currentPage, pageSize, total } = getSnapshotValues(snapshot);
 

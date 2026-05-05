@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
 
-interface ReviewsViewProps {
-    active: boolean;
-    listReviewItems: (payload: {
+type ReviewsViewProps = {
+    readonly active: boolean;
+    readonly listReviewItems: (payload: {
         status?: ReviewItemSummary['status'];
         reviewItemType?: ReviewItemSummary['reviewItemType'];
         subjectType?: string;
         subjectId?: string;
     }) => Promise<ReviewItemSummary[]>;
-    listAvailableTags: () => Promise<TagDefinitionSummary[]>;
-    setReviewItemStatus: (payload: {
+    readonly listAvailableTags: () => Promise<TagDefinitionSummary[]>;
+    readonly setReviewItemStatus: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
@@ -57,9 +57,9 @@ function useReviewInboxData(props: ReviewsViewProps) {
 }
 
 function ReviewRow(props: {
-    reviewItem: ReviewItemSummary;
-    availableTags: TagDefinitionSummary[];
-    onDecide: (payload: { reviewItemId: string; status: ReviewItemSummary['status']; tagLabel?: string }) => Promise<void>;
+    readonly reviewItem: ReviewItemSummary;
+    readonly availableTags: TagDefinitionSummary[];
+    readonly onDecide: (payload: { reviewItemId: string; status: ReviewItemSummary['status']; tagLabel?: string }) => Promise<void>;
 }) {
     const proposedLabel = getProposedLabel(props.reviewItem);
     const [tagLabel, setTagLabel] = useState(proposedLabel);

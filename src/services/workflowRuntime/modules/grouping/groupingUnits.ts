@@ -14,7 +14,7 @@ type GroupingAssetRow = {
     dhash64: string;
 };
 
-export interface SimilarityGroupingUnit {
+export type SimilarityGroupingUnit = {
     unitId: string;
     sourceGroupId: string | null;
     representativeAssetId: string;

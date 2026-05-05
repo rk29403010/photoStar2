@@ -1,6 +1,6 @@
 import type { DevRuntimeImpact } from '@contracts/devRuntime';
 
-export interface DevRuntimeImpactIndicator {
+export type DevRuntimeImpactIndicator = {
     tone: 'info' | 'warning' | 'error';
     shortLabel: string;
     title: string;

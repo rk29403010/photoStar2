@@ -10,7 +10,7 @@ type PhotoLibraryActions = {
     refreshLibrary: (options?: { preservePagingState?: boolean }) => void;
 };
 
-interface UsePhotoBinActionsParams {
+type UsePhotoBinActionsParams = {
     actions: PhotoLibraryActions;
     assets: Asset[];
     librarySelection: LibrarySelectionState;

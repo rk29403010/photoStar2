@@ -1,4 +1,4 @@
-export function MediaStatusBadge({ state }: { state: "processing" | "warning" | "error" }) {
+export function MediaStatusBadge({ state }: { readonly state: "processing" | "warning" | "error" }) {
     const map: Record<string, string> = {
         processing: "bg-blue-500",
         warning: "bg-yellow-500",

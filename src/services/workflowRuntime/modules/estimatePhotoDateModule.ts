@@ -14,7 +14,7 @@ type EstimatePhotoDateRow = {
     embedded_metadata_data: string | null;
 };
 
-export interface EstimatePhotoDateModuleOptions {
+export type EstimatePhotoDateModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: { type: 'AssetUpdated'; assetId: string }) => void;

@@ -19,7 +19,7 @@ function getInitialCorrectedDate(asset: Asset): string {
     ?? '';
 }
 
-function SignalList({ asset }: { asset: Asset }) {
+function SignalList({ asset }: { readonly asset: Asset }) {
   const diagnostics = buildPhotoDateDiagnosticsSummary(asset);
   if (diagnostics.confidenceLabel == null && diagnostics.signals.length === 0) {
     return null;
@@ -51,12 +51,12 @@ function SignalList({ asset }: { asset: Asset }) {
   );
 }
 
-function StatusMessage({ message }: { message: string | null }) {
+function StatusMessage({ message }: { readonly message: string | null }) {
   if (!message) {return null;}
   return <div style={{ marginTop: 10, fontSize: 12, color: '#93c5fd', lineHeight: 1.5 }}>{message}</div>;
 }
 
-function StartReviewButton({ onStart }: { onStart: () => void }) {
+function StartReviewButton({ onStart }: { readonly onStart: () => void }) {
   return (
     <button onClick={onStart} style={{ marginTop: 10, padding: '7px 10px', background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(96,165,250,0.35)', borderRadius: 8, color: '#dbeafe', cursor: 'pointer', fontSize: 12 }}>
       Flag Wrong Date
@@ -65,15 +65,15 @@ function StartReviewButton({ onStart }: { onStart: () => void }) {
 }
 
 type CorrectionFormProps = {
-  correctedDate: string;
-  isSaving: boolean;
-  note: string;
-  onCancel: () => void;
-  onCorrectedDateChange: (value: string) => void;
-  onNoteChange: (value: string) => void;
-  onReasonCodeChange: (value: PhotoDateReviewReasonCode) => void;
-  onSave: () => void;
-  reasonCode: PhotoDateReviewReasonCode;
+  readonly correctedDate: string;
+  readonly isSaving: boolean;
+  readonly note: string;
+  readonly onCancel: () => void;
+  readonly onCorrectedDateChange: (value: string) => void;
+  readonly onNoteChange: (value: string) => void;
+  readonly onReasonCodeChange: (value: PhotoDateReviewReasonCode) => void;
+  readonly onSave: () => void;
+  readonly reasonCode: PhotoDateReviewReasonCode;
 };
 
 function CorrectionForm({
@@ -120,8 +120,8 @@ function CorrectionForm({
 }
 
 export const PhotoDateReviewSection: React.FC<{
-  asset: Asset;
-  onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly asset: Asset;
+  readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }> = ({ asset, onFlagPhotoDateCorrection }) => {
   const initialDate = useMemo(() => getInitialCorrectedDate(asset), [asset]);
   const [isEditing, setIsEditing] = useState(false);

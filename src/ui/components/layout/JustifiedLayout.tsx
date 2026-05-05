@@ -2,15 +2,15 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } 
 import { Virtuoso } from 'react-virtuoso';
 import { buildJustifiedLayoutRows } from '@shared/utils/libraryJustifiedLayout';
 
-interface JustifiedLayoutProps {
-    items: Array<{ id: string; index: number; width?: number; height?: number }>;
-    scrollContainerRef?: RefObject<HTMLDivElement | null>;
-    gap?: number;
-    rowGap?: number;
-    targetRowHeight?: number;
-    maxRowHeight?: number;
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    renderTile: (index: number, size: { width: number; height: number }) => ReactNode;
+type JustifiedLayoutProps = {
+    readonly items: Array<{ id: string; index: number; width?: number; height?: number }>;
+    readonly scrollContainerRef?: RefObject<HTMLDivElement | null>;
+    readonly gap?: number;
+    readonly rowGap?: number;
+    readonly targetRowHeight?: number;
+    readonly maxRowHeight?: number;
+    readonly onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    readonly renderTile: (index: number, size: { width: number; height: number }) => ReactNode;
 }
 
 function renderLayoutRow(

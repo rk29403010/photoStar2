@@ -6,7 +6,7 @@ export type ReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'dismissed'
 
 export type ReviewItemType = 'tag_proposal' | 'group_merge' | 'sensitivity_override_candidate';
 
-export interface TagDefinition {
+export type TagDefinition = {
     id: string;
     canonicalLabel: string;
     description?: string | null;
@@ -16,14 +16,14 @@ export interface TagDefinition {
     updatedAt: string;
 }
 
-export interface TagAlias {
+export type TagAlias = {
     id: string;
     tagDefinitionId: string;
     aliasLabel: string;
     createdAt: string;
 }
 
-export interface AssetTagAssignment {
+export type AssetTagAssignment = {
     assetId: string;
     tagDefinitionId: string;
     sourceKind: TagAssignmentSourceKind;
@@ -33,7 +33,7 @@ export interface AssetTagAssignment {
     updatedAt: string;
 }
 
-export interface ReviewItem {
+export type ReviewItem = {
     id: string;
     reviewItemType: ReviewItemType;
     subjectType: string;

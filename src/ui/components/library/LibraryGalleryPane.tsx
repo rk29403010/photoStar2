@@ -8,8 +8,8 @@ import { LayoutEngine } from '../layout/LayoutEngine';
 import type { GalleryTimeSection, GalleryTimeSectionMode } from '../layout/galleryTimeSections';
 import type { TimelineJumpRequest } from './libraryTimelineJump';
 
-interface LibraryGalleryPaneProps {
-    layout: {
+type LibraryGalleryPaneProps = {
+    readonly layout: {
         items: LibrarySelectableItem[];
         onAssetClick?: (id: string) => void;
         selectedAssetId?: string | null;
@@ -34,7 +34,7 @@ interface LibraryGalleryPaneProps {
         timeSectionMode?: GalleryTimeSectionMode;
         timelineJumpRequest?: TimelineJumpRequest | null;
     };
-    rejected: {
+    readonly rejected: {
         showRejected?: boolean;
         rejectedAssets?: Asset[];
         onAssetClick?: (id: string) => void;

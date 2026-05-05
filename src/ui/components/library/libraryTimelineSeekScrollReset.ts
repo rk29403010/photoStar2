@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import type { GalleryTimelineSeek } from '@contracts/core';
 
 function getTimelineSeekKey(galleryTimelineSeek: GalleryTimelineSeek | null) {
@@ -12,7 +12,7 @@ function getTimelineSeekKey(galleryTimelineSeek: GalleryTimelineSeek | null) {
 }
 
 export function useTimelineSeekScrollReset(
-    scrollRef: MutableRefObject<HTMLDivElement | null>,
+    scrollRef: RefObject<HTMLDivElement | null>,
     galleryTimelineSeek: GalleryTimelineSeek | null,
     isSeekingTimeline: boolean,
 ) {

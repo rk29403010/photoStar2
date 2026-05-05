@@ -1,7 +1,7 @@
 import type { DatabaseManager } from '../data/db';
 import type { EventBus } from './events/bus';
 
-interface WorkerContext {
+type WorkerContext = {
     dbManager: DatabaseManager;
     eventBus: EventBus;
 }

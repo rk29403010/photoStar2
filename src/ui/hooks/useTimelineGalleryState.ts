@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { TimelineGalleryPage, TimelineGroupId, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
 
-export interface TimelineGalleryStateSlice {
+export type TimelineGalleryStateSlice = {
     groupSummaries: TimelineGroupSummary[];
     loadedPagesByGroupId: Partial<Record<TimelineGroupId, TimelineGalleryPage>>;
     loadingByGroupId: Partial<Record<TimelineGroupId, boolean>>;

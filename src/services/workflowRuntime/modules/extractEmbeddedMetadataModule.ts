@@ -4,7 +4,7 @@ import { getFileStats } from '../../file-utils';
 import { persistAssetEmbeddedMetadata } from '../../embeddedMetadata';
 import type { ModuleDefinition } from '../contracts';
 
-export interface ExtractEmbeddedMetadataModuleOptions {
+export type ExtractEmbeddedMetadataModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: AssetUpdated) => void;

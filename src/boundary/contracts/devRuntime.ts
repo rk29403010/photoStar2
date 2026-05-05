@@ -1,4 +1,4 @@
-export interface DevRuntimeImpact {
+export type DevRuntimeImpact = {
     level: 'none' | 'hmr' | 'auto-restart' | 'manual-restart' | 'reinstall';
     summary: string;
     requiresManualRestart: boolean;

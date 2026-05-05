@@ -1,11 +1,11 @@
 import type React from 'react';
 
-interface TopBarProps {
-    view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-    setView: (view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics') => void;
-    onOpenActions: () => void;
-    onOpenSettings: () => void;
-    showSettings: boolean;
+type TopBarProps = {
+    readonly view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+    readonly setView: (view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics') => void;
+    readonly onOpenActions: () => void;
+    readonly onOpenSettings: () => void;
+    readonly showSettings: boolean;
 }
 
 type ViewType = TopBarProps['view'];
@@ -17,7 +17,7 @@ function formatViewLabel(view: ViewType) {
 function Icon({
     path,
 }: {
-    path: string;
+    readonly path: string;
 }) {
     return (
         <svg aria-hidden="true" viewBox="0 -960 960 960" className="h-4 w-4 fill-current">
@@ -31,9 +31,9 @@ function ViewButton({
     current,
     setView,
 }: {
-    view: ViewType;
-    current: ViewType;
-    setView: (view: ViewType) => void;
+    readonly view: ViewType;
+    readonly current: ViewType;
+    readonly setView: (view: ViewType) => void;
 }) {
     const selected = current === view;
     return (
@@ -57,10 +57,10 @@ function UtilityButton({
     iconPath,
     onClick,
 }: {
-    label: string;
-    active: boolean;
-    iconPath: string;
-    onClick: () => void;
+    readonly label: string;
+    readonly active: boolean;
+    readonly iconPath: string;
+    readonly onClick: () => void;
 }) {
     return (
         <button

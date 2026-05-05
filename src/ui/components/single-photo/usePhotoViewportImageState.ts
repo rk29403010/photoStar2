@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MutableRefObject } from 'react';
+import type { RefObject } from 'react';
 import type { Asset } from '@contracts/core';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import {
@@ -77,8 +77,8 @@ function requestViewportImageTransition(params: {
     transitionKey: string;
     setPendingAsset: (asset: Asset | null) => void;
     setPendingImageSrc: (imageSrc: string | null) => void;
-    pendingImageRequestedAtRef: MutableRefObject<number | null>;
-    lastRequestedTransitionKeyRef: MutableRefObject<string | null>;
+    pendingImageRequestedAtRef: RefObject<number | null>;
+    lastRequestedTransitionKeyRef: RefObject<string | null>;
 }) {
     params.setPendingAsset(params.asset);
     params.setPendingImageSrc(params.requestedImageSrc);
@@ -93,14 +93,14 @@ function commitRequestedViewportImage(params: {
     pendingAsset: Asset;
     pendingImageSrc: string | null;
     isActiveImageReady: boolean;
-    pendingImageRequestedAtRef: MutableRefObject<number | null>;
-    activeImageCommittedAtRef: MutableRefObject<number | null>;
+    pendingImageRequestedAtRef: RefObject<number | null>;
+    activeImageCommittedAtRef: RefObject<number | null>;
     setActiveAsset: (asset: Asset | null) => void;
     setActiveImageSrc: (imageSrc: string | null) => void;
     setPendingAsset: (asset: Asset | null) => void;
     setPendingImageSrc: (imageSrc: string | null) => void;
     setIsActiveImageReady: (ready: boolean) => void;
-    lastRequestedTransitionKeyRef: MutableRefObject<string | null>;
+    lastRequestedTransitionKeyRef: RefObject<string | null>;
 }) {
     params.activeImageCommittedAtRef.current = performance.now();
     params.lastRequestedTransitionKeyRef.current = null;
@@ -136,8 +136,8 @@ type ViewportRequestedImageEffectParams = {
     setPendingAsset: (asset: Asset | null) => void;
     setPendingImageSrc: (imageSrc: string | null) => void;
     setIsActiveImageReady: (ready: boolean) => void;
-    pendingImageRequestedAtRef: MutableRefObject<number | null>;
-    lastRequestedTransitionKeyRef: MutableRefObject<string | null>;
+    pendingImageRequestedAtRef: RefObject<number | null>;
+    lastRequestedTransitionKeyRef: RefObject<string | null>;
 };
 
 type ViewportRequestedImageEffectAction = {

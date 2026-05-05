@@ -8,7 +8,7 @@ export type PhotoDateReviewReasonCode =
     | 'ai_wrong_metadata_right'
     | 'manual_family_knowledge';
 
-export interface PhotoDateCorrectionInput {
+export type PhotoDateCorrectionInput = {
     assetId: string;
     correctedDate: string;
     reasonCode: PhotoDateReviewReasonCode;

@@ -9,10 +9,10 @@ type DiagnosticsMembership = DiagnosticsAsset['groups'][number];
 export type CopyTarget = string;
 
 function DiagnosticsThumbnail(props: {
-    alt: string;
-    label: string;
-    previewPath: string | null;
-    size?: number;
+    readonly alt: string;
+    readonly label: string;
+    readonly previewPath: string | null;
+    readonly size?: number;
 }) {
     const size = props.size ?? 44;
     const imageUrl = resolveImageUrl(props.previewPath);
@@ -53,9 +53,9 @@ function DiagnosticsThumbnail(props: {
 }
 
 function DiagnosticsMembershipChip(props: {
-    currentGroupId: string;
-    membership: DiagnosticsMembership;
-    onJumpToGroup: (groupId: string) => void;
+    readonly currentGroupId: string;
+    readonly membership: DiagnosticsMembership;
+    readonly onJumpToGroup: (groupId: string) => void;
 }) {
     const { currentGroupId, membership, onJumpToGroup } = props;
     const isParentLink = membership.groupId !== currentGroupId;
@@ -102,12 +102,12 @@ function DiagnosticsMembershipChip(props: {
 }
 
 function CopyIconButton(props: {
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    label: string;
-    onCopy: (target: CopyTarget, value: string) => void;
-    target: CopyTarget;
-    value: string;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly label: string;
+    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly target: CopyTarget;
+    readonly value: string;
 }) {
     const { copiedTarget, copyingTarget, label, onCopy, target, value } = props;
     const isCopied = copiedTarget === target;
@@ -144,12 +144,12 @@ function CopyIconButton(props: {
 }
 
 function GroupLabelWithCopy(props: {
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    groupId: string;
-    groupType: string;
-    onCopy: (target: CopyTarget, value: string) => void;
-    prefix?: string;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly groupId: string;
+    readonly groupType: string;
+    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly prefix?: string;
 }) {
     const { copiedTarget, copyingTarget, groupId, groupType, onCopy, prefix = 'Group' } = props;
 
@@ -171,11 +171,11 @@ function GroupLabelWithCopy(props: {
 }
 
 function GroupDiagnosticsHeader(props: {
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    group: DiagnosticsGroup;
-    onCopy: (target: CopyTarget, value: string) => void;
-    onToggle: () => void;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly group: DiagnosticsGroup;
+    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly onToggle: () => void;
 }) {
     const { copiedTarget, copyingTarget, group, onCopy, onToggle } = props;
 
@@ -234,10 +234,10 @@ function GroupDiagnosticsHeader(props: {
 }
 
 function ChildGroupRow(props: {
-    child: DiagnosticsChildGroup;
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    onCopy: (target: CopyTarget, value: string) => void;
+    readonly child: DiagnosticsChildGroup;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly onCopy: (target: CopyTarget, value: string) => void;
 }) {
     const { child, copiedTarget, copyingTarget, onCopy } = props;
 
@@ -294,13 +294,13 @@ function ChildGroupRow(props: {
 }
 
 function AssetMembershipRow(props: {
-    asset: DiagnosticsAsset;
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    onAssetClick?: (id: string) => void;
-    onCopy: (target: CopyTarget, value: string) => void;
-    onJumpToGroup: (groupId: string) => void;
-    parentGroupId: string;
+    readonly asset: DiagnosticsAsset;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly onAssetClick?: (id: string) => void;
+    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly onJumpToGroup: (groupId: string) => void;
+    readonly parentGroupId: string;
 }) {
     const {
         asset,
@@ -380,15 +380,15 @@ function AssetMembershipRow(props: {
 }
 
 export function GroupDiagnosticsRow(props: {
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    expanded: boolean;
-    group: DiagnosticsGroup;
-    onAssetClick?: (id: string) => void;
-    onCopy: (target: CopyTarget, value: string) => void;
-    onJumpToGroup: (groupId: string) => void;
-    onToggle: () => void;
-    registerGroupElement: (groupId: string, element: HTMLDivElement | null) => void;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly expanded: boolean;
+    readonly group: DiagnosticsGroup;
+    readonly onAssetClick?: (id: string) => void;
+    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly onJumpToGroup: (groupId: string) => void;
+    readonly onToggle: () => void;
+    readonly registerGroupElement: (groupId: string, element: HTMLDivElement | null) => void;
 }) {
     const {
         copiedTarget,

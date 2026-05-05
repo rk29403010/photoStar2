@@ -4,8 +4,8 @@ export function ProgressBarSoft({
     percent,
     indeterminate,
 }: {
-    percent?: number;
-    indeterminate?: boolean;
+    readonly percent?: number;
+    readonly indeterminate?: boolean;
 }) {
     return (
         <div className="h-2 w-full overflow-hidden rounded bg-slate-800">

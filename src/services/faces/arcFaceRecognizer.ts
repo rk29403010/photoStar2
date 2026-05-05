@@ -12,7 +12,7 @@ const PIXEL_SCALE = 128;
 const PIXEL_OFFSET = 127.5;
 const BOX_EXPANSION_FACTOR = 1.3;
 
-export interface FaceEmbeddingService {
+export type FaceEmbeddingService = {
     isAvailable(): boolean;
     getModelPath(): string | null;
     computeEmbedding(imagePath: string, box: number[]): Promise<number[] | null>;

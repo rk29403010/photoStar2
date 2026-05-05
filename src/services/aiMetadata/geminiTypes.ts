@@ -11,7 +11,7 @@ export type GeminiResponse = PhotoMetadataBlock & {
     _pending_pro?: boolean;
 };
 
-export interface ParsedAiMetadataRow {
+export type ParsedAiMetadataRow = {
     id: string;
     original_path: string;
     width: number | null;
@@ -20,7 +20,7 @@ export interface ParsedAiMetadataRow {
     sensitivity_score: number | null;
 }
 
-export interface StoredAiMetadataResult {
+export type StoredAiMetadataResult = {
     provider: string;
     modelVersion: string;
     data: Record<string, unknown>;

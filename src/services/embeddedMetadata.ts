@@ -27,7 +27,7 @@ type TimestampCandidate = {
     value: string;
 };
 
-export interface EmbeddedMetadataPayload {
+export type EmbeddedMetadataPayload = {
     schema_version: 1;
     file: {
         path: string;
@@ -80,7 +80,7 @@ type BuildEmbeddedMetadataPayloadParams = {
     parsedExif: ParsedExifData | null;
 };
 
-export interface AssetMetadataSnapshot {
+export type AssetMetadataSnapshot = {
     width: number | null;
     height: number | null;
     embeddedMetadata: EmbeddedMetadataPayload;

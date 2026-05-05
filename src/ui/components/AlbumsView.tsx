@@ -3,14 +3,14 @@ import { resolveImageUrl } from '@boundary/runtime/backend';
 import type { Album } from '@contracts/core';
 import { isSystemAlbum, sortAlbumsForDisplay } from './albums/albumsViewModel';
 
-interface AlbumsViewProps {
-    onOpenAlbum: (albumId: string, albumTitle: string) => void;
-    getAlbums: () => Promise<Album[]>;
-    createAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
-    deleteAlbum: (albumId: string) => Promise<void>;
+type AlbumsViewProps = {
+    readonly onOpenAlbum: (albumId: string, albumTitle: string) => void;
+    readonly getAlbums: () => Promise<Album[]>;
+    readonly createAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
+    readonly deleteAlbum: (albumId: string) => Promise<void>;
 }
 
-interface AlbumCreationState {
+type AlbumCreationState = {
     title: string;
     description: string;
 }
@@ -23,12 +23,12 @@ function CreateAlbumForm({
     onCreate,
     onCancel
 }: {
-    title: string;
-    description: string;
-    setTitle: (v: string) => void;
-    setDescription: (v: string) => void;
-    onCreate: (e: React.FormEvent) => void;
-    onCancel: () => void;
+    readonly title: string;
+    readonly description: string;
+    readonly setTitle: (v: string) => void;
+    readonly setDescription: (v: string) => void;
+    readonly onCreate: (e: React.FormEvent) => void;
+    readonly onCancel: () => void;
 }) {
     return (
         <div style={{ background: '#1f2937', padding: 20, borderRadius: 8, marginBottom: 20 }}>
@@ -56,7 +56,7 @@ function CreateAlbumForm({
     );
 }
 
-function AlbumsHeader({ onCreate }: { onCreate: () => void }) {
+function AlbumsHeader({ onCreate }: { readonly onCreate: () => void }) {
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h2>Albums</h2>
@@ -75,9 +75,9 @@ function AlbumCard({
     onOpenAlbum,
     onDelete
 }: {
-    album: Album;
-    onOpenAlbum: (albumId: string, albumTitle: string) => void;
-    onDelete: (e: React.MouseEvent, id: string, title: string) => void;
+    readonly album: Album;
+    readonly onOpenAlbum: (albumId: string, albumTitle: string) => void;
+    readonly onDelete: (e: React.MouseEvent, id: string, title: string) => void;
 }) {
     const coverUrl = resolveImageUrl(album.cover_preview_path);
     return (
@@ -135,10 +135,10 @@ function AlbumsContent({
     onOpenAlbum,
     onDelete
 }: {
-    loading: boolean;
-    albums: Album[];
-    onOpenAlbum: (albumId: string, albumTitle: string) => void;
-    onDelete: (e: React.MouseEvent, id: string, title: string) => void;
+    readonly loading: boolean;
+    readonly albums: Album[];
+    readonly onOpenAlbum: (albumId: string, albumTitle: string) => void;
+    readonly onDelete: (e: React.MouseEvent, id: string, title: string) => void;
 }) {
     const sortedAlbums = sortAlbumsForDisplay(albums);
 

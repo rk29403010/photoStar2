@@ -5,7 +5,7 @@ import { resolveImageUrl } from '@boundary/runtime/backend';
 import { LIBRARY_SELECTION_FRAME_COLOR } from '@shared/utils/librarySelectionVisuals';
 import { TileOverlays, type SensitivityBadge } from './TileOverlays';
 
-interface TileProps {
+type TileProps = {
     asset: Asset;
     intent?: TileIntent;
     debug?: boolean;
@@ -23,7 +23,7 @@ interface TileProps {
     isScrollSettled?: boolean;
 }
 
-interface TileMediaProps {
+type TileMediaProps = {
     imgSrc: string | null;
     loadingMode: 'eager' | 'lazy';
     fetchPriority: 'high' | 'auto';

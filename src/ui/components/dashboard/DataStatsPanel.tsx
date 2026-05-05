@@ -9,7 +9,7 @@ function formatPercent(value: number): string {
     return `${Math.round(value)}%`;
 }
 
-function MetricCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
+function MetricCard({ title, value, hint }: { readonly title: string; readonly value: string; readonly hint?: string }) {
     return (
         <div className="rounded-xl border border-gray-800 bg-[#111111] p-4">
             <div className="text-[10px] uppercase tracking-widest text-gray-400">{title}</div>
@@ -41,7 +41,7 @@ function getEmptyStats(): DataStatsSnapshot {
     };
 }
 
-export const DataStatsPanel: React.FC<{ stats: DataStatsSnapshot | null; loading?: boolean }> = ({ stats, loading }) => {
+export const DataStatsPanel: React.FC<{ readonly stats: DataStatsSnapshot | null; readonly loading?: boolean }> = ({ stats, loading }) => {
     if (!stats && !loading) {
         return (
             <div className="rounded-xl border border-gray-800 bg-[#111111] p-6 text-gray-300">

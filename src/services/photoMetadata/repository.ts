@@ -25,12 +25,12 @@ type DbHandle = ReturnType<DatabaseManager['getDb']>;
 type JsonValue = unknown;
 type EstimatedDateFieldPath = 'estimated_date.most_likely_date' | 'estimated_date.min_date' | 'estimated_date.max_date';
 
-export interface PhotoMetadataFieldSource {
+export type PhotoMetadataFieldSource = {
     sourceKind: string;
     sourceId: string;
 }
 
-export interface PhotoMetadataProjectionInput {
+export type PhotoMetadataProjectionInput = {
     assetId: string;
     type: string | null;
     caption: string | null;
@@ -60,7 +60,7 @@ export interface PhotoMetadataProjectionInput {
     };
 }
 
-export interface InsertMetadataBlockParams {
+export type InsertMetadataBlockParams = {
     assetId: string;
     sourceKind: string;
     provider: string;
@@ -70,7 +70,7 @@ export interface InsertMetadataBlockParams {
     id?: string;
 }
 
-export interface InsertManualAssertionParams {
+export type InsertManualAssertionParams = {
     assetId: string;
     fieldPath: string;
     value: JsonValue;
@@ -79,7 +79,7 @@ export interface InsertManualAssertionParams {
     id?: string;
 }
 
-export interface PhotoMetadataBlockRow {
+export type PhotoMetadataBlockRow = {
     id: string;
     asset_id: string;
     source_kind: string;
@@ -90,7 +90,7 @@ export interface PhotoMetadataBlockRow {
     created_at: string;
 }
 
-export interface PhotoMetadataAssertionRow {
+export type PhotoMetadataAssertionRow = {
     id: string;
     asset_id: string;
     field_path: string;
@@ -100,7 +100,7 @@ export interface PhotoMetadataAssertionRow {
     created_at: string;
 }
 
-export interface PhotoMetadataProjectionRow {
+export type PhotoMetadataProjectionRow = {
     asset_id: string;
     type: string | null;
     type_source_kind: string | null;

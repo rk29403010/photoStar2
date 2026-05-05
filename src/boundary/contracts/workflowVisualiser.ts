@@ -1,6 +1,6 @@
 import type { WorkflowRunListItem } from './jobs';
 
-export interface WorkflowVisualiserFailedSubject {
+export type WorkflowVisualiserFailedSubject = {
     subjectType: string;
     subjectId: string;
     label: string;
@@ -9,46 +9,46 @@ export interface WorkflowVisualiserFailedSubject {
 
 export type WorkflowVisualiserStatus = 'idle' | 'running' | 'completed' | 'failed';
 
-export interface WorkflowVisualiserCountNoun {
+export type WorkflowVisualiserCountNoun = {
     singular: string;
     plural: string;
 }
 
-export interface WorkflowVisualiserCounts {
+export type WorkflowVisualiserCounts = {
     totalItems: number;
     completedItems: number;
     failedItems: number;
 }
 
-export interface WorkflowVisualiserAggregateCount extends WorkflowVisualiserCounts {
+export type WorkflowVisualiserAggregateCount = {
     noun: WorkflowVisualiserCountNoun;
-}
+} & WorkflowVisualiserCounts
 
-export interface WorkflowVisualiserRunSummary extends WorkflowVisualiserCounts {
+export type WorkflowVisualiserRunSummary = {
     runId: string;
     workflowId: string;
     status: string;
     createdAt?: string;
     parameters: Record<string, unknown>;
     linkedRuns?: WorkflowVisualiserLinkedRun[];
-}
+} & WorkflowVisualiserCounts
 
-export interface WorkflowVisualiserLinkedRun extends WorkflowVisualiserCounts {
+export type WorkflowVisualiserLinkedRun = {
     runId: string;
     workflowId: string;
     displayName: string;
     status: string;
     createdAt?: string;
     relationship: 'recovery' | 'source';
-}
+} & WorkflowVisualiserCounts
 
-export interface WorkflowVisualiserMilestone {
+export type WorkflowVisualiserMilestone = {
     milestoneId: string;
     label: string;
     status: string;
 }
 
-export interface WorkflowVisualiserOverviewModel {
+export type WorkflowVisualiserOverviewModel = {
     summary: {
         title: string;
         description: string;
@@ -57,7 +57,7 @@ export interface WorkflowVisualiserOverviewModel {
     aggregateCounts: WorkflowVisualiserAggregateCount[];
 }
 
-export interface WorkflowVisualiserProgressionStage extends WorkflowVisualiserCounts {
+export type WorkflowVisualiserProgressionStage = {
     id: string;
     label: string;
     description: string;
@@ -65,9 +65,9 @@ export interface WorkflowVisualiserProgressionStage extends WorkflowVisualiserCo
     nodeIds: string[];
     countNoun: WorkflowVisualiserCountNoun;
     aggregateCounts: WorkflowVisualiserAggregateCount[];
-}
+} & WorkflowVisualiserCounts
 
-export interface WorkflowVisualiserGraphNode extends WorkflowVisualiserCounts {
+export type WorkflowVisualiserGraphNode = {
     id: string;
     label: string;
     kind: 'module' | 'control';
@@ -77,15 +77,15 @@ export interface WorkflowVisualiserGraphNode extends WorkflowVisualiserCounts {
     moduleId?: string;
     controlType?: string;
     countNoun: WorkflowVisualiserCountNoun;
-}
+} & WorkflowVisualiserCounts
 
-export interface WorkflowVisualiserGraphEdge {
+export type WorkflowVisualiserGraphEdge = {
     id: string;
     source: string;
     target: string;
 }
 
-export interface WorkflowVisualiserTextSection {
+export type WorkflowVisualiserTextSection = {
     id: string;
     label: string;
     items: Array<{
@@ -95,7 +95,7 @@ export interface WorkflowVisualiserTextSection {
     }>;
 }
 
-export interface WorkflowVisualiserDetail {
+export type WorkflowVisualiserDetail = {
     id: string;
     label: string;
     description: string;
@@ -110,12 +110,12 @@ export interface WorkflowVisualiserDetail {
     failedSubjects: WorkflowVisualiserFailedSubject[];
 }
 
-export interface WorkflowVisualiserWorkflowSummary {
+export type WorkflowVisualiserWorkflowSummary = {
     workflowId: string;
     displayName: string;
 }
 
-export interface WorkflowVisualiserModel {
+export type WorkflowVisualiserModel = {
     workflowId: string;
     displayName: string;
     availableWorkflows: WorkflowVisualiserWorkflowSummary[];

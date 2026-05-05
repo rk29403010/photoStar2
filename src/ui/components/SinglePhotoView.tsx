@@ -25,37 +25,37 @@ import {
     useAnalysisWorkflowFailureTracking,
 } from './single-photo/singlePhotoAnalysisState';
 
-interface SinglePhotoViewProps {
-    assets: Asset[];
-    initialIndex: number;
-    onClose: () => void;
-    onAssetFocusChange?: (assetId: string) => void;
-    onPrioritize: (mediaId: string) => void;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onMoveToBin?: (assetId: string) => Promise<void>;
-    onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
-    onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
-    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
-    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    onOpenSettings?: () => void;
-    onLoadAssetEvidence?: (assetId: string) => Promise<void>;
-    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
-    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
-    onSetReviewItemStatus?: (payload: {
+type SinglePhotoViewProps = {
+    readonly assets: Asset[];
+    readonly initialIndex: number;
+    readonly onClose: () => void;
+    readonly onAssetFocusChange?: (assetId: string) => void;
+    readonly onPrioritize: (mediaId: string) => void;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly onSetSensitivity?: (assetId: string, status: string | null) => void;
+    readonly onMoveToBin?: (assetId: string) => Promise<void>;
+    readonly onRestoreFromBin?: (assetId: string) => Promise<void>;
+    readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    readonly onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
+    readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
+    readonly onOpenSettings?: () => void;
+    readonly onLoadAssetEvidence?: (assetId: string) => Promise<void>;
+    readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    readonly onSetReviewItemStatus?: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
     }) => Promise<void>;
-    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
-    showInfoPanel?: boolean;
-    onShowInfoPanelChange?: (v: boolean) => void;
-    activeInfoTab?: 'file' | 'analysis' | 'people' | 'json';
-    onActiveInfoTabChange?: (t: 'file' | 'analysis' | 'people' | 'json') => void;
+    readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly showInfoPanel?: boolean;
+    readonly onShowInfoPanelChange?: (v: boolean) => void;
+    readonly activeInfoTab?: 'file' | 'analysis' | 'people' | 'json';
+    readonly onActiveInfoTabChange?: (t: 'file' | 'analysis' | 'people' | 'json') => void;
 }
 
 type ControlsState = {
@@ -101,7 +101,7 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
     const [showFaces, setShowFaces] = useState(false);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [hoveredFaceKey, setHoveredFaceKey] = useState<string | null>(null);
-    const controlsHideTimerRef = useRef<number | null>(null);
+    const controlsHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const clearControlsHideTimer = useCallback(() => {
         if (controlsHideTimerRef.current !== null) {
             globalThis.clearTimeout(controlsHideTimerRef.current);

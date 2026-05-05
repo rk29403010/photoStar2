@@ -7,10 +7,10 @@ import {
   type SinglePhotoPeopleItem,
 } from '../singlePhotoPeopleModel';
 
-interface PeopleTabProps {
-  asset: Asset;
-  hoveredFaceKey?: string | null;
-  onHoverFaceKey?: (key: string | null) => void;
+type PeopleTabProps = {
+  readonly asset: Asset;
+  readonly hoveredFaceKey?: string | null;
+  readonly onHoverFaceKey?: (key: string | null) => void;
 }
 
 const EmptyPeopleState: React.FC = () => (
@@ -22,9 +22,9 @@ const EmptyPeopleState: React.FC = () => (
 );
 
 const OverlayCard: React.FC<{
-  item: SinglePhotoPeopleItem;
-  hoveredFaceKey?: string | null;
-  onHoverFaceKey?: (key: string | null) => void;
+  readonly item: SinglePhotoPeopleItem;
+  readonly hoveredFaceKey?: string | null;
+  readonly onHoverFaceKey?: (key: string | null) => void;
 }> = ({ item, hoveredFaceKey, onHoverFaceKey }) => {
   const isHovered = hoveredFaceKey === item.key;
   const colors = getSinglePhotoPeopleColor(item.kind);
@@ -64,11 +64,11 @@ const OverlayCard: React.FC<{
 };
 
 const OverlaySection: React.FC<{
-  emoji: string;
-  title: string;
-  items: SinglePhotoPeopleItem[];
-  hoveredFaceKey?: string | null;
-  onHoverFaceKey?: (key: string | null) => void;
+  readonly emoji: string;
+  readonly title: string;
+  readonly items: SinglePhotoPeopleItem[];
+  readonly hoveredFaceKey?: string | null;
+  readonly onHoverFaceKey?: (key: string | null) => void;
 }> = ({ emoji, title, items, hoveredFaceKey, onHoverFaceKey }) => {
   if (items.length === 0) {
     return null;

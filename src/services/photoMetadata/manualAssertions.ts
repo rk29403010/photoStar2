@@ -16,7 +16,7 @@ type JsonValue = unknown;
 type BundleProvenance = NonNullable<PhotoMetadataBundle['provenance']>;
 type ManualSourceMap = Record<string, PhotoMetadataSourceSummary | undefined>;
 
-export interface RecordManualAssertionParams {
+export type RecordManualAssertionParams = {
     assetId: string;
     fieldPath: string;
     value: JsonValue;
@@ -24,12 +24,12 @@ export interface RecordManualAssertionParams {
     note?: string | null;
 }
 
-export interface ListManualAssertionsParams {
+export type ListManualAssertionsParams = {
     assetId: string;
     fieldPath?: string;
 }
 
-export interface ManualAssertionsService {
+export type ManualAssertionsService = {
     recordManualAssertion(params: RecordManualAssertionParams): PhotoMetadataAssertionRow;
     listManualAssertions(assetId: string, fieldPath?: string): PhotoMetadataAssertionRow[];
     getLatestManualAssertionForField(assetId: string, fieldPath: string): PhotoMetadataAssertionRow | null;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent, RefObject } from 'react';
+import type { CSSProperties, RefObject, PointerEvent as ReactPointerEvent } from 'react';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
@@ -17,68 +17,68 @@ import {
 } from '@shared/utils/librarySelectionState';
 import { buildGalleryTimeSections, type GalleryTimeSection, type GalleryTimeSectionMode } from './galleryTimeSections';
 import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
-interface LayoutEngineProps {
-    items: LibrarySelectableItem[];
-    debug?: boolean;
-    onAssetClick?: (id: string) => void;
-    selectedAssetId?: string | null;
-    activeFilter?: LibraryFilter;
-    showFaces?: boolean;
-    onUntagAsset?: (assetId: string, personId: string) => void;
-    librarySelection: LibrarySelectionState;
-    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
-    declusteredAssets?: Set<string>;
-    onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
-    showGroupIds?: boolean;
-    hoveredGroupId?: string | null;
-    onHoveredGroupIdChange?: (groupId: string | null) => void;
-    layoutMode?: GalleryLayoutMode;
-    scrollContainerRef?: RefObject<HTMLDivElement | null>;
-    showInfoPanel?: boolean;
-    isScrollSettled?: boolean;
-    targetRowHeight?: number;
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-    justifiedSections?: GalleryTimeSection[];
-    timeSectionMode?: GalleryTimeSectionMode;
-    timelineJumpRequest?: TimelineJumpRequest | null;
+type LayoutEngineProps = {
+    readonly items: LibrarySelectableItem[];
+    readonly debug?: boolean;
+    readonly onAssetClick?: (id: string) => void;
+    readonly selectedAssetId?: string | null;
+    readonly activeFilter?: LibraryFilter;
+    readonly showFaces?: boolean;
+    readonly onUntagAsset?: (assetId: string, personId: string) => void;
+    readonly librarySelection: LibrarySelectionState;
+    readonly onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    readonly declusteredAssets?: Set<string>;
+    readonly onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
+    readonly showGroupIds?: boolean;
+    readonly hoveredGroupId?: string | null;
+    readonly onHoveredGroupIdChange?: (groupId: string | null) => void;
+    readonly layoutMode?: GalleryLayoutMode;
+    readonly scrollContainerRef?: RefObject<HTMLDivElement | null>;
+    readonly showInfoPanel?: boolean;
+    readonly isScrollSettled?: boolean;
+    readonly targetRowHeight?: number;
+    readonly onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    readonly onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+    readonly justifiedSections?: GalleryTimeSection[];
+    readonly timeSectionMode?: GalleryTimeSectionMode;
+    readonly timelineJumpRequest?: TimelineJumpRequest | null;
 }
 
 type LayoutItem = { item: LibrarySelectableItem; intent: ReturnType<typeof buildGalleryTileLayout>['intent']; spanW: number; spanH: number };
 
-interface SelectionInteractionState {
-    dragSelectionRef: MutableRefObject<{ active: boolean; anchorIndex: number | null }>;
+type SelectionInteractionState = {
+    dragSelectionRef: RefObject<{ active: boolean; anchorIndex: number | null }>;
     isSelecting: boolean;
     setIsSelecting: (value: boolean) => void;
-    pressTimer: MutableRefObject<number | null>;
+    pressTimer: RefObject<ReturnType<typeof setTimeout> | null>;
     stopDragging: () => void;
 }
 
-interface LayoutTileProps {
-    layoutItem: LayoutItem;
-    index: number;
-    debug: boolean;
-    selectedAssetId?: string | null;
-    activeFilter?: LibraryFilter;
-    showFaces?: boolean;
-    onUntagAsset?: (assetId: string, personId: string) => void;
-    onAssetClick?: (id: string) => void;
-    librarySelection: LibrarySelectionState;
-    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
-    declusteredAssets?: Set<string>;
-    selectionState: SelectionInteractionState;
-    prioritizeImage: boolean;
-    onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
-    layoutItems: LayoutItem[];
-    showGroupIds?: boolean;
-    hoveredGroupId?: string | null;
-    onHoveredGroupIdChange?: (groupId: string | null) => void;
-    showInfoPanel: boolean;
-    isScrollSettled: boolean;
-    shellStyleOverride?: CSSProperties;
+type LayoutTileProps = {
+    readonly layoutItem: LayoutItem;
+    readonly index: number;
+    readonly debug: boolean;
+    readonly selectedAssetId?: string | null;
+    readonly activeFilter?: LibraryFilter;
+    readonly showFaces?: boolean;
+    readonly onUntagAsset?: (assetId: string, personId: string) => void;
+    readonly onAssetClick?: (id: string) => void;
+    readonly librarySelection: LibrarySelectionState;
+    readonly onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    readonly declusteredAssets?: Set<string>;
+    readonly selectionState: SelectionInteractionState;
+    readonly prioritizeImage: boolean;
+    readonly onHoverAssetChange?: (asset: LibrarySelectableItem['asset'] | null) => void;
+    readonly layoutItems: LayoutItem[];
+    readonly showGroupIds?: boolean;
+    readonly hoveredGroupId?: string | null;
+    readonly onHoveredGroupIdChange?: (groupId: string | null) => void;
+    readonly showInfoPanel: boolean;
+    readonly isScrollSettled: boolean;
+    readonly shellStyleOverride?: CSSProperties;
 }
 
-interface LayoutTileEventHandlers {
+type LayoutTileEventHandlers = {
     onClick: () => void;
     onDoubleClick: () => void;
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -93,7 +93,7 @@ const computeLayout = (items: LibrarySelectableItem[], layoutMode: GalleryLayout
     return { item, ...layout };
 });
 
-function clearPressTimer(pressTimer: MutableRefObject<number | null>) {
+function clearPressTimer(pressTimer: RefObject<ReturnType<typeof setTimeout> | null>) {
     if (!pressTimer.current) {return;}
     clearTimeout(pressTimer.current);
     pressTimer.current = null;
@@ -137,7 +137,7 @@ function useSelectionInteractions(
 ): SelectionInteractionState {
     const [isSelecting, setIsSelecting] = useState(false);
     const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({ active: false, anchorIndex: null });
-    const pressTimer = useRef<number | null>(null);
+    const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const stopDragging = useCallback(() => {
         dragSelectionRef.current = { ...dragSelectionRef.current, active: false };
     }, []);

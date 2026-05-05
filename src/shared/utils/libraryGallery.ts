@@ -3,7 +3,7 @@ import type { Asset } from '@contracts/core';
 export type LibrarySortMode = 'filename' | 'date' | 'reverse-date' | 'group';
 export type LibraryGalleryDataMode = 'flat' | 'grouped-timeline';
 
-export interface CurrentPhotoStatus {
+export type CurrentPhotoStatus = {
     filename: string;
     sensitivity: string;
     dimensions: string | null;

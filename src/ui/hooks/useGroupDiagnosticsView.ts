@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import type { AppView } from './useAppRuntimeUi';
 
-interface UseGroupDiagnosticsViewParams {
+type UseGroupDiagnosticsViewParams = {
     getGroupDiagnosticsReport: () => Promise<GroupDiagnosticsReport>;
     view: AppView;
 }

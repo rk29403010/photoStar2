@@ -2,19 +2,19 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { DatabaseManager } from '../../data/db';
 
-export interface SubjectRef {
+export type SubjectRef = {
     subjectType: string;
     subjectId: string;
 }
 
-export interface CreateWorkflowRunInput {
+export type CreateWorkflowRunInput = {
     workflowId: string;
     triggerType: string;
     inputSubjects: SubjectRef[];
     parameters?: Record<string, unknown>;
 }
 
-export interface RecordStepRunInput {
+export type RecordStepRunInput = {
     stepRunId?: string;
     workflowRunId: string;
     nodeId: string;
@@ -23,7 +23,7 @@ export interface RecordStepRunInput {
     errorMessage?: string;
 }
 
-export interface RecordSubjectExecutionInput {
+export type RecordSubjectExecutionInput = {
     subjectExecutionId?: string;
     workflowRunId: string;
     stepRunId: string;
@@ -32,7 +32,7 @@ export interface RecordSubjectExecutionInput {
     status: string;
 }
 
-export interface WorkflowRunSummary {
+export type WorkflowRunSummary = {
     runId: string;
     workflowId: string;
     status: string;
@@ -41,7 +41,7 @@ export interface WorkflowRunSummary {
     failedItems: number;
 }
 
-export interface WorkflowStepRunDetail {
+export type WorkflowStepRunDetail = {
     stepRunId: string;
     nodeId: string;
     status: string;
@@ -52,20 +52,20 @@ export interface WorkflowStepRunDetail {
     failedSubjects: WorkflowFailedSubject[];
 }
 
-export interface WorkflowFailedSubject {
+export type WorkflowFailedSubject = {
     subjectType: string;
     subjectId: string;
     label: string;
     originalPath?: string;
 }
 
-export interface WorkflowMilestoneState {
+export type WorkflowMilestoneState = {
     milestoneId: string;
     label: string;
     status: string;
 }
 
-export interface WorkflowRunDetail {
+export type WorkflowRunDetail = {
     summary: WorkflowRunSummary;
     parameters: Record<string, unknown>;
     milestones: WorkflowMilestoneState[];

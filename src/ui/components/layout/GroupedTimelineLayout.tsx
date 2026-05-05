@@ -8,31 +8,31 @@ import {
 
 const GROUP_HEADER_HEIGHT_PX = 46;
 
-interface GroupedTimelineLayoutProps {
-    sections: Array<{
+type GroupedTimelineLayoutProps = {
+    readonly sections: Array<{
         id: string;
         label: string | null;
         items: Array<{ id: string; index: number; width?: number; height?: number }>;
     }>;
-    scrollContainerRef?: RefObject<HTMLDivElement | null>;
-    gap?: number;
-    rowGap?: number;
-    targetRowHeight?: number;
-    maxRowHeight?: number;
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-    timelineJumpRequest?: TimelineJumpRequest | null;
-    renderTile: (index: number, size: { width: number; height: number }) => ReactNode;
+    readonly scrollContainerRef?: RefObject<HTMLDivElement | null>;
+    readonly gap?: number;
+    readonly rowGap?: number;
+    readonly targetRowHeight?: number;
+    readonly maxRowHeight?: number;
+    readonly onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    readonly onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+    readonly timelineJumpRequest?: TimelineJumpRequest | null;
+    readonly renderTile: (index: number, size: { width: number; height: number }) => ReactNode;
 }
 
-interface TimelineLayoutGroup {
+type TimelineLayoutGroup = {
     id: string;
     label: string | null;
     firstSelectionKey: string | null;
     rows: ReturnType<typeof buildJustifiedLayoutRows>;
 }
 
-interface TimelineLayoutRow {
+type TimelineLayoutRow = {
     firstSelectionKey: string | null;
     groupIndex: number;
     row: TimelineLayoutGroup['rows'][number];

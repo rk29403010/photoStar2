@@ -5,7 +5,7 @@ import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 import { startWorkflowWithOverlayJob } from '@boundary/runtime/workflowOverlayJobs';
 
-interface FaceSystemActionParams {
+type FaceSystemActionParams = {
     addJob: (id: string, stage: PipelineStage, title: string) => void;
     request: RequestFn;
     sendCommand: (command: string, payload?: Record<string, unknown>) => Promise<void>;

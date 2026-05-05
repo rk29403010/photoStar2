@@ -10,7 +10,7 @@ export type SinglePhotoPeopleKind =
     | 'remote-subject'
     | 'region-of-interest';
 
-export interface SinglePhotoPeopleColor {
+export type SinglePhotoPeopleColor = {
     border: string;
     borderHover: string;
     glowRgb: string;
@@ -26,14 +26,14 @@ export interface SinglePhotoPeopleColor {
     chipText: string;
 }
 
-export interface SinglePhotoOverlayBox {
+export type SinglePhotoOverlayBox = {
     x: number;
     y: number;
     w: number;
     h: number;
 }
 
-export interface SinglePhotoPeopleItem {
+export type SinglePhotoPeopleItem = {
     key: string;
     kind: SinglePhotoPeopleKind;
     label: string;
@@ -45,7 +45,7 @@ export interface SinglePhotoPeopleItem {
     raw: unknown;
 }
 
-export interface SinglePhotoPeopleModel {
+export type SinglePhotoPeopleModel = {
     peopleItems: SinglePhotoPeopleItem[];
     regionsOfInterest: SinglePhotoPeopleItem[];
 }

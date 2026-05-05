@@ -11,13 +11,13 @@ export type SensitivityBadge = {
     bg: string;
 };
 
-interface FaceOverlayVisuals {
+type FaceOverlayVisuals = {
     highlightColor: string;
     opacity: number;
     isFilteredPerson: boolean;
 }
 
-interface TileOverlaysProps {
+type TileOverlaysProps = {
     selected: boolean;
     sensitivityBadge: SensitivityBadge | null;
     stackCount: number | null | undefined;

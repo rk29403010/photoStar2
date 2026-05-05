@@ -1,4 +1,4 @@
-export interface SimilarityEdgeRef {
+export type SimilarityEdgeRef = {
     leftId: string;
     rightId: string;
 }

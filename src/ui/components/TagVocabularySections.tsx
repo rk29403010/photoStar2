@@ -7,9 +7,9 @@ function formatAssignmentCount(count?: number) {
 }
 
 export function VocabularyHeader(props: {
-    tagCount: number;
-    loading: boolean;
-    onRefresh: () => void;
+    readonly tagCount: number;
+    readonly loading: boolean;
+    readonly onRefresh: () => void;
 }) {
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16 }}>
@@ -26,9 +26,9 @@ export function VocabularyHeader(props: {
 }
 
 export function VocabularySearchBar(props: {
-    searchText: string;
-    errorMessage: string | null;
-    onSearchTextChange: (value: string) => void;
+    readonly searchText: string;
+    readonly errorMessage: string | null;
+    readonly onSearchTextChange: (value: string) => void;
 }) {
     return (
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -39,9 +39,9 @@ export function VocabularySearchBar(props: {
 }
 
 export function TagList(props: {
-    tags: TagDefinitionSummary[];
-    selectedTagId: string | null;
-    onSelect: (tagDefinitionId: string) => void;
+    readonly tags: TagDefinitionSummary[];
+    readonly selectedTagId: string | null;
+    readonly onSelect: (tagDefinitionId: string) => void;
 }) {
     if (props.tags.length === 0) {
         return <div style={{ border: '1px dashed rgba(148,163,184,0.2)', borderRadius: 16, padding: 20, color: '#94a3b8' }}>No tags match that search.</div>;
@@ -65,7 +65,7 @@ export function TagList(props: {
     );
 }
 
-function SelectedTagCard(props: { selectedDetail: TagDetail }) {
+function SelectedTagCard(props: { readonly selectedDetail: TagDetail }) {
     return (
         <section style={{ border: '1px solid rgba(148,163,184,0.18)', borderRadius: 16, background: 'rgba(15,23,42,0.55)', padding: 18, display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 12, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selected Tag</div>
@@ -79,10 +79,10 @@ function SelectedTagCard(props: { selectedDetail: TagDetail }) {
 }
 
 function RenameTagSection(props: {
-    renameLabel: string;
-    busyAction: BusyAction;
-    onRenameLabelChange: (value: string) => void;
-    onRename: () => void;
+    readonly renameLabel: string;
+    readonly busyAction: BusyAction;
+    readonly onRenameLabelChange: (value: string) => void;
+    readonly onRename: () => void;
 }) {
     return (
         <section style={{ border: '1px solid rgba(148,163,184,0.18)', borderRadius: 16, background: 'rgba(15,23,42,0.55)', padding: 18, display: 'grid', gap: 12 }}>
@@ -98,12 +98,12 @@ function RenameTagSection(props: {
 }
 
 function AliasSection(props: {
-    aliases: TagAliasSummary[];
-    aliasLabel: string;
-    busyAction: BusyAction;
-    onAliasLabelChange: (value: string) => void;
-    onAddAlias: () => void;
-    onDeleteAlias: (tagAliasId: string) => void;
+    readonly aliases: TagAliasSummary[];
+    readonly aliasLabel: string;
+    readonly busyAction: BusyAction;
+    readonly onAliasLabelChange: (value: string) => void;
+    readonly onAddAlias: () => void;
+    readonly onDeleteAlias: (tagAliasId: string) => void;
 }) {
     return (
         <section style={{ border: '1px solid rgba(148,163,184,0.18)', borderRadius: 16, background: 'rgba(15,23,42,0.55)', padding: 18, display: 'grid', gap: 12 }}>
@@ -129,12 +129,12 @@ function AliasSection(props: {
 }
 
 function MergeSection(props: {
-    tags: TagDefinitionSummary[];
-    selectedTagId: string;
-    mergeTargetLabel: string;
-    busyAction: BusyAction;
-    onMergeTargetLabelChange: (value: string) => void;
-    onMerge: () => void;
+    readonly tags: TagDefinitionSummary[];
+    readonly selectedTagId: string;
+    readonly mergeTargetLabel: string;
+    readonly busyAction: BusyAction;
+    readonly onMergeTargetLabelChange: (value: string) => void;
+    readonly onMerge: () => void;
 }) {
     return (
         <section style={{ border: '1px solid rgba(148,163,184,0.18)', borderRadius: 16, background: 'rgba(15,23,42,0.55)', padding: 18, display: 'grid', gap: 12 }}>
@@ -154,19 +154,19 @@ function MergeSection(props: {
 }
 
 export function TagDetailPanel(props: {
-    tags: TagDefinitionSummary[];
-    selectedDetail: TagDetail | null;
-    busyAction: BusyAction;
-    renameLabel: string;
-    aliasLabel: string;
-    mergeTargetLabel: string;
-    onRenameLabelChange: (value: string) => void;
-    onAliasLabelChange: (value: string) => void;
-    onMergeTargetLabelChange: (value: string) => void;
-    onRename: () => void;
-    onAddAlias: () => void;
-    onDeleteAlias: (tagAliasId: string) => void;
-    onMerge: () => void;
+    readonly tags: TagDefinitionSummary[];
+    readonly selectedDetail: TagDetail | null;
+    readonly busyAction: BusyAction;
+    readonly renameLabel: string;
+    readonly aliasLabel: string;
+    readonly mergeTargetLabel: string;
+    readonly onRenameLabelChange: (value: string) => void;
+    readonly onAliasLabelChange: (value: string) => void;
+    readonly onMergeTargetLabelChange: (value: string) => void;
+    readonly onRename: () => void;
+    readonly onAddAlias: () => void;
+    readonly onDeleteAlias: (tagAliasId: string) => void;
+    readonly onMerge: () => void;
 }) {
     if (!props.selectedDetail) {
         return <div style={{ border: '1px dashed rgba(148,163,184,0.2)', borderRadius: 16, padding: 24, color: '#94a3b8' }}>Select a tag to manage its canonical label, aliases, and merge target.</div>;

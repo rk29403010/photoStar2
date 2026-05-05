@@ -8,56 +8,56 @@ import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getLibraryBinAc
 
 export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
 
-interface ControlsOverlayProps {
-    asset: Asset;
-    assetsLength: number;
-    currentIndex: number;
-    showActionMenu: boolean;
-    setShowActionMenu: (show: boolean) => void;
-    showFaces: boolean;
-    setShowFaces: (show: boolean) => void;
-    isImageTransitionPending: boolean;
-    scale: number;
-    setScale: (s: number) => void;
-    setPan: (pan: { x: number, y: number }) => void;
-    resetPanZoom: () => void;
-    onClose: () => void;
-    onPrevious: () => void;
-    onNext: () => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onMoveToBin?: (assetId: string) => Promise<void>;
-    onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
-    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
-    analysisState: AnalysisUiState;
-    setAnalysisState: (state: AnalysisUiState) => void;
-    setAnalysisError: (err: string | null) => void;
-    analyzingAssetId: string | null;
-    setAnalyzingAssetId: (id: string | null) => void;
-    setAnalyzingJobId: (id: string | null) => void;
-    showInfoPanel: boolean;
-    setShowInfoPanel: (show: boolean) => void;
-    controlsVisible: boolean;
+type ControlsOverlayProps = {
+    readonly asset: Asset;
+    readonly assetsLength: number;
+    readonly currentIndex: number;
+    readonly showActionMenu: boolean;
+    readonly setShowActionMenu: (show: boolean) => void;
+    readonly showFaces: boolean;
+    readonly setShowFaces: (show: boolean) => void;
+    readonly isImageTransitionPending: boolean;
+    readonly scale: number;
+    readonly setScale: (s: number) => void;
+    readonly setPan: (pan: { x: number, y: number }) => void;
+    readonly resetPanZoom: () => void;
+    readonly onClose: () => void;
+    readonly onPrevious: () => void;
+    readonly onNext: () => void;
+    readonly onSetSensitivity?: (assetId: string, status: string | null) => void;
+    readonly onMoveToBin?: (assetId: string) => Promise<void>;
+    readonly onRestoreFromBin?: (assetId: string) => Promise<void>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
+    readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
+    readonly analysisState: AnalysisUiState;
+    readonly setAnalysisState: (state: AnalysisUiState) => void;
+    readonly setAnalysisError: (err: string | null) => void;
+    readonly analyzingAssetId: string | null;
+    readonly setAnalyzingAssetId: (id: string | null) => void;
+    readonly setAnalyzingJobId: (id: string | null) => void;
+    readonly showInfoPanel: boolean;
+    readonly setShowInfoPanel: (show: boolean) => void;
+    readonly controlsVisible: boolean;
 }
 
-interface ActionMenuProps {
-    show: boolean;
-    asset: Asset;
-    analysisState: AnalysisUiState;
-    setAnalysisState: (state: AnalysisUiState) => void;
-    setAnalysisError: (err: string | null) => void;
-    setAnalyzingAssetId: (id: string | null) => void;
-    setAnalyzingJobId: (id: string | null) => void;
-    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
-    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onMoveToBin?: (assetId: string) => Promise<void>;
-    onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    setShowActionMenu: (show: boolean) => void;
+type ActionMenuProps = {
+    readonly show: boolean;
+    readonly asset: Asset;
+    readonly analysisState: AnalysisUiState;
+    readonly setAnalysisState: (state: AnalysisUiState) => void;
+    readonly setAnalysisError: (err: string | null) => void;
+    readonly setAnalyzingAssetId: (id: string | null) => void;
+    readonly setAnalyzingJobId: (id: string | null) => void;
+    readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
+    readonly onSetSensitivity?: (assetId: string, status: string | null) => void;
+    readonly onMoveToBin?: (assetId: string) => Promise<void>;
+    readonly onRestoreFromBin?: (assetId: string) => Promise<void>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
+    readonly setShowActionMenu: (show: boolean) => void;
 }
 
 function menuHover() {
@@ -231,11 +231,11 @@ function MenuItem({
     icon,
     onClick,
 }: {
-    color: string;
-    active: boolean;
-    label: string;
-    icon: string;
-    onClick: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+    readonly color: string;
+    readonly active: boolean;
+    readonly label: string;
+    readonly icon: string;
+    readonly onClick: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
 }) {
     return (
         <button onClick={onClick} style={menuItemStyle(color, active)} onMouseOver={menuHover()} onMouseOut={menuOut}>

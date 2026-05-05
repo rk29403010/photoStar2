@@ -1,7 +1,7 @@
 import type { Asset, AssetTag, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 
-export interface AssetTagContext {
+export type AssetTagContext = {
     tags: AssetTag[];
     pendingReviewItems: ReviewItemSummary[];
 }

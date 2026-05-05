@@ -11,13 +11,13 @@ import {
     isVariantStarred,
 } from './variantFilmstripModel';
 
-interface VariantFilmstripProps {
-    groupId: string;
-    selectedAsset: Asset;
-    onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
-    onOrbitLoaded: (assets: Asset[]) => void;
-    onSelectAsset: (assetId: string) => void;
-    onActiveGroupChange?: (groupId: string) => void;
+type VariantFilmstripProps = {
+    readonly groupId: string;
+    readonly selectedAsset: Asset;
+    readonly onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onOrbitLoaded: (assets: Asset[]) => void;
+    readonly onSelectAsset: (assetId: string) => void;
+    readonly onActiveGroupChange?: (groupId: string) => void;
 }
 
 function useOrbit(groupId: string, onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>, onOrbitLoaded: (assets: Asset[]) => void) {
@@ -84,7 +84,7 @@ function getVariantTileStyle(isSelected: boolean) {
     } as const;
 }
 
-function StarIndicator({ isStarred }: { isStarred: boolean }) {
+function StarIndicator({ isStarred }: { readonly isStarred: boolean }) {
     return (
         <div
             aria-hidden
@@ -111,7 +111,7 @@ function StarIndicator({ isStarred }: { isStarred: boolean }) {
     );
 }
 
-function GroupBadge({ item }: { item: SimilarityOrbitItem }) {
+function GroupBadge({ item }: { readonly item: SimilarityOrbitItem }) {
     if (item.kind !== 'group') {
         return null;
     }
@@ -134,7 +134,7 @@ function GroupBadge({ item }: { item: SimilarityOrbitItem }) {
     );
 }
 
-function TileFooter({ item }: { item: SimilarityOrbitItem }) {
+function TileFooter({ item }: { readonly item: SimilarityOrbitItem }) {
     return (
         <div style={{
             padding: '4px 6px 5px',
@@ -153,10 +153,10 @@ function TileFooter({ item }: { item: SimilarityOrbitItem }) {
 }
 
 function VariantMemberTile(props: {
-    item: SimilarityOrbitItem;
-    selectedAsset: Asset;
-    onSelectAsset: (assetId: string) => void;
-    onOpenGroup: (groupId: string) => void;
+    readonly item: SimilarityOrbitItem;
+    readonly selectedAsset: Asset;
+    readonly onSelectAsset: (assetId: string) => void;
+    readonly onOpenGroup: (groupId: string) => void;
 }) {
     const { item, selectedAsset, onSelectAsset, onOpenGroup } = props;
     const imgSrc = resolveImageUrl(item.asset.preview_path ?? item.asset.original_path) || '';
@@ -211,8 +211,8 @@ function FilmStripSprockets() {
 }
 
 function OrbitHeader(props: {
-    orbit: SimilarityOrbit;
-    onOpenParent: (groupId: string) => void;
+    readonly orbit: SimilarityOrbit;
+    readonly onOpenParent: (groupId: string) => void;
 }) {
     const { orbit, onOpenParent } = props;
 
@@ -277,13 +277,13 @@ export const VariantFilmstrip: React.FC<VariantFilmstripProps> = ({
 };
 
 function VariantFilmstripOrbit(props: {
-    activeGroupId: string;
-    selectedAsset: Asset;
-    onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
-    onOrbitLoaded: (assets: Asset[]) => void;
-    onSelectAsset: (assetId: string) => void;
-    onActiveGroupChange?: (groupId: string) => void;
-    onOpenGroup: (groupId: string) => void;
+    readonly activeGroupId: string;
+    readonly selectedAsset: Asset;
+    readonly onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onOrbitLoaded: (assets: Asset[]) => void;
+    readonly onSelectAsset: (assetId: string) => void;
+    readonly onActiveGroupChange?: (groupId: string) => void;
+    readonly onOpenGroup: (groupId: string) => void;
 }) {
     const { orbit, loading } = useOrbit(props.activeGroupId, props.onGetGroupOrbit, props.onOrbitLoaded);
     const lastReportedGroupIdRef = useRef<string | null>(null);

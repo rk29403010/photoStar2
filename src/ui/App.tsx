@@ -28,7 +28,7 @@ import {
     type AppActionHandlers,
 } from './components/app/appShellModel';
 
-interface UseAppActionHandlersParams {
+type UseAppActionHandlersParams = {
     assets: ReturnType<typeof usePhotoLibrary>['assets'];
     filterStack: LibraryFilter[];
     showRejected: boolean;
@@ -45,7 +45,7 @@ interface UseAppActionHandlersParams {
     setShowSettings: (show: boolean) => void;
 }
 
-interface UseLibraryFilterHandlersParams {
+type UseLibraryFilterHandlersParams = {
     filterStack: LibraryFilter[];
     showRejected: boolean;
     setShowRejected: (showRejected: boolean | ((prev: boolean) => boolean)) => void;
@@ -59,7 +59,7 @@ interface UseLibraryFilterHandlersParams {
     setSelectedAssetId: (assetId: string | null) => void;
 }
 
-interface UseLibraryFilterStateResetParams {
+type UseLibraryFilterStateResetParams = {
     actions: ReturnType<typeof usePhotoLibrary>['actions'];
     declusteredAssets: Set<string>;
     filterStack: LibraryFilter[];

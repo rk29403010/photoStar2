@@ -6,14 +6,14 @@ import {
     type SinglePhotoPeopleItem,
 } from './singlePhotoPeopleModel';
 
-interface FaceOverlayMapProps {
-    asset: Asset;
-    showFaces: boolean;
-    alwaysShowForPanel?: boolean;
-    hoveredFaceKey?: string | null;
-    onHoverFaceKey?: (key: string | null) => void;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
+type FaceOverlayMapProps = {
+    readonly asset: Asset;
+    readonly showFaces: boolean;
+    readonly alwaysShowForPanel?: boolean;
+    readonly hoveredFaceKey?: string | null;
+    readonly onHoverFaceKey?: (key: string | null) => void;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
 }
 
 function getItemLabelOpacity(isHovered: boolean, showFaces: boolean): number {
@@ -54,9 +54,9 @@ function handleResolvedFaceClick(
 }
 
 const IsolateFaceButton: React.FC<{
-    assetId: string;
-    item: SinglePhotoPeopleItem;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly assetId: string;
+    readonly item: SinglePhotoPeopleItem;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
 }> = ({ assetId, item, onIsolateFace }) => {
     const faceIndex = getFaceIndex(item);
     const face = getFaceRecord(item);
@@ -94,13 +94,13 @@ const IsolateFaceButton: React.FC<{
 };
 
 const OverlayBox: React.FC<{
-    asset: Asset;
-    item: SinglePhotoPeopleItem;
-    hoveredFaceKey?: string | null;
-    onHoverFaceKey?: (key: string | null) => void;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
-    showFaces: boolean;
+    readonly asset: Asset;
+    readonly item: SinglePhotoPeopleItem;
+    readonly hoveredFaceKey?: string | null;
+    readonly onHoverFaceKey?: (key: string | null) => void;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly showFaces: boolean;
 }> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, onFaceClick, onIsolateFace, showFaces }) => {
     const isHovered = hoveredFaceKey === item.key;
     const colors = getSinglePhotoPeopleColor(item.kind);

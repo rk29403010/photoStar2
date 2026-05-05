@@ -1,12 +1,12 @@
 import type { PhotoMetadataAssertionRow, PhotoMetadataBlockRow } from './repository';
 import { normalizeIsoDateOrNull } from './validation';
 
-export interface PhotoDateTimestampCandidate {
+export type PhotoDateTimestampCandidate = {
     source: string;
     value: string;
 }
 
-export interface PhotoDateSummary {
+export type PhotoDateSummary = {
     most_likely_date: string | null;
     min_date: string | null;
     max_date: string | null;
@@ -14,12 +14,12 @@ export interface PhotoDateSummary {
     rationale: string | null;
 }
 
-export interface PhotoDateEvidenceMetadata {
+export type PhotoDateEvidenceMetadata = {
     machineBlocks?: PhotoMetadataBlockRow[];
     manualAssertions?: PhotoMetadataAssertionRow[];
 }
 
-export interface ResolvePhotoDateEvidenceParams {
+export type ResolvePhotoDateEvidenceParams = {
     originalPath: string;
     fileBirthtime?: string | null;
     embeddedMetadata?: Record<string, unknown> | null;
@@ -27,14 +27,14 @@ export interface ResolvePhotoDateEvidenceParams {
     metadataEvidence?: PhotoDateEvidenceMetadata | null;
 }
 
-export interface ResolvedPhotoDateEvidence {
+export type ResolvedPhotoDateEvidence = {
     originalPath: string;
     fileBirthtime?: string | null;
     embeddedMetadata?: Record<string, unknown> | null;
     aiMetadata?: Record<string, unknown> | null;
 }
 
-interface PhotoDateSummaryParts {
+type PhotoDateSummaryParts = {
     most_likely_date: string | null;
     min_date: string | null;
     max_date: string | null;

@@ -16,7 +16,7 @@ const CONNECTION_UNAVAILABLE_STATUS_PREFIXES = [
     'Backend service failed to start',
 ] as const;
 
-export interface AppActionHandlers {
+export type AppActionHandlers = {
     shownAssetsCount: number;
     resetLibraryUi: () => void;
     handleViewChange: (next: ReturnType<typeof useAppUiState>['view']) => void;
@@ -41,7 +41,7 @@ export interface AppActionHandlers {
     handleOpenSettingsFromPhoto: () => void;
 }
 
-export interface ConnectionUiState {
+export type ConnectionUiState = {
     backendReady: boolean;
     shellStyle: {
         display: 'flex';

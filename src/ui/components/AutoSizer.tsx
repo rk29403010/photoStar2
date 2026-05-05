@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 
-interface AutoSizerProps {
-    children: (size: { height: number; width: number }) => ReactNode;
+type AutoSizerProps = {
+    readonly children: (size: { height: number; width: number }) => ReactNode;
 }
 
 export default function AutoSizer({ children }: AutoSizerProps) {

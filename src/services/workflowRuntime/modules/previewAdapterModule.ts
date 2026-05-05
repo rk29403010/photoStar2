@@ -1,6 +1,6 @@
 import type { ModuleDefinition, RuntimeModuleContext } from '../contracts';
 
-export interface PreviewAdapterModuleOptions {
+export type PreviewAdapterModuleOptions = {
     runPreview?: (mediaIds: string[], context: RuntimeModuleContext) => Promise<void>;
 }
 

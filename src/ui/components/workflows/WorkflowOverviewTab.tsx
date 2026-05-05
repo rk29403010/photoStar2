@@ -6,9 +6,9 @@ import type {
     WorkflowVisualiserRunSummary,
 } from '@contracts/workflowVisualiser';
 
-interface WorkflowOverviewTabProps {
-    overview: WorkflowVisualiserOverviewModel;
-    selectedRun: WorkflowVisualiserRunSummary | null;
+type WorkflowOverviewTabProps = {
+    readonly overview: WorkflowVisualiserOverviewModel;
+    readonly selectedRun: WorkflowVisualiserRunSummary | null;
 }
 
 function formatAggregateCount(entry: WorkflowVisualiserAggregateCount): string {

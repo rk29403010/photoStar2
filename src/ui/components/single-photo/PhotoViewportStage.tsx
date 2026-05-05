@@ -56,9 +56,9 @@ function getStageStyle(params: {
 }
 
 const StageImage: FC<{
-    src: string;
-    alt: string;
-    onLoad: () => void;
+    readonly src: string;
+    readonly alt: string;
+    readonly onLoad: () => void;
 }> = ({ src, alt, onLoad }) => (
     <img
         src={src}
@@ -71,8 +71,8 @@ const StageImage: FC<{
 );
 
 const PendingStageImage: FC<{
-    pendingImageSrc: string | null;
-    onPendingImageLoad: () => void;
+    readonly pendingImageSrc: string | null;
+    readonly onPendingImageLoad: () => void;
 }> = ({ pendingImageSrc, onPendingImageLoad }) => {
     if (!pendingImageSrc) {
         return null;
@@ -97,14 +97,14 @@ const PendingStageImage: FC<{
 };
 
 const FaceOverlays: FC<{
-    overlaysReady: boolean;
-    asset: Asset;
-    showFaces: boolean;
-    alwaysShowForPanel: boolean;
-    hoveredFaceKey: string | null;
-    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly overlaysReady: boolean;
+    readonly asset: Asset;
+    readonly showFaces: boolean;
+    readonly alwaysShowForPanel: boolean;
+    readonly hoveredFaceKey: string | null;
+    readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
 }> = ({
     overlaysReady,
     asset,
@@ -133,27 +133,27 @@ const FaceOverlays: FC<{
 };
 
 export const ZoomableStage: FC<{
-    asset: Asset;
-    imgSrc: string | null;
-    pendingImageSrc: string | null;
-    stageSize: { width: number; height: number } | null;
-    pan: { x: number; y: number };
-    scale: number;
-    isDragging: boolean;
-    showControls: boolean;
-    setShowControls: Dispatch<SetStateAction<boolean>>;
-    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
-    handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
-    showFaces: boolean;
-    alwaysShowForPanel: boolean;
-    overlaysReady: boolean;
-    isImageTransitionPending: boolean;
-    hoveredFaceKey: string | null;
-    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
-    onActiveImageLoad: () => void;
-    onPendingImageLoad: () => void;
+    readonly asset: Asset;
+    readonly imgSrc: string | null;
+    readonly pendingImageSrc: string | null;
+    readonly stageSize: { width: number; height: number } | null;
+    readonly pan: { x: number; y: number };
+    readonly scale: number;
+    readonly isDragging: boolean;
+    readonly showControls: boolean;
+    readonly setShowControls: Dispatch<SetStateAction<boolean>>;
+    readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>;
+    readonly handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
+    readonly showFaces: boolean;
+    readonly alwaysShowForPanel: boolean;
+    readonly overlaysReady: boolean;
+    readonly isImageTransitionPending: boolean;
+    readonly hoveredFaceKey: string | null;
+    readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly onActiveImageLoad: () => void;
+    readonly onPendingImageLoad: () => void;
 }> = ({
     asset,
     imgSrc,

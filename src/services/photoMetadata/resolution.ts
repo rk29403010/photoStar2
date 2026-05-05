@@ -18,12 +18,12 @@ import {
 
 type MachineSourceKind = string;
 
-interface ResolvedField<T> {
+type ResolvedField<T> = {
     value: T;
     source: PhotoMetadataFieldSource | undefined;
 }
 
-export interface ResolvedPhotoMetadata {
+export type ResolvedPhotoMetadata = {
     bundle: PhotoMetadataBundle;
     projectionInput: PhotoMetadataProjectionInput;
 }

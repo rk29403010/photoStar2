@@ -21,7 +21,7 @@ export type PipelineStage =
     | "sensitive_scan"
     | "ai_metadata";
 
-export interface JobIssue {
+export type JobIssue = {
     id: string;
     severity: IssueSeverity;
     message: string;
@@ -32,7 +32,7 @@ export interface JobIssue {
     action?: { label: string; kind: "open_settings" | "retry" | "show_items" };
 }
 
-export interface StageProgress {
+export type StageProgress = {
     stageId: string;
     label: string;
     state: StageState;
@@ -42,7 +42,7 @@ export interface StageProgress {
     weight?: number;
 }
 
-export interface JobProgress {
+export type JobProgress = {
     overallTotal?: number;
     overallDone?: number;
     overallPercent?: number;
@@ -58,7 +58,7 @@ export interface JobProgress {
     throughputIps?: number;
 }
 
-export interface BackgroundJob {
+export type BackgroundJob = {
     id: string;
     stage: PipelineStage;
     title: string;
@@ -77,13 +77,13 @@ export interface BackgroundJob {
     canRetry?: boolean;
 }
 
-export interface JobErrorModuleSummary {
+export type JobErrorModuleSummary = {
     id: string;
     label: string;
     errorCount: number;
 }
 
-export interface JobErrorListItem {
+export type JobErrorListItem = {
     id: string;
     moduleId: string;
     moduleLabel: string;
@@ -96,7 +96,7 @@ export interface JobErrorListItem {
     stage?: string;
 }
 
-export interface JobErrorSnapshot {
+export type JobErrorSnapshot = {
     generatedAt: string;
     page: number;
     pageSize: number;
@@ -106,7 +106,7 @@ export interface JobErrorSnapshot {
     items: JobErrorListItem[];
 }
 
-export interface WorkflowStatusListItem {
+export type WorkflowStatusListItem = {
     workflowId: string;
     displayName: string;
     totalRuns: number;
@@ -118,7 +118,7 @@ export interface WorkflowStatusListItem {
     latestCreatedAt: string | null;
 }
 
-export interface WorkflowStatusSnapshot {
+export type WorkflowStatusSnapshot = {
     generatedAt: string;
     totals: {
         running: number;
@@ -129,7 +129,7 @@ export interface WorkflowStatusSnapshot {
     workflows: WorkflowStatusListItem[];
 }
 
-export interface DataStatsSnapshot {
+export type DataStatsSnapshot = {
     generatedAt: string;
     totals: {
         assets: number;
@@ -149,20 +149,20 @@ export interface DataStatsSnapshot {
     };
 }
 
-export interface RecentEventSnapshot {
+export type RecentEventSnapshot = {
     id: string;
     type: string;
     createdAt: string;
     payload: unknown;
 }
 
-export interface WorkflowRunMilestoneSnapshot {
+export type WorkflowRunMilestoneSnapshot = {
     milestoneId: string;
     label: string;
     status: string;
 }
 
-export interface WorkflowRunListItem {
+export type WorkflowRunListItem = {
     runId: string;
     workflowId: string;
     displayName: string;

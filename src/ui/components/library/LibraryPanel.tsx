@@ -17,7 +17,7 @@ function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
     return 'timeline';
 }
 
-function TimelineSeekOverlay({ seek }: { seek: GalleryTimelineSeek | null }) {
+function TimelineSeekOverlay({ seek }: { readonly seek: GalleryTimelineSeek | null }) {
     return (
         <div
             style={{
@@ -44,30 +44,30 @@ function TimelineSeekOverlay({ seek }: { seek: GalleryTimelineSeek | null }) {
     );
 }
 
-export interface LibraryPanelProps {
-    scrollRef: RefObject<HTMLDivElement | null>;
-    handleScroll: (event: UIEvent<HTMLDivElement>) => void;
-    toolbar: ComponentProps<typeof LibraryToolbar>;
-    timelineRail?: ReactNode;
-    layout: ComponentProps<typeof LibraryGalleryPane>['layout'];
-    rejected: ComponentProps<typeof LibraryGalleryPane>['rejected'];
-    isSeekingTimeline: boolean;
-    galleryTimelineSeek: GalleryTimelineSeek | null;
-    showInfoPanel: boolean;
-    activeInfoTab: InfoTab;
-    onActiveInfoTabChange: (tab: InfoTab) => void;
-    onShowInfoPanelChange: (show: boolean) => void;
-    selectedInfoAsset: Asset | null;
-    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
-    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
-    onSetReviewItemStatus?: (payload: {
+export type LibraryPanelProps = {
+    readonly scrollRef: RefObject<HTMLDivElement | null>;
+    readonly handleScroll: (event: UIEvent<HTMLDivElement>) => void;
+    readonly toolbar: ComponentProps<typeof LibraryToolbar>;
+    readonly timelineRail?: ReactNode;
+    readonly layout: ComponentProps<typeof LibraryGalleryPane>['layout'];
+    readonly rejected: ComponentProps<typeof LibraryGalleryPane>['rejected'];
+    readonly isSeekingTimeline: boolean;
+    readonly galleryTimelineSeek: GalleryTimelineSeek | null;
+    readonly showInfoPanel: boolean;
+    readonly activeInfoTab: InfoTab;
+    readonly onActiveInfoTabChange: (tab: InfoTab) => void;
+    readonly onShowInfoPanelChange: (show: boolean) => void;
+    readonly selectedInfoAsset: Asset | null;
+    readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    readonly onSetReviewItemStatus?: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
     }) => Promise<void>;
-    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
-    browseRowHeight: number;
-    isScrollSettled: boolean;
+    readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly browseRowHeight: number;
+    readonly isScrollSettled: boolean;
 }
 
 export function LibraryPanel({

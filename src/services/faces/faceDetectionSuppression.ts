@@ -1,4 +1,4 @@
-export interface SuppressibleFaceCandidate {
+export type SuppressibleFaceCandidate = {
     score: number;
     box: [number, number, number, number];
     landmarks?: Array<{ x: number; y: number }>;

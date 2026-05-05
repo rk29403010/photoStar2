@@ -1,5 +1,5 @@
-interface AppNotificationsProps {
-  notifications: {
+type AppNotificationsProps = {
+  readonly notifications: {
     id: string;
     type: 'warning' | 'info' | 'success' | 'error';
     title: string;
@@ -8,8 +8,8 @@ interface AppNotificationsProps {
     actionKind?: 'open_workflow' | 'open_asset' | 'retry';
     actionPayload?: Record<string, unknown>;
   }[];
-  dismissNotification: (id: string) => void;
-  onNotificationAction?: (notificationId: string) => void;
+  readonly dismissNotification: (id: string) => void;
+  readonly onNotificationAction?: (notificationId: string) => void;
 }
 
 function getNotificationStyle(type: AppNotificationsProps['notifications'][number]['type']) {

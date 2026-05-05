@@ -11,7 +11,7 @@ const DEFAULT_WS_PORT = 5174;
 
 type BridgeStatus = 'ok' | 'error' | 'event';
 
-interface StartDevBridgeServerOptions {
+type StartDevBridgeServerOptions = {
     onMessage: (line: string, originWs?: WebSocket) => void;
     onReady?: () => void;
 }

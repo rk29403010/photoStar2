@@ -12,7 +12,7 @@ import {
 } from './photoDateEstimateShared';
 import { extractEstimatedDateText } from './photoDateEstimateAiText';
 
-export interface PhotoDateEstimateResult {
+export type PhotoDateEstimateResult = {
     schema_version: 1;
     photoCreatedAt: string;
     range: {
@@ -26,7 +26,7 @@ export interface PhotoDateEstimateResult {
     signals: PhotoDateSignal[];
 }
 
-export interface EstimatePhotoDateParams {
+export type EstimatePhotoDateParams = {
     originalPath: string;
     fileBirthtime?: string | null;
     embeddedMetadata?: Record<string, unknown> | null;

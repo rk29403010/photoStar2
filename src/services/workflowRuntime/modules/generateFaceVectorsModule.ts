@@ -10,7 +10,7 @@ import {
 import type { FaceEmbeddingGenerated } from '../../events/types';
 import type { ModuleDefinition } from '../contracts';
 
-export interface GenerateFaceVectorsModuleOptions {
+export type GenerateFaceVectorsModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: FaceEmbeddingGenerated) => void;

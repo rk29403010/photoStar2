@@ -9,7 +9,7 @@ import type { ModuleRegistry } from './moduleRegistry';
 import { WorkflowRuntimeTelemetry } from './telemetry';
 import type { WorkflowRegistry } from './workflowRegistry';
 
-export interface WorkflowRuntimeOrchestratorDependencies {
+export type WorkflowRuntimeOrchestratorDependencies = {
     store: ExecutionStore;
     workflows: WorkflowRegistry;
     modules: ModuleRegistry;

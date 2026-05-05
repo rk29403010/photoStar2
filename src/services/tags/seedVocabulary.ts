@@ -1,6 +1,6 @@
 import type { TagDefinitionStatus } from './tagTypes';
 
-export interface SeedTagDefinition {
+export type SeedTagDefinition = {
     canonicalLabel: string;
     description: string;
     status: TagDefinitionStatus;

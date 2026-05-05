@@ -10,7 +10,7 @@ import {
     type UnreadConsoleCounts,
 } from './devConsoleModel';
 
-interface ConsoleEntry {
+type ConsoleEntry = {
     id: number;
     level: ConsoleEntryLevel;
     message: string;
@@ -96,9 +96,9 @@ function useConsoleCapture() {
 function DevConsoleToggle({
     isOpen, unreadCounts, onClick
 }: {
-    isOpen: boolean;
-    unreadCounts: UnreadConsoleCounts;
-    onClick: () => void;
+    readonly isOpen: boolean;
+    readonly unreadCounts: UnreadConsoleCounts;
+    readonly onClick: () => void;
 }) {
     const tone = getConsoleToggleTone(unreadCounts);
     const borderColor = tone === 'error' ? '#ef4444' : tone === 'warning' ? WARN_AMBER : '#334155';
@@ -166,10 +166,10 @@ function FilterButton({
     entries,
     onClick
 }: {
-    level: ConsoleFilter;
-    active: boolean;
-    entries: ConsoleEntry[];
-    onClick: () => void;
+    readonly level: ConsoleFilter;
+    readonly active: boolean;
+    readonly entries: ConsoleEntry[];
+    readonly onClick: () => void;
 }) {
     return (
         <button
@@ -191,7 +191,7 @@ function FilterButton({
     );
 }
 
-function ConsoleEntryRow({ entry }: { entry: ConsoleEntry }) {
+function ConsoleEntryRow({ entry }: { readonly entry: ConsoleEntry }) {
     return (
         <div style={{
             display: 'flex', gap: '8px', padding: '2px 12px', borderBottom: '1px solid rgba(255,255,255,0.02)',
@@ -213,12 +213,12 @@ function ConsoleEntryRow({ entry }: { entry: ConsoleEntry }) {
 function DevConsolePanel({
     entries, filter, setFilter, bottomRef, onClear, onClose
 }: {
-    entries: ConsoleEntry[];
-    filter: ConsoleFilter;
-    setFilter: (f: ConsoleFilter) => void;
-    bottomRef: { current: HTMLDivElement | null };
-    onClear: () => void;
-    onClose: () => void;
+    readonly entries: ConsoleEntry[];
+    readonly filter: ConsoleFilter;
+    readonly setFilter: (f: ConsoleFilter) => void;
+    readonly bottomRef: { current: HTMLDivElement | null };
+    readonly onClear: () => void;
+    readonly onClose: () => void;
 }) {
     const filtered = getFilteredEntries(entries, filter);
 

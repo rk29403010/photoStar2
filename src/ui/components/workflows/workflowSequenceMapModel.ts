@@ -17,7 +17,7 @@ const NODE_HEIGHT = 148;
 const NODE_GAP_X = 28;
 const NODE_GAP_Y = 56;
 
-export interface WorkflowSequenceMapStageBox {
+export type WorkflowSequenceMapStageBox = {
     id: string;
     label: string;
     description: string;
@@ -35,7 +35,7 @@ export interface WorkflowSequenceMapStageBox {
     contentTop: number;
 }
 
-export interface WorkflowSequenceMapNode {
+export type WorkflowSequenceMapNode = {
     id: string;
     label: string;
     kind: WorkflowVisualiserGraphNode['kind'];
@@ -57,7 +57,7 @@ export interface WorkflowSequenceMapNode {
 
 export type WorkflowSequenceMapEdge = WorkflowVisualiserGraphEdge;
 
-export interface WorkflowSequenceMap {
+export type WorkflowSequenceMap = {
     stageOrder: string[];
     stageBoxes: WorkflowSequenceMapStageBox[];
     nodes: WorkflowSequenceMapNode[];

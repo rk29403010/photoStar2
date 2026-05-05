@@ -10,36 +10,36 @@ import { applyActiveGroupContext, resolveActiveSinglePhotoGroupId } from './sing
 import { useKeyboardNavigation, useViewportGroupActions } from './photoViewportInteractions';
 import { usePhotoViewportImageState } from './usePhotoViewportImageState';
 import { useViewportStageDimensions } from './useViewportStageDimensions';
-export interface PanelState { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json') => void }
-export interface AnalysisState { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
-interface PhotoViewportProps { asset: Asset; assetsLength: number; currentIndex: number; showControls: boolean; setShowControls: Dispatch<SetStateAction<boolean>>; showFaces: boolean; setShowFaces: Dispatch<SetStateAction<boolean>>; showActionMenu: boolean; setShowActionMenu: Dispatch<SetStateAction<boolean>>; hoveredFaceKey: string | null; setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; panelState: PanelState; onClose: () => void; onFaceClick?: (personId: string, personName: string) => void; onIsolateFace?: (assetId: string, faceIndex: number) => void; onSetSensitivity?: (assetId: string, status: string | null) => void; onMoveToBin?: (assetId: string) => Promise<void>; onRestoreFromBin?: (assetId: string) => Promise<void>; onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>; onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>; onOpenSettings?: () => void; onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; onOrbitLoaded: (assets: Asset[]) => void; onSelectAsset: (assetId: string) => void; onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; onExplodeGroup?: (groupId: string) => Promise<void>; onChangeIndex: (delta: -1 | 1) => void; analysis: AnalysisState; onRevealControls: () => void }
+export type PanelState = { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json') => void }
+export type AnalysisState = { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
+type PhotoViewportProps = { readonly asset: Asset; readonly assetsLength: number; readonly currentIndex: number; readonly showControls: boolean; readonly setShowControls: Dispatch<SetStateAction<boolean>>; readonly showFaces: boolean; readonly setShowFaces: Dispatch<SetStateAction<boolean>>; readonly showActionMenu: boolean; readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>; readonly hoveredFaceKey: string | null; readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; readonly panelState: PanelState; readonly onClose: () => void; readonly onFaceClick?: (personId: string, personName: string) => void; readonly onIsolateFace?: (assetId: string, faceIndex: number) => void; readonly onSetSensitivity?: (assetId: string, status: string | null) => void; readonly onMoveToBin?: (assetId: string) => Promise<void>; readonly onRestoreFromBin?: (assetId: string) => Promise<void>; readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>; readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>; readonly onOpenSettings?: () => void; readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; readonly onOrbitLoaded: (assets: Asset[]) => void; readonly onSelectAsset: (assetId: string) => void; readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; readonly onExplodeGroup?: (groupId: string) => Promise<void>; readonly onChangeIndex: (delta: -1 | 1) => void; readonly analysis: AnalysisState; readonly onRevealControls: () => void }
 
 const ViewportActions: FC<{
-    asset: Asset;
-    assetsLength: number;
-    currentIndex: number;
-    showControls: boolean;
-    showActionMenu: boolean;
-    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
-    showFaces: boolean;
-    setShowFaces: Dispatch<SetStateAction<boolean>>;
-    panelState: PanelState;
-    isImageTransitionPending: boolean;
-    scale: number;
-    setScale: Dispatch<SetStateAction<number>>;
-    setPan: Dispatch<SetStateAction<{ x: number; y: number }>>;
-    resetPanZoom: () => void;
-    onClose: () => void;
-    onChangeIndex: (delta: -1 | 1) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onMoveToBin?: (assetId: string) => Promise<void>;
-    onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
-    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
-    onOpenSettings?: () => void;
-    analysis: AnalysisState;
+    readonly asset: Asset;
+    readonly assetsLength: number;
+    readonly currentIndex: number;
+    readonly showControls: boolean;
+    readonly showActionMenu: boolean;
+    readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>;
+    readonly showFaces: boolean;
+    readonly setShowFaces: Dispatch<SetStateAction<boolean>>;
+    readonly panelState: PanelState;
+    readonly isImageTransitionPending: boolean;
+    readonly scale: number;
+    readonly setScale: Dispatch<SetStateAction<number>>;
+    readonly setPan: Dispatch<SetStateAction<{ x: number; y: number }>>;
+    readonly resetPanZoom: () => void;
+    readonly onClose: () => void;
+    readonly onChangeIndex: (delta: -1 | 1) => void;
+    readonly onSetSensitivity?: (assetId: string, status: string | null) => void;
+    readonly onMoveToBin?: (assetId: string) => Promise<void>;
+    readonly onRestoreFromBin?: (assetId: string) => Promise<void>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
+    readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
+    readonly onOpenSettings?: () => void;
+    readonly analysis: AnalysisState;
 }> = ({
     asset,
     assetsLength,
@@ -107,53 +107,53 @@ const ViewportActions: FC<{
 };
 
 type PhotoViewportFrameProps = {
-    containerRef: RefObject<HTMLDivElement | null>;
-    showControls: boolean;
-    setShowControls: Dispatch<SetStateAction<boolean>>;
-    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
-    displayedAsset: Asset;
-    selectedAsset: Asset;
-    actionAsset: Asset;
-    imgSrc: string | null;
-    pendingImageSrc: string | null;
-    stageSize: { width: number; height: number } | null;
-    pan: { x: number; y: number };
-    scale: number;
-    isDragging: boolean;
-    handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
-    showFaces: boolean;
-    showFaceOverlays: boolean;
-    isImageTransitionPending: boolean;
-    panelState: PanelState;
-    hoveredFaceKey: string | null;
-    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
-    assetsLength: number;
-    currentIndex: number;
-    showActionMenu: boolean;
-    setShowFaces: Dispatch<SetStateAction<boolean>>;
-    setScale: Dispatch<SetStateAction<number>>;
-    setPan: Dispatch<SetStateAction<{ x: number; y: number }>>;
-    resetPanZoom: () => void;
-    onClose: () => void;
-    onChangeIndex: (delta: -1 | 1) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onMoveToBin?: (assetId: string) => Promise<void>;
-    onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
-    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
-    onOpenSettings?: () => void;
-    analysis: AnalysisState;
-    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    onOrbitLoaded: (assets: Asset[]) => void;
-    onSelectAsset: (assetId: string) => void;
-    onActiveGroupChange: (groupId: string) => void;
-    onRevealControls: () => void;
-    onActiveImageLoad: () => void;
-    onPendingImageLoad: () => void;
+    readonly containerRef: RefObject<HTMLDivElement | null>;
+    readonly showControls: boolean;
+    readonly setShowControls: Dispatch<SetStateAction<boolean>>;
+    readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>;
+    readonly displayedAsset: Asset;
+    readonly selectedAsset: Asset;
+    readonly actionAsset: Asset;
+    readonly imgSrc: string | null;
+    readonly pendingImageSrc: string | null;
+    readonly stageSize: { width: number; height: number } | null;
+    readonly pan: { x: number; y: number };
+    readonly scale: number;
+    readonly isDragging: boolean;
+    readonly handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
+    readonly showFaces: boolean;
+    readonly showFaceOverlays: boolean;
+    readonly isImageTransitionPending: boolean;
+    readonly panelState: PanelState;
+    readonly hoveredFaceKey: string | null;
+    readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly assetsLength: number;
+    readonly currentIndex: number;
+    readonly showActionMenu: boolean;
+    readonly setShowFaces: Dispatch<SetStateAction<boolean>>;
+    readonly setScale: Dispatch<SetStateAction<number>>;
+    readonly setPan: Dispatch<SetStateAction<{ x: number; y: number }>>;
+    readonly resetPanZoom: () => void;
+    readonly onClose: () => void;
+    readonly onChangeIndex: (delta: -1 | 1) => void;
+    readonly onSetSensitivity?: (assetId: string, status: string | null) => void;
+    readonly onMoveToBin?: (assetId: string) => Promise<void>;
+    readonly onRestoreFromBin?: (assetId: string) => Promise<void>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
+    readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
+    readonly onOpenSettings?: () => void;
+    readonly analysis: AnalysisState;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onOrbitLoaded: (assets: Asset[]) => void;
+    readonly onSelectAsset: (assetId: string) => void;
+    readonly onActiveGroupChange: (groupId: string) => void;
+    readonly onRevealControls: () => void;
+    readonly onActiveImageLoad: () => void;
+    readonly onPendingImageLoad: () => void;
 };
 
 const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', userSelect: 'none' } as const;
@@ -222,7 +222,7 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
     );
 };
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onMoveToBin' | 'onRestoreFromBin' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onRerunFaceDetection' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { actionAsset: Asset; onActiveGroupChange: (groupId: string) => void }> = ({
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onMoveToBin' | 'onRestoreFromBin' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onRerunFaceDetection' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { readonly actionAsset: Asset; readonly onActiveGroupChange: (groupId: string) => void }> = ({
     selectedAsset,
     actionAsset,
     assetsLength,

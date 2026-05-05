@@ -1,29 +1,29 @@
-export interface LegacyAssetTags {
+export type LegacyAssetTags = {
     assetId: string;
     tags: string[];
 }
 
-export interface LegacyTagInventoryEntry {
+export type LegacyTagInventoryEntry = {
     normalizedLabel: string;
     count: number;
     assetIds: string[];
     rawLabels: string[];
 }
 
-export interface LegacyTagMappingDecision {
+export type LegacyTagMappingDecision = {
     normalizedLabel: string;
     canonicalLabel: string;
     rawLabels: string[];
 }
 
-export interface LegacyTagReviewItem {
+export type LegacyTagReviewItem = {
     normalizedLabel: string;
     rawLabels: string[];
     assetIds: string[];
     reviewItemType: 'tag_proposal';
 }
 
-export interface LegacyMigratedAssignment {
+export type LegacyMigratedAssignment = {
     assetId: string;
     tagDefinitionId: string;
     sourceKind: 'legacy_ai';

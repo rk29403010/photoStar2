@@ -36,25 +36,25 @@ const SEQUENCE_MAP_FIT_VIEW_OPTIONS: FitViewOptions = {
 const SEQUENCE_MAP_PRO_OPTIONS = { hideAttribution: true } as const;
 const SEQUENCE_MAP_DEFAULT_EDGE_OPTIONS = { zIndex: 4 } as const;
 
-interface WorkflowSequenceMapTabProps {
-    stages: WorkflowVisualiserProgressionStage[];
-    nodes: WorkflowVisualiserGraphNode[];
-    edges: WorkflowVisualiserGraphEdge[];
-    onSelectDetail: (detailId: string) => void;
-    viewport: Viewport | null;
-    shouldFitViewport: boolean;
-    onViewportChange: (viewport: Viewport) => void;
-    showRuntimeDetails: boolean;
+type WorkflowSequenceMapTabProps = {
+    readonly stages: WorkflowVisualiserProgressionStage[];
+    readonly nodes: WorkflowVisualiserGraphNode[];
+    readonly edges: WorkflowVisualiserGraphEdge[];
+    readonly onSelectDetail: (detailId: string) => void;
+    readonly viewport: Viewport | null;
+    readonly shouldFitViewport: boolean;
+    readonly onViewportChange: (viewport: Viewport) => void;
+    readonly showRuntimeDetails: boolean;
 }
 
-interface SequenceStageNodeData extends Record<string, unknown> {
+type SequenceStageNodeData = {
     label: string;
     description: string;
     status: WorkflowVisualiserStatus;
     showRuntimeDetails: boolean;
-}
+} & Record<string, unknown>
 
-interface SequenceWorkflowNodeData extends Record<string, unknown> {
+type SequenceWorkflowNodeData = {
     label: string;
     kind: WorkflowVisualiserGraphNode['kind'];
     status: WorkflowVisualiserStatus;
@@ -63,7 +63,7 @@ interface SequenceWorkflowNodeData extends Record<string, unknown> {
     failedItems: number;
     countNoun: WorkflowVisualiserGraphNode['countNoun'];
     showRuntimeDetails: boolean;
-}
+} & Record<string, unknown>
 
 function getStatusTone(status: WorkflowVisualiserStatus): string {
     if (status === 'completed') {return 'border-emerald-700/60 bg-emerald-950/15 text-emerald-100';}

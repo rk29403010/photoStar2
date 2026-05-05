@@ -1,11 +1,11 @@
-export interface PhotoMetadataBoundingBox {
+export type PhotoMetadataBoundingBox = {
     x: number;
     y: number;
     width: number;
     height: number;
 }
 
-export interface PhotoMetadataEstimatedDate {
+export type PhotoMetadataEstimatedDate = {
     most_likely_date: string | null;
     min_date: string | null;
     max_date: string | null;
@@ -13,7 +13,7 @@ export interface PhotoMetadataEstimatedDate {
     rationale: string | null;
 }
 
-export interface PhotoMetadataSubject {
+export type PhotoMetadataSubject = {
     label: string;
     bounding_box: PhotoMetadataBoundingBox;
     type: 'person' | 'pet';
@@ -29,14 +29,14 @@ export interface PhotoMetadataSubject {
     suggested_names: string[];
 }
 
-export interface PhotoMetadataRegionOfInterest {
+export type PhotoMetadataRegionOfInterest = {
     label: string;
     kind: string;
     bounding_box: PhotoMetadataBoundingBox;
     significance: string | null;
 }
 
-export interface PhotoMetadataQuality {
+export type PhotoMetadataQuality = {
     technical: number;
     lighting: number;
     composition: number;
@@ -44,12 +44,12 @@ export interface PhotoMetadataQuality {
     discard: boolean;
 }
 
-export interface PhotoMetadataAuthenticity {
+export type PhotoMetadataAuthenticity = {
     score: number;
     reasons: string[];
 }
 
-export interface PhotoMetadataBlock {
+export type PhotoMetadataBlock = {
     type: string;
     caption: string;
     description: string;

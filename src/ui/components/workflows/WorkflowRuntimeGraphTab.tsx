@@ -1,11 +1,11 @@
 import type React from 'react';
 import type { WorkflowVisualiserGraphEdge, WorkflowVisualiserGraphNode } from '@contracts/workflowVisualiser';
 
-interface WorkflowRuntimeGraphTabProps {
-    nodes: WorkflowVisualiserGraphNode[];
-    edges: WorkflowVisualiserGraphEdge[];
-    onSelectDetail: (detailId: string) => void;
-    showRuntimeDetails: boolean;
+type WorkflowRuntimeGraphTabProps = {
+    readonly nodes: WorkflowVisualiserGraphNode[];
+    readonly edges: WorkflowVisualiserGraphEdge[];
+    readonly onSelectDetail: (detailId: string) => void;
+    readonly showRuntimeDetails: boolean;
 }
 
 function getNodeTone(status: WorkflowVisualiserGraphNode['status']): string {

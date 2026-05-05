@@ -16,12 +16,12 @@ function getModelLabel(asset: Asset): string | undefined {
   return undefined;
 }
 
-const CaptionSection: React.FC<{ caption?: unknown }> = ({ caption }) => {
+const CaptionSection: React.FC<{ readonly caption?: unknown }> = ({ caption }) => {
   if (!caption) {return null;}
   return <Section emoji="💬" title="Caption"><p style={{ margin: 0, fontSize: 13, color: '#e2e8f0', lineHeight: 1.7, fontStyle: 'italic' }}>&ldquo;{String(caption)}&rdquo;</p></Section>;
 };
 
-const KeywordsSection: React.FC<{ keywords?: unknown }> = ({ keywords }) => {
+const KeywordsSection: React.FC<{ readonly keywords?: unknown }> = ({ keywords }) => {
   const items = Array.isArray(keywords) ? (keywords as string[]) : [];
   if (items.length === 0) {return null;}
   return <Section emoji="🏷️" title="Keywords"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{items.map((k, i) => <Tag key={i} text={k} />)}</div></Section>;
@@ -45,7 +45,7 @@ function formatDateOnly(value: string | null | undefined): string | null {
   }).format(parsed);
 }
 
-const AiInterpretationSection: React.FC<{ asset: Asset; summary: ReturnType<typeof buildPhotoMetadataFileSummary>; visible: boolean }> = ({ asset, summary, visible }) => {
+const AiInterpretationSection: React.FC<{ readonly asset: Asset; readonly summary: ReturnType<typeof buildPhotoMetadataFileSummary>; readonly visible: boolean }> = ({ asset, summary, visible }) => {
   if (!visible) {return null;}
 
   return (
@@ -62,7 +62,7 @@ const AiInterpretationSection: React.FC<{ asset: Asset; summary: ReturnType<type
   );
 };
 
-const ResolvedMetadataSections: React.FC<{ asset: Asset; caption: string | null; captionSourceLabel?: string }> = ({ asset, caption, captionSourceLabel }) => (
+const ResolvedMetadataSections: React.FC<{ readonly asset: Asset; readonly caption: string | null; readonly captionSourceLabel?: string }> = ({ asset, caption, captionSourceLabel }) => (
   <>
     <CaptionSection caption={caption} />
     <SourceHint label={captionSourceLabel} />
@@ -70,7 +70,7 @@ const ResolvedMetadataSections: React.FC<{ asset: Asset; caption: string | null;
   </>
 );
 
-const IdField: React.FC<{ value: string }> = ({ value }) => {
+const IdField: React.FC<{ readonly value: string }> = ({ value }) => {
   const uppercaseValue = value.toUpperCase();
   const prefix = uppercaseValue.slice(0, -4);
   const suffix = uppercaseValue.slice(-4);
@@ -86,7 +86,7 @@ const IdField: React.FC<{ value: string }> = ({ value }) => {
   );
 };
 
-const PhotoCreatedField: React.FC<{ value: string }> = ({ value }) => {
+const PhotoCreatedField: React.FC<{ readonly value: string }> = ({ value }) => {
   const label = formatDateOnly(value);
   if (!label) {
     return null;
@@ -101,16 +101,16 @@ const PhotoCreatedField: React.FC<{ value: string }> = ({ value }) => {
 };
 
 export const FileTab: React.FC<{
-  asset: Asset;
-  availableTags?: TagDefinitionSummary[];
-  onAssignTag?: (tagLabel: string) => Promise<void>;
-  onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  onSetReviewItemStatus?: (payload: {
+  readonly asset: Asset;
+  readonly availableTags?: TagDefinitionSummary[];
+  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
+  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+  readonly onSetReviewItemStatus?: (payload: {
     reviewItemId: string;
     status: ReviewItemSummary['status'];
     tagLabel?: string;
   }) => Promise<void>;
-  onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }> = ({ asset, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
   const ext = filename.split('.').pop()?.toUpperCase() || '';
@@ -134,7 +134,7 @@ export const FileTab: React.FC<{
   );
 };
 
-const FileSection: React.FC<{ asset: Asset; filename: string; ext: string; summary: ReturnType<typeof buildPhotoMetadataFileSummary> }> = ({ asset, filename, ext, summary }) => (
+const FileSection: React.FC<{ readonly asset: Asset; readonly filename: string; readonly ext: string; readonly summary: ReturnType<typeof buildPhotoMetadataFileSummary> }> = ({ asset, filename, ext, summary }) => (
   <Section emoji="📄" title="File" hideHeader>
     <IdField value={asset.id} />
     <Field label="Name" value={filename} />

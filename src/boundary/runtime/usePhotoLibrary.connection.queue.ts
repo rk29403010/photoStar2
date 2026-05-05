@@ -1,12 +1,12 @@
 type ScheduleFlush = (flush: () => void) => void;
 
-export interface QueuedMessageProcessor {
+export type QueuedMessageProcessor = {
     enqueue: (message: string) => void;
     flush: () => void;
     cancel: () => void;
 }
 
-interface CreateQueuedMessageProcessorOptions {
+type CreateQueuedMessageProcessorOptions = {
     processMessage: (message: string) => void;
     batchSize?: number;
     scheduleFlush?: ScheduleFlush;

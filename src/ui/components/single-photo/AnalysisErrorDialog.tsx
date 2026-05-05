@@ -1,9 +1,9 @@
 import type React from 'react';
 
-interface AnalysisErrorDialogProps {
-    analysisError: string;
-    setAnalysisError: (err: string | null) => void;
-    onOpenSettings?: () => void;
+type AnalysisErrorDialogProps = {
+    readonly analysisError: string;
+    readonly setAnalysisError: (err: string | null) => void;
+    readonly onOpenSettings?: () => void;
 }
 
 function isApiKeyError(err: string): boolean {

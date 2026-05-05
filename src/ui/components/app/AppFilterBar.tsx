@@ -3,20 +3,20 @@ import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { getLibrarySelectionCount, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { getLibraryBinActionLabel, isBinLibraryFilter } from './libraryBinActionModel';
 
-interface AppFilterBarProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-  filterStack: LibraryFilter[];
-  librarySelection: LibrarySelectionState;
-  showRejected: boolean;
-  onDeclusterSelection: (personId: string) => void;
-  onBulkTagSelection: () => Promise<void>;
-  onBulkUntagSelection: () => Promise<void>;
-  onMoveSelectionToBin: () => Promise<void>;
-  onRestoreSelectionFromBin: () => Promise<void>;
-  onClearSelection: () => void;
-  onToggleRejected: (personId: string) => void;
-  onBack: () => void;
-  onClearAll: () => void;
+type AppFilterBarProps = {
+  readonly view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly filterStack: LibraryFilter[];
+  readonly librarySelection: LibrarySelectionState;
+  readonly showRejected: boolean;
+  readonly onDeclusterSelection: (personId: string) => void;
+  readonly onBulkTagSelection: () => Promise<void>;
+  readonly onBulkUntagSelection: () => Promise<void>;
+  readonly onMoveSelectionToBin: () => Promise<void>;
+  readonly onRestoreSelectionFromBin: () => Promise<void>;
+  readonly onClearSelection: () => void;
+  readonly onToggleRejected: (personId: string) => void;
+  readonly onBack: () => void;
+  readonly onClearAll: () => void;
 }
 
 const filterBarButtonStyle = {
@@ -33,7 +33,7 @@ function getSinglePersonId(filterStack: LibraryFilter[]): string | null {
     : null;
 }
 
-function FilterTag({ filter }: { filter: LibraryFilter }) {
+function FilterTag({ filter }: { readonly filter: LibraryFilter }) {
   return (
     <div style={{ background: '#2563eb', padding: '4px 10px', borderRadius: 16, fontSize: '0.9rem', fontWeight: 500, display: 'flex', gap: 6 }}>
       {filter.persons && filter.persons.length > 0 ? (
@@ -52,7 +52,7 @@ function FilterTag({ filter }: { filter: LibraryFilter }) {
   );
 }
 
-function FilterTrail({ filterStack }: { filterStack: LibraryFilter[] }) {
+function FilterTrail({ filterStack }: { readonly filterStack: LibraryFilter[] }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       {filterStack.map((filter, index) => (
@@ -76,15 +76,15 @@ function SelectionActions({
   onRestoreSelectionFromBin,
   onClearSelection,
 }: {
-  selectionCount: number;
-  singlePersonId: string | null;
-  isViewingBin: boolean;
-  onDeclusterSelection: (personId: string) => void;
-  onBulkTagSelection: () => Promise<void>;
-  onBulkUntagSelection: () => Promise<void>;
-  onMoveSelectionToBin: () => Promise<void>;
-  onRestoreSelectionFromBin: () => Promise<void>;
-  onClearSelection: () => void;
+  readonly selectionCount: number;
+  readonly singlePersonId: string | null;
+  readonly isViewingBin: boolean;
+  readonly onDeclusterSelection: (personId: string) => void;
+  readonly onBulkTagSelection: () => Promise<void>;
+  readonly onBulkUntagSelection: () => Promise<void>;
+  readonly onMoveSelectionToBin: () => Promise<void>;
+  readonly onRestoreSelectionFromBin: () => Promise<void>;
+  readonly onClearSelection: () => void;
 }) {
   if (selectionCount === 0) {
     return null;
@@ -131,9 +131,9 @@ function RejectedToggleButton({
   showRejected,
   onToggleRejected,
 }: {
-  singlePersonId: string | null;
-  showRejected: boolean;
-  onToggleRejected: (personId: string) => void;
+  readonly singlePersonId: string | null;
+  readonly showRejected: boolean;
+  readonly onToggleRejected: (personId: string) => void;
 }) {
   if (!singlePersonId) {
     return null;

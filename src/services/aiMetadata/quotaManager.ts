@@ -1,7 +1,7 @@
 const RPM_WAIT_MS = 62_000;
 export const MAX_WAIT_BEFORE_FALLBACK_MS = 90_000;
 
-interface ModelQuotaState {
+type ModelQuotaState = {
     dailyExceededAt: string | null;
     rateLimitedUntilMs: number | null;
     recentRequests: number[];

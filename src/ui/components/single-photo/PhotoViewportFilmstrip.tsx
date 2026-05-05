@@ -4,11 +4,11 @@ import { VariantFilmstrip } from './VariantFilmstrip';
 import { shouldShowVariantFilmstrip } from './variantFilmstripModel';
 
 export const VariantFilmstripOverlay: FC<{
-    asset: Asset;
-    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    onOrbitLoaded: (assets: Asset[]) => void;
-    onSelectAsset: (assetId: string) => void;
-    onActiveGroupChange: (groupId: string) => void;
+    readonly asset: Asset;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onOrbitLoaded: (assets: Asset[]) => void;
+    readonly onSelectAsset: (assetId: string) => void;
+    readonly onActiveGroupChange: (groupId: string) => void;
 }> = ({ asset, onGetGroupOrbit, onOrbitLoaded, onSelectAsset, onActiveGroupChange }) => {
     if (!shouldShowVariantFilmstrip({ groupId: asset.group_id, hasOrbitLoader: Boolean(onGetGroupOrbit) })) {
         return null;

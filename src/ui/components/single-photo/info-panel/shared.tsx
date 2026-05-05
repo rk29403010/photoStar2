@@ -2,7 +2,7 @@ import type React from 'react';
 import { normalizeRatingPercent } from './ratingScale';
 
 
-export const StarRating: React.FC<{ value: number; label: string }> = ({ value, label }) => {
+export const StarRating: React.FC<{ readonly value: number; readonly label: string }> = ({ value, label }) => {
   const pct = normalizeRatingPercent(value);
   const stars = Math.round((pct / 100) * 5);
   return (
@@ -18,7 +18,7 @@ export const StarRating: React.FC<{ value: number; label: string }> = ({ value, 
   );
 };
 
-export const Field: React.FC<{ label: string; value?: string | null; mono?: boolean; dim?: boolean }> = ({ label, value, mono, dim }) => {
+export const Field: React.FC<{ readonly label: string; readonly value?: string | null; readonly mono?: boolean; readonly dim?: boolean }> = ({ label, value, mono, dim }) => {
   if (value == null || value === '' || value === 'Unknown') {
     return (
       <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', paddingBottom: 6 }}>
@@ -36,7 +36,7 @@ export const Field: React.FC<{ label: string; value?: string | null; mono?: bool
   );
 };
 
-export const Section: React.FC<{ emoji: string; title: string; children: React.ReactNode; hideHeader?: boolean }> = ({ emoji, title, children, hideHeader }) => (
+export const Section: React.FC<{ readonly emoji: string; readonly title: string; readonly children: React.ReactNode; readonly hideHeader?: boolean }> = ({ emoji, title, children, hideHeader }) => (
   <div style={{ marginBottom: 20 }}>
     {!hideHeader && (
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #1e293b', paddingBottom: 6, marginBottom: 10 }}>
@@ -48,11 +48,11 @@ export const Section: React.FC<{ emoji: string; title: string; children: React.R
   </div>
 );
 
-export const Tag: React.FC<{ text: string; color?: string }> = ({ text, color = '#3b4a6b' }) => (
+export const Tag: React.FC<{ readonly text: string; readonly color?: string }> = ({ text, color = '#3b4a6b' }) => (
   <span style={{ background: color, borderRadius: 4, padding: '2px 7px', fontSize: 11, color: '#cbd5e1', display: 'inline-block', margin: '2px 2px 2px 0' }}>{text}</span>
 );
 
-export const SourceHint: React.FC<{ label?: string }> = ({ label }) => {
+export const SourceHint: React.FC<{ readonly label?: string }> = ({ label }) => {
   if (!label) {
     return null;
   }

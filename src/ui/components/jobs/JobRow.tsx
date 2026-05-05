@@ -32,9 +32,9 @@ function StopJobButton({
     isStopping,
     onStop
 }: {
-    actionLabel: string | null;
-    isStopping: boolean;
-    onStop: () => void;
+    readonly actionLabel: string | null;
+    readonly isStopping: boolean;
+    readonly onStop: () => void;
 }) {
     if (!actionLabel) {
         return null;
@@ -58,7 +58,7 @@ function StopJobButton({
     );
 }
 
-function JobProgressStats({ job }: { job: BackgroundJob }) {
+function JobProgressStats({ job }: { readonly job: BackgroundJob }) {
     const { current, facesRecognised, indexed, message, warnings } = job.progress;
 
     return (
@@ -72,7 +72,7 @@ function JobProgressStats({ job }: { job: BackgroundJob }) {
     );
 }
 
-export function JobRow({ job, onStop }: { job: BackgroundJob, onStop?: (job: BackgroundJob) => void }) {
+export function JobRow({ job, onStop }: { readonly job: BackgroundJob, readonly onStop?: (job: BackgroundJob) => void }) {
     const indeterminate = job.progress.overallPercent == null;
     const runningStage = getRunningStage(job);
     const stagePercent = toStagePercent(runningStage);

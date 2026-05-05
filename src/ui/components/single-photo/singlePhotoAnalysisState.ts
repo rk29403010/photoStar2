@@ -234,7 +234,7 @@ export function useAnalysisWorkflowFailureTracking(params: WorkflowFailureTracki
 
         const { workflowRunDetailLoader, activeJobId } = trackedWorkflow;
         let cancelled = false;
-        let timeoutId: number | null = null;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
         const callbacks = { setAnalysisError, setAnalysisState, setAnalyzingJobId, setAnalyzingAssetId };
 
         const scheduleNextPoll = (pollWorkflowRun: () => Promise<void>) => {

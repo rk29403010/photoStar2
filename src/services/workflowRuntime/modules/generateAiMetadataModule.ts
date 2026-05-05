@@ -24,7 +24,7 @@ function buildMetadataPayload(assetId: string, mode: 'mock' | 'live'): Record<st
     };
 }
 
-export interface GenerateAiMetadataModuleOptions {
+export type GenerateAiMetadataModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: DomainEvent) => void;

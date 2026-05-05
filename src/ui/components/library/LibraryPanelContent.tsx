@@ -5,14 +5,14 @@ import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandl
 import type { LibrarySelectableItem, LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import type { GalleryTimeSection, GalleryTimeSectionMode } from '../layout/galleryTimeSections';
-import type { MutableRefObject, ReactNode, UIEvent } from 'react';
+import type { RefObject, ReactNode, UIEvent } from 'react';
 import { LibraryPanel } from './LibraryPanel';
 import type { TimelineJumpRequest } from './libraryTimelineJump';
 
-interface LibraryPanelContentProps {
-    scrollRef: MutableRefObject<HTMLDivElement | null>;
-    handleLibraryScroll: (event: UIEvent<HTMLDivElement>) => void;
-    toolbar: {
+type LibraryPanelContentProps = {
+    readonly scrollRef: RefObject<HTMLDivElement | null>;
+    readonly handleLibraryScroll: (event: UIEvent<HTMLDivElement>) => void;
+    readonly toolbar: {
         sortMode: 'filename' | 'date' | 'reverse-date' | 'group';
         onSortModeChange: (mode: 'filename' | 'date' | 'reverse-date' | 'group') => void;
         layoutMode: GalleryLayoutMode;
@@ -27,45 +27,45 @@ interface LibraryPanelContentProps {
         showInfoPanel: boolean;
         onShowInfoPanelChange: (show: boolean) => void;
     };
-    timelineRail?: ReactNode;
-    displayItems: LibrarySelectableItem[];
-    onAssetClick?: (id: string) => void;
-    selectedAssetId?: string | null;
-    activeFilter?: LibraryFilter;
-    showFaces?: boolean;
-    onUntagAsset?: (assetId: string, personId: string) => void;
-    selection: LibrarySelectionState;
-    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
-    declusteredAssets?: Set<string>;
-    onHoverAssetChange?: (asset: Asset | null) => void;
-    showGroupIds: boolean;
-    hoveredGroupId: string | null;
-    setHoveredGroupId: (groupId: string | null) => void;
-    layoutMode: GalleryLayoutMode;
-    showInfoPanel: boolean;
-    isSeekingTimeline: boolean;
-    galleryTimelineSeek: GalleryTimelineSeek | null;
-    activeInfoTab: InfoTab;
-    onActiveInfoTabChange: (tab: InfoTab) => void;
-    onShowInfoPanelChange: (show: boolean) => void;
-    selectedInfoAsset: Asset | null;
-    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
-    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
-    onSetReviewItemStatus?: (payload: {
+    readonly timelineRail?: ReactNode;
+    readonly displayItems: LibrarySelectableItem[];
+    readonly onAssetClick?: (id: string) => void;
+    readonly selectedAssetId?: string | null;
+    readonly activeFilter?: LibraryFilter;
+    readonly showFaces?: boolean;
+    readonly onUntagAsset?: (assetId: string, personId: string) => void;
+    readonly selection: LibrarySelectionState;
+    readonly onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
+    readonly declusteredAssets?: Set<string>;
+    readonly onHoverAssetChange?: (asset: Asset | null) => void;
+    readonly showGroupIds: boolean;
+    readonly hoveredGroupId: string | null;
+    readonly setHoveredGroupId: (groupId: string | null) => void;
+    readonly layoutMode: GalleryLayoutMode;
+    readonly showInfoPanel: boolean;
+    readonly isSeekingTimeline: boolean;
+    readonly galleryTimelineSeek: GalleryTimelineSeek | null;
+    readonly activeInfoTab: InfoTab;
+    readonly onActiveInfoTabChange: (tab: InfoTab) => void;
+    readonly onShowInfoPanelChange: (show: boolean) => void;
+    readonly selectedInfoAsset: Asset | null;
+    readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    readonly onSetReviewItemStatus?: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
     }) => Promise<void>;
-    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
-    browseRowHeight: number;
-    isScrollSettled: boolean;
-    setTopVisibleSelectionKey: (selectionKey: string | null) => void;
-    onTimelineVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-    justifiedSections?: GalleryTimeSection[];
-    timeSectionMode: GalleryTimeSectionMode;
-    timelineJumpRequest?: TimelineJumpRequest | null;
-    showRejected?: boolean;
-    rejectedAssets?: Asset[];
+    readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly browseRowHeight: number;
+    readonly isScrollSettled: boolean;
+    readonly setTopVisibleSelectionKey: (selectionKey: string | null) => void;
+    readonly onTimelineVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+    readonly justifiedSections?: GalleryTimeSection[];
+    readonly timeSectionMode: GalleryTimeSectionMode;
+    readonly timelineJumpRequest?: TimelineJumpRequest | null;
+    readonly showRejected?: boolean;
+    readonly rejectedAssets?: Asset[];
 }
 
 export function LibraryPanelContent(props: LibraryPanelContentProps) {

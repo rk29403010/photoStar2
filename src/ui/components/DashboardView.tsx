@@ -9,16 +9,16 @@ import { WorkflowRunsPanel } from './dashboard/WorkflowRunsPanel';
 import { WorkflowStatusPanel } from './dashboard/WorkflowStatusPanel';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 
-interface DashboardViewProps {
-    workflowStatus: WorkflowStatusSnapshot | null;
-    dataStats: DataStatsSnapshot | null;
-    recentEvents: RecentEventSnapshot[];
-    workflowRuns: WorkflowRunListItem[];
-    uiFeedEntries: UiFeedEntry[];
-    refreshSystemJobs: () => void;
-    onGetEventPayloadRaw: (eventId: string) => Promise<string>;
-    onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
-    loading?: boolean;
+type DashboardViewProps = {
+    readonly workflowStatus: WorkflowStatusSnapshot | null;
+    readonly dataStats: DataStatsSnapshot | null;
+    readonly recentEvents: RecentEventSnapshot[];
+    readonly workflowRuns: WorkflowRunListItem[];
+    readonly uiFeedEntries: UiFeedEntry[];
+    readonly refreshSystemJobs: () => void;
+    readonly onGetEventPayloadRaw: (eventId: string) => Promise<string>;
+    readonly onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
+    readonly loading?: boolean;
 }
 
 type DashboardTab = 'workflows' | 'data' | 'events' | 'errors' | 'ui';
@@ -44,7 +44,7 @@ const INACTIVE_TAB_STYLE = {
     color: '#d1d5db',
 };
 
-const TabButton: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({ label, active, onClick }) => (
+const TabButton: React.FC<{ readonly label: string; readonly active: boolean; readonly onClick: () => void }> = ({ label, active, onClick }) => (
     <button
         onClick={onClick}
         className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${active ? 'border-cyan-500/40 bg-cyan-600/20 text-cyan-300' : 'border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800'}`}
@@ -71,14 +71,14 @@ function getActiveTabCount(params: {
 }
 
 const DashboardHeader: React.FC<{
-    loading?: boolean;
-    activeTab: DashboardTab;
-    workflowCount: number;
-    dataCount: number;
-    eventCount: number;
-    errorCount: number;
-    uiCount: number;
-    onSelectTab: (tab: DashboardTab) => void;
+    readonly loading?: boolean;
+    readonly activeTab: DashboardTab;
+    readonly workflowCount: number;
+    readonly dataCount: number;
+    readonly eventCount: number;
+    readonly errorCount: number;
+    readonly uiCount: number;
+    readonly onSelectTab: (tab: DashboardTab) => void;
 }> = ({ loading, activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
     <div className="flex flex-col gap-4 border-b border-gray-800 pb-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex flex-col gap-3">
@@ -139,15 +139,15 @@ function useDashboardErrors(activeTab: DashboardTab, onGetJobErrors: DashboardVi
 }
 
 const DashboardBody: React.FC<{
-    activeTab: DashboardTab;
-    loading?: boolean;
-    workflowStatus: WorkflowStatusSnapshot | null;
-    dataStats: DataStatsSnapshot | null;
-    recentEvents: RecentEventSnapshot[];
-    workflowRuns: WorkflowRunListItem[];
-    uiFeedEntries: UiFeedEntry[];
-    onGetEventPayloadRaw: (eventId: string) => Promise<string>;
-    errorsState: DashboardErrorsState;
+    readonly activeTab: DashboardTab;
+    readonly loading?: boolean;
+    readonly workflowStatus: WorkflowStatusSnapshot | null;
+    readonly dataStats: DataStatsSnapshot | null;
+    readonly recentEvents: RecentEventSnapshot[];
+    readonly workflowRuns: WorkflowRunListItem[];
+    readonly uiFeedEntries: UiFeedEntry[];
+    readonly onGetEventPayloadRaw: (eventId: string) => Promise<string>;
+    readonly errorsState: DashboardErrorsState;
 }> = ({ activeTab, loading, workflowStatus, dataStats, recentEvents, workflowRuns, uiFeedEntries, onGetEventPayloadRaw, errorsState }) => {
     if (activeTab === 'workflows') {
         return (

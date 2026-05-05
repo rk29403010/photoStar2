@@ -42,94 +42,94 @@ type TagDetailPayload = {
   aliases: TagAliasSummary[];
 };
 
-interface AppMainContentProps {
-  view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-  selectedWorkflowId: string;
-  onSelectWorkflowId: (workflowId: string) => void;
-  stats: LibraryStats | null;
-  timelineGallery: TimelineGalleryStateSlice;
-  assets: Asset[];
-  galleryTimelineSeek: GalleryTimelineSeek | null;
-  isSeekingTimeline: boolean;
-  people: Person[];
-  status: string;
-  backendReady: boolean;
-  filterStack: LibraryFilter[];
-  selectedAssetId: string | null;
-  showInfoPanel: boolean;
-  setShowInfoPanel: (show: boolean) => void;
-  activeInfoTab: InfoTab;
-  setActiveInfoTab: (tab: InfoTab) => void;
-  libraryActive: boolean;
-  showFaces: boolean;
-  librarySelection: LibrarySelectionState;
-  groupSimilarPhotos: boolean;
-  showGroupIds: boolean;
-  groupDiagnosticsReport: GroupDiagnosticsReport | null;
-  isLoadingGroupDiagnostics: boolean;
-  declusteredAssets: Set<string>;
-  showRejected: boolean;
-  rejectedAssets: Asset[];
-  workflowStatus: WorkflowStatusSnapshot | null;
-  dataStats: DataStatsSnapshot | null;
-  recentEvents: RecentEventSnapshot[];
-  workflowRuns: WorkflowRunListItem[];
-  uiFeedEntries: UiFeedEntry[];
-  ingestActive: boolean;
-  hasMoreAssets: boolean;
-  isLoadingMoreAssets: boolean;
-  isRefreshingLibrary: boolean;
-  onLoadMoreAssets: () => Promise<void>;
-  onLoadTimelineGroupPage: (groupId: string) => void;
-  onRequestTimelineJumpTarget: (groupId: string) => void;
-  onTimelineVisibleGroupChange: (groupId: string | null, groupIndex: number | null) => void;
-  onGalleryDataModeChange: (mode: LibraryGalleryDataMode) => void;
-  onGalleryOrderChange: (order: GalleryOrder) => void;
-  onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
-  onAssetClick: (id: string | null) => void;
-  onEnsureAssetDetails: (assetId: string) => void;
-  onTagFilterChange: (tag: string) => void;
-  onUntagAsset: (assetId: string, personId: string) => void;
-  onLibrarySelectionChange: (selection: LibrarySelectionState) => void;
-  onGroupSimilarPhotosChange: (enabled: boolean) => void;
-  onShowGroupIdsChange: (enabled: boolean) => void;
-  onRefreshGroupDiagnostics: () => void;
-  onPeopleFilter: (filter: LibraryFilter) => void;
-  onPeopleSelectionChange: (count: number) => void;
-  onRenamePerson: (id: string, name: string) => void;
-  onMergePeople: (ids: string[], targetName: string) => void;
-  onRefreshSystemJobs: () => void;
-  onGetEventPayloadRaw: (eventId: string) => Promise<string>;
-  onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
-  onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
-  onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
-  onGetAlbums: () => Promise<Album[]>;
-  onCreateAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
-  onDeleteAlbum: (id: string) => Promise<void>;
-  onOpenAlbum: (albumId: string, title: string) => void;
-  onHoverLibraryAssetChange: (asset: Asset | null) => void;
-  onListAvailableTags: () => Promise<TagDefinitionSummary[]>;
-  onListReviewItems: (payload: {
+type AppMainContentProps = {
+  readonly view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly selectedWorkflowId: string;
+  readonly onSelectWorkflowId: (workflowId: string) => void;
+  readonly stats: LibraryStats | null;
+  readonly timelineGallery: TimelineGalleryStateSlice;
+  readonly assets: Asset[];
+  readonly galleryTimelineSeek: GalleryTimelineSeek | null;
+  readonly isSeekingTimeline: boolean;
+  readonly people: Person[];
+  readonly status: string;
+  readonly backendReady: boolean;
+  readonly filterStack: LibraryFilter[];
+  readonly selectedAssetId: string | null;
+  readonly showInfoPanel: boolean;
+  readonly setShowInfoPanel: (show: boolean) => void;
+  readonly activeInfoTab: InfoTab;
+  readonly setActiveInfoTab: (tab: InfoTab) => void;
+  readonly libraryActive: boolean;
+  readonly showFaces: boolean;
+  readonly librarySelection: LibrarySelectionState;
+  readonly groupSimilarPhotos: boolean;
+  readonly showGroupIds: boolean;
+  readonly groupDiagnosticsReport: GroupDiagnosticsReport | null;
+  readonly isLoadingGroupDiagnostics: boolean;
+  readonly declusteredAssets: Set<string>;
+  readonly showRejected: boolean;
+  readonly rejectedAssets: Asset[];
+  readonly workflowStatus: WorkflowStatusSnapshot | null;
+  readonly dataStats: DataStatsSnapshot | null;
+  readonly recentEvents: RecentEventSnapshot[];
+  readonly workflowRuns: WorkflowRunListItem[];
+  readonly uiFeedEntries: UiFeedEntry[];
+  readonly ingestActive: boolean;
+  readonly hasMoreAssets: boolean;
+  readonly isLoadingMoreAssets: boolean;
+  readonly isRefreshingLibrary: boolean;
+  readonly onLoadMoreAssets: () => Promise<void>;
+  readonly onLoadTimelineGroupPage: (groupId: string) => void;
+  readonly onRequestTimelineJumpTarget: (groupId: string) => void;
+  readonly onTimelineVisibleGroupChange: (groupId: string | null, groupIndex: number | null) => void;
+  readonly onGalleryDataModeChange: (mode: LibraryGalleryDataMode) => void;
+  readonly onGalleryOrderChange: (order: GalleryOrder) => void;
+  readonly onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
+  readonly onAssetClick: (id: string | null) => void;
+  readonly onEnsureAssetDetails: (assetId: string) => void;
+  readonly onTagFilterChange: (tag: string) => void;
+  readonly onUntagAsset: (assetId: string, personId: string) => void;
+  readonly onLibrarySelectionChange: (selection: LibrarySelectionState) => void;
+  readonly onGroupSimilarPhotosChange: (enabled: boolean) => void;
+  readonly onShowGroupIdsChange: (enabled: boolean) => void;
+  readonly onRefreshGroupDiagnostics: () => void;
+  readonly onPeopleFilter: (filter: LibraryFilter) => void;
+  readonly onPeopleSelectionChange: (count: number) => void;
+  readonly onRenamePerson: (id: string, name: string) => void;
+  readonly onMergePeople: (ids: string[], targetName: string) => void;
+  readonly onRefreshSystemJobs: () => void;
+  readonly onGetEventPayloadRaw: (eventId: string) => Promise<string>;
+  readonly onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
+  readonly onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
+  readonly onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
+  readonly onGetAlbums: () => Promise<Album[]>;
+  readonly onCreateAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
+  readonly onDeleteAlbum: (id: string) => Promise<void>;
+  readonly onOpenAlbum: (albumId: string, title: string) => void;
+  readonly onHoverLibraryAssetChange: (asset: Asset | null) => void;
+  readonly onListAvailableTags: () => Promise<TagDefinitionSummary[]>;
+  readonly onListReviewItems: (payload: {
     status?: ReviewItemSummary['status'];
     reviewItemType?: ReviewItemSummary['reviewItemType'];
     subjectType?: string;
     subjectId?: string;
   }) => Promise<ReviewItemSummary[]>;
-  onAssignAssetTag: (assetId: string, tagLabel: string) => Promise<void>;
-  onRemoveAssetTag: (assetId: string, tagDefinitionId: string) => Promise<void>;
-  onMoveAssetToBin: (assetId: string) => Promise<void>;
-  onRestoreAssetFromBin: (assetId: string) => Promise<void>;
-  onSetReviewItemStatus: (payload: {
+  readonly onAssignAssetTag: (assetId: string, tagLabel: string) => Promise<void>;
+  readonly onRemoveAssetTag: (assetId: string, tagDefinitionId: string) => Promise<void>;
+  readonly onMoveAssetToBin: (assetId: string) => Promise<void>;
+  readonly onRestoreAssetFromBin: (assetId: string) => Promise<void>;
+  readonly onSetReviewItemStatus: (payload: {
     reviewItemId: string;
     status: ReviewItemSummary['status'];
     tagLabel?: string;
   }) => Promise<void>;
-  onGetTagDefinitionDetail: (payload: { tagDefinitionId: string }) => Promise<TagDetailPayload>;
-  onRenameTagDefinition: (payload: { tagDefinitionId: string; canonicalLabel: string }) => Promise<TagDetailPayload>;
-  onCreateTagAlias: (payload: { tagDefinitionId: string; aliasLabel: string }) => Promise<TagDetailPayload>;
-  onDeleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetailPayload>;
-  onMergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetailPayload>;
-  onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onGetTagDefinitionDetail: (payload: { tagDefinitionId: string }) => Promise<TagDetailPayload>;
+  readonly onRenameTagDefinition: (payload: { tagDefinitionId: string; canonicalLabel: string }) => Promise<TagDetailPayload>;
+  readonly onCreateTagAlias: (payload: { tagDefinitionId: string; aliasLabel: string }) => Promise<TagDetailPayload>;
+  readonly onDeleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetailPayload>;
+  readonly onMergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetailPayload>;
+  readonly onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
 function getPanelStyle(active: boolean) {
@@ -157,7 +157,7 @@ function useVisibleLibraryAssets(assets: Asset[], ingestActive: boolean) {
   return cache.update(assets, ingestActive);
 }
 
-function LibraryContentView(props: AppMainContentProps & { visibleLibraryAssets: Asset[]; activeFilter?: LibraryFilter }) {
+function LibraryContentView(props: AppMainContentProps & { readonly visibleLibraryAssets: Asset[]; readonly activeFilter?: LibraryFilter }) {
   const availableTags = useAvailableTags(props.view === 'library', props.onListAvailableTags);
 
   return (

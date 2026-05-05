@@ -76,7 +76,7 @@ async function upsertAsset(
     return assetId;
 }
 
-export interface ScanFolderModuleOptions {
+export type ScanFolderModuleOptions = {
     dbManager: DatabaseManager;
 }
 

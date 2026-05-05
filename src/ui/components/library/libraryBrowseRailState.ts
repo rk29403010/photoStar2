@@ -28,7 +28,7 @@ export function useGalleryBrowseRailState() {
     const viewportWidth = useViewportWidth();
     const browseRowHeight = useMemo(() => getBrowseRowHeightBand(viewportWidth), [viewportWidth]);
     const [isScrollSettled, setIsScrollSettled] = useState(true);
-    const settleTimeoutRef = useRef<number | null>(null);
+    const settleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastScrollAtRef = useRef(0);
 
     const clearSettleTimeout = useCallback(() => {

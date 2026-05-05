@@ -1,7 +1,7 @@
 const FAST_RECONNECT_INFO_THRESHOLD_MS = 10000;
 const BACKEND_SERVICE_LABEL = 'backend service';
 
-export interface RetryState {
+export type RetryState = {
     error: string | null;
     level: 'info' | 'warning';
     logMessage: string;

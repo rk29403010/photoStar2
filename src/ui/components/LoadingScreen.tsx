@@ -1,10 +1,10 @@
 import type React from 'react';
 
-interface LoadingScreenProps {
-    status: string;
+type LoadingScreenProps = {
+    readonly status: string;
 }
 
-function LoadingIndicator({ failed }: { failed: boolean }) {
+function LoadingIndicator({ failed }: { readonly failed: boolean }) {
     if (failed) {
         return <div style={{ fontSize: '2rem', color: '#f87171' }}>!</div>;
     }

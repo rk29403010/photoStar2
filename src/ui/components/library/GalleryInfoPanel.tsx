@@ -3,19 +3,19 @@ import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from '../single-photo/InfoPanel';
 
-interface GalleryInfoPanelProps {
-    asset: Asset | null;
-    activeTab: InfoTab;
-    onTabChange: (tab: InfoTab) => void;
-    onClose: () => void;
-    onAssignTag?: (tagLabel: string) => Promise<void>;
-    onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-    onSetReviewItemStatus?: (payload: {
+type GalleryInfoPanelProps = {
+    readonly asset: Asset | null;
+    readonly activeTab: InfoTab;
+    readonly onTabChange: (tab: InfoTab) => void;
+    readonly onClose: () => void;
+    readonly onAssignTag?: (tagLabel: string) => Promise<void>;
+    readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+    readonly onSetReviewItemStatus?: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
     }) => Promise<void>;
-    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
 function EmptyGalleryInfoPanel({ onClose }: Pick<GalleryInfoPanelProps, 'onClose'>) {

@@ -8,14 +8,14 @@ import {
     VocabularySearchBar,
 } from './TagVocabularySections';
 
-interface TagVocabularyViewProps {
-    active: boolean;
-    listAvailableTags: () => Promise<TagDefinitionSummary[]>;
-    getTagDefinitionDetail: (payload: { tagDefinitionId: string }) => Promise<TagDetail>;
-    renameTagDefinition: (payload: { tagDefinitionId: string; canonicalLabel: string }) => Promise<TagDetail>;
-    createTagAlias: (payload: { tagDefinitionId: string; aliasLabel: string }) => Promise<TagDetail>;
-    deleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetail>;
-    mergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetail>;
+type TagVocabularyViewProps = {
+    readonly active: boolean;
+    readonly listAvailableTags: () => Promise<TagDefinitionSummary[]>;
+    readonly getTagDefinitionDetail: (payload: { tagDefinitionId: string }) => Promise<TagDetail>;
+    readonly renameTagDefinition: (payload: { tagDefinitionId: string; canonicalLabel: string }) => Promise<TagDetail>;
+    readonly createTagAlias: (payload: { tagDefinitionId: string; aliasLabel: string }) => Promise<TagDetail>;
+    readonly deleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetail>;
+    readonly mergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetail>;
 }
 
 function getSearchLabel(tag: TagDefinitionSummary) {
@@ -307,17 +307,17 @@ export function TagVocabularyView(props: TagVocabularyViewProps) {
 }
 
 function TagDetailPanelEditor(props: {
-    tags: TagDefinitionSummary[];
-    selectedDetail: TagDetail | null;
-    busyAction: BusyAction;
-    aliasLabel: string;
-    mergeTargetLabel: string;
-    onAliasLabelChange: (value: string) => void;
-    onMergeTargetLabelChange: (value: string) => void;
-    onRename: (renameLabel: string) => void;
-    onAddAlias: () => void;
-    onDeleteAlias: (tagAliasId: string) => void;
-    onMerge: () => void;
+    readonly tags: TagDefinitionSummary[];
+    readonly selectedDetail: TagDetail | null;
+    readonly busyAction: BusyAction;
+    readonly aliasLabel: string;
+    readonly mergeTargetLabel: string;
+    readonly onAliasLabelChange: (value: string) => void;
+    readonly onMergeTargetLabelChange: (value: string) => void;
+    readonly onRename: (renameLabel: string) => void;
+    readonly onAddAlias: () => void;
+    readonly onDeleteAlias: (tagAliasId: string) => void;
+    readonly onMerge: () => void;
 }) {
     const [renameLabel, setRenameLabel] = useState(props.selectedDetail?.tag.canonicalLabel ?? '');
 

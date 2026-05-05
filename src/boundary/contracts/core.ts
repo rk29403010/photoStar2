@@ -20,21 +20,21 @@ export const PERSON_COLORS = [
     '#a3e635'  // lime
 ];
 
-export interface StoredPhotoBox {
+export type StoredPhotoBox = {
     x: number;
     y: number;
     width: number;
     height: number;
 }
 
-export interface FaceBox {
+export type FaceBox = {
     box: StoredPhotoBox;
     embedding?: number[]; // Optional presence check
     person_id?: string;
     person_name?: string;
 }
 
-export interface AssetGroupMembership {
+export type AssetGroupMembership = {
     group_id: string;
     group_role: string | null;
     stack_count: number | null;
@@ -44,7 +44,7 @@ export interface AssetGroupMembership {
     group_type: string | null;
 }
 
-export interface SimilarityOrbitItem {
+export type SimilarityOrbitItem = {
     kind: 'group' | 'asset';
     group_id: string;
     group_type: string | null;
@@ -52,40 +52,40 @@ export interface SimilarityOrbitItem {
     asset: Asset;
 }
 
-export interface SimilarityOrbit {
+export type SimilarityOrbit = {
     group_id: string;
     group_type: string | null;
     parent_group_id: string | null;
     items: SimilarityOrbitItem[];
 }
 
-export interface PhotoMetadataSourceSummary {
+export type PhotoMetadataSourceSummary = {
     sourceKind: string | null;
     sourceId: string | null;
 }
 
-export interface PhotoMetadataEstimatedDateProvenance extends PhotoMetadataSourceSummary {
+export type PhotoMetadataEstimatedDateProvenance = {
     display_label?: PhotoMetadataSourceSummary;
     most_likely_date?: PhotoMetadataSourceSummary;
     min_date?: PhotoMetadataSourceSummary;
     max_date?: PhotoMetadataSourceSummary;
     rationale?: PhotoMetadataSourceSummary;
-}
+} & PhotoMetadataSourceSummary
 
-export interface PhotoMetadataQualityProvenance extends PhotoMetadataSourceSummary {
+export type PhotoMetadataQualityProvenance = {
     technical?: PhotoMetadataSourceSummary;
     lighting?: PhotoMetadataSourceSummary;
     composition?: PhotoMetadataSourceSummary;
     emotional?: PhotoMetadataSourceSummary;
     discard?: PhotoMetadataSourceSummary;
-}
+} & PhotoMetadataSourceSummary
 
-export interface PhotoMetadataAuthenticityProvenance extends PhotoMetadataSourceSummary {
+export type PhotoMetadataAuthenticityProvenance = {
     score?: PhotoMetadataSourceSummary;
     reasons?: PhotoMetadataSourceSummary;
-}
+} & PhotoMetadataSourceSummary
 
-export interface PhotoMetadataProjectionDate {
+export type PhotoMetadataProjectionDate = {
     most_likely_date: string | null;
     min_date: string | null;
     max_date: string | null;
@@ -93,7 +93,7 @@ export interface PhotoMetadataProjectionDate {
     rationale: string | null;
 }
 
-export interface PhotoMetadataProjectionQuality {
+export type PhotoMetadataProjectionQuality = {
     technical: number | null;
     lighting: number | null;
     composition: number | null;
@@ -101,12 +101,12 @@ export interface PhotoMetadataProjectionQuality {
     discard: boolean | null;
 }
 
-export interface PhotoMetadataProjectionAuthenticity {
+export type PhotoMetadataProjectionAuthenticity = {
     score: number | null;
     reasons: string[];
 }
 
-export interface PhotoMetadataProjection {
+export type PhotoMetadataProjection = {
     assetId: string;
     type: string | null;
     caption: string | null;
@@ -122,12 +122,12 @@ export interface PhotoMetadataProjection {
     regionsOfInterest: unknown[];
 }
 
-export interface PhotoMetadataEvidencePayload {
+export type PhotoMetadataEvidencePayload = {
     machineBlocks: unknown[];
     manualAssertions: unknown[];
 }
 
-export interface AssetTag {
+export type AssetTag = {
     tagDefinitionId: string;
     canonicalLabel: string;
     description: string | null;
@@ -140,7 +140,7 @@ export interface AssetTag {
     updatedAt: string;
 }
 
-export interface TagDefinitionSummary {
+export type TagDefinitionSummary = {
     id: string;
     canonicalLabel: string;
     description: string | null;
@@ -151,14 +151,14 @@ export interface TagDefinitionSummary {
     assignmentCount?: number;
 }
 
-export interface TagAliasSummary {
+export type TagAliasSummary = {
     id: string;
     tagDefinitionId: string;
     aliasLabel: string;
     createdAt: string;
 }
 
-export interface ReviewItemSummary {
+export type ReviewItemSummary = {
     id: string;
     reviewItemType: 'tag_proposal' | 'group_merge' | 'sensitivity_override_candidate';
     subjectType: string;
@@ -172,7 +172,7 @@ export interface ReviewItemSummary {
     updatedAt: string;
 }
 
-export interface PhotoMetadataBundle {
+export type PhotoMetadataBundle = {
     projection: PhotoMetadataProjection;
     provenance?: Partial<Record<keyof Omit<PhotoMetadataProjection, 'assetId' | 'estimatedDate' | 'quality' | 'authenticity' | 'subjects' | 'regionsOfInterest'>, PhotoMetadataSourceSummary>> & {
         estimatedDate?: PhotoMetadataEstimatedDateProvenance;
@@ -184,7 +184,7 @@ export interface PhotoMetadataBundle {
     evidence?: PhotoMetadataEvidencePayload;
 }
 
-export interface PhotoDateEstimateSignal {
+export type PhotoDateEstimateSignal = {
     source: string;
     origin: 'embedded' | 'filename' | 'ai' | 'file';
     label: string;
@@ -195,7 +195,7 @@ export interface PhotoDateEstimateSignal {
     weight: number;
 }
 
-export interface PhotoDateEstimateArtifact {
+export type PhotoDateEstimateArtifact = {
     schema_version: number;
     photoCreatedAt: string;
     range: {
@@ -209,7 +209,7 @@ export interface PhotoDateEstimateArtifact {
     signals: PhotoDateEstimateSignal[];
 }
 
-export interface Asset {
+export type Asset = {
     id: string;
     original_path: string; // Added this
     preview_path?: string;
@@ -266,7 +266,7 @@ export interface Asset {
     };
 }
 
-export interface Person {
+export type Person = {
     id: string;
     name: string;
     face_count: number;
@@ -274,7 +274,7 @@ export interface Person {
     cover_image?: string;
 }
 
-export interface LibraryTimelineBucket {
+export type LibraryTimelineBucket = {
     label: string;
     startYear: number;
     endYear: number;
@@ -283,7 +283,7 @@ export interface LibraryTimelineBucket {
     count: number;
 }
 
-export interface LibraryTimelineSummary {
+export type LibraryTimelineSummary = {
     firstPhotoDate: string | null;
     lastPhotoDate: string | null;
     datedPhotoCount: number;
@@ -300,7 +300,7 @@ export type GalleryTimelineSeek =
         kind: 'unknown';
     };
 
-export interface LibraryStats {
+export type LibraryStats = {
     count: number;
     timeline?: LibraryTimelineSummary;
     groupedTimeline?: LibraryTimelineSummary;
@@ -308,7 +308,7 @@ export interface LibraryStats {
     [key: string]: unknown;
 }
 
-export interface Album {
+export type Album = {
     id: string;
     title: string;
     description: string | null;

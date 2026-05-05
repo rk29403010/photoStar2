@@ -17,9 +17,9 @@ function SummaryCard({
     value,
     tone,
 }: {
-    label: string;
-    value: number;
-    tone: string;
+    readonly label: string;
+    readonly value: number;
+    readonly tone: string;
 }) {
     return (
         <div className="rounded-lg border border-gray-800 bg-[#0b0b0b] p-4">
@@ -30,8 +30,8 @@ function SummaryCard({
 }
 
 export const WorkflowStatusPanel: React.FC<{
-    snapshot: WorkflowStatusSnapshot | null;
-    loading?: boolean;
+    readonly snapshot: WorkflowStatusSnapshot | null;
+    readonly loading?: boolean;
 }> = ({ snapshot, loading }) => {
     if (!snapshot && !loading) {
         return (

@@ -3,13 +3,13 @@ import type { GalleryTimelineSeek, LibraryTimelineSummary } from '@contracts/cor
 import { findTimelineBucketIndex, getTimelineSeekForBucket } from './libraryTimelineModel';
 import { getTimelineRailDisplayedIndex, getTimelineRailOrderedIndexes } from './libraryTimelineRailModel';
 
-interface LibraryTimelineRailProps {
-    timeline: LibraryTimelineSummary;
-    sortMode: 'date' | 'reverse-date';
-    activeSeek: GalleryTimelineSeek | null;
-    viewportBucketIndex: number | null;
-    onSeekChange: (seek: GalleryTimelineSeek | null) => void;
-    onBucketJump?: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
+type LibraryTimelineRailProps = {
+    readonly timeline: LibraryTimelineSummary;
+    readonly sortMode: 'date' | 'reverse-date';
+    readonly activeSeek: GalleryTimelineSeek | null;
+    readonly viewportBucketIndex: number | null;
+    readonly onSeekChange: (seek: GalleryTimelineSeek | null) => void;
+    readonly onBucketJump?: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
 }
 
 function getDensityOpacity(count: number, maxCount: number) {
@@ -46,10 +46,10 @@ function TimelineRailHeader() {
 }
 
 function TimelineRailBucketButton(props: {
-    bucket: LibraryTimelineSummary['buckets'][number];
-    isDisplayed: boolean;
-    maxBucketCount: number;
-    onClick: () => void;
+    readonly bucket: LibraryTimelineSummary['buckets'][number];
+    readonly isDisplayed: boolean;
+    readonly maxBucketCount: number;
+    readonly onClick: () => void;
 }) {
     return (
         <button
@@ -88,11 +88,11 @@ function TimelineRailBucketButton(props: {
 }
 
 function TimelineRailTrack(props: {
-    timeline: LibraryTimelineSummary;
-    displayedIndex: number;
-    sortMode: 'date' | 'reverse-date';
-    onSeekChange: (seek: GalleryTimelineSeek | null) => void;
-    onBucketJump?: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
+    readonly timeline: LibraryTimelineSummary;
+    readonly displayedIndex: number;
+    readonly sortMode: 'date' | 'reverse-date';
+    readonly onSeekChange: (seek: GalleryTimelineSeek | null) => void;
+    readonly onBucketJump?: (bucket: LibraryTimelineSummary['buckets'][number]) => void;
 }) {
     const maxBucketCount = useMemo(() => props.timeline.buckets.reduce((maxCount, bucket) => Math.max(maxCount, bucket.count), 0), [props.timeline.buckets]);
     const orderedIndexes = useMemo(() => getTimelineRailOrderedIndexes(props.timeline.buckets.length), [props.timeline.buckets.length]);
@@ -128,9 +128,9 @@ function TimelineRailTrack(props: {
 }
 
 function UnknownDateButton(props: {
-    unknownDateCount: number;
-    activeSeek: GalleryTimelineSeek | null;
-    onClick: () => void;
+    readonly unknownDateCount: number;
+    readonly activeSeek: GalleryTimelineSeek | null;
+    readonly onClick: () => void;
 }) {
     if (props.unknownDateCount <= 0) {
         return null;

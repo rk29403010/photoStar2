@@ -6,7 +6,7 @@ import { RetinaFaceDetector } from '../../faces/retinaFaceDetector';
 import { normalizeStoredPhotoBox } from '../../faces/faceImageGeometry';
 import type { ModuleDefinition } from '../contracts';
 
-export interface DetectFacesModuleOptions {
+export type DetectFacesModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: FacesDetected) => void;

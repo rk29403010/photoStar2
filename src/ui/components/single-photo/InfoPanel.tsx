@@ -8,23 +8,23 @@ import { PeopleTab } from './info-panel/PeopleTab';
 import type { TabId } from './info-panel/utils';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 
-interface InfoPanelProps {
-  asset: Asset;
-  width?: number;
-  activeTab?: TabId;
-  onTabChange?: (tab: TabId) => void;
-  onClose?: () => void;
-  hoveredFaceKey?: string | null;
-  onHoverFaceKey?: (key: string | null) => void;
-  availableTags?: TagDefinitionSummary[];
-  onAssignTag?: (tagLabel: string) => Promise<void>;
-  onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  onSetReviewItemStatus?: (payload: {
+type InfoPanelProps = {
+  readonly asset: Asset;
+  readonly width?: number;
+  readonly activeTab?: TabId;
+  readonly onTabChange?: (tab: TabId) => void;
+  readonly onClose?: () => void;
+  readonly hoveredFaceKey?: string | null;
+  readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly availableTags?: TagDefinitionSummary[];
+  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
+  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+  readonly onSetReviewItemStatus?: (payload: {
     reviewItemId: string;
     status: ReviewItemSummary['status'];
     tagLabel?: string;
   }) => Promise<void>;
-  onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }
 
 const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
@@ -34,7 +34,7 @@ const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
   { id: 'json', emoji: '{ }', label: 'Raw' },
 ];
 
-const PanelHeader: React.FC<{ asset: Asset; hasAI: boolean; onClose?: () => void }> = ({ asset, hasAI, onClose }) => {
+const PanelHeader: React.FC<{ readonly asset: Asset; readonly hasAI: boolean; readonly onClose?: () => void }> = ({ asset, hasAI, onClose }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
   return (
     <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid #1e293b', background: 'rgba(15,23,42,0.9)', flexShrink: 0 }}>
@@ -59,7 +59,7 @@ const PanelHeader: React.FC<{ asset: Asset; hasAI: boolean; onClose?: () => void
   );
 };
 
-const PanelTabs: React.FC<{ activeTab: TabId; setActiveTab: (tab: TabId) => void }> = ({ activeTab, setActiveTab }) => (
+const PanelTabs: React.FC<{ readonly activeTab: TabId; readonly setActiveTab: (tab: TabId) => void }> = ({ activeTab, setActiveTab }) => (
   <div style={{ display: 'flex', borderBottom: '1px solid #1e293b', background: '#080d1a', flexShrink: 0 }}>
     {TABS.map((tab) => {
       const isActive = activeTab === tab.id;
@@ -74,19 +74,19 @@ const PanelTabs: React.FC<{ activeTab: TabId; setActiveTab: (tab: TabId) => void
 );
 
 const PanelContent: React.FC<{
-  activeTab: TabId;
-  asset: Asset;
-  hoveredFaceKey?: string | null;
-  onHoverFaceKey?: (key: string | null) => void;
-  availableTags?: TagDefinitionSummary[];
-  onAssignTag?: (tagLabel: string) => Promise<void>;
-  onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  onSetReviewItemStatus?: (payload: {
+  readonly activeTab: TabId;
+  readonly asset: Asset;
+  readonly hoveredFaceKey?: string | null;
+  readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly availableTags?: TagDefinitionSummary[];
+  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
+  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+  readonly onSetReviewItemStatus?: (payload: {
     reviewItemId: string;
     status: ReviewItemSummary['status'];
     tagLabel?: string;
   }) => Promise<void>;
-  onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }> = ({ activeTab, asset, hoveredFaceKey, onHoverFaceKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection }) => (
   <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 20px' }}>
     {activeTab === 'file' && <FileTab asset={asset} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />}

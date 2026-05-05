@@ -45,7 +45,7 @@ async function writePreviewVariants(
     return thumbnailPath;
 }
 
-export interface GeneratePreviewsModuleOptions {
+export type GeneratePreviewsModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: WorkflowPreviewGenerated) => void;

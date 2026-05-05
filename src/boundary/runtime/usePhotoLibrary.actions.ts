@@ -16,7 +16,7 @@ type SendCommand = (command: string, payload?: Record<string, unknown>) => Promi
 type SetAssets = Dispatch<SetStateAction<Asset[]>>;
 type SetRejectedAssets = Dispatch<SetStateAction<Asset[]>>;
 
-interface CoreActionParams {
+type CoreActionParams = {
     sendCommand: SendCommand;
     setAssets: SetAssets;
     setRejectedAssets: SetRejectedAssets;
@@ -25,17 +25,17 @@ interface CoreActionParams {
     transport: BackendTransport | null;
 }
 
-interface AlbumActionParams {
+type AlbumActionParams = {
     request: RequestFn;
 }
 
-interface GroupActionParams {
+type GroupActionParams = {
     request: RequestFn;
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     setAssets: SetAssets;
 }
 
-interface BuildActionParams {
+type BuildActionParams = {
     transport: BackendTransport | null;
     request: RequestFn;
     addJob: (id: string, stage: PipelineStage, title: string) => void;
@@ -45,7 +45,7 @@ interface BuildActionParams {
     loadAssetDetails: (assetId: string, options?: { includeEvidence?: boolean }) => Promise<void>;
 }
 
-interface TagActionParams {
+type TagActionParams = {
     request: RequestFn;
     setAssets: SetAssets;
     refreshLibrary: (options?: { galleryOrder?: 'default' | 'previewed_first'; preservePagingState?: boolean }) => void;

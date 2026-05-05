@@ -3,18 +3,18 @@ import metadata from '../../../../metadata.json';
 import type { CurrentPhotoStatus } from '@shared/utils/libraryGallery';
 import type { StatusBanner } from './statusBannerModel';
 
-interface AppStatusBarProps {
-  statusBanner: StatusBanner | null;
-  activityMessage?: string | null;
-  status: string;
-  view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-  librarySelectionCount: number;
-  shownAssetsCount: number;
-  peopleSelectionCount: number;
-  totalPhotoCount: number;
-  peopleCount: number;
-  currentPhoto?: CurrentPhotoStatus | null;
-  rightSlot?: ReactNode;
+type AppStatusBarProps = {
+  readonly statusBanner: StatusBanner | null;
+  readonly activityMessage?: string | null;
+  readonly status: string;
+  readonly view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly librarySelectionCount: number;
+  readonly shownAssetsCount: number;
+  readonly peopleSelectionCount: number;
+  readonly totalPhotoCount: number;
+  readonly peopleCount: number;
+  readonly currentPhoto?: CurrentPhotoStatus | null;
+  readonly rightSlot?: ReactNode;
 }
 
 function getStatusDotColor(statusBanner: StatusBanner | null, status: string): string {
@@ -52,7 +52,7 @@ function buildStatusSummary(view: AppStatusBarProps['view'], counts: {
   return summary.join(' | ');
 }
 
-function CurrentPhotoSegment({ currentPhoto }: { currentPhoto: CurrentPhotoStatus }) {
+function CurrentPhotoSegment({ currentPhoto }: { readonly currentPhoto: CurrentPhotoStatus }) {
   return (
     <div
       key={currentPhoto.filename}

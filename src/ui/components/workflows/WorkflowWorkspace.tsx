@@ -20,11 +20,11 @@ import {
     type WorkflowWorkspaceTabId,
 } from './workflowWorkspaceModel';
 
-interface WorkflowWorkspaceProps {
-    workflowId: string;
-    onWorkflowIdChange: (workflowId: string) => void;
-    onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
-    onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
+type WorkflowWorkspaceProps = {
+    readonly workflowId: string;
+    readonly onWorkflowIdChange: (workflowId: string) => void;
+    readonly onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
+    readonly onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
 }
 
 function useWorkflowWorkspacePersistence(workflowId: string) {

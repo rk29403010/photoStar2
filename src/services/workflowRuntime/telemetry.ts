@@ -1,4 +1,4 @@
-export interface WorkflowRuntimeTelemetrySink {
+export type WorkflowRuntimeTelemetrySink = {
     emit(event: { type: string; [key: string]: unknown }): void;
 }
 

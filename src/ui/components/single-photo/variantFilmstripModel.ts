@@ -1,13 +1,13 @@
 import type { Asset, SimilarityOrbitItem } from '@contracts/core';
 
-export interface VariantMemberActions {
+export type VariantMemberActions = {
     selectMember: () => void;
     openGroup?: () => void;
 }
 
 export const FILLED_STAR_SYMBOL = '⭐';
 
-interface BuildVariantMemberActionsParams {
+type BuildVariantMemberActionsParams = {
     item: SimilarityOrbitItem;
     onSelectAsset: (assetId: string) => void;
     onOpenGroup: (groupId: string) => void;

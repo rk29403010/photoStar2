@@ -11,7 +11,7 @@ function getSensitivityColor(score: number | undefined): string {
   return '#22c55e';
 }
 
-const QualitySection: React.FC<{ quality?: Record<string, unknown> }> = ({ quality }) => {
+const QualitySection: React.FC<{ readonly quality?: Record<string, unknown> }> = ({ quality }) => {
   if (!quality) {return null;}
 
   return (
@@ -25,7 +25,7 @@ const QualitySection: React.FC<{ quality?: Record<string, unknown> }> = ({ quali
   );
 };
 
-const AuthenticitySection: React.FC<{ auth?: Record<string, unknown> }> = ({ auth }) => {
+const AuthenticitySection: React.FC<{ readonly auth?: Record<string, unknown> }> = ({ auth }) => {
   if (!auth) {return null;}
 
   return (
@@ -40,7 +40,7 @@ const AuthenticitySection: React.FC<{ auth?: Record<string, unknown> }> = ({ aut
   );
 };
 
-const SensitivitySection: React.FC<{ asset: Asset }> = ({ asset }) => (
+const SensitivitySection: React.FC<{ readonly asset: Asset }> = ({ asset }) => (
   <Section emoji="🛡️" title="Sensitivity">
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       {asset.sensitivity_score != null ? (
@@ -58,7 +58,7 @@ const SensitivitySection: React.FC<{ asset: Asset }> = ({ asset }) => (
   </Section>
 );
 
-const EnhancementsSection: React.FC<{ enhancements?: unknown }> = ({ enhancements }) => {
+const EnhancementsSection: React.FC<{ readonly enhancements?: unknown }> = ({ enhancements }) => {
   const items = Array.isArray(enhancements) ? (enhancements as string[]) : [];
   if (items.length === 0) {return null;}
 
@@ -71,14 +71,14 @@ const EnhancementsSection: React.FC<{ enhancements?: unknown }> = ({ enhancement
   );
 };
 
-const DescriptionSection: React.FC<{ description: string; sourceLabel?: string }> = ({ description, sourceLabel }) => (
+const DescriptionSection: React.FC<{ readonly description: string; readonly sourceLabel?: string }> = ({ description, sourceLabel }) => (
   <Section emoji="📝" title="Description">
     <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>{description}</div>
     <SourceHint label={sourceLabel} />
   </Section>
 );
 
-const InterpretationSection: React.FC<{ emotionalImpact: string; sourceLabel?: string }> = ({ emotionalImpact, sourceLabel }) => (
+const InterpretationSection: React.FC<{ readonly emotionalImpact: string; readonly sourceLabel?: string }> = ({ emotionalImpact, sourceLabel }) => (
   <Section emoji="💖" title="Emotional Impact">
     <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>{emotionalImpact}</div>
     <SourceHint label={sourceLabel} />
@@ -107,7 +107,7 @@ function hasAnalysisContent(params: {
     || params.details.tags.length > 0;
 }
 
-const AnalysisSummarySection: React.FC<{ asset: Asset }> = ({ asset }) => {
+const AnalysisSummarySection: React.FC<{ readonly asset: Asset }> = ({ asset }) => {
   const details = buildAnalysisDetails(asset);
   const hasDetails = Boolean(details.mode || details.tags.length > 0);
   if (!hasDetails) {return null;}
@@ -160,7 +160,7 @@ function getAnalysisContent(asset: Asset) {
   };
 }
 
-export const AnalysisTab: React.FC<{ asset: Asset }> = ({ asset }) => {
+export const AnalysisTab: React.FC<{ readonly asset: Asset }> = ({ asset }) => {
   const content = getAnalysisContent(asset);
 
   return (

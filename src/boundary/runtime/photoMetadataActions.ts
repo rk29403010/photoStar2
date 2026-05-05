@@ -1,7 +1,7 @@
 import type { PhotoMetadataBundle } from '../contracts/core';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 
-export interface RecordPhotoMetadataAssertionInput {
+export type RecordPhotoMetadataAssertionInput = {
     assetId: string;
     fieldPath: string;
     value: unknown;

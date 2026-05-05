@@ -2,7 +2,7 @@ import type { Asset } from './core';
 
 export type TimelineGroupId = `decade-${number}` | 'unknown-date';
 
-export interface TimelineGroupSummary {
+export type TimelineGroupSummary = {
     id: TimelineGroupId;
     label: string;
     sortKey: string;
@@ -12,13 +12,13 @@ export interface TimelineGroupSummary {
     isLoaded: boolean;
 }
 
-export interface TimelineGroupRow {
+export type TimelineGroupRow = {
     kind: 'row';
     rowId: string;
     assets: Asset[];
 }
 
-export interface TimelineGroupAssetItem {
+export type TimelineGroupAssetItem = {
     kind: 'asset';
     asset: Asset;
     assetId: string;
@@ -26,14 +26,14 @@ export interface TimelineGroupAssetItem {
 
 export type TimelineGroupItem = TimelineGroupRow | TimelineGroupAssetItem;
 
-export interface TimelineGalleryPage {
+export type TimelineGalleryPage = {
     groupId: TimelineGroupId;
     items: TimelineGroupItem[];
     nextCursor: string | null;
     isFullyLoaded: boolean;
 }
 
-export interface TimelineJumpTarget {
+export type TimelineJumpTarget = {
     groupId: TimelineGroupId;
     anchorAssetId?: string;
 }

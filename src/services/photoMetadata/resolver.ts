@@ -3,7 +3,7 @@ import { createPhotoMetadataRepository } from './repository';
 import { resolvePhotoMetadataBundle, type ResolvedPhotoMetadata } from './resolution';
 import type { PhotoMetadataBundle } from '../../boundary/contracts/core';
 
-interface ResolvePhotoMetadataOptions {
+type ResolvePhotoMetadataOptions = {
     dbManager: DatabaseManager;
 }
 

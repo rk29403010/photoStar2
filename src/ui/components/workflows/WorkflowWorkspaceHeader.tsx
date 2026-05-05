@@ -8,15 +8,15 @@ import {
     type WorkflowWorkspaceTabId,
 } from './workflowWorkspaceModel';
 
-interface WorkflowWorkspaceHeaderProps {
-    model: WorkflowVisualiserModel;
-    selectedWorkflowId: string;
-    onSelectWorkflow: (workflowId: string) => void;
-    activeTab: WorkflowWorkspaceTabId;
-    onSelectTab: (tabId: WorkflowWorkspaceTabId) => void;
-    selectedRunValue: string;
-    onSelectRun: (runSelection: string | null) => void;
-    retryState?: {
+type WorkflowWorkspaceHeaderProps = {
+    readonly model: WorkflowVisualiserModel;
+    readonly selectedWorkflowId: string;
+    readonly onSelectWorkflow: (workflowId: string) => void;
+    readonly activeTab: WorkflowWorkspaceTabId;
+    readonly onSelectTab: (tabId: WorkflowWorkspaceTabId) => void;
+    readonly selectedRunValue: string;
+    readonly onSelectRun: (runSelection: string | null) => void;
+    readonly retryState?: {
         enabled: boolean;
         loading: boolean;
         assetCount?: number;
@@ -82,9 +82,9 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
 };
 
 function WorkflowSelector(props: {
-    availableWorkflows: WorkflowVisualiserWorkflowSummary[];
-    selectedWorkflowId: string;
-    onSelectWorkflow: (workflowId: string) => void;
+    readonly availableWorkflows: WorkflowVisualiserWorkflowSummary[];
+    readonly selectedWorkflowId: string;
+    readonly onSelectWorkflow: (workflowId: string) => void;
 }) {
     return (
         <div className="flex w-full max-w-sm flex-col">
@@ -111,12 +111,12 @@ function formatLinkedRun(run: WorkflowVisualiserLinkedRun): string {
 }
 
 function RunContextPanel(props: {
-    model: WorkflowVisualiserModel;
-    linkedRecoveryRuns: WorkflowVisualiserLinkedRun[];
-    selectedRunValue: string;
-    onSelectRun: (runSelection: string | null) => void;
-    retryState: WorkflowWorkspaceHeaderProps['retryState'];
-    retryFeedback: string | null;
+    readonly model: WorkflowVisualiserModel;
+    readonly linkedRecoveryRuns: WorkflowVisualiserLinkedRun[];
+    readonly selectedRunValue: string;
+    readonly onSelectRun: (runSelection: string | null) => void;
+    readonly retryState: WorkflowWorkspaceHeaderProps['retryState'];
+    readonly retryFeedback: string | null;
 }) {
     return (
         <div className="w-full min-w-[260px] xl:max-w-xl">

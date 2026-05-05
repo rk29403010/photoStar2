@@ -5,12 +5,12 @@ export type RestartImpactLevel =
     | 'manual-restart'
     | 'reinstall';
 
-export interface DevRuntimePorts {
+export type DevRuntimePorts = {
     webPort: number;
     backendPort: number;
 }
 
-export interface RestartImpact {
+export type RestartImpact = {
     level: RestartImpactLevel;
     summary: string;
     requiresManualRestart: boolean;

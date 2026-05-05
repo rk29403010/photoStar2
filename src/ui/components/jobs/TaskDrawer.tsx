@@ -7,10 +7,10 @@ export function TaskDrawer({
     isMinimized,
     onMinimize,
 }: {
-    jobs: BackgroundJob[];
-    onStop?: (job: BackgroundJob) => void;
-    isMinimized: boolean;
-    onMinimize: (minimized: boolean) => void;
+    readonly jobs: BackgroundJob[];
+    readonly onStop?: (job: BackgroundJob) => void;
+    readonly isMinimized: boolean;
+    readonly onMinimize: (minimized: boolean) => void;
 }) {
     if (jobs.length === 0) {return null;}
 

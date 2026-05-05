@@ -5,14 +5,14 @@ type MessageStream = {
     removeListener: (event: 'data', listener: (chunk: string) => void) => void;
 };
 
-interface RequestMessage {
+type RequestMessage = {
     id?: string;
     status?: string;
     error?: string;
     data?: Record<string, unknown>;
 }
 
-interface RequestArgs<T> {
+type RequestArgs<T> = {
     idPrefix: string;
     command: string;
     payload?: Record<string, unknown>;
@@ -20,21 +20,21 @@ interface RequestArgs<T> {
     select?: (data: Record<string, unknown> | undefined) => T;
 }
 
-interface BaseBackendTransport {
+type BaseBackendTransport = {
     kind: 'tauri' | 'ws';
     write: (data: string) => Promise<void>;
 }
 
-export interface TauriBackendTransport extends BaseBackendTransport {
+export type TauriBackendTransport = {
     kind: 'tauri';
     child: Child;
     stdout: MessageStream;
-}
+} & BaseBackendTransport
 
-export interface WebSocketBackendTransport extends BaseBackendTransport {
+export type WebSocketBackendTransport = {
     kind: 'ws';
     socket: WebSocket;
-}
+} & BaseBackendTransport
 
 export type BackendTransport = TauriBackendTransport | WebSocketBackendTransport;
 

@@ -12,7 +12,7 @@ export const WORKFLOW_WORKSPACE_TABS = [
 
 export type WorkflowWorkspaceTabId = typeof WORKFLOW_WORKSPACE_TABS[number]['id'];
 
-export interface WorkflowSequenceMapViewport {
+export type WorkflowSequenceMapViewport = {
     x: number;
     y: number;
     zoom: number;

@@ -1,10 +1,10 @@
 import type React from 'react';
 import type { WorkflowVisualiserAggregateCount, WorkflowVisualiserDetail } from '@contracts/workflowVisualiser';
 
-interface WorkflowDetailPanelProps {
-    detail: WorkflowVisualiserDetail | null;
-    onClose: () => void;
-    showRuntimeDetails: boolean;
+type WorkflowDetailPanelProps = {
+    readonly detail: WorkflowVisualiserDetail | null;
+    readonly onClose: () => void;
+    readonly showRuntimeDetails: boolean;
 }
 
 function formatAggregateCount(entry: WorkflowVisualiserAggregateCount): string {

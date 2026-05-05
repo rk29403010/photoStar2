@@ -1,6 +1,6 @@
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 
-function DiagnosticsActionButton(props: { active?: boolean; label: string; onClick: () => void }) {
+function DiagnosticsActionButton(props: { readonly active?: boolean; readonly label: string; readonly onClick: () => void }) {
     return (
         <button
             type="button"
@@ -19,7 +19,7 @@ function DiagnosticsActionButton(props: { active?: boolean; label: string; onCli
     );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({ label, value }: { readonly label: string; readonly value: number }) {
     return (
         <div style={{ background: '#111827', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 10, padding: '12px 14px', minWidth: 140 }}>
             <div style={{ fontSize: '0.72rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
@@ -28,7 +28,7 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
     );
 }
 
-export function EmptyDiagnosticsState({ onRefresh }: { onRefresh: () => void }) {
+export function EmptyDiagnosticsState({ onRefresh }: { readonly onRefresh: () => void }) {
     return (
         <div style={{ flex: 1, padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ margin: 0, color: '#cbd5e1' }}>No grouping diagnostics loaded yet.</p>
@@ -40,9 +40,9 @@ export function EmptyDiagnosticsState({ onRefresh }: { onRefresh: () => void }) 
 }
 
 export function DiagnosticsToolbar(props: {
-    filterMode: 'suspicious' | 'all';
-    onRefresh: () => void;
-    setFilterMode: (mode: 'suspicious' | 'all') => void;
+    readonly filterMode: 'suspicious' | 'all';
+    readonly onRefresh: () => void;
+    readonly setFilterMode: (mode: 'suspicious' | 'all') => void;
 }) {
     const { filterMode, onRefresh, setFilterMode } = props;
 
@@ -63,7 +63,7 @@ export function DiagnosticsToolbar(props: {
     );
 }
 
-export function DiagnosticsSummaryCards(props: { report: GroupDiagnosticsReport }) {
+export function DiagnosticsSummaryCards(props: { readonly report: GroupDiagnosticsReport }) {
     const { report } = props;
 
     return (

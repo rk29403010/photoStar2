@@ -3,25 +3,25 @@ import { canUseNativeDirectoryPicker } from '@boundary/runtime/backend';
 
 type ActionTab = 'ingest' | 'workflows' | 'library' | 'danger';
 
-interface ActionPanelProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onScan: (path?: string) => void;
-    onPreviews: () => void;
-    onDetect: () => void;
-    onCluster: () => void;
-    onRecalculatePhotoDates: () => Promise<string>;
-    onExtractAiMetadata: () => void;
-    onScanSensitive: () => void;
-    onScanSensitiveAll: () => void;
-    onRefresh: () => void;
-    onResetFaces: () => void;
-    onResetAll: () => void;
-    onFactoryReset: () => void;
-    onResetGroupingData: () => void;
-    onStopScan: () => void;
-    onOpenGroupDiagnostics: () => void;
-    folderHistory?: { path: string; last_scanned_at: string }[];
+type ActionPanelProps = {
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly onScan: (path?: string) => void;
+    readonly onPreviews: () => void;
+    readonly onDetect: () => void;
+    readonly onCluster: () => void;
+    readonly onRecalculatePhotoDates: () => Promise<string>;
+    readonly onExtractAiMetadata: () => void;
+    readonly onScanSensitive: () => void;
+    readonly onScanSensitiveAll: () => void;
+    readonly onRefresh: () => void;
+    readonly onResetFaces: () => void;
+    readonly onResetAll: () => void;
+    readonly onFactoryReset: () => void;
+    readonly onResetGroupingData: () => void;
+    readonly onStopScan: () => void;
+    readonly onOpenGroupDiagnostics: () => void;
+    readonly folderHistory?: { path: string; last_scanned_at: string }[];
 }
 
 type ActionCardItem = {
@@ -46,7 +46,7 @@ const ACTION_TABS: TabDefinition[] = [
     { id: 'danger', label: 'Danger', summary: 'Use carefully for destructive resets and full database cleanup.' },
 ];
 
-function PanelHeader({ onClose }: { onClose: () => void }) {
+function PanelHeader({ onClose }: { readonly onClose: () => void }) {
     return (
         <div className="mb-6 flex items-center justify-between border-b border-[#333] pb-4">
             <div>
@@ -66,9 +66,9 @@ function TabButton({
     label,
     onClick,
 }: {
-    active: boolean;
-    label: string;
-    onClick: () => void;
+    readonly active: boolean;
+    readonly label: string;
+    readonly onClick: () => void;
 }) {
     return (
         <button
@@ -87,7 +87,7 @@ function TabButton({
 function ActionCard({
     item,
 }: {
-    item: ActionCardItem;
+    readonly item: ActionCardItem;
 }) {
     return (
         <button
@@ -112,8 +112,8 @@ function RecentPaths({
     entries,
     onScan,
 }: {
-    entries: { path: string; last_scanned_at: string }[];
-    onScan: (path: string) => void;
+    readonly entries: { path: string; last_scanned_at: string }[];
+    readonly onScan: (path: string) => void;
 }) {
     if (entries.length === 0) {
         return null;
@@ -145,7 +145,7 @@ function RecentPaths({
 function ActionGrid({
     items,
 }: {
-    items: ActionCardItem[];
+    readonly items: ActionCardItem[];
 }) {
     return (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -297,8 +297,8 @@ function buildTabItems(
 }
 
 function ManualPathPrompt(props: {
-    onScan: (path: string) => void;
-    onCancel: () => void;
+    readonly onScan: (path: string) => void;
+    readonly onCancel: () => void;
 }) {
     const [manualPath, setManualPath] = useState('');
 

@@ -1,10 +1,10 @@
 import type React from 'react';
 import type { Asset } from '@contracts/core';
 
-interface DebugAssetPanelProps {
-    asset: Asset;
-    onUpdate: (id: string, updates: Partial<Asset>) => void;
-    onClose: () => void;
+type DebugAssetPanelProps = {
+    readonly asset: Asset;
+    readonly onUpdate: (id: string, updates: Partial<Asset>) => void;
+    readonly onClose: () => void;
 }
 
 export const DebugAssetPanel: React.FC<DebugAssetPanelProps> = ({ asset, onUpdate, onClose }) => {

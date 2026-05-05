@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import { formatUiFeedEntriesForClipboard, formatUiFeedEntryForClipboard } from '@shared/utils/libraryUiDiagnostics';
 
-interface UiFeedPanelProps {
-    entries: UiFeedEntry[];
+type UiFeedPanelProps = {
+    readonly entries: UiFeedEntry[];
 }
 
 type CopyTarget = 'all' | string;
@@ -35,11 +35,11 @@ function useCopyReset(copiedTarget: CopyTarget | null, setCopiedTarget: (value: 
 }
 
 function CopyButton(props: {
-    target: CopyTarget;
-    label: string;
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    onCopy: (target: CopyTarget) => void;
+    readonly target: CopyTarget;
+    readonly label: string;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly onCopy: (target: CopyTarget) => void;
 }) {
     const { target, label, copiedTarget, copyingTarget, onCopy } = props;
     const isCopied = copiedTarget === target;
@@ -61,10 +61,10 @@ function CopyButton(props: {
 }
 
 function UiFeedHeader(props: {
-    entryCount: number;
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    onCopy: (target: CopyTarget) => void;
+    readonly entryCount: number;
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly onCopy: (target: CopyTarget) => void;
 }) {
     const { entryCount, copiedTarget, copyingTarget, onCopy } = props;
     return (
@@ -88,10 +88,10 @@ function UiFeedHeader(props: {
 }
 
 function UiFeedTable(props: {
-    entries: UiFeedEntry[];
-    copiedTarget: CopyTarget | null;
-    copyingTarget: CopyTarget | null;
-    onCopy: (target: CopyTarget) => void;
+    readonly entries: UiFeedEntry[];
+    readonly copiedTarget: CopyTarget | null;
+    readonly copyingTarget: CopyTarget | null;
+    readonly onCopy: (target: CopyTarget) => void;
 }) {
     const { entries, copiedTarget, copyingTarget, onCopy } = props;
     return (

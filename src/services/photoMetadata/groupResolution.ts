@@ -16,7 +16,7 @@ import type {
     PhotoMetadataSubject,
 } from './types';
 
-interface ResolvedField<T> {
+type ResolvedField<T> = {
     value: T;
     source: PhotoMetadataFieldSource | undefined;
 }

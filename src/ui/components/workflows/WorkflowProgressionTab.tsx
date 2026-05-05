@@ -1,9 +1,9 @@
 import type React from 'react';
 import type { WorkflowVisualiserAggregateCount, WorkflowVisualiserProgressionStage } from '@contracts/workflowVisualiser';
 
-interface WorkflowProgressionTabProps {
-    stages: WorkflowVisualiserProgressionStage[];
-    onSelectDetail: (detailId: string) => void;
+type WorkflowProgressionTabProps = {
+    readonly stages: WorkflowVisualiserProgressionStage[];
+    readonly onSelectDetail: (detailId: string) => void;
 }
 
 function getStatusClass(status: WorkflowVisualiserProgressionStage['status']): string {

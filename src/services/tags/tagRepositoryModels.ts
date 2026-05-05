@@ -5,7 +5,7 @@ import type {
     TagDefinitionStatus,
 } from './tagTypes';
 
-export interface CreateTagDefinitionParams {
+export type CreateTagDefinitionParams = {
     id?: string;
     canonicalLabel: string;
     description?: string | null;
@@ -13,25 +13,25 @@ export interface CreateTagDefinitionParams {
     category?: string | null;
 }
 
-export interface CreateTagAliasParams {
+export type CreateTagAliasParams = {
     id?: string;
     tagDefinitionId: string;
     aliasLabel: string;
 }
 
-export interface RenameTagDefinitionParams {
+export type RenameTagDefinitionParams = {
     tagDefinitionId: string;
     canonicalLabel: string;
     description?: string | null;
     category?: string | null;
 }
 
-export interface MergeTagDefinitionsParams {
+export type MergeTagDefinitionsParams = {
     sourceTagDefinitionId: string;
     targetTagDefinitionId: string;
 }
 
-export interface AssignTagToAssetParams {
+export type AssignTagToAssetParams = {
     assetId: string;
     tagDefinitionId: string;
     sourceKind: TagAssignmentSourceKind;
@@ -39,13 +39,13 @@ export interface AssignTagToAssetParams {
     confidence?: number | null;
 }
 
-export interface RemoveTagAssignmentParams {
+export type RemoveTagAssignmentParams = {
     assetId: string;
     tagDefinitionId: string;
     sourceKind?: TagAssignmentSourceKind;
 }
 
-export interface CreateReviewItemParams {
+export type CreateReviewItemParams = {
     id?: string;
     reviewItemType: ReviewItemType;
     subjectType: string;
@@ -57,7 +57,7 @@ export interface CreateReviewItemParams {
     reviewedAt?: string | null;
 }
 
-export interface TagAssignmentRecord {
+export type TagAssignmentRecord = {
     tagDefinitionId: string;
     canonicalLabel: string;
     description: string | null;
@@ -70,7 +70,7 @@ export interface TagAssignmentRecord {
     updatedAt: string;
 }
 
-export interface TagDefinitionRecord {
+export type TagDefinitionRecord = {
     id: string;
     canonicalLabel: string;
     description: string | null;
@@ -81,7 +81,7 @@ export interface TagDefinitionRecord {
     assignmentCount?: number;
 }
 
-export interface TaggedAssetRecord {
+export type TaggedAssetRecord = {
     assetId: string;
     sourceKind: TagAssignmentSourceKind;
     sourceRecordId: string | null;
@@ -90,7 +90,7 @@ export interface TaggedAssetRecord {
     updatedAt: string;
 }
 
-export interface ReviewItemRecord {
+export type ReviewItemRecord = {
     id: string;
     reviewItemType: ReviewItemType;
     subjectType: string;
@@ -104,14 +104,14 @@ export interface ReviewItemRecord {
     updatedAt: string;
 }
 
-export interface TagAliasRecord {
+export type TagAliasRecord = {
     id: string;
     tagDefinitionId: string;
     aliasLabel: string;
     createdAt: string;
 }
 
-export interface ReviewItemFilterParams {
+export type ReviewItemFilterParams = {
     status?: ReviewItemStatus;
     reviewItemType?: ReviewItemType;
     subjectType?: string;

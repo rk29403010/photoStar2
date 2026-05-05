@@ -10,7 +10,7 @@ export type LibrarySelectableItem = {
     groupId: string | null;
 };
 
-export interface LibrarySelectionState {
+export type LibrarySelectionState = {
     photoIds: Set<string>;
     groupIds: Set<string>;
     anchorKey: LibrarySelectionKey | null;

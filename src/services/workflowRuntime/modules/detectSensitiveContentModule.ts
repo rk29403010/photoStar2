@@ -2,7 +2,7 @@ import type { DatabaseManager } from '../../../data/db';
 import type { AssetUpdated } from '../../events/types';
 import type { ModuleDefinition } from '../contracts';
 
-export interface DetectSensitiveContentModuleOptions {
+export type DetectSensitiveContentModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: AssetUpdated) => void;

@@ -5,20 +5,20 @@ import type { GalleryTimeSection, GalleryTimeSectionMode } from './galleryTimeSe
 import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
 import { GroupedTimelineLayout } from './GroupedTimelineLayout';
 
-interface LayoutModeRendererProps {
-    layoutMode: GalleryLayoutMode;
-    justifiedItems: Array<{ id: string; width?: number; height?: number }>;
-    justifiedSections?: GalleryTimeSection[];
-    timeSectionMode?: GalleryTimeSectionMode;
-    scrollContainerRef?: RefObject<HTMLDivElement | null>;
-    itemCount: number;
-    tileGap?: number;
-    rowGap?: number;
-    targetRowHeight?: number;
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-    timelineJumpRequest?: TimelineJumpRequest | null;
-    renderTile: (index: number, shellStyleOverride?: CSSProperties) => ReactNode;
+type LayoutModeRendererProps = {
+    readonly layoutMode: GalleryLayoutMode;
+    readonly justifiedItems: Array<{ id: string; width?: number; height?: number }>;
+    readonly justifiedSections?: GalleryTimeSection[];
+    readonly timeSectionMode?: GalleryTimeSectionMode;
+    readonly scrollContainerRef?: RefObject<HTMLDivElement | null>;
+    readonly itemCount: number;
+    readonly tileGap?: number;
+    readonly rowGap?: number;
+    readonly targetRowHeight?: number;
+    readonly onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
+    readonly onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
+    readonly timelineJumpRequest?: TimelineJumpRequest | null;
+    readonly renderTile: (index: number, shellStyleOverride?: CSSProperties) => ReactNode;
 }
 
 export function LayoutModeRenderer(props: LayoutModeRendererProps) {

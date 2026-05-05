@@ -3,12 +3,12 @@ import type { Person } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 
-interface PeopleViewProps {
-    people: Person[];
-    onFilter?: (filter: LibraryFilter) => void;
-    onSelectionChange?: (count: number) => void;
-    onRename?: (personId: string, newName: string) => void;
-    onMerge?: (personIds: string[], targetName: string) => void;
+type PeopleViewProps = {
+    readonly people: Person[];
+    readonly onFilter?: (filter: LibraryFilter) => void;
+    readonly onSelectionChange?: (count: number) => void;
+    readonly onRename?: (personId: string, newName: string) => void;
+    readonly onMerge?: (personIds: string[], targetName: string) => void;
 }
 
 type MultiFilterType = 'person_any' | 'person_all' | 'person_only';
@@ -43,7 +43,7 @@ function getFaceCountLabel(faceCount: number) {
     return `${faceCount} ${faceCount === 1 ? 'photo' : 'photos'}`;
 }
 
-function PersonCover({ coverSrc }: { coverSrc: string | null }) {
+function PersonCover({ coverSrc }: { readonly coverSrc: string | null }) {
     return (
         <div style={{
             width: 120, height: 120, borderRadius: '50%', overflow: 'hidden', background: '#222',
@@ -54,7 +54,7 @@ function PersonCover({ coverSrc }: { coverSrc: string | null }) {
     );
 }
 
-function RejectedCountBadge({ rejectedCount }: { rejectedCount: number }) {
+function RejectedCountBadge({ rejectedCount }: { readonly rejectedCount: number }) {
     if (!rejectedCount) {
         return null;
     }
@@ -69,7 +69,7 @@ function RejectedCountBadge({ rejectedCount }: { rejectedCount: number }) {
     );
 }
 
-function PersonStats({ faceCount, rejectedCount }: { faceCount: number; rejectedCount: number }) {
+function PersonStats({ faceCount, rejectedCount }: { readonly faceCount: number; readonly rejectedCount: number }) {
     return (
         <div title={rejectedCount ? getRejectedCountLabel(rejectedCount) : undefined} style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500', display: 'flex', alignItems: 'center', gap: 4 }}>
             <span>{getFaceCountLabel(faceCount)}</span>
@@ -271,8 +271,8 @@ function SelectionActionButton({
     action,
     onClick
 }: {
-    action: SelectionActionConfig;
-    onClick: () => void;
+    readonly action: SelectionActionConfig;
+    readonly onClick: () => void;
 }) {
     const enabled = !action.disabled;
     return (

@@ -20,7 +20,7 @@ type GroupingAssetRow = {
     dhash64: string | null;
 };
 
-export interface PreparedGroupingAsset {
+export type PreparedGroupingAsset = {
     id: string;
     originalPath: string;
     fileHash: string;

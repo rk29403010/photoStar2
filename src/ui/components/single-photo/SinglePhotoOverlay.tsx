@@ -9,59 +9,59 @@ import { DEFAULT_INFO_PANEL_WIDTH } from './singlePhotoOverlayLayout';
 
 const APP_STATUS_BAR_HEIGHT = 30;
 
-export interface SinglePhotoOverlayProps {
-    asset: Asset;
-    assets: Asset[];
-    currentIndex: number;
-    showControls: boolean;
-    setShowControls: Dispatch<SetStateAction<boolean>>;
-    showFaces: boolean;
-    setShowFaces: Dispatch<SetStateAction<boolean>>;
-    showActionMenu: boolean;
-    setShowActionMenu: Dispatch<SetStateAction<boolean>>;
-    hoveredFaceKey: string | null;
-    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
-    panelState: PanelState;
-    onClose: () => void;
-    onFaceClick?: (personId: string, personName: string) => void;
-    onIsolateFace?: (assetId: string, faceIndex: number) => void;
-    onSetSensitivity?: (assetId: string, status: string | null) => void;
-    onMoveToBin?: (assetId: string) => Promise<void>;
-    onRestoreFromBin?: (assetId: string) => Promise<void>;
-    onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
-    onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
-    onOpenSettings?: () => void;
-    onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    onOrbitLoaded: (assets: Asset[]) => void;
-    onSelectAsset: (assetId: string) => void;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
-    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
-    onSetReviewItemStatus?: (payload: {
+export type SinglePhotoOverlayProps = {
+    readonly asset: Asset;
+    readonly assets: Asset[];
+    readonly currentIndex: number;
+    readonly showControls: boolean;
+    readonly setShowControls: Dispatch<SetStateAction<boolean>>;
+    readonly showFaces: boolean;
+    readonly setShowFaces: Dispatch<SetStateAction<boolean>>;
+    readonly showActionMenu: boolean;
+    readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>;
+    readonly hoveredFaceKey: string | null;
+    readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly panelState: PanelState;
+    readonly onClose: () => void;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly onSetSensitivity?: (assetId: string, status: string | null) => void;
+    readonly onMoveToBin?: (assetId: string) => Promise<void>;
+    readonly onRestoreFromBin?: (assetId: string) => Promise<void>;
+    readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
+    readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
+    readonly onOpenSettings?: () => void;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onOrbitLoaded: (assets: Asset[]) => void;
+    readonly onSelectAsset: (assetId: string) => void;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
+    readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    readonly onSetReviewItemStatus?: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
     }) => Promise<void>;
-    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
-    onChangeIndex: (delta: -1 | 1) => void;
-    onRevealControls: () => void;
-    analysis: AnalysisState;
+    readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onChangeIndex: (delta: -1 | 1) => void;
+    readonly onRevealControls: () => void;
+    readonly analysis: AnalysisState;
 }
 
 function PhotoInfoSidebar(props: {
-    asset: Asset;
-    panelState: PanelState;
-    hoveredFaceKey: string | null;
-    setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
-    onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
-    onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
-    onSetReviewItemStatus?: (payload: {
+    readonly asset: Asset;
+    readonly panelState: PanelState;
+    readonly hoveredFaceKey: string | null;
+    readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
+    readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
+    readonly onSetReviewItemStatus?: (payload: {
         reviewItemId: string;
         status: ReviewItemSummary['status'];
         tagLabel?: string;
     }) => Promise<void>;
-    onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
 }) {
     const assignAssetTag = props.onAssignAssetTag;
     const removeAssetTag = props.onRemoveAssetTag;

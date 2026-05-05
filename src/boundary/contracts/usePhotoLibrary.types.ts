@@ -42,7 +42,7 @@ export type FolderHistoryItem = {
 
 export type UiFeedEntrySource = 'asset_response' | 'workflow_poll' | 'event';
 
-export interface UiFeedEntry {
+export type UiFeedEntry = {
     id: string;
     timestamp: string;
     source: UiFeedEntrySource;

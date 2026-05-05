@@ -2,7 +2,7 @@ export type GroupDiagnosticsFlag =
     | 'multi_group_overlap'
     | 'overcount_on_collapse';
 
-export interface GroupDiagnosticsAssetRow {
+export type GroupDiagnosticsAssetRow = {
     assetId: string;
     originalPath: string;
     previewPath: string | null;
@@ -11,14 +11,14 @@ export interface GroupDiagnosticsAssetRow {
     groups: GroupDiagnosticsMembershipGroupRow[];
 }
 
-export interface GroupDiagnosticsMembershipGroupRow {
+export type GroupDiagnosticsMembershipGroupRow = {
     groupId: string;
     groupType: string;
     representativeAssetId: string | null;
     representativePreviewPath: string | null;
 }
 
-export interface GroupDiagnosticsChildRow {
+export type GroupDiagnosticsChildRow = {
     groupId: string;
     groupType: string;
     representativeAssetId: string | null;
@@ -26,7 +26,7 @@ export interface GroupDiagnosticsChildRow {
     descendantFileCount: number;
 }
 
-export interface GroupDiagnosticsGroupRow {
+export type GroupDiagnosticsGroupRow = {
     groupId: string;
     groupType: string;
     representativeAssetId: string | null;
@@ -42,7 +42,7 @@ export interface GroupDiagnosticsGroupRow {
     children: GroupDiagnosticsChildRow[];
 }
 
-export interface GroupDiagnosticsSummary {
+export type GroupDiagnosticsSummary = {
     totalAssets: number;
     totalGroups: number;
     totalMemberships: number;
@@ -50,7 +50,7 @@ export interface GroupDiagnosticsSummary {
     suspiciousGroupCount: number;
 }
 
-export interface GroupDiagnosticsReport {
+export type GroupDiagnosticsReport = {
     summary: GroupDiagnosticsSummary;
     groups: GroupDiagnosticsGroupRow[];
 }

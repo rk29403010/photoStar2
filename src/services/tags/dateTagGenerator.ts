@@ -1,4 +1,4 @@
-export interface GenerateDateTagLabelsParams {
+export type GenerateDateTagLabelsParams = {
     photoCreatedAt: string | null;
     rangeStart: string | null;
     rangeEnd: string | null;

@@ -8,7 +8,7 @@ import type {
 
 type SubjectRecord = Record<string, unknown>;
 
-export interface FilePanelSummary {
+export type FilePanelSummary = {
     caption: string | null;
     captionSourceLabel?: string;
     type: string | null;
@@ -21,7 +21,7 @@ export interface FilePanelSummary {
     dateRationale: string | null;
 }
 
-export interface AnalysisPanelSummary {
+export type AnalysisPanelSummary = {
     caption: string | null;
     captionSourceLabel?: string;
     description: string | null;
@@ -30,7 +30,7 @@ export interface AnalysisPanelSummary {
     emotionalImpactSourceLabel?: string;
 }
 
-export interface PeoplePanelSubjectSummary {
+export type PeoplePanelSubjectSummary = {
     label: string;
     suggestedNames: string[];
     uniform?: string;
@@ -47,7 +47,7 @@ export interface PeoplePanelSubjectSummary {
     raw: SubjectRecord;
 }
 
-export interface PeoplePanelSummary {
+export type PeoplePanelSummary = {
     subjects: PeoplePanelSubjectSummary[];
 }
 

@@ -1,17 +1,17 @@
-export interface ScrfdDecodeCandidate {
+export type ScrfdDecodeCandidate = {
     score: number;
     box: [number, number, number, number];
     landmarks: Array<{ x: number; y: number }>;
 }
 
-interface CreateScrfdAnchorCentersParams {
+type CreateScrfdAnchorCentersParams = {
     featureWidth: number;
     featureHeight: number;
     stride: number;
     anchorCount: number;
 }
 
-interface DecodeScrfdCandidatesParams {
+type DecodeScrfdCandidatesParams = {
     scores: Float32Array;
     boxPredictions: Float32Array;
     landmarkPredictions: Float32Array;

@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react';
 import type { Asset, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
 import { Section } from './shared';
 
-interface TagManagementSectionProps {
-  asset: Asset;
-  availableTags?: TagDefinitionSummary[];
-  onAssignTag?: (tagLabel: string) => Promise<void>;
-  onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  onSetReviewItemStatus?: (payload: {
+type TagManagementSectionProps = {
+  readonly asset: Asset;
+  readonly availableTags?: TagDefinitionSummary[];
+  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
+  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+  readonly onSetReviewItemStatus?: (payload: {
     reviewItemId: string;
     status: ReviewItemSummary['status'];
     tagLabel?: string;
@@ -35,16 +35,16 @@ function getNonManualTags(asset: Asset) {
   return (asset.tags ?? []).filter((tag) => tag.sourceKind !== 'manual');
 }
 
-function EmptyTagState({ message }: { message: string }) {
+function EmptyTagState({ message }: { readonly message: string }) {
   return <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>{message}</div>;
 }
 
 function TagBadge(props: {
-  label: string;
-  sourceLabel: string;
-  removable: boolean;
-  onRemove?: () => void;
-  busy: boolean;
+  readonly label: string;
+  readonly sourceLabel: string;
+  readonly removable: boolean;
+  readonly onRemove?: () => void;
+  readonly busy: boolean;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.18)', background: 'rgba(15,23,42,0.55)' }}>
@@ -62,10 +62,10 @@ function TagBadge(props: {
 }
 
 function TagAssignmentList(props: {
-  asset: Asset;
-  busyKey: string | null;
-  onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  setBusyKey: (value: string | null) => void;
+  readonly asset: Asset;
+  readonly busyKey: string | null;
+  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
+  readonly setBusyKey: (value: string | null) => void;
 }) {
   const manualTags = getManualTags(props.asset);
   const nonManualTags = getNonManualTags(props.asset);
@@ -99,12 +99,12 @@ function TagAssignmentList(props: {
 }
 
 function TagInputRow(props: {
-  newTagLabel: string;
-  suggestedLabels: string[];
-  busyKey: string | null;
-  onAssignTag?: (tagLabel: string) => Promise<void>;
-  onNewTagLabelChange: (value: string) => void;
-  setBusyKey: (value: string | null) => void;
+  readonly newTagLabel: string;
+  readonly suggestedLabels: string[];
+  readonly busyKey: string | null;
+  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
+  readonly onNewTagLabelChange: (value: string) => void;
+  readonly setBusyKey: (value: string | null) => void;
 }) {
   if (!props.onAssignTag) {
     return null;
@@ -140,14 +140,14 @@ function TagInputRow(props: {
 }
 
 function PendingTagProposals(props: {
-  pendingReviewItems: ReviewItemSummary[];
-  busyKey: string | null;
-  onSetReviewItemStatus?: (payload: {
+  readonly pendingReviewItems: ReviewItemSummary[];
+  readonly busyKey: string | null;
+  readonly onSetReviewItemStatus?: (payload: {
     reviewItemId: string;
     status: ReviewItemSummary['status'];
     tagLabel?: string;
   }) => Promise<void>;
-  setBusyKey: (value: string | null) => void;
+  readonly setBusyKey: (value: string | null) => void;
 }) {
   const handleReviewAction = async (reviewItemId: string, status: ReviewItemSummary['status'], tagLabel?: string) => {
     if (!props.onSetReviewItemStatus) {

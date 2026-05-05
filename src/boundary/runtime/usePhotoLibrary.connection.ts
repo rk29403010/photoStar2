@@ -24,7 +24,7 @@ const INITIAL_STARTUP_TIMEOUT_MS = 10000;
 const FAST_RECONNECT_DELAYS_MS = [400, 900, 1600, 2500];
 const SLOW_RECONNECT_DELAY_MS = 6000;
 
-export interface ConnectionStateParams {
+export type ConnectionStateParams = {
     hasCompletedInitialSync: boolean;
     setHasCompletedInitialSync: (value: boolean) => void;
     setHasMoreAssets: (value: boolean) => void;

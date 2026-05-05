@@ -2,7 +2,7 @@ import type { LibrarySelectableItem } from '@shared/utils/librarySelectionState'
 
 export type GalleryTimeSectionMode = 'none' | 'decade';
 
-export interface GalleryTimeSection {
+export type GalleryTimeSection = {
     id: string;
     label: string | null;
     items: LibrarySelectableItem[];

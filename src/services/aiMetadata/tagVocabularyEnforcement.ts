@@ -1,10 +1,10 @@
-export interface SplitAiTagsAgainstVocabularyParams {
+export type SplitAiTagsAgainstVocabularyParams = {
     keywords: string[];
     tagProposals?: string[];
     approvedTagVocabulary: string[];
 }
 
-export interface SplitAiTagsAgainstVocabularyResult {
+export type SplitAiTagsAgainstVocabularyResult = {
     approvedKeywords: string[];
     tagProposals: string[];
 }

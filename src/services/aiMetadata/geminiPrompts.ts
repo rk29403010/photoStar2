@@ -1,4 +1,4 @@
-export interface GeminiPromptInput {
+export type GeminiPromptInput = {
     filename: string;
     exifDataString: string;
     imageStrategy?: 'overview_only' | 'overview_plus_tiles';

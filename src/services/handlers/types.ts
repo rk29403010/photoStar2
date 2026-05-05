@@ -5,13 +5,13 @@ import type { ExecutionStore } from '../workflowRuntime/executionStore';
 import type { WorkflowRuntimeOrchestrator } from '../workflowRuntime/orchestrator';
 import type { WorkflowRegistry } from '../workflowRuntime/workflowRegistry';
 
-export interface WorkflowRuntimeFacade {
+export type WorkflowRuntimeFacade = {
     store: ExecutionStore;
     orchestrator: WorkflowRuntimeOrchestrator;
     workflows: WorkflowRegistry;
 }
 
-export interface CommandContext {
+export type CommandContext = {
     id: string;
     command: string;
     payload?: unknown;

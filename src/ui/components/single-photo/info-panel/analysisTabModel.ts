@@ -1,7 +1,7 @@
 import type { Asset } from '@contracts/core';
 import { buildPhotoMetadataAnalysisSummary } from './photoMetadataPanelModel.ts';
 
-export interface AnalysisDetails {
+export type AnalysisDetails = {
   mode?: string;
   tags: string[];
   description?: string;

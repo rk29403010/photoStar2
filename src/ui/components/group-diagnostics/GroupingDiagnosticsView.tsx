@@ -9,11 +9,11 @@ import {
 import { DiagnosticsSummaryCards, DiagnosticsToolbar, EmptyDiagnosticsState } from './groupDiagnosticsView.chrome';
 import { useCopyReset } from './groupDiagnosticsView.hooks';
 
-interface GroupingDiagnosticsViewProps {
-    report: GroupDiagnosticsReport | null;
-    loading: boolean;
-    onRefresh: () => void;
-    onAssetClick?: (id: string) => void;
+type GroupingDiagnosticsViewProps = {
+    readonly report: GroupDiagnosticsReport | null;
+    readonly loading: boolean;
+    readonly onRefresh: () => void;
+    readonly onAssetClick?: (id: string) => void;
 }
 
 function useCopyState() {

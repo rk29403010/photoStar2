@@ -1,8 +1,8 @@
 import type React from 'react';
 import type { WorkflowVisualiserTextSection } from '@contracts/workflowVisualiser';
 
-interface WorkflowTextTabProps {
-    sections: WorkflowVisualiserTextSection[];
+type WorkflowTextTabProps = {
+    readonly sections: WorkflowVisualiserTextSection[];
 }
 
 export const WorkflowTextTab: React.FC<WorkflowTextTabProps> = ({ sections }) => (

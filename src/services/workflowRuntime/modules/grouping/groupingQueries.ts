@@ -5,7 +5,7 @@ import { buildSimilarityUnits, type SimilarityGroupingUnit } from './groupingUni
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
-export interface GroupingSimilarityAsset {
+export type GroupingSimilarityAsset = {
     id: string;
     originalPath: string;
     fileHash: string;
@@ -17,12 +17,12 @@ export interface GroupingSimilarityAsset {
     dhash64: string;
 }
 
-export interface GroupingSimilarityEdge extends SimilarityEdgeRef {
+export type GroupingSimilarityEdge = {
     score: number;
     distance: number;
-}
+} & SimilarityEdgeRef
 
-export interface BurstGroupingAsset {
+export type BurstGroupingAsset = {
     id: string;
     originalPath: string;
     fileHash: string | null;

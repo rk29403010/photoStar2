@@ -3,7 +3,7 @@ import { validateWorkflowDefinition } from './contracts';
 import type { ModuleRegistry } from './moduleRegistry';
 import type { SubjectRegistry } from './subjectRegistry';
 
-export interface WorkflowRegistryDependencies {
+export type WorkflowRegistryDependencies = {
     subjects: SubjectRegistry;
     modules: ModuleRegistry;
 }

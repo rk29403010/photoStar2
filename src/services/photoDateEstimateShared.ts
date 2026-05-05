@@ -13,7 +13,7 @@ type RawTimestampCandidate = {
     value?: unknown;
 };
 
-export interface PhotoDateSignal {
+export type PhotoDateSignal = {
     source: string;
     origin: SignalOrigin;
     label: string;

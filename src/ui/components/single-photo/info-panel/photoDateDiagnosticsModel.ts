@@ -1,13 +1,13 @@
 import type { Asset, PhotoDateEstimateArtifact, PhotoDateEstimateSignal } from '@contracts/core';
 
-export interface PhotoDateDiagnosticSignalSummary {
+export type PhotoDateDiagnosticSignalSummary = {
     label: string;
     originLabel: string;
     precisionLabel: string;
     weightLabel: string;
 }
 
-export interface PhotoDateDiagnosticsSummary {
+export type PhotoDateDiagnosticsSummary = {
     confidenceLabel: string | null;
     rangeLabel: string | null;
     reasons: string[];

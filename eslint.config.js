@@ -94,6 +94,8 @@ export default defineConfig([
       'max-lines': advisoryFileSizeRule,
       ...reviewabilityRules,
       ...correctnessRules,
+      '@typescript-eslint/consistent-type-definitions': ['error', 'type'],
+      '@typescript-eslint/no-deprecated': 'error',
       '@typescript-eslint/consistent-type-exports': 'error',
       '@typescript-eslint/consistent-type-imports': ['error', {
         prefer: 'type-imports',
@@ -131,6 +133,7 @@ export default defineConfig([
       'react/jsx-boolean-value': ['error', 'never'],
       'react/jsx-curly-brace-presence': ['error', { props: 'never', children: 'never' }],
       'react/jsx-no-useless-fragment': 'error',
+      'react/prefer-read-only-props': 'error',
       'react/prop-types': 'off',
       'react/self-closing-comp': 'error',
       'react-hooks/set-state-in-effect': 'off',

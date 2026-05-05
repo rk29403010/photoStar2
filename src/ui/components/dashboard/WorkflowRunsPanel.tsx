@@ -65,7 +65,7 @@ function buildEnrichmentSummary(run: WorkflowRunListItem): string[] {
     return summaries;
 }
 
-export const WorkflowRunsPanel: React.FC<{ runs: WorkflowRunListItem[] }> = ({ runs }) => {
+export const WorkflowRunsPanel: React.FC<{ readonly runs: WorkflowRunListItem[] }> = ({ runs }) => {
     if (runs.length === 0) {
         return (
             <section className="rounded-xl border border-gray-800 bg-[#111111] p-4">

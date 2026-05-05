@@ -35,11 +35,11 @@ function useEventCopyReset(copiedEventId: string | null, setCopiedEventId: (valu
 }
 
 function EventsFilterBar(props: {
-    activeFilter: EventFilter;
-    eventTypes: string[];
-    filteredCount: number;
-    totalCount: number;
-    onChange: (value: EventFilter) => void;
+    readonly activeFilter: EventFilter;
+    readonly eventTypes: string[];
+    readonly filteredCount: number;
+    readonly totalCount: number;
+    readonly onChange: (value: EventFilter) => void;
 }) {
     const { activeFilter, eventTypes, filteredCount, totalCount, onChange } = props;
     return (
@@ -63,10 +63,10 @@ function EventsFilterBar(props: {
 }
 
 function CopyRawButton(props: {
-    eventId: string;
-    copiedEventId: string | null;
-    copyingEventId: string | null;
-    onCopy: (eventId: string) => void;
+    readonly eventId: string;
+    readonly copiedEventId: string | null;
+    readonly copyingEventId: string | null;
+    readonly onCopy: (eventId: string) => void;
 }) {
     const { eventId, copiedEventId, copyingEventId, onCopy } = props;
     const isCopied = copiedEventId === eventId;
@@ -87,10 +87,10 @@ function CopyRawButton(props: {
 }
 
 function EventsTable(props: {
-    events: RecentEventSnapshot[];
-    copiedEventId: string | null;
-    copyingEventId: string | null;
-    onCopy: (eventId: string) => void;
+    readonly events: RecentEventSnapshot[];
+    readonly copiedEventId: string | null;
+    readonly copyingEventId: string | null;
+    readonly onCopy: (eventId: string) => void;
 }) {
     const { events, copiedEventId, copyingEventId, onCopy } = props;
     return (
@@ -142,9 +142,9 @@ function EventsTable(props: {
 }
 
 export const RecentEventsPanel: React.FC<{
-    events: RecentEventSnapshot[];
-    loading?: boolean;
-    onGetEventPayloadRaw: (eventId: string) => Promise<string>;
+    readonly events: RecentEventSnapshot[];
+    readonly loading?: boolean;
+    readonly onGetEventPayloadRaw: (eventId: string) => Promise<string>;
 }> = ({ events, loading, onGetEventPayloadRaw }) => {
     const [activeFilter, setActiveFilter] = useState<EventFilter>('all');
     const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
