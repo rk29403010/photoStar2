@@ -54,8 +54,8 @@ type SinglePhotoViewProps = {
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     readonly showInfoPanel?: boolean;
     readonly onShowInfoPanelChange?: (v: boolean) => void;
-    readonly activeInfoTab?: 'file' | 'analysis' | 'people' | 'json';
-    readonly onActiveInfoTabChange?: (t: 'file' | 'analysis' | 'people' | 'json') => void;
+    readonly activeInfoTab?: ActiveInfoTab;
+    readonly onActiveInfoTabChange?: (t: ActiveInfoTab) => void;
 }
 
 type ControlsState = {
@@ -73,21 +73,23 @@ type ControlsState = {
     onChangeIndex: (delta: -1 | 1) => void;
 };
 
+export type ActiveInfoTab = 'file' | 'analysis' | 'people' | 'json';
+
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
     onShowInfoPanelChange,
     activeInfoTab: activeInfoTabProp,
     onActiveInfoTabChange
-}: Pick<SinglePhotoViewProps, 'showInfoPanel' | 'onShowInfoPanelChange' | 'activeInfoTab' | 'onActiveInfoTabChange'>): PanelState & { setActiveInfoTab: (t: 'file' | 'analysis' | 'people' | 'json') => void } {
+}: Pick<SinglePhotoViewProps, 'showInfoPanel' | 'onShowInfoPanelChange' | 'activeInfoTab' | 'onActiveInfoTabChange'>): PanelState & { setActiveInfoTab: (t: ActiveInfoTab) => void } {
     const [showInfoPanelInternal, setShowInfoPanelInternal] = useState(false);
     const showInfoPanel = showInfoPanelProp ?? showInfoPanelInternal;
     const setShowInfoPanel = useCallback((value: boolean) => {
         setShowInfoPanelInternal(value);
         onShowInfoPanelChange?.(value);
     }, [onShowInfoPanelChange]);
-    const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<'file' | 'analysis' | 'people' | 'json'>('file');
+    const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<ActiveInfoTab>('file');
     const activeInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
-    const setActiveInfoTab = useCallback((tab: 'file' | 'analysis' | 'people' | 'json') => {
+    const setActiveInfoTab = useCallback((tab: ActiveInfoTab) => {
         setActiveInfoTabInternal(tab);
         onActiveInfoTabChange?.(tab);
     }, [onActiveInfoTabChange]);

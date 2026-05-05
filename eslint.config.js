@@ -96,6 +96,7 @@ export default defineConfig([
       ...correctnessRules,
       '@typescript-eslint/consistent-type-definitions': ['error', 'type'],
       '@typescript-eslint/no-deprecated': 'error',
+      'no-nested-ternary': 'error',
       '@typescript-eslint/consistent-type-exports': 'error',
       '@typescript-eslint/consistent-type-imports': ['error', {
         prefer: 'type-imports',

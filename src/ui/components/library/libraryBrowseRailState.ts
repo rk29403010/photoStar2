@@ -6,10 +6,10 @@ import {
 } from './galleryBrowseRailModel';
 
 function useViewportWidth() {
-    const [viewportWidth, setViewportWidth] = useState(() => (typeof globalThis.window === 'undefined' ? 1280 : window.innerWidth));
+    const [viewportWidth, setViewportWidth] = useState(() => (globalThis.window === undefined ? 1280 : window.innerWidth));
 
     useEffect(() => {
-        if (typeof globalThis.window === 'undefined') {
+        if (globalThis.window === undefined) {
             return;
         }
 

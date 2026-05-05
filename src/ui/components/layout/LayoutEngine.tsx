@@ -190,8 +190,12 @@ function beginSelection(params: {
         clearPressTimer(selectionState.pressTimer);
         selectionState.setIsSelecting(true);
         selectionState.dragSelectionRef.current = { active: false, anchorIndex: index };
+        let selectionMode: 'range' | 'toggle' | 'replace' = 'replace';
+        if (modifierRange) selectionMode = 'range';
+        else if (modifierToggle) selectionMode = 'toggle';
+
         applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, {
-            mode: modifierRange ? 'range' : modifierToggle ? 'toggle' : 'replace',
+            mode: selectionMode,
             index,
         });
         return;
@@ -358,12 +362,20 @@ function LayoutTile({
             key={layoutItem.item.selectionKey}
             data-selection-key={layoutItem.item.selectionKey}
             style={shellStyle}
+            role="button"
+            tabIndex={0}
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerLeave}
             onPointerEnter={onPointerEnter}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onClick();
+                }
+            }}
         >
             <Tile
                 asset={layoutItem.item.asset}

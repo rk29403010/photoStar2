@@ -59,6 +59,14 @@ repo checks over prose, memory, or vibes.
   hook, effect, or event-handler boundaries.
 - Do not add lint disables unless the reason is written inline.
 
+### SonarQube & Code Quality Rules
+
+- **Type Aliases:** Replace complex union types with `type` aliases (S4323).
+- **Undefined Checks:** Compare with `undefined` directly (e.g. `x === undefined`) instead of using `typeof x === 'undefined'` (S7741), except when checking `globalThis` properties where it's unsafe.
+- **Dialog Elements:** Use native `<dialog>` tags instead of `<div role="dialog">` (S6819).
+- **Nested Ternaries:** Extract nested ternary operations into independent statements (S3358). Avoid `a ? b : c ? d : e`.
+- **Accessibility:** Avoid non-native interactive elements. Visible, non-interactive elements with click handlers must have an appropriate `role` (e.g., `role="button"`) and at least one keyboard listener (e.g., `onKeyDown`) (S1082).
+
 ## Feedback Framework
 
 - All new user-visible feedback must go through the shared feedback framework and must declare a mode before implementation.

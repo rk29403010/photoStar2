@@ -1,5 +1,13 @@
 # Updates Log
 
+## [0.1.76] - 2026-05-05T10:15:00Z
+
+- Addressed SonarQube findings by extracting a union type into `ActiveInfoTab` in `SinglePhotoView.tsx`.
+- Changed `<div role="dialog">` to `<dialog>` in `ActionPanel.tsx`.
+- Refactored a nested ternary operation into a cleaner if-else block in `LayoutEngine.tsx`.
+- Added accessibility attributes (`role="button"`, `tabIndex`, `onKeyDown`) to the non-native interactive element in `LayoutEngine.tsx`.
+- Added specific SonarQube compliance instructions to `AGENTS.md` and enabled `no-nested-ternary` in `eslint.config.js`.
+
 ## [0.1.75] - 2026-05-05T08:15:00Z
 
 - Configured ESLint and Oxlint with `react/prefer-read-only-props`, `@typescript-eslint/consistent-type-definitions: type`, `unicorn/no-typeof-undefined` and `@typescript-eslint/no-deprecated`.

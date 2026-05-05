@@ -339,7 +339,7 @@ function ManualPathPrompt(props: {
 }
 
 function OpenActionPanel(props: ActionPanelProps) {
-    const panelRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDialogElement>(null);
     const [activeTab, setActiveTab] = useState<ActionTab>('ingest');
     const [showManualPathPrompt, setShowManualPathPrompt] = useState(false);
     const supportsNativePicker = canUseNativeDirectoryPicker();
@@ -372,7 +372,7 @@ function OpenActionPanel(props: ActionPanelProps) {
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 px-4 py-4">
-            <div ref={panelRef} className="mx-auto w-full max-w-6xl rounded-xl border border-[#333] bg-[#1a1a1a]/95 p-8 text-white shadow-2xl backdrop-blur-md" role="dialog" aria-modal="true">
+            <dialog ref={panelRef} className="mx-auto w-full max-w-6xl rounded-xl border border-[#333] bg-[#1a1a1a]/95 p-8 text-white shadow-2xl backdrop-blur-md" open aria-modal="true">
                 <PanelHeader onClose={props.onClose} />
 
                 <div className="mb-5 flex flex-wrap gap-2">
@@ -406,7 +406,7 @@ function OpenActionPanel(props: ActionPanelProps) {
                         }}
                     />
                 )}
-            </div>
+            </dialog>
         </div>
     );
 }
