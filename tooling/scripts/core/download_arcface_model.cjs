@@ -3,8 +3,8 @@
  * Downloads the InsightFace ArcFace model used by the local face-recognition runtime.
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const MODEL_URL = 'https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/w600k_r50.onnx';
 const MODEL_DIR = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models');

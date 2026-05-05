@@ -5,7 +5,7 @@ export function useCopyReset(copiedTarget: string | null, setCopiedTarget: (valu
         if (!copiedTarget) {
             return;
         }
-        const timer = window.setTimeout(() => setCopiedTarget(null), 1500);
-        return () => window.clearTimeout(timer);
+        const timer = globalThis.setTimeout(() => setCopiedTarget(null), 1500);
+        return () => globalThis.clearTimeout(timer);
     }, [copiedTarget, setCopiedTarget]);
 }

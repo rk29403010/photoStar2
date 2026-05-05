@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const mainTsPath = path.join(__dirname, '../src/main.ts');
 const handlersTsPath = path.join(__dirname, '../src/handlers.ts');

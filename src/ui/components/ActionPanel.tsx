@@ -213,7 +213,7 @@ function buildWorkflowItems(props: ActionPanelProps, closeThen: (action: () => v
             description: 'Force the sensitive-content workflow to run again across the library.',
             accentClassName: 'hover:border-orange-500/50',
             onClick: () => {
-                if (window.confirm('This will re-run the sensitive content workflow across the library. Continue?')) {
+                if (globalThis.confirm('This will re-run the sensitive content workflow across the library. Continue?')) {
                     props.onScanSensitiveAll();
                     props.onClose();
                 }
@@ -233,7 +233,7 @@ function buildLibraryItems(props: ActionPanelProps, closeThen: (action: () => vo
             description: 'Clear automatic groups, manual canonical picks, and exploded-group history.',
             accentClassName: 'hover:border-amber-500/50',
             onClick: () => {
-                if (window.confirm('This will remove automatic grouping results and manual grouping decisions so grouping can be rerun from scratch. Continue?')) {
+                if (globalThis.confirm('This will remove automatic grouping results and manual grouping decisions so grouping can be rerun from scratch. Continue?')) {
                     props.onResetGroupingData();
                     props.onClose();
                 }
@@ -250,7 +250,7 @@ function buildDangerItems(props: ActionPanelProps): ActionCardItem[] {
             description: 'Clear operational library data and previews while preserving manual data.',
             accentClassName: 'hover:border-red-500/50',
             onClick: () => {
-                if (window.confirm('This will clear the operational library database and generated previews, but keep manual data so it can be re-applied after a rescan. Continue?')) {
+                if (globalThis.confirm('This will clear the operational library database and generated previews, but keep manual data so it can be re-applied after a rescan. Continue?')) {
                     props.onResetAll();
                     props.onClose();
                 }
@@ -262,7 +262,7 @@ function buildDangerItems(props: ActionPanelProps): ActionCardItem[] {
             description: 'Remove all face detections and related face-analysis results.',
             accentClassName: 'hover:border-red-500/50',
             onClick: () => {
-                if (window.confirm('Are you sure you want to reset faces? This will clear all detection data.')) {
+                if (globalThis.confirm('Are you sure you want to reset faces? This will clear all detection data.')) {
                     props.onResetFaces();
                     props.onClose();
                 }
@@ -274,7 +274,7 @@ function buildDangerItems(props: ActionPanelProps): ActionCardItem[] {
             description: 'Delete the internal database, manual overrides, settings, and generated thumbnails.',
             accentClassName: 'hover:border-red-600/60',
             onClick: () => {
-                if (window.confirm('WARNING: This will delete the internal database, manual overrides, manual face naming/isolation data, settings, and generated thumbnails. \n\nIMPORTANT: Your original photo files will NOT be deleted from your computer. \n\nAre you sure you want to proceed?')) {
+                if (globalThis.confirm('WARNING: This will delete the internal database, manual overrides, manual face naming/isolation data, settings, and generated thumbnails. \n\nIMPORTANT: Your original photo files will NOT be deleted from your computer. \n\nAre you sure you want to proceed?')) {
                     props.onFactoryReset();
                     props.onClose();
                 }

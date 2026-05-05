@@ -23,6 +23,7 @@ const correctnessRules = {
   'no-implicit-coercion': 'error',
   'object-shorthand': ['error', 'always'],
   'prefer-object-has-own': 'error',
+  'prefer-template': 'error',
 }
 
 export default defineConfig([
@@ -128,6 +129,7 @@ export default defineConfig([
     },
     rules: {
       'react/jsx-boolean-value': ['error', 'never'],
+      'react/jsx-curly-brace-presence': ['error', { props: 'never', children: 'never' }],
       'react/jsx-no-useless-fragment': 'error',
       'react/prop-types': 'off',
       'react/self-closing-comp': 'error',

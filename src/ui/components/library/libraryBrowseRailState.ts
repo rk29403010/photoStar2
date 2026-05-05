@@ -6,10 +6,10 @@ import {
 } from './galleryBrowseRailModel';
 
 function useViewportWidth() {
-    const [viewportWidth, setViewportWidth] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
+    const [viewportWidth, setViewportWidth] = useState(() => (typeof globalThis.window === 'undefined' ? 1280 : window.innerWidth));
 
     useEffect(() => {
-        if (typeof window === 'undefined') {
+        if (typeof globalThis.window === 'undefined') {
             return;
         }
 
@@ -33,7 +33,7 @@ export function useGalleryBrowseRailState() {
 
     const clearSettleTimeout = useCallback(() => {
         if (settleTimeoutRef.current == null) {return;}
-        window.clearTimeout(settleTimeoutRef.current);
+        globalThis.clearTimeout(settleTimeoutRef.current);
         settleTimeoutRef.current = null;
     }, []);
 
@@ -41,7 +41,7 @@ export function useGalleryBrowseRailState() {
         lastScrollAtRef.current = Date.now();
         setIsScrollSettled(false);
         clearSettleTimeout();
-        settleTimeoutRef.current = window.setTimeout(() => {
+        settleTimeoutRef.current = globalThis.setTimeout(() => {
             setIsScrollSettled(getScrollSettledState(lastScrollAtRef.current, Date.now(), GALLERY_SCROLL_SETTLE_DELAY_MS));
             settleTimeoutRef.current = null;
         }, GALLERY_SCROLL_SETTLE_DELAY_MS);

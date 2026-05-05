@@ -39,10 +39,10 @@ export function useKeyboardNavigation(params: {
         };
 
         if (assetsLength > 0) {
-            window.addEventListener('keydown', handleKeyDown);
+            globalThis.addEventListener('keydown', handleKeyDown);
         }
 
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return () => globalThis.removeEventListener('keydown', handleKeyDown);
     }, [assetsLength, onClose, onChangeIndex, resetPanZoom, setShowInfoPanel, showInfoPanel]);
 }
 

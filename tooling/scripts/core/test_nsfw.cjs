@@ -1,7 +1,7 @@
 const tf = require('@tensorflow/tfjs-node');
 const nsfw = require('nsfwjs');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 
 const modelDir = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models', 'nsfwjs');
 const modelUrl = 'file://' + modelDir.replace(/\\/g, '/') + '/model.json';

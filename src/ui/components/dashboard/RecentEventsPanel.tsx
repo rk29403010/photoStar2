@@ -29,8 +29,8 @@ function getAvailableTypes(events: RecentEventSnapshot[]): string[] {
 function useEventCopyReset(copiedEventId: string | null, setCopiedEventId: (value: string | null) => void) {
     useEffect(() => {
         if (!copiedEventId) {return;}
-        const timer = window.setTimeout(() => setCopiedEventId(null), 1500);
-        return () => window.clearTimeout(timer);
+        const timer = globalThis.setTimeout(() => setCopiedEventId(null), 1500);
+        return () => globalThis.clearTimeout(timer);
     }, [copiedEventId, setCopiedEventId]);
 }
 

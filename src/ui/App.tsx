@@ -88,7 +88,7 @@ async function requestScanPath(): Promise<string | null> {
         }
     }
 
-    return window.prompt('Enter absolute path to scan (e.g. C:/Users/robin/Photos):');
+    return globalThis.prompt('Enter absolute path to scan (e.g. C:/Users/robin/Photos):');
 }
 
 function useAppActionHandlers(params: UseAppActionHandlersParams) {

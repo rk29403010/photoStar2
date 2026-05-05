@@ -73,7 +73,7 @@ function useCustomScrollParent(scrollContainerRef?: RefObject<HTMLDivElement | n
                 currentScrollParent === nextScrollParent ? currentScrollParent : nextScrollParent
             ));
             if (scrollContainerRef && !nextScrollParent) {
-                animationFrameId = window.requestAnimationFrame(syncScrollParent);
+                animationFrameId = globalThis.requestAnimationFrame(syncScrollParent);
             }
         };
 
@@ -81,7 +81,7 @@ function useCustomScrollParent(scrollContainerRef?: RefObject<HTMLDivElement | n
 
         return () => {
             if (animationFrameId != null) {
-                window.cancelAnimationFrame(animationFrameId);
+                globalThis.cancelAnimationFrame(animationFrameId);
             }
         };
     }, [scrollContainerRef]);
@@ -404,7 +404,7 @@ function useTimelineVisibleStateOnScroll(params: {
         };
         const scheduleVisibleStateSync = () => {
             if (animationFrameId != null) {return;}
-            animationFrameId = window.requestAnimationFrame(syncVisibleState);
+            animationFrameId = globalThis.requestAnimationFrame(syncVisibleState);
         };
 
         customScrollParent.addEventListener('scroll', scheduleVisibleStateSync, { passive: true });
@@ -413,7 +413,7 @@ function useTimelineVisibleStateOnScroll(params: {
         return () => {
             customScrollParent.removeEventListener('scroll', scheduleVisibleStateSync);
             if (animationFrameId != null) {
-                window.cancelAnimationFrame(animationFrameId);
+                globalThis.cancelAnimationFrame(animationFrameId);
             }
         };
     }, [

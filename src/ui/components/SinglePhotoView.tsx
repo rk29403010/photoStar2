@@ -104,13 +104,13 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
     const controlsHideTimerRef = useRef<number | null>(null);
     const clearControlsHideTimer = useCallback(() => {
         if (controlsHideTimerRef.current !== null) {
-            window.clearTimeout(controlsHideTimerRef.current);
+            globalThis.clearTimeout(controlsHideTimerRef.current);
             controlsHideTimerRef.current = null;
         }
     }, []);
     const scheduleControlsHide = useCallback(() => {
         clearControlsHideTimer();
-        controlsHideTimerRef.current = window.setTimeout(() => {
+        controlsHideTimerRef.current = globalThis.setTimeout(() => {
             setShowControls(false);
         }, CONTROLS_IDLE_MS);
     }, [clearControlsHideTimer]);

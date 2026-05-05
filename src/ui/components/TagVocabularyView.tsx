@@ -243,7 +243,7 @@ function useTagVocabularyActions(params: {
             params.setErrorMessage('Choose an existing target tag before merging.');
             return;
         }
-        if (!window.confirm(`Merge ${selectedDetail.tag.canonicalLabel} into ${mergeTarget.canonicalLabel}?`)) {
+        if (!globalThis.confirm(`Merge ${selectedDetail.tag.canonicalLabel} into ${mergeTarget.canonicalLabel}?`)) {
             return;
         }
 

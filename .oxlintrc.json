@@ -62,7 +62,14 @@
     "typescript/return-await": "error",
     "typescript/switch-exhaustiveness-check": "error",
     "unicorn/no-array-sort": "off",
-    "unicorn/prefer-add-event-listener": "off"
+    "unicorn/prefer-add-event-listener": "off",
+    "unicorn/prefer-global-this": "error",
+    "prefer-template": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-optional-catch-binding": "error",
+    "typescript/prefer-optional-chain": "error",
+    "react/jsx-boolean-value": "error",
+    "react/jsx-curly-brace-presence": "error"
   },
   "overrides": [
     {

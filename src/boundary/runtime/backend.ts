@@ -34,7 +34,7 @@ function getBackendPort(): number {
 }
 
 function hasTauriHost(): boolean {
-    return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+    return typeof globalThis.window !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 }
 
 function getBackendTransportOverride(): BackendTransportKind | null {
@@ -87,11 +87,11 @@ export function getImageSourceStrategy(): ImageSourceStrategy {
 }
 
 function getDefaultBackendHost(): string {
-    if (typeof window === 'undefined') {
+    if (typeof globalThis.window === 'undefined') {
         return 'localhost';
     }
 
-    const host = window.location.hostname.trim();
+    const host = globalThis.location.hostname.trim();
     if (!host || host === '0.0.0.0' || host === 'localhost') {
         return '127.0.0.1';
     }

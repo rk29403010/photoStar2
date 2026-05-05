@@ -70,7 +70,7 @@ function useCustomScrollParent(scrollContainerRef?: RefObject<HTMLDivElement | n
                 currentScrollParent === nextScrollParent ? currentScrollParent : nextScrollParent
             ));
             if (scrollContainerRef && !nextScrollParent) {
-                animationFrameId = window.requestAnimationFrame(syncScrollParent);
+                animationFrameId = globalThis.requestAnimationFrame(syncScrollParent);
             }
         };
 
@@ -78,7 +78,7 @@ function useCustomScrollParent(scrollContainerRef?: RefObject<HTMLDivElement | n
 
         return () => {
             if (animationFrameId != null) {
-                window.cancelAnimationFrame(animationFrameId);
+                globalThis.cancelAnimationFrame(animationFrameId);
             }
         };
     }, [scrollContainerRef]);

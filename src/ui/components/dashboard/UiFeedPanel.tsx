@@ -29,8 +29,8 @@ function formatCellNumber(value: number | undefined): string {
 function useCopyReset(copiedTarget: CopyTarget | null, setCopiedTarget: (value: CopyTarget | null) => void) {
     useEffect(() => {
         if (!copiedTarget) {return;}
-        const timer = window.setTimeout(() => setCopiedTarget(null), 1500);
-        return () => window.clearTimeout(timer);
+        const timer = globalThis.setTimeout(() => setCopiedTarget(null), 1500);
+        return () => globalThis.clearTimeout(timer);
     }, [copiedTarget, setCopiedTarget]);
 }
 

@@ -11,8 +11,8 @@
  * binding can locate it at runtime. Runs as a postinstall step.
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const repoRoot = path.join(__dirname, '..', '..', '..');
 const tfjsNodeDir = path.join(repoRoot, 'node_modules', '@tensorflow', 'tfjs-node');

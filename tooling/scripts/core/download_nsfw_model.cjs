@@ -10,9 +10,9 @@
  * even if the upstream repo adds more shards in future.
  */
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
+const https = require('node:https');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const BASE = 'https://raw.githubusercontent.com/infinitered/nsfwjs/master/models/mobilenet_v2';
 const MODEL_DIR = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models', 'nsfwjs');

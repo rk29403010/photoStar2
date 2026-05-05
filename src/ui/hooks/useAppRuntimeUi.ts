@@ -40,11 +40,11 @@ function useDevRuntimeImpact(
     };
 
     refreshImpact();
-    const intervalId = window.setInterval(refreshImpact, 5000);
+    const intervalId = globalThis.setInterval(refreshImpact, 5000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      globalThis.clearInterval(intervalId);
     };
   }, [enabled, getDevRuntimeImpact]);
 

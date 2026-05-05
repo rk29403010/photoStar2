@@ -1,5 +1,5 @@
-const { spawn } = require('child_process');
-const path = require('path');
+const { spawn } = require('node:child_process');
+const path = require('node:path');
 
 // Target the compiled core entrypoint directly (simulating the packaged backend launch)
 const corePath = path.join(__dirname, '..', '..', 'dist', 'core', 'src', 'entrypoints', 'core', 'main.js');

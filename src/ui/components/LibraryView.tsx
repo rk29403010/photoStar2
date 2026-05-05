@@ -278,8 +278,8 @@ function useLibraryPaging(params: {
             container.scrollBy({ top: delta, behavior: 'auto' });
         };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        globalThis.addEventListener('keydown', handleKeyDown);
+        return () => globalThis.removeEventListener('keydown', handleKeyDown);
     }, [active, browseRowHeight, scrollRef]);
 
     useEffect(() => {

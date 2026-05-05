@@ -15,7 +15,7 @@ type TagActionApi = {
 };
 
 function promptForTagLabel(message: string) {
-    return window.prompt(message, '')?.trim() ?? '';
+    return globalThis.prompt(message, '')?.trim() ?? '';
 }
 
 export async function promptBulkTagSelection(actions: TagActionApi, assetIds: string[]) {
@@ -48,7 +48,7 @@ export async function promptBulkUntagSelection(actions: TagActionApi, assetIds: 
     const availableTags = await actions.listAvailableTags();
     const matchedTag = availableTags.find((tag) => tag.canonicalLabel.localeCompare(normalizedLabel, undefined, { sensitivity: 'base' }) === 0);
     if (!matchedTag) {
-        window.alert(`No canonical tag named "${normalizedLabel}" exists yet.`);
+        globalThis.alert(`No canonical tag named "${normalizedLabel}" exists yet.`);
         return;
     }
 

@@ -15,8 +15,8 @@ interface CreateQueuedMessageProcessorOptions {
 const DEFAULT_BATCH_SIZE = 25;
 
 function scheduleFlushWithFallback(flush: () => void) {
-    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(() => flush());
+    if (typeof globalThis.window !== 'undefined' && typeof globalThis.requestAnimationFrame === 'function') {
+        globalThis.requestAnimationFrame(() => flush());
         return;
     }
 

@@ -151,7 +151,7 @@ function handleFailed(params: ScheduleWorkflowRunRefreshParams, snapshot: Workfl
 }
 
 function scheduleNextPoll(poll: () => Promise<void>) {
-    window.setTimeout(() => {
+    globalThis.setTimeout(() => {
         void poll();
     }, 1500);
 }

@@ -35,10 +35,10 @@ export function useSelectionRecovery(params: {
         }
 
         setSelectedAssetId(null);
-        const showTimer = window.setTimeout(() => showTransientBanner({ message: 'Previously selected photo is no longer available.' }), 0);
+        const showTimer = globalThis.setTimeout(() => showTransientBanner({ message: 'Previously selected photo is no longer available.' }), 0);
 
         return () => {
-            window.clearTimeout(showTimer);
+            globalThis.clearTimeout(showTimer);
         };
     }, [assets, isRefreshingLibrary, selectedAssetId, setSelectedAssetId, showTransientBanner]);
 }

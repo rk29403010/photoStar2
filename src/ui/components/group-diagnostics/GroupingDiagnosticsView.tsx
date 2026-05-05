@@ -46,7 +46,7 @@ function useGroupNavigation(
     const jumpToGroup = (groupId: string) => {
         setFilterMode('all');
         setExpandedGroupIds((current) => new Set(current).add(groupId));
-        window.setTimeout(() => {
+        globalThis.setTimeout(() => {
             groupElementsRef.current.get(groupId)?.scrollIntoView({
                 behavior: 'smooth',
                 block: 'center',

@@ -93,7 +93,7 @@ export function useAnalysisTracking(params: {
         }
 
         completedAssetIdRef.current = analyzingAssetId;
-        const timeoutId = window.setTimeout(() => {
+        const timeoutId = globalThis.setTimeout(() => {
             setAnalysisError(null);
             setAnalysisState('idle');
             setAnalyzingAssetId(null);
@@ -103,7 +103,7 @@ export function useAnalysisTracking(params: {
         }, 0);
 
         return () => {
-            window.clearTimeout(timeoutId);
+            globalThis.clearTimeout(timeoutId);
         };
     }, [
         analyzingAssetId,
@@ -170,7 +170,7 @@ function resolveTrackedAnalysisWorkflow(params: Pick<
 }
 
 function scheduleWorkflowPoll(pollWorkflowRun: () => Promise<void>) {
-    return window.setTimeout(() => {
+    return globalThis.setTimeout(() => {
         void pollWorkflowRun();
     }, 1500);
 }
@@ -260,7 +260,7 @@ export function useAnalysisWorkflowFailureTracking(params: WorkflowFailureTracki
         return () => {
             cancelled = true;
             if (timeoutId !== null) {
-                window.clearTimeout(timeoutId);
+                globalThis.clearTimeout(timeoutId);
             }
         };
     }, [

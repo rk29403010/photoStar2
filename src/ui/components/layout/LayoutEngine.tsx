@@ -122,11 +122,11 @@ function useSelectAllShortcut(
             onLibrarySelectionChange(buildSelectAllSelection(layoutItems));
         };
 
-        window.addEventListener('mouseup', handlePointerUp);
-        window.addEventListener('keydown', handleKeyDown);
+        globalThis.addEventListener('mouseup', handlePointerUp);
+        globalThis.addEventListener('keydown', handleKeyDown);
         return () => {
-            window.removeEventListener('mouseup', handlePointerUp);
-            window.removeEventListener('keydown', handleKeyDown);
+            globalThis.removeEventListener('mouseup', handlePointerUp);
+            globalThis.removeEventListener('keydown', handleKeyDown);
         };
     }, [layoutItems, onLibrarySelectionChange, setIsSelecting]);
 }
@@ -197,7 +197,7 @@ function beginSelection(params: {
         return;
     }
 
-    selectionState.pressTimer.current = window.setTimeout(() => {
+    selectionState.pressTimer.current = globalThis.setTimeout(() => {
         selectionState.setIsSelecting(true);
         selectionState.dragSelectionRef.current = { active: true, anchorIndex: index };
         applySelectionChange(layoutItems, createEmptyLibrarySelectionState(), onLibrarySelectionChange, {

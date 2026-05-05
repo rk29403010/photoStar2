@@ -1,5 +1,5 @@
-import { execSync } from 'child_process';
-import os from 'os';
+import { execSync } from 'node:child_process';
+import os from 'node:os';
 import { resolveDevRuntimePorts } from './dev-runtime-config.js';
 
 const { webPort, backendPort } = resolveDevRuntimePorts(process.env);
