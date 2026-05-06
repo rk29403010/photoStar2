@@ -81,8 +81,8 @@ type LayoutTileProps = {
 type LayoutTileEventHandlers = {
     onClick: () => void;
     onDoubleClick: () => void;
-    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
-    onPointerEnter: (event: ReactPointerEvent<HTMLDivElement>) => void;
+    onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+    onPointerEnter: (event: ReactPointerEvent<HTMLButtonElement>) => void;
     onPointerLeave: () => void; onPointerUp: () => void;
 }
 
@@ -174,7 +174,7 @@ function applySelectionChange(
 }
 
 function beginSelection(params: {
-    event: ReactPointerEvent<HTMLDivElement>;
+    event: ReactPointerEvent<HTMLButtonElement>;
     index: number;
     layoutItems: LayoutItem[];
     librarySelection: LibrarySelectionState;
@@ -191,8 +191,8 @@ function beginSelection(params: {
         selectionState.setIsSelecting(true);
         selectionState.dragSelectionRef.current = { active: false, anchorIndex: index };
         let selectionMode: 'range' | 'toggle' | 'replace' = 'replace';
-        if (modifierRange) selectionMode = 'range';
-        else if (modifierToggle) selectionMode = 'toggle';
+        if (modifierRange) {selectionMode = 'range';}
+        else if (modifierToggle) {selectionMode = 'toggle';}
 
         applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, {
             mode: selectionMode,
@@ -212,7 +212,7 @@ function beginSelection(params: {
 }
 
 function extendSelection(params: {
-    event: ReactPointerEvent<HTMLDivElement>;
+    event: ReactPointerEvent<HTMLButtonElement>;
     index: number;
     layoutItems: LayoutItem[];
     librarySelection: LibrarySelectionState;
@@ -284,11 +284,11 @@ function useLayoutTileEventHandlers(params: {
         showInfoPanel,
     } = params;
 
-    const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const onPointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
         beginSelection({ event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState });
     }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
 
-    const onPointerEnter = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const onPointerEnter = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
         extendSelection({ event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState });
     }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
 
@@ -358,24 +358,17 @@ function LayoutTile({
         showInfoPanel,
     });
     return (
-        <div
+        <button
+            type="button"
             key={layoutItem.item.selectionKey}
             data-selection-key={layoutItem.item.selectionKey}
-            style={shellStyle}
-            role="button"
-            tabIndex={0}
+            style={{ ...shellStyle, textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0, border: 'none', background: 'transparent' }}
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerLeave}
             onPointerEnter={onPointerEnter}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onClick();
-                }
-            }}
         >
             <Tile
                 asset={layoutItem.item.asset}
@@ -394,7 +387,7 @@ function LayoutTile({
                 onHoveredGroupIdChange={onHoveredGroupIdChange}
                 isScrollSettled={isScrollSettled}
             />
-        </div>
+        </button>
     );
 }
 

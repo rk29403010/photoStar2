@@ -1,5 +1,13 @@
 # Updates Log
 
+## [0.1.78] - 2026-05-05T13:40:00Z
+
+- Addressed wide range of SonarQube issues (S6819, S1077, S6848, S1082, S6564, S3735, S6845, S6479, S7735, S6571, S7781, S6551).
+- Converted non-native interactive elements to native `<button>` and `<input>` elements.
+- Added `alt` tags to `img` elements in `PeopleView`.
+- Enabled `react/jsx-key` and `unicorn/prefer-string-replace-all` autofixes in `.oxlintrc.json`.
+- Updated `AGENTS.md` with detailed SonarQube compliance guardrails.
+
 ## [0.1.77] - 2026-05-05T13:24:00Z
 
 - Systematically refactored `no-nested-ternary` ESLint violations across the UI codebase using IIFE-based logic.

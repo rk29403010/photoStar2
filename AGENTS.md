@@ -61,11 +61,21 @@ repo checks over prose, memory, or vibes.
 
 ### SonarQube & Code Quality Rules
 
-- **Type Aliases:** Replace complex union types with `type` aliases (S4323).
-- **Undefined Checks:** Compare with `undefined` directly (e.g. `x === undefined`) instead of using `typeof x === 'undefined'` (S7741), except when checking `globalThis` properties where it's unsafe.
-- **Dialog Elements:** Use native `<dialog>` tags instead of `<div role="dialog">` (S6819).
-- **Nested Ternaries:** Extract nested ternary operations into independent statements (S3358). Avoid `a ? b : c ? d : e`.
-- **Accessibility:** Avoid non-native interactive elements. Visible, non-interactive elements with click handlers must have an appropriate `role` (e.g., `role="button"`) and at least one keyboard listener (e.g., `onKeyDown`) (S1082).
+- **Accessibility:**
+  - Use native `<dialog>` tags instead of `<div role="dialog">` (S6819).
+  - Avoid non-native interactive elements. Use native HTML elements like `<button>`, `<input>`, or `<a>` whenever possible instead of adding `role="button"` to `<div>` or `<span>` (S6819, S6848).
+  - Visible, non-interactive elements with click handlers must have at least one keyboard listener (e.g., `onKeyDown`) and a `tabIndex` if they are intended to be interactive (S1082).
+  - `tabIndex` should only be declared on interactive elements (S6845).
+  - `img` elements must have an `alt` prop (S1077).
+- **String Handling:**
+  - Prefer `String#replaceAll()` over `String#replace()` for global replacements (S7781).
+  - Avoid default object stringification (`[object Object]`) by ensuring objects are properly serialized or accessed before being used in template literals or string concatenations (S6551).
+- **TypeScript & Logic:**
+  - Remove redundant type aliases (S6564).
+  - Avoid redundant use of the `void` operator (S3735).
+  - Avoid unexpected negated conditions; prefer positive logic where possible (S7735).
+  - Avoid using array indices as React `key` props (S6479).
+  - Ensure union types don't have redundant members (e.g., "all" being overridden by "string") (S6571).
 
 ## Feedback Framework
 

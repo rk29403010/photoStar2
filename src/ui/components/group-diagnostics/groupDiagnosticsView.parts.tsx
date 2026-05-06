@@ -6,7 +6,7 @@ export type DiagnosticsGroup = GroupDiagnosticsReport['groups'][number];
 type DiagnosticsAsset = DiagnosticsGroup['assets'][number];
 type DiagnosticsChildGroup = DiagnosticsGroup['children'][number];
 type DiagnosticsMembership = DiagnosticsAsset['groups'][number];
-export type CopyTarget = string;
+
 
 function DiagnosticsThumbnail(props: {
     readonly alt: string;
@@ -102,11 +102,11 @@ function DiagnosticsMembershipChip(props: {
 }
 
 function CopyIconButton(props: {
-    readonly copiedTarget: CopyTarget | null;
-    readonly copyingTarget: CopyTarget | null;
+    readonly copiedTarget: string | null;
+    readonly copyingTarget: string | null;
     readonly label: string;
-    readonly onCopy: (target: CopyTarget, value: string) => void;
-    readonly target: CopyTarget;
+    readonly onCopy: (target: string, value: string) => void;
+    readonly target: string;
     readonly value: string;
 }) {
     const { copiedTarget, copyingTarget, label, onCopy, target, value } = props;
@@ -123,7 +123,7 @@ function CopyIconButton(props: {
             type="button"
             onClick={(event) => {
                 event.stopPropagation();
-                void onCopy(target, value);
+                onCopy(target, value);
             }}
             disabled={isCopying}
             aria-label={title}
@@ -148,11 +148,11 @@ function CopyIconButton(props: {
 }
 
 function GroupLabelWithCopy(props: {
-    readonly copiedTarget: CopyTarget | null;
-    readonly copyingTarget: CopyTarget | null;
+    readonly copiedTarget: string | null;
+    readonly copyingTarget: string | null;
     readonly groupId: string;
     readonly groupType: string;
-    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly onCopy: (target: string, value: string) => void;
     readonly prefix?: string;
 }) {
     const { copiedTarget, copyingTarget, groupId, groupType, onCopy, prefix = 'Group' } = props;
@@ -175,26 +175,19 @@ function GroupLabelWithCopy(props: {
 }
 
 function GroupDiagnosticsHeader(props: {
-    readonly copiedTarget: CopyTarget | null;
-    readonly copyingTarget: CopyTarget | null;
+    readonly copiedTarget: string | null;
+    readonly copyingTarget: string | null;
     readonly group: DiagnosticsGroup;
-    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly onCopy: (target: string, value: string) => void;
     readonly onToggle: () => void;
 }) {
     const { copiedTarget, copyingTarget, group, onCopy, onToggle } = props;
 
     return (
-        <div
-            role="button"
-            tabIndex={0}
+        <button
+            type="button"
             onClick={onToggle}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onToggle();
-                }
-            }}
-            style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, textAlign: 'left', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}
+            style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, textAlign: 'left', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, font: 'inherit' }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <DiagnosticsThumbnail
@@ -233,15 +226,15 @@ function GroupDiagnosticsHeader(props: {
                 <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{group.directChildGroupCount} child groups</span>
                 <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{group.underlyingImageEstimate} est. images</span>
             </div>
-        </div>
+        </button>
     );
 }
 
 function ChildGroupRow(props: {
     readonly child: DiagnosticsChildGroup;
-    readonly copiedTarget: CopyTarget | null;
-    readonly copyingTarget: CopyTarget | null;
-    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly copiedTarget: string | null;
+    readonly copyingTarget: string | null;
+    readonly onCopy: (target: string, value: string) => void;
 }) {
     const { child, copiedTarget, copyingTarget, onCopy } = props;
 
@@ -299,10 +292,10 @@ function ChildGroupRow(props: {
 
 function AssetMembershipRow(props: {
     readonly asset: DiagnosticsAsset;
-    readonly copiedTarget: CopyTarget | null;
-    readonly copyingTarget: CopyTarget | null;
+    readonly copiedTarget: string | null;
+    readonly copyingTarget: string | null;
     readonly onAssetClick?: (id: string) => void;
-    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly onCopy: (target: string, value: string) => void;
     readonly onJumpToGroup: (groupId: string) => void;
     readonly parentGroupId: string;
 }) {
@@ -317,20 +310,11 @@ function AssetMembershipRow(props: {
     } = props;
 
     return (
-        <div
-            role={onAssetClick ? 'button' : undefined}
-            tabIndex={onAssetClick ? 0 : undefined}
+        <button
+            type="button"
             onClick={() => onAssetClick?.(asset.assetId)}
-            onKeyDown={(event) => {
-                if (!onAssetClick) {
-                    return;
-                }
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onAssetClick(asset.assetId);
-                }
-            }}
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.12)', background: '#020617', color: '#e5e7eb', cursor: onAssetClick ? 'pointer' : 'default' }}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.12)', background: '#020617', color: '#e5e7eb', cursor: onAssetClick ? 'pointer' : 'default', font: 'inherit' }}
+            disabled={!onAssetClick}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                 <DiagnosticsThumbnail
@@ -379,17 +363,17 @@ function AssetMembershipRow(props: {
             {asset.membershipCount > 1 && (
                 <span style={{ color: '#94a3b8', fontSize: '0.85rem', flexShrink: 0 }}>{asset.membershipCount} memberships</span>
             )}
-        </div>
+        </button>
     );
 }
 
 export function GroupDiagnosticsRow(props: {
-    readonly copiedTarget: CopyTarget | null;
-    readonly copyingTarget: CopyTarget | null;
+    readonly copiedTarget: string | null;
+    readonly copyingTarget: string | null;
     readonly expanded: boolean;
     readonly group: DiagnosticsGroup;
     readonly onAssetClick?: (id: string) => void;
-    readonly onCopy: (target: CopyTarget, value: string) => void;
+    readonly onCopy: (target: string, value: string) => void;
     readonly onJumpToGroup: (groupId: string) => void;
     readonly onToggle: () => void;
     readonly registerGroupElement: (groupId: string, element: HTMLDivElement | null) => void;

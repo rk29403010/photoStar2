@@ -36,7 +36,7 @@ function formatNodeLabel(nodeId: string): string {
         return 'Workflow';
     }
 
-    const label = nodeId.replace(/[-_]+/g, ' ');
+    const label = nodeId.replaceAll(/[-_]+/g, ' ');
     return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
@@ -114,11 +114,11 @@ export function buildWorkflowPollDetail(detail: WorkflowRunDetailLike | null | u
 }
 
 function formatPreviewEventDetail(event: Record<string, unknown>): string {
-    return `media=${String(event.mediaId ?? 'unknown')}; path=${String(event.path ?? 'missing')}`;
+    return `media=${(event.mediaId as string | number) ?? 'unknown'}; path=${(event.path as string) ?? 'missing'}`;
 }
 
 function formatMediaDiscoveredEventDetail(event: Record<string, unknown>): string {
-    return `media=${String(event.mediaId ?? 'unknown')}; path=${String(event.filePath ?? 'missing')}`;
+    return `media=${(event.mediaId as string | number) ?? 'unknown'}; path=${(event.filePath as string) ?? 'missing'}`;
 }
 
 function formatAssetUpdatedEventDetail(event: Record<string, unknown>): string {
@@ -131,7 +131,7 @@ function formatAssetUpdatedEventDetail(event: Record<string, unknown>): string {
 }
 
 function formatAiMetadataConfigurationErrorDetail(event: Record<string, unknown>): string {
-    return String(event.message ?? 'Live AI metadata is not configured.');
+    return (event.message as string) ?? 'Live AI metadata is not configured.';
 }
 
 const EVENT_FEED_DETAIL_BUILDERS: Record<string, (event: Record<string, unknown>) => string> = {
@@ -143,7 +143,7 @@ const EVENT_FEED_DETAIL_BUILDERS: Record<string, (event: Record<string, unknown>
 };
 
 export function buildEventFeedDetail(event: Record<string, unknown>): string {
-    const type = String(event.type ?? 'UnknownEvent');
+    const type = (event.type as string) ?? 'UnknownEvent';
     return EVENT_FEED_DETAIL_BUILDERS[type]?.(event) ?? type;
 }
 

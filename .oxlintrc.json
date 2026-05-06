@@ -69,7 +69,9 @@
     "unicorn/prefer-optional-catch-binding": "error",
     "typescript/prefer-optional-chain": "error",
     "react/jsx-boolean-value": "error",
-    "react/jsx-curly-brace-presence": "error"
+    "react/jsx-curly-brace-presence": "error",
+    "react/jsx-key": "error",
+    "unicorn/prefer-string-replace-all": "error"
   },
   "overrides": [
     {

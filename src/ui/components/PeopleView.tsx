@@ -43,13 +43,13 @@ function getFaceCountLabel(faceCount: number) {
     return `${faceCount} ${faceCount === 1 ? 'photo' : 'photos'}`;
 }
 
-function PersonCover({ coverSrc }: { readonly coverSrc: string | null }) {
+function PersonCover({ coverSrc, alt }: { readonly coverSrc: string | null; readonly alt: string }) {
     return (
         <div style={{
             width: 120, height: 120, borderRadius: '50%', overflow: 'hidden', background: '#222',
             marginBottom: 16, border: '3px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-            {coverSrc ? <img src={coverSrc} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} /> : <span style={{ fontSize: '2rem', opacity: 0.3 }}>👤</span>}
+            {coverSrc ? <img src={coverSrc} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} /> : <span style={{ fontSize: '2rem', opacity: 0.3 }}>👤</span>}
         </div>
     );
 }
@@ -159,15 +159,16 @@ function PersonCard({
     };
 
     return (
-        <div
+        <button
+            type="button"
             key={person.id}
-            style={getPersonCardStyle(isSelected, isMultiSelect)}
+            style={{ ...getPersonCardStyle(isSelected, isMultiSelect), textAlign: 'center', font: 'inherit', color: 'inherit', border: isSelected ? '2px solid #3b82f6' : '1px solid #222' }}
             onPointerDown={onPressStart}
             onPointerUp={onPressEnd}
             onPointerLeave={onPressEnd}
             onClick={onClick}
         >
-            <PersonCover coverSrc={coverSrc} />
+            <PersonCover coverSrc={coverSrc} alt={personName} />
 
             <PersonNameEditor
                 person={person}
@@ -180,7 +181,7 @@ function PersonCard({
             />
 
             <PersonStats faceCount={person.face_count} rejectedCount={person.rejected_count ?? 0} />
-        </div>
+        </button>
     );
 }
 
@@ -220,7 +221,8 @@ function PersonNameEditor({
     }
 
     return (
-        <div
+        <button
+            type="button"
             onClick={(e) => {
                 e.stopPropagation();
                 setEditingId(person.id);
@@ -228,10 +230,10 @@ function PersonNameEditor({
             }}
             onPointerDown={e => e.stopPropagation()}
             title="Click to rename"
-            style={{ fontWeight: '600', color: '#fff', fontSize: '1rem', marginBottom: 4, cursor: 'text', padding: '0 8px', borderRadius: 4 }}
+            style={{ fontWeight: '600', color: '#fff', fontSize: '1rem', marginBottom: 4, cursor: 'text', padding: '0 8px', borderRadius: 4, background: 'transparent', border: 'none', font: 'inherit' }}
         >
             {personName}
-        </div>
+        </button>
     );
 }
 

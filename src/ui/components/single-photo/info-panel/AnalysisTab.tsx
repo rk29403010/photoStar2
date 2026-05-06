@@ -33,7 +33,7 @@ const AuthenticitySection: React.FC<{ readonly auth?: Record<string, unknown> }>
       {auth.score != null && <StarRating value={auth.score as number} label="Score" />}
       {Array.isArray(auth.reasons) && auth.reasons.length > 0 && (
         <ul style={{ margin: '8px 0 0', padding: '0 0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.8 }}>
-          {(auth.reasons as string[]).map((reason, i) => <li key={i}>{reason}</li>)}
+          {(auth.reasons as string[]).map((reason) => <li key={reason}>{reason}</li>)}
         </ul>
       )}
     </Section>
@@ -43,7 +43,9 @@ const AuthenticitySection: React.FC<{ readonly auth?: Record<string, unknown> }>
 const SensitivitySection: React.FC<{ readonly asset: Asset }> = ({ asset }) => (
   <Section emoji="🛡️" title="Sensitivity">
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      {asset.sensitivity_score != null ? (
+      {asset.sensitivity_score == null ? (
+        <span style={{ fontSize: 12, color: '#374151', fontStyle: 'italic' }}>Not yet scored</span>
+      ) : (
         <>
           <span style={{ fontSize: 22, fontWeight: 700, color: getSensitivityColor(asset.sensitivity_score) }}>{Math.round(asset.sensitivity_score)}%</span>
           <div>
@@ -64,8 +66,6 @@ const SensitivitySection: React.FC<{ readonly asset: Asset }> = ({ asset }) => (
             )}
           </div>
         </>
-      ) : (
-        <span style={{ fontSize: 12, color: '#374151', fontStyle: 'italic' }}>Not yet scored</span>
       )}
     </div>
   </Section>
@@ -78,7 +78,7 @@ const EnhancementsSection: React.FC<{ readonly enhancements?: unknown }> = ({ en
   return (
     <Section emoji="✨" title="Recommended Enhancements">
       <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.9 }}>
-        {items.map((item, i) => <li key={i}>{item}</li>)}
+        {items.map((item) => <li key={item}>{item}</li>)}
       </ul>
     </Section>
   );

@@ -8,7 +8,7 @@ type UiFeedPanelProps = {
     readonly entries: UiFeedEntry[];
 }
 
-type CopyTarget = 'all' | string;
+type CopyTarget = 'all' | (string & { _?: never });
 
 function getSourceLabel(source: UiFeedEntry['source']): string {
     if (source === 'asset_response') {return 'ASSET';}
