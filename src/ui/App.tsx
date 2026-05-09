@@ -449,6 +449,8 @@ export default function App() {
                 handlers={handlers}
                 aiMode={uiState.aiMode}
                 setAiMode={uiState.setAiMode}
+                onScanSensitiveAll={actions.scanSensitiveAll}
+                onStartSimulationWorkflow={actions.startSimulationWorkflow}
                 handleExtractAiMetadata={handleExtractAiMetadata}
                 getWorkflowRunDetail={photoLibrary.actions.getWorkflowRunDetail}
                 totalPhotoCount={stats?.count ?? 0}

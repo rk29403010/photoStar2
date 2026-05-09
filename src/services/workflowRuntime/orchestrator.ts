@@ -113,6 +113,7 @@ export class WorkflowRuntimeOrchestrator {
     private readonly telemetry: WorkflowRuntimeTelemetry;
     private runGeneration = 0;
     private readonly activeRunIds = new Set<string>();
+    private readonly runControllers = new Map<string, AbortController>();
 
     constructor(private readonly deps: WorkflowRuntimeOrchestratorDependencies) {
         this.telemetry = deps.telemetry ?? new WorkflowRuntimeTelemetry();
@@ -120,6 +121,10 @@ export class WorkflowRuntimeOrchestrator {
 
     public invalidateRunningRuns(reason = 'Workflow runtime invalidated'): void {
         this.runGeneration += 1;
+        for (const controller of this.runControllers.values()) {
+            controller.abort(new Error(reason));
+        }
+        this.runControllers.clear();
         console.warn(`[Workflow] Invalidated in-flight runs: ${reason}`);
     }
 
@@ -151,11 +156,13 @@ export class WorkflowRuntimeOrchestrator {
         const runGeneration = this.runGeneration;
         const workflow = this.deps.workflows.get(input.workflowId);
         const orderedNodes = topologicallySortNodes(workflow.nodes);
+        const controller = new AbortController();
         this.activeRunIds.add(runId);
+        this.runControllers.set(runId, controller);
 
         this.telemetry.runStarted(runId, workflow.id);
         try {
-            await this.executeWorkflowNodes(runId, workflow, orderedNodes, input.inputSubjects, input.parameters ?? {}, runGeneration);
+            await this.executeWorkflowNodes(runId, workflow, orderedNodes, input.inputSubjects, input.parameters ?? {}, runGeneration, controller.signal);
             this.deps.store.updateWorkflowRunStatus(runId, 'completed');
             this.telemetry.runCompleted(runId, workflow.id);
         } catch (error) {
@@ -165,6 +172,7 @@ export class WorkflowRuntimeOrchestrator {
             throw error;
         } finally {
             this.activeRunIds.delete(runId);
+            this.runControllers.delete(runId);
         }
     }
 
@@ -175,13 +183,17 @@ export class WorkflowRuntimeOrchestrator {
         inputSubjects: SubjectRef[],
         parameters: Record<string, unknown>,
         runGeneration: number,
+        signal: AbortSignal,
     ): Promise<void> {
         const state = this.createExecutionState(orderedNodes);
         this.seedRootSubjects(state, inputSubjects);
 
         while (this.hasPendingWork(state)) {
             this.assertRunGeneration(runGeneration, runId);
-            this.startReadyNodes(runId, workflow, parameters, runGeneration, state);
+            if (signal.aborted) {
+                throw new Error(`workflow run '${runId}' cancelled`);
+            }
+            this.startReadyNodes(runId, workflow, parameters, runGeneration, state, signal);
             await this.waitForRunningTask(state);
         }
 
@@ -228,6 +240,7 @@ export class WorkflowRuntimeOrchestrator {
         parameters: Record<string, unknown>,
         runGeneration: number,
         state: WorkflowExecutionState,
+        signal: AbortSignal,
     ): void {
         while (state.readyNodeIds.length > 0) {
             if (state.failure) {
@@ -252,6 +265,7 @@ export class WorkflowRuntimeOrchestrator {
                 state,
                 node,
                 nodeId,
+                signal,
             });
         }
     }
@@ -264,6 +278,7 @@ export class WorkflowRuntimeOrchestrator {
         state: WorkflowExecutionState;
         node: WorkflowNodeDefinition;
         nodeId: string;
+        signal: AbortSignal;
     }): void {
         const nodeSubjects = params.state.subjectsByNode.get(params.nodeId) ?? [];
         const task = this.executeScheduledNode({
@@ -276,6 +291,7 @@ export class WorkflowRuntimeOrchestrator {
             remainingUpstreamCounts: params.state.remainingUpstreamCounts,
             subjectsByNode: params.state.subjectsByNode,
             readyNodeIds: params.state.readyNodeIds,
+            signal: params.signal,
         }).catch((error) => {
             if (!params.state.failure) {
                 params.state.failure = error instanceof Error ? error : new Error(String(error));
@@ -314,6 +330,7 @@ export class WorkflowRuntimeOrchestrator {
         remainingUpstreamCounts: Map<string, number>;
         subjectsByNode: Map<string, SubjectRef[]>;
         readyNodeIds: string[];
+        signal: AbortSignal;
     }): Promise<void> {
         this.assertRunGeneration(params.runGeneration, params.runId);
         const outputSubjects = params.node.kind === 'control'
@@ -325,6 +342,7 @@ export class WorkflowRuntimeOrchestrator {
                 params.nodeSubjects,
                 params.parameters,
                 params.runGeneration,
+                params.signal,
             );
         this.assertRunGeneration(params.runGeneration, params.runId);
 
@@ -364,12 +382,13 @@ export class WorkflowRuntimeOrchestrator {
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
         runGeneration: number,
+        signal: AbortSignal,
     ): Promise<SubjectRef[]> {
         if (node.runMode === 'once_per_batch') {
-            return this.executeBatchModuleNode(runId, workflow, node, subjects, parameters, runGeneration);
+            return this.executeBatchModuleNode(runId, workflow, node, subjects, parameters, runGeneration, signal);
         }
 
-        return this.executePerSubjectModuleNode(runId, workflow, node, subjects, parameters, runGeneration);
+        return this.executePerSubjectModuleNode(runId, workflow, node, subjects, parameters, runGeneration, signal);
     }
 
     private async executePerSubjectModuleNode(
@@ -379,6 +398,7 @@ export class WorkflowRuntimeOrchestrator {
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
         runGeneration: number,
+        signal: AbortSignal,
     ): Promise<SubjectRef[]> {
         this.assertRunGeneration(runGeneration, runId);
         const stepRunId = this.deps.store.recordStepRun({
@@ -387,54 +407,88 @@ export class WorkflowRuntimeOrchestrator {
             status: 'running',
             expectedItems: subjects.length,
         });
-        const module = this.deps.modules.get(node.moduleId);
+        this.telemetry.stepStarted(runId, node.id, subjects.length);
         const emittedSubjects: SubjectRef[] = [];
+        let hasFailures = false;
+        let lastErrorMessage: string | undefined;
 
         for (const subject of subjects) {
             this.assertRunGeneration(runGeneration, runId);
-            try {
-                const result = await module.run({ runId, subject, batchSubjects: [subject], parameters });
-                this.assertRunGeneration(runGeneration, runId);
-                for (const emittedSubject of result.emittedSubjects ?? []) {
-                    emittedSubjects.push(emittedSubject);
-                }
-                this.deps.store.recordSubjectExecution({
-                    workflowRunId: runId,
-                    stepRunId,
-                    subjectType: subject.subjectType,
-                    subjectId: subject.subjectId,
-                    status: 'completed',
-                });
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                this.deps.store.recordSubjectExecution({
-                    workflowRunId: runId,
-                    stepRunId,
-                    subjectType: subject.subjectType,
-                    subjectId: subject.subjectId,
-                    status: 'failed',
-                });
-                this.deps.store.recordStepRun({
-                    stepRunId,
-                    workflowRunId: runId,
-                    nodeId: node.id,
-                    status: 'failed',
-                    errorMessage,
-                });
-                this.deps.store.updateWorkflowRunStatus(runId, 'failed');
-                throw new Error(`workflow step '${node.id}' failed: ${errorMessage}`);
+            if (signal.aborted) {
+                throw new Error(`workflow step '${node.id}' cancelled`);
+            }
+            const result = await this.executePerSubjectStep(runId, stepRunId, node, subject, parameters, signal);
+            if (result.error) {
+                hasFailures = true;
+                lastErrorMessage = result.error;
+            }
+            if (result.emittedSubjects) {
+                emittedSubjects.push(...result.emittedSubjects);
             }
         }
 
         this.assertRunGeneration(runGeneration, runId);
         this.updateCompletedMilestones(runId, workflow.presentation?.milestones ?? [], node.completesMilestones ?? []);
-        this.deps.store.recordStepRun({
-            stepRunId,
-            workflowRunId: runId,
-            nodeId: node.id,
-            status: 'completed',
-        });
+        
+        if (hasFailures) {
+            this.deps.store.recordStepRun({
+                stepRunId,
+                workflowRunId: runId,
+                nodeId: node.id,
+                status: 'failed',
+                errorMessage: lastErrorMessage,
+            });
+            this.telemetry.stepFailed(runId, node.id, lastErrorMessage);
+            // We mark the run as failed so the user knows there were issues, but we don't throw to stop downstream nodes
+            // that might be able to process the subjects that DID succeed.
+            this.deps.store.updateWorkflowRunStatus(runId, 'failed');
+        } else {
+            this.deps.store.recordStepRun({
+                stepRunId,
+                workflowRunId: runId,
+                nodeId: node.id,
+                status: 'completed',
+            });
+            this.telemetry.stepCompleted(runId, node.id);
+        }
+        
         return emittedSubjects.length > 0 ? emittedSubjects : subjects;
+    }
+
+    private async executePerSubjectStep(
+        runId: string,
+        stepRunId: string,
+        node: WorkflowModuleNodeDefinition,
+        subject: SubjectRef,
+        parameters: Record<string, unknown>,
+        signal: AbortSignal,
+    ): Promise<{ emittedSubjects?: SubjectRef[]; error?: string }> {
+        this.telemetry.subjectStarted(runId, node.id, subject.subjectType, subject.subjectId);
+        const module = this.deps.modules.get(node.moduleId);
+        try {
+            const result = await module.run({ runId, subject, batchSubjects: [subject], parameters, signal });
+            this.deps.store.recordSubjectExecution({
+                workflowRunId: runId,
+                stepRunId,
+                subjectType: subject.subjectType,
+                subjectId: subject.subjectId,
+                status: 'completed',
+            });
+            this.telemetry.subjectCompleted(runId, node.id, subject.subjectType, subject.subjectId);
+            return { emittedSubjects: result.emittedSubjects };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`[Workflow] Subject ${subject.subjectType}:${subject.subjectId} failed in node ${node.id}: ${errorMessage}`);
+            this.deps.store.recordSubjectExecution({
+                workflowRunId: runId,
+                stepRunId,
+                subjectType: subject.subjectType,
+                subjectId: subject.subjectId,
+                status: 'failed',
+            });
+            this.telemetry.subjectFailed(runId, node.id, subject.subjectType, subject.subjectId, errorMessage);
+            return { error: errorMessage };
+        }
     }
 
     private async executeBatchModuleNode(
@@ -444,6 +498,7 @@ export class WorkflowRuntimeOrchestrator {
         subjects: SubjectRef[],
         parameters: Record<string, unknown>,
         runGeneration: number,
+        signal: AbortSignal,
     ): Promise<SubjectRef[]> {
         this.assertRunGeneration(runGeneration, runId);
         const stepRunId = this.deps.store.recordStepRun({
@@ -452,6 +507,7 @@ export class WorkflowRuntimeOrchestrator {
             status: 'running',
             expectedItems: subjects.length,
         });
+        this.telemetry.stepStarted(runId, node.id, subjects.length);
         const module = this.deps.modules.get(node.moduleId);
         const primarySubject = subjects[0] ?? {
             subjectType: 'batch',
@@ -464,6 +520,7 @@ export class WorkflowRuntimeOrchestrator {
                 subject: primarySubject,
                 batchSubjects: subjects,
                 parameters,
+                signal,
             });
             this.assertRunGeneration(runGeneration, runId);
             this.deps.store.recordSubjectExecution({
@@ -480,6 +537,7 @@ export class WorkflowRuntimeOrchestrator {
                 nodeId: node.id,
                 status: 'completed',
             });
+            this.telemetry.stepCompleted(runId, node.id);
             return result.emittedSubjects && result.emittedSubjects.length > 0 ? result.emittedSubjects : subjects;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -497,6 +555,7 @@ export class WorkflowRuntimeOrchestrator {
                 status: 'failed',
                 errorMessage,
             });
+            this.telemetry.stepFailed(runId, node.id, errorMessage);
             this.deps.store.updateWorkflowRunStatus(runId, 'failed');
             throw new Error(`workflow step '${node.id}' failed: ${errorMessage}`);
         }

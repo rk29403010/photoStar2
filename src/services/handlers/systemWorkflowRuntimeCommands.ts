@@ -213,6 +213,23 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         });
         ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
     },
+    start_simulation_workflow: async (ctx) => {
+        const payload = (ctx.payload as Record<string, string>) || {};
+        const parameters = Object.assign({
+            iterations: '20',
+            speed: 'fast',
+            errorType: 'none',
+            errorRate: '0',
+            resourceLoadMode: 'none',
+        }, payload);
+        const runId = getWorkflowRuntime(ctx).orchestrator.startDetached({
+            workflowId: 'runtime.simulation_workflow',
+            triggerType: 'manual',
+            inputSubjects: [{ subjectType: 'folder', subjectId: 'simulation-root' }],
+            parameters,
+        });
+        ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
+    },
     start_library_grouping: async (ctx) => {
         startAssetWorkflow(ctx, undefined, {
             workflowId: 'library_grouping_v1',

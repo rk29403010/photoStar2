@@ -56,6 +56,7 @@ export type JobProgress = {
     message?: string;
     current?: string;
     throughputIps?: number;
+    workflowRunId?: string;
 }
 
 export type BackgroundJob = {

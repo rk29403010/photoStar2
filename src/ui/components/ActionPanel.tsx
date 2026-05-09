@@ -21,6 +21,7 @@ type ActionPanelProps = {
     readonly onResetGroupingData: () => void;
     readonly onStopScan: () => void;
     readonly onOpenGroupDiagnostics: () => void;
+    readonly onStartSimulationWorkflow: (params?: { speed?: string; iterations?: string; errorType?: string; errorRate?: string }) => void;
     readonly folderHistory?: { path: string; last_scanned_at: string }[];
 }
 
@@ -220,6 +221,7 @@ function buildWorkflowItems(props: ActionPanelProps, closeThen: (action: () => v
             },
         },
         { label: 'Run AI Metadata', icon: '🧠', description: 'Generate captions and semantic metadata with the runtime AI metadata workflow.', accentClassName: 'hover:border-indigo-500/50', onClick: closeThen(props.onExtractAiMetadata) },
+        { label: 'Simulate Workflow', icon: '🧪', description: 'Run a mock multi-step workflow to test UI feedback and progress tracking.', accentClassName: 'hover:border-green-500/50', onClick: closeThen(() => props.onStartSimulationWorkflow()) },
     ];
 }
 

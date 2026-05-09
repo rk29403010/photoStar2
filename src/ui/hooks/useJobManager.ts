@@ -15,6 +15,15 @@ const JOB_TITLE_BY_STAGE: Record<string, string> = {
     'ai_metadata': 'Generating AI Metadata'
 };
 
+const WORKFLOW_NODE_LABELS: Record<string, string> = {
+    'detect-sensitive-content': 'Scanning for sensitive content',
+    'generate-ai-metadata': 'Generating AI tags and descriptions',
+    'estimate-photo-date-from-ai': 'Estimating dates from visual cues',
+    'face-detection': 'Detecting faces',
+    'face-embedding': 'Recognising people',
+    'face-clustering': 'Grouping similar faces',
+};
+
 type JobUpdater = SetStateAction<BackgroundJob[]>;
 type LegacyProgressPayload = {
     processed?: number;
@@ -25,6 +34,7 @@ type LegacyProgressPayload = {
     overallDone?: number;
     overallTotal?: number;
     overallPercent?: number;
+    workflowRunId?: string;
     stages?: Array<{
         stageId: string;
         label: string;
@@ -102,6 +112,71 @@ function incrementFaceMetric(
     });
 }
 
+function updateJobsForWorkflowStep(
+    runId: string,
+    _nodeId: string,
+    message?: string,
+    current?: string
+): JobUpdater {
+    return (prev) => prev.map(job => {
+        // Find the overlay job tracking this run
+        if (job.progress.workflowRunId !== runId) {return job;}
+
+        return {
+            ...job,
+            progress: {
+                ...job.progress,
+                message: message ?? job.progress.message,
+                current: current ?? job.progress.current,
+            }
+        };
+    });
+}
+
+function handleWorkflowStepEvent(event: DomainEvent, setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
+    if (event.type === 'WorkflowStepStarted') {
+        const label = WORKFLOW_NODE_LABELS[event.nodeId] || event.nodeId;
+        setJobs(updateJobsForWorkflowStep(event.runId, event.nodeId, label));
+    } else if (event.type === 'WorkflowStepCompleted') {
+        const label = WORKFLOW_NODE_LABELS[event.nodeId] || event.nodeId;
+        setJobs(updateJobsForWorkflowStep(event.runId, event.nodeId, `${label} complete`));
+    } else if (event.type === 'WorkflowStepFailed') {
+        const label = WORKFLOW_NODE_LABELS[event.nodeId] || event.nodeId;
+        setJobs(updateJobsForWorkflowStep(event.runId, event.nodeId, `${label} failed`));
+    }
+}
+
+function handleWorkflowSubjectEvent(event: DomainEvent, setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
+    if (event.type === 'WorkflowSubjectStarted') {
+        const label = WORKFLOW_NODE_LABELS[event.nodeId] || event.nodeId;
+        setJobs(updateJobsForWorkflowStep(event.runId, event.nodeId, label, event.subjectId));
+    }
+}
+
+function handleBaseEvent(event: DomainEvent, deps: ProcessEventDeps) {
+    const { addJob, setJobs, updateJobState, updateJobProgress } = deps;
+    if (event.type === 'JobStarted') {
+        addJob(event.jobId, event.pipelineStage as PipelineStage, getDisplayTitle(event));
+        updateJobState(event.jobId, 'running');
+    } else if (event.type === 'JobProgress') {
+        setJobs(updateJobsForProgress(event));
+    } else if (event.type === 'JobCompleted') {
+        updateJobState(event.jobId, 'completed');
+        updateJobProgress(event.jobId, { status: 'complete' });
+    } else if (event.type === 'JobFailed') {
+        updateJobState(event.jobId, 'failed');
+        setJobs(updateJobsForFailure(event));
+    }
+}
+
+function handleFaceEvent(event: DomainEvent, setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
+    if (event.type === 'FacesDetected') {
+        setJobs(incrementFaceMetric('facesFound', event.faceCount || 0));
+    } else if (event.type === 'FaceEmbeddingGenerated') {
+        setJobs(incrementFaceMetric('facesRecognised', 1));
+    }
+}
+
 function createQueuedJob(id: string, stage: PipelineStage, title: string): BackgroundJob {
     return {
         id,
@@ -168,6 +243,7 @@ function applyLegacyProgress(job: BackgroundJob, payload: LegacyProgressPayload)
         overallPercent,
         message: payload.message,
         current: payload.current,
+        workflowRunId: payload.workflowRunId ?? job.progress.workflowRunId,
         stages: payload.stages !== undefined ? payload.stages : job.progress.stages
     };
 
@@ -185,34 +261,12 @@ type ProcessEventDeps = {
     updateJobProgress: (id: string, payload: { status?: string }) => void;
 };
 
-function createProcessEvent({ addJob, setJobs, updateJobState, updateJobProgress }: ProcessEventDeps) {
-    const handlers = {
-        JobStarted: (event: Extract<DomainEvent, { type: 'JobStarted' }>) => {
-            addJob(event.jobId, event.pipelineStage as PipelineStage, getDisplayTitle(event));
-            updateJobState(event.jobId, 'running');
-        },
-        JobProgress: (event: Extract<DomainEvent, { type: 'JobProgress' }>) => {
-            setJobs(updateJobsForProgress(event));
-        },
-        JobCompleted: (event: Extract<DomainEvent, { type: 'JobCompleted' }>) => {
-            updateJobState(event.jobId, 'completed');
-            updateJobProgress(event.jobId, { status: 'complete' });
-        },
-        JobFailed: (event: Extract<DomainEvent, { type: 'JobFailed' }>) => {
-            updateJobState(event.jobId, 'failed');
-            setJobs(updateJobsForFailure(event));
-        },
-        FacesDetected: (event: Extract<DomainEvent, { type: 'FacesDetected' }>) => {
-            setJobs(incrementFaceMetric('facesFound', event.faceCount || 0));
-        },
-        FaceEmbeddingGenerated: () => {
-            setJobs(incrementFaceMetric('facesRecognised', 1));
-        },
-    };
-
+function createProcessEvent(deps: ProcessEventDeps) {
     return (event: DomainEvent) => {
-        const handler = handlers[event.type as keyof typeof handlers];
-        if (handler) {handler(event as never);}
+        handleBaseEvent(event, deps);
+        handleFaceEvent(event, deps.setJobs);
+        handleWorkflowStepEvent(event, deps.setJobs);
+        handleWorkflowSubjectEvent(event, deps.setJobs);
     };
 }
 

@@ -2,10 +2,8 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { DatabaseManager } from '../../data/db';
 
-export type SubjectRef = {
-    subjectType: string;
-    subjectId: string;
-}
+import type { SubjectRef } from './contracts';
+export type { SubjectRef };
 
 export type CreateWorkflowRunInput = {
     workflowId: string;

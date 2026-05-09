@@ -1,3 +1,8 @@
+export type SubjectRef = {
+    subjectType: string;
+    subjectId: string;
+};
+
 export type CapabilityClass =
     | 'analyze'
     | 'derive'
@@ -107,6 +112,7 @@ export type RuntimeModuleContext = {
         subjectId: string;
     }>;
     parameters: Record<string, unknown>;
+    signal?: AbortSignal;
 }
 
 export type RuntimeModuleRunResult = {

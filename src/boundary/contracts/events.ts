@@ -136,6 +136,51 @@ export type AiMetadataConfigurationError = {
     message: string;
 };
 
+export type WorkflowStepStarted = {
+    type: "WorkflowStepStarted";
+    runId: string;
+    nodeId: string;
+    expectedItems?: number;
+};
+
+export type WorkflowStepCompleted = {
+    type: "WorkflowStepCompleted";
+    runId: string;
+    nodeId: string;
+};
+
+export type WorkflowStepFailed = {
+    type: "WorkflowStepFailed";
+    runId: string;
+    nodeId: string;
+    error?: string;
+};
+
+export type WorkflowSubjectStarted = {
+    type: "WorkflowSubjectStarted";
+    runId: string;
+    nodeId: string;
+    subjectType: string;
+    subjectId: string;
+};
+
+export type WorkflowSubjectCompleted = {
+    type: "WorkflowSubjectCompleted";
+    runId: string;
+    nodeId: string;
+    subjectType: string;
+    subjectId: string;
+};
+
+export type WorkflowSubjectFailed = {
+    type: "WorkflowSubjectFailed";
+    runId: string;
+    nodeId: string;
+    subjectType: string;
+    subjectId: string;
+    error?: string;
+};
+
 export type DomainEvent =
     | FolderScanRequested
     | MediaDiscovered
@@ -156,4 +201,10 @@ export type DomainEvent =
     | ProAnalysisPending
     | AiMetadataV2FreshCompleted
     | AiMetadataV2ProCompleted
-    | AiMetadataV2UpgradeQueued;
+    | AiMetadataV2UpgradeQueued
+    | WorkflowStepStarted
+    | WorkflowStepCompleted
+    | WorkflowStepFailed
+    | WorkflowSubjectStarted
+    | WorkflowSubjectCompleted
+    | WorkflowSubjectFailed;

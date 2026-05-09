@@ -11,10 +11,12 @@ import { createEstimatePhotoDateModule } from '../../services/workflowRuntime/mo
 import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
 import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
 import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
+import { createSimulatorModule } from '../../services/workflowRuntime/modules/simulatorModule';
 import { libraryAiMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryAiMetadataWorkflow';
 import { libraryFaceWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryFaceWorkflow';
 import { libraryPhotoDateWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPhotoDateWorkflow';
 import { folderIngestWorkflowDefinition } from '../../services/workflowRuntime/workflows/folderIngestWorkflow';
+import { simulationWorkflowDefinition } from '../../services/workflowRuntime/workflows/simulationWorkflow';
 import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryGroupingWorkflow';
 import { libraryPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPreviewWorkflow';
 import { librarySensitiveScanWorkflowDefinition } from '../../services/workflowRuntime/workflows/librarySensitiveScanWorkflow';
@@ -102,6 +104,7 @@ function registerModules(modules: ModuleRegistry, dbManager: DatabaseManager, ev
     modules.register(createDetectSensitiveContentModule({ dbManager, eventBus }));
     modules.register(createGenerateAiMetadataModule({ dbManager, eventBus }));
     modules.register(createEstimatePhotoDateModule({ dbManager, eventBus }));
+    modules.register(createSimulatorModule({}));
     modules.register(createPreviewAdapterModule({
         runPreview: async (mediaIds) => {
             await runPreviewWorker(mediaIds, { dbManager, eventBus });
@@ -111,6 +114,7 @@ function registerModules(modules: ModuleRegistry, dbManager: DatabaseManager, ev
 
 function registerWorkflows(workflows: WorkflowRegistry) {
     workflows.register(folderIngestWorkflowDefinition);
+    workflows.register(simulationWorkflowDefinition);
     workflows.register(libraryGroupingWorkflowDefinition);
     workflows.register(assetPreviewWorkflowDefinition);
     workflows.register(libraryPreviewWorkflowDefinition);

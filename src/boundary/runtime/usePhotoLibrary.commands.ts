@@ -279,6 +279,19 @@ export function createPipelineActions(params: PipelineActionParams) {
                     aiMode,
                 })
         ),
+        startSimulationWorkflow: (inputParams: {
+            iterations?: string;
+            speed?: string;
+            errorType?: string;
+            errorRate?: string;
+            resourceLoadMode?: string;
+        } = {}) => startWorkflow(
+            'start_simulation_workflow',
+            'start_simulation_workflow',
+            'scan',
+            'Workflow Simulation',
+            inputParams
+        ),
     };
 }
 
