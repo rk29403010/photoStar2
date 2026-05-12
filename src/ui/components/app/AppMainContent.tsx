@@ -12,6 +12,8 @@ import type {
 import type {
   DataStatsSnapshot,
   JobErrorSnapshot,
+  JobState,
+  PipelineStage,
   RecentEventSnapshot,
   WorkflowRunListItem,
   WorkflowStatusSnapshot,
@@ -130,6 +132,16 @@ type AppMainContentProps = {
   readonly onDeleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetailPayload>;
   readonly onMergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetailPayload>;
   readonly onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onAddJob: (id: string, stage: PipelineStage, title: string) => void;
+  readonly onUpdateJobState: (id: string, state: JobState) => void;
+  readonly onUpdateJobProgress: (id: string, payload: {
+    overallDone?: number;
+    overallTotal?: number;
+    overallPercent?: number;
+    message?: string;
+    current?: string;
+    stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+  }) => void;
 }
 
 function getPanelStyle(active: boolean) {
@@ -281,6 +293,9 @@ export function AppMainContent(props: AppMainContentProps) {
           onWorkflowIdChange={props.onSelectWorkflowId}
           onGetWorkflowVisualiser={props.onGetWorkflowVisualiser}
           onRerunMissingFolderAiMetadata={props.onRerunMissingFolderAiMetadata}
+          addJob={props.onAddJob}
+          updateJobState={props.onUpdateJobState}
+          updateJobProgress={props.onUpdateJobProgress}
         />
       )}
 

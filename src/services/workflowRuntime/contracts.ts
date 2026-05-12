@@ -50,7 +50,9 @@ export type WorkflowModuleNodeDefinition = {
     runMode?: 'per_subject' | 'once_per_batch';
     completesMilestones?: string[];
     outputsTo?: string[];
+    onFailureTo?: string[];
     presentation?: WorkflowNodePresentationDefinition;
+    parameters?: Record<string, unknown>;
 }
 
 export type WorkflowControlNodeDefinition = {
@@ -266,7 +268,11 @@ function assertUniqueNodeIds(nodes: WorkflowNodeDefinition[]): void {
 function assertNodeEdgesExist(nodes: WorkflowNodeDefinition[]): void {
     const ids = new Set(nodes.map((node) => node.id));
     for (const node of nodes) {
-        for (const targetId of node.outputsTo || []) {
+        const targets = [...(node.outputsTo || [])];
+        if (node.kind === 'module' && node.onFailureTo) {
+            targets.push(...node.onFailureTo);
+        }
+        for (const targetId of targets) {
             if (!ids.has(targetId)) {
                 throw new Error(`workflow node '${node.id}' references unknown target '${targetId}'`);
             }
@@ -297,7 +303,13 @@ function visitNode(
 
 function assertDag(nodes: WorkflowNodeDefinition[]): void {
     const adjacency = new Map<string, string[]>(
-        nodes.map((node) => [node.id, [...(node.outputsTo || [])]]),
+        nodes.map((node) => {
+            const targets = [...(node.outputsTo || [])];
+            if (node.kind === 'module' && (node as WorkflowModuleNodeDefinition).onFailureTo) {
+                targets.push(...((node as WorkflowModuleNodeDefinition).onFailureTo || []));
+            }
+            return [node.id, targets];
+        }),
     );
     const visiting = new Set<string>();
     const visited = new Set<string>();
@@ -318,14 +330,28 @@ function assertModuleNode(node: WorkflowModuleNodeDefinition): void {
     if (node.runMode !== undefined && node.runMode !== 'per_subject' && node.runMode !== 'once_per_batch') {
         throw new Error(`workflow node '${node.id}' runMode is invalid`);
     }
+    assertModuleNodeMetadata(node);
+    assertModuleNodePresentation(node);
+}
+
+function assertModuleNodeMetadata(node: WorkflowModuleNodeDefinition): void {
     if (node.completesMilestones !== undefined) {
         assertStringArray(node.completesMilestones, `workflow node '${node.id}' completesMilestones`);
     }
     if (node.outputsTo !== undefined) {
         assertStringArray(node.outputsTo, `workflow node '${node.id}' outputsTo`);
     }
+    if (node.onFailureTo !== undefined) {
+        assertStringArray(node.onFailureTo, `workflow node '${node.id}' onFailureTo`);
+    }
+}
+
+function assertModuleNodePresentation(node: WorkflowModuleNodeDefinition): void {
     if (node.presentation !== undefined) {
         assertWorkflowNodePresentationDefinition(node.presentation, `workflow node '${node.id}' presentation`);
+    }
+    if (node.parameters !== undefined && (typeof node.parameters !== 'object' || node.parameters === null)) {
+        throw new Error(`workflow node '${node.id}' parameters must be an object`);
     }
 }
 

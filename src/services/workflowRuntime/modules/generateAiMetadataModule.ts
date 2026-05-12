@@ -41,7 +41,7 @@ export type GenerateAiMetadataModuleOptions = {
     };
 }
 
-const DEFAULT_SCOUT_LIVE_METADATA_TIMEOUT_MS = 120_000;
+const DEFAULT_SCOUT_LIVE_METADATA_TIMEOUT_MS = 180_000;
 const DEFAULT_REFINE_LIVE_METADATA_TIMEOUT_MS = 300_000;
 
 function loadAssetRow(
@@ -138,21 +138,35 @@ async function generateMetadataResult(params: {
 }
 
 async function withLiveMetadataTimeout<T>(
-    operation: Promise<T>,
+    operationFactory: () => Promise<T>,
     timeoutMs: number,
     assetId: string,
 ): Promise<T> {
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
+    const executeWithTimeout = () => Promise.race([
+        operationFactory(),
+        new Promise<T>((_, reject) => {
+            timeoutHandle = setTimeout(() => {
+                reject(new Error(`AI metadata timed out after ${timeoutMs}ms for asset '${assetId}'`));
+            }, timeoutMs);
+        }),
+    ]);
+
     try {
-        return await Promise.race([
-            operation,
-            new Promise<T>((_, reject) => {
-                timeoutHandle = setTimeout(() => {
-                    reject(new Error(`AI metadata timed out after ${timeoutMs}ms for asset '${assetId}'`));
-                }, timeoutMs);
-            }),
-        ]);
+        try {
+            return await executeWithTimeout();
+        } catch (error) {
+            if (error instanceof Error && error.message.includes('timed out')) {
+                console.warn(`[AI Metadata] Retrying asset ${assetId} after timeout.`);
+                if (timeoutHandle !== null) {
+                    clearTimeout(timeoutHandle);
+                    timeoutHandle = null;
+                }
+                return await executeWithTimeout();
+            }
+            throw error;
+        }
     } finally {
         if (timeoutHandle !== null) {
             clearTimeout(timeoutHandle);
@@ -231,7 +245,7 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
             }
 
             const result = await withLiveMetadataTimeout(
-                generateMetadataResult({
+                () => generateMetadataResult({
                     aiMode,
                     assetId: context.subject.subjectId,
                     dbManager: options.dbManager,

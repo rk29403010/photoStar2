@@ -101,5 +101,6 @@ export function classifyAndRecordError(model: string, error: Error): QuotaErrorT
 }
 
 export async function sleepWithLog(ms: number): Promise<void> {
+    console.log(`[Quota Manager] Sleeping for ${ms}ms due to rate limits...`);
     await new Promise((resolve) => setTimeout(resolve, ms));
 }

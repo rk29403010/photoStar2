@@ -559,7 +559,10 @@ function useComposedActions(
         ...supplementaryActions.tagActions,
         ...supplementaryActions.buildActions,
         ...supplementaryActions.faceSystemActions,
-    }), [coreActions, refreshActions, state.setTimelineVisibleGroup, supplementaryActions, timelinePagingActions, workflowActions]);
+        addJob,
+        updateJobState,
+        updateJobProgress,
+    }), [addJob, updateJobState, updateJobProgress, coreActions, refreshActions, state.setTimelineVisibleGroup, supplementaryActions, timelinePagingActions, workflowActions]);
 }
 
 export function usePhotoLibrary() {
@@ -574,5 +577,5 @@ export function usePhotoLibrary() {
 
     const actions = useComposedActions(state, addJob, updateJobState, updateJobProgress, removeJob, sendCommand, request);
 
-    return buildPhotoLibraryResult({ state, jobs, actions });
+    return buildPhotoLibraryResult({ state, jobs, actions, addJob, updateJobState, updateJobProgress });
 }

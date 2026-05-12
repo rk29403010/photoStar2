@@ -46,6 +46,7 @@ type AppOverlaysProps = {
   readonly onResetGroupingData: () => void;
   readonly onStopScan: () => void;
   readonly onOpenGroupDiagnostics: () => void;
+  readonly onStartSimulationWorkflow: (params?: { speed?: string; iterations?: string; errorType?: string; errorRate?: string }) => void;
   readonly onGetSetting: (key: string) => Promise<string>;
   readonly onSetSetting: (key: string, value: string) => Promise<void>;
   readonly theme: string;
@@ -168,6 +169,7 @@ export function AppOverlays(props: AppOverlaysProps) {
         onResetGroupingData={props.onResetGroupingData}
         onStopScan={props.onStopScan}
         onOpenGroupDiagnostics={props.onOpenGroupDiagnostics}
+        onStartSimulationWorkflow={props.onStartSimulationWorkflow}
         folderHistory={props.folderHistory}
       />
 

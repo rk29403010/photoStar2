@@ -13,6 +13,7 @@ type ScheduleWorkflowRunRefreshParams = {
         overallPercent?: number;
         message?: string;
         current?: string;
+        workflowRunId?: string;
         stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
     }) => void;
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
@@ -99,6 +100,16 @@ function refreshWorkflowSurfaces(params: ScheduleWorkflowRunRefreshParams) {
     params.refreshSystemJobs();
 }
 
+function toStages(steps: WorkflowRunStep[] | undefined): WorkflowPollSnapshot['stages'] {
+    return (steps ?? []).map((step) => ({
+        stageId: step.nodeId,
+        label: formatStepLabel(step.nodeId),
+        state: toStageState(step.status),
+        total: step.totalItems,
+        done: step.completedItems,
+    }));
+}
+
 function toSnapshot(detail: Awaited<ReturnType<typeof requestWorkflowRunDetail>>): WorkflowPollSnapshot {
     const status = String(detail.summary?.status || '');
     const totalItems = Number(detail.summary?.totalItems ?? 0);
@@ -106,13 +117,7 @@ function toSnapshot(detail: Awaited<ReturnType<typeof requestWorkflowRunDetail>>
     const failedStep = detail.steps?.find((step) => step.status === 'failed') as WorkflowRunStep | undefined;
     const runningStep = detail.steps?.find((step) => step.status === 'running') as WorkflowRunStep | undefined;
     const currentStep = runningStep ?? failedStep;
-    const stages = (detail.steps ?? []).map((step) => ({
-        stageId: step.nodeId,
-        label: formatStepLabel(step.nodeId),
-        state: toStageState(step.status),
-        total: step.totalItems,
-        done: step.completedItems,
-    }));
+    const stages = toStages(detail.steps);
     return { status, totalItems, completedItems, failedStep, currentStep, stages };
 }
 
@@ -125,6 +130,7 @@ function applySnapshotProgress(params: ScheduleWorkflowRunRefreshParams, snapsho
             ? `${formatStepLabel(snapshot.currentStep.nodeId)} ${snapshot.currentStep.completedItems}/${snapshot.currentStep.totalItems}`
             : undefined,
         current: snapshot.failedStep?.failedSubjects?.[0]?.originalPath,
+        workflowRunId: params.runId,
         stages: snapshot.stages,
     });
 }

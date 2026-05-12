@@ -4,6 +4,7 @@ import type { WorkflowVisualiserAggregateCount, WorkflowVisualiserDetail } from 
 type WorkflowDetailPanelProps = {
     readonly detail: WorkflowVisualiserDetail | null;
     readonly onClose: () => void;
+    readonly onSelectDetail: (id: string) => void;
     readonly showRuntimeDetails: boolean;
 }
 
@@ -27,7 +28,26 @@ function buildRuntimeDetailRows(detail: WorkflowVisualiserDetail): string[] {
     return rows;
 }
 
-export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail, onClose, showRuntimeDetails }) => {
+function InteractiveIdList({ ids, onSelect }: { readonly ids: string[], readonly onSelect: (id: string) => void }) {
+    if (ids.length === 0) {return <span>none</span>;}
+    return (
+        <span className="inline-flex flex-wrap gap-x-1">
+            {ids.map((id, index) => (
+                <span key={id} className="inline-flex items-center">
+                    <button 
+                        onClick={() => onSelect(id)}
+                        className="font-mono text-xs text-cyan-400 transition-colors hover:text-cyan-200 hover:underline"
+                    >
+                        {id}
+                    </button>
+                    {index < ids.length - 1 && <span className="text-gray-600">,</span>}
+                </span>
+            ))}
+        </span>
+    );
+}
+
+export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail, onClose, onSelectDetail, showRuntimeDetails }) => {
     if (!detail) {
         return (
             <aside className="rounded-2xl border border-gray-800 bg-[#111111] p-5 text-sm text-gray-400">
@@ -43,16 +63,38 @@ export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail
                     <div className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">{detail.kind}</div>
                     <h3 className="mt-2 text-lg font-semibold text-gray-100">{detail.label}</h3>
                 </div>
-                <button onClick={onClose} className="rounded-md border border-gray-700 px-2 py-1 text-xs uppercase tracking-[0.2em] text-gray-400">
+                <button onClick={onClose} className="rounded-md border border-gray-700 px-2 py-1 text-xs uppercase tracking-[0.2em] text-gray-400 transition-colors hover:bg-gray-800">
                     Close
                 </button>
             </div>
             <p className="mt-3 text-sm leading-6 text-gray-400">{detail.description}</p>
             <div className="mt-4 space-y-2 text-sm text-gray-300">
-                {detail.errorMessage && <div>Error: {detail.errorMessage}</div>}
+                {detail.errorMessage && <div className="text-red-400">Error: {detail.errorMessage}</div>}
                 {showRuntimeDetails ? buildRuntimeDetailRows(detail).map((row) => <div key={row}>{row}</div>) : null}
-                <div>Upstream: {detail.upstreamIds.length > 0 ? detail.upstreamIds.join(', ') : 'none'}</div>
-                <div>Downstream: {detail.downstreamIds.length > 0 ? detail.downstreamIds.join(', ') : 'none'}</div>
+                <div className="flex items-baseline gap-2">
+                    <span className="opacity-60">ID:</span>
+                    <span className="font-mono text-xs text-cyan-400">{detail.id}</span>
+                </div>
+                {detail.moduleId && (
+                    <div className="flex items-baseline gap-2">
+                        <span className="opacity-60">Module:</span>
+                        <span className="font-mono text-xs text-cyan-400">{detail.moduleId}</span>
+                    </div>
+                )}
+                {detail.controlType && (
+                    <div className="flex items-baseline gap-2">
+                        <span className="opacity-60">Control:</span>
+                        <span className="font-mono text-xs text-cyan-400">{detail.controlType}</span>
+                    </div>
+                )}
+                <div className="flex items-baseline gap-2">
+                    <span className="opacity-60">Upstream:</span>
+                    <InteractiveIdList ids={detail.upstreamIds} onSelect={onSelectDetail} />
+                </div>
+                <div className="flex items-baseline gap-2">
+                    <span className="opacity-60">Downstream:</span>
+                    <InteractiveIdList ids={detail.downstreamIds} onSelect={onSelectDetail} />
+                </div>
             </div>
         </aside>
     );

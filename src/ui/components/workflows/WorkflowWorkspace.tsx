@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import type { JobState, PipelineStage } from '@contracts/jobs';
 import { usePersistedState } from '@ui/hooks/usePersistedState';
 import { WorkflowDetailPanel } from './WorkflowDetailPanel';
 import { WorkflowOverviewTab } from './WorkflowOverviewTab';
@@ -19,12 +20,24 @@ import {
     type WorkflowSequenceMapViewport,
     type WorkflowWorkspaceTabId,
 } from './workflowWorkspaceModel';
+import { scheduleWorkflowRunRefresh } from '@boundary/runtime/workflowOverlayJobs';
 
 type WorkflowWorkspaceProps = {
     readonly workflowId: string;
     readonly onWorkflowIdChange: (workflowId: string) => void;
     readonly onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
     readonly onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
+    readonly addJob: (id: string, stage: PipelineStage, title: string) => void;
+    readonly updateJobState: (id: string, state: JobState) => void;
+    readonly updateJobProgress: (id: string, payload: {
+        overallDone?: number;
+        overallTotal?: number;
+        overallPercent?: number;
+        message?: string;
+        current?: string;
+        workflowRunId?: string;
+        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    }) => void;
 }
 
 function useWorkflowWorkspacePersistence(workflowId: string) {
@@ -61,6 +74,10 @@ function useWorkflowRetryAction(params: {
     setSelectedRunSelection: (runId: string | null) => void;
     setSelectedDetailId: (detailId: string | null) => void;
     onRerunMissingFolderAiMetadata: WorkflowWorkspaceProps['onRerunMissingFolderAiMetadata'];
+    onGetWorkflowVisualiser: WorkflowWorkspaceProps['onGetWorkflowVisualiser'];
+    addJob: WorkflowWorkspaceProps['addJob'];
+    updateJobState: WorkflowWorkspaceProps['updateJobState'];
+    updateJobProgress: WorkflowWorkspaceProps['updateJobProgress'];
 }) {
     const [retryingMissingAiMetadata, setRetryingMissingAiMetadata] = useState(false);
     const [resumeAssetCount, setResumeAssetCount] = useState<number | undefined>(undefined);
@@ -86,14 +103,41 @@ function useWorkflowRetryAction(params: {
             setRetryingMissingAiMetadata(true);
             setResumeAssetCount(undefined);
             setResumeRequestCompleted(false);
+
+            const localJobId = `resume_missing_folder_ai_metadata_overlay_${Date.now()}`;
+            params.addJob(localJobId, 'ai_metadata', 'Resuming folder ingest');
+            params.updateJobState(localJobId, 'starting');
+
             void params.onRerunMissingFolderAiMetadata(params.model.selectedRun.runId)
                 .then((result) => {
                     setResumeAssetCount(result.assetCount);
                     setResumeRequestCompleted(true);
                     if (result.runId) {
+                        params.updateJobState(localJobId, 'running');
                         params.setSelectedRunSelection(result.runId);
                         params.setSelectedDetailId(null);
+
+                        // Start tracking the background job for overlay feedback
+                        scheduleWorkflowRunRefresh({
+                            request: async <T,>(options: { payload?: Record<string, unknown> }): Promise<T> => {
+                                return await params.onGetWorkflowVisualiser(params.workflowId, options.payload?.runId as string) as unknown as T;
+                            },
+                            updateJobState: params.updateJobState,
+                            updateJobProgress: params.updateJobProgress,
+                            refreshLibrary: () => { /* No-op or find a way to refresh */ },
+                            refreshSystemJobs: () => { /* No-op */ },
+                            localJobId,
+                            runId: result.runId,
+                            workflowId: params.workflowId,
+                            title: 'Resuming folder ingest',
+                        });
+                    } else {
+                        params.updateJobState(localJobId, 'completed');
                     }
+                })
+                .catch((error) => {
+                    params.updateJobState(localJobId, 'failed');
+                    console.error('Failed to resume workflow:', error);
                 })
                 .finally(() => {
                     setRetryingMissingAiMetadata(false);
@@ -174,6 +218,7 @@ function WorkflowWorkspaceContent(params: {
     model: WorkflowVisualiserModel;
     activeTab: WorkflowWorkspaceTabId;
     onSelectDetail: (detailId: string) => void;
+    selectedDetailId: string | null;
     sequenceViewport: WorkflowSequenceMapViewport | null;
     onSequenceViewportChange: (viewport: WorkflowSequenceMapViewport) => void;
 }) {
@@ -203,6 +248,7 @@ function WorkflowWorkspaceContent(params: {
                 nodes={params.model.tabs.graph.nodes}
                 edges={params.model.tabs.graph.edges}
                 onSelectDetail={params.onSelectDetail}
+                selectedDetailId={params.selectedDetailId}
                 viewport={params.sequenceViewport}
                 shouldFitViewport={shouldFitSequenceMapViewport(params.sequenceViewport)}
                 onViewportChange={params.onSequenceViewportChange}
@@ -271,6 +317,7 @@ function renderWorkflowWorkspaceReadyState(params: {
                         model={params.model}
                         activeTab={params.activeTab}
                         onSelectDetail={params.setSelectedDetailId}
+                        selectedDetailId={params.selectedDetailId}
                         sequenceViewport={params.sequenceViewport}
                         onSequenceViewportChange={params.setPersistedViewport}
                     />
@@ -280,6 +327,7 @@ function renderWorkflowWorkspaceReadyState(params: {
                     <WorkflowDetailPanel
                         detail={selectedDetail}
                         onClose={() => params.setSelectedDetailId(null)}
+                        onSelectDetail={params.setSelectedDetailId}
                         showRuntimeDetails={params.model.selectedRun !== null}
                     />
                 ) : null}
@@ -288,7 +336,15 @@ function renderWorkflowWorkspaceReadyState(params: {
     );
 }
 
-function ActiveWorkflowWorkspace({ workflowId, onWorkflowIdChange, onGetWorkflowVisualiser, onRerunMissingFolderAiMetadata }: WorkflowWorkspaceProps) {
+function ActiveWorkflowWorkspace({
+    workflowId,
+    onWorkflowIdChange,
+    onGetWorkflowVisualiser,
+    onRerunMissingFolderAiMetadata,
+    addJob,
+    updateJobState,
+    updateJobProgress,
+}: WorkflowWorkspaceProps) {
     const [selectedRunSelection, setSelectedRunSelection] = useState<string | null>(null);
     const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
     const {
@@ -305,6 +361,10 @@ function ActiveWorkflowWorkspace({ workflowId, onWorkflowIdChange, onGetWorkflow
         setSelectedRunSelection,
         setSelectedDetailId,
         onRerunMissingFolderAiMetadata,
+        onGetWorkflowVisualiser,
+        addJob,
+        updateJobState,
+        updateJobProgress,
     });
 
     if (loading) {

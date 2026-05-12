@@ -3,7 +3,6 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import { filterDiagnosticsGroups, type GroupDiagnosticsFilterMode } from './groupDiagnosticsViewModel';
 import {
-    type CopyTarget,
     GroupDiagnosticsRow,
 } from './groupDiagnosticsView.parts';
 import { DiagnosticsSummaryCards, DiagnosticsToolbar, EmptyDiagnosticsState } from './groupDiagnosticsView.chrome';
@@ -17,12 +16,12 @@ type GroupingDiagnosticsViewProps = {
 }
 
 function useCopyState() {
-    const [copiedTarget, setCopiedTarget] = useState<CopyTarget | null>(null);
-    const [copyingTarget, setCopyingTarget] = useState<CopyTarget | null>(null);
+    const [copiedTarget, setCopiedTarget] = useState<string | null>(null);
+    const [copyingTarget, setCopyingTarget] = useState<string | null>(null);
 
     useCopyReset(copiedTarget, setCopiedTarget);
 
-    const copyValue = async (target: CopyTarget, value: string) => {
+    const copyValue = async (target: string, value: string) => {
         try {
             setCopyingTarget(target);
             await navigator.clipboard.writeText(value);

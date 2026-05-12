@@ -16,4 +16,28 @@ export class WorkflowRuntimeTelemetry {
     public runFailed(runId: string, workflowId: string, errorMessage: string): void {
         this.sink?.emit({ type: 'RunFailed', runId, workflowId, errorMessage });
     }
+
+    public stepStarted(runId: string, nodeId: string, expectedItems: number): void {
+        this.sink?.emit({ type: 'WorkflowStepStarted', runId, nodeId, expectedItems });
+    }
+
+    public stepCompleted(runId: string, nodeId: string): void {
+        this.sink?.emit({ type: 'WorkflowStepCompleted', runId, nodeId });
+    }
+
+    public stepFailed(runId: string, nodeId: string, errorMessage?: string): void {
+        this.sink?.emit({ type: 'WorkflowStepFailed', runId, nodeId, errorMessage });
+    }
+
+    public subjectStarted(runId: string, nodeId: string, subjectType: string, subjectId: string): void {
+        this.sink?.emit({ type: 'WorkflowSubjectStarted', runId, nodeId, subjectType, subjectId });
+    }
+
+    public subjectCompleted(runId: string, nodeId: string, subjectType: string, subjectId: string): void {
+        this.sink?.emit({ type: 'WorkflowSubjectCompleted', runId, nodeId, subjectType, subjectId });
+    }
+
+    public subjectFailed(runId: string, nodeId: string, subjectType: string, subjectId: string, errorMessage?: string): void {
+        this.sink?.emit({ type: 'WorkflowSubjectFailed', runId, nodeId, subjectType, subjectId, errorMessage });
+    }
 }

@@ -45,6 +45,7 @@ type WorkflowSequenceMapTabProps = {
     readonly shouldFitViewport: boolean;
     readonly onViewportChange: (viewport: Viewport) => void;
     readonly showRuntimeDetails: boolean;
+    readonly selectedDetailId: string | null;
 }
 
 type SequenceStageNodeData = {
@@ -65,7 +66,8 @@ type SequenceWorkflowNodeData = {
     showRuntimeDetails: boolean;
 } & Record<string, unknown>
 
-function getStatusTone(status: WorkflowVisualiserStatus): string {
+function getStatusTone(status: WorkflowVisualiserStatus, isSelected: boolean): string {
+    if (isSelected) {return 'border-amber-400 bg-amber-950/30 text-amber-50 ring-2 ring-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.3)]';}
     if (status === 'completed') {return 'border-emerald-700/60 bg-emerald-950/15 text-emerald-100';}
     if (status === 'running') {return 'border-cyan-700/60 bg-cyan-950/20 text-cyan-100';}
     if (status === 'failed') {return 'border-red-700/60 bg-red-950/20 text-red-100';}
@@ -77,9 +79,9 @@ function formatNodeCounts(data: SequenceWorkflowNodeData): string {
     return `${data.completedItems}/${data.totalItems} ${noun}`;
 }
 
-function SequenceStageNode({ data }: NodeProps<Node<SequenceStageNodeData>>) {
+function SequenceStageNode({ data, selected }: NodeProps<Node<SequenceStageNodeData>>) {
     return (
-        <div className={`h-full border px-5 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.25)] ${getStatusTone(data.status)}`}>
+        <div className={`h-full border px-5 py-4 shadow-[0_20px_40px_rgba(0,0,0,0.25)] ${getStatusTone(data.status, selected)}`}>
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <div className="cursor-help text-lg font-semibold" title={data.description}>{data.label}</div>
@@ -94,7 +96,7 @@ function SequenceStageNode({ data }: NodeProps<Node<SequenceStageNodeData>>) {
     );
 }
 
-function SequenceWorkflowNode({ data }: NodeProps<Node<SequenceWorkflowNodeData>>) {
+function SequenceWorkflowNode({ data, selected }: NodeProps<Node<SequenceWorkflowNodeData>>) {
     return (
         <>
             <Handle
@@ -121,7 +123,7 @@ function SequenceWorkflowNode({ data }: NodeProps<Node<SequenceWorkflowNodeData>
                 position={Position.Bottom}
                 style={{ width: 10, height: 10, opacity: 0, border: 'none', background: 'transparent' }}
             />
-            <div className={`h-full rounded-2xl border px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.35)] ${getStatusTone(data.status)}`}>
+            <div className={`h-full rounded-2xl border px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.35)] ${getStatusTone(data.status, selected)}`}>
                 {data.showRuntimeDetails ? (
                     <div className="flex min-h-6 items-start justify-end">
                         <div className="inline-flex rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80">
@@ -146,6 +148,7 @@ function buildReactFlowNodes(params: {
     nodes: WorkflowVisualiserGraphNode[];
     edges: WorkflowVisualiserGraphEdge[];
     showRuntimeDetails: boolean;
+    selectedDetailId: string | null;
 }): Array<Node<SequenceStageNodeData | SequenceWorkflowNodeData>> {
     const sequenceMap = buildWorkflowSequenceMap(params);
     const stageById = new Map(sequenceMap.stageBoxes.map((stage) => [stage.id, stage]));
@@ -162,6 +165,7 @@ function buildReactFlowNodes(params: {
             status: stage.status,
             showRuntimeDetails: params.showRuntimeDetails,
         },
+        selected: stage.id === params.selectedDetailId,
         style: {
             width: stage.size.width,
             height: stage.size.height,
@@ -195,6 +199,7 @@ function buildReactFlowNodes(params: {
                 countNoun: node.countNoun,
                 showRuntimeDetails: params.showRuntimeDetails,
             },
+            selected: node.id === params.selectedDetailId,
             style: {
                 width: node.size.width,
                 height: node.size.height,
@@ -216,9 +221,10 @@ export const WorkflowSequenceMapTab: React.FC<WorkflowSequenceMapTabProps> = ({
     shouldFitViewport,
     onViewportChange,
     showRuntimeDetails,
+    selectedDetailId,
 }) => {
     const sequenceMap = useMemo(() => buildWorkflowSequenceMap({ stages, nodes, edges, showRuntimeDetails }), [edges, nodes, showRuntimeDetails, stages]);
-    const flowNodes = useMemo(() => buildReactFlowNodes({ stages, nodes, edges, showRuntimeDetails }), [edges, nodes, showRuntimeDetails, stages]);
+    const flowNodes = useMemo(() => buildReactFlowNodes({ stages, nodes, edges, showRuntimeDetails, selectedDetailId }), [edges, nodes, showRuntimeDetails, stages, selectedDetailId]);
     const stableNodeTypes = useMemo(() => nodeTypes, []);
     const stageIdsByNodeId = useMemo(() => {
         return Object.fromEntries(sequenceMap.nodes.map((node) => [node.id, node.stageId]));

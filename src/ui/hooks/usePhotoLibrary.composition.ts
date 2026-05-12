@@ -87,8 +87,11 @@ export function buildPhotoLibraryResult<TActions>(params: {
     state: PhotoLibraryState;
     jobs: JobManagerState['jobs'];
     actions: TActions;
+    addJob: JobManagerState['addJob'];
+    updateJobState: JobManagerState['updateJobState'];
+    updateJobProgress: JobManagerState['updateJobProgress'];
 }) {
-    const { state, jobs, actions } = params;
+    const { state, jobs, actions, addJob, updateJobState, updateJobProgress } = params;
 
     return {
         status: state.status,
@@ -106,6 +109,9 @@ export function buildPhotoLibraryResult<TActions>(params: {
         people: state.people,
         rejectedAssets: state.rejectedAssets,
         jobs,
+        addJob,
+        updateJobState,
+        updateJobProgress,
         systemJobs: state.systemJobs,
         workflowStatus: state.workflowStatus,
         dataStats: state.dataStats,

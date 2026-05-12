@@ -136,122 +136,108 @@ function getStageHeight(nodeCount: number, nodeHeight: number): number {
     return STAGE_CONTENT_TOP + STAGE_PADDING_BOTTOM + (nodeCount * nodeHeight) + ((nodeCount - 1) * NODE_GAP_Y);
 }
 
-function createOrderIndex(nodes: WorkflowVisualiserGraphNode[]): Map<string, number> {
-    return new Map(nodes.map((node, index) => [node.id, index]));
-}
 
-function getNeighborOrderScore(params: {
-    fallbackIndex: number;
-    neighborOrder: Map<string, number>;
-    node: WorkflowVisualiserGraphNode;
-    relation: 'upstreamIds' | 'downstreamIds';
-}): number {
-    const indices = params.node[params.relation]
-        .map((nodeId) => params.neighborOrder.get(nodeId))
-        .filter((value): value is number => value !== undefined);
-    if (indices.length === 0) {
-        return Number.MAX_SAFE_INTEGER + params.fallbackIndex;
-    }
-    return indices.reduce((total, value) => total + value, 0) / indices.length;
-}
+function computeRows(nodes: WorkflowVisualiserGraphNode[], adj: Map<string, string[]>, revAdj: Map<string, string[]>, nodesById: Map<string, WorkflowVisualiserGraphNode>): Map<string, number> {
+    const rows = new Map<string, number>();
+    const queue = nodes.filter(n => (revAdj.get(n.id)?.length ?? 0) === 0);
+    const rowQueue = [...queue];
+    const processed = new Set<string>();
 
-function sortLevelByNeighbors(params: {
-    levelNodes: WorkflowVisualiserGraphNode[];
-    neighborOrder: Map<string, number>;
-    relation: 'upstreamIds' | 'downstreamIds';
-}) {
-    return [...params.levelNodes]
-        .map((node, index) => ({
-            node,
-            index,
-            score: getNeighborOrderScore({
-                node,
-                fallbackIndex: index,
-                neighborOrder: params.neighborOrder,
-                relation: params.relation,
-            }),
-        }))
-        .sort((left, right) => left.score - right.score || left.index - right.index)
-        .map((entry) => entry.node);
-}
-
-function sortStageLevels(levels: WorkflowVisualiserGraphNode[][]): WorkflowVisualiserGraphNode[][] {
-    if (levels.length <= 1) {
-        return levels;
-    }
-
-    const nextLevels = [...levels];
-    for (let levelIndex = nextLevels.length - 2; levelIndex >= 0; levelIndex -= 1) {
-        nextLevels[levelIndex] = sortLevelByNeighbors({
-            levelNodes: nextLevels[levelIndex],
-            neighborOrder: createOrderIndex(nextLevels[levelIndex + 1]),
-            relation: 'downstreamIds',
-        });
-    }
-
-    for (let levelIndex = 1; levelIndex < nextLevels.length; levelIndex += 1) {
-        nextLevels[levelIndex] = sortLevelByNeighbors({
-            levelNodes: nextLevels[levelIndex],
-            neighborOrder: createOrderIndex(nextLevels[levelIndex - 1]),
-            relation: 'upstreamIds',
-        });
-    }
-
-    return nextLevels;
-}
-
-function buildStageLevels(nodes: WorkflowVisualiserGraphNode[]): WorkflowVisualiserGraphNode[][] {
-    const nodesById = new Map(nodes.map((node) => [node.id, node]));
-    const levelsByNodeId = new Map<string, number>();
-    const queue = [...nodes];
-
-    while (queue.length > 0) {
-        const node = queue.shift();
-        if (!node) {
-            continue;
+    while (rowQueue.length > 0) {
+        const node = rowQueue.shift()!;
+        if (processed.has(node.id)) {continue;}
+        
+        const upstreams = revAdj.get(node.id) ?? [];
+        if (upstreams.every(u => rows.has(u))) {
+            const row = upstreams.reduce((max, u) => Math.max(max, rows.get(u)! + 1), 0);
+            rows.set(node.id, row);
+            processed.add(node.id);
+            (adj.get(node.id) ?? []).forEach(d => rowQueue.push(nodesById.get(d)!));
+        } else {
+            rowQueue.push(node);
         }
-
-        const internalUpstreamIds = node.upstreamIds.filter((upstreamId) => nodesById.has(upstreamId));
-        const unresolvedUpstream = internalUpstreamIds.some((upstreamId) => !levelsByNodeId.has(upstreamId));
-        if (unresolvedUpstream) {
-            queue.push(node);
-            continue;
-        }
-
-        const nodeLevel = internalUpstreamIds.reduce((highestLevel, upstreamId) => {
-            return Math.max(highestLevel, (levelsByNodeId.get(upstreamId) ?? 0) + 1);
-        }, 0);
-
-        levelsByNodeId.set(node.id, nodeLevel);
     }
+    return rows;
+}
 
+type ColumnState = {
+    columns: Map<string, number>;
+    nextAvailableCol: number;
+    visited: Set<string>;
+    adj: Map<string, string[]>;
+}
+
+function assignColRecursive(nodeId: string, col: number, state: ColumnState) {
+    if (state.visited.has(nodeId)) {return;}
+    state.visited.add(nodeId);
+    state.columns.set(nodeId, col);
+
+    const children = state.adj.get(nodeId) ?? [];
+    children.forEach((childId, idx) => {
+        if (idx === 0) {
+            assignColRecursive(childId, col, state);
+        } else {
+            state.nextAvailableCol++;
+            assignColRecursive(childId, state.nextAvailableCol, state);
+        }
+    });
+}
+
+function computeColumns(nodes: WorkflowVisualiserGraphNode[], adj: Map<string, string[]>, revAdj: Map<string, string[]>): Map<string, number> {
+    const state: ColumnState = {
+        columns: new Map(),
+        nextAvailableCol: 0,
+        visited: new Set(),
+        adj,
+    };
+
+    const entries = nodes.filter(n => (revAdj.get(n.id)?.length ?? 0) === 0);
+    entries.forEach(entry => {
+        assignColRecursive(entry.id, state.nextAvailableCol, state);
+        state.nextAvailableCol++;
+    });
+
+    return state.columns;
+}
+
+function buildStageLevels(nodes: WorkflowVisualiserGraphNode[], edges: WorkflowVisualiserGraphEdge[]): (WorkflowVisualiserGraphNode | undefined)[][] {
+    const nodesById = new Map(nodes.map(n => [n.id, n]));
+    const internalEdges = edges.filter(e => nodesById.has(e.source) && nodesById.has(e.target));
+    
+    const adj = new Map<string, string[]>();
+    const revAdj = new Map<string, string[]>();
     for (const node of nodes) {
-        if (!levelsByNodeId.has(node.id)) {
-            levelsByNodeId.set(node.id, 0);
-        }
+        adj.set(node.id, []);
+        revAdj.set(node.id, []);
+    }
+    for (const edge of internalEdges) {
+        adj.get(edge.source)?.push(edge.target);
+        revAdj.get(edge.target)?.push(edge.source);
     }
 
-    const levels = new Map<number, WorkflowVisualiserGraphNode[]>();
-    for (const node of nodes) {
-        const level = levelsByNodeId.get(node.id) ?? 0;
-        const levelNodes = levels.get(level) ?? [];
-        levelNodes.push(node);
-        levels.set(level, levelNodes);
-    }
+    const rows = computeRows(nodes, adj, revAdj, nodesById);
+    const columns = computeColumns(nodes, adj, revAdj);
 
-    return sortStageLevels([...levels.entries()]
-        .sort((left, right) => left[0] - right[0])
-        .map((entry) => entry[1]));
+    const grid: (WorkflowVisualiserGraphNode | undefined)[][] = [];
+    nodes.forEach(node => {
+        const r = rows.get(node.id) ?? 0;
+        const c = columns.get(node.id) ?? 0;
+        if (!grid[r]) {grid[r] = [];}
+        grid[r][c] = node;
+    });
+
+    return grid;
 }
 
-function getStageNodeWidth(levels: WorkflowVisualiserGraphNode[][], showRuntimeDetails: boolean): number {
+function getStageNodeWidth(levels: (WorkflowVisualiserGraphNode | undefined)[][], showRuntimeDetails: boolean): number {
+    const allNodes = levels.flat().filter((n): n is WorkflowVisualiserGraphNode => n !== undefined);
     return Math.max(
         NODE_WIDTH,
-        ...levels.flat().map((node) => getNodeWidth(node, showRuntimeDetails)),
+        ...allNodes.map((node) => getNodeWidth(node, showRuntimeDetails)),
     );
 }
 
-function getStageWidth(levels: WorkflowVisualiserGraphNode[][], nodeWidth: number): number {
+function getStageWidth(levels: (WorkflowVisualiserGraphNode | undefined)[][], nodeWidth: number): number {
     const widestLevelCount = Math.max(1, ...levels.map((level) => level.length));
     return Math.max(
         STAGE_WIDTH,
@@ -272,7 +258,7 @@ export function buildWorkflowSequenceMap(params: {
 
     effectiveStages.forEach((stage, stageIndex) => {
         const stageNodes = nodesByStage.get(stage.id) ?? [];
-        const stageLevels = buildStageLevels(stageNodes);
+        const stageLevels = buildStageLevels(stageNodes, params.edges);
         const stageNodeWidth = getStageNodeWidth(stageLevels, params.showRuntimeDetails !== false);
         const stageWidth = getStageWidth(stageLevels, stageNodeWidth);
         const previousStage = stageBoxes[stageIndex - 1];
@@ -298,6 +284,7 @@ export function buildWorkflowSequenceMap(params: {
 
         stageLevels.forEach((levelNodes, levelIndex) => {
             levelNodes.forEach((node, levelColumnIndex) => {
+                if (!node) {return;}
                 sequenceNodes.push({
                     id: node.id,
                     label: node.label,

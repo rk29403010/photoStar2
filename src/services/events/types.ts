@@ -144,6 +144,51 @@ export type ProAnalysisPending = {
     proModel: string;
 };
 
+export type WorkflowStepStarted = {
+    type: "WorkflowStepStarted";
+    runId: string;
+    nodeId: string;
+    expectedItems: number;
+};
+
+export type WorkflowStepCompleted = {
+    type: "WorkflowStepCompleted";
+    runId: string;
+    nodeId: string;
+};
+
+export type WorkflowStepFailed = {
+    type: "WorkflowStepFailed";
+    runId: string;
+    nodeId: string;
+    errorMessage?: string;
+};
+
+export type WorkflowSubjectStarted = {
+    type: "WorkflowSubjectStarted";
+    runId: string;
+    nodeId: string;
+    subjectType: string;
+    subjectId: string;
+};
+
+export type WorkflowSubjectCompleted = {
+    type: "WorkflowSubjectCompleted";
+    runId: string;
+    nodeId: string;
+    subjectType: string;
+    subjectId: string;
+};
+
+export type WorkflowSubjectFailed = {
+    type: "WorkflowSubjectFailed";
+    runId: string;
+    nodeId: string;
+    subjectType: string;
+    subjectId: string;
+    errorMessage?: string;
+};
+
 export type SystemPausedStateChanged = {
     type: "SystemPausedStateChanged";
     isPaused: boolean;
@@ -171,6 +216,12 @@ export type DomainEvent =
     | AiMetadataConfigurationError
     | QuotaWarning
     | ProAnalysisPending
-    | SystemPausedStateChanged;
+    | SystemPausedStateChanged
+    | WorkflowStepStarted
+    | WorkflowStepCompleted
+    | WorkflowStepFailed
+    | WorkflowSubjectStarted
+    | WorkflowSubjectCompleted
+    | WorkflowSubjectFailed;
 
 export type EventType = DomainEvent['type'];

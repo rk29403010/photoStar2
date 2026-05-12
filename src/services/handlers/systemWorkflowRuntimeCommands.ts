@@ -214,14 +214,17 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
     },
     start_simulation_workflow: async (ctx) => {
-        const payload = (ctx.payload as Record<string, string>) || {};
+        const payload = (ctx.payload as Record<string, unknown> | undefined) || {};
+        const passedParams = (payload.parameters as Record<string, unknown>) || payload;
+        
         const parameters = Object.assign({
-            iterations: '20',
+            iterations: '400',
             speed: 'fast',
             errorType: 'none',
             errorRate: '0',
             resourceLoadMode: 'none',
-        }, payload);
+        }, passedParams) as Record<string, string>;
+
         const runId = getWorkflowRuntime(ctx).orchestrator.startDetached({
             workflowId: 'runtime.simulation_workflow',
             triggerType: 'manual',

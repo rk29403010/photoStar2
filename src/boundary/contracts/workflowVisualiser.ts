@@ -83,6 +83,7 @@ export type WorkflowVisualiserGraphEdge = {
     id: string;
     source: string;
     target: string;
+    kind?: 'default' | 'failure';
 }
 
 export type WorkflowVisualiserTextSection = {
@@ -108,6 +109,8 @@ export type WorkflowVisualiserDetail = {
     countNoun: WorkflowVisualiserCountNoun;
     aggregateCounts: WorkflowVisualiserAggregateCount[];
     failedSubjects: WorkflowVisualiserFailedSubject[];
+    moduleId?: string;
+    controlType?: string;
 }
 
 export type WorkflowVisualiserWorkflowSummary = {

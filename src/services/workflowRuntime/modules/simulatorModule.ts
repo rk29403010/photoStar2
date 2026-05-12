@@ -52,16 +52,16 @@ function maybeThrowError(type: SimulatorModuleErrorType, rate: number, subjectId
 
 function calculateDuration(speed: SimulatorModuleSpeed): number {
     if (speed === 'fast') {
-        return Math.random() * 2000;
+        return Math.random() * 50;
     }
     if (speed === 'medium') {
-        return 5000 + Math.random() * 10000;
+        return 50 + Math.random() * 150;
     }
-    return 30000 + Math.random() * (120000 - 30000);
+    return 200 + Math.random() * 800;
 }
 
 async function handleEnumeratorMode(parameters: Record<string, unknown>, signal?: AbortSignal) {
-    const iterations = (parameters.iterations as number) || 10;
+    const iterations = Number(parameters.iterations) || 10;
     const emittedSubjects: SubjectRef[] = [];
     for (let i = 0; i < iterations; i++) {
         if (signal?.aborted) {

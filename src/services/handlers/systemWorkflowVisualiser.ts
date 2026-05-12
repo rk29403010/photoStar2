@@ -133,7 +133,11 @@ function buildNodeMaps(definition: WorkflowDefinition) {
         upstreamIdsByNode.set(node.id, []);
     }
     for (const node of definition.nodes) {
-        for (const targetId of node.outputsTo ?? []) {
+        const targets = [...(node.outputsTo ?? [])];
+        if (node.kind === 'module' && node.onFailureTo) {
+            targets.push(...node.onFailureTo);
+        }
+        for (const targetId of targets) {
             const upstream = upstreamIdsByNode.get(targetId) ?? [];
             upstream.push(node.id);
             upstreamIdsByNode.set(targetId, upstream);
@@ -144,7 +148,18 @@ function buildNodeMaps(definition: WorkflowDefinition) {
 
 function buildGraph(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null) {
     const upstreamIdsByNode = buildNodeMaps(definition);
-    const nodes: WorkflowVisualiserGraphNode[] = definition.nodes.map((node) => {
+    const nodes = buildVisualiserNodes(definition, runDetail, upstreamIdsByNode);
+    const edges = buildVisualiserEdges(definition);
+
+    return { nodes, edges };
+}
+
+function buildVisualiserNodes(
+    definition: WorkflowDefinition, 
+    runDetail: WorkflowRunDetail | null, 
+    upstreamIdsByNode: Map<string, string[]>
+): WorkflowVisualiserGraphNode[] {
+    return definition.nodes.map((node) => {
         const counts = getStepCounts(runDetail, node.id);
         return {
             id: node.id,
@@ -152,23 +167,36 @@ function buildGraph(definition: WorkflowDefinition, runDetail: WorkflowRunDetail
             kind: node.kind,
             status: getStepStatus(runDetail, node.id),
             upstreamIds: upstreamIdsByNode.get(node.id) ?? [],
-            downstreamIds: [...(node.outputsTo ?? [])],
+            downstreamIds: [
+                ...(node.outputsTo ?? []),
+                ...(node.kind === 'module' ? (node.onFailureTo ?? []) : []),
+            ],
             moduleId: node.kind === 'module' ? node.moduleId : undefined,
             controlType: node.kind === 'control' ? node.controlType : undefined,
             countNoun: node.presentation?.countNoun ?? DEFAULT_COUNT_NOUN,
             ...counts,
         };
     });
+}
 
-    const edges: WorkflowVisualiserGraphEdge[] = definition.nodes.flatMap((node) => (
-        (node.outputsTo ?? []).map((targetId) => ({
+function buildVisualiserEdges(definition: WorkflowDefinition): WorkflowVisualiserGraphEdge[] {
+    return definition.nodes.flatMap((node) => {
+        const successEdges = (node.outputsTo ?? []).map((targetId) => ({
             id: `${node.id}->${targetId}`,
             source: node.id,
             target: targetId,
-        }))
-    ));
+            kind: 'default' as const,
+        }));
 
-    return { nodes, edges };
+        const failureEdges = (node.kind === 'module' ? (node.onFailureTo ?? []) : []).map((targetId) => ({
+            id: `${node.id}->${targetId}:failure`,
+            source: node.id,
+            target: targetId,
+            kind: 'failure' as const,
+        }));
+
+        return [...successEdges, ...failureEdges];
+    });
 }
 
 function summariseStage(
@@ -244,6 +272,26 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
                     runDetail,
                     definition,
                 ),
+            ],
+        };
+    }
+
+    if (definition.id === 'runtime.simulation_workflow') {
+        return {
+            stages: [
+                summariseStage('enumeration', 'Discovery', 'Simulate discovery of items.', ['enumerate-sim'], runDetail, definition),
+                summariseStage('fast_processing', 'Fast Processing', 'Simulate fast task step.', ['fast-task-sim', 'fast-task-sim-2', 'fast-task-sim-3'], runDetail, definition),
+                summariseStage('medium_processing', 'Medium Processing', 'Simulate medium task step.', [
+                    'medium-task-sim', 
+                    'medium-branch-success-each', 
+                    'medium-branch-failure-each',
+                    'medium-branch-1-step-1', 
+                    'medium-branch-1-step-2', 
+                    'medium-branch-1-step-3',
+                    'medium-branch-2-step-1',
+                    'medium-branch-3-step-1'
+                ], runDetail, definition),
+                summariseStage('slow_processing', 'Slow Processing', 'Simulate slow task step.', ['slow-task-sim'], runDetail, definition),
             ],
         };
     }
@@ -332,6 +380,8 @@ function buildDetails(
         countNoun: node.countNoun,
         aggregateCounts: [{ noun: node.countNoun, totalItems: node.totalItems, completedItems: node.completedItems, failedItems: node.failedItems }],
         failedSubjects: getStepFailedSubjects(runDetail, node.id),
+        moduleId: node.moduleId,
+        controlType: node.controlType,
     } satisfies WorkflowVisualiserDetail));
 
     const stageDetails = progressionStages.map((stage) => ({
