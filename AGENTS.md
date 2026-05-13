@@ -3,6 +3,12 @@
 Repo-local instructions for AI coding sessions. Prefer commands, evidence, and
 repo checks over prose, memory, or vibes.
 
+## Verbosity & Noise (CRITICAL)
+
+1. **Zero Narration**: Never output "Prioritizing Tool Usage," "Thinking about tools," or any other process narration.
+2. **Internal Reasoning Only**: All tool selection logic must stay in the `<thought>` block.
+3. **Minimum Tokens**: Adhere strictly to `<user_global>`. If a response can be a single word or a direct code block, do not add headers, summaries, or politeness.
+
 ## Operating Loop
 
 1. Confirm worktree, branch, and dirty state.

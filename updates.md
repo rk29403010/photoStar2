@@ -1,5 +1,9 @@
 # Updates Log
 
+## [0.1.86] - 2026-05-13T13:23:00Z
+
+- Added strict AI verbosity and noise rules to `AGENTS.md` to enforce concise output and eliminate process narration.
+
 ## [0.1.85] - 2026-05-12T09:45:00Z
 
 - Synchronized React Flow node selection with external navigation, ensuring the Sequence Map correctly highlights nodes when navigated via upstream/downstream links in the detail panel.
