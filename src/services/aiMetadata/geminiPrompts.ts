@@ -60,10 +60,10 @@ function buildCoordinateContractSection(params: {
 ${dimensionLine}
 ${singleImageRules}
 Global rules for every bounding_box:
-- One axis-aligned system for the entire original upright photo. Origin (0,0) is the top-left of the visible original; x increases right, y increases down.
+- One axis-aligned system for the entire photo. Origin (0,0) is the top-left of the visible image; x increases right, y increases down.
 - Express x, y, width, and height as thousandths of the full image: use numbers from 0 through 1000 inclusive where 0 is the left or top edge and 1000 corresponds to the right or bottom edge along that axis (linear fractions of width for x/width and of height for y/height).
-- The attached JPEG(s) may be downscaled for upload. Never derive coordinates from the preview raster dimensions. Map mentally from what you see in the preview back to the full original frame described above.
-- Use the same full_photo grid for every subject and ROI so boxes stay aligned on long, narrow, or very large originals.
+- Simply return coordinates in the normalized 0 to 1000 coordinate space of the image content you see, where 0 is the left/top edge and 1000 is the right/bottom edge of the image canvas.
+- Use the same full_photo grid for every subject and ROI so boxes stay aligned.
 - Each box must match the visible feature in the photo; do not place different subjects using different implicit canvases or mixed coordinate origins.
 `;
 }

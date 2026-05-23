@@ -135,38 +135,6 @@ function hasVisibleArea(box: SinglePhotoOverlayBox): boolean {
     return box.w > 0 && box.h > 0;
 }
 
-function getBoxCenter(box: SinglePhotoOverlayBox) {
-    return {
-        x: box.x + (box.w / 2),
-        y: box.y + (box.h / 2),
-    };
-}
-
-function isPointInsideBox(point: { x: number; y: number }, box: SinglePhotoOverlayBox): boolean {
-    return point.x >= box.x
-        && point.x <= box.x + box.w
-        && point.y >= box.y
-        && point.y <= box.y + box.h;
-}
-
-function computeIntersectionArea(left: SinglePhotoOverlayBox, right: SinglePhotoOverlayBox): number {
-    const x1 = Math.max(left.x, right.x);
-    const y1 = Math.max(left.y, right.y);
-    const x2 = Math.min(left.x + left.w, right.x + right.w);
-    const y2 = Math.min(left.y + left.h, right.y + right.h);
-    return Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-}
-
-function hasMeaningfulOverlap(subjectBox: SinglePhotoOverlayBox, faceBox: SinglePhotoOverlayBox): boolean {
-    const faceCenter = getBoxCenter(faceBox);
-    if (isPointInsideBox(faceCenter, subjectBox)) {
-        return true;
-    }
-
-    const intersection = computeIntersectionArea(subjectBox, faceBox);
-    const faceArea = faceBox.w * faceBox.h;
-    return faceArea > 0 && (intersection / faceArea) >= 0.35;
-}
 
 function normalizeBoundingBox(value: unknown): SinglePhotoOverlayBox | null {
     const box = readCanonicalStoredPhotoBox(value);
@@ -277,73 +245,10 @@ function buildFaceItem(asset: Asset, face: FaceBox, faceIndex: number, box: Sing
     };
 }
 
-function isAiSubjectSource(source: PhotoMetadataSourceSummary | undefined): boolean {
-    return source?.sourceKind === 'gemini_flash_scout' || source?.sourceKind === 'gemini_pro_refined';
-}
-
-function isPersonSubject(subject: SubjectRecord): boolean {
-    return (asString(subject.type) ?? 'person') === 'person';
-}
-
-function shouldSnapSubjectToFace(subjectBox: SinglePhotoOverlayBox, faceBox: SinglePhotoOverlayBox): boolean {
-    if (hasMeaningfulOverlap(subjectBox, faceBox)) {
-        return true;
-    }
-
-    const subjectCenter = getBoxCenter(subjectBox);
-    const faceCenter = getBoxCenter(faceBox);
-    const horizontalDelta = Math.abs(faceCenter.x - subjectCenter.x);
-    const verticalDelta = Math.abs(faceCenter.y - subjectCenter.y);
-    const maxHorizontalDelta = Math.max(
-        0.04,
-        Math.min(0.12, Math.max(subjectBox.w, faceBox.w) * 1.1),
-    );
-    const maxVerticalDelta = Math.max(0.16, subjectBox.h * 6, faceBox.h * 6);
-
-    return horizontalDelta <= maxHorizontalDelta && verticalDelta <= maxVerticalDelta;
-}
-
-function scoreFaceMatch(subjectBox: SinglePhotoOverlayBox, faceBox: SinglePhotoOverlayBox): number {
-    const subjectCenter = getBoxCenter(subjectBox);
-    const faceCenter = getBoxCenter(faceBox);
-    const horizontalDelta = Math.abs(faceCenter.x - subjectCenter.x);
-    const verticalDelta = Math.abs(faceCenter.y - subjectCenter.y);
-    const widthDelta = Math.abs(faceBox.w - subjectBox.w);
-    const heightDelta = Math.abs(faceBox.h - subjectBox.h);
-    return (horizontalDelta * 5) + (verticalDelta * 2) + widthDelta + heightDelta;
-}
-
-function resolveSubjectDisplayBox(params: {
-    asset: Asset;
-    subject: SubjectRecord;
-    source: PhotoMetadataSourceSummary | undefined;
-    subjectBox: SinglePhotoOverlayBox;
-}): SinglePhotoOverlayBox {
-    if (!isAiSubjectSource(params.source) || !isPersonSubject(params.subject)) {
-        return params.subjectBox;
-    }
-
-    const candidateFaces = (params.asset.faces ?? [])
-        .map(buildFaceBox)
-        .filter((box): box is SinglePhotoOverlayBox => box !== null)
-        .filter((faceBox) => shouldSnapSubjectToFace(params.subjectBox, faceBox));
-
-    if (candidateFaces.length === 0) {
-        return params.subjectBox;
-    }
-
-    const [bestFace] = candidateFaces
-        .map((faceBox) => ({ faceBox, score: scoreFaceMatch(params.subjectBox, faceBox) }))
-        .sort((left, right) => left.score - right.score);
-
-    return bestFace ? bestFace.faceBox : params.subjectBox;
-}
-
 function buildSubjectItems(asset: Asset): SinglePhotoPeopleItem[] {
     const subjects = (asset.photo_metadata?.projection.subjects ?? [])
         .filter(isRecord) as SubjectRecord[];
     const sourceLabel = buildSourceLabel(asset.photo_metadata?.provenance?.subjects, asset);
-    const source = asset.photo_metadata?.provenance?.subjects;
 
     return subjects.flatMap((subject, index) => {
         const box = normalizeBoundingBox(subject.bounding_box);
@@ -351,18 +256,11 @@ function buildSubjectItems(asset: Asset): SinglePhotoPeopleItem[] {
             return [];
         }
 
-        const displayBox = resolveSubjectDisplayBox({
-            asset,
-            subject,
-            source,
-            subjectBox: box,
-        });
-
         return [{
             key: `subject-${index}`,
             kind: 'remote-subject' as const,
             label: asString(subject.label) ?? `Subject ${index + 1}`,
-            box: displayBox,
+            box,
             sourceLabel,
             detail: asString(subject.location_desc) ?? asString(subject.features),
             tags: [
@@ -374,6 +272,7 @@ function buildSubjectItems(asset: Asset): SinglePhotoPeopleItem[] {
         }];
     });
 }
+
 
 function buildRegionOfInterestItems(asset: Asset): SinglePhotoPeopleItem[] {
     const regions = (asset.photo_metadata?.projection.regionsOfInterest ?? [])

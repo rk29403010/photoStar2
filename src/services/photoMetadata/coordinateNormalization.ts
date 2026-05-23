@@ -100,7 +100,138 @@ function normalizePixelSpaceBox(
     });
 }
 
-function normalizePhotoMetadataBoundingBox(
+export type LocalFaceLike = {
+    box: StoredPhotoBox;
+};
+
+function cleanFloat(value: number): number {
+    return Number.parseFloat(value.toFixed(6));
+}
+
+function getBoxCenter(box: StoredPhotoBox) {
+    return {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+    };
+}
+
+type Point = { x: number; y: number };
+
+function evaluateCandidateTranslation(
+    cand: { dx: number; dy: number },
+    subjectCenters: Point[],
+    faceCenters: Point[],
+    tolerance: number,
+): { matches: number; totalDistance: number } {
+    let matches = 0;
+    let totalDistance = 0;
+    const matchedFaces = new Set<number>();
+
+    for (const sc of subjectCenters) {
+        const shiftedX = sc.x + cand.dx;
+        const shiftedY = sc.y + cand.dy;
+
+        let closestFaceIdx = -1;
+        let closestDist = Infinity;
+
+        for (let i = 0; i < faceCenters.length; i++) {
+            if (matchedFaces.has(i)) {
+                continue;
+            }
+            const fc = faceCenters[i]!;
+            const dist = Math.hypot(fc.x - shiftedX, fc.y - shiftedY);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closestFaceIdx = i;
+            }
+        }
+
+        if (closestFaceIdx !== -1 && closestDist < tolerance) {
+            matches += 1;
+            totalDistance += closestDist;
+            matchedFaces.add(closestFaceIdx);
+        }
+    }
+
+    return { matches, totalDistance };
+}
+
+function getFaceCenters(faces: LocalFaceLike[] | undefined): Point[] {
+    if (!faces) {
+        return [];
+    }
+    return faces
+        .map((f) => f.box ? getBoxCenter(f.box) : null)
+        .filter((c): c is Point => c !== null);
+}
+
+function getSubjectCenters(subjects: SubjectLike[]): Point[] {
+    const personSubjects = subjects.filter((s) => {
+        const type = typeof s.type === 'string' ? s.type : 'person';
+        return type === 'person';
+    });
+    return personSubjects
+        .map((s) => {
+            const box = readCanonicalStoredPhotoBox(s.bounding_box);
+            return box ? getBoxCenter(box) : null;
+        })
+        .filter((c): c is Point => c !== null);
+}
+
+function findBestTranslation(
+    candidates: Array<{ dx: number; dy: number }>,
+    subjectCenters: Point[],
+    faceCenters: Point[],
+): { dx: number; dy: number } | null {
+    let bestTranslation: { dx: number; dy: number } | null = null;
+    let maxMatchCount = 0;
+    let minAverageDistance = Infinity;
+    const TOLERANCE = 0.12;
+
+    for (const cand of candidates) {
+        const { matches, totalDistance } = evaluateCandidateTranslation(
+            cand,
+            subjectCenters,
+            faceCenters,
+            TOLERANCE,
+        );
+
+        if (matches > maxMatchCount || (matches === maxMatchCount && totalDistance / (matches || 1) < minAverageDistance)) {
+            maxMatchCount = matches;
+            minAverageDistance = totalDistance / (matches || 1);
+            bestTranslation = cand;
+        }
+    }
+
+    return bestTranslation;
+}
+
+export function solveConsensusTranslation(
+    faces: LocalFaceLike[] | undefined,
+    subjects: SubjectLike[],
+): { dx: number; dy: number } | null {
+    if (!faces || faces.length === 0 || subjects.length === 0) {
+        return null;
+    }
+
+    const faceCenters = getFaceCenters(faces);
+    const subjectCenters = getSubjectCenters(subjects);
+    if (faceCenters.length === 0 || subjectCenters.length === 0) {
+        return null;
+    }
+
+    const candidates: Array<{ dx: number; dy: number }> = [];
+    for (const fc of faceCenters) {
+        for (const sc of subjectCenters) {
+            candidates.push({ dx: fc.x - sc.x, dy: fc.y - sc.y });
+        }
+    }
+
+    return findBestTranslation(candidates, subjectCenters, faceCenters);
+}
+
+
+function resolveCanonicalBox(
     value: unknown,
     coordinateSpace?: PhotoMetadataCoordinateSpace,
 ): StoredPhotoBox | null {
@@ -128,11 +259,36 @@ function normalizePhotoMetadataBoundingBox(
     return normalizeStoredPhotoBox(rawBox);
 }
 
+function normalizePhotoMetadataBoundingBox(
+    value: unknown,
+    coordinateSpace?: PhotoMetadataCoordinateSpace,
+    translation?: { dx: number; dy: number } | null,
+): StoredPhotoBox | null {
+    const canonical = resolveCanonicalBox(value, coordinateSpace);
+    if (!canonical) {
+        return null;
+    }
+
+    if (translation) {
+        const x = Math.max(0, Math.min(1 - canonical.width, cleanFloat(canonical.x + translation.dx)));
+        const y = Math.max(0, Math.min(1 - canonical.height, cleanFloat(canonical.y + translation.dy)));
+        return {
+            x,
+            y,
+            width: canonical.width,
+            height: canonical.height,
+        };
+    }
+
+    return canonical;
+}
+
 function normalizeSubject(
     subject: SubjectLike,
     coordinateSpace?: PhotoMetadataCoordinateSpace,
+    translation?: { dx: number; dy: number } | null,
 ): PhotoMetadataSubject | null {
-    const boundingBox = normalizePhotoMetadataBoundingBox(subject.bounding_box, coordinateSpace);
+    const boundingBox = normalizePhotoMetadataBoundingBox(subject.bounding_box, coordinateSpace, translation);
     if (!boundingBox) {
         return null;
     }
@@ -146,8 +302,9 @@ function normalizeSubject(
 function normalizeRegionOfInterest(
     region: RegionLike,
     coordinateSpace?: PhotoMetadataCoordinateSpace,
+    translation?: { dx: number; dy: number } | null,
 ): PhotoMetadataRegionOfInterest | null {
-    const boundingBox = normalizePhotoMetadataBoundingBox(region.bounding_box, coordinateSpace);
+    const boundingBox = normalizePhotoMetadataBoundingBox(region.bounding_box, coordinateSpace, translation);
     if (!boundingBox) {
         return null;
     }
@@ -161,29 +318,41 @@ function normalizeRegionOfInterest(
 export function normalizePhotoMetadataBlockBoxes(
     block: PhotoMetadataBlock,
     coordinateSpace?: PhotoMetadataCoordinateSpace,
+    faces?: LocalFaceLike[],
 ): PhotoMetadataBlock {
+    const translation = solveConsensusTranslation(faces, block.subjects as SubjectLike[]);
+
     return {
         ...block,
         subjects: block.subjects
-            .map((subject) => normalizeSubject(subject, coordinateSpace))
+            .map((subject) => normalizeSubject(subject as SubjectLike, coordinateSpace, translation))
             .filter((subject): subject is PhotoMetadataSubject => subject !== null),
         regions_of_interest: block.regions_of_interest
-            .map((region) => normalizeRegionOfInterest(region, coordinateSpace))
+            .map((region) => normalizeRegionOfInterest(region as RegionLike, coordinateSpace, translation))
             .filter((region): region is PhotoMetadataRegionOfInterest => region !== null),
     };
 }
 
-export function normalizePhotoMetadataSubjects(value: unknown, coordinateSpace?: PhotoMetadataCoordinateSpace): unknown[] {
+export function normalizePhotoMetadataSubjects(
+    value: unknown,
+    coordinateSpace?: PhotoMetadataCoordinateSpace,
+    faces?: LocalFaceLike[],
+): unknown[] {
     if (!Array.isArray(value)) {
         return [];
     }
 
-    return value.flatMap((entry) => {
+    const subjects = value.flatMap((entry) => {
         if (!isRecord(entry)) {
             return [];
         }
+        return [entry as SubjectLike];
+    });
 
-        const normalized = normalizeSubject(entry as SubjectLike, coordinateSpace);
+    const translation = solveConsensusTranslation(faces, subjects);
+
+    return subjects.flatMap((entry) => {
+        const normalized = normalizeSubject(entry, coordinateSpace, translation);
         return normalized ? [normalized] : [];
     });
 }
@@ -191,17 +360,28 @@ export function normalizePhotoMetadataSubjects(value: unknown, coordinateSpace?:
 export function normalizePhotoMetadataRegionsOfInterest(
     value: unknown,
     coordinateSpace?: PhotoMetadataCoordinateSpace,
+    faces?: LocalFaceLike[],
+    subjects?: unknown[],
 ): unknown[] {
     if (!Array.isArray(value)) {
         return [];
     }
 
-    return value.flatMap((entry) => {
+    const regions = value.flatMap((entry) => {
         if (!isRecord(entry)) {
             return [];
         }
+        return [entry as RegionLike];
+    });
 
-        const normalized = normalizeRegionOfInterest(entry as RegionLike, coordinateSpace);
+    const subjectsList = Array.isArray(subjects)
+        ? subjects.flatMap((entry) => (isRecord(entry) ? [entry as SubjectLike] : []))
+        : [];
+
+    const translation = solveConsensusTranslation(faces, subjectsList);
+
+    return regions.flatMap((entry) => {
+        const normalized = normalizeRegionOfInterest(entry, coordinateSpace, translation);
         return normalized ? [normalized] : [];
     });
 }

@@ -12,6 +12,7 @@ import {
   normalizePhotoMetadataBlockBoxes,
   normalizePhotoMetadataRegionsOfInterest,
   normalizePhotoMetadataSubjects,
+  type LocalFaceLike,
 } from '../services/photoMetadata/coordinateNormalization';
 
 function runMigration(db: Database.Database, sql: string): void {
@@ -75,10 +76,11 @@ function normalizeFaceDetectionPayload(data: string): string | null {
 
 function normalizePhotoMetadataBlockPayload(
   data: string,
-  dimensions?: { width: number | null; height: number | null },
+  dimensions: { width: number | null; height: number | null } | undefined,
+  faces?: LocalFaceLike[],
 ): string | null {
   try {
-    return JSON.stringify(normalizePhotoMetadataBlockBoxes(JSON.parse(data), dimensions));
+    return JSON.stringify(normalizePhotoMetadataBlockBoxes(JSON.parse(data), dimensions, faces));
   } catch {
     return null;
   }
@@ -87,7 +89,9 @@ function normalizePhotoMetadataBlockPayload(
 function normalizePhotoMetadataProjectionPayload(
   data: string | null,
   kind: 'subjects' | 'regions',
-  dimensions?: { width: number | null; height: number | null },
+  dimensions: { width: number | null; height: number | null } | undefined,
+  faces?: LocalFaceLike[],
+  subjectsJsonForRegions?: string | null,
 ): string | null {
   if (!data) {
     return data;
@@ -95,76 +99,112 @@ function normalizePhotoMetadataProjectionPayload(
 
   try {
     const parsed = JSON.parse(data);
-    const normalized = kind === 'subjects'
-      ? normalizePhotoMetadataSubjects(parsed, dimensions)
-      : normalizePhotoMetadataRegionsOfInterest(parsed, dimensions);
-    return JSON.stringify(normalized);
+    if (kind === 'subjects') {
+      return JSON.stringify(normalizePhotoMetadataSubjects(parsed, dimensions, faces));
+    } else {
+      const subjects = subjectsJsonForRegions ? JSON.parse(subjectsJsonForRegions) : [];
+      return JSON.stringify(normalizePhotoMetadataRegionsOfInterest(parsed, dimensions, faces, subjects));
+    }
   } catch {
     return null;
+  }
+}
+
+function backfillFaceDetections(db: Database.Database): void {
+  const faceRows = db.prepare(`
+    SELECT id, data
+    FROM derived_results
+    WHERE task = 'face_detection'
+  `).all() as Array<{ id: string; data: string }>;
+  const updateDerivedResult = db.prepare('UPDATE derived_results SET data = ? WHERE id = ?');
+  for (const row of faceRows) {
+    const normalized = normalizeFaceDetectionPayload(row.data);
+    if (normalized) {
+      updateDerivedResult.run(normalized, row.id);
+    }
+  }
+}
+
+function backfillPhotoMetadataBlocks(db: Database.Database): void {
+  const blockRows = db.prepare(`
+    SELECT b.id, b.data, a.width, a.height, b.asset_id
+    FROM photo_metadata_blocks b
+    JOIN assets a ON a.id = b.asset_id
+  `).all() as Array<{ id: string; data: string; width: number | null; height: number | null; asset_id: string }>;
+  const updateMetadataBlock = db.prepare('UPDATE photo_metadata_blocks SET data = ? WHERE id = ?');
+  for (const row of blockRows) {
+    let faces: LocalFaceLike[] = [];
+    try {
+      const faceRow = db.prepare(
+        "SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'"
+      ).get(row.asset_id) as { data: string } | undefined;
+      if (faceRow) {
+        faces = JSON.parse(faceRow.data).faces || [];
+      }
+    } catch {
+      // ignore
+    }
+
+    const normalized = normalizePhotoMetadataBlockPayload(row.data, {
+      width: row.width,
+      height: row.height,
+    }, faces);
+    if (normalized) {
+      updateMetadataBlock.run(normalized, row.id);
+    }
+  }
+}
+
+function backfillPhotoMetadataProjections(db: Database.Database): void {
+  const projectionRows = db.prepare(`
+    SELECT p.asset_id, p.subjects_json, p.regions_of_interest_json, a.width, a.height
+    FROM photo_metadata_projection p
+    JOIN assets a ON a.id = p.asset_id
+  `).all() as Array<{
+    asset_id: string;
+    subjects_json: string | null;
+    regions_of_interest_json: string | null;
+    width: number | null;
+    height: number | null;
+  }>;
+  const updateProjection = db.prepare(`
+    UPDATE photo_metadata_projection
+    SET subjects_json = ?, regions_of_interest_json = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE asset_id = ?
+  `);
+  for (const row of projectionRows) {
+    let faces: LocalFaceLike[] = [];
+    try {
+      const faceRow = db.prepare(
+        "SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'"
+      ).get(row.asset_id) as { data: string } | undefined;
+      if (faceRow) {
+        faces = JSON.parse(faceRow.data).faces || [];
+      }
+    } catch {
+      // ignore
+    }
+
+    const subjectsJson = normalizePhotoMetadataProjectionPayload(row.subjects_json, 'subjects', {
+      width: row.width,
+      height: row.height,
+    }, faces) ?? row.subjects_json;
+
+    const regionsJson = normalizePhotoMetadataProjectionPayload(row.regions_of_interest_json, 'regions', {
+      width: row.width,
+      height: row.height,
+    }, faces, subjectsJson) ?? row.regions_of_interest_json;
+
+    updateProjection.run(subjectsJson, regionsJson, row.asset_id);
   }
 }
 
 function backfillStoredPhotoCoordinates(db: Database.Database): void {
   try {
     db.transaction(() => {
-      const faceRows = db.prepare(`
-        SELECT id, data
-        FROM derived_results
-        WHERE task = 'face_detection'
-      `).all() as Array<{ id: string; data: string }>;
-      const updateDerivedResult = db.prepare('UPDATE derived_results SET data = ? WHERE id = ?');
-      for (const row of faceRows) {
-        const normalized = normalizeFaceDetectionPayload(row.data);
-        if (normalized) {
-          updateDerivedResult.run(normalized, row.id);
-        }
-      }
-
-      const blockRows = db.prepare(`
-        SELECT b.id, b.data, a.width, a.height
-        FROM photo_metadata_blocks b
-        JOIN assets a ON a.id = b.asset_id
-      `).all() as Array<{ id: string; data: string; width: number | null; height: number | null }>;
-      const updateMetadataBlock = db.prepare('UPDATE photo_metadata_blocks SET data = ? WHERE id = ?');
-      for (const row of blockRows) {
-        const normalized = normalizePhotoMetadataBlockPayload(row.data, {
-          width: row.width,
-          height: row.height,
-        });
-        if (normalized) {
-          updateMetadataBlock.run(normalized, row.id);
-        }
-      }
-
-      const projectionRows = db.prepare(`
-        SELECT p.asset_id, p.subjects_json, p.regions_of_interest_json, a.width, a.height
-        FROM photo_metadata_projection p
-        JOIN assets a ON a.id = p.asset_id
-      `).all() as Array<{
-        asset_id: string;
-        subjects_json: string | null;
-        regions_of_interest_json: string | null;
-        width: number | null;
-        height: number | null;
-      }>;
-      const updateProjection = db.prepare(`
-        UPDATE photo_metadata_projection
-        SET subjects_json = ?, regions_of_interest_json = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE asset_id = ?
-      `);
-      for (const row of projectionRows) {
-        updateProjection.run(
-          normalizePhotoMetadataProjectionPayload(row.subjects_json, 'subjects', {
-            width: row.width,
-            height: row.height,
-          }) ?? row.subjects_json,
-          normalizePhotoMetadataProjectionPayload(row.regions_of_interest_json, 'regions', {
-            width: row.width,
-            height: row.height,
-          }) ?? row.regions_of_interest_json,
-          row.asset_id,
-        );
-      }
+      backfillFaceDetections(db);
+      backfillPhotoMetadataBlocks(db);
+      backfillPhotoMetadataProjections(db);
     })();
   } catch {
     // ignore coordinate backfill failures so startup still proceeds
