@@ -1,5 +1,5 @@
 export function getSingleClickTileAction(params: { showInfoPanel: boolean; selectionCount: number }) {
-    if (params.showInfoPanel) {
+    if (params.showInfoPanel || params.selectionCount > 0) {
         return 'select' as const;
     }
 

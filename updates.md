@@ -1,5 +1,11 @@
 # Updates Log
 
+## [0.1.86] - 2026-05-23T04:14:00Z
+
+- Restructured click and long-press event handlers in `LayoutEngine` to fix multi-photo selection UX.
+- Assured normal clicks open single photo view when selection is empty and info panel is hidden.
+- Ensured long clicks start multi-select mode, and subsequent normal clicks toggle selection on assets.
+
 ## [0.1.85] - 2026-05-12T09:45:00Z
 
 - Synchronized React Flow node selection with external navigation, ensuring the Sequence Map correctly highlights nodes when navigated via upstream/downstream links in the detail panel.
