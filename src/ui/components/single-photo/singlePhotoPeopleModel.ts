@@ -287,7 +287,7 @@ function isPersonSubject(subject: SubjectRecord): boolean {
 
 function shouldSnapSubjectToFace(subjectBox: SinglePhotoOverlayBox, faceBox: SinglePhotoOverlayBox): boolean {
     if (hasMeaningfulOverlap(subjectBox, faceBox)) {
-        return false;
+        return true;
     }
 
     const subjectCenter = getBoxCenter(subjectBox);

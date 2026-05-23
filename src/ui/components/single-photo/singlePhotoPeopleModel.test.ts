@@ -214,3 +214,50 @@ void test('getSinglePhotoPeopleColor returns distinct palettes for each overlay 
     assert.notEqual(resolved.border, remote.border);
     assert.notEqual(remote.border, roi.border);
 });
+
+void test('buildSinglePhotoPeopleModel snaps overlapping AI person subjects onto local faces', () => {
+    const model = buildSinglePhotoPeopleModel({
+        ...asset,
+        faces: [
+            {
+                box: { x: 0.45, y: 0.30, width: 0.22, height: 0.34 },
+            },
+        ],
+        photo_metadata: {
+            ...asset.photo_metadata!,
+            projection: {
+                ...asset.photo_metadata!.projection,
+                subjects: [{
+                    label: 'Subject 1',
+                    type: 'person',
+                    location_desc: 'centre',
+                    gender: 'unknown',
+                    animal_type: null,
+                    age_range: null,
+                    dob_range: null,
+                    emotion: null,
+                    gaze: null,
+                    features: null,
+                    uniform: null,
+                    suggested_names: [],
+                    bounding_box: { x: 0.34, y: 0.12, width: 0.26, height: 0.48 },
+                }],
+                regionsOfInterest: [],
+            },
+            provenance: {
+                ...asset.photo_metadata!.provenance,
+                subjects: {
+                    sourceKind: 'gemini_flash_scout',
+                    sourceId: 'subject-source-3',
+                },
+            },
+        },
+    });
+
+    assert.deepEqual(model.peopleItems[1]?.box, {
+        x: 0.45,
+        y: 0.30,
+        w: 0.22,
+        h: 0.34,
+    });
+});
