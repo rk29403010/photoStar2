@@ -50,6 +50,9 @@ type SelectionInteractionState = {
     setIsSelecting: (value: boolean) => void;
     pressTimer: RefObject<ReturnType<typeof setTimeout> | null>;
     stopDragging: () => void;
+    dragRange: { anchorIndex: number; currentIndex: number } | null;
+    setDragRange: (range: { anchorIndex: number; currentIndex: number } | null) => void;
+    originalSelectionRef: RefObject<LibrarySelectionState | null>;
 }
 
 type LayoutTileProps = {
@@ -136,13 +139,16 @@ function useSelectionInteractions(
     const [isSelecting, setIsSelecting] = useState(false);
     const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({ active: false, anchorIndex: null });
     const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [dragRange, setDragRange] = useState<{ anchorIndex: number; currentIndex: number } | null>(null);
+    const originalSelectionRef = useRef<LibrarySelectionState | null>(null);
+
     const stopDragging = useCallback(() => {
         dragSelectionRef.current = { ...dragSelectionRef.current, active: false };
     }, []);
 
     useSelectAllShortcut(layoutItems, onLibrarySelectionChange, setIsSelecting);
 
-    return { dragSelectionRef, isSelecting, setIsSelecting, pressTimer, stopDragging };
+    return { dragSelectionRef, isSelecting, setIsSelecting, pressTimer, stopDragging, dragRange, setDragRange, originalSelectionRef };
 }
 
 function getTileShellStyle(isDeclustered: boolean | undefined, isSelected: boolean) {
@@ -183,11 +189,14 @@ function beginSelection(params: {
     const { event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState, longPressedRef } = params;
     if (event.button !== 0) {return;}
 
+    selectionState.originalSelectionRef.current = librarySelection;
+
     const modifierToggle = event.ctrlKey || event.metaKey;
     const modifierRange = event.shiftKey;
     if (modifierToggle || modifierRange || hasLibrarySelection(librarySelection)) {
         clearPressTimer(selectionState.pressTimer);
-        selectionState.dragSelectionRef.current = { active: false, anchorIndex: index };
+        selectionState.dragSelectionRef.current = { active: true, anchorIndex: index };
+        selectionState.setDragRange({ anchorIndex: index, currentIndex: index });
         return;
     }
 
@@ -195,6 +204,7 @@ function beginSelection(params: {
         longPressedRef.current = true;
         selectionState.setIsSelecting(true);
         selectionState.dragSelectionRef.current = { active: true, anchorIndex: index };
+        selectionState.setDragRange({ anchorIndex: index, currentIndex: index });
         applySelectionChange(layoutItems, createEmptyLibrarySelectionState(), onLibrarySelectionChange, {
             mode: 'replace',
             index,
@@ -210,9 +220,13 @@ function extendSelection(params: {
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
     selectionState: SelectionInteractionState;
 }) {
-    const { event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState } = params;
+    const { event, index, selectionState } = params;
     if (!selectionState.dragSelectionRef.current.active || event.buttons !== 1) {return;}
-    applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, { mode: 'range', index });
+
+    const anchorIndex = selectionState.dragSelectionRef.current.anchorIndex;
+    if (anchorIndex !== null) {
+        selectionState.setDragRange({ anchorIndex, currentIndex: index });
+    }
 }
 
 function getClickSelectionMode(
@@ -272,6 +286,49 @@ function handleTileClick(
     onAssetClick?.(layoutItem.item.asset.id);
 }
 
+function addItemToSet(item: LibrarySelectableItem, selection: { photoIds: Set<string>; groupIds: Set<string> }) {
+    if (item.entityType === 'group' && item.groupId) {
+        selection.groupIds.add(item.groupId);
+    } else {
+        selection.photoIds.add(item.photoId);
+    }
+}
+
+function commitDragSelection(
+    dragRange: { anchorIndex: number; currentIndex: number },
+    originalSelection: LibrarySelectionState,
+    layoutItems: LayoutItem[],
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
+) {
+    const { anchorIndex, currentIndex } = dragRange;
+    const nextSelection = {
+        photoIds: new Set(originalSelection.photoIds),
+        groupIds: new Set(originalSelection.groupIds),
+        anchorKey: originalSelection.anchorKey,
+        mostRecentSelectionKey: originalSelection.mostRecentSelectionKey,
+    };
+
+    const start = Math.min(anchorIndex, currentIndex);
+    const end = Math.max(anchorIndex, currentIndex);
+    for (let i = start; i <= end; i++) {
+        const layoutItem = layoutItems[i];
+        if (layoutItem) {
+            addItemToSet(layoutItem.item, nextSelection);
+        }
+    }
+
+    const lastItem = layoutItems[currentIndex];
+    if (lastItem) {
+        const anchorItem = layoutItems[anchorIndex];
+        nextSelection.anchorKey = anchorItem ? anchorItem.item.selectionKey : null;
+        nextSelection.mostRecentSelectionKey = lastItem.item.selectionKey;
+    }
+
+    if (onLibrarySelectionChange) {
+        onLibrarySelectionChange(nextSelection);
+    }
+}
+
 function useLayoutTileEventHandlers(params: {
     index: number;
     layoutItem: LayoutItem;
@@ -313,8 +370,21 @@ function useLayoutTileEventHandlers(params: {
 
     const onPointerUp = useCallback(() => {
         clearPressTimer(selectionState.pressTimer);
+
+        const hasDragged = selectionState.dragRange && selectionState.dragRange.currentIndex !== selectionState.dragRange.anchorIndex;
+        if (hasDragged && selectionState.dragRange) {
+            longPressedRef.current = true;
+            commitDragSelection(
+                selectionState.dragRange,
+                selectionState.originalSelectionRef.current ?? librarySelection,
+                layoutItems,
+                onLibrarySelectionChange,
+            );
+        }
+
+        selectionState.setDragRange(null);
         selectionState.stopDragging();
-    }, [selectionState]);
+    }, [selectionState, layoutItems, librarySelection, onLibrarySelectionChange]);
 
     const onPointerLeave = useCallback(() => {
         clearPressTimer(selectionState.pressTimer);
@@ -346,7 +416,14 @@ function LayoutTile({
     isScrollSettled,
     shellStyleOverride,
 }: LayoutTileProps) {
-    const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
+    const isInDragRange = useMemo(() => {
+        if (!selectionState.dragRange) {return false;}
+        const { anchorIndex, currentIndex } = selectionState.dragRange;
+        const start = Math.min(anchorIndex, currentIndex);
+        const end = Math.max(anchorIndex, currentIndex);
+        return index >= start && index <= end;
+    }, [selectionState.dragRange, index]);
+    const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id || isInDragRange;
     const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
     const shellStyle = useMemo(() => ({
         ...getTileShellStyle(isDeclustered, isSelected),
@@ -377,6 +454,8 @@ function LayoutTile({
             onPointerEnter={onPointerEnter}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
+            onDragStart={(e) => e.preventDefault()}
+            draggable={false}
         >
             <Tile
                 asset={layoutItem.item.asset}

@@ -1,5 +1,11 @@
 # Updates Log
 
+## [0.1.88] - 2026-05-23T05:55:00Z
+
+- Implemented dynamic highlight selection range preview during pointer drag in multi-select mode.
+- Prevented default browser thumbnail/button dragging behavior to allow uninterrupted pointer-select movements.
+- Configured drag range selection to commit only upon releasing the pointer.
+
 ## [0.1.87] - 2026-05-23T04:52:00Z
 
 - Refined selection event handlers to ensure normal clicks always open photos when selection is empty (completely ignoring info panel visibility state).

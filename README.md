@@ -131,5 +131,5 @@ npm run dev:impact
 - You can still force exact ports per workspace with `VITE_PORT` and `VITE_BACKEND_PORT`.
 
 ---
-Current Version: 0.1.87
-Run Timestamp: 2026-05-23T04:52:00Z
+Current Version: 0.1.88
+Run Timestamp: 2026-05-23T05:55:00Z
