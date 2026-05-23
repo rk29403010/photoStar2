@@ -1,5 +1,10 @@
 # Updates Log
 
+## [0.1.87] - 2026-05-23T04:52:00Z
+
+- Refined selection event handlers to ensure normal clicks always open photos when selection is empty (completely ignoring info panel visibility state).
+- Configured double-clicks on assets to do nothing.
+
 ## [0.1.86] - 2026-05-23T04:14:00Z
 
 - Restructured click and long-press event handlers in `LayoutEngine` to fix multi-photo selection UX.

@@ -4,7 +4,6 @@ import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LayoutModeRenderer } from './LayoutModeRenderer';
-import { shouldOpenAssetOnDoubleClick } from './layoutTileInteractionModel';
 import { GALLERY_EAGER_PREVIEW_COUNT, GALLERY_ROW_GAP_PX, GALLERY_TILE_GAP_PX } from '../library/galleryBrowseRailModel';
 import {
     createEmptyLibrarySelectionState,
@@ -219,16 +218,12 @@ function extendSelection(params: {
 function getClickSelectionMode(
     event: ReactMouseEvent<HTMLButtonElement>,
     isSelectionActive: boolean,
-    showInfoPanel: boolean,
 ): 'range' | 'toggle' | 'replace' | null {
     if (event.shiftKey) {
         return 'range';
     }
     if (event.ctrlKey || event.metaKey || isSelectionActive) {
         return 'toggle';
-    }
-    if (showInfoPanel) {
-        return 'replace';
     }
     return null;
 }
@@ -243,7 +238,6 @@ function handleTileClick(
         onAssetClick: ((id: string) => void) | undefined;
         onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
         selectionState: SelectionInteractionState;
-        showInfoPanel: boolean;
         longPressedRef: RefObject<boolean>;
     },
 ) {
@@ -256,7 +250,6 @@ function handleTileClick(
         onAssetClick,
         onLibrarySelectionChange,
         selectionState,
-        showInfoPanel,
         longPressedRef,
     } = params;
 
@@ -267,7 +260,7 @@ function handleTileClick(
         return;
     }
 
-    const selectionMode = getClickSelectionMode(event, hasLibrarySelection(librarySelection), showInfoPanel);
+    const selectionMode = getClickSelectionMode(event, hasLibrarySelection(librarySelection));
     if (selectionMode) {
         applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, {
             mode: selectionMode,
@@ -297,7 +290,6 @@ function useLayoutTileEventHandlers(params: {
         onAssetClick,
         onLibrarySelectionChange,
         selectionState,
-        showInfoPanel,
     } = params;
 
     const longPressedRef = useRef(false);
@@ -312,15 +304,12 @@ function useLayoutTileEventHandlers(params: {
     }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
 
     const onClick = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
-        handleTileClick({ event, index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, showInfoPanel, longPressedRef });
-    }, [index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, showInfoPanel]);
+        handleTileClick({ event, index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, longPressedRef });
+    }, [index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState]);
 
     const onDoubleClick = useCallback(() => {
         clearPressTimer(selectionState.pressTimer);
-        if (shouldOpenAssetOnDoubleClick(showInfoPanel)) {
-            onAssetClick?.(layoutItem.item.asset.id);
-        }
-    }, [layoutItem.item.asset.id, onAssetClick, selectionState.pressTimer, showInfoPanel]);
+    }, [selectionState.pressTimer]);
 
     const onPointerUp = useCallback(() => {
         clearPressTimer(selectionState.pressTimer);
