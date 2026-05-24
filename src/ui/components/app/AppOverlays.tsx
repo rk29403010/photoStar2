@@ -11,7 +11,7 @@ import { SettingsModal } from '../SettingsModal';
 import { SinglePhotoView } from '../SinglePhotoView';
 import { resolveSinglePhotoOverlaySelection } from './singlePhotoOverlaySelection';
 
-type InfoTab = 'file' | 'analysis' | 'people' | 'json';
+type InfoTab = 'file' | 'analysis' | 'people' | 'json' | 'ailogs';
 
 type AppOverlaysProps = {
   readonly assets: Asset[];
@@ -75,6 +75,8 @@ type AppOverlaysProps = {
   readonly onStopJob: (job: BackgroundJob) => void;
   readonly isTaskDrawerMinimized: boolean;
   readonly onTaskDrawerMinimizedChange: (minimized: boolean) => void;
+  readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
+  readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
 }
 
 function createSelectedAssetCache() {
@@ -125,6 +127,8 @@ function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], 
       onShowInfoPanelChange={props.setShowInfoPanel}
       activeInfoTab={props.activeInfoTab}
       onActiveInfoTabChange={props.setActiveInfoTab}
+      onGetAiCallsLog={props.onGetAiCallsLog}
+      onGetAiCallLogDetail={props.onGetAiCallLogDetail}
       onFaceClick={props.onFaceClick}
       onIsolateFace={props.onIsolateFace}
       onSetSensitivity={props.onSetSensitivity}

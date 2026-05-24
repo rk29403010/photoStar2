@@ -5,6 +5,7 @@ import { AnalysisTab } from './info-panel/AnalysisTab';
 import { FileTab } from './info-panel/FileTab';
 import { JsonTab } from './info-panel/JsonTab';
 import { PeopleTab } from './info-panel/PeopleTab';
+import { AiLogsTab } from './info-panel/AiLogsTab';
 import type { TabId } from './info-panel/utils';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 
@@ -25,6 +26,8 @@ type InfoPanelProps = {
     tagLabel?: string;
   }) => Promise<void>;
   readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
+  readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
 }
 
 const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
@@ -32,6 +35,7 @@ const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
   { id: 'analysis', emoji: '🧠', label: 'Analysis' },
   { id: 'people', emoji: '👥', label: 'People' },
   { id: 'json', emoji: '{ }', label: 'Raw' },
+  { id: 'ailogs', emoji: '🤖', label: 'AI Logs' },
 ];
 
 const PanelHeader: React.FC<{ readonly asset: Asset; readonly hasAI: boolean; readonly onClose?: () => void }> = ({ asset, hasAI, onClose }) => {
@@ -87,16 +91,19 @@ const PanelContent: React.FC<{
     tagLabel?: string;
   }) => Promise<void>;
   readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
-}> = ({ activeTab, asset, hoveredFaceKey, onHoverFaceKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection }) => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 20px' }}>
+  readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
+  readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
+}> = ({ activeTab, asset, hoveredFaceKey, onHoverFaceKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection, onGetAiCallsLog, onGetAiCallLogDetail }) => (
+  <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 20px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
     {activeTab === 'file' && <FileTab asset={asset} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />}
     {activeTab === 'analysis' && <AnalysisTab asset={asset} />}
     {activeTab === 'people' && <PeopleTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} />}
     {activeTab === 'json' && <JsonTab asset={asset} />}
+    {activeTab === 'ailogs' && <AiLogsTab assetId={asset.id} onGetAiCallsLog={onGetAiCallsLog} onGetAiCallLogDetail={onGetAiCallLogDetail} />}
   </div>
 );
 
-export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, activeTab: controlledTab, onTabChange, onClose, hoveredFaceKey, onHoverFaceKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection }) => {
+export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, activeTab: controlledTab, onTabChange, onClose, hoveredFaceKey, onHoverFaceKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection, onGetAiCallsLog, onGetAiCallLogDetail }) => {
   const [internalTab, setInternalTab] = useState<TabId>('file');
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = useCallback((tab: TabId) => {
@@ -110,7 +117,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, active
     <div style={{ width, minWidth: width, maxWidth: width, height: '100%', background: 'linear-gradient(180deg, #0f172a 0%, #0a0f1e 100%)', borderLeft: '1px solid #1e293b', display: 'flex', flexDirection: 'column', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflow: 'hidden', flexShrink: 0 }}>
       <PanelHeader asset={asset} hasAI={hasAI} onClose={onClose} />
       <PanelTabs activeTab={activeTab} setActiveTab={setActiveTab} />
-      <PanelContent activeTab={activeTab} asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
+      <PanelContent activeTab={activeTab} asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} onGetAiCallsLog={onGetAiCallsLog} onGetAiCallLogDetail={onGetAiCallLogDetail} />
     </div>
   );
 };

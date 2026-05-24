@@ -131,6 +131,7 @@ export type ModuleDefinition = {
     capability: CapabilityClass;
     accepts: string[];
     produces: ModuleOutputDefinition[];
+    estimatedCostPerCall?: number;
     run: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult> | RuntimeModuleRunResult;
 }
 

@@ -324,6 +324,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             availableWorkflowDefinitions: workflowDefinitions,
             getRunDetail: (runId) => workflowRuntime.store.getRunDetail(runId),
             requestedRunId: payload?.runId,
+            getModuleDefinition: (moduleId) => workflowRuntime.modules.get(moduleId),
         });
         ctx.respond(ctx.id, 'ok', model, null, ctx.originWs);
     },

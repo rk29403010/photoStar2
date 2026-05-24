@@ -158,7 +158,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         {
             id: 'generate-ai-metadata',
             kind: 'module',
-            moduleId: 'runtime.generate_ai_metadata',
+            moduleId: 'runtime.generate_ai_metadata_scout',
             outputsTo: ['estimate-photo-date-from-ai'],
             presentation: {
                 label: 'Generate AI metadata',

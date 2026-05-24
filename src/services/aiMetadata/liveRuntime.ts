@@ -385,6 +385,37 @@ function buildGeminiRequest(prompt: string, imageParts: PreparedImagePart[]) {
     ];
 }
 
+function logAiCall(params: {
+    dbManager?: DatabaseManager;
+    assetId: string;
+    callType: string;
+    modelName: string;
+    prompt: string;
+    result?: string;
+    errorMessage?: string;
+}) {
+    if (!params.dbManager) {
+        return;
+    }
+    try {
+        const diagnosticsDb = params.dbManager.getDiagnosticsDb();
+        diagnosticsDb.prepare(`
+            INSERT INTO ai_calls_log (id, asset_id, call_type, model_name, prompt, result, error_message)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            uuidv4(),
+            params.assetId,
+            params.callType,
+            params.modelName,
+            params.prompt,
+            params.result ?? null,
+            params.errorMessage ?? null
+        );
+    } catch (e) {
+        console.error('[AI Metadata] Failed to log AI call to diagnostics DB:', e);
+    }
+}
+
 async function generateContent(
     genAI: GoogleGenerativeAI,
     modelName: string,
@@ -397,6 +428,7 @@ async function generateContent(
         imageStrategy: ImageStrategy;
         moduleId?: string;
         signal?: AbortSignal;
+        dbManager?: DatabaseManager;
     },
 ): Promise<GeminiResponse> {
     recordRequest(modelName);
@@ -422,7 +454,18 @@ async function generateContent(
         const response = await model.generateContent(buildGeminiRequest(prompt, imageParts), { signal: logContext.signal });
         const elapsedMs = Date.now() - startedAt;
         console.log(`[AI Metadata] Gemini call ${modelName} completed in ${elapsedMs}ms for asset ${logContext.assetId} (${logContext.metadataPass})`);
-        const parsedResponse = parseGeminiResponse(response.response.text());
+        
+        const responseText = response.response.text();
+        logAiCall({
+            dbManager: logContext.dbManager,
+            assetId: logContext.assetId,
+            callType: logContext.metadataPass,
+            modelName,
+            prompt,
+            result: responseText,
+        });
+
+        const parsedResponse = parseGeminiResponse(responseText);
         const contractReadyResponse = repairGeminiOverviewOnlyResponseMetadata(
             parsedResponse,
             logContext.imageStrategy,
@@ -436,6 +479,16 @@ async function generateContent(
     } catch (error) {
         const elapsedMs = Date.now() - startedAt;
         console.warn(`[AI Metadata] Gemini call ${modelName} failed after ${elapsedMs}ms for asset ${logContext.assetId} (${logContext.metadataPass})`);
+        
+        logAiCall({
+            dbManager: logContext.dbManager,
+            assetId: logContext.assetId,
+            callType: logContext.metadataPass,
+            modelName,
+            prompt,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
+
         throw error;
     }
 }
@@ -525,6 +578,7 @@ async function tryProModel(
         imageStrategy: ImageStrategy;
         moduleId?: string;
         signal?: AbortSignal;
+        dbManager?: DatabaseManager;
     },
 ): Promise<GeminiResponse | null> {
     if (isDailyQuotaExceeded(MODEL_REFINE)) {
@@ -586,6 +640,7 @@ async function tryFlashModel(
         imageStrategy: ImageStrategy;
         moduleId?: string;
         signal?: AbortSignal;
+        dbManager?: DatabaseManager;
     },
 ): Promise<GeminiResponse> {
     if (isDailyQuotaExceeded(modelName)) {
@@ -742,6 +797,7 @@ async function tryRefineModelFirst(params: {
     imageHeight: number | null;
     tileRegions: IndexedCropRegion[];
     db: ReturnType<DatabaseManager['getDb']>;
+    dbManager: DatabaseManager;
 }): Promise<LiveMetadataEvidence | null> {
     const proPrompt = buildGeminiProPrompt(params.promptContext);
     const proResult = await tryProModel(params.genAI, proPrompt, params.imageParts, {
@@ -750,6 +806,7 @@ async function tryRefineModelFirst(params: {
         imageStrategy: params.imageStrategy,
         moduleId: params.moduleId,
         signal: params.signal,
+        dbManager: params.dbManager,
     });
     if (proResult) {
         clearProPendingRecord(params.db, params.assetId);
@@ -843,6 +900,7 @@ export async function generateLiveAiMetadata(params: {
                 imageHeight: payload.imageHeight,
                 tileRegions: payload.tileRegions,
                 db,
+                dbManager: params.dbManager,
             });
             if (proResult) {
                 return proResult;
@@ -856,6 +914,7 @@ export async function generateLiveAiMetadata(params: {
             imageStrategy: params.imageStrategy,
             moduleId: params.moduleId,
             signal: params.signal,
+            dbManager: params.dbManager,
         });
         reconcileProPendingRecord({
             db,

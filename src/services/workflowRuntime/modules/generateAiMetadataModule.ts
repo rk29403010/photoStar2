@@ -37,6 +37,8 @@ export type GenerateAiMetadataModuleOptions = {
             imageStrategy: 'overview_only' | 'overview_plus_tiles';
             metadataPass: 'scout' | 'refine';
             eventSink?: { emit: (event: DomainEvent) => void };
+            moduleId?: string;
+            signal?: AbortSignal;
         }) => Promise<StoredAiMetadataResult | LiveMetadataEvidence>;
     };
 }
@@ -71,13 +73,7 @@ function resolveAiMode(value: unknown): 'mock' | 'live' | 'off' {
     return 'off';
 }
 
-function resolveImageStrategy(value: unknown): 'overview_only' | 'overview_plus_tiles' {
-    return value === 'overview_plus_tiles' ? 'overview_plus_tiles' : 'overview_only';
-}
 
-function resolveMetadataPass(value: unknown): 'scout' | 'refine' {
-    return value === 'refine' ? 'refine' : 'scout';
-}
 
 export function resolveLiveMetadataTimeoutMs(params: {
     metadataPass: 'scout' | 'refine';
@@ -117,8 +113,10 @@ async function generateMetadataResult(params: {
     eventBus?: GenerateAiMetadataModuleOptions['eventBus'];
     imageStrategy: 'overview_only' | 'overview_plus_tiles';
     metadataPass: 'scout' | 'refine';
+    moduleId: string;
     liveRuntime: NonNullable<GenerateAiMetadataModuleOptions['aiRuntime']>;
     row: ParsedAiMetadataRow;
+    signal?: AbortSignal;
 }): Promise<StoredAiMetadataResult | LiveMetadataEvidence> {
     if (params.aiMode === 'mock') {
         return {
@@ -134,43 +132,42 @@ async function generateMetadataResult(params: {
         imageStrategy: params.imageStrategy,
         metadataPass: params.metadataPass,
         eventSink: params.eventBus,
+        moduleId: params.moduleId,
+        signal: params.signal,
     });
 }
 
 async function withLiveMetadataTimeout<T>(
-    operationFactory: () => Promise<T>,
+    operationFactory: (signal: AbortSignal) => Promise<T>,
     timeoutMs: number,
     assetId: string,
 ): Promise<T> {
-    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    const executeWithTimeout = async () => {
+        const controller = new AbortController();
+        const timeoutHandle = setTimeout(() => {
+            controller.abort();
+        }, timeoutMs);
 
-    const executeWithTimeout = () => Promise.race([
-        operationFactory(),
-        new Promise<T>((_, reject) => {
-            timeoutHandle = setTimeout(() => {
-                reject(new Error(`AI metadata timed out after ${timeoutMs}ms for asset '${assetId}'`));
-            }, timeoutMs);
-        }),
-    ]);
-
-    try {
         try {
-            return await executeWithTimeout();
+            return await operationFactory(controller.signal);
         } catch (error) {
-            if (error instanceof Error && error.message.includes('timed out')) {
-                console.warn(`[AI Metadata] Retrying asset ${assetId} after timeout.`);
-                if (timeoutHandle !== null) {
-                    clearTimeout(timeoutHandle);
-                    timeoutHandle = null;
-                }
-                return await executeWithTimeout();
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error(`AI metadata timed out after ${timeoutMs}ms for asset '${assetId}'`);
             }
             throw error;
-        }
-    } finally {
-        if (timeoutHandle !== null) {
+        } finally {
             clearTimeout(timeoutHandle);
         }
+    };
+
+    try {
+        return await executeWithTimeout();
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('timed out')) {
+            console.warn(`[AI Metadata] Retrying asset ${assetId} after timeout.`);
+            return executeWithTimeout();
+        }
+        throw error;
     }
 }
 
@@ -210,23 +207,30 @@ function persistMachineMetadataEvidence(params: {
     });
 }
 
-export function createGenerateAiMetadataModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
+function createBaseGenerateAiMetadataModule(
+    options: GenerateAiMetadataModuleOptions,
+    params: {
+        id: string;
+        estimatedCostPerCall: number;
+        imageStrategy: 'overview_only' | 'overview_plus_tiles';
+        metadataPass: 'scout' | 'refine';
+    }
+): ModuleDefinition {
     const liveRuntime = options.aiRuntime ?? {
         generateLiveMetadata: generateLiveAiMetadata,
     };
 
     return {
-        id: 'runtime.generate_ai_metadata',
+        id: params.id,
         version: 1,
         capability: 'external_api',
         accepts: ['asset'],
         produces: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }],
+        estimatedCostPerCall: params.estimatedCostPerCall,
         run: async (context) => {
             const aiMode = resolveAiMode(context.parameters.aiMode);
-            const imageStrategy = resolveImageStrategy(context.parameters.imageStrategy);
-            const metadataPass = resolveMetadataPass(context.parameters.metadataPass);
             const liveMetadataTimeoutMs = resolveLiveMetadataTimeoutMs({
-                metadataPass,
+                metadataPass: params.metadataPass,
                 configuredTimeoutMs: options.liveMetadataTimeoutMs,
             });
 
@@ -244,16 +248,24 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
                 return { outputs: [] };
             }
 
+            // Idempotency check: skip if we already have this pass's evidence
+            const existingBlocks = db.prepare(`SELECT id FROM photo_metadata_blocks WHERE asset_id = ? AND source_kind = ?`).get(context.subject.subjectId, params.metadataPass);
+            if (existingBlocks) {
+                return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
+            }
+
             const result = await withLiveMetadataTimeout(
-                () => generateMetadataResult({
+                (signal) => generateMetadataResult({
                     aiMode,
                     assetId: context.subject.subjectId,
                     dbManager: options.dbManager,
                     eventBus: options.eventBus,
-                    imageStrategy,
-                    metadataPass,
+                    imageStrategy: params.imageStrategy,
+                    metadataPass: params.metadataPass,
+                    moduleId: params.id,
                     liveRuntime,
                     row,
+                    signal,
                 }),
                 liveMetadataTimeoutMs,
                 context.subject.subjectId,
@@ -272,4 +284,22 @@ export function createGenerateAiMetadataModule(options: GenerateAiMetadataModule
             return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
         },
     };
+}
+
+export function createGenerateAiMetadataScoutModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
+    return createBaseGenerateAiMetadataModule(options, {
+        id: 'runtime.generate_ai_metadata_scout',
+        estimatedCostPerCall: 0.0008,
+        imageStrategy: 'overview_only',
+        metadataPass: 'scout',
+    });
+}
+
+export function createGenerateAiMetadataRefineModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
+    return createBaseGenerateAiMetadataModule(options, {
+        id: 'runtime.generate_ai_metadata_refine',
+        estimatedCostPerCall: 0.0022,
+        imageStrategy: 'overview_plus_tiles',
+        metadataPass: 'refine',
+    });
 }

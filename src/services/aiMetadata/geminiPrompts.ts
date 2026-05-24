@@ -62,6 +62,7 @@ ${singleImageRules}
 Global rules for every bounding_box:
 - One axis-aligned system for the entire photo. Origin (0,0) is the top-left of the visible image; x increases right, y increases down.
 - Express x, y, width, and height as thousandths of the full image: use numbers from 0 through 1000 inclusive where 0 is the left or top edge and 1000 corresponds to the right or bottom edge along that axis (linear fractions of width for x/width and of height for y/height).
+- Coordinates MUST be relative to the ENTIRE input image file canvas, including any scanner borders, black bars, white margins, or padding. Do NOT ignore borders! The absolute top-left edge of the full canvas is (0,0) and the absolute bottom-right edge is (1000,1000).
 - Simply return coordinates in the normalized 0 to 1000 coordinate space of the image content you see, where 0 is the left/top edge and 1000 is the right/bottom edge of the image canvas.
 - Use the same full_photo grid for every subject and ROI so boxes stay aligned.
 - Each box must match the visible feature in the photo; do not place different subjects using different implicit canvases or mixed coordinate origins.
@@ -72,9 +73,10 @@ function buildSharedMetadataSchema(): string {
     return `Return a single JSON object matching this archival metadata schema exactly.
 Keep the answer conservative and useful for long-term archive indexing.
 Prefer Unknown, null, or empty arrays over guessing.
-Use the full original photo as the coordinate space for every bounding box.
-The origin is the top-left corner of the full original photo.
+Use the full original photo (including scanner borders, margins, or padding, if present) as the coordinate space for every bounding box.
+The origin (0,0) is the absolute top-left corner of the full original photo canvas.
 Use a normalized 0 to 1000 grid for bounding boxes, where x and y are the top-left corner and width/height are box size.
+Do not ignore scanner borders or black/white bars when computing coordinates.
 Do not use bottom-left coordinates, cropped-image coordinates, or raw pixel counts from the downscaled attachment.
 Set "source_image_index" to the image part that most directly supports each subject or region.
 Set "bounding_box_coordinate_space" to "full_photo" when the box already uses full original photo coordinates.

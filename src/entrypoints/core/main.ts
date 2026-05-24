@@ -8,9 +8,7 @@ import type { WebSocket } from 'ws';
 import { z } from 'zod';
 import type { DomainEvent } from '../../services/events/types';
 import { startDevBridgeServer } from '../../boundary/transport/devBridgeServer';
-import type { ExecutionStore } from '../../services/workflowRuntime/executionStore';
-import type { WorkflowRegistry } from '../../services/workflowRuntime/workflowRegistry';
-import type { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orchestrator';
+import type { WorkflowRuntimeFacade } from '../../services/handlers/types';
 import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
 import { formatAssetDiagnosticLabel } from '../../shared/utils/diagnosticFormatting';
 import { buildPhotoMetadataBundle } from '../../services/photoMetadata/bundle';
@@ -51,11 +49,7 @@ console.log(`Core backend service started. Storage: ${LIB_DIR}`);
 
 let dbManager: DatabaseManager | null = null;
 let eventBus: EventBus | null = null;
-let workflowRuntime: {
-    store: ExecutionStore;
-    workflows: WorkflowRegistry;
-    orchestrator: WorkflowRuntimeOrchestrator;
-} | null = null;
+let workflowRuntime: WorkflowRuntimeFacade | null = null;
 let startupError: Error | null = null;
 const pendingAssetRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const ASSET_REFRESH_DEBOUNCE_MS = 75;

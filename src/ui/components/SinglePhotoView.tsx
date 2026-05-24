@@ -56,6 +56,8 @@ type SinglePhotoViewProps = {
     readonly onShowInfoPanelChange?: (v: boolean) => void;
     readonly activeInfoTab?: ActiveInfoTab;
     readonly onActiveInfoTabChange?: (t: ActiveInfoTab) => void;
+    readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
+    readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
 }
 
 type ControlsState = {
@@ -73,7 +75,7 @@ type ControlsState = {
     onChangeIndex: (delta: -1 | 1) => void;
 };
 
-export type ActiveInfoTab = 'file' | 'analysis' | 'people' | 'json';
+export type ActiveInfoTab = 'file' | 'analysis' | 'people' | 'json' | 'ailogs';
 
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
@@ -322,6 +324,8 @@ function renderSinglePhotoOverlay(params: {
             onRemoveAssetTag={params.props.onRemoveAssetTag}
             onSetReviewItemStatus={params.props.onSetReviewItemStatus}
             onFlagPhotoDateCorrection={params.props.onFlagPhotoDateCorrection}
+            onGetAiCallsLog={params.props.onGetAiCallsLog}
+            onGetAiCallLogDetail={params.props.onGetAiCallLogDetail}
             onChangeIndex={params.controls.onChangeIndex}
             onRevealControls={params.controls.revealControls}
             analysis={buildAnalysisState(params.analysisUi)}

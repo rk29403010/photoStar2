@@ -17,6 +17,20 @@ function requireResponseData(data: Record<string, unknown> | undefined, command:
 
 export function createPhotoMetadataActions(params: { request: RequestFn }) {
     return {
+        getAiCallsLog: (assetId: string): Promise<unknown[]> => params.request<unknown[]>({
+            idPrefix: `get_ai_calls_log_${assetId}`,
+            command: 'get_ai_calls_log',
+            payload: { assetId },
+            timeoutMs: 10000,
+            select: (data) => (data?.logs || []) as unknown[],
+        }),
+        getAiCallLogDetail: (logId: string): Promise<unknown> => params.request<unknown>({
+            idPrefix: `get_ai_call_log_detail_${logId}`,
+            command: 'get_ai_call_log_detail',
+            payload: { logId },
+            timeoutMs: 10000,
+            select: (data) => data?.log || null,
+        }),
         getPhotoMetadata: (assetId: string, includeEvidence = true): Promise<PhotoMetadataBundle> => params.request<PhotoMetadataBundle>({
             idPrefix: `get_photo_metadata_${assetId}`,
             command: 'get_photo_metadata',

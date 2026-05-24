@@ -64,6 +64,8 @@ type SequenceWorkflowNodeData = {
     failedItems: number;
     countNoun: WorkflowVisualiserGraphNode['countNoun'];
     showRuntimeDetails: boolean;
+    estimatedCostPerCall?: number;
+    totalEstimatedCost?: number;
 } & Record<string, unknown>
 
 function getStatusTone(status: WorkflowVisualiserStatus, isSelected: boolean): string {
@@ -138,6 +140,16 @@ function SequenceWorkflowNode({ data, selected }: NodeProps<Node<SequenceWorkflo
                 {data.showRuntimeDetails ? (
                     <div className="mt-4 text-xs opacity-80">{formatNodeCounts(data)} • {data.failedItems} failed</div>
                 ) : null}
+                {data.totalEstimatedCost !== undefined && (
+                    <div className="mt-2 text-[10px] font-semibold text-amber-500">
+                        EST. COST: £{data.totalEstimatedCost.toFixed(4)}
+                    </div>
+                )}
+                {data.totalEstimatedCost === undefined && data.estimatedCostPerCall !== undefined && (
+                    <div className="mt-2 text-[10px] font-semibold text-amber-500/70">
+                        EST. COST: £{data.estimatedCostPerCall.toFixed(4)} / CALL
+                    </div>
+                )}
             </div>
         </>
     );
@@ -198,6 +210,8 @@ function buildReactFlowNodes(params: {
                 failedItems: node.failedItems,
                 countNoun: node.countNoun,
                 showRuntimeDetails: params.showRuntimeDetails,
+                estimatedCostPerCall: node.estimatedCostPerCall,
+                totalEstimatedCost: node.totalEstimatedCost,
             },
             selected: node.id === params.selectedDetailId,
             style: {

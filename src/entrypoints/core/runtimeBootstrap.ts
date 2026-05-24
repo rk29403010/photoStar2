@@ -1,7 +1,7 @@
 import type { EventBus } from '../../services/events/bus';
 import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
 import { createDetectSensitiveContentModule } from '../../services/workflowRuntime/modules/detectSensitiveContentModule';
-import { createGenerateAiMetadataModule } from '../../services/workflowRuntime/modules/generateAiMetadataModule';
+import { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } from '../../services/workflowRuntime/modules/generateAiMetadataModule';
 import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
 import { createGeneratePreviewsModule } from '../../services/workflowRuntime/modules/generatePreviewsModule';
 import { createGroupSimilarPhotosModule } from '../../services/workflowRuntime/modules/groupSimilarPhotosModule';
@@ -35,6 +35,7 @@ type WorkflowRuntimeBundle = {
     store: ExecutionStore;
     workflows: WorkflowRegistry;
     orchestrator: WorkflowRuntimeOrchestrator;
+    modules: ModuleRegistry;
 };
 
 function createConsoleWorkflowTelemetry(): WorkflowRuntimeTelemetry {
@@ -102,7 +103,8 @@ function registerModules(modules: ModuleRegistry, dbManager: DatabaseManager, ev
     modules.register(createResolvePeopleModule({ dbManager, eventBus }));
     modules.register(createGroupSimilarPhotosModule({ dbManager }));
     modules.register(createDetectSensitiveContentModule({ dbManager, eventBus }));
-    modules.register(createGenerateAiMetadataModule({ dbManager, eventBus }));
+    modules.register(createGenerateAiMetadataScoutModule({ dbManager, eventBus }));
+    modules.register(createGenerateAiMetadataRefineModule({ dbManager, eventBus }));
     modules.register(createEstimatePhotoDateModule({ dbManager, eventBus }));
     modules.register(createSimulatorModule({}));
     modules.register(createPreviewAdapterModule({
@@ -138,6 +140,7 @@ export function createWorkflowRuntimeBundle(dbManager: DatabaseManager, eventBus
     return {
         store,
         workflows,
+        modules,
         orchestrator: new WorkflowRuntimeOrchestrator({
             store,
             workflows,

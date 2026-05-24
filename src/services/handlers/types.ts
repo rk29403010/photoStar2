@@ -4,11 +4,13 @@ import type { EventBus } from '../events/bus';
 import type { ExecutionStore } from '../workflowRuntime/executionStore';
 import type { WorkflowRuntimeOrchestrator } from '../workflowRuntime/orchestrator';
 import type { WorkflowRegistry } from '../workflowRuntime/workflowRegistry';
+import type { ModuleRegistry } from '../workflowRuntime/moduleRegistry';
 
 export type WorkflowRuntimeFacade = {
     store: ExecutionStore;
     orchestrator: WorkflowRuntimeOrchestrator;
     workflows: WorkflowRegistry;
+    modules: ModuleRegistry;
 }
 
 export type CommandContext = {

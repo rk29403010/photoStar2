@@ -53,6 +53,8 @@ export type WorkflowSequenceMapNode = {
     completedItems: number;
     failedItems: number;
     countNoun: WorkflowVisualiserGraphNode['countNoun'];
+    estimatedCostPerCall?: number;
+    totalEstimatedCost?: number;
 }
 
 export type WorkflowSequenceMapEdge = WorkflowVisualiserGraphEdge;
@@ -303,6 +305,8 @@ export function buildWorkflowSequenceMap(params: {
                     completedItems: node.completedItems,
                     failedItems: node.failedItems,
                     countNoun: node.countNoun,
+                    estimatedCostPerCall: node.estimatedCostPerCall,
+                    totalEstimatedCost: node.totalEstimatedCost,
                 });
             });
         });

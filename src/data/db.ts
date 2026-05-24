@@ -214,12 +214,15 @@ function backfillStoredPhotoCoordinates(db: Database.Database): void {
 export class DatabaseManager {
   private db: Database.Database;
   private readonly dbPath: string;
+  private diagnosticsDb: Database.Database | null = null;
+  private readonly diagnosticsDbPath: string;
 
   constructor(storagePath: string) {
     if (!existsSync(storagePath)) {
       mkdirSync(storagePath, { recursive: true });
     }
     this.dbPath = join(storagePath, 'library.db');
+    this.diagnosticsDbPath = join(storagePath, 'ai_diagnostics.db');
     this.db = this.openDatabase();
     this.initSchema();
   }
@@ -228,6 +231,34 @@ export class DatabaseManager {
     const db = new Database(this.dbPath);
     db.pragma('journal_mode = WAL');
     return db;
+  }
+
+  private initDiagnosticsSchema(): void {
+    if (this.diagnosticsDb) {
+      return;
+    }
+    this.diagnosticsDb = new Database(this.diagnosticsDbPath);
+    this.diagnosticsDb.pragma('journal_mode = WAL');
+    this.diagnosticsDb.exec(`
+      CREATE TABLE IF NOT EXISTS ai_calls_log (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL,
+        call_type TEXT NOT NULL,
+        model_name TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        result TEXT,
+        error_message TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_calls_log_asset_created ON ai_calls_log(asset_id, created_at DESC);
+    `);
+  }
+
+  public getDiagnosticsDb(): Database.Database {
+    if (!this.diagnosticsDb) {
+      this.initDiagnosticsSchema();
+    }
+    return this.diagnosticsDb!;
   }
 
   private isClosedConnectionError(error: unknown): boolean {
@@ -289,7 +320,14 @@ export class DatabaseManager {
 
   private recreateFromSchema(): void {
     this.db.close();
-    for (const pathToDelete of [this.dbPath, `${this.dbPath}-wal`, `${this.dbPath}-shm`]) {
+    if (this.diagnosticsDb) {
+      this.diagnosticsDb.close();
+      this.diagnosticsDb = null;
+    }
+    for (const pathToDelete of [
+      this.dbPath, `${this.dbPath}-wal`, `${this.dbPath}-shm`,
+      this.diagnosticsDbPath, `${this.diagnosticsDbPath}-wal`, `${this.diagnosticsDbPath}-shm`
+    ]) {
       if (!existsSync(pathToDelete)) {
         continue;
       }
@@ -399,6 +437,15 @@ export class DatabaseManager {
       // ignore checkpoint failures during shutdown
     }
     this.db.close();
+
+    if (this.diagnosticsDb) {
+      try {
+        this.diagnosticsDb.pragma('wal_checkpoint(TRUNCATE)');
+      } catch {
+        // ignore checkpoint failures
+      }
+      this.diagnosticsDb.close();
+    }
   }
 
   public getSetting(key: string): string {
