@@ -1,5 +1,0 @@
-@google/generative-ai ^0.24.1
-better-sqlite3 ^11.10.0
-exif-parser ^0.1.12
-sharp ^0.33.5
-uuid ^11.0.3
