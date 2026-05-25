@@ -13,6 +13,7 @@ export const librarySensitiveScanWorkflowDefinition: WorkflowDefinition = {
             id: 'detect-sensitive-content',
             kind: 'module',
             moduleId: 'runtime.detect_sensitive_content',
+            step: 'sensitive_scan',
             completesMilestones: ['sensitive_scan_complete'],
             presentation: {
                 label: 'Detect sensitive content',

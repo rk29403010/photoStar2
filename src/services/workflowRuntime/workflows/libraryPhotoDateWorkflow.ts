@@ -13,6 +13,7 @@ export const libraryPhotoDateWorkflowDefinition: WorkflowDefinition = {
             id: 'recalculate-photo-date',
             kind: 'module',
             moduleId: 'runtime.estimate_photo_date',
+            step: 'photo_date',
             completesMilestones: ['photo_date_recalculation_complete'],
             presentation: {
                 label: 'Recalculate photo date',

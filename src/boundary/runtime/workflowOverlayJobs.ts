@@ -1,3 +1,4 @@
+import React from 'react';
 import type { JobState, PipelineStage } from '@contracts/jobs';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { requestWorkflowRunDetail } from '@boundary/runtime/workflowRunDetail';
@@ -26,7 +27,7 @@ type ScheduleWorkflowRunRefreshParams = {
         type: NotificationItem['type'],
         title: string,
         options?: {
-            message?: string;
+            message?: NotificationItem['message'];
             actionLabel?: string;
             actionKind?: NotificationItem['actionKind'];
             actionPayload?: NotificationItem['actionPayload'];
@@ -52,7 +53,7 @@ type StartWorkflowWithOverlayJobParams = {
         type: NotificationItem['type'],
         title: string,
         options?: {
-            message?: string;
+            message?: NotificationItem['message'];
             actionLabel?: string;
             actionKind?: NotificationItem['actionKind'];
             actionPayload?: NotificationItem['actionPayload'];
@@ -160,17 +161,29 @@ function handleCompleted(params: ScheduleWorkflowRunRefreshParams, snapshot: Wor
     params.refreshLibrary({ preservePagingState: true });
     params.refreshSystemJobs();
 
-    const errorSuffix = snapshot.failedStep?.errorMessage
-        ? ` (${simplifyErrorMessage(snapshot.failedStep.errorMessage)})`
+    const rawError = snapshot.failedStep?.errorMessage;
+    let messageNode: React.ReactNode;
+    const itemsMessage = snapshot.totalItems > 0
+        ? `${snapshot.completedItems}/${snapshot.totalItems} items completed.`
         : '';
 
+    if (rawError) {
+        messageNode = React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px' } },
+            itemsMessage,
+            React.createElement('div', { style: { color: '#ef4444', fontWeight: 'bold', marginTop: '3px' } }, '❗Task Failed'),
+            React.createElement('div', { style: { color: '#fca5a5', fontSize: '11px' } }, simplifyErrorMessage(rawError))
+        );
+    } else {
+        messageNode = snapshot.totalItems > 0 ? itemsMessage : undefined;
+    }
+
     const options: {
-        message?: string;
+        message?: NotificationItem['message'];
         actionLabel?: string;
         actionKind?: 'open_asset';
         actionPayload?: Record<string, unknown>;
     } = {
-        message: snapshot.totalItems > 0 ? `${snapshot.completedItems}/${snapshot.totalItems} items completed.${errorSuffix}` : undefined,
+        message: messageNode,
     };
 
     if (params.assetId) {

@@ -20,6 +20,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
     nodes: [
         {
             id: 'scan-folder',
+            step: 'discovery',
             kind: 'module',
             moduleId: 'runtime.scan_folder',
             outputsTo: ['preview-each'],
@@ -31,6 +32,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'preview-each',
+            step: 'ingest',
             kind: 'control',
             controlType: 'for_each',
             outputsTo: ['generate-previews'],
@@ -41,6 +43,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'generate-previews',
+            step: 'ingest',
             kind: 'module',
             moduleId: 'runtime.generate_previews',
             outputsTo: ['collect-previewed-assets'],
@@ -53,6 +56,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'collect-previewed-assets',
+            step: 'ingest',
             kind: 'control',
             controlType: 'collect',
             outputsTo: ['enrichment-each'],
@@ -63,6 +67,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'enrichment-each',
+            step: 'enrichment',
             kind: 'control',
             controlType: 'for_each',
             outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content'],
@@ -73,6 +78,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'extract-embedded-metadata',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.extract_embedded_metadata',
             outputsTo: ['estimate-photo-date-from-embedded'],
@@ -84,6 +90,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'detect-faces',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.detect_faces',
             outputsTo: ['generate-face-vectors'],
@@ -95,6 +102,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'generate-face-vectors',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.generate_face_vectors',
             outputsTo: ['collect-people'],
@@ -105,6 +113,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'collect-people',
+            step: 'enrichment',
             kind: 'control',
             controlType: 'collect',
             outputsTo: ['resolve-people'],
@@ -115,6 +124,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'resolve-people',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.resolve_people',
             runMode: 'once_per_batch',
@@ -126,6 +136,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'collect-similar',
+            step: 'enrichment',
             kind: 'control',
             controlType: 'collect',
             outputsTo: ['group-similar-photos'],
@@ -136,6 +147,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'group-similar-photos',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.group_similar_photos',
             runMode: 'once_per_batch',
@@ -147,6 +159,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'detect-sensitive-content',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.detect_sensitive_content',
             outputsTo: ['generate-ai-metadata'],
@@ -157,6 +170,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'generate-ai-metadata',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.generate_ai_metadata_scout',
             outputsTo: ['estimate-photo-date-from-ai'],
@@ -168,6 +182,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'estimate-photo-date-from-embedded',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.estimate_photo_date',
             presentation: {
@@ -178,6 +193,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'estimate-photo-date-from-ai',
+            step: 'enrichment',
             kind: 'module',
             moduleId: 'runtime.estimate_photo_date',
             completesMilestones: ['enrichment_complete'],

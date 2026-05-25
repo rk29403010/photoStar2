@@ -3,7 +3,7 @@ type AppNotificationsProps = {
     id: string;
     type: 'warning' | 'info' | 'success' | 'error';
     title: string;
-    message?: string;
+    message?: React.ReactNode;
     actionLabel?: string;
     actionKind?: 'open_workflow' | 'open_asset' | 'retry';
     actionPayload?: Record<string, unknown>;

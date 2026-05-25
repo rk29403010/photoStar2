@@ -245,74 +245,52 @@ function summariseStage(
     };
 }
 
+const STEP_DETAILS: Record<string, { label: string; description: string }> = {
+    discovery: { label: 'Discovery', description: 'Scan the folder and discover files.' },
+    ingest: { label: 'Ingest', description: 'Prepare previews and unlock the browsable library.' },
+    enrichment: { label: 'Enrichment', description: 'Run downstream analysis, grouping, and metadata branches.' },
+    enumeration: { label: 'Discovery', description: 'Simulate discovery of items.' },
+    fast_processing: { label: 'Fast Processing', description: 'Simulate fast task step.' },
+    medium_processing: { label: 'Medium Processing', description: 'Simulate medium task step.' },
+    slow_processing: { label: 'Slow Processing', description: 'Simulate slow task step.' },
+    preview: { label: 'Preview', description: 'Generate asset preview.' },
+    previews: { label: 'Previews', description: 'Generate library previews.' },
+    ai_metadata: { label: 'AI Metadata', description: 'Generate AI-based metadata.' },
+    face_pipeline: { label: 'Face Pipeline', description: 'Detect and resolve faces.' },
+    grouping: { label: 'Grouping', description: 'Group similar photos.' },
+    photo_date: { label: 'Photo Date', description: 'Recalculate photo date.' },
+    sensitive_scan: { label: 'Sensitive Scan', description: 'Scan for sensitive content.' },
+};
+
 function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null) {
-    if (definition.id === 'folder_ingest_v1') {
-        return {
-            stages: [
-                summariseStage('discovery', 'Discovery', 'Scan the folder and discover files.', ['scan-folder'], runDetail, definition),
-                summariseStage(
-                    'library-ready',
-                    'Ingest',
-                    'Prepare previews and unlock the browsable library.',
-                    ['preview-each', 'generate-previews', 'collect-previewed-assets'],
-                    runDetail,
-                    definition,
-                ),
-                summariseStage(
-                    'enrichment',
-                    'Enrichment',
-                    'Run downstream analysis, grouping, and metadata branches.',
-                    [
-                        'enrichment-each',
-                        'extract-embedded-metadata',
-                        'estimate-photo-date-from-embedded',
-                        'detect-faces',
-                        'generate-face-vectors',
-                        'collect-people',
-                        'resolve-people',
-                        'collect-similar',
-                        'group-similar-photos',
-                        'detect-sensitive-content',
-                        'generate-ai-metadata',
-                        'estimate-photo-date-from-ai',
-                    ],
-                    runDetail,
-                    definition,
-                ),
-            ],
-        };
+    const steps: string[] = [];
+    const nodeIdsByStep = new Map<string, string[]>();
+
+    for (const node of definition.nodes) {
+        if (!nodeIdsByStep.has(node.step)) {
+            steps.push(node.step);
+            nodeIdsByStep.set(node.step, []);
+        }
+        nodeIdsByStep.get(node.step)!.push(node.id);
     }
 
-    if (definition.id === 'runtime.simulation_workflow') {
-        return {
-            stages: [
-                summariseStage('enumeration', 'Discovery', 'Simulate discovery of items.', ['enumerate-sim'], runDetail, definition),
-                summariseStage('fast_processing', 'Fast Processing', 'Simulate fast task step.', ['fast-task-sim', 'fast-task-sim-2', 'fast-task-sim-3'], runDetail, definition),
-                summariseStage('medium_processing', 'Medium Processing', 'Simulate medium task step.', [
-                    'medium-task-sim', 
-                    'medium-branch-success-each', 
-                    'medium-branch-failure-each',
-                    'medium-branch-1-step-1', 
-                    'medium-branch-1-step-2', 
-                    'medium-branch-1-step-3',
-                    'medium-branch-2-step-1',
-                    'medium-branch-3-step-1'
-                ], runDetail, definition),
-                summariseStage('slow_processing', 'Slow Processing', 'Simulate slow task step.', ['slow-task-sim'], runDetail, definition),
-            ],
+    const stages = steps.map((stepId) => {
+        const details = STEP_DETAILS[stepId] ?? {
+            label: toTitleCase(stepId),
+            description: `Run step ${stepId}.`,
         };
-    }
-
-    return {
-        stages: definition.nodes.map((node) => summariseStage(
-            node.id,
-            getNodeLabel(definition, node.id),
-            node.kind === 'module' ? `Run module ${node.moduleId}.` : `Run control node ${node.controlType}.`,
-            [node.id],
+        const nodeIds = nodeIdsByStep.get(stepId) ?? [];
+        return summariseStage(
+            stepId,
+            details.label,
+            details.description,
+            nodeIds,
             runDetail,
             definition,
-        )),
-    };
+        );
+    });
+
+    return { stages };
 }
 
 function buildText(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null): { sections: WorkflowVisualiserTextSection[] } {

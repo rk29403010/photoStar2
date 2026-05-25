@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Asset, GalleryTimelineSeek, LibraryStats, Person } from '@contracts/core';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { BackendTransport } from '@boundary/transport/usePhotoLibrary.transport';
@@ -14,7 +15,7 @@ function useNotificationState() {
         type: NotificationItem['type'],
         title: string,
         options: {
-            message?: string;
+            message?: ReactNode;
             actionLabel?: string;
             actionKind?: NotificationItem['actionKind'];
             actionPayload?: NotificationItem['actionPayload'];
