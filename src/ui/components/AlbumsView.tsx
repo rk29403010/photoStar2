@@ -27,7 +27,7 @@ function CreateAlbumForm({
     readonly description: string;
     readonly setTitle: (v: string) => void;
     readonly setDescription: (v: string) => void;
-    readonly onCreate: (e: React.FormEvent) => void;
+    readonly onCreate: (e: React.SubmitEvent) => void;
     readonly onCancel: () => void;
 }) {
     return (
@@ -204,7 +204,7 @@ function useAlbumCreation(
         setIsCreating(false);
     }, []);
 
-    const handleCreate = React.useCallback(async (e: React.FormEvent) => {
+    const handleCreate = React.useCallback(async (e: React.SubmitEvent) => {
         e.preventDefault();
         const title = creationState.title.trim();
 

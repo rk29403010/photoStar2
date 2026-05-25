@@ -296,6 +296,24 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
         };
     }
 
+    if (definition.id === 'library_face_pipeline_v1') {
+        return {
+            stages: [
+                summariseStage('detection', 'Detection', 'Detect faces in assets.', ['detect-faces', 'generate-face-vectors'], runDetail, definition),
+                summariseStage('resolution', 'Resolution', 'Group and resolve people candidate identities.', ['collect-people', 'resolve-people'], runDetail, definition),
+            ],
+        };
+    }
+
+    if (definition.id === 'selected_subject_metadata_v1') {
+        return {
+            stages: [
+                summariseStage('preparation', 'Preparation', 'Expand selected subjects.', ['expand-selection'], runDetail, definition),
+                summariseStage('generation', 'Generation', 'Generate AI metadata and estimate photo dates.', ['generate-ai-metadata', 'estimate-photo-date-from-ai'], runDetail, definition),
+            ],
+        };
+    }
+
     return {
         stages: definition.nodes.map((node) => summariseStage(
             node.id,

@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeDevCommand": "npm run dev:desktop-runtime",
+    "beforeDevCommand": "pnpm run dev:desktop-runtime",
     "devUrl": "http://localhost:5173"
   },
   "app": {

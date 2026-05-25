@@ -103,11 +103,11 @@ function runBuild(hashFile, currentHash) {
         fs.mkdirSync(HASH_DIR, { recursive: true });
 
         console.log('[SmartBuild] Running core compile...');
-        execSync('npm run build:core:ts', { stdio: 'inherit', cwd: REPO_ROOT });
+        execSync('npx pnpm run build:core:ts', { stdio: 'inherit', cwd: REPO_ROOT });
 
         if (!isCompileOnly) {
             console.log('[SmartBuild] Packaging binary...');
-            execSync('npm run package:core', { stdio: 'inherit', cwd: REPO_ROOT });
+            execSync('npx pnpm run package:core', { stdio: 'inherit', cwd: REPO_ROOT });
         }
 
         fs.writeFileSync(hashFile, currentHash);

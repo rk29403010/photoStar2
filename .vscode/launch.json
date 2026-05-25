@@ -5,7 +5,7 @@
             "name": "🚀 Web Dev (Vite UI + Core + Browser Open)",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "pnpm",
             "runtimeArgs": [
                 "run",
                 "dev:desktop-runtime"
@@ -25,7 +25,7 @@
             "name": "🖥️ Desktop Dev (Tauri + WS Core)",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "pnpm",
             "runtimeArgs": [
                 "run",
                 "dev:desktop"
@@ -36,7 +36,7 @@
             "name": "🧩 Desktop Runtime (UI + Core + Browser Open)",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "pnpm",
             "runtimeArgs": [
                 "run",
                 "dev:desktop-runtime"
@@ -56,7 +56,7 @@
             "name": "🧪 Desktop Runtime (Verbose HMR Logs)",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "pnpm",
             "runtimeArgs": [
                 "run",
                 "dev:desktop-runtime:debug"
@@ -76,7 +76,7 @@
             "name": "🧹 Kill Dev Ports",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "pnpm",
             "runtimeArgs": [
                 "run",
                 "dev:kill-ports"
