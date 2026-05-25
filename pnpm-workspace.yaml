@@ -1,0 +1,6 @@
+allowBuilds:
+  '@tensorflow/tfjs-node': true
+  better-sqlite3: true
+  core-js: true
+  onnxruntime-node: true
+  sharp: true

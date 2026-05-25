@@ -134,7 +134,7 @@ test('managed dev session cleanup targets legacy npm wrapper processes on Window
             args: [
                 '-NoProfile',
                 '-Command',
-                `$pids=(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.CommandLine -like '*${workspacePattern}*concurrently.js*') -or ($_.CommandLine -like '*npm-cli.js*run dev:core*') -or ($_.CommandLine -like '*npm-cli.js*run dev:web:watch*') } | Select-Object -ExpandProperty ProcessId -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }`,
+                `$pids=(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.CommandLine -like '*${workspacePattern}*concurrently.js*') -or ($_.CommandLine -like '*npm-cli.js*run dev:core*') -or ($_.CommandLine -like '*npm-cli.js*run dev:web:watch*') -or ($_.CommandLine -like '*pnpm*run dev:core*') -or ($_.CommandLine -like '*pnpm*run dev:web:watch*') } | Select-Object -ExpandProperty ProcessId -Unique); if ($pids) { Stop-Process -Id $pids -Force -ErrorAction SilentlyContinue }`,
             ],
         },
     );
@@ -145,8 +145,8 @@ test('managed dev session uses cmd.exe wrapping for Windows command launchers', 
 
     assert.deepEqual(
         buildManagedSpawnInvocation({
-            command: 'npm.cmd',
-            args: ['run', 'dev:desktop-runtime'],
+            command: 'npx.cmd',
+            args: ['pnpm', 'run', 'dev:desktop-runtime'],
             stdio: 'ignore',
             detached: true,
             env,
@@ -154,7 +154,7 @@ test('managed dev session uses cmd.exe wrapping for Windows command launchers', 
         }),
         {
             command: 'cmd.exe',
-            args: ['/d', '/s', '/c', 'npm.cmd run dev:desktop-runtime'],
+            args: ['/d', '/s', '/c', 'npx.cmd pnpm run dev:desktop-runtime'],
             options: {
                 cwd: workspaceRoot,
                 env,
@@ -234,14 +234,14 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     const packageJson = JSON.parse(await import('node:fs/promises').then((fs) => fs.readFile(packageJsonPath, 'utf8')));
     const scripts = packageJson.scripts ?? {};
 
-    assert.equal(scripts['quality:changed'], 'npm run lint:fast:changed && npm run complexity:changed');
-    assert.equal(scripts['quality:changed:full'], 'npm run lint:fast:changed && npm run lint:changed && npm run complexity:changed');
-    assert.match(scripts.quality, /npm run test:repo/);
-    assert.match(scripts.quality, /npm run test:ui/);
-    assert.equal(scripts.test, 'npm run test:repo');
+    assert.equal(scripts['quality:changed'], 'pnpm run lint:fast:changed && pnpm run complexity:changed');
+    assert.equal(scripts['quality:changed:full'], 'pnpm run lint:fast:changed && pnpm run lint:changed && pnpm run complexity:changed');
+    assert.match(scripts.quality, /pnpm run test:repo/);
+    assert.match(scripts.quality, /pnpm run test:ui/);
+    assert.equal(scripts.test, 'pnpm run test:repo');
     assert.equal(scripts['test:repo'], 'node --test tests/repo/*.test.mjs');
     assert.equal(scripts['test:ui'], 'node --test tests/ui/*.test.cjs');
-    assert.equal(scripts['test:core'], 'npm run build:core:ts && node --test tests/core/*.test.cjs');
+    assert.equal(scripts['test:core'], 'pnpm run build:core:ts && node --test tests/core/*.test.cjs');
     assert.equal(scripts['benchmark:quality'], 'node tooling/scripts/repo/benchmark-quality.js');
     assert.equal(scripts['boundary:watch'], 'node tooling/scripts/repo/boundary-watchlist.js');
     assert.equal(scripts['dev:pause'], 'node tooling/scripts/repo/dev-session.js pause');

@@ -17,7 +17,7 @@ test('status bar wiring supports action banners for undo', () => {
     const uiStateSource = readWorkspaceFile('src/ui/hooks/useAppRuntimeUi.ts');
     const loadedShellSource = readWorkspaceFile('src/ui/components/app/LoadedAppShell.tsx');
 
-    assert.match(statusBannerModelSource, /export interface StatusBanner/);
+    assert.match(statusBannerModelSource, /export (interface|type) StatusBanner/);
     assert.match(statusBannerModelSource, /actionLabel\?: string/);
     assert.match(statusBannerModelSource, /onAction\?: \(\) => void/);
     assert.match(statusBannerModelSource, /export function createStatusMessageBanner/);

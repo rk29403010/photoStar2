@@ -6,21 +6,21 @@ import { performance } from 'node:perf_hooks';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
-const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const useShellForNpm = process.platform === 'win32';
+const pnpmExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const useShellForPnpm = process.platform === 'win32';
 const quickMode = process.argv.includes('--quick');
 
 const steps = quickMode ? [
     { label: 'read app shell x500', command: process.execPath, args: ['-e', "const fs=require('node:fs'); for (let index = 0; index < 500; index += 1) { fs.readFileSync('src/ui/App.tsx', 'utf8'); }"] },
-    { label: 'npm run lint:fast', command: npmExecutable, args: ['run', 'lint:fast'], shell: useShellForNpm },
-    { label: 'npm run quality:changed', command: npmExecutable, args: ['run', 'quality:changed'], shell: useShellForNpm },
+    { label: 'pnpm run lint:fast', command: pnpmExecutable, args: ['pnpm', 'run', 'lint:fast'], shell: useShellForPnpm },
+    { label: 'pnpm run quality:changed', command: pnpmExecutable, args: ['pnpm', 'run', 'quality:changed'], shell: useShellForPnpm },
 ] : [
     { label: 'read app shell x500', command: process.execPath, args: ['-e', "const fs=require('node:fs'); for (let index = 0; index < 500; index += 1) { fs.readFileSync('src/ui/App.tsx', 'utf8'); }"] },
-    { label: 'npm run lint:fast', command: npmExecutable, args: ['run', 'lint:fast'], shell: useShellForNpm },
-    { label: 'npm run lint', command: npmExecutable, args: ['run', 'lint'], shell: useShellForNpm },
-    { label: 'npm run typecheck', command: npmExecutable, args: ['run', 'typecheck'], shell: useShellForNpm },
-    { label: 'npm run typecheck:core', command: npmExecutable, args: ['run', 'typecheck:core'], shell: useShellForNpm },
-    { label: 'npm run quality:changed', command: npmExecutable, args: ['run', 'quality:changed'], shell: useShellForNpm },
+    { label: 'pnpm run lint:fast', command: pnpmExecutable, args: ['pnpm', 'run', 'lint:fast'], shell: useShellForPnpm },
+    { label: 'pnpm run lint', command: pnpmExecutable, args: ['pnpm', 'run', 'lint'], shell: useShellForPnpm },
+    { label: 'pnpm run typecheck', command: pnpmExecutable, args: ['pnpm', 'run', 'typecheck'], shell: useShellForPnpm },
+    { label: 'pnpm run typecheck:core', command: pnpmExecutable, args: ['pnpm', 'run', 'typecheck:core'], shell: useShellForPnpm },
+    { label: 'pnpm run quality:changed', command: pnpmExecutable, args: ['pnpm', 'run', 'quality:changed'], shell: useShellForPnpm },
 ];
 
 function runStep(step) {

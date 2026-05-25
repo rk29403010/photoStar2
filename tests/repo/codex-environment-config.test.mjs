@@ -35,12 +35,12 @@ test('Codex action scripts can target the current checkout when worktree context
     assert.match(stopDebugScript, /CODEX_WORKTREE_PATH/);
     assert.match(stopDebugScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);
     assert.doesNotMatch(stopDebugScript, /Missing CODEX_WORKTREE_PATH/);
-    assert.match(stopDebugScript, /npm\.cmd run thread:stop-dev/);
+    assert.match(stopDebugScript, /npx\.cmd pnpm run thread:stop-dev/);
 
     assert.match(doctorScript, /CODEX_WORKTREE_PATH/);
     assert.match(doctorScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);
     assert.doesNotMatch(doctorScript, /Missing CODEX_WORKTREE_PATH/);
-    assert.match(doctorScript, /npm\.cmd run thread:doctor/);
+    assert.match(doctorScript, /npx\.cmd pnpm run thread:doctor/);
 
     assert.match(shipScript, /CODEX_WORKTREE_PATH/);
     assert.match(shipScript, /set "TARGET_PATH=%CODEX_WORKTREE_PATH%"/);

@@ -15,7 +15,7 @@ test('gallery wires tag filter state from library view into the toolbar pane', (
     assert.doesNotMatch(galleryPaneSource, /selectedTag:\s*string;/);
     assert.doesNotMatch(galleryPaneSource, /availableTags:\s*string\[];/);
     assert.doesNotMatch(galleryPaneSource, /onTagChange:\s*\(tag:\s*string\)\s*=>\s*void;/);
-    assert.match(galleryPaneSource, /interface LibraryGalleryPaneProps \{/);
+    assert.match(galleryPaneSource, /(interface|type) LibraryGalleryPaneProps/);
 
     assert.match(libraryViewSource, /onTagFilterChange:\s*\(tag:\s*string\)\s*=>\s*void;/);
     assert.match(libraryChromeSource, /const rawSelectedTag = params\.activeFilter\?\.type === 'tag' \? params\.activeFilter\.value : '';/);

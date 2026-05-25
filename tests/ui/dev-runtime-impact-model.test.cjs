@@ -51,8 +51,8 @@ test('dev runtime impact model maps restart levels to compact indicator tone and
         }),
         {
             tone: 'error',
-            shortLabel: 'Run npm install',
-            title: 'Reinstall dependencies, then restart the dev runtime. Stop the current dev session, run npm install, then start it again.',
+            shortLabel: 'Run pnpm install',
+            title: 'Reinstall dependencies, then restart the dev runtime. Stop the current dev session, run pnpm install, then start it again.',
         },
     );
 });

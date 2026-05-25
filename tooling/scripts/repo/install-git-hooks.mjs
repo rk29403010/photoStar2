@@ -57,12 +57,12 @@ if [ -n "$STAGED_FILES" ]; then
   fi
 fi
 
-if ! npm run lint:md; then
+if ! npx pnpm run lint:md; then
   echo "pre-commit: markdown lint failed"
   exit 1
 fi
 
-if ! npm run typecheck; then
+if ! npx pnpm run typecheck; then
   echo "pre-commit: typecheck failed"
   exit 1
 fi

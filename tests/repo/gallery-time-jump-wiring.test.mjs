@@ -114,7 +114,7 @@ function assertTimelineLayoutWiring(sources) {
     assert.doesNotMatch(justifiedLayoutSource, /data-time-section-id=/);
     assert.match(justifiedLayoutSource, /const \[customScrollParent, setCustomScrollParent\] = useState<HTMLDivElement \| undefined>\(\)/);
     assert.match(justifiedLayoutSource, /const nextScrollParent = scrollContainerRef\?\.current \?\? undefined/);
-    assert.match(justifiedLayoutSource, /window\.requestAnimationFrame\(syncScrollParent\)/);
+    assert.match(justifiedLayoutSource, /(window|globalThis)\.requestAnimationFrame\(syncScrollParent\)/);
     assert.match(justifiedLayoutSource, /const customScrollParent = useCustomScrollParent\(props\.scrollContainerRef\)/);
     assert.match(justifiedLayoutSource, /if \(props\.scrollContainerRef && !customScrollParent\)/);
 }

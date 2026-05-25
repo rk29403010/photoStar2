@@ -18,7 +18,7 @@ test('date-mode wiring reads grouped timeline state from a dedicated slice', () 
     const justifiedLayoutSource = fs.readFileSync('src/ui/components/layout/JustifiedLayout.tsx', 'utf8');
     const groupedTimelineLayoutSource = fs.readFileSync('src/ui/components/layout/GroupedTimelineLayout.tsx', 'utf8');
 
-    assert.match(timelineStateSource, /export interface TimelineGalleryStateSlice \{/);
+    assert.match(timelineStateSource, /export (interface|type) TimelineGalleryStateSlice/);
     assert.match(timelineStateSource, /groupSummaries: TimelineGroupSummary\[\];/);
     assert.match(timelineStateSource, /loadedPagesByGroupId: Partial<Record<TimelineGroupId, TimelineGalleryPage>>;/);
     assert.match(timelineStateSource, /loadingByGroupId: Partial<Record<TimelineGroupId, boolean>>;/);

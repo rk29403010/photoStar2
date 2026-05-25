@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 const gitExecutable = process.platform === 'win32' ? 'git.exe' : 'git';
 const nodeExecutable = process.execPath;
-const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpmExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 export function getShipIgnorePaths({ includeArtifacts = false } = {}) {
     return includeArtifacts ? ['.local'] : ['artifacts', '.local'];
@@ -159,10 +159,10 @@ function runNode(args, cwd) {
     });
 }
 
-function runNpm(args, cwd) {
+function runPnpm(args, cwd) {
     runCommandOrThrow({
-        command: npmExecutable,
-        args,
+        command: pnpmExecutable,
+        args: ['pnpm', ...args],
         cwd,
         stdio: 'inherit',
     });
@@ -235,7 +235,7 @@ function stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths }) {
 
     const stagedFiles = getStagedFiles(cwd);
     if (stagedFiles.length > 0) {
-        runNpm(['run', 'quality:staged'], cwd);
+        runPnpm(['run', 'quality:staged'], cwd);
         runGit(['commit', '-m', commitMessage], cwd);
     }
 

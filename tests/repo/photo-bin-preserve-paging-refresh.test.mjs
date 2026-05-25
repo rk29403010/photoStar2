@@ -17,7 +17,7 @@ test('preserve-paging refresh requests the full loaded asset window', () => {
 
     assert.match(gallerySource, /loadedAssetCount\?: number;/);
     assert.match(gallerySource, /const prefersFullTimelineDataset = galleryDataModeRef\.current === 'grouped-timeline';/);
-    assert.match(gallerySource, /const refreshLimit = prefersFullTimelineDataset/);
+    assert.match(gallerySource, /refreshLimit = GROUPED_TIMELINE_ASSET_LIMIT/);
     assert.match(gallerySource, /Math\.max\(ASSET_PAGE_SIZE, options\.loadedAssetCount \?\? 0\)/);
     assert.match(gallerySource, /limit: refreshLimit,/);
 

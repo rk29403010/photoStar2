@@ -29,7 +29,7 @@ export function getDevRuntimeImpactIndicator(impact: DevRuntimeImpact | null): D
 
     return {
         tone: 'error',
-        shortLabel: 'Run npm install',
-        title: `${impact.summary} Stop the current dev session, run npm install, then start it again.`,
+        shortLabel: 'Run pnpm install',
+        title: `${impact.summary} Stop the current dev session, run pnpm install, then start it again.`,
     };
 }
