@@ -160,13 +160,17 @@ function handleCompleted(params: ScheduleWorkflowRunRefreshParams, snapshot: Wor
     params.refreshLibrary({ preservePagingState: true });
     params.refreshSystemJobs();
 
+    const errorSuffix = snapshot.failedStep?.errorMessage
+        ? ` (${simplifyErrorMessage(snapshot.failedStep.errorMessage)})`
+        : '';
+
     const options: {
         message?: string;
         actionLabel?: string;
         actionKind?: 'open_asset';
         actionPayload?: Record<string, unknown>;
     } = {
-        message: snapshot.totalItems > 0 ? `${snapshot.completedItems}/${snapshot.totalItems} items completed.` : undefined,
+        message: snapshot.totalItems > 0 ? `${snapshot.completedItems}/${snapshot.totalItems} items completed.${errorSuffix}` : undefined,
     };
 
     if (params.assetId) {

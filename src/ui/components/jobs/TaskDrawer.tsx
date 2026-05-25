@@ -15,7 +15,10 @@ export function TaskDrawer({
     if (isMinimized && jobs.length === 0) {return null;}
 
     return (
-        <div className="fixed bottom-8 right-3 z-50 flex max-h-[70vh] w-[26rem] flex-col overflow-hidden rounded-t-xl border border-slate-800 bg-[#0f172a] shadow-2xl shadow-black/40 transition-all">
+        <div
+            className="fixed bottom-8 right-3 flex max-h-[70vh] w-[26rem] flex-col overflow-hidden rounded-t-xl border border-slate-800 bg-[#0f172a] shadow-2xl shadow-black/40 transition-all"
+            style={{ zIndex: 9995 }}
+        >
             <div
                 className="flex cursor-pointer select-none items-center justify-between border-b border-slate-800 bg-slate-950/90 px-4 py-3"
                 onDoubleClick={() => onMinimize(!isMinimized)}
