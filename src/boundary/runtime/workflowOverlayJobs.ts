@@ -33,6 +33,7 @@ type ScheduleWorkflowRunRefreshParams = {
         }
     ) => void;
     onCompleted?: () => void;
+    assetId?: string;
 };
 
 type StartWorkflowWithOverlayJobParams = {
@@ -135,25 +136,76 @@ function applySnapshotProgress(params: ScheduleWorkflowRunRefreshParams, snapsho
     });
 }
 
+function simplifyErrorMessage(errorMsg?: string): string {
+    if (!errorMsg) {
+        return 'Workflow failed.';
+    }
+    const msg = errorMsg.toLowerCase();
+    const rules = [
+        { patterns: ['spending cap', 'quota', 'billing', 'cap reached', 'limit exceeded'], result: 'Spending cap reached' },
+        { patterns: ['rate_limit', 'rate limit'], result: 'Rate limit hit' },
+        { patterns: ['api key', 'unauthorized', 'auth'], result: 'Authentication failed' },
+        { patterns: ['network', 'fetch', 'connect'], result: 'Network connection issue' }
+    ];
+    for (const rule of rules) {
+        if (rule.patterns.some(p => msg.includes(p))) {
+            return rule.result;
+        }
+    }
+    return errorMsg.length > 60 ? errorMsg.substring(0, 57) + '...' : errorMsg;
+}
+
 function handleCompleted(params: ScheduleWorkflowRunRefreshParams, snapshot: WorkflowPollSnapshot) {
     params.updateJobState(params.localJobId, 'completed');
     params.refreshLibrary({ preservePagingState: true });
     params.refreshSystemJobs();
-    params.addNotification?.('success', `${params.title} complete`, {
+
+    const options: {
+        message?: string;
+        actionLabel?: string;
+        actionKind?: 'open_asset';
+        actionPayload?: Record<string, unknown>;
+    } = {
         message: snapshot.totalItems > 0 ? `${snapshot.completedItems}/${snapshot.totalItems} items completed.` : undefined,
-    });
+    };
+
+    if (params.assetId) {
+        options.actionLabel = 'View photo';
+        options.actionKind = 'open_asset';
+        options.actionPayload = { assetId: params.assetId };
+    }
+
+    params.addNotification?.('success', `${params.title} complete`, options);
     params.onCompleted?.();
 }
 
 function handleFailed(params: ScheduleWorkflowRunRefreshParams, snapshot: WorkflowPollSnapshot) {
     params.updateJobState(params.localJobId, 'failed');
     params.refreshSystemJobs();
-    params.addNotification?.('error', `${params.title} failed`, {
-        message: snapshot.failedStep?.errorMessage ?? 'Workflow failed.',
-        actionLabel: 'Open workflow',
-        actionKind: 'open_workflow',
-        actionPayload: { workflowId: params.workflowId },
-    });
+
+    const rawError = snapshot.failedStep?.errorMessage;
+    const message = simplifyErrorMessage(rawError);
+
+    const options: {
+        message: string;
+        actionLabel?: string;
+        actionKind?: 'open_workflow' | 'open_asset';
+        actionPayload?: Record<string, unknown>;
+    } = {
+        message: `Error: ${message}`,
+    };
+
+    if (params.assetId) {
+        options.actionLabel = 'View photo';
+        options.actionKind = 'open_asset';
+        options.actionPayload = { assetId: params.assetId };
+    } else {
+        options.actionLabel = 'Open workflow';
+        options.actionKind = 'open_workflow';
+        options.actionPayload = { workflowId: params.workflowId };
+    }
+
+    params.addNotification?.('error', `${params.title} failed`, options);
 }
 
 function scheduleNextPoll(poll: () => Promise<void>) {
@@ -222,6 +274,9 @@ export async function startWorkflowWithOverlayJob(params: StartWorkflowWithOverl
         return '';
     }
 
+    const selectedSubjects = params.payload?.selectedSubjects as Array<{ subjectType: string; subjectId: string }> | undefined;
+    const assetId = selectedSubjects?.[0]?.subjectId;
+
     params.updateJobState(localJobId, 'running');
     scheduleWorkflowRunRefresh({
         request: params.request,
@@ -235,6 +290,7 @@ export async function startWorkflowWithOverlayJob(params: StartWorkflowWithOverl
         addNotification: params.addNotification,
         updateJobProgress: params.updateJobProgress,
         onCompleted: params.onCompleted,
+        assetId,
     });
 
     return runId;

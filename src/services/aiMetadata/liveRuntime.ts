@@ -47,6 +47,8 @@ import {
     type MetadataSourceKind,
 } from './liveRuntimeTagHelpers';
 
+const bypassSleepRetry = () => true;
+
 type GoogleGenerativeAIConstructor = new (apiKey: string) => GoogleGenerativeAI;
 type PendingReason = 'rate_limit' | 'daily_quota';
 type EventSink = { emit: (event: DomainEvent) => void };
@@ -568,6 +570,39 @@ function buildLiveMetadataEvidence(params: {
     };
 }
 
+async function handleProQuotaError(
+    error: unknown,
+    genAI: GoogleGenerativeAI,
+    prompt: string,
+    imageParts: PreparedImagePart[],
+    logContext: {
+        assetId: string;
+        metadataPass: MetadataPass;
+        imageStrategy: ImageStrategy;
+        moduleId?: string;
+        signal?: AbortSignal;
+        dbManager?: DatabaseManager;
+    }
+): Promise<GeminiResponse | null> {
+    const quotaType = classifyAndRecordError(MODEL_REFINE, error as Error);
+    if (!bypassSleepRetry()) {
+        if (quotaType === 'rate_limit' && shouldWaitForModel(MODEL_REFINE)) {
+            await waitForRateLimitWindow(MODEL_REFINE);
+            const retryParsed = await generateContent(
+                genAI,
+                MODEL_REFINE,
+                prompt,
+                imageParts,
+                buildGeminiProResponseSchema(logContext.imageStrategy),
+                logContext,
+            );
+            retryParsed._analysis_tier = 'pro';
+            return retryParsed;
+        }
+    }
+    return null;
+}
+
 async function tryProModel(
     genAI: GoogleGenerativeAI,
     prompt: string,
@@ -611,21 +646,7 @@ async function tryProModel(
         }
         return null;
     } catch (error) {
-        const quotaType = classifyAndRecordError(MODEL_REFINE, error as Error);
-        if (quotaType === 'rate_limit' && shouldWaitForModel(MODEL_REFINE)) {
-            await waitForRateLimitWindow(MODEL_REFINE);
-            const retryParsed = await generateContent(
-                genAI,
-                MODEL_REFINE,
-                prompt,
-                imageParts,
-                buildGeminiProResponseSchema(logContext.imageStrategy),
-                logContext,
-            );
-            retryParsed._analysis_tier = 'pro';
-            return retryParsed;
-        }
-        return null;
+        return handleProQuotaError(error, genAI, prompt, imageParts, logContext);
     }
 }
 
@@ -670,6 +691,9 @@ async function tryFlashModel(
                 throw new Error('DAILY_QUOTA_EXCEEDED');
             }
             if (quotaType !== 'rate_limit') {
+                throw error;
+            }
+            if (bypassSleepRetry()) {
                 throw error;
             }
             await waitForRateLimitWindow(modelName, true);

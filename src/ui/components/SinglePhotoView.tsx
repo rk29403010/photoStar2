@@ -212,7 +212,6 @@ function useSinglePhotoViewState(params: {
     assets: Asset[];
     initialIndex: number;
     panelState: ReturnType<typeof usePanelState>;
-    analysisUi: AnalysisUiBundle;
     onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
     onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     onExplodeGroup?: (groupId: string) => Promise<void>;
@@ -230,6 +229,8 @@ function useSinglePhotoViewState(params: {
     const asset = assetState.viewAssets[controls.currentIndex];
     const setCurrentIndex = controls.setCurrentIndex;
     const shouldSyncAssetFocus = isLibrarySelectionAnchorAsset(params.assets, asset?.id);
+
+    const analysisUi = useAnalysisUiState(asset?.id ?? null);
 
     const handleSelectAsset = useCallback((assetId: string) => {
         const nextIndex = resolveSinglePhotoAssetIndex(assetState.viewAssets, assetId);
@@ -249,24 +250,21 @@ function useSinglePhotoViewState(params: {
         loadAssetEvidence: params.onLoadAssetEvidence,
     });
     useAnalysisTracking({
-        analyzingAssetId: params.analysisUi.analyzingAssetId,
+        analyzingAssetId: analysisUi.analyzingAssetId,
         currentAssetId: asset?.id,
         assetAiMetadata: asset?.ai_metadata,
-        setAnalysisError: params.analysisUi.setAnalysisError,
-        setAnalysisState: params.analysisUi.setAnalysisState,
-        setAnalyzingJobId: params.analysisUi.setAnalyzingJobId,
-        setAnalyzingAssetId: params.analysisUi.setAnalyzingAssetId,
+        setAnalysisError: analysisUi.setAnalysisError,
+        setAnalysisState: analysisUi.setAnalysisState,
+        setAnalyzingJobId: analysisUi.setAnalyzingJobId,
+        setAnalyzingAssetId: analysisUi.setAnalyzingAssetId,
         setShowInfoPanel: params.panelState.setShowInfoPanel,
     });
     useAnalysisWorkflowFailureTracking({
-        analysisState: params.analysisUi.analysisState,
-        analyzingAssetId: params.analysisUi.analyzingAssetId,
-        analyzingJobId: params.analysisUi.analyzingJobId,
+        analyses: analysisUi.analyses,
+        setAssetAnalysis: analysisUi.setAssetAnalysis,
+        clearAssetAnalysis: analysisUi.clearAssetAnalysis,
+        currentAssetId: asset?.id,
         onGetWorkflowRunDetail: params.onGetWorkflowRunDetail,
-        setAnalysisError: params.analysisUi.setAnalysisError,
-        setAnalysisState: params.analysisUi.setAnalysisState,
-        setAnalyzingJobId: params.analysisUi.setAnalyzingJobId,
-        setAnalyzingAssetId: params.analysisUi.setAnalyzingAssetId,
     });
 
     return {
@@ -277,6 +275,7 @@ function useSinglePhotoViewState(params: {
         handleSetCanonical: assetState.handleSetCanonical,
         handleExplodeGroup: assetState.handleExplodeGroup,
         handleSelectAsset,
+        analysisUi,
     };
 }
 
@@ -335,7 +334,6 @@ function renderSinglePhotoOverlay(params: {
 
 export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
     const panelState = usePanelState(props);
-    const analysisUi = useAnalysisUiState();
     const {
         asset,
         controls,
@@ -344,11 +342,11 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
         handleSetCanonical,
         handleExplodeGroup,
         handleSelectAsset,
+        analysisUi,
     } = useSinglePhotoViewState({
         assets: props.assets,
         initialIndex: props.initialIndex,
         panelState,
-        analysisUi,
         onGetWorkflowRunDetail: props.onGetWorkflowRunDetail,
         onSetCanonical: props.onSetCanonical,
         onExplodeGroup: props.onExplodeGroup,
