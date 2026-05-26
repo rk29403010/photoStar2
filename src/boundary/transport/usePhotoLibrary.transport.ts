@@ -122,7 +122,7 @@ function handleWsRequest<T>(
         };
 
         transport.socket.addEventListener('message', onMessage);
-        void transport.write(JSON.stringify({ id, command, payload }) + '\n').catch((err) => {
+        void transport.write(`${JSON.stringify({ id, command, payload })}\n`).catch((err) => {
             clearTimeout(timeout);
             transport.socket.removeEventListener('message', onMessage);
             reject(err);
@@ -155,7 +155,7 @@ function handleChildRequest<T>(
         });
 
         transport.stdout.on('data', onData);
-        transport.write(JSON.stringify({ id, command, payload }) + '\n').catch((err) => {
+        transport.write(`${JSON.stringify({ id, command, payload })}\n`).catch((err) => {
             clearTimeout(timeout);
             transport.stdout.removeListener('data', onData);
             reject(err);
@@ -193,5 +193,5 @@ export function createRequestFn(transport: BackendTransport | null): RequestFn {
 
 export async function writeCommand(transport: BackendTransport | null, id: string, command: string, payload: Record<string, unknown> = {}): Promise<void> {
     if (!transport) {return;}
-    await transport.write(JSON.stringify({ id, command, payload }) + '\n');
+    await transport.write(`${JSON.stringify({ id, command, payload })}\n`);
 }

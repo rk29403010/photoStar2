@@ -42,6 +42,8 @@ export default defineConfig([
     'artifacts/**',
     '.local/**',
     '.vscode/**',
+    'scratch/**',
+    'tooling/scripts/**',
     'vite.config.ts.timestamp-*.mjs',
   ]),
   {

@@ -106,11 +106,11 @@ async function sendInitialRequests(
     includeTimelineGroups = false,
 ) {
     const initialAssetLimit = includeTimelineGroups ? GROUPED_TIMELINE_ASSET_LIMIT : ASSET_PAGE_SIZE;
-    await write(JSON.stringify({ id: '1', command: 'ping', payload: {} }) + '\n');
-    await write(JSON.stringify({ id: 'stats-init', command: 'get_stats', payload: {} }) + '\n');
-    await write(JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: initialAssetLimit, offset: 0, filter, detailLevel: 'gallery', galleryOrder, withGroupCounts } }) + '\n');
-    await write(JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} }) + '\n');
-    await write(JSON.stringify({ id: 'system-jobs-init', command: 'get_system_jobs', payload: {} }) + '\n');
+    await write(`${JSON.stringify({ id: '1', command: 'ping', payload: {} })}\n`);
+    await write(`${JSON.stringify({ id: 'stats-init', command: 'get_stats', payload: {} })}\n`);
+    await write(`${JSON.stringify({ id: 'assets-init', command: 'get_assets', payload: { limit: initialAssetLimit, offset: 0, filter, detailLevel: 'gallery', galleryOrder, withGroupCounts } })}\n`);
+    await write(`${JSON.stringify({ id: 'people-init', command: 'get_people', payload: {} })}\n`);
+    await write(`${JSON.stringify({ id: 'system-jobs-init', command: 'get_system_jobs', payload: {} })}\n`);
 }
 
 function clearSocketHandlers(ws: WebSocket) {

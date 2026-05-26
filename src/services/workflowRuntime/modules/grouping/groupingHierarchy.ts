@@ -21,7 +21,7 @@ const EXTENSION_QUALITY_RANK: Record<string, number> = {
 };
 
 function getPathExtension(filePath: string): string {
-    const normalizedPath = filePath.replace(/\\/g, '/').toLowerCase();
+    const normalizedPath = filePath.replaceAll('\\', '/').toLowerCase();
     const lastDotIndex = normalizedPath.lastIndexOf('.');
     return lastDotIndex >= 0 ? normalizedPath.slice(lastDotIndex) : '';
 }

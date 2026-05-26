@@ -3,16 +3,16 @@ echo ==========================================
 echo PhotoStar Backend Service Debugger
 echo ==========================================
 echo.
-echo This script runs the backend service directly using your system Node.js.
+echo This script runs the backend service directly using your system Node.js,
 echo faster than packaging it with 'pkg'.
 echo.
-echo Ensure you have run 'npm install' in the repo root first.
-echo If you see 'NODE_MODULE_VERSION' errors, run 'npm rebuild' in the repo root.
+echo Ensure you have run 'pnpm install' in the repo root first.
+echo If you see 'NODE_MODULE_VERSION' errors, run 'pnpm rebuild' in the repo root.
 echo.
 
 if not exist node_modules (
     echo node_modules not found. Installing...
-    call npm install
+    call pnpm install
 )
 
 echo Starting backend service in watch mode (if available) or direct...

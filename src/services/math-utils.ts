@@ -132,8 +132,8 @@ export async function dhashData(data: Buffer | Uint8Array, width: number, height
 }
 
 export function hammingDistance(hash1: string, hash2: string): number {
-    const b1 = BigInt('0x' + hash1);
-    const b2 = BigInt('0x' + hash2);
+    const b1 = BigInt(`0x${hash1}`);
+    const b2 = BigInt(`0x${hash2}`);
     let xor = b1 ^ b2;
     let dist = 0;
     while (xor > 0n) {

@@ -67,7 +67,7 @@ function formatStepLabel(nodeId: string): string {
     if (!nodeId) {
         return 'Workflow step';
     }
-    const label = nodeId.replace(/[-_]+/g, ' ');
+    const label = nodeId.replaceAll(/[-_]+/g, ' ');
     return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
@@ -153,7 +153,7 @@ function simplifyErrorMessage(errorMsg?: string): string {
             return rule.result;
         }
     }
-    return errorMsg.length > 60 ? errorMsg.substring(0, 57) + '...' : errorMsg;
+    return errorMsg.length > 60 ? `${errorMsg.substring(0, 57)}...` : errorMsg;
 }
 
 function handleCompleted(params: ScheduleWorkflowRunRefreshParams, snapshot: WorkflowPollSnapshot) {

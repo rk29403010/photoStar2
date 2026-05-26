@@ -11,7 +11,7 @@ export type CurrentPhotoStatus = {
 
 function getFilename(asset: Pick<Asset, 'original_path'>): string {
     if (!asset.original_path) {return '';}
-    return asset.original_path.replace(/\\/g, '/').split('/').pop() ?? asset.original_path;
+    return asset.original_path.replaceAll('\\', '/').split('/').pop() ?? asset.original_path;
 }
 
 function getTimestampRank(timestampValue: string | null | undefined): number {

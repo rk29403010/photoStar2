@@ -14,7 +14,7 @@ const errorForwarderPlugin = (): Plugin => ({
   name: 'error-forwarder',
   configureServer(server) {
     server.ws.on('client-error-log', (data) => {
-      console.error('\x1b[31m%s\x1b[0m', '[Browser Error]: ' + data.message)
+      console.error('\x1b[31m%s\x1b[0m', `[Browser Error]: ${data.message}`)
       if (data.stack) {console.error('\x1b[31m%s\x1b[0m', data.stack)}
     })
   },

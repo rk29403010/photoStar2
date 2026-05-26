@@ -1,5 +1,5 @@
 function normalizePathSeparators(value: string): string {
-    return value.replace(/\\/g, '/');
+    return value.replaceAll('\\', '/');
 }
 
 export function shortenDiagnosticId(value: unknown): string {

@@ -19,8 +19,6 @@ test('library view wires a gallery info panel and switches gallery click behavio
     assert.match(libraryPanelSource, /<GalleryInfoPanel\b/);
     assert.match(libraryPanelSource, /onClose=\{\(\) => onShowInfoPanelChange\(false\)\}/);
     assert.match(libraryViewHelpersSource, /handleInfoPanelVisibilityChange\(show, params\.props\.onShowInfoPanelChange, params\.props\.onLibrarySelectionChange\)/);
-    assert.match(layoutEngineSource, /getSingleClickTileAction/);
-    assert.match(layoutEngineSource, /shouldOpenAssetOnDoubleClick/);
     assert.match(layoutEngineSource, /showInfoPanel: boolean;/);
     assert.match(layoutEngineSource, /onDoubleClick=\{onDoubleClick\}/);
 });

@@ -179,11 +179,11 @@ export function createBuildActions(params: BuildActionParams) {
 
     return {
         resetGroupingData: async () => {
-            const jobId = 'reset-grouping-' + Date.now();
+            const jobId = `reset-grouping-${Date.now()}`;
             await writeCommand(transport, jobId, 'reset_grouping_data', {});
         },
         buildGroups: async (): Promise<string> => {
-            const localJobId = 'build-groups-' + Date.now();
+            const localJobId = `build-groups-${Date.now()}`;
             addJob(localJobId, 'similarity_cluster', 'Runtime Grouping (Duplicates, Variants & Bursts)');
             const runId = await request<string>({
                 idPrefix: 'start_library_grouping',
@@ -212,7 +212,7 @@ export function createBuildActions(params: BuildActionParams) {
             return runId;
         },
         recalculatePhotoDates: async (assetId?: string): Promise<string> => {
-            const localJobId = 'recalculate-photo-dates-' + Date.now();
+            const localJobId = `recalculate-photo-dates-${Date.now()}`;
             addJob(localJobId, 'analysis', assetId ? 'Recalculating Photo Date' : 'Recalculating Photo Dates');
             updateJobState(localJobId, 'starting');
 
