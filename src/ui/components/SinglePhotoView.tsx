@@ -265,6 +265,7 @@ function useSinglePhotoViewState(params: {
         clearAssetAnalysis: analysisUi.clearAssetAnalysis,
         currentAssetId: asset?.id,
         onGetWorkflowRunDetail: params.onGetWorkflowRunDetail,
+        setShowInfoPanel: params.panelState.setShowInfoPanel,
     });
 
     return {

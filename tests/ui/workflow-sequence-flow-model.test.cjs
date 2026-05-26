@@ -41,7 +41,7 @@ test('sequence flow edges bind to explicit workflow node handles', async () => {
             source: 'scan-folder',
             target: 'preview-each',
             type: 'smoothstep',
-            sourceHandle: SEQUENCE_NODE_RIGHT_HANDLE_ID,
+            sourceHandle: SEQUENCE_NODE_BOTTOM_HANDLE_ID,
             targetHandle: SEQUENCE_NODE_LEFT_HANDLE_ID,
             animated: false,
             selectable: false,

@@ -218,8 +218,9 @@ function pollWorkflowRun(params: {
     clearAssetAnalysis: (assetId: string) => void;
     isCancelled: () => boolean;
     onScheduleNext: (poll: () => Promise<void>) => void;
+    setShowInfoPanel?: (v: boolean) => void;
 }) {
-    const { assetId, jobId, currentAssetId, onGetWorkflowRunDetail, setAssetAnalysis, clearAssetAnalysis, isCancelled, onScheduleNext } = params;
+    const { assetId, jobId, currentAssetId, onGetWorkflowRunDetail, setAssetAnalysis, clearAssetAnalysis, isCancelled, onScheduleNext, setShowInfoPanel } = params;
     const poll = async () => {
         if (isCancelled()) {return;}
         try {
@@ -234,7 +235,8 @@ function pollWorkflowRun(params: {
 
             if (detail.summary?.status === 'completed') {
                 if (currentAssetId === assetId) {
-                    setAssetAnalysis(assetId, { jobId: null });
+                    setAssetAnalysis(assetId, { state: 'idle', jobId: null });
+                    setShowInfoPanel?.(true);
                 } else {
                     clearAssetAnalysis(assetId);
                 }
@@ -257,8 +259,9 @@ export function useAnalysisWorkflowFailureTracking(params: {
     clearAssetAnalysis: (assetId: string) => void;
     currentAssetId: string | undefined;
     onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
+    setShowInfoPanel?: (v: boolean) => void;
 }) {
-    const { analyses, setAssetAnalysis, clearAssetAnalysis, currentAssetId, onGetWorkflowRunDetail } = params;
+    const { analyses, setAssetAnalysis, clearAssetAnalysis, currentAssetId, onGetWorkflowRunDetail, setShowInfoPanel } = params;
 
     useEffect(() => {
         if (!onGetWorkflowRunDetail) {
@@ -288,7 +291,8 @@ export function useAnalysisWorkflowFailureTracking(params: {
                 onScheduleNext: (poll) => {
                     const tid = globalThis.setTimeout(() => { void poll(); }, 1500);
                     timers.push(tid);
-                }
+                },
+                setShowInfoPanel,
             });
         });
 
@@ -302,6 +306,7 @@ export function useAnalysisWorkflowFailureTracking(params: {
         clearAssetAnalysis,
         currentAssetId,
         onGetWorkflowRunDetail,
+        setShowInfoPanel,
     ]);
 }
 
