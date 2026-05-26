@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, RefObject, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, RefObject, PointerEvent as ReactPointerEvent, MouseEvent as ReactMouseEvent } from 'react';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { Tile } from './Tile';
 import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LayoutModeRenderer } from './LayoutModeRenderer';
-import { getSingleClickTileAction, shouldOpenAssetOnDoubleClick } from './layoutTileInteractionModel';
 import { GALLERY_EAGER_PREVIEW_COUNT, GALLERY_ROW_GAP_PX, GALLERY_TILE_GAP_PX } from '../library/galleryBrowseRailModel';
 import {
     createEmptyLibrarySelectionState,
-    getLibrarySelectionCount,
     hasLibrarySelection,
     isItemSelected,
     updateLibrarySelection,
@@ -52,6 +50,9 @@ type SelectionInteractionState = {
     setIsSelecting: (value: boolean) => void;
     pressTimer: RefObject<ReturnType<typeof setTimeout> | null>;
     stopDragging: () => void;
+    dragRange: { anchorIndex: number; currentIndex: number } | null;
+    setDragRange: (range: { anchorIndex: number; currentIndex: number } | null) => void;
+    originalSelectionRef: RefObject<LibrarySelectionState | null>;
 }
 
 type LayoutTileProps = {
@@ -79,7 +80,7 @@ type LayoutTileProps = {
 }
 
 type LayoutTileEventHandlers = {
-    onClick: () => void;
+    onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
     onDoubleClick: () => void;
     onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
     onPointerEnter: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -138,13 +139,16 @@ function useSelectionInteractions(
     const [isSelecting, setIsSelecting] = useState(false);
     const dragSelectionRef = useRef<{ active: boolean; anchorIndex: number | null }>({ active: false, anchorIndex: null });
     const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [dragRange, setDragRange] = useState<{ anchorIndex: number; currentIndex: number } | null>(null);
+    const originalSelectionRef = useRef<LibrarySelectionState | null>(null);
+
     const stopDragging = useCallback(() => {
         dragSelectionRef.current = { ...dragSelectionRef.current, active: false };
     }, []);
 
     useSelectAllShortcut(layoutItems, onLibrarySelectionChange, setIsSelecting);
 
-    return { dragSelectionRef, isSelecting, setIsSelecting, pressTimer, stopDragging };
+    return { dragSelectionRef, isSelecting, setIsSelecting, pressTimer, stopDragging, dragRange, setDragRange, originalSelectionRef };
 }
 
 function getTileShellStyle(isDeclustered: boolean | undefined, isSelected: boolean) {
@@ -180,30 +184,27 @@ function beginSelection(params: {
     librarySelection: LibrarySelectionState;
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
     selectionState: SelectionInteractionState;
+    longPressedRef: RefObject<boolean>;
 }) {
-    const { event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState } = params;
+    const { event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState, longPressedRef } = params;
     if (event.button !== 0) {return;}
+
+    selectionState.originalSelectionRef.current = librarySelection;
 
     const modifierToggle = event.ctrlKey || event.metaKey;
     const modifierRange = event.shiftKey;
     if (modifierToggle || modifierRange || hasLibrarySelection(librarySelection)) {
         clearPressTimer(selectionState.pressTimer);
-        selectionState.setIsSelecting(true);
-        selectionState.dragSelectionRef.current = { active: false, anchorIndex: index };
-        let selectionMode: 'range' | 'toggle' | 'replace' = 'replace';
-        if (modifierRange) {selectionMode = 'range';}
-        else if (modifierToggle) {selectionMode = 'toggle';}
-
-        applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, {
-            mode: selectionMode,
-            index,
-        });
+        selectionState.dragSelectionRef.current = { active: true, anchorIndex: index };
+        selectionState.setDragRange({ anchorIndex: index, currentIndex: index });
         return;
     }
 
     selectionState.pressTimer.current = globalThis.setTimeout(() => {
+        longPressedRef.current = true;
         selectionState.setIsSelecting(true);
         selectionState.dragSelectionRef.current = { active: true, anchorIndex: index };
+        selectionState.setDragRange({ anchorIndex: index, currentIndex: index });
         applySelectionChange(layoutItems, createEmptyLibrarySelectionState(), onLibrarySelectionChange, {
             mode: 'replace',
             index,
@@ -219,13 +220,31 @@ function extendSelection(params: {
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
     selectionState: SelectionInteractionState;
 }) {
-    const { event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState } = params;
+    const { event, index, selectionState } = params;
     if (!selectionState.dragSelectionRef.current.active || event.buttons !== 1) {return;}
-    applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, { mode: 'range', index });
+
+    const anchorIndex = selectionState.dragSelectionRef.current.anchorIndex;
+    if (anchorIndex !== null) {
+        selectionState.setDragRange({ anchorIndex, currentIndex: index });
+    }
+}
+
+function getClickSelectionMode(
+    event: ReactMouseEvent<HTMLButtonElement>,
+    isSelectionActive: boolean,
+): 'range' | 'toggle' | 'replace' | null {
+    if (event.shiftKey) {
+        return 'range';
+    }
+    if (event.ctrlKey || event.metaKey || isSelectionActive) {
+        return 'toggle';
+    }
+    return null;
 }
 
 function handleTileClick(
     params: {
+        event: ReactMouseEvent<HTMLButtonElement>;
         index: number;
         layoutItem: LayoutItem;
         layoutItems: LayoutItem[];
@@ -233,10 +252,11 @@ function handleTileClick(
         onAssetClick: ((id: string) => void) | undefined;
         onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
         selectionState: SelectionInteractionState;
-        showInfoPanel: boolean;
+        longPressedRef: RefObject<boolean>;
     },
 ) {
     const {
+        event,
         index,
         layoutItem,
         layoutItems,
@@ -244,22 +264,68 @@ function handleTileClick(
         onAssetClick,
         onLibrarySelectionChange,
         selectionState,
-        showInfoPanel,
+        longPressedRef,
     } = params;
 
     clearPressTimer(selectionState.pressTimer);
-    const action = getSingleClickTileAction({
-        showInfoPanel,
-        selectionCount: getLibrarySelectionCount(librarySelection),
-    });
 
-    if (action === 'select') {
-        applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, { mode: 'replace', index });
+    if (longPressedRef.current) {
+        longPressedRef.current = false;
         return;
     }
 
-    if (action === 'open') {
-        onAssetClick?.(layoutItem.item.asset.id);
+    const selectionMode = getClickSelectionMode(event, hasLibrarySelection(librarySelection));
+    if (selectionMode) {
+        applySelectionChange(layoutItems, librarySelection, onLibrarySelectionChange, {
+            mode: selectionMode,
+            index,
+        });
+        return;
+    }
+
+    onAssetClick?.(layoutItem.item.asset.id);
+}
+
+function addItemToSet(item: LibrarySelectableItem, selection: { photoIds: Set<string>; groupIds: Set<string> }) {
+    if (item.entityType === 'group' && item.groupId) {
+        selection.groupIds.add(item.groupId);
+    } else {
+        selection.photoIds.add(item.photoId);
+    }
+}
+
+function commitDragSelection(
+    dragRange: { anchorIndex: number; currentIndex: number },
+    originalSelection: LibrarySelectionState,
+    layoutItems: LayoutItem[],
+    onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
+) {
+    const { anchorIndex, currentIndex } = dragRange;
+    const nextSelection = {
+        photoIds: new Set(originalSelection.photoIds),
+        groupIds: new Set(originalSelection.groupIds),
+        anchorKey: originalSelection.anchorKey,
+        mostRecentSelectionKey: originalSelection.mostRecentSelectionKey,
+    };
+
+    const start = Math.min(anchorIndex, currentIndex);
+    const end = Math.max(anchorIndex, currentIndex);
+    for (let i = start; i <= end; i++) {
+        const layoutItem = layoutItems[i];
+        if (layoutItem) {
+            addItemToSet(layoutItem.item, nextSelection);
+        }
+    }
+
+    const lastItem = layoutItems[currentIndex];
+    if (lastItem) {
+        const anchorItem = layoutItems[anchorIndex];
+        nextSelection.anchorKey = anchorItem ? anchorItem.item.selectionKey : null;
+        nextSelection.mostRecentSelectionKey = lastItem.item.selectionKey;
+    }
+
+    if (onLibrarySelectionChange) {
+        onLibrarySelectionChange(nextSelection);
     }
 }
 
@@ -281,32 +347,44 @@ function useLayoutTileEventHandlers(params: {
         onAssetClick,
         onLibrarySelectionChange,
         selectionState,
-        showInfoPanel,
     } = params;
 
+    const longPressedRef = useRef(false);
+
     const onPointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
-        beginSelection({ event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState });
+        longPressedRef.current = false;
+        beginSelection({ event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState, longPressedRef });
     }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
 
     const onPointerEnter = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
         extendSelection({ event, index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState });
     }, [index, layoutItems, librarySelection, onLibrarySelectionChange, selectionState]);
 
-    const onClick = useCallback(() => {
-        handleTileClick({ index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, showInfoPanel });
-    }, [index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, showInfoPanel]);
+    const onClick = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+        handleTileClick({ event, index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState, longPressedRef });
+    }, [index, layoutItem, layoutItems, librarySelection, onAssetClick, onLibrarySelectionChange, selectionState]);
 
     const onDoubleClick = useCallback(() => {
         clearPressTimer(selectionState.pressTimer);
-        if (shouldOpenAssetOnDoubleClick(showInfoPanel)) {
-            onAssetClick?.(layoutItem.item.asset.id);
-        }
-    }, [layoutItem.item.asset.id, onAssetClick, selectionState.pressTimer, showInfoPanel]);
+    }, [selectionState.pressTimer]);
 
     const onPointerUp = useCallback(() => {
         clearPressTimer(selectionState.pressTimer);
+
+        const hasDragged = selectionState.dragRange && selectionState.dragRange.currentIndex !== selectionState.dragRange.anchorIndex;
+        if (hasDragged && selectionState.dragRange) {
+            longPressedRef.current = true;
+            commitDragSelection(
+                selectionState.dragRange,
+                selectionState.originalSelectionRef.current ?? librarySelection,
+                layoutItems,
+                onLibrarySelectionChange,
+            );
+        }
+
+        selectionState.setDragRange(null);
         selectionState.stopDragging();
-    }, [selectionState]);
+    }, [selectionState, layoutItems, librarySelection, onLibrarySelectionChange]);
 
     const onPointerLeave = useCallback(() => {
         clearPressTimer(selectionState.pressTimer);
@@ -338,7 +416,14 @@ function LayoutTile({
     isScrollSettled,
     shellStyleOverride,
 }: LayoutTileProps) {
-    const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id;
+    const isInDragRange = useMemo(() => {
+        if (!selectionState.dragRange) {return false;}
+        const { anchorIndex, currentIndex } = selectionState.dragRange;
+        const start = Math.min(anchorIndex, currentIndex);
+        const end = Math.max(anchorIndex, currentIndex);
+        return index >= start && index <= end;
+    }, [selectionState.dragRange, index]);
+    const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id || isInDragRange;
     const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
     const shellStyle = useMemo(() => ({
         ...getTileShellStyle(isDeclustered, isSelected),
@@ -369,6 +454,8 @@ function LayoutTile({
             onPointerEnter={onPointerEnter}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
+            onDragStart={(e) => e.preventDefault()}
+            draggable={false}
         >
             <Tile
                 asset={layoutItem.item.asset}

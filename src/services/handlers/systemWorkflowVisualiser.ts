@@ -14,7 +14,7 @@ import type {
     WorkflowVisualiserWorkflowSummary,
     WorkflowVisualiserTextSection,
 } from '@contracts/workflowVisualiser';
-import type { WorkflowDefinition } from '../workflowRuntime/contracts';
+import type { WorkflowDefinition, ModuleDefinition } from '../workflowRuntime/contracts';
 import type { WorkflowFailedSubject, WorkflowRunDetail } from '../workflowRuntime/executionStore';
 import { getWorkflowRunsSnapshot } from './systemWorkflowRunSnapshot';
 
@@ -146,9 +146,9 @@ function buildNodeMaps(definition: WorkflowDefinition) {
     return upstreamIdsByNode;
 }
 
-function buildGraph(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null) {
+function buildGraph(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null, getModuleDefinition: (moduleId: string) => ModuleDefinition) {
     const upstreamIdsByNode = buildNodeMaps(definition);
-    const nodes = buildVisualiserNodes(definition, runDetail, upstreamIdsByNode);
+    const nodes = buildVisualiserNodes(definition, runDetail, upstreamIdsByNode, getModuleDefinition);
     const edges = buildVisualiserEdges(definition);
 
     return { nodes, edges };
@@ -157,10 +157,15 @@ function buildGraph(definition: WorkflowDefinition, runDetail: WorkflowRunDetail
 function buildVisualiserNodes(
     definition: WorkflowDefinition, 
     runDetail: WorkflowRunDetail | null, 
-    upstreamIdsByNode: Map<string, string[]>
+    upstreamIdsByNode: Map<string, string[]>,
+    getModuleDefinition: (moduleId: string) => ModuleDefinition
 ): WorkflowVisualiserGraphNode[] {
     return definition.nodes.map((node) => {
         const counts = getStepCounts(runDetail, node.id);
+        const moduleDef = node.kind === 'module' ? getModuleDefinition(node.moduleId) : undefined;
+        const estimatedCostPerCall = moduleDef?.estimatedCostPerCall;
+        const totalEstimatedCost = estimatedCostPerCall !== undefined ? estimatedCostPerCall * counts.totalItems : undefined;
+
         return {
             id: node.id,
             label: getNodeLabel(definition, node.id),
@@ -174,6 +179,8 @@ function buildVisualiserNodes(
             moduleId: node.kind === 'module' ? node.moduleId : undefined,
             controlType: node.kind === 'control' ? node.controlType : undefined,
             countNoun: node.presentation?.countNoun ?? DEFAULT_COUNT_NOUN,
+            estimatedCostPerCall,
+            totalEstimatedCost,
             ...counts,
         };
     });
@@ -237,65 +244,7 @@ function summariseStage(
         ...counts,
     };
 }
-
 function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null) {
-    if (definition.id === 'folder_ingest_v1') {
-        return {
-            stages: [
-                summariseStage('discovery', 'Discovery', 'Scan the folder and discover files.', ['scan-folder'], runDetail, definition),
-                summariseStage(
-                    'library-ready',
-                    'Ingest',
-                    'Prepare previews and unlock the browsable library.',
-                    ['preview-each', 'generate-previews', 'collect-previewed-assets'],
-                    runDetail,
-                    definition,
-                ),
-                summariseStage(
-                    'enrichment',
-                    'Enrichment',
-                    'Run downstream analysis, grouping, and metadata branches.',
-                    [
-                        'enrichment-each',
-                        'extract-embedded-metadata',
-                        'estimate-photo-date-from-embedded',
-                        'detect-faces',
-                        'generate-face-vectors',
-                        'collect-people',
-                        'resolve-people',
-                        'collect-similar',
-                        'group-similar-photos',
-                        'detect-sensitive-content',
-                        'generate-ai-metadata',
-                        'estimate-photo-date-from-ai',
-                    ],
-                    runDetail,
-                    definition,
-                ),
-            ],
-        };
-    }
-
-    if (definition.id === 'runtime.simulation_workflow') {
-        return {
-            stages: [
-                summariseStage('enumeration', 'Discovery', 'Simulate discovery of items.', ['enumerate-sim'], runDetail, definition),
-                summariseStage('fast_processing', 'Fast Processing', 'Simulate fast task step.', ['fast-task-sim', 'fast-task-sim-2', 'fast-task-sim-3'], runDetail, definition),
-                summariseStage('medium_processing', 'Medium Processing', 'Simulate medium task step.', [
-                    'medium-task-sim', 
-                    'medium-branch-success-each', 
-                    'medium-branch-failure-each',
-                    'medium-branch-1-step-1', 
-                    'medium-branch-1-step-2', 
-                    'medium-branch-1-step-3',
-                    'medium-branch-2-step-1',
-                    'medium-branch-3-step-1'
-                ], runDetail, definition),
-                summariseStage('slow_processing', 'Slow Processing', 'Simulate slow task step.', ['slow-task-sim'], runDetail, definition),
-            ],
-        };
-    }
-
     if (definition.id === 'library_face_pipeline_v1') {
         return {
             stages: [
@@ -491,9 +440,9 @@ export function buildWorkflowVisualiserWorkflowSummary(definition: WorkflowDefin
     };
 }
 
-export function buildWorkflowVisualiserModel(params: BuildWorkflowVisualiserParams): WorkflowVisualiserModel {
+export function buildWorkflowVisualiserModel(params: BuildWorkflowVisualiserParams & { getModuleDefinition: (moduleId: string) => ModuleDefinition }): WorkflowVisualiserModel {
     const displayName = getWorkflowDisplayName(params.workflowDefinition);
-    const graph = buildGraph(params.workflowDefinition, params.runDetail);
+    const graph = buildGraph(params.workflowDefinition, params.runDetail, params.getModuleDefinition);
     const progression = buildProgression(params.workflowDefinition, params.runDetail);
 
     return {
@@ -550,6 +499,7 @@ export function getWorkflowVisualiserModel(params: {
     availableWorkflowDefinitions: WorkflowDefinition[];
     getRunDetail: (runId: string) => WorkflowRunDetail;
     requestedRunId?: string | null;
+    getModuleDefinition: (moduleId: string) => ModuleDefinition;
 }): WorkflowVisualiserModel {
     const allRuns = getWorkflowRunsSnapshot(params.db);
     const availableRuns = allRuns.filter((run) => run.workflowId === params.workflowDefinition.id);
@@ -565,5 +515,6 @@ export function getWorkflowVisualiserModel(params: {
         runDetail: selectedRunId ? params.getRunDetail(selectedRunId) : null,
         availableRuns,
         allRuns,
+        getModuleDefinition: params.getModuleDefinition,
     });
 }

@@ -12,10 +12,13 @@ export function TaskDrawer({
     readonly isMinimized: boolean;
     readonly onMinimize: (minimized: boolean) => void;
 }) {
-    if (jobs.length === 0) {return null;}
+    if (isMinimized && jobs.length === 0) {return null;}
 
     return (
-        <div className="fixed bottom-8 right-3 z-50 flex max-h-[70vh] w-[26rem] flex-col overflow-hidden rounded-t-xl border border-slate-800 bg-[#0f172a] shadow-2xl shadow-black/40 transition-all">
+        <div
+            className="fixed bottom-8 right-3 flex max-h-[70vh] w-[26rem] flex-col overflow-hidden rounded-t-xl border border-slate-800 bg-[#0f172a] shadow-2xl shadow-black/40 transition-all"
+            style={{ zIndex: 9995 }}
+        >
             <div
                 className="flex cursor-pointer select-none items-center justify-between border-b border-slate-800 bg-slate-950/90 px-4 py-3"
                 onDoubleClick={() => onMinimize(!isMinimized)}
@@ -38,9 +41,15 @@ export function TaskDrawer({
             </div>
             {!isMinimized && (
                 <div className="flex-1 overflow-y-auto bg-slate-900/95 p-3">
-                    {jobs.map((job) => (
-                        <JobRow key={job.id} job={job} onStop={onStop} />
-                    ))}
+                    {jobs.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-500">
+                            No active background tasks.
+                        </div>
+                    ) : (
+                        jobs.map((job) => (
+                            <JobRow key={job.id} job={job} onStop={onStop} />
+                        ))
+                    )}
                 </div>
             )}
         </div>

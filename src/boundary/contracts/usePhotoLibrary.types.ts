@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction, ReactNode } from 'react';
 import type { Asset } from '@contracts/core';
 
 export type FilterType = 'person_any' | 'person_all' | 'person_only' | 'album' | 'tag';
@@ -29,7 +29,7 @@ export type NotificationItem = {
     id: string;
     type: 'warning' | 'info' | 'success' | 'error';
     title: string;
-    message?: string;
+    message?: ReactNode;
     actionLabel?: string;
     actionKind?: 'open_workflow' | 'open_asset' | 'retry';
     actionPayload?: Record<string, unknown>;

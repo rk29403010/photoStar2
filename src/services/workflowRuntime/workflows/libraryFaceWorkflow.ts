@@ -13,6 +13,7 @@ export const libraryFaceWorkflowDefinition: WorkflowDefinition = {
             id: 'detect-faces',
             kind: 'module',
             moduleId: 'runtime.detect_faces',
+            step: 'face_pipeline',
             outputsTo: ['generate-face-vectors'],
             presentation: {
                 label: 'Detect faces',
@@ -24,6 +25,7 @@ export const libraryFaceWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-face-vectors',
             kind: 'module',
             moduleId: 'runtime.generate_face_vectors',
+            step: 'face_pipeline',
             outputsTo: ['collect-people'],
             presentation: {
                 label: 'Generate face vectors',
@@ -34,6 +36,7 @@ export const libraryFaceWorkflowDefinition: WorkflowDefinition = {
             id: 'collect-people',
             kind: 'control',
             controlType: 'collect',
+            step: 'face_pipeline',
             outputsTo: ['resolve-people'],
             presentation: {
                 label: 'Collect people candidates',
@@ -44,6 +47,7 @@ export const libraryFaceWorkflowDefinition: WorkflowDefinition = {
             id: 'resolve-people',
             kind: 'module',
             moduleId: 'runtime.resolve_people',
+            step: 'face_pipeline',
             runMode: 'once_per_batch',
             completesMilestones: ['face_pipeline_complete'],
             presentation: {

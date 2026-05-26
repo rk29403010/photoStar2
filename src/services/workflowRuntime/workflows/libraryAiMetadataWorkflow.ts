@@ -16,7 +16,8 @@ export const libraryAiMetadataWorkflowDefinition: WorkflowDefinition = {
         {
             id: 'generate-ai-metadata',
             kind: 'module',
-            moduleId: 'runtime.generate_ai_metadata',
+            moduleId: 'runtime.generate_ai_metadata_scout',
+            step: 'ai_metadata',
             completesMilestones: ['ai_metadata_complete'],
             presentation: {
                 label: 'Generate AI metadata',

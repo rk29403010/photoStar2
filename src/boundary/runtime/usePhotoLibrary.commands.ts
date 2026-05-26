@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction, ReactNode } from 'react';
 import type { Asset, LibraryStats, Person, TimelineGroupId } from '@contracts/core';
 import type {
     BackgroundJob,
@@ -56,7 +56,7 @@ type ScanActionParams = {
         type: 'warning' | 'info' | 'success' | 'error',
         title: string,
         options?: {
-            message?: string;
+            message?: ReactNode;
             actionLabel?: string;
             actionKind?: 'open_workflow' | 'open_asset' | 'retry';
             actionPayload?: Record<string, unknown>;
@@ -84,7 +84,7 @@ type PipelineActionParams = Pick<SharedWorkflowActionParams, 'addJob' | 'request
         type: 'warning' | 'info' | 'success' | 'error',
         title: string,
         options?: {
-            message?: string;
+            message?: ReactNode;
             actionLabel?: string;
             actionKind?: 'open_workflow' | 'open_asset' | 'retry';
             actionPayload?: Record<string, unknown>;

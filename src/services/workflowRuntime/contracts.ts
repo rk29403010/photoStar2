@@ -47,6 +47,7 @@ export type WorkflowModuleNodeDefinition = {
     id: string;
     kind: 'module';
     moduleId: string;
+    step: string;
     runMode?: 'per_subject' | 'once_per_batch';
     completesMilestones?: string[];
     outputsTo?: string[];
@@ -59,6 +60,7 @@ export type WorkflowControlNodeDefinition = {
     id: string;
     kind: 'control';
     controlType: 'for_each' | 'batch' | 'collect' | 'approval_gate';
+    step: string;
     outputsTo?: string[];
     presentation?: WorkflowNodePresentationDefinition;
 }
@@ -131,6 +133,7 @@ export type ModuleDefinition = {
     capability: CapabilityClass;
     accepts: string[];
     produces: ModuleOutputDefinition[];
+    estimatedCostPerCall?: number;
     run: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult> | RuntimeModuleRunResult;
 }
 
@@ -369,6 +372,7 @@ function assertControlNode(node: WorkflowControlNodeDefinition): void {
 
 function assertWorkflowNode(node: WorkflowNodeDefinition): void {
     assertNonEmptyString(node.id, 'workflow.node.id');
+    assertNonEmptyString(node.step, 'workflow.node.step');
     if (node.kind === 'module') {
         assertModuleNode(node);
         return;

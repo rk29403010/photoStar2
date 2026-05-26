@@ -19,31 +19,42 @@ export function ErrorBanner({ error }: { readonly error: string }) {
 
 function TaskDrawerStatusButton({
   jobCount,
-  onRestore,
+  isMinimized,
+  onClick,
 }: {
   readonly jobCount: number;
-  readonly onRestore: () => void;
+  readonly isMinimized: boolean;
+  readonly onClick: () => void;
 }) {
-  if (jobCount <= 0) {
-    return null;
-  }
+  const borderColor = '#334155';
+  const textColor = '#94a3b8';
 
   return (
     <button
-      onClick={onRestore}
+      id="task-drawer-toggle"
+      onClick={onClick}
+      title="Toggle Background Tasks"
       style={{
-        border: '1px solid #155e75',
-        background: 'rgba(8, 47, 73, 0.8)',
-        color: '#cffafe',
-        borderRadius: 999,
-        padding: '2px 10px',
+        background: !isMinimized ? '#1e293b' : 'rgba(15,23,42,0.9)',
+        border: `1px solid ${borderColor}`,
+        borderRadius: '6px',
+        color: textColor,
+        padding: '3px 8px',
         fontSize: '11px',
-        fontWeight: 700,
         cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        fontFamily: 'monospace',
+        backdropFilter: 'blur(8px)',
+        transition: 'all 0.2s',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+        flexShrink: 0,
         marginRight: 8,
       }}
     >
-      Tasks ({jobCount})
+      <span style={{ fontSize: '14px' }}>⚡</span>
+      {!isMinimized ? 'Hide Tasks' : `Tasks${jobCount > 0 ? ` (${jobCount})` : ''}`}
     </button>
   );
 }
@@ -51,20 +62,19 @@ function TaskDrawerStatusButton({
 export function AppStatusRightSlot({
   isTaskDrawerMinimized,
   activeOverlayJobCount,
-  onRestoreTaskDrawer,
+  onToggleTaskDrawer,
   devRuntimeImpact,
 }: {
   readonly isTaskDrawerMinimized: boolean;
   readonly activeOverlayJobCount: number;
-  readonly onRestoreTaskDrawer: () => void;
+  readonly onToggleTaskDrawer: () => void;
   readonly devRuntimeImpact: DevRuntimeImpact | null;
 }) {
-  const visibleJobCount = isTaskDrawerMinimized ? activeOverlayJobCount : 0;
   const indicator = getDevRuntimeImpactIndicator(devRuntimeImpact);
 
   return (
     <>
-      <TaskDrawerStatusButton jobCount={visibleJobCount} onRestore={onRestoreTaskDrawer} />
+      <TaskDrawerStatusButton jobCount={activeOverlayJobCount} isMinimized={isTaskDrawerMinimized} onClick={onToggleTaskDrawer} />
       {indicator ? (
         <div
           title={indicator.title}

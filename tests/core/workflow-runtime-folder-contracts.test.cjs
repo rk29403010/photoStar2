@@ -27,12 +27,12 @@ test('folder ingest contracts support folder subjects, parameters, labels, and m
             ],
         },
         nodes: [
-            { id: 'scan-folder', kind: 'module', moduleId: 'runtime.scan_folder', outputsTo: ['preview-each'] },
-            { id: 'preview-each', kind: 'control', controlType: 'for_each', outputsTo: ['generate-previews'] },
-            { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata', outputsTo: ['estimate-photo-date-from-embedded'] },
-            { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews' },
-            { id: 'estimate-photo-date-from-embedded', kind: 'module', moduleId: 'runtime.estimate_photo_date' },
-            { id: 'estimate-photo-date-from-ai', kind: 'module', moduleId: 'runtime.estimate_photo_date' },
+            { id: 'scan-folder', kind: 'module', moduleId: 'runtime.scan_folder', step: 'discovery', outputsTo: ['preview-each'] },
+            { id: 'preview-each', kind: 'control', controlType: 'for_each', step: 'ingest', outputsTo: ['generate-previews'] },
+            { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata', step: 'enrichment', outputsTo: ['estimate-photo-date-from-embedded'] },
+            { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews', step: 'ingest' },
+            { id: 'estimate-photo-date-from-embedded', kind: 'module', moduleId: 'runtime.estimate_photo_date', step: 'enrichment' },
+            { id: 'estimate-photo-date-from-ai', kind: 'module', moduleId: 'runtime.estimate_photo_date', step: 'enrichment' },
         ],
     };
 

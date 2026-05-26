@@ -9,6 +9,7 @@ export const assetPreviewWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-preview',
             kind: 'module',
             moduleId: 'legacy.preview.generate',
+            step: 'preview',
         },
     ],
 };

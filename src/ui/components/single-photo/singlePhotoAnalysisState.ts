@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Asset } from '@contracts/core';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
@@ -18,11 +18,98 @@ export type AnalysisUiBundle = {
     setAnalyzingJobId: Dispatch<SetStateAction<string | null>>;
 };
 
-export function useAnalysisUiState(): AnalysisUiBundle {
-    const [analyzingAssetId, setAnalyzingAssetId] = useState<string | null>(null);
-    const [analyzingJobId, setAnalyzingJobId] = useState<string | null>(null);
-    const [analysisState, setAnalysisState] = useState<AnalysisUiState>('idle');
-    const [analysisError, setAnalysisError] = useState<string | null>(null);
+export type AssetAnalysisState = {
+    jobId: string | null;
+    state: AnalysisUiState;
+    error: string | null;
+};
+
+function updateAssetProperty<K extends keyof AssetAnalysisState>(
+    setAnalyses: Dispatch<SetStateAction<Record<string, AssetAnalysisState>>>,
+    assetId: string | null,
+    key: K,
+    value: SetStateAction<AssetAnalysisState[K]>
+) {
+    if (!assetId) {return;}
+    setAnalyses(prev => {
+        const current = prev[assetId] || { jobId: null, state: 'idle', error: null };
+        const nextValue = typeof value === 'function' ? (value as (prev: AssetAnalysisState[K]) => AssetAnalysisState[K])(current[key]) : value;
+        return {
+            ...prev,
+            [assetId]: { ...current, [key]: nextValue }
+        };
+    });
+}
+
+function updateAssetAnalysis(
+    setAnalyses: Dispatch<SetStateAction<Record<string, AssetAnalysisState>>>,
+    assetId: string,
+    update: Partial<AssetAnalysisState>
+) {
+    setAnalyses(prev => {
+        const current = prev[assetId] || { jobId: null, state: 'idle', error: null };
+        return {
+            ...prev,
+            [assetId]: { ...current, ...update }
+        };
+    });
+}
+
+function removeAssetAnalysis(
+    setAnalyses: Dispatch<SetStateAction<Record<string, AssetAnalysisState>>>,
+    assetId: string
+) {
+    setAnalyses(prev => {
+        const next = { ...prev };
+        delete next[assetId];
+        return next;
+    });
+}
+
+export function useAnalysisUiState(currentAssetId: string | null): AnalysisUiBundle & {
+    analyses: Record<string, AssetAnalysisState>;
+    setAssetAnalysis: (assetId: string, update: Partial<AssetAnalysisState>) => void;
+    clearAssetAnalysis: (assetId: string) => void;
+} {
+    const [analyses, setAnalyses] = useState<Record<string, AssetAnalysisState>>({});
+
+    const setAssetAnalysis = useCallback((assetId: string, update: Partial<AssetAnalysisState>) => {
+        updateAssetAnalysis(setAnalyses, assetId, update);
+    }, []);
+
+    const clearAssetAnalysis = useCallback((assetId: string) => {
+        removeAssetAnalysis(setAnalyses, assetId);
+    }, []);
+
+    const currentAnalysis = currentAssetId ? analyses[currentAssetId] : null;
+    const analysisState = currentAnalysis?.state ?? 'idle';
+    const analysisError = currentAnalysis?.error ?? null;
+    const analyzingAssetId = (currentAnalysis && currentAnalysis.state === 'analyzing') ? currentAssetId : null;
+    const analyzingJobId = currentAnalysis?.jobId ?? null;
+
+    const setAnalysisState = useCallback((state: SetStateAction<AnalysisUiState>) => {
+        updateAssetProperty(setAnalyses, currentAssetId, 'state', state);
+    }, [currentAssetId]);
+
+    const setAnalysisError = useCallback((error: SetStateAction<string | null>) => {
+        updateAssetProperty(setAnalyses, currentAssetId, 'error', error);
+    }, [currentAssetId]);
+
+    const setAnalyzingAssetId = useCallback((id: SetStateAction<string | null>) => {
+        const targetId = typeof id === 'function' ? (id as (prev: string | null) => string | null)(currentAssetId) : id;
+        if (!targetId) {
+            if (currentAssetId) {
+                clearAssetAnalysis(currentAssetId);
+            }
+        } else {
+            setAssetAnalysis(targetId, { state: 'analyzing' });
+        }
+    }, [currentAssetId, setAssetAnalysis, clearAssetAnalysis]);
+
+    const setAnalyzingJobId = useCallback((jobId: SetStateAction<string | null>) => {
+        updateAssetProperty(setAnalyses, currentAssetId, 'jobId', jobId);
+    }, [currentAssetId]);
+
     return {
         analysisState,
         setAnalysisState,
@@ -31,7 +118,10 @@ export function useAnalysisUiState(): AnalysisUiBundle {
         analyzingAssetId,
         setAnalyzingAssetId,
         analyzingJobId,
-        setAnalyzingJobId
+        setAnalyzingJobId,
+        analyses,
+        setAssetAnalysis,
+        clearAssetAnalysis
     };
 }
 
@@ -117,161 +207,101 @@ export function useAnalysisTracking(params: {
     ]);
 }
 
-type WorkflowFailureTrackingParams = {
-    analysisState: AnalysisUiState;
-    analyzingAssetId: string | null;
-    analyzingJobId: string | null;
-    onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
-    setAnalysisError: Dispatch<SetStateAction<string | null>>;
-    setAnalysisState: Dispatch<SetStateAction<AnalysisUiState>>;
-    setAnalyzingJobId: Dispatch<SetStateAction<string | null>>;
-    setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>;
-};
 
-type WorkflowFailureCallbacks = Pick<
-    WorkflowFailureTrackingParams,
-    'setAnalysisError' | 'setAnalysisState' | 'setAnalyzingJobId' | 'setAnalyzingAssetId'
->;
 
-function clearAnalysisRun(params: Pick<WorkflowFailureTrackingParams, 'setAnalyzingJobId' | 'setAnalyzingAssetId'>) {
-    params.setAnalyzingJobId(null);
-    params.setAnalyzingAssetId(null);
-}
+function pollWorkflowRun(params: {
+    assetId: string;
+    jobId: string;
+    currentAssetId: string | undefined;
+    onGetWorkflowRunDetail: (runId: string) => Promise<WorkflowRunDetailResponse>;
+    setAssetAnalysis: (assetId: string, update: Partial<AssetAnalysisState>) => void;
+    clearAssetAnalysis: (assetId: string) => void;
+    isCancelled: () => boolean;
+    onScheduleNext: (poll: () => Promise<void>) => void;
+}) {
+    const { assetId, jobId, currentAssetId, onGetWorkflowRunDetail, setAssetAnalysis, clearAssetAnalysis, isCancelled, onScheduleNext } = params;
+    const poll = async () => {
+        if (isCancelled()) {return;}
+        try {
+            const detail = await onGetWorkflowRunDetail(jobId);
+            if (isCancelled()) {return;}
 
-function failAnalysisRun(
-    params: Pick<WorkflowFailureTrackingParams, 'setAnalysisError' | 'setAnalysisState' | 'setAnalyzingJobId' | 'setAnalyzingAssetId'>,
-    message: string,
-    cancelled: boolean,
-) {
-    if (cancelled) {
-        return;
-    }
+            const failureMessage = getAnalysisWorkflowFailureMessage(detail);
+            if (failureMessage) {
+                setAssetAnalysis(assetId, { state: 'error', error: failureMessage, jobId: null });
+                return;
+            }
 
-    params.setAnalysisError(message);
-    params.setAnalysisState('error');
-    clearAnalysisRun(params);
-}
+            if (detail.summary?.status === 'completed') {
+                if (currentAssetId === assetId) {
+                    setAssetAnalysis(assetId, { jobId: null });
+                } else {
+                    clearAssetAnalysis(assetId);
+                }
+                return;
+            }
 
-function resolveTrackedAnalysisWorkflow(params: Pick<
-    WorkflowFailureTrackingParams,
-    'analysisState' | 'analyzingAssetId' | 'analyzingJobId' | 'onGetWorkflowRunDetail'
->) {
-    if (params.analysisState !== 'analyzing') {
-        return null;
-    }
-    if (!params.analyzingJobId || !params.analyzingAssetId || !params.onGetWorkflowRunDetail) {
-        return null;
-    }
-
-    return {
-        activeJobId: params.analyzingJobId,
-        workflowRunDetailLoader: params.onGetWorkflowRunDetail,
+            onScheduleNext(poll);
+        } catch (error: unknown) {
+            if (isCancelled()) {return;}
+            const message = error instanceof Error ? error.message : String(error);
+            setAssetAnalysis(assetId, { state: 'error', error: message, jobId: null });
+        }
     };
+    void poll();
 }
 
-function scheduleWorkflowPoll(pollWorkflowRun: () => Promise<void>) {
-    return globalThis.setTimeout(() => {
-        void pollWorkflowRun();
-    }, 1500);
-}
-
-function handleWorkflowPollDetail(params: {
-    detail: WorkflowRunDetailResponse;
-    cancelled: boolean;
-    callbacks: WorkflowFailureCallbacks;
-    scheduleNextPoll: () => void;
-}): boolean {
-    if (params.cancelled) {
-        return true;
-    }
-
-    const failureMessage = getAnalysisWorkflowFailureMessage(params.detail);
-    if (failureMessage) {
-        failAnalysisRun(params.callbacks, failureMessage, params.cancelled);
-        return true;
-    }
-
-    if (params.detail.summary?.status === 'completed') {
-        params.callbacks.setAnalyzingJobId(null);
-        return true;
-    }
-
-    params.scheduleNextPoll();
-    return false;
-}
-
-function handleWorkflowPollError(
-    callbacks: WorkflowFailureCallbacks,
-    cancelled: boolean,
-    error: unknown,
-) {
-    const message = error instanceof Error ? error.message : String(error);
-    failAnalysisRun(callbacks, message, cancelled);
-}
-
-export function useAnalysisWorkflowFailureTracking(params: WorkflowFailureTrackingParams) {
-    const {
-        analysisState,
-        analyzingAssetId,
-        analyzingJobId,
-        onGetWorkflowRunDetail,
-        setAnalysisError,
-        setAnalysisState,
-        setAnalyzingJobId,
-        setAnalyzingAssetId,
-    } = params;
+export function useAnalysisWorkflowFailureTracking(params: {
+    analyses: Record<string, AssetAnalysisState>;
+    setAssetAnalysis: (assetId: string, update: Partial<AssetAnalysisState>) => void;
+    clearAssetAnalysis: (assetId: string) => void;
+    currentAssetId: string | undefined;
+    onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
+}) {
+    const { analyses, setAssetAnalysis, clearAssetAnalysis, currentAssetId, onGetWorkflowRunDetail } = params;
 
     useEffect(() => {
-        const trackedWorkflow = resolveTrackedAnalysisWorkflow({
-            analysisState,
-            analyzingAssetId,
-            analyzingJobId,
-            onGetWorkflowRunDetail,
-        });
-        if (!trackedWorkflow) {
+        if (!onGetWorkflowRunDetail) {
             return;
         }
 
-        const { workflowRunDetailLoader, activeJobId } = trackedWorkflow;
+        const activeJobs = Object.entries(analyses).filter(
+            ([_, val]) => val.state === 'analyzing' && val.jobId
+        );
+
+        if (activeJobs.length === 0) {
+            return;
+        }
+
         let cancelled = false;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const callbacks = { setAnalysisError, setAnalysisState, setAnalyzingJobId, setAnalyzingAssetId };
+        const timers: ReturnType<typeof setTimeout>[] = [];
 
-        const scheduleNextPoll = (pollWorkflowRun: () => Promise<void>) => {
-            timeoutId = scheduleWorkflowPoll(pollWorkflowRun);
-        };
-
-        const pollWorkflowRun = async () => {
-            try {
-                const detail = await workflowRunDetailLoader(activeJobId);
-                handleWorkflowPollDetail({
-                    detail,
-                    cancelled,
-                    callbacks,
-                    scheduleNextPoll: () => scheduleNextPoll(pollWorkflowRun),
-                });
-            } catch (error: unknown) {
-                handleWorkflowPollError(callbacks, cancelled, error);
-            }
-        };
-
-        scheduleNextPoll(pollWorkflowRun);
+        activeJobs.forEach(([assetId, val]) => {
+            pollWorkflowRun({
+                assetId,
+                jobId: val.jobId!,
+                currentAssetId,
+                onGetWorkflowRunDetail,
+                setAssetAnalysis,
+                clearAssetAnalysis,
+                isCancelled: () => cancelled,
+                onScheduleNext: (poll) => {
+                    const tid = globalThis.setTimeout(() => { void poll(); }, 1500);
+                    timers.push(tid);
+                }
+            });
+        });
 
         return () => {
             cancelled = true;
-            if (timeoutId !== null) {
-                globalThis.clearTimeout(timeoutId);
-            }
+            timers.forEach((t) => globalThis.clearTimeout(t));
         };
     }, [
-        analysisState,
-        analyzingAssetId,
-        analyzingJobId,
+        analyses,
+        setAssetAnalysis,
+        clearAssetAnalysis,
+        currentAssetId,
         onGetWorkflowRunDetail,
-        setAnalysisError,
-        setAnalysisState,
-        setAnalyzingAssetId,
-        setAnalyzingJobId,
     ]);
 }
 

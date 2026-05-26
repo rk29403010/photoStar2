@@ -428,6 +428,68 @@ function respondAssetDetail(ctx: Parameters<CommandHandlerMap['get_asset_detail'
 }
 
 export const assetCommandHandlers: CommandHandlerMap = {
+    get_ai_calls_log: (ctx) => {
+        const { id, payload, originWs, dbManager, respond } = ctx;
+        try {
+            const { assetId } = payload as { assetId: string };
+            if (!assetId) {
+                throw new Error('assetId is required');
+            }
+            const rows = dbManager.getDiagnosticsDb().prepare(`
+                SELECT id, call_type, model_name, created_at, (error_message IS NOT NULL) AS has_error
+                FROM ai_calls_log
+                WHERE asset_id = ?
+                ORDER BY created_at DESC
+            `).all(assetId) as {
+                id: string;
+                call_type: string;
+                model_name: string;
+                created_at: string;
+                has_error: number;
+            }[];
+            const logs = rows.map((r) => ({
+                id: r.id,
+                call_type: r.call_type,
+                model_name: r.model_name,
+                created_at: r.created_at,
+                has_error: Boolean(r.has_error),
+            }));
+            respond(id, 'ok', { logs }, null, originWs);
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
+
+    get_ai_call_log_detail: (ctx) => {
+        const { id, payload, originWs, dbManager, respond } = ctx;
+        try {
+            const { logId } = payload as { logId: string };
+            if (!logId) {
+                throw new Error('logId is required');
+            }
+            const log = dbManager.getDiagnosticsDb().prepare(`
+                SELECT id, asset_id, call_type, model_name, prompt, result, error_message, created_at
+                FROM ai_calls_log
+                WHERE id = ?
+            `).get(logId) as {
+                id: string;
+                asset_id: string;
+                call_type: string;
+                model_name: string;
+                prompt: string;
+                result: string | null;
+                error_message: string | null;
+                created_at: string;
+            } | undefined;
+            if (!log) {
+                throw new Error(`AI Call Log detail for ${logId} not found`);
+            }
+            respond(id, 'ok', { log }, null, originWs);
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
+
     get_assets: (ctx) => {
         try {
             respondAssetList(ctx);

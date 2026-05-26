@@ -365,9 +365,16 @@ function useOverlayJobState(
         void actions.stopJob(job.id);
     }, [actions]);
 
+    const prevActiveCountRef = useRef(0);
     useEffect(() => {
-        if (activeOverlayJobs.length === 0) {
+        const currentCount = activeOverlayJobs.length;
+        const prevCount = prevActiveCountRef.current;
+        prevActiveCountRef.current = currentCount;
+
+        if (prevCount === 0 && currentCount > 0) {
             setIsTaskDrawerMinimized(false);
+        } else if (prevCount > 0 && currentCount === 0) {
+            setIsTaskDrawerMinimized(true);
         }
     }, [activeOverlayJobs.length, setIsTaskDrawerMinimized]);
 

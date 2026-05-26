@@ -77,6 +77,8 @@ export type WorkflowVisualiserGraphNode = {
     moduleId?: string;
     controlType?: string;
     countNoun: WorkflowVisualiserCountNoun;
+    estimatedCostPerCall?: number;
+    totalEstimatedCost?: number;
 } & WorkflowVisualiserCounts
 
 export type WorkflowVisualiserGraphEdge = {

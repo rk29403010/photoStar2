@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction, ReactNode } from 'react';
 import { Command, type Child } from '@tauri-apps/plugin-shell';
 import type { Asset, GalleryTimelineSeek, LibraryStats, Person, TimelineGalleryPage, TimelineGroupId, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
@@ -53,7 +53,7 @@ export type ConnectionStateParams = {
         type: 'warning' | 'info' | 'success' | 'error',
         title: string,
         options?: {
-            message?: string;
+            message?: ReactNode;
             actionLabel?: string;
             actionKind?: 'open_workflow' | 'open_asset' | 'retry';
             actionPayload?: Record<string, unknown>;

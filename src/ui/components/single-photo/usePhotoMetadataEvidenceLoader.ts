@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Asset } from '@contracts/core';
 import { shouldRequestPhotoMetadataEvidence } from './photoMetadataEvidenceModel';
 
-type InfoTab = 'file' | 'analysis' | 'people' | 'json';
+type InfoTab = 'file' | 'analysis' | 'people' | 'json' | 'ailogs';
 
 export function usePhotoMetadataEvidenceLoader(params: {
     activeTab: InfoTab;
@@ -17,7 +17,7 @@ export function usePhotoMetadataEvidenceLoader(params: {
             return;
         }
 
-        if (!shouldRequestPhotoMetadataEvidence({ activeTab, asset })) {
+        if (activeTab === 'ailogs' || !shouldRequestPhotoMetadataEvidence({ activeTab, asset })) {
             if (asset.photo_metadata?.evidence) {
                 requestedAssetIdRef.current = null;
             }

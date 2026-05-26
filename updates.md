@@ -1,7 +1,21 @@
 # Updates Log
 
-## [0.1.86] - 2026-05-13T13:23:00Z
+## [0.1.88] - 2026-05-23T05:55:00Z
 
+- Implemented dynamic highlight selection range preview during pointer drag in multi-select mode.
+- Prevented default browser thumbnail/button dragging behavior to allow uninterrupted pointer-select movements.
+- Configured drag range selection to commit only upon releasing the pointer.
+
+## [0.1.87] - 2026-05-23T04:52:00Z
+
+- Refined selection event handlers to ensure normal clicks always open photos when selection is empty (completely ignoring info panel visibility state).
+- Configured double-clicks on assets to do nothing.
+
+## [0.1.86] - 2026-05-23T04:14:00Z
+
+- Restructured click and long-press event handlers in `LayoutEngine` to fix multi-photo selection UX.
+- Assured normal clicks open single photo view when selection is empty and info panel is hidden.
+- Ensured long clicks start multi-select mode, and subsequent normal clicks toggle selection on assets.
 - Added strict AI verbosity and noise rules to `AGENTS.md` to enforce concise output and eliminate process narration.
 
 ## [0.1.85] - 2026-05-12T09:45:00Z

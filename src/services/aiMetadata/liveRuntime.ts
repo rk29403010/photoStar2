@@ -6,7 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
 import type { PhotoMetadataBlock } from '../photoMetadata/types';
-import { normalizePhotoMetadataBlockBoxes } from '../photoMetadata/coordinateNormalization';
+import {
+    normalizePhotoMetadataBlockBoxes,
+    type LocalFaceLike,
+} from '../photoMetadata/coordinateNormalization';
 import { isPhotoMetadataBlock } from '../photoMetadata/validation';
 import {
     assertGeminiResponseContract,
@@ -43,6 +46,8 @@ import {
     sanitizeGeminiResponseTags,
     type MetadataSourceKind,
 } from './liveRuntimeTagHelpers';
+
+const bypassSleepRetry = () => true;
 
 type GoogleGenerativeAIConstructor = new (apiKey: string) => GoogleGenerativeAI;
 type PendingReason = 'rate_limit' | 'daily_quota';
@@ -382,6 +387,37 @@ function buildGeminiRequest(prompt: string, imageParts: PreparedImagePart[]) {
     ];
 }
 
+function logAiCall(params: {
+    dbManager?: DatabaseManager;
+    assetId: string;
+    callType: string;
+    modelName: string;
+    prompt: string;
+    result?: string;
+    errorMessage?: string;
+}) {
+    if (!params.dbManager) {
+        return;
+    }
+    try {
+        const diagnosticsDb = params.dbManager.getDiagnosticsDb();
+        diagnosticsDb.prepare(`
+            INSERT INTO ai_calls_log (id, asset_id, call_type, model_name, prompt, result, error_message)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            uuidv4(),
+            params.assetId,
+            params.callType,
+            params.modelName,
+            params.prompt,
+            params.result ?? null,
+            params.errorMessage ?? null
+        );
+    } catch (e) {
+        console.error('[AI Metadata] Failed to log AI call to diagnostics DB:', e);
+    }
+}
+
 async function generateContent(
     genAI: GoogleGenerativeAI,
     modelName: string,
@@ -392,9 +428,21 @@ async function generateContent(
         assetId: string;
         metadataPass: MetadataPass;
         imageStrategy: ImageStrategy;
+        moduleId?: string;
+        signal?: AbortSignal;
+        dbManager?: DatabaseManager;
     },
 ): Promise<GeminiResponse> {
     recordRequest(modelName);
+    
+    const customHeaders: Record<string, string> = {
+        'x-photostar-asset-id': logContext.assetId,
+        'x-photostar-metadata-pass': logContext.metadataPass,
+    };
+    if (logContext.moduleId) {
+        customHeaders['x-photostar-module-id'] = logContext.moduleId;
+    }
+
     const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
@@ -402,13 +450,24 @@ async function generateContent(
             responseMimeType: 'application/json',
             responseSchema,
         },
-    });
+    }, { customHeaders });
     const startedAt = Date.now();
     try {
-        const response = await model.generateContent(buildGeminiRequest(prompt, imageParts));
+        const response = await model.generateContent(buildGeminiRequest(prompt, imageParts), { signal: logContext.signal });
         const elapsedMs = Date.now() - startedAt;
         console.log(`[AI Metadata] Gemini call ${modelName} completed in ${elapsedMs}ms for asset ${logContext.assetId} (${logContext.metadataPass})`);
-        const parsedResponse = parseGeminiResponse(response.response.text());
+        
+        const responseText = response.response.text();
+        logAiCall({
+            dbManager: logContext.dbManager,
+            assetId: logContext.assetId,
+            callType: logContext.metadataPass,
+            modelName,
+            prompt,
+            result: responseText,
+        });
+
+        const parsedResponse = parseGeminiResponse(responseText);
         const contractReadyResponse = repairGeminiOverviewOnlyResponseMetadata(
             parsedResponse,
             logContext.imageStrategy,
@@ -422,6 +481,16 @@ async function generateContent(
     } catch (error) {
         const elapsedMs = Date.now() - startedAt;
         console.warn(`[AI Metadata] Gemini call ${modelName} failed after ${elapsedMs}ms for asset ${logContext.assetId} (${logContext.metadataPass})`);
+        
+        logAiCall({
+            dbManager: logContext.dbManager,
+            assetId: logContext.assetId,
+            callType: logContext.metadataPass,
+            modelName,
+            prompt,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
+
         throw error;
     }
 }
@@ -445,6 +514,7 @@ function buildLiveMetadataEvidence(params: {
     imageWidth: number | null;
     imageHeight: number | null;
     tileRegions: IndexedCropRegion[];
+    db: ReturnType<DatabaseManager['getDb']>;
 }): LiveMetadataEvidence {
     const remappedResponse = remapGeminiResponseBoxesFromTileSpace({
         response: params.response,
@@ -453,10 +523,23 @@ function buildLiveMetadataEvidence(params: {
         imageHeight: params.imageHeight,
     });
     const rawMetadataBlock = extractMetadataBlock(remappedResponse);
+
+    let faces: LocalFaceLike[] = [];
+    try {
+        const faceRow = params.db.prepare(
+            "SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'"
+        ).get(params.assetId) as { data: string } | undefined;
+        if (faceRow) {
+            faces = (JSON.parse(faceRow.data).faces || []) as LocalFaceLike[];
+        }
+    } catch {
+        // ignore
+    }
+
     const normalizedMetadataBlock = normalizePhotoMetadataBlockBoxes(rawMetadataBlock, {
         width: params.imageWidth,
         height: params.imageHeight,
-    });
+    }, faces);
     const droppedSubjects = rawMetadataBlock.subjects.length - normalizedMetadataBlock.subjects.length;
     const droppedRegions = rawMetadataBlock.regions_of_interest.length - normalizedMetadataBlock.regions_of_interest.length;
     if (droppedSubjects > 0 || droppedRegions > 0) {
@@ -487,6 +570,39 @@ function buildLiveMetadataEvidence(params: {
     };
 }
 
+async function handleProQuotaError(
+    error: unknown,
+    genAI: GoogleGenerativeAI,
+    prompt: string,
+    imageParts: PreparedImagePart[],
+    logContext: {
+        assetId: string;
+        metadataPass: MetadataPass;
+        imageStrategy: ImageStrategy;
+        moduleId?: string;
+        signal?: AbortSignal;
+        dbManager?: DatabaseManager;
+    }
+): Promise<GeminiResponse | null> {
+    const quotaType = classifyAndRecordError(MODEL_REFINE, error as Error);
+    if (!bypassSleepRetry()) {
+        if (quotaType === 'rate_limit' && shouldWaitForModel(MODEL_REFINE)) {
+            await waitForRateLimitWindow(MODEL_REFINE);
+            const retryParsed = await generateContent(
+                genAI,
+                MODEL_REFINE,
+                prompt,
+                imageParts,
+                buildGeminiProResponseSchema(logContext.imageStrategy),
+                logContext,
+            );
+            retryParsed._analysis_tier = 'pro';
+            return retryParsed;
+        }
+    }
+    return null;
+}
+
 async function tryProModel(
     genAI: GoogleGenerativeAI,
     prompt: string,
@@ -495,6 +611,9 @@ async function tryProModel(
         assetId: string;
         metadataPass: MetadataPass;
         imageStrategy: ImageStrategy;
+        moduleId?: string;
+        signal?: AbortSignal;
+        dbManager?: DatabaseManager;
     },
 ): Promise<GeminiResponse | null> {
     if (isDailyQuotaExceeded(MODEL_REFINE)) {
@@ -527,21 +646,7 @@ async function tryProModel(
         }
         return null;
     } catch (error) {
-        const quotaType = classifyAndRecordError(MODEL_REFINE, error as Error);
-        if (quotaType === 'rate_limit' && shouldWaitForModel(MODEL_REFINE)) {
-            await waitForRateLimitWindow(MODEL_REFINE);
-            const retryParsed = await generateContent(
-                genAI,
-                MODEL_REFINE,
-                prompt,
-                imageParts,
-                buildGeminiProResponseSchema(logContext.imageStrategy),
-                logContext,
-            );
-            retryParsed._analysis_tier = 'pro';
-            return retryParsed;
-        }
-        return null;
+        return handleProQuotaError(error, genAI, prompt, imageParts, logContext);
     }
 }
 
@@ -554,6 +659,9 @@ async function tryFlashModel(
         assetId: string;
         metadataPass: MetadataPass;
         imageStrategy: ImageStrategy;
+        moduleId?: string;
+        signal?: AbortSignal;
+        dbManager?: DatabaseManager;
     },
 ): Promise<GeminiResponse> {
     if (isDailyQuotaExceeded(modelName)) {
@@ -583,6 +691,9 @@ async function tryFlashModel(
                 throw new Error('DAILY_QUOTA_EXCEEDED');
             }
             if (quotaType !== 'rate_limit') {
+                throw error;
+            }
+            if (bypassSleepRetry()) {
                 throw error;
             }
             await waitForRateLimitWindow(modelName, true);
@@ -638,6 +749,7 @@ function buildEvidenceParams(params: {
     imageWidth: number | null;
     imageHeight: number | null;
     tileRegions: IndexedCropRegion[];
+    db: ReturnType<DatabaseManager['getDb']>;
 }) {
     return {
         provider: params.provider,
@@ -648,6 +760,7 @@ function buildEvidenceParams(params: {
         imageWidth: params.imageWidth,
         imageHeight: params.imageHeight,
         tileRegions: params.tileRegions,
+        db: params.db,
     };
 }
 
@@ -659,6 +772,7 @@ function buildModelEvidence(params: {
     imageWidth: number | null;
     imageHeight: number | null;
     tileRegions: IndexedCropRegion[];
+    db: ReturnType<DatabaseManager['getDb']>;
 }) {
     return buildLiveMetadataEvidence(buildEvidenceParams({
         provider: 'google',
@@ -669,6 +783,7 @@ function buildModelEvidence(params: {
         imageWidth: params.imageWidth,
         imageHeight: params.imageHeight,
         tileRegions: params.tileRegions,
+        db: params.db,
     }));
 }
 
@@ -692,6 +807,83 @@ function buildPromptContext(params: {
     };
 }
 
+async function tryRefineModelFirst(params: {
+    genAI: GoogleGenerativeAI;
+    promptContext: ReturnType<typeof buildPromptContext>;
+    imageParts: PreparedImagePart[];
+    assetId: string;
+    metadataPass: MetadataPass;
+    imageStrategy: 'overview_only' | 'overview_plus_tiles';
+    moduleId?: string;
+    signal?: AbortSignal;
+    approvedTagVocabulary: string[];
+    imageWidth: number | null;
+    imageHeight: number | null;
+    tileRegions: IndexedCropRegion[];
+    db: ReturnType<DatabaseManager['getDb']>;
+    dbManager: DatabaseManager;
+}): Promise<LiveMetadataEvidence | null> {
+    const proPrompt = buildGeminiProPrompt(params.promptContext);
+    const proResult = await tryProModel(params.genAI, proPrompt, params.imageParts, {
+        assetId: params.assetId,
+        metadataPass: params.metadataPass,
+        imageStrategy: params.imageStrategy,
+        moduleId: params.moduleId,
+        signal: params.signal,
+        dbManager: params.dbManager,
+    });
+    if (proResult) {
+        clearProPendingRecord(params.db, params.assetId);
+        return buildModelEvidence({
+            modelVersion: MODEL_REFINE,
+            response: proResult,
+            approvedTagVocabulary: params.approvedTagVocabulary,
+            assetId: params.assetId,
+            imageWidth: params.imageWidth,
+            imageHeight: params.imageHeight,
+            tileRegions: params.tileRegions,
+            db: params.db,
+        });
+    }
+    return null;
+}
+
+function reconcileProPendingRecord(params: {
+    db: ReturnType<DatabaseManager['getDb']>;
+    assetId: string;
+    scoutModel: string;
+    eventSink?: EventSink;
+    flashResult: GeminiResponse;
+    shouldRunRefineFirst: boolean;
+}): void {
+    if (params.shouldRunRefineFirst) {
+        params.flashResult._pending_pro = true;
+        const pendingReason: PendingReason = isDailyQuotaExceeded(MODEL_REFINE) ? 'daily_quota' : 'rate_limit';
+        ensureProPendingRecord(params.db, params.assetId);
+        emitPendingEvents(params.eventSink, params.assetId, params.scoutModel, pendingReason);
+    } else {
+        clearProPendingRecord(params.db, params.assetId);
+    }
+}
+
+async function buildLivePromptContext(
+    row: ParsedAiMetadataRow,
+    imageStrategy: 'overview_only' | 'overview_plus_tiles',
+    approvedTagVocabulary: string[],
+) {
+    const payload = await prepareImagePayload(row, imageStrategy);
+    const promptContext = buildPromptContext({
+        filename: payload.filename,
+        exifDataString: payload.exifDataString,
+        imageStrategy,
+        approvedTagVocabulary,
+        tileCoordinateInstructions: payload.tileCoordinateInstructions,
+        originalImagePixelWidth: payload.imageWidth,
+        originalImagePixelHeight: payload.imageHeight,
+    });
+    return { payload, promptContext };
+}
+
 export async function generateLiveAiMetadata(params: {
     dbManager: DatabaseManager;
     row: ParsedAiMetadataRow;
@@ -699,6 +891,8 @@ export async function generateLiveAiMetadata(params: {
     metadataPass?: MetadataPass;
     eventSink?: EventSink;
     GoogleGenerativeAIClass?: GoogleGenerativeAIConstructor;
+    moduleId?: string;
+    signal?: AbortSignal;
 }): Promise<LiveMetadataEvidence> {
     const modelConfig = await resolveModelConfig(params.dbManager);
     const GoogleGenerativeAIClass = params.GoogleGenerativeAIClass
@@ -706,72 +900,64 @@ export async function generateLiveAiMetadata(params: {
     const genAI = new GoogleGenerativeAIClass(modelConfig.apiKey);
     const db = params.dbManager.getDb();
     const approvedTagVocabulary = loadApprovedTagVocabulary(params.dbManager);
-    const {
-        filename,
-        exifDataString,
-        imageParts,
-        imageWidth,
-        imageHeight,
-        tileCoordinateInstructions,
-        tileRegions,
-    } = await prepareImagePayload(params.row, params.imageStrategy);
-    const metadataPass = params.metadataPass ?? 'scout';
-    const promptContext = buildPromptContext({
-        filename,
-        exifDataString,
-        imageStrategy: params.imageStrategy,
+    const { payload, promptContext } = await buildLivePromptContext(
+        params.row,
+        params.imageStrategy,
         approvedTagVocabulary,
-        tileCoordinateInstructions,
-        originalImagePixelWidth: imageWidth,
-        originalImagePixelHeight: imageHeight,
-    });
+    );
+    const metadataPass = params.metadataPass ?? 'scout';
 
     try {
         const shouldRunRefineFirst = metadataPass === 'refine' && modelConfig.refineModel === MODEL_REFINE;
         if (shouldRunRefineFirst) {
-            const proPrompt = buildGeminiProPrompt(promptContext);
-            const proResult = await tryProModel(genAI, proPrompt, imageParts, {
+            const proResult = await tryRefineModelFirst({
+                genAI,
+                promptContext,
+                imageParts: payload.imageParts,
                 assetId: params.row.id,
                 metadataPass,
                 imageStrategy: params.imageStrategy,
+                moduleId: params.moduleId,
+                signal: params.signal,
+                approvedTagVocabulary,
+                imageWidth: payload.imageWidth,
+                imageHeight: payload.imageHeight,
+                tileRegions: payload.tileRegions,
+                db,
+                dbManager: params.dbManager,
             });
             if (proResult) {
-                clearProPendingRecord(db, params.row.id);
-                return buildModelEvidence({
-                    modelVersion: MODEL_REFINE,
-                    response: proResult,
-                    approvedTagVocabulary,
-                    assetId: params.row.id,
-                    imageWidth,
-                    imageHeight,
-                    tileRegions,
-                });
+                return proResult;
             }
         }
 
         const flashPrompt = buildGeminiFlashPrompt(promptContext);
-        const flashResult = await tryFlashModel(genAI, modelConfig.scoutModel, flashPrompt, imageParts, {
+        const flashResult = await tryFlashModel(genAI, modelConfig.scoutModel, flashPrompt, payload.imageParts, {
             assetId: params.row.id,
             metadataPass,
             imageStrategy: params.imageStrategy,
+            moduleId: params.moduleId,
+            signal: params.signal,
+            dbManager: params.dbManager,
         });
-        if (shouldRunRefineFirst) {
-            flashResult._pending_pro = true;
-            const pendingReason: PendingReason = isDailyQuotaExceeded(MODEL_REFINE) ? 'daily_quota' : 'rate_limit';
-            ensureProPendingRecord(db, params.row.id);
-            emitPendingEvents(params.eventSink, params.row.id, modelConfig.scoutModel, pendingReason);
-        } else {
-            clearProPendingRecord(db, params.row.id);
-        }
+        reconcileProPendingRecord({
+            db,
+            assetId: params.row.id,
+            scoutModel: modelConfig.scoutModel,
+            eventSink: params.eventSink,
+            flashResult,
+            shouldRunRefineFirst,
+        });
 
         return buildModelEvidence({
             modelVersion: modelConfig.scoutModel,
             response: flashResult,
             approvedTagVocabulary,
             assetId: params.row.id,
-            imageWidth,
-            imageHeight,
-            tileRegions,
+            imageWidth: payload.imageWidth,
+            imageHeight: payload.imageHeight,
+            tileRegions: payload.tileRegions,
+            db,
         });
     } catch (error) {
         const unrecoverableReason = getUnrecoverableAiReason(error as Error);

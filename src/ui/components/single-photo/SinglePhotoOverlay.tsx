@@ -47,6 +47,8 @@ export type SinglePhotoOverlayProps = {
     readonly onChangeIndex: (delta: -1 | 1) => void;
     readonly onRevealControls: () => void;
     readonly analysis: AnalysisState;
+    readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
+    readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
 }
 
 function PhotoInfoSidebar(props: {
@@ -62,6 +64,8 @@ function PhotoInfoSidebar(props: {
         tagLabel?: string;
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
+    readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
 }) {
     const assignAssetTag = props.onAssignAssetTag;
     const removeAssetTag = props.onRemoveAssetTag;
@@ -83,46 +87,14 @@ function PhotoInfoSidebar(props: {
                 onRemoveTag={removeAssetTag ? (tagDefinitionId) => removeAssetTag(props.asset.id, tagDefinitionId) : undefined}
                 onSetReviewItemStatus={props.onSetReviewItemStatus}
                 onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+                onGetAiCallsLog={props.onGetAiCallsLog}
+                onGetAiCallLogDetail={props.onGetAiCallLogDetail}
             />
         </div>
     );
 }
 
-export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
-    asset,
-    assets,
-    currentIndex,
-    showControls,
-    setShowControls,
-    showFaces,
-    setShowFaces,
-    showActionMenu,
-    setShowActionMenu,
-    hoveredFaceKey,
-    setHoveredFaceKey,
-    panelState,
-    onClose,
-    onFaceClick,
-    onIsolateFace,
-    onSetSensitivity,
-    onMoveToBin,
-    onRestoreFromBin,
-    onExtractAiMetadata,
-    onRerunFaceDetection,
-    onOpenSettings,
-    onGetGroupOrbit,
-    onOrbitLoaded,
-    onSelectAsset,
-    onSetCanonical,
-    onExplodeGroup,
-    onAssignAssetTag,
-    onRemoveAssetTag,
-    onSetReviewItemStatus,
-    onFlagPhotoDateCorrection,
-    onChangeIndex,
-    onRevealControls,
-    analysis
-}) => (
+export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
     <div
         style={{
             position: 'fixed',
@@ -140,36 +112,47 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = ({
         }}
     >
         <PhotoViewport
-            asset={asset}
-            assetsLength={assets.length}
-            currentIndex={currentIndex}
-            showControls={showControls}
-            setShowControls={setShowControls}
-            showFaces={showFaces}
-            setShowFaces={setShowFaces}
-            showActionMenu={showActionMenu}
-            setShowActionMenu={setShowActionMenu}
-            hoveredFaceKey={hoveredFaceKey}
-            setHoveredFaceKey={setHoveredFaceKey}
-            panelState={panelState}
-            onClose={onClose}
-            onFaceClick={onFaceClick}
-            onIsolateFace={onIsolateFace}
-            onSetSensitivity={onSetSensitivity}
-            onMoveToBin={onMoveToBin}
-            onRestoreFromBin={onRestoreFromBin}
-            onExtractAiMetadata={onExtractAiMetadata}
-            onRerunFaceDetection={onRerunFaceDetection}
-            onOpenSettings={onOpenSettings}
-            onGetGroupOrbit={onGetGroupOrbit}
-            onOrbitLoaded={onOrbitLoaded}
-            onSelectAsset={onSelectAsset}
-            onSetCanonical={onSetCanonical}
-            onExplodeGroup={onExplodeGroup}
-            onChangeIndex={onChangeIndex}
-            onRevealControls={onRevealControls}
-            analysis={analysis}
+            asset={props.asset}
+            assetsLength={props.assets.length}
+            currentIndex={props.currentIndex}
+            showControls={props.showControls}
+            setShowControls={props.setShowControls}
+            showFaces={props.showFaces}
+            setShowFaces={props.setShowFaces}
+            showActionMenu={props.showActionMenu}
+            setShowActionMenu={props.setShowActionMenu}
+            hoveredFaceKey={props.hoveredFaceKey}
+            setHoveredFaceKey={props.setHoveredFaceKey}
+            panelState={props.panelState}
+            onClose={props.onClose}
+            onFaceClick={props.onFaceClick}
+            onIsolateFace={props.onIsolateFace}
+            onSetSensitivity={props.onSetSensitivity}
+            onMoveToBin={props.onMoveToBin}
+            onRestoreFromBin={props.onRestoreFromBin}
+            onExtractAiMetadata={props.onExtractAiMetadata}
+            onRerunFaceDetection={props.onRerunFaceDetection}
+            onOpenSettings={props.onOpenSettings}
+            onGetGroupOrbit={props.onGetGroupOrbit}
+            onOrbitLoaded={props.onOrbitLoaded}
+            onSelectAsset={props.onSelectAsset}
+            onSetCanonical={props.onSetCanonical}
+            onExplodeGroup={props.onExplodeGroup}
+            onChangeIndex={props.onChangeIndex}
+            onRevealControls={props.onRevealControls}
+            analysis={props.analysis}
         />
-        <PhotoInfoSidebar asset={asset} panelState={panelState} hoveredFaceKey={hoveredFaceKey} setHoveredFaceKey={setHoveredFaceKey} onAssignAssetTag={onAssignAssetTag} onRemoveAssetTag={onRemoveAssetTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} />
+        <PhotoInfoSidebar
+            asset={props.asset}
+            panelState={props.panelState}
+            hoveredFaceKey={props.hoveredFaceKey}
+            setHoveredFaceKey={props.setHoveredFaceKey}
+            onAssignAssetTag={props.onAssignAssetTag}
+            onRemoveAssetTag={props.onRemoveAssetTag}
+            onSetReviewItemStatus={props.onSetReviewItemStatus}
+            onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+            onGetAiCallsLog={props.onGetAiCallsLog}
+            onGetAiCallLogDetail={props.onGetAiCallLogDetail}
+        />
     </div>
 );

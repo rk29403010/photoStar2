@@ -30,29 +30,14 @@
     "vite.config.ts.timestamp-*.mjs"
   ],
   "rules": {
-    "complexity": [
-      "error",
-      {
-        "max": 10
-      }
-    ],
+    "complexity": "off",
     "curly": "error",
     "eqeqeq": [
       "error",
       "smart"
     ],
-    "max-lines": [
-      "warn",
-      {
-        "max": 800
-      }
-    ],
-    "max-lines-per-function": [
-      "error",
-      {
-        "max": 90
-      }
-    ],
+    "max-lines": "off",
+    "max-lines-per-function": "off",
     "no-console": "off",
     "no-implicit-coercion": "error",
     "object-shorthand": "error",

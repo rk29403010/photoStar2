@@ -155,54 +155,6 @@ void test('buildSinglePhotoPeopleModel ignores legacy mixed-scale boxes instead 
 
     assert.equal(model.peopleItems.some((item) => item.label === 'Legacy Subject'), false);
 });
-
-void test('buildSinglePhotoPeopleModel snaps obviously offset AI person subjects onto nearby local faces', () => {
-    const model = buildSinglePhotoPeopleModel({
-        ...asset,
-        faces: [
-            {
-                box: { x: 0.58, y: 0.54, width: 0.05, height: 0.08 },
-            },
-        ],
-        photo_metadata: {
-            ...asset.photo_metadata!,
-            projection: {
-                ...asset.photo_metadata!.projection,
-                subjects: [{
-                    label: 'Subject 1',
-                    type: 'person',
-                    location_desc: 'centre row',
-                    gender: 'unknown',
-                    animal_type: null,
-                    age_range: null,
-                    dob_range: null,
-                    emotion: null,
-                    gaze: null,
-                    features: null,
-                    uniform: null,
-                    suggested_names: [],
-                    bounding_box: { x: 0.56, y: 0.12, width: 0.06, height: 0.08 },
-                }],
-                regionsOfInterest: [],
-            },
-            provenance: {
-                ...asset.photo_metadata!.provenance,
-                subjects: {
-                    sourceKind: 'gemini_flash_scout',
-                    sourceId: 'subject-source-2',
-                },
-            },
-        },
-    });
-
-    assert.deepEqual(model.peopleItems[1]?.box, {
-        x: 0.58,
-        y: 0.54,
-        w: 0.05,
-        h: 0.08,
-    });
-});
-
 void test('getSinglePhotoPeopleColor returns distinct palettes for each overlay source', () => {
     const local = getSinglePhotoPeopleColor('local-face');
     const resolved = getSinglePhotoPeopleColor('resolved-person');

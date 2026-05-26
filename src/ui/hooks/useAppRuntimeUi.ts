@@ -10,7 +10,7 @@ import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel'
 import { usePersistedState } from './usePersistedState';
 
 export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-export type InfoTab = 'file' | 'analysis' | 'people' | 'json';
+export type InfoTab = 'file' | 'analysis' | 'people' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
 
 function useDevRuntimeImpact(
@@ -83,7 +83,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
       onAction: params.onAction,
     });
   }, []);
-  const [isTaskDrawerMinimized, setIsTaskDrawerMinimized] = useState(false);
+  const [isTaskDrawerMinimized, setIsTaskDrawerMinimized] = useState(true);
   const [hoveredLibraryPhoto, setHoveredLibraryPhoto] = useState<CurrentPhotoStatus | null>(null);
   const devRuntimeImpact = useDevRuntimeImpact(import.meta.env.DEV, getDevRuntimeImpact);
 
