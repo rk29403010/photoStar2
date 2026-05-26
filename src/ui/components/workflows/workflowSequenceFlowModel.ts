@@ -20,7 +20,7 @@ export function buildWorkflowSequenceFlowEdges(
             source: edge.source,
             target: edge.target,
             type: 'smoothstep',
-            sourceHandle: (isFailure || !isInternal) ? SEQUENCE_NODE_RIGHT_HANDLE_ID : SEQUENCE_NODE_BOTTOM_HANDLE_ID,
+            sourceHandle: isFailure ? SEQUENCE_NODE_RIGHT_HANDLE_ID : SEQUENCE_NODE_BOTTOM_HANDLE_ID,
             targetHandle: isInternal ? SEQUENCE_NODE_TOP_HANDLE_ID : SEQUENCE_NODE_LEFT_HANDLE_ID,
             animated: false,
             selectable: false,
