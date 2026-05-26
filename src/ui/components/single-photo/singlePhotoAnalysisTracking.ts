@@ -32,7 +32,7 @@ function formatNodeLabel(nodeId: string): string {
         return 'Workflow';
     }
 
-    const label = nodeId.replace(/[-_]+/g, ' ');
+    const label = nodeId.replaceAll(/[-_]+/g, ' ');
     return label.charAt(0).toUpperCase() + label.slice(1);
 }
 

@@ -10,7 +10,7 @@ export type SplitAiTagsAgainstVocabularyResult = {
 }
 
 function normalizeTagLabel(label: string) {
-    return label.trim().toLowerCase().replace(/\s+/g, ' ');
+    return label.trim().toLowerCase().replaceAll(/\s+/g, ' ');
 }
 
 function addUniqueLabel(collection: string[], seenLabels: Set<string>, label: string) {

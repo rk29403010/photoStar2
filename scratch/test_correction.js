@@ -57,7 +57,7 @@ function solveConsensusTranslation(faces, subjects) {
             let closestDist = Infinity;
 
             for (let i = 0; i < faceCenters.length; i++) {
-                if (matchedFaces.has(i)) continue;
+                if (matchedFaces.has(i)) {continue;}
                 const fc = faceCenters[i];
                 const dist = Math.hypot(fc.x - shiftedX, fc.y - shiftedY);
                 if (dist < closestDist) {

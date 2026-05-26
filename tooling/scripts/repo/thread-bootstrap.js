@@ -53,8 +53,8 @@ function requireTask(task) {
 export function normalizeThreadSlug(task) {
     const normalizedTask = String(task)
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+        .replaceAll(/[^a-z0-9]+/g, '-')
+        .replaceAll(/^-+|-+$/g, '');
     return normalizedTask || 'thread';
 }
 

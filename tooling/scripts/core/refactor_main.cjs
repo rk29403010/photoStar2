@@ -19,7 +19,7 @@ const theSwitch = mainTs.substring(switchStart, switchEnd);
 // Replace "break;" with "return true;" to exit the handler early
 // Wait, the cases are wrapped in blocks, so break exits the switch, then it falls through to the end of handleMessage.
 // If we return true, it achieves the same thing.
-const modifiedSwitch = theSwitch.replace(/break;/g, 'return true;');
+const modifiedSwitch = theSwitch.replaceAll('break;', 'return true;');
 
 const handlersTsContent = `import { DatabaseManager } from './db';
 import { EventBus } from './events/bus';

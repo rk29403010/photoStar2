@@ -279,7 +279,7 @@ test('renderThreadList surfaces worktree path and runtime ports', () => {
     assert.match(output, /running:dev:desktop-runtime/);
     assert.match(output, /app:http:\/\/localhost:6231/);
     assert.match(output, /backend:6232/);
-    assert.match(output, new RegExp(`path:${worktreePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(output, new RegExp(`path:${worktreePath.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 });
 
 test('renderThreadList collapses duplicate note segments for display', () => {

@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 async function loadModule(relativePath) {
-    return import(new URL(`../../${relativePath}`, `file://${__dirname.replace(/\\/g, '/')}/`).href);
+    return import(new URL(`../../${relativePath}`, `file://${__dirname.replaceAll('\\', '/')}/`).href);
 }
 
 test('selection recovery ignores transient missing assets while the library is refreshing', async () => {

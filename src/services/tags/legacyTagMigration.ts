@@ -39,9 +39,9 @@ export function normalizeLegacyLabel(label: string) {
     return label
         .trim()
         .toLowerCase()
-        .replace(/['’]/g, '')
-        .replace(/[^a-z0-9]+/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replaceAll(/['’]/g, '')
+        .replaceAll(/[^a-z0-9]+/g, ' ')
+        .replaceAll(/\s+/g, ' ')
         .trim();
 }
 

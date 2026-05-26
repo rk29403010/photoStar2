@@ -38,7 +38,7 @@ function normalizeRegistry(registry) {
 }
 
 function normalizePathForKey(targetPath) {
-    return path.resolve(targetPath).replace(/\\/g, '/').toLowerCase();
+    return path.resolve(targetPath).replaceAll('\\', '/').toLowerCase();
 }
 
 function normalizeThreadNote(note) {
@@ -55,7 +55,7 @@ function normalizeThreadNote(note) {
 }
 
 export function getWorktreeNameFromPath(targetPath) {
-    const normalized = path.resolve(targetPath).replace(/\\/g, '/');
+    const normalized = path.resolve(targetPath).replaceAll('\\', '/');
     const match = normalized.match(/(?:^|\/)(?:\.worktrees|worktrees)\/([^/]+)/i);
     return match?.[1] ?? 'main';
 }

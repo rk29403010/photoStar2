@@ -4,7 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const modelDir = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models', 'nsfwjs');
-const modelUrl = 'file://' + modelDir.replace(/\\/g, '/') + '/model.json';
+const modelUrl = 'file://' + modelDir.replaceAll('\\', '/') + '/model.json';
 
 console.log('[Test] Loading model from:', modelUrl);
 console.log('[Test] Files in model dir:', fs.readdirSync(modelDir));

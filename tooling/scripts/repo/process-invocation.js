@@ -20,7 +20,7 @@ export function getSpawnOptions({
 function quoteWindowsShellArgument(value) {
     const normalized = String(value);
     return /[\s"&^<>|()]/.test(normalized)
-        ? `"${normalized.replace(/"/g, '""')}"`
+        ? `"${normalized.replaceAll('"', '""')}"`
         : normalized;
 }
 

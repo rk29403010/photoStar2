@@ -20,7 +20,7 @@ export function getShipIgnorePaths({ includeArtifacts = false } = {}) {
 }
 
 function normalizePath(value) {
-    return String(value ?? '').replace(/\\/g, '/').toLowerCase();
+    return String(value ?? '').replaceAll('\\', '/').toLowerCase();
 }
 
 function isIgnoredShipPath(filePath, ignorePaths = getShipIgnorePaths()) {

@@ -96,5 +96,5 @@ test('core watch treats fast lint findings as non-fatal for backend restarts', a
 
     assert.equal(resolved, true);
     assert.equal(rejected, false);
-    assert.match(warning, new RegExp(`${LOG_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} fast lint reported issues; continuing backend restart\\.`));
+    assert.match(warning, new RegExp(`${LOG_PREFIX.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')} fast lint reported issues; continuing backend restart\\.`));
 });

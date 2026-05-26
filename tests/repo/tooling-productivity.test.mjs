@@ -122,7 +122,7 @@ test('managed dev session cleanup targets the resolved runtime ports on Windows'
 });
 
 test('managed dev session cleanup targets legacy npm wrapper processes on Windows', () => {
-    const workspacePattern = workspaceRoot.replace(/\//g, '\\');
+    const workspacePattern = workspaceRoot.replaceAll('/', '\\');
 
     assert.deepEqual(
         buildLegacyManagedProcessCleanupInvocation({

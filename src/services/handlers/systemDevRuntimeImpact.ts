@@ -67,7 +67,7 @@ function parsePort(rawValue: string | undefined, fallbackPort: number): number {
 }
 
 function normalizeCwd(cwd: string): string {
-    return String(cwd).replace(/\\/g, '/');
+    return String(cwd).replaceAll('\\', '/');
 }
 
 function getWorktreeNameFromCwd(cwd: string): string | null {
@@ -107,7 +107,7 @@ function resolveDevRuntimePorts(env: NodeJS.ProcessEnv, cwd: string): { webPort:
 }
 
 function normalizePath(filePath: string): string {
-    return filePath.replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+    return filePath.replaceAll('\\', '/').replace(/^\.\//, '').toLowerCase();
 }
 
 function createImpact(

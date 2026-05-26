@@ -43,7 +43,7 @@ const IGNORED_PATH_SEGMENTS = [
 ];
 
 function toDisplayPath(filePath) {
-    return relative(REPO_ROOT, filePath).replace(/\\/g, '/');
+    return relative(REPO_ROOT, filePath).replaceAll('\\', '/');
 }
 
 function isIgnoredPath(normalizedPath) {
@@ -51,7 +51,7 @@ function isIgnoredPath(normalizedPath) {
 }
 
 function shouldLogPath(filePath) {
-    const normalizedPath = `/${toDisplayPath(filePath)}`.replace(/\\/g, '/');
+    const normalizedPath = `/${toDisplayPath(filePath)}`.replaceAll('\\', '/');
     if (isIgnoredPath(normalizedPath)) {
         return false;
     }

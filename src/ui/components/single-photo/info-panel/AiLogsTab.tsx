@@ -212,7 +212,7 @@ const LogDetailView: React.FC<LogDetailViewProps> = ({ detail, copiedPrompt, cop
         label="Error Message"
         content={detail.error_message}
         color="#fca5a5"
-        isError={true}
+        isError
         copied={copiedResult}
         onCopy={() => onCopy(detail.error_message ?? '', 'result')}
       />

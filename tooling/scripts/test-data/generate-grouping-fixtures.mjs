@@ -301,7 +301,7 @@ async function renderImage(subject, variant, extension, captureAt) {
 }
 
 function setWindowsTimestamp(filePath, captureAt) {
-    const escapedPath = filePath.replace(/'/g, "''");
+    const escapedPath = filePath.replaceAll('\'', "''");
     const command = [
         `$ts = [datetime]'${captureAt}'`,
         `[System.IO.File]::SetCreationTimeUtc('${escapedPath}', $ts.ToUniversalTime())`,

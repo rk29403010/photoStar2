@@ -46,7 +46,7 @@ function parsePort(rawValue, fallbackPort) {
 }
 
 function normalizeCwd(cwd) {
-  return String(cwd ?? '').replace(/\\/g, '/');
+  return String(cwd ?? '').replaceAll('\\', '/');
 }
 
 function getWorktreeNameFromCwd(cwd) {
@@ -75,7 +75,7 @@ function getAutomaticPortOffset(cwd) {
 }
 
 function normalizePath(filePath) {
-  return filePath.replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+  return filePath.replaceAll('\\', '/').replace(/^\.\//, '').toLowerCase();
 }
 
 function createImpact(level, summary, reason) {

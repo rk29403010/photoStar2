@@ -10,7 +10,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 
 const MODEL_DIR = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models', 'nsfwjs');
-const modelUrl = 'file://' + MODEL_DIR.replace(/\\/g, '/') + '/model.json';
+const modelUrl = 'file://' + MODEL_DIR.replaceAll('\\', '/') + '/model.json';
 
 async function main() {
     // Create a synthetic 224x224 WebP test image using sharp

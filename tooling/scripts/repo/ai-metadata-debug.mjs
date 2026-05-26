@@ -187,7 +187,7 @@ function createFakeDb(approvedTags) {
             if (/DELETE FROM derived_results WHERE asset_id = \? AND task = 'ai_metadata_pro_pending'/i.test(sql)) {
                 return { run() { return { changes: 0 }; } };
             }
-            if (/INSERT INTO derived_results .*ai_metadata_pro_pending/i.test(sql.replace(/\s+/g, ' '))) {
+            if (/INSERT INTO derived_results .*ai_metadata_pro_pending/i.test(sql.replaceAll(/\s+/g, ' '))) {
                 return { run() { return { changes: 1 }; } };
             }
             throw new Error(`Unexpected SQL in ai-metadata debug harness: ${sql}`);
