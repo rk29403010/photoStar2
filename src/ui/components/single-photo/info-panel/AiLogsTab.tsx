@@ -4,6 +4,7 @@ export type AiLogsTabProps = {
   readonly assetId: string;
   readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
   readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
+  readonly analysisState?: string;
 };
 
 export type AiCallSummary = {
@@ -260,6 +261,7 @@ function useAiLogsState(
   assetId: string,
   onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>,
   onGetAiCallLogDetail?: (logId: string) => Promise<unknown>,
+  analysisState?: string,
 ) {
   const [logs, setLogs] = useState<AiCallSummary[]>([]);
   const [selectedLogId, setSelectedLogId] = useState<string>('');
@@ -285,7 +287,7 @@ function useAiLogsState(
       .then((data) => setLogs(data as AiCallSummary[]))
       .catch((err) => setErrorText(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoadingList(false));
-  }, [assetId, onGetAiCallsLog]);
+  }, [assetId, onGetAiCallsLog, analysisState]);
 
   useEffect(() => {
     if (!selectedLogId || !onGetAiCallLogDetail) {
@@ -328,8 +330,8 @@ function useAiLogsState(
   };
 }
 
-export const AiLogsTab: React.FC<AiLogsTabProps> = ({ assetId, onGetAiCallsLog, onGetAiCallLogDetail }) => {
-  const state = useAiLogsState(assetId, onGetAiCallsLog, onGetAiCallLogDetail);
+export const AiLogsTab: React.FC<AiLogsTabProps> = ({ assetId, onGetAiCallsLog, onGetAiCallLogDetail, analysisState }) => {
+  const state = useAiLogsState(assetId, onGetAiCallsLog, onGetAiCallLogDetail, analysisState);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%', color: '#e2e8f0' }}>

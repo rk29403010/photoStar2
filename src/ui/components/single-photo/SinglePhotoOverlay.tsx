@@ -66,6 +66,7 @@ function PhotoInfoSidebar(props: {
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
     readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
+    readonly analysisState?: string;
 }) {
     const assignAssetTag = props.onAssignAssetTag;
     const removeAssetTag = props.onRemoveAssetTag;
@@ -89,6 +90,7 @@ function PhotoInfoSidebar(props: {
                 onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
                 onGetAiCallsLog={props.onGetAiCallsLog}
                 onGetAiCallLogDetail={props.onGetAiCallLogDetail}
+                analysisState={props.analysisState}
             />
         </div>
     );
@@ -153,6 +155,7 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
             onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
             onGetAiCallsLog={props.onGetAiCallsLog}
             onGetAiCallLogDetail={props.onGetAiCallLogDetail}
+            analysisState={props.analysis.analysisState}
         />
     </div>
 );
