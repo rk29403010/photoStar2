@@ -245,6 +245,63 @@ function summariseStage(
     };
 }
 function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null) {
+    if (definition.id === 'folder_ingest_v1') {
+        return {
+            stages: [
+                summariseStage('discovery', 'Discovery', 'Scan the folder and discover files.', ['scan-folder'], runDetail, definition),
+                summariseStage(
+                    'library-ready',
+                    'Ingest',
+                    'Prepare previews and unlock the browsable library.',
+                    ['preview-each', 'generate-previews', 'collect-previewed-assets'],
+                    runDetail,
+                    definition,
+                ),
+                summariseStage(
+                    'enrichment',
+                    'Enrichment',
+                    'Run downstream analysis, grouping, and metadata branches.',
+                    [
+                        'enrichment-each',
+                        'extract-embedded-metadata',
+                        'estimate-photo-date-from-embedded',
+                        'detect-faces',
+                        'generate-face-vectors',
+                        'collect-people',
+                        'resolve-people',
+                        'collect-similar',
+                        'group-similar-photos',
+                        'detect-sensitive-content',
+                        'generate-ai-metadata',
+                        'estimate-photo-date-from-ai',
+                    ],
+                    runDetail,
+                    definition,
+                ),
+            ],
+        };
+    }
+
+    if (definition.id === 'runtime.simulation_workflow') {
+        return {
+            stages: [
+                summariseStage('enumeration', 'Discovery', 'Simulate discovery of items.', ['enumerate-sim'], runDetail, definition),
+                summariseStage('fast_processing', 'Fast Processing', 'Simulate fast task step.', ['fast-task-sim', 'fast-task-sim-2', 'fast-task-sim-3'], runDetail, definition),
+                summariseStage('medium_processing', 'Medium Processing', 'Simulate medium task step.', [
+                    'medium-task-sim', 
+                    'medium-branch-success-each', 
+                    'medium-branch-failure-each',
+                    'medium-branch-1-step-1', 
+                    'medium-branch-1-step-2', 
+                    'medium-branch-1-step-3',
+                    'medium-branch-2-step-1',
+                    'medium-branch-3-step-1'
+                ], runDetail, definition),
+                summariseStage('slow_processing', 'Slow Processing', 'Simulate slow task step.', ['slow-task-sim'], runDetail, definition),
+            ],
+        };
+    }
+
     if (definition.id === 'library_face_pipeline_v1') {
         return {
             stages: [
@@ -265,7 +322,7 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
 
     return {
         stages: definition.nodes.map((node) => summariseStage(
-            node.id,
+            `stage-${node.id}`,
             getNodeLabel(definition, node.id),
             node.kind === 'module' ? `Run module ${node.moduleId}.` : `Run control node ${node.controlType}.`,
             [node.id],

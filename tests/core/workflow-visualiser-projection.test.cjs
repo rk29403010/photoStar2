@@ -10,6 +10,7 @@ test('buildWorkflowVisualiserModel maps folder_ingest_v1 into overview, progress
         runDetail: null,
         availableRuns: [],
         allRuns: [],
+        getModuleDefinition: (moduleId) => ({ id: moduleId, version: 1, capability: 'derive', accepts: [], produces: [] }),
     });
 
     assert.equal(model.workflowId, 'folder_ingest_v1');
@@ -98,6 +99,7 @@ test('buildWorkflowVisualiserModel links recovery runs back to the failed folder
                 stepSummaries: [],
             },
         ],
+        getModuleDefinition: (moduleId) => ({ id: moduleId, version: 1, capability: 'derive', accepts: [], produces: [] }),
     });
 
     assert.deepEqual(model.selectedRun?.linkedRuns, [{
