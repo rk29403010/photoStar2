@@ -60,12 +60,11 @@ function buildCoordinateContractSection(params: {
 ${dimensionLine}
 ${singleImageRules}
 Global rules for every bounding_box:
-- One axis-aligned system for the entire photo. Origin (0,0) is the top-left of the visible image; x increases right, y increases down.
-- Express x, y, width, and height as thousandths of the full image: use numbers from 0 through 1000 inclusive where 0 is the left or top edge and 1000 corresponds to the right or bottom edge along that axis (linear fractions of width for x/width and of height for y/height).
-- Coordinates MUST be relative to the ENTIRE input image file canvas, including any scanner borders, black bars, white margins, or padding. Do NOT ignore borders! The absolute top-left edge of the full canvas is (0,0) and the absolute bottom-right edge is (1000,1000).
-- Simply return coordinates in the normalized 0 to 1000 coordinate space of the image content you see, where 0 is the left/top edge and 1000 is the right/bottom edge of the image canvas.
-- Use the same full_photo grid for every subject and ROI so boxes stay aligned.
-- Each box must match the visible feature in the photo; do not place different subjects using different implicit canvases or mixed coordinate origins.
+- Bounding boxes must be returned in the native format: [ymin, xmin, ymax, xmax].
+- All coordinate values must be integers between 0 and 1000.
+- 0 represents the top/left edge of the image canvas, and 1000 represents the bottom/right edge of the image canvas.
+- Coordinates MUST be relative to the ENTIRE input image file canvas, including any scanner borders, black bars, white margins, or padding. Do NOT ignore borders!
+- Use the same coordinate grid for every subject and region_of_interest.
 `;
 }
 
@@ -144,6 +143,10 @@ For signage or house numbers, only return exact digits when they are clearly leg
 }`;
 }
 
+function isTemporalTag(tag: string): boolean {
+    return /^\d{4}$/.test(tag) || /^\d{4}s$/.test(tag) || /^\d+(?:st|nd|rd|th)\s+century$/i.test(tag);
+}
+
 function buildPromptBody(params: {
     filename: string;
     exifDataString: string;
@@ -155,20 +158,22 @@ function buildPromptBody(params: {
     originalImagePixelWidth?: number | null;
     originalImagePixelHeight?: number | null;
 }): string {
-    const approvedVocabulary = params.approvedTagVocabulary ?? [];
-    const approvedVocabularyInstructions = approvedVocabulary.length > 0
+    const filteredVocabulary = (params.approvedTagVocabulary ?? []).filter((tag) => !isTemporalTag(tag));
+    const approvedVocabularyInstructions = filteredVocabulary.length > 0
         ? `Approved canonical tag vocabulary:
-- ${approvedVocabulary.join('\n- ')}
+- ${filteredVocabulary.join('\n- ')}
 
 Tagging rules:
 - Populate "keywords" only with tags from the approved canonical vocabulary above.
+- Years (e.g. "1982"), Decades (e.g. "1980s"), and Centuries (e.g. "20th century") are implicitly approved and should be used directly in "keywords" as keywords when applicable. Do not propose them in "tag_proposals".
 - If a useful concept is missing from that approved vocabulary, put it in "tag_proposals" instead of "keywords".
 - Do not invent broad low-value labels like "adult", "person", or "photo".`
         : `Approved canonical tag vocabulary:
 - none provided
 
 Tagging rules:
-- Leave "keywords" empty when no approved canonical vocabulary is provided.
+- Years (e.g. "1982"), Decades (e.g. "1980s"), and Centuries (e.g. "20th century") are implicitly approved and should be used directly in "keywords" as keywords when applicable. Do not propose them in "tag_proposals".
+- Leave "keywords" empty (except for implicit years, decades, or centuries) when no approved canonical vocabulary is provided.
 - Put any genuinely useful missing concepts in "tag_proposals" instead.`;
 
     return `${params.intro}

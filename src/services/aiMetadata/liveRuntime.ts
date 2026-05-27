@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
-import type { PhotoMetadataBlock } from '../photoMetadata/types';
+import type { PhotoMetadataBlock, PhotoMetadataRegionOfInterest } from '../photoMetadata/types';
 import {
     normalizePhotoMetadataBlockBoxes,
     type LocalFaceLike,
@@ -209,7 +209,56 @@ function buildTileCropRegions(width: number, height: number): CropRegion[] {
     return buildGridCropRegions(width, height);
 }
 
-async function buildOverviewPlusTiles(fileBuffer: Buffer): Promise<{
+type TargetCropRegion = {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    label?: string;
+    kind?: string;
+};
+
+function determineCropRegions(
+    assetId: string,
+    width: number,
+    height: number,
+    db: ReturnType<DatabaseManager['getDb']>,
+): TargetCropRegion[] {
+    let rois: PhotoMetadataRegionOfInterest[] = [];
+    try {
+        const row = db.prepare(`SELECT regions_of_interest_json FROM photo_metadata_projection WHERE asset_id = ?`).get(assetId) as { regions_of_interest_json: string | null } | undefined;
+        if (row?.regions_of_interest_json) {
+            rois = (JSON.parse(row.regions_of_interest_json) || []) as PhotoMetadataRegionOfInterest[];
+        }
+    } catch (e) {
+        console.warn('[AI Metadata] Failed to query existing regions of interest:', e);
+    }
+
+    if (rois.length > 0) {
+        return rois.slice(0, 4).map((roi) => {
+            const cropLeft = Math.round(roi.bounding_box.x * width);
+            const cropTop = Math.round(roi.bounding_box.y * height);
+            const cropWidth = Math.round(roi.bounding_box.width * width);
+            const cropHeight = Math.round(roi.bounding_box.height * height);
+            return {
+                left: Math.max(0, Math.min(width - 1, cropLeft)),
+                top: Math.max(0, Math.min(height - 1, cropTop)),
+                width: Math.max(1, Math.min(width - cropLeft, cropWidth)),
+                height: Math.max(1, Math.min(height - cropTop, cropHeight)),
+                label: roi.label,
+                kind: roi.kind,
+            };
+        });
+    }
+
+    return buildTileCropRegions(width, height).map((crop) => ({ ...crop, label: undefined, kind: undefined }));
+}
+
+async function buildOverviewPlusTiles(
+    fileBuffer: Buffer,
+    assetId: string,
+    db: ReturnType<DatabaseManager['getDb']>,
+): Promise<{
     imageParts: PreparedImagePart[];
     imageWidth: number | null;
     imageHeight: number | null;
@@ -231,20 +280,31 @@ async function buildOverviewPlusTiles(fileBuffer: Buffer): Promise<{
         };
     }
 
+    const cropRegions = determineCropRegions(assetId, width, height, db);
+
     const tiles: PreparedImagePart[] = [];
     const tileCoordinateInstructions: string[] = [];
     const tileRegions: IndexedCropRegion[] = [];
     let imageIndex = 2;
-    for (const crop of buildTileCropRegions(width, height)) {
-        const tileBuffer = await image.clone().extract(crop).toBuffer();
+    for (const crop of cropRegions) {
+        const tileBuffer = await image.clone().extract({ left: crop.left, top: crop.top, width: crop.width, height: crop.height }).toBuffer();
         tiles.push(await toGeminiJpeg(tileBuffer));
         tileRegions.push({
             imageIndex,
-            ...crop,
+            left: crop.left,
+            top: crop.top,
+            width: crop.width,
+            height: crop.height,
         });
-        tileCoordinateInstructions.push(
-            `Image ${imageIndex} covers the full-photo pixel region left=${crop.left}, top=${crop.top}, width=${crop.width}, height=${crop.height}.`,
-        );
+        if (crop.label) {
+            tileCoordinateInstructions.push(
+                `Image ${imageIndex} is a high-fidelity detail crop of the region "${crop.label}" (${crop.kind}), covering pixel bounds left=${crop.left}, top=${crop.top}, width=${crop.width}, height=${crop.height}.`,
+            );
+        } else {
+            tileCoordinateInstructions.push(
+                `Image ${imageIndex} covers the full-photo pixel region left=${crop.left}, top=${crop.top}, width=${crop.width}, height=${crop.height}.`,
+            );
+        }
         imageIndex += 1;
     }
 
@@ -294,6 +354,8 @@ async function buildOverviewOnlyPreparedParts(fileBuffer: Buffer): Promise<{
 async function buildPreparedImageParts(
     fileBuffer: Buffer,
     imageStrategy: ImageStrategy,
+    assetId: string,
+    db: ReturnType<DatabaseManager['getDb']>,
 ): Promise<{
     imageParts: PreparedImagePart[];
     imageWidth: number | null;
@@ -302,7 +364,7 @@ async function buildPreparedImageParts(
     tileRegions: IndexedCropRegion[];
 }> {
     if (imageStrategy === 'overview_plus_tiles') {
-        return buildOverviewPlusTiles(fileBuffer);
+        return buildOverviewPlusTiles(fileBuffer, assetId, db);
     }
 
     return buildOverviewOnlyPreparedParts(fileBuffer);
@@ -338,13 +400,14 @@ function buildFallbackPreparedImagePayload(
 async function prepareImagePayload(
     row: ParsedAiMetadataRow,
     imageStrategy: ImageStrategy,
+    db: ReturnType<DatabaseManager['getDb']>,
 ): Promise<PreparedImagePayload> {
     const filename = row.original_path.split(/[/\\]/).pop() || '';
     const fileBuffer = await fs.readFile(row.original_path);
     const exifDataString = await readExifDataString(fileBuffer);
 
     try {
-        const preparedImageParts = await buildPreparedImageParts(fileBuffer, imageStrategy);
+        const preparedImageParts = await buildPreparedImageParts(fileBuffer, imageStrategy, row.id, db);
         return {
             filename,
             exifDataString,
@@ -870,8 +933,9 @@ async function buildLivePromptContext(
     row: ParsedAiMetadataRow,
     imageStrategy: 'overview_only' | 'overview_plus_tiles',
     approvedTagVocabulary: string[],
+    db: ReturnType<DatabaseManager['getDb']>,
 ) {
-    const payload = await prepareImagePayload(row, imageStrategy);
+    const payload = await prepareImagePayload(row, imageStrategy, db);
     const promptContext = buildPromptContext({
         filename: payload.filename,
         exifDataString: payload.exifDataString,
@@ -904,6 +968,7 @@ export async function generateLiveAiMetadata(params: {
         params.row,
         params.imageStrategy,
         approvedTagVocabulary,
+        db,
     );
     const metadataPass = params.metadataPass ?? 'scout';
 

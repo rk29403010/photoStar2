@@ -26,10 +26,54 @@ export type StoredAiMetadataResult = {
     data: Record<string, unknown>;
 }
 
+function convertRawBoundingBox(box: unknown): { x: number; y: number; width: number; height: number } | unknown {
+    if (Array.isArray(box) && box.length === 4 && box.every(val => typeof val === 'number')) {
+        const [ymin, xmin, ymax, xmax] = box;
+        return {
+            x: xmin,
+            y: ymin,
+            width: Math.max(0, xmax - xmin),
+            height: Math.max(0, ymax - ymin),
+        };
+    }
+    return box;
+}
+
+type RawEntry = {
+    bounding_box?: unknown;
+    [key: string]: unknown;
+}
+
+type RawResponse = {
+    subjects?: RawEntry[];
+    regions_of_interest?: RawEntry[];
+    [key: string]: unknown;
+}
+
+function convertBoundingBoxes(entry: RawEntry): RawEntry {
+    if (entry && typeof entry === 'object' && entry.bounding_box) {
+        return {
+            ...entry,
+            bounding_box: convertRawBoundingBox(entry.bounding_box),
+        };
+    }
+    return entry;
+}
+
 export function parseGeminiResponse(text: string): GeminiResponse {
     const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
     try {
-        return JSON.parse(cleaned) as GeminiResponse;
+        const raw = JSON.parse(cleaned) as RawResponse;
+        if (!raw || typeof raw !== 'object') {
+            return raw as unknown as GeminiResponse;
+        }
+        if (Array.isArray(raw.subjects)) {
+            raw.subjects = raw.subjects.map(convertBoundingBoxes);
+        }
+        if (Array.isArray(raw.regions_of_interest)) {
+            raw.regions_of_interest = raw.regions_of_interest.map(convertBoundingBoxes);
+        }
+        return raw as unknown as GeminiResponse;
     } catch (error) {
         throw new Error(`Failed to parse AI JSON response: ${(error as Error).message}`);
     }

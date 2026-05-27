@@ -120,12 +120,8 @@ test('buildGemini response schemas share the same archival metadata fields', asy
     expectSameMembers(getRequiredNames(getRegionSchema(proSchema)), EXPECTED_REQUIRED_REGION_FIELDS);
 
     assert.match(
-        getBoundingBoxSchema(getSubjectSchema(flashSchema)).properties.x.description,
-        /normalized 0 to 1000/i,
-    );
-    assert.match(
-        getBoundingBoxSchema(getRegionSchema(flashSchema)).properties.width.description,
-        /full original photo/i,
+        getBoundingBoxSchema(getSubjectSchema(flashSchema)).description,
+        /normalized from 0 to 1000/i,
     );
 });
 

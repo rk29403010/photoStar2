@@ -29,7 +29,7 @@ export type AiCallDetail = {
 const formatTimestamp = (ts: string) => {
   try {
     const d = new Date(ts);
-    if (isNaN(d.getTime())) {
+    if (Number.isNaN(d.getTime())) {
       return ts;
     }
     return d.toLocaleString(undefined, {

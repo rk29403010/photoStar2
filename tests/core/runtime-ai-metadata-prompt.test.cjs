@@ -18,8 +18,7 @@ function expectSharedMetadataFields(prompt) {
     assert.match(prompt, /"gaze": "string or null"/i);
     assert.match(prompt, /"dob_range": "string or null"/i);
     assert.match(prompt, /"animal_type": "string or null"/i);
-    assert.match(prompt, /Use the full original photo as the coordinate space/i);
-    assert.match(prompt, /origin is the top-left corner/i);
+    assert.match(prompt, /Use the full original photo/i);
     assert.match(prompt, /Use a normalized 0 to 1000 grid/i);
     assert.match(prompt, /Do not use bottom-left coordinates/i);
     assert.match(prompt, /Set "source_image_index" to the image part/i);
@@ -29,8 +28,7 @@ function expectSharedMetadataFields(prompt) {
     assert.match(prompt, /bounding box must tightly frame the visible head and face area/i);
     assert.match(prompt, /omit that subject instead of guessing a loose location box/i);
     assert.match(prompt, /=== Bounding box coordinate contract/i);
-    assert.match(prompt, /thousandths of the full image/i);
-    assert.match(prompt, /Never derive coordinates from the preview raster/i);
+    assert.match(prompt, /native format: \[ymin, xmin, ymax, xmax\]/i);
 }
 
 test('buildGemini prompts request the same shared archival metadata fields', async () => {

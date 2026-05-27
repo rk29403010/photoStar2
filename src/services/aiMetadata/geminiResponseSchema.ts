@@ -10,13 +10,6 @@ function requiredString(description: string, nullable = false): ResponseSchema {
     };
 }
 
-function requiredNumber(description: string): ResponseSchema {
-    return {
-        type: SchemaType.NUMBER,
-        description,
-    };
-}
-
 function optionalNumber(description: string): ResponseSchema {
     return {
         type: SchemaType.NUMBER,
@@ -26,16 +19,12 @@ function optionalNumber(description: string): ResponseSchema {
 }
 
 function createBoundingBoxSchema(): ResponseSchema {
-    const axisRule = 'Use thousandths of the full original upright photo (0=left/top edge, 1000=right/bottom edge along that axis). Values must stay within 0..1000 inclusive; x+width and y+height must not exceed 1000. Never use the downscaled JPEG pixel grid.';
     return {
-        type: SchemaType.OBJECT,
-        properties: {
-            x: requiredNumber(`Left edge in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
-            y: requiredNumber(`Top edge in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
-            width: requiredNumber(`Width in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
-            height: requiredNumber(`Height in the full original photo on a normalized 0 to 1000 grid. ${axisRule}`),
+        type: SchemaType.ARRAY,
+        description: 'Bounding box coordinates in [ymin, xmin, ymax, xmax] format, normalized from 0 to 1000. All values must be integers between 0 and 1000 inclusive (e.g. [150, 200, 450, 600]).',
+        items: {
+            type: SchemaType.INTEGER,
         },
-        required: ['x', 'y', 'width', 'height'],
     };
 }
 
@@ -77,10 +66,22 @@ function createQualitySchema(): ResponseSchema {
     return {
         type: SchemaType.OBJECT,
         properties: {
-            technical: requiredNumber('Technical quality score.'),
-            lighting: requiredNumber('Lighting quality score.'),
-            composition: requiredNumber('Composition quality score.'),
-            emotional: requiredNumber('Emotional resonance score.'),
+            technical: {
+                type: SchemaType.INTEGER,
+                description: 'Technical quality score as an integer from 0 (terrible, blurry, extreme noise) to 100 (perfectly sharp, clear, no artifacts).',
+            },
+            lighting: {
+                type: SchemaType.INTEGER,
+                description: 'Lighting quality score as an integer from 0 (completely under/overexposed, bad lighting) to 100 (excellent exposure, balanced contrast, clear details).',
+            },
+            composition: {
+                type: SchemaType.INTEGER,
+                description: 'Composition quality score as an integer from 0 (accidental cropping, bad framing) to 100 (intentional composition, rule of thirds, clean framing).',
+            },
+            emotional: {
+                type: SchemaType.INTEGER,
+                description: 'Emotional resonance score as an integer from 0 (boring, static) to 100 (high storytelling power, strong emotional impact).',
+            },
             discard: {
                 type: SchemaType.BOOLEAN,
                 description: 'Whether this image should likely be discarded.',
@@ -94,7 +95,10 @@ function createAuthenticitySchema(): ResponseSchema {
     return {
         type: SchemaType.OBJECT,
         properties: {
-            score: requiredNumber('Estimated authenticity score.'),
+            score: {
+                type: SchemaType.INTEGER,
+                description: 'Estimated authenticity score as an integer from 0 (AI-generated, heavily photoshopped, modern border/watermark) to 100 (pure, authentic, unmanipulated original photograph or document).',
+            },
             reasons: {
                 type: SchemaType.ARRAY,
                 description: 'Reasons supporting the authenticity estimate.',
