@@ -317,11 +317,40 @@ async function buildOverviewPlusTiles(
     };
 }
 
+function decodeUtf16Le(buf: Buffer): string {
+    let str = buf.toString('utf16le');
+    const nullIdx = str.indexOf('\0');
+    if (nullIdx !== -1) {
+        str = str.substring(0, nullIdx);
+    }
+    return str.trim();
+}
+
+function decodeXpTag(value: unknown): unknown {
+    if (Array.isArray(value) && value.every(x => typeof x === 'number')) {
+        return decodeUtf16Le(Buffer.from(value));
+    }
+    if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+        return decodeUtf16Le(Buffer.from(value));
+    }
+    return value;
+}
+
 async function readExifDataString(fileBuffer: Buffer): Promise<string> {
     try {
         const Parser = await import('exif-parser');
         const parser = Parser.create(fileBuffer) as { parse: () => { tags: Record<string, unknown> } };
-        return JSON.stringify(parser.parse().tags);
+        const tags = parser.parse().tags;
+        
+        const xpKeys = ['XPTitle', 'XPComment', 'XPAuthor', 'XPKeywords', 'XPSubject'];
+        const decodedTags = { ...tags };
+        for (const key of xpKeys) {
+            if (decodedTags[key] !== undefined) {
+                decodedTags[key] = decodeXpTag(decodedTags[key]);
+            }
+        }
+        
+        return JSON.stringify(decodedTags);
     } catch {
         return '';
     }

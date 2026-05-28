@@ -129,13 +129,40 @@ function toReadableScalar(value: unknown): unknown {
     return value;
 }
 
+function decodeUtf16Le(buf: Buffer): string {
+    let str = buf.toString('utf16le');
+    const nullIdx = str.indexOf('\0');
+    if (nullIdx !== -1) {
+        str = str.substring(0, nullIdx);
+    }
+    return str.trim();
+}
+
+function decodeXpTag(value: unknown): unknown {
+    if (Array.isArray(value) && value.every(x => typeof x === 'number')) {
+        return decodeUtf16Le(Buffer.from(value));
+    }
+    if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+        return decodeUtf16Le(Buffer.from(value));
+    }
+    return value;
+}
+
 function normaliseParsedTags(tags: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
     if (!tags) {
         return undefined;
     }
 
+    const xpKeys = ['XPTitle', 'XPComment', 'XPAuthor', 'XPKeywords', 'XPSubject'];
+    const decodedTags = { ...tags };
+    for (const key of xpKeys) {
+        if (decodedTags[key] !== undefined) {
+            decodedTags[key] = decodeXpTag(decodedTags[key]);
+        }
+    }
+
     return Object.fromEntries(
-        Object.entries(tags)
+        Object.entries(decodedTags)
             .filter(([, value]) => value !== undefined && value !== null)
             .map(([key, value]) => [key, toReadableScalar(value)]),
     );
