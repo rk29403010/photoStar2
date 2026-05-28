@@ -220,3 +220,8 @@ After Playwright-driven test/debug runs, check for `@playwright/mcp` or
 - Treat `artifacts/` as disposable generated output.
 - Put durable plans, specs, and project knowledge in `docs/`, not `artifacts/`.
 - Version files under `artifacts/` only when explicitly requested.
+
+## Database Migrations
+
+- Any database migrations, backfills of existing records, or data cleanup tasks must be implemented as dev-time one-off scripts (e.g. under `tooling/scripts/repo/`), rather than during application startup runtime initialization (such as `initSchema`).
+- Database schema changes (DDL) should be applied to standard DB creation and schema scripts so that deleting the DB and starting from scratch is always possible.

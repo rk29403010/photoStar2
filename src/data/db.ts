@@ -199,73 +199,12 @@ function backfillPhotoMetadataProjections(db: Database.Database): void {
   }
 }
 
-function decodeUtf16Le(buf: Buffer): string {
-  let str = buf.toString('utf16le');
-  const nullIdx = str.indexOf('\0');
-  if (nullIdx !== -1) {
-    str = str.substring(0, nullIdx);
-  }
-  return str.trim();
-}
-
-function decodeXpTag(value: unknown): unknown {
-  if (Array.isArray(value) && value.every(x => typeof x === 'number')) {
-    return decodeUtf16Le(Buffer.from(value));
-  }
-  if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
-    return decodeUtf16Le(Buffer.from(value));
-  }
-  return value;
-}
-
-function decodeExifXpTags(exif: Record<string, unknown>): boolean {
-  const xpKeys = ['XPTitle', 'XPComment', 'XPAuthor', 'XPKeywords', 'XPSubject'];
-  let changed = false;
-  for (const key of xpKeys) {
-    const val = exif[key];
-    if (val === undefined || !Array.isArray(val)) {
-      continue;
-    }
-    if (val.every(x => typeof x === 'number')) {
-      exif[key] = decodeXpTag(val);
-      changed = true;
-    }
-  }
-  return changed;
-}
-
-function backfillEmbeddedMetadataXpTags(db: Database.Database): void {
-  const rows = db.prepare(`
-    SELECT id, data
-    FROM derived_results
-    WHERE task = 'embedded_metadata'
-  `).all() as Array<{ id: string; data: string }>;
-
-  const updateStmt = db.prepare('UPDATE derived_results SET data = ? WHERE id = ?');
-
-  for (const row of rows) {
-    try {
-      const parsed = JSON.parse(row.data);
-      const exif = parsed.embedded?.exif;
-      if (!exif) {
-        continue;
-      }
-      if (decodeExifXpTags(exif)) {
-        updateStmt.run(JSON.stringify(parsed), row.id);
-      }
-    } catch {
-      // ignore
-    }
-  }
-}
-
 function backfillStoredPhotoCoordinates(db: Database.Database): void {
   try {
     db.transaction(() => {
       backfillFaceDetections(db);
       backfillPhotoMetadataBlocks(db);
       backfillPhotoMetadataProjections(db);
-      backfillEmbeddedMetadataXpTags(db);
     })();
   } catch {
     // ignore coordinate backfill failures so startup still proceeds
