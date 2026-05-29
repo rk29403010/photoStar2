@@ -8,6 +8,21 @@ function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-folder-ingest-'));
 }
 
+async function removeDirWithRetry(targetPath) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        try {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+            return;
+        } catch (error) {
+            if (attempt === 9) {
+                console.warn(`[Test Cleanup] Could not delete temp dir ${targetPath}: ${error.message}`);
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        }
+    }
+}
+
 function createFixtureFolder(rootDir) {
     const folderPath = path.join(rootDir, 'fixtures');
     fs.mkdirSync(folderPath, { recursive: true });
@@ -31,7 +46,7 @@ async function createFolderIngestHarness(tempDir) {
     const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
     const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
     const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
-    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
     const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
@@ -70,7 +85,8 @@ async function createFolderIngestHarness(tempDir) {
     modules.register(createResolvePeopleModule({ dbManager }));
     modules.register(createGroupSimilarPhotosModule({ dbManager }));
     modules.register(createDetectSensitiveContentModule({ dbManager }));
-    modules.register(createGenerateAiMetadataModule({ dbManager }));
+    modules.register(createGenerateAiMetadataScoutModule({ dbManager }));
+    modules.register(createGenerateAiMetadataRefineModule({ dbManager }));
     modules.register(createEstimatePhotoDateModule({ dbManager }));
     workflows.register(folderIngestWorkflowDefinition);
 
@@ -131,7 +147,7 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
         assertFolderIngestResults(harness.dbManager, run);
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
 
@@ -222,6 +238,6 @@ test('folder_ingest_v1 emits preview-generated events for workflow-runtime previ
         assert.ok(previewEvents.every((event) => event.path.endsWith('-thumbnail.webp')));
     } finally {
         dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });

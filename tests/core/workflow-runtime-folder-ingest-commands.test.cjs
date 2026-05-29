@@ -8,6 +8,22 @@ function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-folder-ingest-commands-'));
 }
 
+async function removeDirWithRetry(targetPath) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        try {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+            return;
+        } catch (error) {
+            if (attempt === 9) {
+                console.warn(`[Test Cleanup] Could not delete temp dir ${targetPath}: ${error.message}`);
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        }
+    }
+}
+
+
 function createResponseCollector() {
     const responses = [];
     return {
@@ -66,7 +82,7 @@ async function createCommandHarness(tempDir, options = {}) {
     const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
     const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
     const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
-    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
     const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
     const { createExpandSelectionModule } = await import('../../dist/core/src/services/workflowRuntime/modules/expandSelectionModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
@@ -124,13 +140,14 @@ async function createCommandHarness(tempDir, options = {}) {
     modules.register(createResolvePeopleModule({ dbManager }));
     modules.register(createGroupSimilarPhotosModule({ dbManager }));
     modules.register(createDetectSensitiveContentModule({ dbManager }));
-    modules.register(createGenerateAiMetadataModule({ dbManager, aiRuntime: options.aiRuntime }));
+    modules.register(createGenerateAiMetadataScoutModule({ dbManager, aiRuntime: options.aiRuntime }));
+    modules.register(createGenerateAiMetadataRefineModule({ dbManager, aiRuntime: options.aiRuntime }));
     modules.register(createEstimatePhotoDateModule({ dbManager }));
     modules.register(createExpandSelectionModule());
     workflows.register(folderIngestWorkflowDefinition);
     workflows.register(selectedSubjectMetadataWorkflowDefinition);
 
-    return { dbManager, collector, store, orchestrator, workflows };
+    return { dbManager, collector, store, orchestrator, workflows, modules };
 }
 
 async function waitForWorkflowRunStatus(harness, runId, expectedStatuses) {
@@ -205,7 +222,7 @@ test('start_folder_ingest starts folder_ingest_v1 with parameters and milestone-
         assert.ok(completedDetailResponse.data.milestones.some((milestone) => milestone.milestoneId === 'library_ready'));
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
 
@@ -255,7 +272,7 @@ test('get_system_jobs includes step-level workflow run counts for ingest-centric
         assert.equal(previewStep.totalItems, 1);
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
 
@@ -307,7 +324,7 @@ test('completed folder ingest still returns gallery assets and does not hide the
         assert.equal(syntheticPeopleGroupCount, 0);
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
 
@@ -363,7 +380,7 @@ test('get_workflow_visualiser returns runtime-native workflow metadata and selec
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const startResponse = await harness.collector.takeLast();
@@ -378,10 +395,10 @@ test('get_workflow_visualiser returns runtime-native workflow metadata and selec
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
-        const response = await harness.collector.takeLast();
+        const response = await harness.collector.takeById('cmd-2');
         assert.equal(response.status, 'ok');
         assert.equal(response.data.workflowId, 'folder_ingest_v1');
         assert.equal(response.data.selectedRun.runId, startResponse.data.runId);
@@ -390,6 +407,45 @@ test('get_workflow_visualiser returns runtime-native workflow metadata and selec
         assert.ok(response.data.tabs.text.sections.some((section) => section.id === 'milestones'));
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
+    }
+});
+
+test('estimate_folder_ingest calculates folder cost as N * scout cost', async () => {
+    const tempDir = createTempDir();
+    const folderPath = path.join(tempDir, 'fixtures');
+    fs.mkdirSync(folderPath, { recursive: true });
+    const pngBytes = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6lrn8AAAAASUVORK5CYII=',
+        'base64'
+    );
+    fs.writeFileSync(path.join(folderPath, 'one.png'), pngBytes);
+    fs.writeFileSync(path.join(folderPath, 'two.png'), pngBytes);
+
+    const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
+    let harness;
+
+    try {
+        harness = await createCommandHarness(tempDir);
+
+        handleSystemCommand({
+            id: 'cmd-estimate',
+            command: 'estimate_folder_ingest',
+            payload: { folderPath, traversalMode: 'recursive', aiMode: 'live' },
+            dbManager: harness.dbManager,
+            eventBus: {},
+            activeJobs: new Map(),
+            LIB_DIR: tempDir,
+            respond: harness.collector.respond,
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+        });
+
+        const response = await harness.collector.takeLast();
+        assert.equal(response.status, 'ok');
+        assert.equal(response.data.fileCount, 2);
+        assert.equal(response.data.cost, 2 * 0.0008);
+    } finally {
+        harness?.dbManager.close();
+        await removeDirWithRetry(tempDir);
     }
 });

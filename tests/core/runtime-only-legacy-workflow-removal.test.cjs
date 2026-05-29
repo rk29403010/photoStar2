@@ -86,31 +86,31 @@ async function createRuntimeHarness(tempDir) {
         id: 'library_previews_v1',
         version: 1,
         inputs: ['asset'],
-        nodes: [{ id: 'generate-previews', kind: 'module', moduleId: moduleIds.previews }],
+        nodes: [{ id: 'generate-previews', kind: 'module', moduleId: moduleIds.previews, step: 'test' }],
     });
     workflows.register({
         id: 'library_face_pipeline_v1',
         version: 1,
         inputs: ['asset'],
-        nodes: [{ id: 'detect-faces', kind: 'module', moduleId: moduleIds.faces }],
+        nodes: [{ id: 'detect-faces', kind: 'module', moduleId: moduleIds.faces, step: 'test' }],
     });
     workflows.register({
         id: 'library_sensitive_scan_v1',
         version: 1,
         inputs: ['asset'],
-        nodes: [{ id: 'detect-sensitive-content', kind: 'module', moduleId: moduleIds.sensitive }],
+        nodes: [{ id: 'detect-sensitive-content', kind: 'module', moduleId: moduleIds.sensitive, step: 'test' }],
     });
     workflows.register({
         id: 'library_ai_metadata_v1',
         version: 1,
         inputs: ['asset'],
-        nodes: [{ id: 'generate-ai-metadata', kind: 'module', moduleId: moduleIds.metadata }],
+        nodes: [{ id: 'generate-ai-metadata', kind: 'module', moduleId: moduleIds.metadata, step: 'test' }],
     });
     workflows.register({
         id: 'library_photo_date_v1',
         version: 1,
         inputs: ['asset'],
-        nodes: [{ id: 'recalculate-photo-date', kind: 'module', moduleId: moduleIds.photoDate }],
+        nodes: [{ id: 'recalculate-photo-date', kind: 'module', moduleId: moduleIds.photoDate, step: 'test' }],
     });
 
     return {

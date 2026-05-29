@@ -113,6 +113,7 @@ async function runGroupingWorkflow({ dbManager, inputSubjects }) {
                 id: 'group-similar-photos',
                 kind: 'module',
                 moduleId: 'runtime.group_similar_photos',
+                step: 'test',
                 runMode: 'once_per_batch',
             },
         ],

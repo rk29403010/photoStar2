@@ -129,8 +129,21 @@ function useAppActionHandlers(params: UseAppActionHandlersParams) {
 
     const handleScan = useCallback(async (specificPath?: string) => {
         const path = specificPath ?? await requestScanPath();
-        if (path) {
-            void actions.scanLibrary(path, aiMode);
+        if (!path) {return;}
+        try {
+            const estimation = await actions.estimateFolderIngest(path, aiMode);
+            const formattedCost = estimation.cost.toFixed(4);
+            const userConfirmed = globalThis.confirm(
+                `Folder contains ${estimation.fileCount} images. Expected cost for AI operations: $${formattedCost}.\n\nDo you want to continue?`
+            );
+            if (userConfirmed) {
+                void actions.scanLibrary(path, aiMode);
+            }
+        } catch (error) {
+            console.error('Failed to estimate folder cost:', error);
+            if (globalThis.confirm('Failed to calculate folder cost estimate. Do you want to proceed with scan anyway?')) {
+                void actions.scanLibrary(path, aiMode);
+            }
         }
     }, [actions, aiMode]);
 

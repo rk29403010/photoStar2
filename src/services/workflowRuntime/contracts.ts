@@ -135,6 +135,7 @@ export type ModuleDefinition = {
     produces: ModuleOutputDefinition[];
     estimatedCostPerCall?: number;
     run: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult> | RuntimeModuleRunResult;
+    estimate?: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult & { cost?: number }> | (RuntimeModuleRunResult & { cost?: number });
 }
 
 export type WorkflowDefinition = {

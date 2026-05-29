@@ -8,6 +8,21 @@ function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-workflow-recovery-'));
 }
 
+async function removeDirWithRetry(targetPath) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        try {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+            return;
+        } catch (error) {
+            if (attempt === 9) {
+                console.warn(`[Test Cleanup] Could not delete temp dir ${targetPath}: ${error.message}`);
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        }
+    }
+}
+
 function createResponseCollector() {
     const responses = [];
     return {
@@ -58,7 +73,7 @@ async function createCommandHarness(tempDir, options = {}) {
     const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
     const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
     const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
-    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
     const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
     const { createExpandSelectionModule } = await import('../../dist/core/src/services/workflowRuntime/modules/expandSelectionModule.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
@@ -116,13 +131,14 @@ async function createCommandHarness(tempDir, options = {}) {
     modules.register(createResolvePeopleModule({ dbManager }));
     modules.register(createGroupSimilarPhotosModule({ dbManager }));
     modules.register(createDetectSensitiveContentModule({ dbManager }));
-    modules.register(createGenerateAiMetadataModule({ dbManager, aiRuntime: options.aiRuntime }));
+    modules.register(createGenerateAiMetadataScoutModule({ dbManager, aiRuntime: options.aiRuntime }));
+    modules.register(createGenerateAiMetadataRefineModule({ dbManager, aiRuntime: options.aiRuntime }));
     modules.register(createEstimatePhotoDateModule({ dbManager }));
     modules.register(createExpandSelectionModule());
     workflows.register(folderIngestWorkflowDefinition);
     workflows.register(selectedSubjectMetadataWorkflowDefinition);
 
-    return { dbManager, collector, store, orchestrator, workflows };
+    return { dbManager, collector, store, orchestrator, workflows, modules };
 }
 
 async function waitForWorkflowRunStatus(harness, runId, expectedStatuses) {
@@ -161,7 +177,7 @@ test('failed folder ingest exposes the failed asset path in run detail and workf
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const startResponse = await harness.collector.takeLast();
@@ -176,7 +192,7 @@ test('failed folder ingest exposes the failed asset path in run detail and workf
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const detailResponse = await harness.collector.takeById('cmd-2');
@@ -194,7 +210,7 @@ test('failed folder ingest exposes the failed asset path in run detail and workf
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const visualiserResponse = await harness.collector.takeById('cmd-3');
@@ -204,7 +220,7 @@ test('failed folder ingest exposes the failed asset path in run detail and workf
         assert.match(visualiserDetail.failedSubjects[0].originalPath, /one\.png$/);
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
 
@@ -226,7 +242,7 @@ test('rerun_missing_folder_ai_metadata starts a new selected-subject workflow fo
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const ingestResponse = await harness.collector.takeLast();
@@ -247,7 +263,7 @@ test('rerun_missing_folder_ai_metadata starts a new selected-subject workflow fo
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const rerunResponse = await harness.collector.takeById('cmd-2');
@@ -263,7 +279,7 @@ test('rerun_missing_folder_ai_metadata starts a new selected-subject workflow fo
         await waitForWorkflowRunStatus(harness, rerunResponse.data.runId, ['completed', 'failed']);
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
 
@@ -293,7 +309,7 @@ test('start_selected_subject_metadata_workflow preserves requested analysis mode
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const response = await harness.collector.takeById('cmd-selected-metadata');
@@ -303,7 +319,7 @@ test('start_selected_subject_metadata_workflow preserves requested analysis mode
         assert.equal(detail.parameters.aiMode, 'live');
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
 
@@ -324,7 +340,7 @@ test('workflow visualiser falls back to folder ingest for unknown workflow ids a
             activeJobs: new Map(),
             LIB_DIR: tempDir,
             respond: harness.collector.respond,
-            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows },
+            workflowRuntime: { store: harness.store, orchestrator: harness.orchestrator, workflows: harness.workflows, modules: harness.modules },
         });
 
         const response = await harness.collector.takeById('cmd-unknown-workflow');
@@ -338,6 +354,6 @@ test('workflow visualiser falls back to folder ingest for unknown workflow ids a
         assert.equal(response.data.availableWorkflows[1].displayName, 'Selected subject metadata workflow');
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });

@@ -92,6 +92,7 @@ test('workflow telemetry emits started and completed events for detached runs', 
                     id: 'success-step',
                     kind: 'module',
                     moduleId: 'fake.success',
+                    step: 'test',
                 },
             ],
         });
@@ -114,12 +115,16 @@ test('workflow telemetry emits started and completed events for detached runs', 
         });
 
         await waitForRunStatus({ store: fixture.store, runId, statuses: ['completed'] });
-        await waitForEventCount(events, 2);
-
-        assert.deepEqual(events, [
-            { type: 'RunStarted', runId, workflowId: 'fake-telemetry-success' },
-            { type: 'RunCompleted', runId, workflowId: 'fake-telemetry-success' },
-        ]);
+         await waitForEventCount(events, 6);
+ 
+         assert.deepEqual(events, [
+             { type: 'RunStarted', runId, workflowId: 'fake-telemetry-success' },
+             { type: 'WorkflowStepStarted', runId, nodeId: 'success-step', expectedItems: 1 },
+             { type: 'WorkflowSubjectStarted', runId, nodeId: 'success-step', subjectType: 'asset', subjectId: 'asset-1' },
+             { type: 'WorkflowSubjectCompleted', runId, nodeId: 'success-step', subjectType: 'asset', subjectId: 'asset-1' },
+             { type: 'WorkflowStepCompleted', runId, nodeId: 'success-step' },
+             { type: 'RunCompleted', runId, workflowId: 'fake-telemetry-success' },
+         ]);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -155,6 +160,7 @@ test('workflow telemetry emits failed events for detached runs that error', asyn
                     id: 'failure-step',
                     kind: 'module',
                     moduleId: 'fake.failure',
+                    step: 'test',
                 },
             ],
         });
@@ -177,17 +183,21 @@ test('workflow telemetry emits failed events for detached runs that error', asyn
         });
 
         await waitForRunStatus({ store: fixture.store, runId, statuses: ['failed'] });
-        await waitForEventCount(events, 2);
-
-        assert.deepEqual(events, [
-            { type: 'RunStarted', runId, workflowId: 'fake-telemetry-failure' },
-            {
-                type: 'RunFailed',
-                runId,
-                workflowId: 'fake-telemetry-failure',
-                errorMessage: "workflow step 'failure-step' failed: kaboom",
-            },
-        ]);
+         await waitForEventCount(events, 6);
+ 
+         assert.deepEqual(events, [
+             { type: 'RunStarted', runId, workflowId: 'fake-telemetry-failure' },
+             { type: 'WorkflowStepStarted', runId, nodeId: 'failure-step', expectedItems: 1 },
+             { type: 'WorkflowSubjectStarted', runId, nodeId: 'failure-step', subjectType: 'asset', subjectId: 'asset-1' },
+             { type: 'WorkflowSubjectFailed', runId, nodeId: 'failure-step', subjectType: 'asset', subjectId: 'asset-1', errorMessage: 'kaboom' },
+             { type: 'WorkflowStepFailed', runId, nodeId: 'failure-step', errorMessage: 'kaboom' },
+             {
+                 type: 'RunFailed',
+                 runId,
+                 workflowId: 'fake-telemetry-failure',
+                 errorMessage: "workflow step 'failure-step' failed: kaboom",
+             },
+         ]);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

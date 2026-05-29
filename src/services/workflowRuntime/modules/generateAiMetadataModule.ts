@@ -283,6 +283,14 @@ function createBaseGenerateAiMetadataModule(
             });
             return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
         },
+        estimate: async (context) => {
+            const aiMode = resolveAiMode(context.parameters.aiMode);
+            const cost = aiMode === 'live' ? params.estimatedCostPerCall : 0;
+            return {
+                outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }],
+                cost,
+            };
+        },
     };
 }
 

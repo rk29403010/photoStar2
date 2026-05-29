@@ -9,15 +9,16 @@ function createTempDir() {
 }
 
 async function removeDirWithRetry(targetPath) {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
         try {
             fs.rmSync(targetPath, { recursive: true, force: true });
             return;
         } catch (error) {
-            if (attempt === 4) {
-                throw error;
+            if (attempt === 9) {
+                console.warn(`[Test Cleanup] Could not delete temp dir ${targetPath}: ${error.message}`);
+                return;
             }
-            await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
         }
     }
 }
@@ -26,7 +27,7 @@ async function createHarness(tempDir, options = {}) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { createExpandSelectionModule } = await import('../../dist/core/src/services/workflowRuntime/modules/expandSelectionModule.js');
-    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createGenerateAiMetadataScoutModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
     const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
     const { selectedSubjectMetadataWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow.js');
 
@@ -69,7 +70,7 @@ async function createHarness(tempDir, options = {}) {
     });
 
     modules.register(createExpandSelectionModule());
-    modules.register(createGenerateAiMetadataModule({
+    modules.register(createGenerateAiMetadataScoutModule({
         dbManager,
         aiRuntime: options.aiRuntime,
     }));

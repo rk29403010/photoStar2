@@ -1,5 +1,6 @@
 import { executeControlNode } from './controlNodes';
 import type {
+    ModuleDefinition,
     WorkflowControlNodeDefinition,
     WorkflowModuleNodeDefinition,
     WorkflowNodeDefinition,
@@ -126,6 +127,126 @@ export class WorkflowRuntimeOrchestrator {
         }
         this.runControllers.clear();
         console.warn(`[Workflow] Invalidated in-flight runs: ${reason}`);
+    }
+
+    private async dryRunExecuteNode(
+        node: WorkflowNodeDefinition,
+        nodeSubjects: SubjectRef[],
+        parameters: Record<string, unknown>,
+    ): Promise<{ successSubjects: SubjectRef[]; cost: number; fileCount: number }> {
+        if (node.kind === 'control') {
+            return {
+                successSubjects: executeControlNode(node as WorkflowControlNodeDefinition, nodeSubjects),
+                cost: 0,
+                fileCount: 0,
+            };
+        }
+        return this.dryRunExecuteModuleNode(node as WorkflowModuleNodeDefinition, nodeSubjects, parameters);
+    }
+
+    private async dryRunExecuteModuleNode(
+        node: WorkflowModuleNodeDefinition,
+        nodeSubjects: SubjectRef[],
+        parameters: Record<string, unknown>,
+    ): Promise<{ successSubjects: SubjectRef[]; cost: number; fileCount: number }> {
+        const module = this.deps.modules.get(node.moduleId);
+        let costPerCall = module.estimatedCostPerCall || 0;
+        let emitted: SubjectRef[] = [];
+
+        if (module.estimate) {
+            const result = await this.getModuleEstimate(node, module, nodeSubjects, parameters);
+            costPerCall = result.costPerCall;
+            emitted = result.emitted;
+        }
+
+        const successSubjects = emitted.length > 0 ? emitted : nodeSubjects;
+        const fileCount = node.id === 'scan-folder' ? emitted.length : 0;
+        const cost = this.calculateNodeCost(node.runMode, costPerCall, nodeSubjects.length);
+
+        return { successSubjects, cost, fileCount };
+    }
+
+    private async getModuleEstimate(
+        node: WorkflowModuleNodeDefinition,
+        module: ModuleDefinition,
+        nodeSubjects: SubjectRef[],
+        parameters: Record<string, unknown>,
+    ): Promise<{ costPerCall: number; emitted: SubjectRef[] }> {
+        const primarySubject = nodeSubjects[0] || {
+            subjectType: 'batch',
+            subjectId: 'estimate:' + node.id,
+        };
+        const estimateResult = await module.estimate!({
+            runId: 'estimate',
+            subject: primarySubject,
+            batchSubjects: nodeSubjects,
+            parameters: { ...parameters, ...node.parameters },
+        });
+        const costPerCall = estimateResult.cost !== undefined ? estimateResult.cost : (module.estimatedCostPerCall || 0);
+        return {
+            costPerCall,
+            emitted: estimateResult.emittedSubjects || [],
+        };
+    }
+
+    private calculateNodeCost(
+        runMode: 'once_per_batch' | 'per_subject' | undefined,
+        costPerCall: number,
+        subjectsCount: number,
+    ): number {
+        if (costPerCall <= 0) {
+            return 0;
+        }
+        if (runMode === 'once_per_batch') {
+            return costPerCall;
+        }
+        return costPerCall * subjectsCount;
+    }
+
+    public async estimateWorkflowCost(input: {
+        workflowId: string;
+        parameters: Record<string, unknown>;
+        inputSubjects: SubjectRef[];
+    }): Promise<{ cost: number; fileCount: number }> {
+        const workflow = this.deps.workflows.get(input.workflowId);
+        const orderedNodes = topologicallySortNodes(workflow.nodes);
+
+        const subjectsByNode = new Map<string, SubjectRef[]>();
+        const remainingUpstreamCounts = createIndegreeMap(orderedNodes);
+        populateIndegreeMap(orderedNodes, remainingUpstreamCounts);
+        const readyNodeIds = createRootQueue(orderedNodes, remainingUpstreamCounts);
+
+        for (const nodeId of readyNodeIds) {
+            subjectsByNode.set(nodeId, cloneSubjects(input.inputSubjects));
+        }
+
+        let totalCost = 0;
+        let fileCount = 0;
+
+        while (readyNodeIds.length > 0) {
+            const nodeId = readyNodeIds.shift()!;
+            const node = orderedNodes.find((n) => n.id === nodeId)!;
+            const nodeSubjects = subjectsByNode.get(nodeId) ?? [];
+
+            const result = await this.dryRunExecuteNode(node, nodeSubjects, input.parameters);
+            totalCost += result.cost;
+            if (node.id === 'scan-folder') {
+                fileCount = result.fileCount;
+            }
+
+            for (const targetId of node.outputsTo ?? []) {
+                const nextCount = (remainingUpstreamCounts.get(targetId) || 0) - 1;
+                remainingUpstreamCounts.set(targetId, nextCount);
+                const existing = subjectsByNode.get(targetId) ?? [];
+                subjectsByNode.set(targetId, mergeSubjects(existing, result.successSubjects));
+
+                if (nextCount === 0) {
+                    readyNodeIds.push(targetId);
+                }
+            }
+        }
+
+        return { cost: totalCost, fileCount };
     }
 
     public async start(input: CreateWorkflowRunInput): Promise<string> {
@@ -336,6 +457,7 @@ export class WorkflowRuntimeOrchestrator {
         
         let success: SubjectRef[] = [];
         let failure: SubjectRef[] = [];
+        let errorMessage: string | undefined;
 
         if (params.node.kind === 'control') {
             success = executeControlNode(params.node as WorkflowControlNodeDefinition, params.nodeSubjects);
@@ -351,6 +473,7 @@ export class WorkflowRuntimeOrchestrator {
             );
             success = result.success;
             failure = result.failure;
+            errorMessage = result.errorMessage;
         }
 
         this.assertRunGeneration(params.runGeneration, params.runId);
@@ -371,6 +494,9 @@ export class WorkflowRuntimeOrchestrator {
                 subjectsByNode: params.subjectsByNode,
                 readyNodeIds: params.readyNodeIds,
             });
+        } else if (params.node.kind === 'module' && failure.length > 0) {
+            const detailStr = errorMessage ? `: ${errorMessage}` : '';
+            throw new Error(`workflow step '${params.node.id}' failed${detailStr}`);
         }
     }
 
@@ -402,7 +528,7 @@ export class WorkflowRuntimeOrchestrator {
         parameters: Record<string, unknown>,
         runGeneration: number,
         signal: AbortSignal,
-    ): Promise<{ success: SubjectRef[]; failure: SubjectRef[] }> {
+    ): Promise<{ success: SubjectRef[]; failure: SubjectRef[]; errorMessage?: string }> {
         if (node.runMode === 'once_per_batch') {
             return this.executeBatchModuleNode(runId, workflow, node, subjects, parameters, runGeneration, signal);
         }
@@ -418,7 +544,7 @@ export class WorkflowRuntimeOrchestrator {
         parameters: Record<string, unknown>,
         runGeneration: number,
         signal: AbortSignal,
-    ): Promise<{ success: SubjectRef[]; failure: SubjectRef[] }> {
+    ): Promise<{ success: SubjectRef[]; failure: SubjectRef[]; errorMessage?: string }> {
         this.assertRunGeneration(runGeneration, runId);
         const stepRunId = this.deps.store.recordStepRun({
             workflowRunId: runId,
@@ -468,6 +594,7 @@ export class WorkflowRuntimeOrchestrator {
         return {
             success: emittedSuccess.length > 0 ? emittedSuccess : successfulSubjects,
             failure: emittedFailure.length > 0 ? emittedFailure : failedSubjects,
+            errorMessage: lastErrorMessage,
         };
     }
 
@@ -543,7 +670,7 @@ export class WorkflowRuntimeOrchestrator {
         parameters: Record<string, unknown>,
         runGeneration: number,
         signal: AbortSignal,
-    ): Promise<{ success: SubjectRef[]; failure: SubjectRef[] }> {
+    ): Promise<{ success: SubjectRef[]; failure: SubjectRef[]; errorMessage?: string }> {
         this.assertRunGeneration(runGeneration, runId);
         const stepRunId = this.deps.store.recordStepRun({
             workflowRunId: runId,
@@ -604,7 +731,7 @@ export class WorkflowRuntimeOrchestrator {
             this.telemetry.stepFailed(runId, node.id, errorMessage);
             this.deps.store.updateWorkflowRunStatus(runId, 'failed');
             
-            return { success: [], failure: subjects };
+            return { success: [], failure: subjects, errorMessage };
         }
     }
 

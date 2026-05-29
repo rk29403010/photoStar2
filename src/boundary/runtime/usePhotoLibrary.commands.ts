@@ -199,6 +199,18 @@ export function useLibraryTransport(transport: BackendTransport | null, addLog: 
 
 export function createScanActions(params: ScanActionParams) {
     return {
+        estimateFolderIngest: (path: string, aiMode: AiMode = 'live'): Promise<{ cost: number; fileCount: number }> => {
+            return params.request<{ cost: number; fileCount: number }>({
+                idPrefix: 'estimate_folder_ingest',
+                command: 'estimate_folder_ingest',
+                payload: {
+                    folderPath: path,
+                    traversalMode: 'recursive',
+                    aiMode,
+                },
+                select: (data) => data as { cost: number; fileCount: number },
+            });
+        },
         scanLibrary: async (path: string, aiMode: AiMode = 'live') => {
             if (!params.transport) {return;}
             const runId = await startWorkflowWithOverlayJob({

@@ -99,5 +99,14 @@ export function createScanFolderModule(options: ScanFolderModuleOptions): Module
 
             return { outputs: [], emittedSubjects };
         },
+        estimate: async (context) => {
+            const traversalMode = context.parameters.traversalMode === 'recursive' ? 'recursive' : 'folder_only';
+            const filePaths = collectFolderFiles(context.subject.subjectId, traversalMode === 'recursive');
+            const emittedSubjects = filePaths.map((filePath) => ({
+                subjectType: 'asset',
+                subjectId: filePath,
+            }));
+            return { outputs: [], emittedSubjects, cost: 0 };
+        },
     };
 }

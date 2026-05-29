@@ -213,6 +213,25 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
         });
         ctx.respond(ctx.id, 'ok', { runId }, null, ctx.originWs);
     },
+    estimate_folder_ingest: async (ctx) => {
+        const workflowRuntime = getWorkflowRuntime(ctx);
+        const payload = ctx.payload as {
+            folderPath: string;
+            traversalMode?: 'folder_only' | 'recursive';
+            aiMode?: 'mock' | 'live' | 'off';
+        };
+        const estimateResult = await workflowRuntime.orchestrator.estimateWorkflowCost({
+            workflowId: 'folder_ingest_v1',
+            parameters: {
+                folderPath: payload.folderPath,
+                traversalMode: payload.traversalMode ?? 'folder_only',
+                aiMode: payload.aiMode ?? 'live',
+                metadataPass: 'scout',
+            },
+            inputSubjects: [{ subjectType: 'folder', subjectId: payload.folderPath }],
+        });
+        ctx.respond(ctx.id, 'ok', estimateResult, null, ctx.originWs);
+    },
     start_simulation_workflow: async (ctx) => {
         const payload = (ctx.payload as Record<string, unknown> | undefined) || {};
         const passedParams = (payload.parameters as Record<string, unknown>) || payload;
