@@ -1,9 +1,20 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import fs from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadLocalEnvFile } from '../src/entrypoints/core/loadLocalEnv.ts';
 
-// Use the API key from .env.local
-const apiKey = 'AIzaSyBaSncRkLUNOthzoum_HD8-ghBU8HW_PxU';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = join(__dirname, '..');
+
+// Load environment variables from .env.local
+loadLocalEnvFile(projectRoot);
+
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is missing. Set it in .env.local');
+}
 const genAI = new GoogleGenerativeAI(apiKey);
 
 async function run() {

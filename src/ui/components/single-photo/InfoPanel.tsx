@@ -39,14 +39,13 @@ const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
   { id: 'ailogs', emoji: '🤖', label: 'AI Logs' },
 ];
 
-const PanelHeader: React.FC<{ readonly asset: Asset; readonly hasAI: boolean; readonly onClose?: () => void }> = ({ asset, hasAI, onClose }) => {
+const PanelHeader: React.FC<{ readonly asset: Asset; readonly onClose?: () => void }> = ({ asset, onClose }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
   return (
-    <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid #1e293b', background: 'rgba(15,23,42,0.9)', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+    <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e293b', background: 'rgba(15,23,42,0.9)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 2, wordBreak: 'break-all' }}>📷 {filename}</div>
-          <div style={{ fontSize: 10, color: '#475569' }}>{asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ''}{hasAI ? '🧠 Analysed' : '⏳ Not yet analysed'}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', wordBreak: 'break-all' }}>{filename}</div>
         </div>
         {onClose ? (
           <button
@@ -54,7 +53,7 @@ const PanelHeader: React.FC<{ readonly asset: Asset; readonly hasAI: boolean; re
             onClick={onClose}
             title="Hide info panel"
             aria-label="Hide info panel"
-            style={{ background: 'transparent', border: '1px solid rgba(148,163,184,0.22)', color: '#cbd5e1', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid rgba(148,163,184,0.22)', color: '#cbd5e1', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', flexShrink: 0, fontSize: 14 }}
           >
             ✕
           </button>
@@ -113,11 +112,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, active
     onTabChange?.(tab);
   }, [onTabChange]);
 
-  const hasAI = Boolean(asset.photo_metadata?.projection || asset.ai_metadata);
-
   return (
     <div style={{ width, minWidth: width, maxWidth: width, height: '100%', background: 'linear-gradient(180deg, #0f172a 0%, #0a0f1e 100%)', borderLeft: '1px solid #1e293b', display: 'flex', flexDirection: 'column', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflow: 'hidden', flexShrink: 0 }}>
-      <PanelHeader asset={asset} hasAI={hasAI} onClose={onClose} />
+      <PanelHeader asset={asset} onClose={onClose} />
       <PanelTabs activeTab={activeTab} setActiveTab={setActiveTab} />
       <PanelContent activeTab={activeTab} asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} onGetAiCallsLog={onGetAiCallsLog} onGetAiCallLogDetail={onGetAiCallLogDetail} analysisState={analysisState} />
     </div>

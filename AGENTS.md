@@ -9,6 +9,12 @@ repo checks over prose, memory, or vibes.
 2. **Internal Reasoning Only**: All tool selection logic must stay in the `<thought>` block.
 3. **Minimum Tokens**: Adhere strictly to `<user_global>`. If a response can be a single word or a direct code block, do not add headers, summaries, or politeness.
 
+## Secrets & Privacy (CRITICAL)
+
+1. **No Hardcoded Secrets/Keys**: NEVER hardcode API keys, credentials, tokens, or personal identifiers in any code, configuration, scratch script, or documentation.
+2. **Use Environment Variables**: Always retrieve secrets from environment variables (e.g., `process.env.GEMINI_API_KEY`) and load them from `.env.local` (which is ignored by git) using loaders like `loadLocalEnvFile()`.
+3. **Verify git status**: Always double-check git diffs and status to ensure no keys or environment files are staged.
+
 ## Operating Loop
 
 1. Confirm worktree, branch, and dirty state.

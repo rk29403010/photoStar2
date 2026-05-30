@@ -1,229 +1,216 @@
 import { SchemaType, type ResponseSchema } from '@google/generative-ai';
+import { z } from 'zod';
 
 export type GeminiMetadataImageStrategy = 'overview_only' | 'overview_plus_tiles';
 
-function requiredString(description: string, nullable = false): ResponseSchema {
-    return {
-        type: SchemaType.STRING,
-        description,
-        nullable,
-    };
+type ZodLikeSchema = {
+    constructor: { name: string };
+    description?: string;
+    options?: string[];
+    isInt?: boolean;
+    element?: ZodLikeSchema;
+    shape?: Record<string, ZodLikeSchema>;
+    unwrap?: () => ZodLikeSchema;
 }
 
-function optionalNumber(description: string): ResponseSchema {
-    return {
-        type: SchemaType.NUMBER,
-        description,
-        nullable: true,
-    };
+function unwrapZodSchema(schema: ZodLikeSchema | undefined) {
+    let currentSchema = schema;
+    let nullable = false;
+
+    while (currentSchema) {
+        const name = currentSchema.constructor?.name;
+        if (name === 'ZodNullable') {
+            nullable = true;
+            currentSchema = currentSchema.unwrap?.();
+        } else if (name === 'ZodOptional') {
+            currentSchema = currentSchema.unwrap?.();
+        } else {
+            break;
+        }
+    }
+    return { currentSchema, nullable };
 }
 
-function createBoundingBoxSchema(): ResponseSchema {
-    return {
-        type: SchemaType.ARRAY,
-        description: 'Bounding box coordinates in [ymin, xmin, ymax, xmax] format, normalized from 0 to 1000. All values must be integers between 0 and 1000 inclusive (e.g. [150, 200, 450, 600]).',
-        items: {
-            type: SchemaType.INTEGER,
-        },
-    };
+function isPropertyOptional(value: unknown): boolean {
+    let checkVal = value as ZodLikeSchema | undefined;
+    while (checkVal) {
+        const subType = checkVal.constructor?.name;
+        if (subType === 'ZodOptional') {
+            return true;
+        }
+        if (subType === 'ZodNullable') {
+            checkVal = checkVal.unwrap?.();
+        } else {
+            break;
+        }
+    }
+    return false;
 }
 
-function createBoundingBoxCoordinateSpaceSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
-    if (imageStrategy === 'overview_only') {
-        return {
-            type: SchemaType.STRING,
-            format: 'enum',
-            enum: ['full_photo'],
-            description: 'Always full_photo when only the overview image is attached.',
-            nullable: true,
-        };
+function convertObjectSchema(currentSchema: ZodLikeSchema | undefined): Record<string, unknown> {
+    const properties: Record<string, ResponseSchema> = {};
+    const required: string[] = [];
+    const shape = currentSchema?.shape || {};
+
+    for (const [key, value] of Object.entries(shape)) {
+        properties[key] = zodToGeminiSchema(value);
+        if (!isPropertyOptional(value)) {
+            required.push(key);
+        }
     }
 
-    return {
-        type: SchemaType.STRING,
-        format: 'enum',
-        enum: ['full_photo', 'crop_local'],
-        description: 'full_photo: thousandths of the full original. crop_local: thousandths of the referenced crop image (must set source_image_index to 2-5).',
-        nullable: true,
-    };
+    const result: Record<string, unknown> = { properties };
+    if (required.length > 0) {
+        result.required = required;
+    }
+    return result;
 }
 
-function createEstimatedDateSchema(): ResponseSchema {
-    return {
-        type: SchemaType.OBJECT,
-        properties: {
-            most_likely_date: requiredString('Most likely ISO date or a coarse year/decade string.', true),
-            min_date: requiredString('Earliest plausible ISO date for the photo.', true),
-            max_date: requiredString('Latest plausible ISO date for the photo.', true),
-            display_label: requiredString('Human-readable label for the estimated date range.'),
-            rationale: requiredString('Short explanation for the chosen date range.', true),
-        },
-        required: ['most_likely_date', 'min_date', 'max_date', 'display_label', 'rationale'],
-    };
+function handleZodString(_currentSchema: ZodLikeSchema, result: Record<string, unknown>) {
+    result.type = SchemaType.STRING;
 }
 
-function createQualitySchema(): ResponseSchema {
-    return {
-        type: SchemaType.OBJECT,
-        properties: {
-            technical: {
-                type: SchemaType.INTEGER,
-                description: 'Technical quality score as an integer from 0 (terrible, blurry, extreme noise) to 100 (perfectly sharp, clear, no artifacts).',
-            },
-            lighting: {
-                type: SchemaType.INTEGER,
-                description: 'Lighting quality score as an integer from 0 (completely under/overexposed, bad lighting) to 100 (excellent exposure, balanced contrast, clear details).',
-            },
-            composition: {
-                type: SchemaType.INTEGER,
-                description: 'Composition quality score as an integer from 0 (accidental cropping, bad framing) to 100 (intentional composition, rule of thirds, clean framing).',
-            },
-            emotional: {
-                type: SchemaType.INTEGER,
-                description: 'Emotional resonance score as an integer from 0 (boring, static) to 100 (high storytelling power, strong emotional impact).',
-            },
-            discard: {
-                type: SchemaType.BOOLEAN,
-                description: 'Whether this image should likely be discarded.',
-            },
-        },
-        required: ['technical', 'lighting', 'composition', 'emotional', 'discard'],
-    };
+function handleZodEnum(currentSchema: ZodLikeSchema, result: Record<string, unknown>) {
+    result.type = SchemaType.STRING;
+    result.enum = currentSchema.options;
+    result.format = 'enum';
 }
 
-function createAuthenticitySchema(): ResponseSchema {
-    return {
-        type: SchemaType.OBJECT,
-        properties: {
-            score: {
-                type: SchemaType.INTEGER,
-                description: 'Estimated authenticity score as an integer from 0 (AI-generated, heavily photoshopped, modern border/watermark) to 100 (pure, authentic, unmanipulated original photograph or document).',
-            },
-            reasons: {
-                type: SchemaType.ARRAY,
-                description: 'Reasons supporting the authenticity estimate.',
-                items: requiredString('Authenticity reason.'),
-            },
-        },
-        required: ['score', 'reasons'],
-    };
+function handleZodNumber(currentSchema: ZodLikeSchema, result: Record<string, unknown>) {
+    const isInt = Boolean(currentSchema.isInt);
+    result.type = isInt ? SchemaType.INTEGER : SchemaType.NUMBER;
 }
 
-function createSubjectSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
-    return {
-        type: SchemaType.OBJECT,
-        properties: {
-            label: requiredString('Unique subject label such as Subject1.'),
-            bounding_box: createBoundingBoxSchema(),
-            source_image_index: optionalNumber('Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.'),
-            bounding_box_coordinate_space: createBoundingBoxCoordinateSpaceSchema(imageStrategy),
-            type: requiredString('Subject type such as person or pet.'),
-            location_desc: requiredString('Relative position of the subject within the image.'),
-            gender: requiredString('Estimated gender, or unknown when unclear.', true),
-            animal_type: requiredString('Animal type for pets when present.', true),
-            age_range: requiredString('Estimated age range.', true),
-            dob_range: requiredString('Estimated birth decade or range.', true),
-            emotion: requiredString('Estimated emotion.', true),
-            gaze: requiredString('Estimated gaze direction.', true),
-            features: requiredString('Distinctive visible features.', true),
-            uniform: requiredString('Uniform or notable clothing if present.', true),
-            suggested_names: {
-                type: SchemaType.ARRAY,
-                description: 'Potential names suggested by the image or filename context.',
-                items: requiredString('Suggested person or pet name.'),
-            },
-        },
-        required: [
-            'label',
-            'bounding_box',
-            'type',
-            'location_desc',
-            'gender',
-            'animal_type',
-            'age_range',
-            'dob_range',
-            'emotion',
-            'gaze',
-            'features',
-            'uniform',
-            'suggested_names',
-        ],
-    };
+function handleZodBoolean(_currentSchema: ZodLikeSchema, result: Record<string, unknown>) {
+    result.type = SchemaType.BOOLEAN;
 }
 
-function createRegionOfInterestSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
-    return {
-        type: SchemaType.OBJECT,
-        properties: {
-            label: requiredString('Short label for the region of interest.'),
-            kind: requiredString('Region kind such as signage, handwriting, clothing, vehicle, architecture, or object.'),
-            bounding_box: createBoundingBoxSchema(),
-            source_image_index: optionalNumber('Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.'),
-            bounding_box_coordinate_space: createBoundingBoxCoordinateSpaceSchema(imageStrategy),
-            significance: requiredString('Why the region matters for archive analysis.', true),
-        },
-        required: ['label', 'kind', 'bounding_box', 'significance'],
-    };
+function handleZodArray(currentSchema: ZodLikeSchema, result: Record<string, unknown>) {
+    result.type = SchemaType.ARRAY;
+    result.items = zodToGeminiSchema(currentSchema.element);
 }
 
-function createBaseResponseSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
-    return {
-        type: SchemaType.OBJECT,
-        properties: {
-            type: requiredString('High-level image type or category.'),
-            caption: requiredString('Short one-line summary of the photo.'),
-            description: requiredString('Fuller narrative description of the photo.'),
-            estimated_date: createEstimatedDateSchema(),
-            location: requiredString('Estimated location or Unknown.'),
-            subjects: {
-                type: SchemaType.ARRAY,
-                description: 'Detected people or pets in the image.',
-                items: createSubjectSchema(imageStrategy),
-            },
-            regions_of_interest: {
-                type: SchemaType.ARRAY,
-                description: 'Important detail regions that matter for archive research.',
-                items: createRegionOfInterestSchema(imageStrategy),
-            },
-            keywords: {
-                type: SchemaType.ARRAY,
-                description: 'Approved canonical tags chosen from the provided vocabulary.',
-                items: requiredString('Keyword.'),
-            },
-            tag_proposals: {
-                type: SchemaType.ARRAY,
-                description: 'Candidate new tags for useful concepts missing from the approved canonical vocabulary.',
-                items: requiredString('Tag proposal.'),
-            },
-            emotional_impact: requiredString('Summary of the image mood or emotional impact.'),
-            quality: createQualitySchema(),
-            recommended_enhancements: {
-                type: SchemaType.ARRAY,
-                description: 'Recommended restoration or enhancement actions.',
-                items: requiredString('Enhancement suggestion.'),
-            },
-            authenticity: createAuthenticitySchema(),
-        },
-        required: [
-            'type',
-            'caption',
-            'description',
-            'estimated_date',
-            'location',
-            'subjects',
-            'regions_of_interest',
-            'keywords',
-            'tag_proposals',
-            'emotional_impact',
-            'quality',
-            'recommended_enhancements',
-            'authenticity',
-        ],
-    };
+function handleZodObject(currentSchema: ZodLikeSchema, result: Record<string, unknown>) {
+    result.type = SchemaType.OBJECT;
+    Object.assign(result, convertObjectSchema(currentSchema));
 }
 
-function buildGeminiResponseSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
-    return createBaseResponseSchema(imageStrategy);
+const typeHandlers: Record<string, (currentSchema: ZodLikeSchema, result: Record<string, unknown>) => void> = {
+    ZodString: handleZodString,
+    ZodEnum: handleZodEnum,
+    ZodNumber: handleZodNumber,
+    ZodBoolean: handleZodBoolean,
+    ZodArray: handleZodArray,
+    ZodObject: handleZodObject
+};
+
+function zodToGeminiSchema(schema: unknown): ResponseSchema {
+    const { currentSchema, nullable } = unwrapZodSchema(schema as ZodLikeSchema | undefined);
+    if (!currentSchema) {
+        return { type: SchemaType.STRING };
+    }
+
+    const typeName = currentSchema.constructor?.name || '';
+    const description = currentSchema.description;
+    const result: Record<string, unknown> = {};
+
+    if (description) {
+        result.description = description;
+    }
+    if (nullable) {
+        result.nullable = true;
+    }
+
+    const handler = typeHandlers[typeName];
+    if (handler) {
+        handler(currentSchema, result);
+    } else {
+        result.type = SchemaType.STRING;
+    }
+
+    return result as unknown as ResponseSchema;
+}
+
+
+export function buildZodSchema(imageStrategy: GeminiMetadataImageStrategy = 'overview_plus_tiles') {
+    const boundingBoxSchema = z.array(z.number().int()).describe(
+        'Bounding box coordinates in [ymin, xmin, ymax, xmax] format, normalized from 0 to 1000. All values must be integers between 0 and 1000 inclusive (e.g. [150, 200, 450, 600]).'
+    );
+
+    const boundingBoxCoordinateSpaceSchema = imageStrategy === 'overview_only'
+        ? z.enum(['full_photo']).nullable().optional().describe('Always full_photo when only the overview image is attached.')
+        : z.enum(['full_photo', 'crop_local']).nullable().optional().describe(
+            'full_photo: thousandths of the full original. crop_local: thousandths of the referenced crop image (must set source_image_index to 2-5).'
+        );
+
+    const subjectSchema = z.object({
+        label: z.string().describe('Unique subject label such as Subject1.'),
+        bounding_box: boundingBoxSchema,
+        source_image_index: z.number().nullable().optional().describe('Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.'),
+        bounding_box_coordinate_space: boundingBoxCoordinateSpaceSchema,
+        type: z.string().describe('Subject type such as person or pet.'),
+        location_desc: z.string().describe('Relative position of the subject within the image.'),
+        gender: z.string().nullable().describe('Estimated gender, or unknown when unclear.'),
+        animal_type: z.string().nullable().describe('Animal type for pets when present.'),
+        age_range: z.string().nullable().describe('Estimated age range.'),
+        dob_range: z.string().nullable().describe('Estimated birth decade or range.'),
+        emotion: z.string().nullable().describe('Estimated emotion.'),
+        gaze: z.string().nullable().describe('Estimated gaze direction.'),
+        features: z.string().nullable().describe('Distinctive visible features.'),
+        uniform: z.string().nullable().describe('Uniform or notable clothing if present.'),
+        suggested_names: z.array(z.string()).describe('Potential names suggested by the image or filename context.'),
+    });
+
+    const regionOfInterestSchema = z.object({
+        label: z.string().describe('Short label for the region of interest.'),
+        kind: z.string().describe('Region kind such as signage, handwriting, clothing, vehicle, architecture, or object.'),
+        bounding_box: boundingBoxSchema,
+        source_image_index: z.number().nullable().optional().describe('Image part index: 1 for overview, 2-5 for detail crop, or null if unknown.'),
+        bounding_box_coordinate_space: boundingBoxCoordinateSpaceSchema,
+        significance: z.string().nullable().describe('Why the region matters for archive analysis.'),
+    });
+
+    const estimatedDateSchema = z.object({
+        most_likely_date: z.string().nullable().describe('Most likely ISO date or a coarse year/decade string.'),
+        min_date: z.string().nullable().describe('Earliest plausible ISO date for the photo.'),
+        max_date: z.string().nullable().describe('Latest plausible ISO date for the photo.'),
+        display_label: z.string().describe('Human-readable label for the estimated date range.'),
+        rationale: z.string().nullable().describe('Short explanation for the chosen date range.'),
+    });
+
+    const qualitySchema = z.object({
+        technical: z.number().int().describe('Technical quality score as an integer from 0 (terrible, blurry, extreme noise) to 100 (perfectly sharp, clear, no artifacts).'),
+        lighting: z.number().int().describe('Lighting quality score as an integer from 0 (completely under/overexposed, bad lighting) to 100 (excellent exposure, balanced contrast, clear details).'),
+        composition: z.number().int().describe('Composition quality score as an integer from 0 (accidental cropping, bad framing) to 100 (intentional composition, rule of thirds, clean framing).'),
+        emotional: z.number().int().describe('Emotional resonance score as an integer from 0 (boring, static) to 100 (high storytelling power, strong emotional impact).'),
+        discard: z.boolean().describe('Whether this image should likely be discarded.'),
+    });
+
+    const authenticitySchema = z.object({
+        score: z.number().int().describe('Estimated authenticity score as an integer from 0 (AI-generated, heavily photoshopped, modern border/watermark) to 100 (pure, authentic, unmanipulated original photograph or document).'),
+        reasons: z.array(z.string()).describe('Reasons supporting the authenticity estimate.'),
+    });
+
+    // required: ['tag_proposals']
+    return z.object({
+        type: z.string().describe('High-level image type or category.'),
+        caption: z.string().describe('Short one-line summary of the photo.'),
+        description: z.string().describe('Fuller narrative description of the photo.'),
+        estimated_date: estimatedDateSchema,
+        location: z.string().describe('Estimated location or Unknown.'),
+        subjects: z.array(subjectSchema).describe('Detected people or pets in the image.'),
+        regions_of_interest: z.array(regionOfInterestSchema).describe('Important detail regions that matter for archive research.'),
+        keywords: z.array(z.string()).describe('Approved canonical tags chosen from the provided vocabulary.'),
+        tag_proposals: z.array(z.string()).describe('Candidate new tags for useful concepts missing from the approved canonical vocabulary.'),
+        emotional_impact: z.string().describe('Summary of the image mood or emotional impact.'),
+        quality: qualitySchema,
+        recommended_enhancements: z.array(z.string()).describe('Recommended restoration or enhancement actions.'),
+        authenticity: authenticitySchema,
+    });
+}
+
+export function buildGeminiResponseSchema(imageStrategy: GeminiMetadataImageStrategy): ResponseSchema {
+    return zodToGeminiSchema(buildZodSchema(imageStrategy));
 }
 
 export function buildGeminiFlashResponseSchema(

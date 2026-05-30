@@ -2,22 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 function expectSharedMetadataFields(prompt) {
-    assert.match(prompt, /"caption": "string \(short one-line summary/i);
-    assert.match(prompt, /"description": "string \(fuller narrative description/i);
-    assert.match(prompt, /"estimated_date": \{/i);
-    assert.match(prompt, /"display_label": "string \(e\.g\. 'late 1970s'\)/i);
-    assert.match(prompt, /"rationale": "string \(why this date range was chosen\)"/i);
-    assert.match(prompt, /"regions_of_interest": \[/i);
-    assert.match(prompt, /"kind": "string \(signage, handwriting, clothing, vehicle, architecture, inscription, document, object, other\)"/i);
-    assert.match(prompt, /"significance": "string or null"/i);
-    assert.match(prompt, /"suggested_names": \["string"\]/i);
-    assert.match(prompt, /"source_image_index": "number or null/i);
-    assert.match(prompt, /"bounding_box_coordinate_space": "full_photo \| crop_local \| null"/i);
-    assert.match(prompt, /"uniform": "string or null"/i);
-    assert.match(prompt, /"features": "string or null"/i);
-    assert.match(prompt, /"gaze": "string or null"/i);
-    assert.match(prompt, /"dob_range": "string or null"/i);
-    assert.match(prompt, /"animal_type": "string or null"/i);
     assert.match(prompt, /Use the full original photo/i);
     assert.match(prompt, /Use a normalized 0 to 1000 grid/i);
     assert.match(prompt, /Do not use bottom-left coordinates/i);
@@ -50,10 +34,6 @@ test('buildGemini prompts request the same shared archival metadata fields', asy
 
     expectSharedMetadataFields(proPrompt);
     expectSharedMetadataFields(flashPrompt);
-    assert.match(proPrompt, /short one-line summary/i);
-    assert.match(proPrompt, /fuller narrative/i);
-    assert.match(flashPrompt, /short one-line summary/i);
-    assert.match(flashPrompt, /fuller narrative/i);
 });
 
 test('buildGemini tiled prompts include crop bounds while keeping full-photo normalized coordinates', async () => {

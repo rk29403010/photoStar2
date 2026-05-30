@@ -43,7 +43,7 @@ export type GenerateAiMetadataModuleOptions = {
     };
 }
 
-const DEFAULT_SCOUT_LIVE_METADATA_TIMEOUT_MS = 180_000;
+const DEFAULT_SCOUT_LIVE_METADATA_TIMEOUT_MS = 120_000;
 const DEFAULT_REFINE_LIVE_METADATA_TIMEOUT_MS = 300_000;
 
 function loadAssetRow(
@@ -91,18 +91,24 @@ export function resolveLiveMetadataTimeoutMs(params: {
 function assertLiveAiConfiguration(
     options: GenerateAiMetadataModuleOptions,
     runId: string,
+    emittedRunIds?: Set<string>,
 ): void {
     const configurationError = getLiveAiConfigurationError(options.dbManager);
     if (!configurationError) {
         return;
     }
 
-    options.eventBus?.emit({
-        type: 'AiMetadataConfigurationError',
-        workflowRunId: runId,
-        nodeId: 'generate-ai-metadata',
-        message: configurationError,
-    });
+    if (!emittedRunIds || !emittedRunIds.has(runId)) {
+        if (emittedRunIds) {
+            emittedRunIds.add(runId);
+        }
+        options.eventBus?.emit({
+            type: 'AiMetadataConfigurationError',
+            workflowRunId: runId,
+            nodeId: 'generate-ai-metadata',
+            message: configurationError,
+        });
+    }
     throw new Error(configurationError);
 }
 
@@ -144,19 +150,29 @@ async function withLiveMetadataTimeout<T>(
 ): Promise<T> {
     const executeWithTimeout = async () => {
         const controller = new AbortController();
-        const timeoutHandle = setTimeout(() => {
-            controller.abort();
-        }, timeoutMs);
+        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutHandle = setTimeout(() => {
+                controller.abort();
+                reject(new Error(`AI metadata timed out after ${timeoutMs}ms for asset '${assetId}'`));
+            }, timeoutMs);
+        });
 
         try {
-            return await operationFactory(controller.signal);
+            return await Promise.race([
+                operationFactory(controller.signal),
+                timeoutPromise,
+            ]);
         } catch (error) {
             if (error instanceof Error && error.name === 'AbortError') {
                 throw new Error(`AI metadata timed out after ${timeoutMs}ms for asset '${assetId}'`);
             }
             throw error;
         } finally {
-            clearTimeout(timeoutHandle);
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+            }
         }
     };
 
@@ -207,18 +223,27 @@ function persistMachineMetadataEvidence(params: {
     });
 }
 
+function resolveImageStrategy(value: unknown): 'overview_only' | 'overview_plus_tiles' {
+    return value === 'overview_plus_tiles' ? 'overview_plus_tiles' : 'overview_only';
+}
+
+function resolveMetadataPass(value: unknown): 'scout' | 'refine' {
+    return value === 'refine' ? 'refine' : 'scout';
+}
+
 function createBaseGenerateAiMetadataModule(
     options: GenerateAiMetadataModuleOptions,
     params: {
         id: string;
         estimatedCostPerCall: number;
-        imageStrategy: 'overview_only' | 'overview_plus_tiles';
-        metadataPass: 'scout' | 'refine';
+        imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+        metadataPass?: 'scout' | 'refine';
     }
 ): ModuleDefinition {
     const liveRuntime = options.aiRuntime ?? {
         generateLiveMetadata: generateLiveAiMetadata,
     };
+    const emittedRunIds = new Set<string>();
 
     return {
         id: params.id,
@@ -229,8 +254,11 @@ function createBaseGenerateAiMetadataModule(
         estimatedCostPerCall: params.estimatedCostPerCall,
         run: async (context) => {
             const aiMode = resolveAiMode(context.parameters.aiMode);
+            const metadataPass = params.metadataPass ?? resolveMetadataPass(context.parameters.metadataPass);
+            const imageStrategy = params.imageStrategy ?? resolveImageStrategy(context.parameters.imageStrategy);
+            
             const liveMetadataTimeoutMs = resolveLiveMetadataTimeoutMs({
-                metadataPass: params.metadataPass,
+                metadataPass,
                 configuredTimeoutMs: options.liveMetadataTimeoutMs,
             });
 
@@ -239,7 +267,7 @@ function createBaseGenerateAiMetadataModule(
             }
 
             if (aiMode === 'live') {
-                assertLiveAiConfiguration(options, context.runId);
+                assertLiveAiConfiguration(options, context.runId, emittedRunIds);
             }
 
             const db = options.dbManager.getDb();
@@ -249,7 +277,7 @@ function createBaseGenerateAiMetadataModule(
             }
 
             // Idempotency check: skip if we already have this pass's evidence
-            const existingBlocks = db.prepare(`SELECT id FROM photo_metadata_blocks WHERE asset_id = ? AND source_kind = ?`).get(context.subject.subjectId, params.metadataPass);
+            const existingBlocks = db.prepare(`SELECT id FROM photo_metadata_blocks WHERE asset_id = ? AND source_kind = ?`).get(context.subject.subjectId, metadataPass);
             if (existingBlocks) {
                 return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
             }
@@ -260,8 +288,8 @@ function createBaseGenerateAiMetadataModule(
                     assetId: context.subject.subjectId,
                     dbManager: options.dbManager,
                     eventBus: options.eventBus,
-                    imageStrategy: params.imageStrategy,
-                    metadataPass: params.metadataPass,
+                    imageStrategy,
+                    metadataPass,
                     moduleId: params.id,
                     liveRuntime,
                     row,
@@ -309,5 +337,12 @@ export function createGenerateAiMetadataRefineModule(options: GenerateAiMetadata
         estimatedCostPerCall: 0.0022,
         imageStrategy: 'overview_plus_tiles',
         metadataPass: 'refine',
+    });
+}
+
+export function createGenerateAiMetadataModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
+    return createBaseGenerateAiMetadataModule(options, {
+        id: 'runtime.generate_ai_metadata_scout',
+        estimatedCostPerCall: 0.0008,
     });
 }

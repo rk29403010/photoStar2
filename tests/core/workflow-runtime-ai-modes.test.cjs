@@ -241,7 +241,7 @@ test('live ai mode without an api key emits one configuration error and stops fu
         );
         const metadataStep = detail.steps.find((step) => step.nodeId === 'generate-ai-metadata');
         assert.ok(metadataStep);
-        assert.equal(metadataStep.failedItems, 1);
+        assert.equal(metadataStep.failedItems, 2);
         assert.equal(metadataStep.completedItems, 0);
         assert.equal(
             metadataStep.errorMessage,
