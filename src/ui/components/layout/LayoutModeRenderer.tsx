@@ -83,17 +83,10 @@ export function LayoutModeRenderer(props: LayoutModeRendererProps) {
 
     return (
         <div
-            className="layout-grid"
+            className="layout-grid grid grid-cols-24 grid-flow-row-dense auto-rows-gallery w-full max-w-[1800px] mx-auto"
             style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(24, 1fr)',
-                gridAutoFlow: 'dense',
-                gridAutoRows: 'min(75px, 4.1vw)',
                 gap: `${props.tileGap ?? 2}px`,
                 padding: `${props.tileGap ?? 2}px`,
-                width: '100%',
-                maxWidth: '1800px',
-                margin: '0 auto',
             }}
         >
             {Array.from({ length: props.itemCount }, (_, index) => props.renderTile(index))}

@@ -151,20 +151,7 @@ function useSelectionInteractions(
     return { dragSelectionRef, isSelecting, setIsSelecting, pressTimer, stopDragging, dragRange, setDragRange, originalSelectionRef };
 }
 
-function getTileShellStyle(isDeclustered: boolean | undefined, isSelected: boolean) {
-    return {
-        gridColumn: 'span 1',
-        gridRow: 'span 1',
-        opacity: isDeclustered ? 0.4 : 1,
-        filter: isDeclustered ? 'grayscale(80%)' : 'none',
-        position: 'relative' as const,
-        userSelect: 'none' as const,
-        transform: isSelected ? 'scale(0.97)' : 'none',
-        transition: 'transform 0.18s ease-out',
-        borderRadius: '6px',
-        overflow: 'hidden',
-    };
-}
+
 
 function applySelectionChange(
     layoutItems: LayoutItem[],
@@ -393,6 +380,44 @@ function useLayoutTileEventHandlers(params: {
     return { onClick, onDoubleClick, onPointerDown, onPointerEnter, onPointerLeave, onPointerUp };
 }
 
+function useLayoutTileSelection(params: {
+    index: number;
+    selectionState: SelectionInteractionState;
+    librarySelection: LibrarySelectionState;
+    layoutItem: LayoutItem;
+    selectedAssetId?: string | null;
+}) {
+    const { index, selectionState, librarySelection, layoutItem, selectedAssetId } = params;
+    const isInDragRange = useMemo(() => {
+        if (!selectionState.dragRange) {return false;}
+        const { anchorIndex, currentIndex } = selectionState.dragRange;
+        const start = Math.min(anchorIndex, currentIndex);
+        const end = Math.max(anchorIndex, currentIndex);
+        return index >= start && index <= end;
+    }, [selectionState.dragRange, index]);
+
+    return isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id || isInDragRange;
+}
+
+function useLayoutTileStyle(params: {
+    shellStyleOverride?: CSSProperties;
+    layoutItem: LayoutItem;
+}) {
+    const { shellStyleOverride, layoutItem } = params;
+    return useMemo(() => {
+        if (shellStyleOverride) {
+            return {
+                width: shellStyleOverride.width,
+                height: shellStyleOverride.height,
+            };
+        }
+        return {
+            gridColumn: `span ${layoutItem.spanW}`,
+            gridRow: `span ${layoutItem.spanH}`,
+        };
+    }, [shellStyleOverride, layoutItem.spanW, layoutItem.spanH]);
+}
+
 function LayoutTile({
     layoutItem,
     index,
@@ -416,22 +441,14 @@ function LayoutTile({
     isScrollSettled,
     shellStyleOverride,
 }: LayoutTileProps) {
-    const isInDragRange = useMemo(() => {
-        if (!selectionState.dragRange) {return false;}
-        const { anchorIndex, currentIndex } = selectionState.dragRange;
-        const start = Math.min(anchorIndex, currentIndex);
-        const end = Math.max(anchorIndex, currentIndex);
-        return index >= start && index <= end;
-    }, [selectionState.dragRange, index]);
-    const isSelected = isItemSelected(librarySelection, layoutItem.item) || selectedAssetId === layoutItem.item.asset.id || isInDragRange;
+    const isSelected = useLayoutTileSelection({ index, selectionState, librarySelection, layoutItem, selectedAssetId });
     const isDeclustered = declusteredAssets?.has(layoutItem.item.asset.id);
-    const shellStyle = useMemo(() => ({
-        ...getTileShellStyle(isDeclustered, isSelected),
-        ...(shellStyleOverride ?? {
-            gridColumn: `span ${layoutItem.spanW}`,
-            gridRow: `span ${layoutItem.spanH}`,
-        }),
-    }), [isDeclustered, isSelected, layoutItem.spanH, layoutItem.spanW, shellStyleOverride]);
+    const inlineStyle = useLayoutTileStyle({ shellStyleOverride, layoutItem });
+
+    const declusteredClasses = isDeclustered ? 'opacity-40 grayscale' : 'opacity-100 grayscale-0';
+    const selectedClasses = isSelected ? 'scale-95' : 'scale-100';
+    const flexClasses = shellStyleOverride ? 'flex-none' : '';
+
     const { onClick, onDoubleClick, onPointerDown, onPointerEnter, onPointerLeave, onPointerUp } = useLayoutTileEventHandlers({
         index,
         layoutItem,
@@ -447,7 +464,8 @@ function LayoutTile({
             type="button"
             key={layoutItem.item.selectionKey}
             data-selection-key={layoutItem.item.selectionKey}
-            style={{ ...shellStyle, textAlign: 'left', font: 'inherit', color: 'inherit', padding: 0, border: 'none', background: 'transparent' }}
+            className={`text-left font-inherit text-inherit p-0 border-none bg-transparent relative select-none rounded-md overflow-hidden transition-transform duration-150 ease-out ${declusteredClasses} ${selectedClasses} ${flexClasses}`}
+            style={inlineStyle}
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerLeave}
