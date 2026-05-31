@@ -33,11 +33,11 @@ function ToggleButton({
     let activeClass = 'bg-content/5 text-content-secondary border border-content/10 hover:bg-content/10';
     if (active) {
         if (variant === 'blue') {
-            activeClass = 'bg-blue-600/20 text-blue-200 border border-blue-500/40 hover:bg-blue-600/30';
+            activeClass = 'bg-blue-500/15 text-blue-700 dark:text-blue-200 border border-blue-500/30 hover:bg-blue-500/25';
         } else if (variant === 'cyan') {
-            activeClass = 'bg-cyan-600/20 text-cyan-200 border border-cyan-500/40 hover:bg-cyan-600/30';
+            activeClass = 'bg-cyan-500/15 text-cyan-800 dark:text-cyan-200 border border-cyan-500/30 hover:bg-cyan-500/25';
         } else if (variant === 'indigo') {
-            activeClass = 'bg-indigo-600/20 text-indigo-200 border border-indigo-500/40 hover:bg-indigo-600/30';
+            activeClass = 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-200 border border-indigo-500/30 hover:bg-indigo-500/25';
         }
     }
 

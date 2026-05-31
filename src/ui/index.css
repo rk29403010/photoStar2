@@ -49,6 +49,28 @@
     border-color: var(--link);
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
   }
+  button {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    background-color: var(--btn-bg);
+    cursor: pointer;
+    transition: border-color 0.25s;
+  }
+  button:hover {
+    border-color: var(--btn-border-hover);
+  }
+  button:focus,
+  button:focus-visible {
+    outline: 4px auto -webkit-focus-ring-color;
+  }
+  button.timeline-rail-button:focus,
+  button.timeline-rail-button:focus-visible {
+    outline: none;
+  }
 }
 
 :root {
@@ -129,32 +151,6 @@ body {
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: var(--btn-bg);
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-
-button:hover {
-  border-color: var(--btn-border-hover);
-}
-
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-button.timeline-rail-button:focus,
-button.timeline-rail-button:focus-visible {
-  outline: none;
 }
 
 @media (prefers-color-scheme: light) {

@@ -42,7 +42,7 @@ function seekTimelineBucket(params: {
 }
 
 function TimelineRailHeader() {
-    return <span style={{ color: '#9ca3af', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Timeline</span>;
+    return <span className="text-content-secondary text-[11px] font-semibold tracking-wider uppercase">Timeline</span>;
 }
 
 function TimelineRailBucketButton(props: {
@@ -51,35 +51,21 @@ function TimelineRailBucketButton(props: {
     readonly maxBucketCount: number;
     readonly onClick: () => void;
 }) {
+    const activeClass = props.isDisplayed
+        ? 'bg-brand-accent border-brand-accent text-white font-bold'
+        : 'border-content/10 text-content-secondary hover:text-content hover:border-content/30';
+
     return (
         <button
-            className="timeline-rail-button"
+            className={`timeline-rail-button flex items-center justify-center w-full min-h-0 rounded-full border text-[11px] cursor-pointer px-1.5 transition-all outline-none scale-100 shadow-none ${activeClass}`}
             type="button"
             title={`${props.bucket.label}: ${props.bucket.count} photo${props.bucket.count === 1 ? '' : 's'}`}
             onClick={props.onClick}
             onMouseUp={(event) => {
                 event.currentTarget.blur();
             }}
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                minHeight: 0,
-                borderRadius: 999,
-                border: props.isDisplayed ? '1px solid rgba(255,255,255,0.98)' : '1px solid rgba(148,163,184,0.16)',
-                background: props.isDisplayed
-                    ? 'rgba(241,245,249,0.98)'
-                    : `rgba(96,165,250,${getDensityOpacity(props.bucket.count, props.maxBucketCount)})`,
-                boxShadow: 'none',
-                color: props.isDisplayed ? '#0f172a' : '#e5e7eb',
-                fontSize: '0.72rem',
-                fontWeight: props.isDisplayed ? 700 : 500,
-                cursor: 'pointer',
-                padding: '0 6px',
-                outline: 'none',
-                transform: 'scale(1)',
-                transition: 'background-color 120ms ease, border-color 120ms ease, color 120ms ease',
+            style={props.isDisplayed ? undefined : {
+                background: `rgba(99,102,241,${getDensityOpacity(props.bucket.count, props.maxBucketCount)})`,
             }}
         >
             {props.bucket.label}
@@ -136,13 +122,17 @@ function UnknownDateButton(props: {
         return null;
     }
 
+    const activeClass = props.activeSeek?.kind === 'unknown'
+        ? 'bg-brand-accent text-white border-brand-accent'
+        : 'bg-content/5 text-content-secondary border-content/10 hover:bg-content/10';
+
     return (
         <button
             type="button"
             onClick={props.onClick}
-            style={{ background: props.activeSeek?.kind === 'unknown' ? 'rgba(30,41,59,0.95)' : 'rgba(148,163,184,0.08)', color: '#e5e7eb', border: '1px solid rgba(148,163,184,0.24)', borderRadius: 999, padding: '5px 10px', fontSize: '0.78rem', whiteSpace: 'nowrap', cursor: 'pointer' }}
+            className={`border rounded-full py-1 px-2.5 text-xs whitespace-nowrap cursor-pointer transition-colors ${activeClass}`}
         >
-            Unknown date ({props.unknownDateCount})
+            Unknown ({props.unknownDateCount})
         </button>
     );
 }
@@ -163,7 +153,7 @@ export function LibraryTimelineRail(props: LibraryTimelineRailProps) {
             data-timeline-active-index={String(activeIndex)}
             data-timeline-displayed-index={String(displayedIndex)}
             data-timeline-viewport-index={props.viewportBucketIndex == null ? 'null' : String(props.viewportBucketIndex)}
-            style={{ width: 92, minWidth: 92, display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 8px 14px 10px', borderRight: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(180deg, rgba(10,10,10,0.98), rgba(15,23,42,0.92))' }}
+            className="w-[92px] min-w-[92px] flex flex-col gap-2.5 pt-3.5 pb-3.5 pl-2.5 pr-2 bg-surface-secondary border-r border-content/10"
         >
             <TimelineRailHeader />
             <TimelineRailTrack
@@ -173,7 +163,7 @@ export function LibraryTimelineRail(props: LibraryTimelineRailProps) {
                 onSeekChange={props.onSeekChange}
                 onBucketJump={props.onBucketJump}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="flex flex-col gap-1.5">
                 <UnknownDateButton
                     unknownDateCount={props.timeline.unknownDateCount}
                     activeSeek={props.activeSeek}

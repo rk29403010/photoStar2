@@ -17,12 +17,12 @@ type AppStatusBarProps = {
   readonly rightSlot?: ReactNode;
 }
 
-function getStatusDotColor(statusBanner: StatusBanner | null, status: string): string {
+function getStatusDotColorClass(statusBanner: StatusBanner | null, status: string): string {
   if (statusBanner) {
-    return '#60a5fa';
+    return 'text-blue-400';
   }
 
-  return status.toLowerCase().includes('error') ? 'red' : 'green';
+  return status.toLowerCase().includes('error') ? 'text-red-500' : 'text-emerald-500';
 }
 
 function buildStatusSummary(view: AppStatusBarProps['view'], counts: {
@@ -56,19 +56,10 @@ function CurrentPhotoSegment({ currentPhoto }: { readonly currentPhoto: CurrentP
   return (
     <div
       key={currentPhoto.filename}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 10px',
-        borderRadius: 999,
-        background: 'rgba(255,255,255,0.04)',
-        color: '#d1d5db',
-        animation: 'statusBarCurrentPhotoEnter 0.18s ease-out',
-      }}
+      className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-content/5 text-content-secondary animate-[statusBarCurrentPhotoEnter_0.18s_ease-out]"
     >
-      <span style={{ color: '#93c5fd', fontSize: '0.7rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Current photo</span>
-      <span style={{ color: '#f3f4f6' }}>{currentPhoto.filename}</span>
+      <span className="text-brand-accent text-[11px] tracking-wider uppercase">Current photo</span>
+      <span className="text-content font-medium">{currentPhoto.filename}</span>
       <span>{currentPhoto.sensitivity}</span>
       {currentPhoto.dimensions && <span>{currentPhoto.dimensions}</span>}
     </div>
@@ -77,7 +68,7 @@ function CurrentPhotoSegment({ currentPhoto }: { readonly currentPhoto: CurrentP
 
 export function AppStatusBar({ statusBanner, activityMessage, status, view, librarySelectionCount, shownAssetsCount, peopleSelectionCount, totalPhotoCount, peopleCount, currentPhoto, rightSlot }: AppStatusBarProps) {
   const displayedStatus = statusBanner?.message ?? activityMessage ?? status;
-  const dotColor = getStatusDotColor(displayedStatus === status ? null : statusBanner, status);
+  const dotColorClass = getStatusDotColorClass(displayedStatus === status ? null : statusBanner, status);
   const summary = buildStatusSummary(view, {
     librarySelectionCount,
     shownAssetsCount,
@@ -88,34 +79,25 @@ export function AppStatusBar({ statusBanner, activityMessage, status, view, libr
 
   return (
     <div
-      style={{ height: '30px', background: '#1a1a1a', borderTop: '1px solid #333', display: 'flex', alignItems: 'center', padding: '0 10px', fontSize: '12px', color: '#b3b3b3', flexShrink: 0, gap: 12 }}
+      className="h-[30px] bg-surface-secondary border-t border-content/10 flex items-center px-2.5 text-xs text-content-secondary shrink-0 gap-3"
     >
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-        <span style={{ marginRight: 8, color: dotColor }}>●</span>
-        <span style={{ color: displayedStatus !== status ? '#93c5fd' : undefined }}>{displayedStatus}</span>
+      <div className="flex-1 flex items-center">
+        <span className={`mr-2 ${dotColorClass}`}>●</span>
+        <span className={displayedStatus !== status ? 'text-brand-accent font-medium' : ''}>{displayedStatus}</span>
         {statusBanner?.actionLabel && statusBanner.onAction && (
           <button
             type="button"
             onClick={statusBanner.onAction}
-            style={{
-              marginLeft: 10,
-              border: '1px solid rgba(147,197,253,0.45)',
-              background: 'rgba(59,130,246,0.12)',
-              color: '#bfdbfe',
-              borderRadius: 999,
-              cursor: 'pointer',
-              fontSize: '0.78rem',
-              padding: '2px 10px',
-            }}
+            className="ml-2.5 border border-brand-accent/30 bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 rounded-full cursor-pointer text-[11px] px-2.5 py-0.5 transition-colors"
           >
             {statusBanner?.actionLabel}
           </button>
         )}
       </div>
-      <div style={{ marginRight: 16 }}>{summary}</div>
+      <div className="mr-4">{summary}</div>
       {currentPhoto && <CurrentPhotoSegment currentPhoto={currentPhoto} />}
       {rightSlot}
-      <div style={{ flexShrink: 0, opacity: 0.6 }}>v{metadata.version}</div>
+      <div className="shrink-0 opacity-60">v{metadata.version}</div>
       <style>{`
         @keyframes statusBarCurrentPhotoEnter {
           from { opacity: 0; transform: translateY(4px); }

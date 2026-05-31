@@ -6,8 +6,6 @@ import {
     getTopVisibleTimelineGroupIdFromScrollContainer,
 } from '../library/libraryVisibleSelectionKey';
 
-const GROUP_HEADER_HEIGHT_PX = 46;
-
 type GroupedTimelineLayoutProps = {
     readonly sections: Array<{
         id: string;
@@ -114,25 +112,17 @@ function buildTimelineLayoutRows(groups: TimelineLayoutGroup[]) {
 
 function renderGroupHeader(group: TimelineLayoutGroup | undefined) {
     if (!group?.label) {
-        return <div style={{ width: '100%', minHeight: GROUP_HEADER_HEIGHT_PX }} />;
+        return <div className="w-full min-h-[46px]" />;
     }
 
     return (
         <div
             data-time-section-id={group.id}
-            style={{
-                width: '100%',
-                maxWidth: '1800px',
-                minHeight: GROUP_HEADER_HEIGHT_PX,
-                margin: '0 auto',
-                padding: '18px 0 8px',
-                boxSizing: 'border-box',
-                background: '#0a0a0a',
-            }}
+            className="w-full max-w-[1800px] min-h-[46px] mx-auto pt-[18px] pb-2 px-0 box-border bg-surface border-b border-content/5"
         >
-            <div style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94a3b8' }}>
+            <div className="text-[13px] font-bold tracking-wider uppercase text-content-secondary flex items-baseline gap-0.5">
                 <span>{group.label.slice(0, -1)}</span>
-                <span style={{ fontSize: '0.72em', letterSpacing: '0.02em' }}>{group.label.slice(-1)}</span>
+                <span className="text-[10px] tracking-normal">{group.label.slice(-1)}</span>
             </div>
         </div>
     );

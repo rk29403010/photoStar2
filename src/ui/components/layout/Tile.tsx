@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import type { Asset, TileIntent } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
-import { LIBRARY_SELECTION_FRAME_COLOR } from '@shared/utils/librarySelectionVisuals';
 import { TileOverlays, type SensitivityBadge } from './TileOverlays';
 
 type TileProps = {
@@ -61,23 +60,8 @@ function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
     return null;
 }
 
-function getBorder(selected: boolean): string {
-    return selected ? `2px solid ${LIBRARY_SELECTION_FRAME_COLOR}` : '0px solid transparent';
-}
-
-function getTileContainerStyle(selected: boolean) {
-    return {
-        width: '100%',
-        height: '100%',
-        background: '#1a1a1a',
-        overflow: 'hidden',
-        position: 'relative' as const,
-        borderRadius: 4,
-        border: getBorder(selected),
-        boxSizing: 'border-box' as const,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease-out',
-    };
+function getBorderClass(selected: boolean): string {
+    return selected ? 'border-2 border-brand-accent' : 'border-2 border-transparent';
 }
 
 function useTileHoverState(asset: Asset, onHoverAssetChange?: (asset: Asset | null) => void) {
@@ -120,9 +104,9 @@ const LoadedTileImage: React.FC<{
     }, [markLoaded]);
 
     return (
-        <div style={{ width: '100%', height: '100%', position: 'relative', background: '#050505' }}>
+        <div className="w-full h-full relative bg-surface-secondary">
             {!isLoaded && (
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(12, 12, 12, 0.85))' }} />
+                <div className="absolute inset-0 bg-gradient-to-br from-surface-secondary to-surface/85" />
             )}
             <img
                 ref={handleImageRef}
@@ -135,7 +119,8 @@ const LoadedTileImage: React.FC<{
                     setIsLoaded(true);
                     onImageVisibleChange(false);
                 }}
-                style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: isLoaded ? 1 : 0, transition: 'opacity 0.2s ease-out', display: 'block' }}
+                className="w-full h-full object-contain block transition-opacity duration-200 ease-out"
+                style={{ opacity: isLoaded ? 1 : 0 }}
             />
         </div>
     );
@@ -144,9 +129,9 @@ const LoadedTileImage: React.FC<{
 const TileMedia: React.FC<TileMediaProps> = ({ imgSrc, loadingMode, fetchPriority, onImageVisibleChange }) => {
     if (!imgSrc) {
         return (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', fontSize: '0.8rem', flexDirection: 'column' }}>
+            <div className="w-full h-full flex flex-col items-center justify-center text-content-secondary text-xs">
                 <span>🖼️</span>
-                <span style={{ fontSize: '0.6rem', marginTop: 4 }}>Processing...</span>
+                <span className="text-[10px] mt-1">Processing...</span>
             </div>
         );
     }
@@ -179,7 +164,11 @@ export const Tile: React.FC<TileProps> = (props) => {
     const isImageVisible = visibleImageSrc === imgSrc;
 
     return (
-        <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={getTileContainerStyle(selected)}>
+        <div
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className={`w-full h-full bg-surface-secondary overflow-hidden relative rounded-[4px] box-border cursor-pointer transition-all duration-200 ease-out ${getBorderClass(selected)}`}
+        >
             <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} onImageVisibleChange={(visible) => setVisibleImageSrc(visible ? imgSrc : null)} />
             <TileOverlays
                 selected={selected}

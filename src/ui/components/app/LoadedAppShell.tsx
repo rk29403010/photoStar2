@@ -121,10 +121,10 @@ export function LoadedAppShell(props: LoadedAppShellProps) {
     }, [dismissNotification, notifications, props.uiState]);
 
     return (
-        <div className="container" style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', padding: 0, background: '#000', color: '#eee' }}>
+        <div className="container flex flex-col w-screen h-screen p-0 bg-surface text-content">
             {error && backendReady && <ErrorBanner error={error} />}
-            <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                <div style={shellStyle}>
+            <div className="relative flex-1 min-h-0 flex flex-col">
+                <div className="flex flex-col flex-1 min-h-0" style={{ opacity: shellStyle.opacity, filter: shellStyle.filter, pointerEvents: shellStyle.pointerEvents, userSelect: shellStyle.userSelect }}>
                     <TopBar
                         view={props.uiState.view}
                         setView={props.handlers.handleViewChange}
