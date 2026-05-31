@@ -89,6 +89,19 @@ repo checks over prose, memory, or vibes.
   - Avoid using array indices as React `key` props (S6479).
   - Ensure union types don't have redundant members (e.g., "all" being overridden by "string") (S6571).
 
+## Styling Guidelines & Theme Integration
+
+1. **Eradicate Inline Styles**: Static `style={{...}}` attributes are strictly forbidden across all components. Static styles must be defined using Tailwind utility classes. Inline styles are reserved ONLY for dynamic, JavaScript-calculated runtime values (e.g., dynamic offset positioning, drag transforms, canvas width/height).
+2. **Eliminate Utility Class Soup**: Never use more than 5-7 utility classes on a single element unless it is the root layout container. Avoid long, bloated class strings.
+3. **Use React Component Abstraction**: Prefer React component abstractions/wrappers (e.g., `<Button>`, `<IconButton>`, `<Input>`, `<Select>`, `<Checkbox>`, `<Card>`, `<Panel>`, `<Header>`) to encapsulate complex style patterns instead of duplicating styling classes.
+4. **Do Not Use `@apply`**: Avoid `@apply` directives in CSS files unless absolutely necessary. Rely on React component encapsulation.
+5. **Use Semantic Theming**: Strictly use the custom mapped theme variables for light and dark theme support instead of raw color codes or arbitrary hex values:
+   - `bg-surface` / `bg-surface-secondary`
+   - `text-content` / `text-content-secondary`
+   - `text-brand-accent` / `hover:bg-brand-accent-hover`
+6. **No Arbitrary Square Brackets**: Do not use arbitrary square-bracket values for colors or dimensions (e.g., `bg-[#1a1a1a]`, `border-[#333]`, `w-[31px]`, `p-[15px]`). Snap all values to the standard Tailwind sizing/spacing scale (e.g., `p-4`, `w-8`) and standard theme tokens.
+7. **Ensure Theme Consistency**: Design and test all new and modified UI components to look correct in both light and dark modes natively via the semantic tokens.
+
 ## Feedback Framework
 
 - All new user-visible feedback must go through the shared feedback framework and must declare a mode before implementation.
