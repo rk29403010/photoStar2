@@ -42,5 +42,5 @@ test('single photo overlay keeps info panel values selectable', () => {
     const sharedInfoPanelSource = fs.readFileSync('src/ui/components/single-photo/info-panel/shared.tsx', 'utf8');
 
     assert.doesNotMatch(overlaySource, /userSelect:\s*'none'/);
-    assert.match(sharedInfoPanelSource, /userSelect:\s*'text'/);
+    assert.match(sharedInfoPanelSource, /select-text/);
 });
