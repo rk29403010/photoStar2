@@ -18,8 +18,6 @@ type ConsoleEntry = {
 }
 
 type ConsoleFilter = 'all' | 'log' | 'warn' | 'error';
-const WARN_AMBER = '#f59e0b';
-const TIMESTAMP_COLOR = '#94a3b8';
 
 function getConsoleToneLevel(level: ConsoleEntryLevel, args: unknown[]): ConsoleEntryLevel {
     if (level === 'error' || level === 'warn') {
@@ -101,40 +99,35 @@ function DevConsoleToggle({
     readonly onClick: () => void;
 }) {
     const tone = getConsoleToggleTone(unreadCounts);
-    const borderColor = (function () {
-        if (tone === 'error') {return '#ef4444';}
-        if (tone === 'warning') {return WARN_AMBER;}
-        return '#334155';
+    const borderClass = (function () {
+        if (tone === 'error') {return 'border-red-500';}
+        if (tone === 'warning') {return 'border-amber-500';}
+        return 'border-content/10';
     }());
-    const textColor = (function () {
-        if (tone === 'error') {return '#f87171';}
-        if (tone === 'warning') {return WARN_AMBER;}
-        return '#94a3b8';
+    const textClass = (function () {
+        if (tone === 'error') {return 'text-red-400';}
+        if (tone === 'warning') {return 'text-amber-500';}
+        return 'text-content-secondary hover:text-content';
     }());
+    const activeClass = isOpen
+        ? 'bg-content/10 text-content'
+        : 'bg-surface-secondary/80 hover:bg-surface-secondary';
 
     return (
         <button
             id="dev-console-toggle"
             onClick={onClick}
             title="Toggle Dev Console"
-            style={{
-                background: isOpen ? '#1e293b' : 'rgba(15,23,42,0.9)',
-                border: `1px solid ${borderColor}`,
-                borderRadius: '6px', color: textColor,
-                padding: '3px 8px', fontSize: '11px', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace',
-                backdropFilter: 'blur(8px)', transition: 'all 0.2s',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.25)', flexShrink: 0
-            }}
+            className={`flex items-center gap-1.5 px-2 py-0.75 text-[11px] rounded-md font-mono cursor-pointer border backdrop-blur-md transition-all shadow-md shrink-0 ${borderClass} ${textClass} ${activeClass}`}
         >
-            <span style={{ fontSize: '14px' }}>🖥️</span>
+            <span className="text-sm">🖥️</span>
             {unreadCounts.errors > 0 && (
-                <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: 700 }}>
+                <span className="bg-red-500 text-white rounded-full px-1.5 py-0.25 text-[10px] font-bold">
                     E {unreadCounts.errors}
                 </span>
             )}
             {unreadCounts.warnings > 0 && (
-                <span style={{ background: WARN_AMBER, color: '#111827', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: 700 }}>
+                <span className="bg-amber-500 text-slate-900 rounded-full px-1.5 py-0.25 text-[10px] font-bold">
                     W {unreadCounts.warnings}
                 </span>
             )}
@@ -142,20 +135,6 @@ function DevConsoleToggle({
         </button>
     );
 }
-
-const LEVEL_COLOR: Record<ConsoleEntry['level'], string> = {
-    log: '#94a3b8',
-    info: '#60a5fa',
-    warn: WARN_AMBER,
-    error: '#f87171'
-};
-
-const LEVEL_BACKGROUND: Record<ConsoleEntry['level'], string> = {
-    log: 'transparent',
-    info: 'transparent',
-    warn: 'rgba(245,158,11,0.08)',
-    error: 'rgba(248,113,113,0.07)'
-};
 
 function getFilteredEntries(entries: ConsoleEntry[], filter: ConsoleFilter) {
     return filter === 'all' ? entries : entries.filter((entry) => entry.level === filter);
@@ -179,24 +158,17 @@ function FilterButton({
     readonly entries: ConsoleEntry[];
     readonly onClick: () => void;
 }) {
+    const activeClass = active ? 'bg-content/10 border-content/20' : 'bg-transparent border-transparent';
+    const textClass = (function () {
+        if (level === 'error') {return 'text-red-400';}
+        if (level === 'warn') {return 'text-amber-500';}
+        return 'text-content-secondary';
+    }());
+
     return (
         <button
             onClick={onClick}
-            style={{
-                background: active ? '#1e293b' : 'transparent',
-                border: `1px solid ${active ? '#334155' : 'transparent'}`,
-                borderRadius: '4px',
-                color: (function () {
-                    if (level === 'error') {return '#f87171';}
-                    if (level === 'warn') {return WARN_AMBER;}
-                    return '#64748b';
-                }()),
-                padding: '2px 8px',
-                cursor: 'pointer',
-                fontSize: '10px',
-                fontFamily: 'inherit',
-                transition: 'all 0.15s'
-            }}
+            className={`border rounded px-2 py-0.5 cursor-pointer text-[10px] transition-all ${activeClass} ${textClass}`}
         >
             {getFilterLabel(level, entries)}
         </button>
@@ -204,24 +176,28 @@ function FilterButton({
 }
 
 function ConsoleEntryRow({ entry }: { readonly entry: ConsoleEntry }) {
+    const bgClass = (function () {
+        if (entry.level === 'error') {return 'bg-red-500/5';}
+        if (entry.level === 'warn') {return 'bg-amber-500/5';}
+        return '';
+    }());
+    const levelTextClass = (function () {
+        if (entry.level === 'error') {return 'text-red-400';}
+        if (entry.level === 'warn') {return 'text-amber-500';}
+        if (entry.level === 'info') {return 'text-blue-400';}
+        return 'text-content-secondary';
+    }());
+    const messageTextClass = (function () {
+        if (entry.level === 'error') {return 'text-red-300';}
+        if (entry.level === 'warn') {return 'text-amber-400';}
+        return 'text-content';
+    }());
+
     return (
-        <div style={{
-            display: 'flex', gap: '8px', padding: '2px 12px', borderBottom: '1px solid rgba(255,255,255,0.02)',
-            background: LEVEL_BACKGROUND[entry.level], alignItems: 'flex-start'
-        }}>
-            <span style={{ color: TIMESTAMP_COLOR, flexShrink: 0, fontSize: '10px', paddingTop: '1px', userSelect: 'none' }}>{entry.timestamp}</span>
-            <span style={{
-                color: LEVEL_COLOR[entry.level], flexShrink: 0, width: '36px', fontSize: '10px',
-                fontWeight: 600, paddingTop: '1px', userSelect: 'none', textTransform: 'uppercase'
-            }}>{entry.level}</span>
-            <span style={{
-                color: (function () {
-                    if (entry.level === 'error') {return '#fca5a5';}
-                    if (entry.level === 'warn') {return WARN_AMBER;}
-                    return '#cbd5e1';
-                }()),
-                wordBreak: 'break-all', whiteSpace: 'pre-wrap', lineHeight: 1.5
-            }}>{entry.message}</span>
+        <div className={`flex gap-2 px-3 py-0.5 border-b border-content/5 items-start ${bgClass}`}>
+            <span className="text-content-secondary shrink-0 text-[10px] pt-[1px] select-none">{entry.timestamp}</span>
+            <span className={`shrink-0 w-9 text-[10px] font-semibold pt-[1px] select-none uppercase ${levelTextClass}`}>{entry.level}</span>
+            <span className={`break-all whitespace-pre-wrap leading-relaxed ${messageTextClass}`}>{entry.message}</span>
         </div>
     );
 }
@@ -241,17 +217,11 @@ function DevConsolePanel({
     return (
         <div
             id="dev-console-panel"
-            style={{
-                position: 'fixed', bottom: '38px', right: '12px', width: '680px', maxWidth: 'calc(100vw - 24px)',
-                height: '340px', zIndex: 9998, background: 'rgba(8,12,24,0.97)', border: '1px solid #1e293b',
-                borderRadius: '10px', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
-                backdropFilter: 'blur(16px)', fontFamily: '"Cascadia Code", "Fira Code", "Consolas", monospace',
-                fontSize: '11px', overflow: 'hidden'
-            }}
+            className="fixed bottom-[38px] right-3 w-[680px] max-w-[calc(100vw-24px)] h-[340px] z-[9998] bg-surface/95 border border-content/10 rounded-lg flex flex-col shadow-2xl backdrop-blur-md font-mono text-[11px] overflow-hidden"
         >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderBottom: '1px solid #1e293b', background: 'rgba(15,23,42,0.8)' }}>
-                <span style={{ color: '#475569', fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em' }}>DEV CONSOLE</span>
-                <div style={{ flex: 1 }} />
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-content/10 bg-surface-secondary/80">
+                <span className="text-content-secondary text-[11px] font-semibold tracking-wider">DEV CONSOLE</span>
+                <div className="flex-1" />
                 {(['all', 'log', 'warn', 'error'] as const).map((level) => (
                     <FilterButton
                         key={level}
@@ -261,30 +231,24 @@ function DevConsolePanel({
                         onClick={() => setFilter(level)}
                     />
                 ))}
-                <button onClick={onClear} style={{
-                    background: 'transparent', border: '1px solid #334155', borderRadius: '4px', color: '#64748b',
-                    padding: '2px 8px', cursor: 'pointer', fontSize: '10px', fontFamily: 'inherit'
-                }}>Clear</button>
+                <button 
+                    onClick={onClear} 
+                    className="bg-transparent border border-content/20 hover:border-content/30 rounded px-2 py-0.5 cursor-pointer text-[10px] text-content-secondary hover:text-content font-mono"
+                >
+                    Clear
+                </button>
                 <button
                     onClick={onClose}
                     aria-label="Hide Dev Console"
-                    style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#94a3b8',
-                        padding: '2px 4px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        lineHeight: 1
-                    }}
+                    className="bg-transparent border-none text-content-secondary hover:text-content px-1 py-0.5 cursor-pointer text-sm leading-none"
                 >
                     x
                 </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+            <div className="flex-1 overflow-y-auto py-1">
                 {filtered.length === 0 ? (
-                    <div style={{ color: '#475569', padding: '24px', textAlign: 'center', fontSize: '11px' }}>
+                    <div className="text-content-secondary/60 p-6 text-center text-[11px]">
                         No messages. Console output will appear here.
                     </div>
                 ) : filtered.map((entry) => <ConsoleEntryRow key={entry.id} entry={entry} />)}
