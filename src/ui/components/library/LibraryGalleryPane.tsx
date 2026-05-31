@@ -51,12 +51,12 @@ function RejectedSection({ showRejected, rejectedAssets, onAssetClick, selectedA
 
     return (
         <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderTop: '1px solid #1f1f1f', color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                <span style={{ color: '#ef4444', opacity: 0.7 }}>🚫</span>
+            <div className="flex items-center gap-3 px-6 py-3 border-t border-content/10 text-content-secondary text-xs font-semibold tracking-wider uppercase">
+                <span className="text-red-500 opacity-70">🚫</span>
                 <span>Rejected - {rejectedAssets.length} photo{rejectedAssets.length !== 1 ? 's' : ''} removed from this person</span>
-                <div style={{ flex: 1, height: 1, background: '#1f1f1f' }} />
+                <div className="flex-1 h-px bg-content/10" />
             </div>
-            <div style={{ opacity: 0.45, filter: 'grayscale(40%)' }}>
+            <div className="opacity-45 grayscale">
                 <LayoutEngine items={buildVisibleGalleryItems(rejectedAssets, { groupSimilarPhotos: false, sortMode: 'date' })} debug={false} onAssetClick={onAssetClick} selectedAssetId={selectedAssetId} activeFilter={undefined} showFaces={false} onUntagAsset={undefined} librarySelection={EMPTY_LIBRARY_SELECTION} onLibrarySelectionChange={undefined} declusteredAssets={undefined} showGroupIds={false} layoutMode="tiled" />
             </div>
         </div>

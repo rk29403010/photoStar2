@@ -31,23 +31,8 @@ type ZoomBarProps = {
     readonly getOverlayVisibilityStyle: (controlsVisible: boolean) => React.CSSProperties;
 }
 
-const zoomButtonStyle: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: 16,
-    width: 28,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-};
-
-const dividerStyle: React.CSSProperties = {
-    width: 1,
-    height: 18,
-    background: 'rgba(255,255,255,0.12)',
-};
+const zoomButtonClass = "bg-transparent border-none text-white cursor-pointer text-base w-7 h-7 flex items-center justify-center hover:opacity-80 active:scale-95";
+const dividerClass = "w-px h-4 bg-white/10";
 
 export const TopBar: React.FC<TopBarProps> = ({
     asset: _asset,
@@ -77,10 +62,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                 }
             }}
         >
-            <div style={{ fontSize: '13px', opacity: 0.6, display: 'flex', alignItems: 'center' }}>{currentIndex + 1} / {assetsLength}</div>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div className="text-xs opacity-60 flex items-center">{currentIndex + 1} / {assetsLength}</div>
+            <div className="flex gap-3 items-center">
                 {actionMenu}
-                <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'white', fontSize: '22px', cursor: 'pointer', opacity: 0.7, lineHeight: 1, padding: '2px 4px' }}>✕</button>
+                <button onClick={onClose} className="bg-transparent border-none text-white text-2xl cursor-pointer opacity-70 leading-none p-1">✕</button>
             </div>
         </div>
         {persistentAnalysisStatus ? (
@@ -112,31 +97,19 @@ export const ZoomBar: React.FC<ZoomBarProps> = ({
 }) => (
     <div
         style={{
-            position: 'absolute',
-            bottom: 24,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: '8px',
-            background: 'rgba(15,15,25,0.85)',
-            padding: '6px 14px',
-            borderRadius: '30px',
-            zIndex: 1001,
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            alignItems: 'center',
             ...getOverlayVisibilityStyle(controlsVisible),
         }}
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-slate-900/85 px-3.5 py-1.5 rounded-full z-[1001] backdrop-blur-md border border-white/10 items-center"
         onClick={(event) => event.stopPropagation()}
     >
-        <button onClick={() => { const nextScale = getNextZoomScale(scale, -1); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} style={zoomButtonStyle} title="Zoom out">−</button>
-        <div style={{ color: '#94a3b8', fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(scale * 100)}%</div>
-        <button onClick={() => setScale(getNextZoomScale(scale, 1))} style={zoomButtonStyle} title="Zoom in">+</button>
-        <div style={dividerStyle} />
-        <button onClick={resetPanZoom} style={{ ...zoomButtonStyle, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }} title="Reset zoom"><span style={{ fontSize: 14 }}>⟲</span> Reset</button>
-        <div style={dividerStyle} />
-        <button onClick={() => setShowFaces(!showFaces)} title={showFaces ? 'Hide faces' : 'Show faces'} style={{ ...zoomButtonStyle, background: showFaces ? 'rgba(0,255,255,0.15)' : 'none', border: `1px solid ${showFaces ? 'rgba(0,255,255,0.5)' : 'transparent'}`, borderRadius: 6, color: showFaces ? 'cyan' : 'white', width: 30, height: 30, transition: 'all 0.2s' }}><span style={{ fontSize: 15 }}>👤</span></button>
-        <div style={dividerStyle} />
-        <button onClick={() => setShowInfoPanel(!showInfoPanel)} title={showInfoPanel ? 'Hide info panel (I)' : 'Show info panel (I)'} style={{ ...zoomButtonStyle, background: showInfoPanel ? 'rgba(99,102,241,0.25)' : 'none', border: `1px solid ${showInfoPanel ? 'rgba(99,102,241,0.6)' : 'transparent'}`, borderRadius: 6, color: showInfoPanel ? '#a5b4fc' : 'white', width: 30, height: 30, transition: 'all 0.2s' }}><span style={{ fontSize: 15 }}>ℹ</span></button>
+        <button onClick={() => { const nextScale = getNextZoomScale(scale, -1); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} className={zoomButtonClass} title="Zoom out">−</button>
+        <div className="text-content-secondary text-xs min-w-[40px] text-center">{Math.round(scale * 100)}%</div>
+        <button onClick={() => setScale(getNextZoomScale(scale, 1))} className={zoomButtonClass} title="Zoom in">+</button>
+        <div className={dividerClass} />
+        <button onClick={resetPanZoom} className="bg-transparent border-none text-white cursor-pointer text-xs flex items-center gap-1 hover:opacity-80 active:scale-95" title="Reset zoom"><span className="text-sm">⟲</span> Reset</button>
+        <div className={dividerClass} />
+        <button onClick={() => setShowFaces(!showFaces)} title={showFaces ? 'Hide faces' : 'Show faces'} className={`text-base cursor-pointer w-[30px] h-[30px] flex items-center justify-center rounded transition-all duration-200 active:scale-95 ${showFaces ? 'bg-cyan-500/25 border border-cyan-500/50 text-cyan-400' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">👤</span></button>
+        <div className={dividerClass} />
+        <button onClick={() => setShowInfoPanel(!showInfoPanel)} title={showInfoPanel ? 'Hide info panel (I)' : 'Show info panel (I)'} className={`text-base cursor-pointer w-[30px] h-[30px] flex items-center justify-center rounded transition-all duration-200 active:scale-95 ${showInfoPanel ? 'bg-indigo-500/25 border border-indigo-500/50 text-indigo-300' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">ℹ</span></button>
     </div>
 );

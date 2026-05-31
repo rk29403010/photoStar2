@@ -1,10 +1,10 @@
 export function LoadingState({ backendStatus, backendReady }: { readonly backendStatus: string; readonly backendReady: boolean }) {
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', gap: 16 }}>
-            <div className="animate-pulse" style={{ fontSize: '2rem' }}>⌛</div>
-            <div style={{ textAlign: 'center' }}>
+        <div className="h-full flex flex-col items-center justify-center text-content-secondary gap-4">
+            <div className="animate-pulse text-3xl">⌛</div>
+            <div className="text-center">
                 <div>{backendStatus.includes('Error') ? backendStatus : 'Initialising photo library...'}</div>
-                {!backendReady && !backendStatus.includes('Error') && <div style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: 4 }}>Establishing connection to backend service...</div>}
+                {!backendReady && !backendStatus.includes('Error') && <div className="text-xs opacity-60 mt-1">Establishing connection to backend service...</div>}
             </div>
         </div>
     );
@@ -12,10 +12,10 @@ export function LoadingState({ backendStatus, backendReady }: { readonly backend
 
 export function EmptyState() {
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', gap: 16 }}>
-            <div style={{ fontSize: '3rem', opacity: 0.3 }}>📂</div>
-            <div style={{ fontWeight: 500 }}>No photos found in library.</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Click &quot;Actions &gt; Scan Folder&quot; to import photos.</div>
+        <div className="h-full flex flex-col items-center justify-center text-content-secondary gap-4">
+            <div className="text-5xl opacity-30">📂</div>
+            <div className="font-medium text-content">No photos found in library.</div>
+            <div className="text-sm opacity-70">Click &quot;Actions &gt; Scan Folder&quot; to import photos.</div>
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { WorkflowVisualiserLinkedRun, WorkflowVisualiserModel, WorkflowVisualiserWorkflowSummary } from '@contracts/workflowVisualiser';
+import { Button, Select } from '../Primitives';
 import {
     getWorkflowWorkspaceRetryFeedback,
     getWorkflowWorkspaceRetryLabel,
@@ -44,7 +45,7 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
     });
 
     return (
-        <header className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
+        <header className="rounded-2xl border border-content/10 bg-surface-secondary p-5 flex flex-col gap-4">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <WorkflowSelector
                     availableWorkflows={model.availableWorkflows}
@@ -62,19 +63,16 @@ export const WorkflowWorkspaceHeader: React.FC<WorkflowWorkspaceHeaderProps> = (
                 />
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
                 {WORKFLOW_WORKSPACE_TABS.map((tab) => (
-                    <button
+                    <Button
                         key={tab.id}
                         onClick={() => onSelectTab(tab.id)}
-                        className={`rounded-md border px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] transition-colors ${
-                            activeTab === tab.id
-                                ? 'border-cyan-500/40 bg-cyan-600/20 text-cyan-300'
-                                : 'border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800'
-                        }`}
+                        variant={activeTab === tab.id ? 'primary' : 'secondary'}
+                        className="px-3 py-2 text-xs font-semibold uppercase tracking-wider"
                     >
                         {tab.label}
-                    </button>
+                    </Button>
                 ))}
             </div>
         </header>
@@ -88,20 +86,19 @@ function WorkflowSelector(props: {
 }) {
     return (
         <div className="flex w-full max-w-sm flex-col">
-            <select
+            <Select
                 value={props.selectedWorkflowId}
                 onChange={(event) => {
                     props.onSelectWorkflow(event.target.value);
                 }}
                 aria-label="Workflow"
-                className="rounded-lg border border-gray-700 bg-[#151515] px-3 py-2 text-sm text-gray-200 outline-none"
             >
                 {props.availableWorkflows.map((workflow) => (
                     <option key={workflow.workflowId} value={workflow.workflowId}>
                         {workflow.displayName}
-                    </option>
+                      </option>
                 ))}
-            </select>
+            </Select>
         </div>
     );
 }
@@ -121,7 +118,7 @@ function RunContextPanel(props: {
     return (
         <div className="w-full min-w-[260px] xl:max-w-xl">
             {props.linkedRecoveryRuns.length > 0 ? (
-                <div className="mb-2 space-y-1 text-xs text-emerald-200">
+                <div className="mb-2 space-y-1 text-xs text-green-500">
                     {props.linkedRecoveryRuns.map((run) => (
                         <div key={run.runId}>
                             Recovered by {formatLinkedRun(run)}
@@ -129,13 +126,12 @@ function RunContextPanel(props: {
                     ))}
                 </div>
             ) : null}
-            <select
+            <Select
                 value={props.selectedRunValue}
                 onChange={(event) => {
                     props.onSelectRun(event.target.value === WORKFLOW_DEFINITION_ONLY_RUN_ID ? WORKFLOW_DEFINITION_ONLY_RUN_ID : event.target.value || null);
                 }}
                 aria-label="Run context"
-                className="w-full rounded-lg border border-gray-700 bg-[#151515] px-3 py-2 text-sm text-gray-200 outline-none"
             >
                 <option value={WORKFLOW_DEFINITION_ONLY_RUN_ID}>Definition only</option>
                 {props.model.availableRuns.map((run) => (
@@ -143,18 +139,18 @@ function RunContextPanel(props: {
                         {new Date(run.createdAt).toLocaleString()} · {run.status}
                     </option>
                 ))}
-            </select>
+            </Select>
             {props.retryState?.enabled ? (
-                <button
+                <Button
                     onClick={props.retryState.onRetry}
                     disabled={props.retryState.loading}
-                    className="mt-3 w-full rounded-lg border border-cyan-600/40 bg-cyan-600/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 transition-colors hover:bg-cyan-600/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-3 w-full text-xs font-semibold uppercase tracking-wider"
                 >
                     {getWorkflowWorkspaceRetryLabel(props.retryState.loading)}
-                </button>
+                </Button>
             ) : null}
             {props.retryFeedback ? (
-                <div className="mt-2 text-xs text-cyan-200">{props.retryFeedback}</div>
+                <div className="mt-2 text-xs text-brand-accent">{props.retryFeedback}</div>
             ) : null}
         </div>
     );

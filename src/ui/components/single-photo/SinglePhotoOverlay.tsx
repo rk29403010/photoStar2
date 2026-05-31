@@ -75,7 +75,10 @@ function PhotoInfoSidebar(props: {
     }
 
     return (
-        <div style={{ width: DEFAULT_INFO_PANEL_WIDTH, height: '100%', flexShrink: 0, zIndex: 1002, animation: 'slideInFromRight 0.22s ease-out' }}>
+        <div 
+            style={{ width: DEFAULT_INFO_PANEL_WIDTH, height: '100%' }} 
+            className="shrink-0 z-[1002] animate-slide-in-right"
+        >
             <InfoPanel
                 asset={props.asset}
                 width={DEFAULT_INFO_PANEL_WIDTH}
@@ -98,20 +101,8 @@ function PhotoInfoSidebar(props: {
 
 export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
     <div
-        style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            bottom: APP_STATUS_BAR_HEIGHT,
-            backgroundColor: '#050505',
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'row',
-            overflow: 'hidden',
-            opacity: 0,
-            animation: 'fadeInOverlay 0.2s ease-out forwards'
-        }}
+        style={{ bottom: APP_STATUS_BAR_HEIGHT }}
+        className="fixed top-0 left-0 w-screen bg-slate-950 z-[1000] flex flex-row overflow-hidden opacity-0 animate-fade-in-overlay"
     >
         <PhotoViewport
             asset={props.asset}

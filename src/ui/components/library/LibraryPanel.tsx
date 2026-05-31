@@ -19,27 +19,9 @@ function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
 
 function TimelineSeekOverlay({ seek }: { readonly seek: GalleryTimelineSeek | null }) {
     return (
-        <div
-            style={{
-                position: 'absolute',
-                right: 18,
-                bottom: 18,
-                zIndex: 2,
-                pointerEvents: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                borderRadius: 14,
-                background: 'rgba(10,10,10,0.82)',
-                border: '1px solid rgba(148,163,184,0.24)',
-                color: '#e5e7eb',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                backdropFilter: 'blur(8px)',
-            }}
-        >
-            <div className="animate-pulse" style={{ width: 8, height: 8, borderRadius: 999, background: '#60a5fa' }} />
-            <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Jumping to {getTimelineSeekLabel(seek)}...</span>
+        <div className="absolute right-4 bottom-4 z-10 pointer-events-none flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-black/80 border border-content/10 text-content shadow-lg backdrop-blur-md">
+            <div className="animate-pulse w-2 h-2 rounded-full bg-blue-400" />
+            <span className="text-xs font-semibold">Jumping to {getTimelineSeekLabel(seek)}...</span>
         </div>
     );
 }
@@ -101,7 +83,7 @@ export function LibraryPanel({
     };
 
     return (
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden', background: '#0a0a0a' }}>
+        <div className="relative flex-1 min-h-0 min-w-0 flex overflow-hidden bg-surface">
             {timelineRail}
             <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <LibraryToolbar {...toolbar} />

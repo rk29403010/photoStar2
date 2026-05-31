@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
+import { Select } from '../Primitives';
 
 type LibraryToolbarProps = {
     readonly sortMode: LibrarySortMode;
@@ -18,32 +19,35 @@ type LibraryToolbarProps = {
     readonly onShowInfoPanelChange: (show: boolean) => void;
 }
 
-function getToggleButtonStyle(active: boolean, colors: { activeBackground: string; activeColor: string; activeBorder: string }) {
-    return {
-        background: active ? colors.activeBackground : 'rgba(148,163,184,0.08)',
-        color: active ? colors.activeColor : '#cbd5e1',
-        border: `1px solid ${active ? colors.activeBorder : 'rgba(148,163,184,0.2)'}`,
-        borderRadius: 999,
-        padding: '6px 12px',
-        fontSize: '0.78rem',
-        fontWeight: 600,
-        cursor: 'pointer',
-    };
-}
-
 function ToggleButton({
     label,
     active,
     onClick,
-    colors,
+    variant = 'blue',
 }: {
     readonly label: string;
     readonly active: boolean;
     readonly onClick: () => void;
-    readonly colors: { activeBackground: string; activeColor: string; activeBorder: string };
+    readonly variant?: 'blue' | 'cyan' | 'indigo';
 }) {
+    let activeClass = 'bg-content/5 text-content-secondary border border-content/10 hover:bg-content/10';
+    if (active) {
+        if (variant === 'blue') {
+            activeClass = 'bg-blue-600/20 text-blue-200 border border-blue-500/40 hover:bg-blue-600/30';
+        } else if (variant === 'cyan') {
+            activeClass = 'bg-cyan-600/20 text-cyan-200 border border-cyan-500/40 hover:bg-cyan-600/30';
+        } else if (variant === 'indigo') {
+            activeClass = 'bg-indigo-600/20 text-indigo-200 border border-indigo-500/40 hover:bg-indigo-600/30';
+        }
+    }
+
     return (
-        <button type="button" aria-pressed={active} onClick={onClick} style={getToggleButtonStyle(active, colors)}>
+        <button
+            type="button"
+            aria-pressed={active}
+            onClick={onClick}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors ${activeClass}`}
+        >
             {label}
         </button>
     );
@@ -63,30 +67,30 @@ function ToolbarSelect<T extends string>({
     readonly children: ReactNode;
 }) {
     return (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+        <label className="flex items-center gap-2 text-content-secondary text-[11px] tracking-wider uppercase font-semibold">
             <span>{label}</span>
-            <select
+            <Select
                 aria-label={ariaLabel}
                 value={value}
                 onChange={(event) => onChange(event.target.value as T)}
-                style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 999, padding: '6px 10px', fontSize: '0.78rem', outline: 'none' }}
+                className="rounded-full px-2.5 py-1 text-xs w-auto min-w-[100px]"
             >
                 {children}
-            </select>
+            </Select>
         </label>
     );
 }
 
 export function LibraryToolbar(props: LibraryToolbarProps) {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 14px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'linear-gradient(180deg, rgba(18,18,18,0.92), rgba(10,10,10,0.92))' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <ToggleButton label="Group similar photos" active={props.groupSimilarPhotos} onClick={() => props.onGroupSimilarPhotosChange(!props.groupSimilarPhotos)} colors={{ activeBackground: 'rgba(37,99,235,0.22)', activeColor: '#bfdbfe', activeBorder: 'rgba(96,165,250,0.75)' }} />
-                    <ToggleButton label="Show group IDs" active={props.showGroupIds} onClick={() => props.onShowGroupIdsChange(!props.showGroupIds)} colors={{ activeBackground: 'rgba(8,145,178,0.22)', activeColor: '#a5f3fc', activeBorder: 'rgba(34,211,238,0.65)' }} />
-                    <ToggleButton label="Info panel" active={props.showInfoPanel} onClick={() => props.onShowInfoPanelChange(!props.showInfoPanel)} colors={{ activeBackground: 'rgba(79,70,229,0.24)', activeColor: '#c7d2fe', activeBorder: 'rgba(129,140,248,0.72)' }} />
+        <div className="flex flex-col gap-2 px-3.5 py-2.5 border-b border-content/5 bg-gradient-to-b from-surface-secondary to-surface">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <ToggleButton label="Group similar photos" active={props.groupSimilarPhotos} onClick={() => props.onGroupSimilarPhotosChange(!props.groupSimilarPhotos)} variant="blue" />
+                    <ToggleButton label="Show group IDs" active={props.showGroupIds} onClick={() => props.onShowGroupIdsChange(!props.showGroupIds)} variant="cyan" />
+                    <ToggleButton label="Info panel" active={props.showInfoPanel} onClick={() => props.onShowInfoPanelChange(!props.showInfoPanel)} variant="indigo" />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="flex items-center gap-3 flex-wrap">
                     <ToolbarSelect label="Tag" ariaLabel="Filter gallery by tag" value={props.selectedTag} onChange={props.onTagChange}>
                         <option value="">All tags</option>
                         {props.availableTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}

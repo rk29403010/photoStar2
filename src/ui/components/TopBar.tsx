@@ -1,4 +1,5 @@
 import type React from 'react';
+import { Button } from './Primitives';
 
 type TopBarProps = {
     readonly view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
@@ -37,17 +38,14 @@ function ViewButton({
 }) {
     const selected = current === view;
     return (
-        <button
+        <Button
             onClick={() => setView(view)}
             disabled={selected}
-            className={`rounded-md border px-4 py-1.5 text-sm transition-colors ${
-                selected
-                    ? 'cursor-default border-[#4b5563] bg-[#30343a] text-white'
-                    : 'border-[#3a3a3a] bg-transparent text-gray-300 hover:border-[#4b5563] hover:bg-[#1d1d1d] hover:text-white'
-            }`}
+            variant={selected ? 'primary' : 'secondary'}
+            className="px-4 py-1.5 text-sm"
         >
             {formatViewLabel(view)}
-        </button>
+        </Button>
     );
 }
 
@@ -63,17 +61,14 @@ function UtilityButton({
     readonly onClick: () => void;
 }) {
     return (
-        <button
+        <Button
             onClick={onClick}
-            className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-                active
-                    ? 'border-[#556272] bg-[#1e2830] text-white'
-                    : 'border-[#3a3a3a] bg-transparent text-gray-300 hover:border-[#4b5563] hover:bg-[#1d1d1d] hover:text-white'
-            }`}
+            variant={active ? 'primary' : 'secondary'}
+            className="px-3 py-1.5 text-sm font-medium"
         >
             <Icon path={iconPath} />
             <span>{label}</span>
-        </button>
+        </Button>
     );
 }
 
@@ -88,8 +83,8 @@ export const TopBar: React.FC<TopBarProps> = ({
     showSettings,
 }) => {
     return (
-        <div className="z-10 flex flex-wrap items-center gap-4 border-b border-[#333] bg-[#111] px-4 py-3">
-            <h1 className="mr-auto text-[1.2rem] font-bold text-[#eee]">
+        <div className="z-10 flex flex-wrap items-center gap-4 border-b border-content/10 bg-surface-secondary px-4 py-3">
+            <h1 className="mr-auto text-lg font-bold text-content">
                 PhotoStar
             </h1>
 
@@ -102,7 +97,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <ViewButton view="dashboard" current={view} setView={setView} />
             </div>
 
-            <div className="flex items-center gap-2 border-l border-[#2f2f2f] pl-4">
+            <div className="flex items-center gap-2 border-l border-content/10 pl-4">
                 <UtilityButton
                     label="Workflow"
                     active={view === 'workflows'}
@@ -115,12 +110,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                     iconPath={SETTINGS_ICON_PATH}
                     onClick={onOpenSettings}
                 />
-                <button
+                <Button
                     onClick={onOpenActions}
-                    className="ml-1 rounded-md bg-[#2a5] px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#2fbb6f]"
+                    className="ml-1"
                 >
                     Actions
-                </button>
+                </Button>
             </div>
         </div>
     );

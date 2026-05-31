@@ -2,6 +2,7 @@ import type { Asset, ReviewItemSummary } from '@contracts/core';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from '../single-photo/InfoPanel';
+import { IconButton, Panel, Header } from '../Primitives';
 
 type GalleryInfoPanelProps = {
     readonly asset: Asset | null;
@@ -20,26 +21,25 @@ type GalleryInfoPanelProps = {
 
 function EmptyGalleryInfoPanel({ onClose }: Pick<GalleryInfoPanelProps, 'onClose'>) {
     return (
-        <div style={{ width: 360, minWidth: 360, maxWidth: 360, height: '100%', background: 'linear-gradient(180deg, #0f172a 0%, #0a0f1e 100%)', borderLeft: '1px solid #1e293b', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-            <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid #1e293b', background: 'rgba(15,23,42,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <Panel style={{ width: 360, minWidth: 360, maxWidth: 360 }} className="shrink-0 h-full">
+            <Header>
                 <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 2 }}>Photo details</div>
-                    <div style={{ fontSize: 10, color: '#475569' }}>Select a photo to inspect its metadata.</div>
+                    <div className="text-sm font-semibold text-content mb-0.5">Photo details</div>
+                    <div className="text-xs text-content-secondary">Select a photo to inspect its metadata.</div>
                 </div>
-                <button
-                    type="button"
+                <IconButton
                     onClick={onClose}
                     title="Hide info panel"
                     aria-label="Hide info panel"
-                    style={{ background: 'transparent', border: '1px solid rgba(148,163,184,0.22)', color: '#cbd5e1', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}
+                    className="w-7 h-7"
                 >
                     ✕
-                </button>
-            </div>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, color: '#94a3b8', textAlign: 'center', fontSize: 13, lineHeight: 1.6 }}>
+                </IconButton>
+            </Header>
+            <div className="flex-1 flex items-center justify-center p-6 text-content-secondary text-center text-sm leading-relaxed">
                 Multi-select stays intact here. The panel follows the latest selected photo.
             </div>
-        </div>
+        </Panel>
     );
 }
 
