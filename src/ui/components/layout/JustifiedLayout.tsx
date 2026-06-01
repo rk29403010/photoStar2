@@ -104,11 +104,11 @@ export function JustifiedLayout(props: JustifiedLayoutProps) {
     }, [containerWidth, rows]);
 
     if (props.scrollContainerRef && !customScrollParent) {
-        return <div ref={containerRef} style={{ width: '100%' }} />;
+        return <div ref={containerRef} className="w-full" />;
     }
 
     return (
-        <div ref={containerRef} style={{ width: '100%' }}>
+        <div ref={containerRef} className="w-full">
             <Virtuoso
                 key={virtuosoKey}
                 customScrollParent={customScrollParent}

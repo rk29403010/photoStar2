@@ -73,24 +73,20 @@ export function LibraryPanel({
     browseRowHeight,
     isScrollSettled,
 }: LibraryPanelProps) {
-    const scrollContainerStyle: CSSProperties & Record<'--gallery-browse-row-height', string> = {
-        flex: 1,
-        minHeight: 0,
-        minWidth: 0,
-        overflowY: 'auto',
-        overflowX: 'hidden',
+    const scrollContainerStyle = {
         '--gallery-browse-row-height': `${browseRowHeight}px`,
-    };
+    } as CSSProperties;
 
     return (
         <div className="relative flex-1 min-h-0 min-w-0 flex overflow-hidden bg-surface">
             {timelineRail}
-            <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="flex-1 min-w-0 min-h-0 flex flex-col">
                 <LibraryToolbar {...toolbar} />
                 <div
                     ref={scrollRef}
                     onScroll={handleScroll}
                     data-scroll-settled={isScrollSettled ? 'true' : 'false'}
+                    className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 bg-surface"
                     style={scrollContainerStyle}
                 >
                     <LibraryGalleryPane layout={layout} rejected={rejected} />

@@ -447,13 +447,13 @@ export function GroupedTimelineLayout(props: GroupedTimelineLayoutProps) {
     });
 
     if (props.scrollContainerRef && !customScrollParent) {
-        return <div ref={containerRef} style={{ width: '100%' }} />;
+        return <div ref={containerRef} className="w-full" />;
     }
 
     return (
         <div
             ref={containerRef}
-            style={{ width: '100%', paddingBottom: '70vh', boxSizing: 'border-box' }}
+            className="w-full pb-[70vh] box-border"
         >
             {groups.map((group, groupIndex) => (
                 <div key={group.id}>
