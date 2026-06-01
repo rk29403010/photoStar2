@@ -61,7 +61,7 @@ function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
 }
 
 function getBorderClass(selected: boolean): string {
-    return selected ? 'border-2 border-brand-accent' : 'border-2 border-transparent';
+    return selected ? 'border-2 border-brand-accent' : 'border-2 border-surface-secondary';
 }
 
 function useTileHoverState(asset: Asset, onHoverAssetChange?: (asset: Asset | null) => void) {
