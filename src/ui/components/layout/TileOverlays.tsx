@@ -1,14 +1,12 @@
 import type { Asset, TileIntent } from '@contracts/core';
 import { PERSON_COLORS } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
-import { LIBRARY_SELECTION_FRAME_COLOR, LIBRARY_SELECTION_STAR_COLOR } from '@shared/utils/librarySelectionVisuals';
 import { buildGroupIdPillModels } from './tileGroupIdModel';
 import { getTileOverlayVisibility } from './tileOverlayModel';
 
 export type SensitivityBadge = {
     label: string;
-    color: string;
-    bg: string;
+    tone: 'error' | 'warning';
 };
 
 type FaceOverlayVisuals = {
@@ -59,25 +57,13 @@ function getFaceVisuals(facePersonId: string | undefined, activeFilter: LibraryF
 const SensitivityBadgeView: React.FC<{ badge: SensitivityBadge | null }> = ({ badge }) => {
     if (!badge) {return null;}
 
+    const colorClass = badge.tone === 'error'
+        ? 'bg-red-950/90 text-red-400 border-red-500/30'
+        : 'bg-amber-950/90 text-amber-500 border-amber-500/30';
+
     return (
         <div
-            style={{
-                position: 'absolute',
-                top: 6,
-                left: 6,
-                background: badge.bg,
-                color: badge.color,
-                borderRadius: 4,
-                padding: '2px 6px',
-                fontSize: '0.6rem',
-                fontWeight: 700,
-                letterSpacing: '0.02em',
-                zIndex: 15,
-                backdropFilter: 'blur(4px)',
-                border: `1px solid ${badge.color}44`,
-                userSelect: 'none',
-                pointerEvents: 'none',
-            }}
+            className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9.6px] font-bold tracking-wider z-15 backdrop-blur-sm border select-none pointer-events-none ${colorClass}`}
         >
             {badge.label}
         </div>
@@ -88,7 +74,7 @@ const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) =
     if (count == null || count <= 1) {return null;}
 
     return (
-        <div style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(59, 130, 246, 0.85)', color: 'white', borderRadius: '12px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 700, zIndex: 15, border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.5)', pointerEvents: 'none' }}>
+        <div className="absolute top-1.5 right-1.5 bg-blue-500/85 text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold z-15 border border-white/20 backdrop-blur-sm flex items-center gap-1.5 shadow-md pointer-events-none">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
@@ -100,24 +86,7 @@ const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) =
 
 const SelectedStarBadge: React.FC = () => (
     <div
-        style={{
-            position: 'absolute',
-            top: 8,
-            left: 8,
-            width: 26,
-            height: 26,
-            borderRadius: 999,
-            background: 'rgba(15,23,42,0.88)',
-            color: LIBRARY_SELECTION_STAR_COLOR,
-            border: `1px solid ${LIBRARY_SELECTION_FRAME_COLOR}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '0.95rem',
-            zIndex: 18,
-            pointerEvents: 'none',
-            boxShadow: '0 4px 12px rgba(2,6,23,0.45)',
-        }}
+        className="absolute top-2 left-2 w-6.5 h-6.5 rounded-full bg-slate-900/90 text-amber-500 border border-indigo-500/50 flex items-center justify-center text-sm z-18 pointer-events-none shadow-lg"
     >
         ★
     </div>
@@ -128,22 +97,7 @@ const GroupModeBadge: React.FC<{ show: boolean }> = ({ show }) => {
 
     return (
         <div
-            style={{
-                position: 'absolute',
-                bottom: 8,
-                right: 8,
-                padding: '3px 8px',
-                borderRadius: 999,
-                background: 'rgba(15,23,42,0.82)',
-                border: '1px solid rgba(148,163,184,0.25)',
-                color: '#dbeafe',
-                fontSize: '0.62rem',
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                zIndex: 15,
-                pointerEvents: 'none',
-            }}
+            className="absolute bottom-2 right-2 px-2 py-0.75 rounded-full bg-slate-900/80 border border-content-secondary/25 text-blue-100 text-[10px] font-bold tracking-wider uppercase z-15 pointer-events-none"
         >
             Group
         </div>
@@ -162,44 +116,26 @@ const GroupIdPills: React.FC<{
     if (pills.length === 0) {return null;}
 
     return (
-        <div
-            style={{
-                position: 'absolute',
-                bottom: 8,
-                left: 8,
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 4,
-                maxWidth: '70%',
-                zIndex: 15,
-                pointerEvents: 'auto',
-            }}
-        >
+        <div className="absolute bottom-2 left-2 flex flex-wrap gap-1 max-w-[70%] z-15 pointer-events-auto">
             {pills.map((pill) => (
                 <span
                     key={pill.key}
                     title={pill.title}
                     onMouseEnter={() => onHoveredGroupIdChange?.(pill.key)}
                     onMouseLeave={() => onHoveredGroupIdChange?.(null)}
+                    className="px-1.75 py-0.75 rounded-full text-[9.5px] font-bold tracking-wider inline-flex items-center gap-1 pointer-events-auto transition-shadow"
                     style={{
-                        padding: '3px 7px',
-                        borderRadius: 999,
                         background: pill.background,
-                        border: `${hoveredGroupId === pill.key ? 2 : 1}px solid ${pill.borderColor}`,
+                        borderColor: pill.borderColor,
+                        borderWidth: hoveredGroupId === pill.key ? '2px' : '1px',
+                        borderStyle: 'solid',
                         color: pill.textColor,
-                        fontSize: '0.6rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.04em',
                         boxShadow: hoveredGroupId === pill.key
                             ? `0 0 0 1px ${pill.borderColor}, 0 2px 8px rgba(0,0,0,0.34)`
                             : '0 2px 6px rgba(0,0,0,0.28)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        pointerEvents: 'auto',
                     }}
                 >
-                    <span style={{ opacity: 0.95 }}>{pill.symbol}</span>
+                    <span className="opacity-95">{pill.symbol}</span>
                     <span>{pill.label}</span>
                 </span>
             ))}
@@ -211,8 +147,8 @@ const CaptionOverlay: React.FC<{ show: boolean; caption?: string }> = ({ show, c
     if (!show || !caption) {return null;}
 
     return (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 70%, transparent 100%)', padding: '20px 8px 8px', pointerEvents: 'none', animation: 'fadeIn 0.15s ease-in forwards' }}>
-            <p style={{ margin: 0, fontSize: '0.7rem', color: '#e2e8f0', lineHeight: 1.4, fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-5 px-2 pb-2 pointer-events-none animate-[fadeIn_0.15s_ease-in_forwards]">
+            <p className="m-0 text-[11.2px] text-slate-200 leading-snug italic line-clamp-3">
                 {caption}
             </p>
         </div>
@@ -235,7 +171,7 @@ const DeclusterButton: React.FC<{
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
-            style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: 4, padding: '4px 10px', fontSize: 11, fontWeight: 'bold', cursor: 'pointer', zIndex: 20, boxShadow: '0 2px 5px rgba(0,0,0,0.3)' }}
+            className="absolute top-2 right-2 bg-red-500/90 text-white border-none rounded px-2.5 py-1 text-[11px] font-bold cursor-pointer z-20 shadow-md"
         >
             Decluster
         </button>
@@ -255,17 +191,14 @@ const FaceBoxes: React.FC<{ asset: Asset; showFaces: boolean; activeFilter?: Lib
                     <div
                         key={i}
                         title={face.person_name || 'Unknown Person'}
+                        className="absolute border-2 rounded-[2px] pointer-events-none z-10"
                         style={{
-                            position: 'absolute',
                             left: `${face.box.x * 100}%`,
                             top: `${face.box.y * 100}%`,
                             width: `${face.box.width * 100}%`,
                             height: `${face.box.height * 100}%`,
-                            border: `2px solid ${visuals.highlightColor}`,
-                            borderRadius: '2px',
+                            borderColor: visuals.highlightColor,
                             boxShadow: visuals.isFilteredPerson ? '0 0 10px rgba(0,0,0,0.5), inset 0 0 5px rgba(0,0,0,0.3)' : 'none',
-                            pointerEvents: 'none',
-                            zIndex: 10,
                             opacity: visuals.opacity,
                         }}
                     />
@@ -279,11 +212,12 @@ const DebugIntent: React.FC<{ debug: boolean; intent: TileIntent }> = ({ debug, 
     if (!debug) {return null;}
 
     return (
-        <div style={{ position: 'absolute', bottom: 2, left: 2, fontSize: 10, color: 'white', background: 'rgba(0,0,0,0.5)', padding: '1px 4px', borderRadius: 2 }}>
+        <div className="absolute bottom-0.5 left-0.5 text-[10px] text-white bg-black/50 px-1 py-0.25 rounded-[2px]">
             {intent}
         </div>
     );
 };
+
 
 export const TileOverlays: React.FC<TileOverlaysProps> = ({
     selected,

@@ -49,14 +49,14 @@ const DEFAULT_TILE_PROPS = {
 
 function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
     const manualStatus = asset.sensitivity_status;
-    if (manualStatus === 'unsafe') {return { label: '🔞 Unsafe', color: '#ef4444', bg: 'rgba(127,29,29,0.9)' };}
-    if (manualStatus === 'review') {return { label: '⚠ Review', color: '#f59e0b', bg: 'rgba(120,53,15,0.9)' };}
+    if (manualStatus === 'unsafe') {return { label: '🔞 Unsafe', tone: 'error' };}
+    if (manualStatus === 'review') {return { label: '⚠ Review', tone: 'warning' };}
     if (manualStatus === 'safe') {return null;}
 
     const score = asset.sensitivity_score;
     if (score == null) {return null;}
-    if (score >= 75) {return { label: `🔞 ${score}%`, color: '#ef4444', bg: 'rgba(127,29,29,0.85)' };}
-    if (score >= 25) {return { label: `⚠ ${score}%`, color: '#f59e0b', bg: 'rgba(120,53,15,0.85)' };}
+    if (score >= 75) {return { label: `🔞 ${score}%`, tone: 'error' };}
+    if (score >= 25) {return { label: `⚠ ${score}%`, tone: 'warning' };}
     return null;
 }
 

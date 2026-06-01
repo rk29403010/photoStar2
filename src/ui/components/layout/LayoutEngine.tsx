@@ -464,7 +464,7 @@ function LayoutTile({
             type="button"
             key={layoutItem.item.selectionKey}
             data-selection-key={layoutItem.item.selectionKey}
-            className={`text-left font-inherit text-inherit p-0 border-none bg-transparent relative select-none rounded-md overflow-hidden transition-transform duration-150 ease-out ${declusteredClasses} ${selectedClasses} ${flexClasses}`}
+            className={`text-left font-inherit text-inherit p-0 border-none bg-transparent relative select-none rounded-md overflow-hidden transition-transform duration-150 ease-out outline-none focus:outline-none ${declusteredClasses} ${selectedClasses} ${flexClasses}`}
             style={inlineStyle}
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
