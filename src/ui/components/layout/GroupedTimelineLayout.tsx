@@ -112,17 +112,17 @@ function buildTimelineLayoutRows(groups: TimelineLayoutGroup[]) {
 
 function renderGroupHeader(group: TimelineLayoutGroup | undefined) {
     if (!group?.label) {
-        return <div className="w-full min-h-[46px]" />;
+        return <div className="w-full min-h-11" />;
     }
 
     return (
         <div
             data-time-section-id={group.id}
-            className="w-full max-w-[1800px] min-h-[46px] mx-auto pt-[18px] pb-2 px-0 box-border bg-surface border-b border-content/5"
+            className="w-full max-w-screen-2xl min-h-11 mx-auto pt-4 pb-2 px-0 box-border bg-surface border-b border-content/5"
         >
-            <div className="text-[13px] font-bold tracking-wider uppercase text-content-secondary flex items-baseline gap-0.5">
+            <div className="text-sm font-bold tracking-wider uppercase text-content-secondary flex items-baseline gap-0.5">
                 <span>{group.label.slice(0, -1)}</span>
-                <span className="text-[10px] tracking-normal">{group.label.slice(-1)}</span>
+                <span className="text-xs tracking-normal">{group.label.slice(-1)}</span>
             </div>
         </div>
     );
@@ -453,7 +453,8 @@ export function GroupedTimelineLayout(props: GroupedTimelineLayoutProps) {
     return (
         <div
             ref={containerRef}
-            className="w-full pb-[70vh] box-border"
+            className="w-full box-border"
+            style={{ paddingBottom: '70vh' }}
         >
             {groups.map((group, groupIndex) => (
                 <div key={group.id}>

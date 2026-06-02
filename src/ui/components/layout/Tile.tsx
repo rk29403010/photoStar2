@@ -131,7 +131,7 @@ const TileMedia: React.FC<TileMediaProps> = ({ imgSrc, loadingMode, fetchPriorit
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-content-secondary text-xs">
                 <span>🖼️</span>
-                <span className="text-[10px] mt-1">Processing...</span>
+                <span className="text-xs mt-1">Processing...</span>
             </div>
         );
     }
@@ -167,7 +167,7 @@ export const Tile: React.FC<TileProps> = (props) => {
         <div
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`w-full h-full bg-surface-secondary overflow-hidden relative rounded-[4px] box-border cursor-pointer transition-all duration-200 ease-out ${getBorderClass(selected)}`}
+            className={`w-full h-full bg-surface-secondary overflow-hidden relative rounded box-border cursor-pointer transition-all duration-200 ease-out ${getBorderClass(selected)}`}
         >
             <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} onImageVisibleChange={(visible) => setVisibleImageSrc(visible ? imgSrc : null)} />
             <TileOverlays

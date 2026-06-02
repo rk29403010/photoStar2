@@ -63,7 +63,7 @@ const SensitivityBadgeView: React.FC<{ badge: SensitivityBadge | null }> = ({ ba
 
     return (
         <div
-            className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-[9.6px] font-bold tracking-wider z-15 backdrop-blur-sm border select-none pointer-events-none ${colorClass}`}
+            className={`absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-xs font-bold tracking-wider z-15 backdrop-blur-sm border select-none pointer-events-none ${colorClass}`}
         >
             {badge.label}
         </div>
@@ -74,7 +74,7 @@ const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) =
     if (count == null || count <= 1) {return null;}
 
     return (
-        <div className="absolute top-1.5 right-1.5 bg-blue-500/85 text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold z-15 border border-white/20 backdrop-blur-sm flex items-center gap-1.5 shadow-md pointer-events-none">
+        <div className="absolute top-1.5 right-1.5 bg-blue-500/85 text-white rounded-full px-1.5 py-0.5 text-xs font-bold z-15 border border-white/20 backdrop-blur-sm flex items-center gap-1.5 shadow-md pointer-events-none">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
@@ -86,7 +86,7 @@ const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) =
 
 const SelectedStarBadge: React.FC = () => (
     <div
-        className="absolute top-2 left-2 w-6.5 h-6.5 rounded-full bg-slate-900/90 text-amber-500 border border-indigo-500/50 flex items-center justify-center text-sm z-18 pointer-events-none shadow-lg"
+        className="absolute top-2 left-2 w-6 h-6 rounded-full bg-slate-900/90 text-amber-500 border border-indigo-500/50 flex items-center justify-center text-sm z-18 pointer-events-none shadow-lg"
     >
         ★
     </div>
@@ -97,7 +97,7 @@ const GroupModeBadge: React.FC<{ show: boolean }> = ({ show }) => {
 
     return (
         <div
-            className="absolute bottom-2 right-2 px-2 py-0.75 rounded-full bg-slate-900/80 border border-content-secondary/25 text-blue-100 text-[10px] font-bold tracking-wider uppercase z-15 pointer-events-none"
+            className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-slate-900/80 border border-content-secondary/25 text-blue-100 text-xs font-bold tracking-wider uppercase z-15 pointer-events-none"
         >
             Group
         </div>
@@ -123,7 +123,7 @@ const GroupIdPills: React.FC<{
                     title={pill.title}
                     onMouseEnter={() => onHoveredGroupIdChange?.(pill.key)}
                     onMouseLeave={() => onHoveredGroupIdChange?.(null)}
-                    className="px-1.75 py-0.75 rounded-full text-[9.5px] font-bold tracking-wider inline-flex items-center gap-1 pointer-events-auto transition-shadow"
+                    className="px-2 py-0.5 rounded-full text-xs font-bold tracking-wider inline-flex items-center gap-1 pointer-events-auto transition-shadow"
                     style={{
                         background: pill.background,
                         borderColor: pill.borderColor,
@@ -147,8 +147,8 @@ const CaptionOverlay: React.FC<{ show: boolean; caption?: string }> = ({ show, c
     if (!show || !caption) {return null;}
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-5 px-2 pb-2 pointer-events-none animate-[fadeIn_0.15s_ease-in_forwards]">
-            <p className="m-0 text-[11.2px] text-slate-200 leading-snug italic line-clamp-3">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-5 p-2 pointer-events-none animate-[fadeIn_0.15s_ease-in_forwards]">
+            <p className="m-0 text-xs text-slate-200 leading-snug italic line-clamp-3">
                 {caption}
             </p>
         </div>
@@ -171,7 +171,7 @@ const DeclusterButton: React.FC<{
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
-            className="absolute top-2 right-2 bg-red-500/90 text-white border-none rounded px-2.5 py-1 text-[11px] font-bold cursor-pointer z-20 shadow-md"
+            className="absolute top-2 right-2 bg-red-500/90 text-white border-none rounded px-2 py-0.5 text-xs font-bold cursor-pointer z-20 shadow-md"
         >
             Decluster
         </button>
@@ -191,7 +191,7 @@ const FaceBoxes: React.FC<{ asset: Asset; showFaces: boolean; activeFilter?: Lib
                     <div
                         key={i}
                         title={face.person_name || 'Unknown Person'}
-                        className="absolute border-2 rounded-[2px] pointer-events-none z-10"
+                        className="absolute border-2 rounded-sm pointer-events-none z-10"
                         style={{
                             left: `${face.box.x * 100}%`,
                             top: `${face.box.y * 100}%`,
@@ -212,7 +212,7 @@ const DebugIntent: React.FC<{ debug: boolean; intent: TileIntent }> = ({ debug, 
     if (!debug) {return null;}
 
     return (
-        <div className="absolute bottom-0.5 left-0.5 text-[10px] text-white bg-black/50 px-1 py-0.25 rounded-[2px]">
+        <div className="absolute bottom-1 left-1 text-xs text-white bg-black/50 px-1 py-0.5 rounded-sm">
             {intent}
         </div>
     );

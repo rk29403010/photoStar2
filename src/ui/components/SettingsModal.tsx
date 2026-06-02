@@ -106,7 +106,7 @@ function UiTab({
                         <option value="mock">Mock</option>
                         <option value="off">Off</option>
                     </Select>
-                    <p className="text-[10px] text-content-secondary">Folder ingest and AI metadata actions will use this mode.</p>
+                    <p className="text-xs text-content-secondary">Folder ingest and AI metadata actions will use this mode.</p>
                 </div>
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium text-content-secondary">Color Theme</label>
@@ -153,27 +153,27 @@ function AiJobSection({ dbSettings, onChange }: { readonly dbSettings: SettingsM
             <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">AI Metadata V2 API Key</label>
                 <Input id="setting-ai-metadata-v2-api-key" type="password" value={dbSettings.ai_metadata_v2_api_key || ''} onChange={(e) => onChange('ai_metadata_v2_api_key', e.target.value)} placeholder="AIzaSy..." />
-                <p className="text-[10px] text-content-secondary">Preferred by the runtime AI metadata module. Falls back to the Gemini key, then <code className="rounded bg-black/30 px-1 py-0.5 font-mono">GEMINI_API_KEY</code> from <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code>, if left blank.</p>
+                <p className="text-xs text-content-secondary">Preferred by the runtime AI metadata module. Falls back to the Gemini key, then <code className="rounded bg-black/30 px-1 py-0.5 font-mono">GEMINI_API_KEY</code> from <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code>, if left blank.</p>
             </div>
             <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Gemini API Key</label>
                 <Input id="setting-gemini-api-key" type="password" value={dbSettings.gemini_api_key || ''} onChange={(e) => onChange('gemini_api_key', e.target.value)} placeholder="AIzaSy..." />
-                <p className="text-[10px] text-content-secondary">Optional fallback key for Gemini-backed runtime metadata execution before the <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code> fallback. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-accent hover:underline">aistudio.google.com/apikey</a></p>
+                <p className="text-xs text-content-secondary">Optional fallback key for Gemini-backed runtime metadata execution before the <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code> fallback. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-accent hover:underline">aistudio.google.com/apikey</a></p>
             </div>
             <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Kinship Explorer CSV Path</label>
                 <Input type="text" value={dbSettings.gemini_csv_path || ''} onChange={(e) => onChange('gemini_csv_path', e.target.value)} placeholder="C:/Path/To/Names.csv" />
-                <p className="text-[10px] text-content-secondary">Used to identify people across generations</p>
+                <p className="text-xs text-content-secondary">Used to identify people across generations</p>
             </div>
             <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Scout Model</label>
                 <Input type="text" value={dbSettings.job_ai_model_scout || 'gemini-2.5-flash'} onChange={(e) => onChange('job_ai_model_scout', e.target.value)} placeholder="gemini-2.5-flash" />
-                <p className="text-[10px] text-content-secondary">Cheap first-pass ingest model. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-2.5-flash</code>.</p>
+                <p className="text-xs text-content-secondary">Cheap first-pass ingest model. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-2.5-flash</code>.</p>
             </div>
             <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Refine Model</label>
                 <Input type="text" value={dbSettings.job_ai_model_refine || 'gemini-3.1-pro-preview'} onChange={(e) => onChange('job_ai_model_refine', e.target.value)} placeholder="gemini-3.1-pro-preview" />
-                <p className="text-[10px] text-content-secondary">Optional higher-quality second-pass model for refine treatment. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-3.1-pro-preview</code>.</p>
+                <p className="text-xs text-content-secondary">Optional higher-quality second-pass model for refine treatment. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-3.1-pro-preview</code>.</p>
             </div>
         </Card>
     );
@@ -194,14 +194,14 @@ function ClusterJobSection({ dbSettings, onChange }: { readonly dbSettings: Sett
                         <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                 </Select>
-                <p className="text-[10px] text-content-secondary">
+                <p className="text-xs text-content-secondary">
                     {FACE_MATCHING_MODE_OPTIONS.find((option) => option.value === faceMatchingMode)?.description || 'Default blend of precision and recall.'}
                 </p>
             </div>
             <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Cluster Distance Threshold</label>
                 <Input type="number" step="0.01" value={dbSettings.job_cluster_threshold || '0.55'} onChange={(e) => onChange('job_cluster_threshold', e.target.value)} />
-                <p className="text-[10px] text-content-secondary">Lower values mean stricter clustering. Default is usually ~0.55.</p>
+                <p className="text-xs text-content-secondary">Lower values mean stricter clustering. Default is usually ~0.55.</p>
             </div>
         </Card>
     );
@@ -381,7 +381,10 @@ export function SettingsModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-            <div className="flex h-[720px] max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-content/10 bg-surface text-content shadow-2xl">
+            <div
+                className="flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-content/10 bg-surface text-content shadow-2xl"
+                style={{ height: '720px', maxHeight: '90vh' }}
+            >
                 <div className="flex items-center justify-between border-b border-content/10 bg-surface-secondary px-6 py-4">
                     <div className="flex items-center gap-3"><span className="text-xl">⚙️</span><h2 className="text-xl font-bold">Settings</h2></div>
                     <button onClick={onClose} className="text-content-secondary hover:text-content transition-colors" aria-label="Close Settings">

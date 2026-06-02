@@ -83,7 +83,7 @@ export function LayoutModeRenderer(props: LayoutModeRendererProps) {
 
     return (
         <div
-            className="layout-grid grid grid-cols-24 grid-flow-row-dense auto-rows-gallery w-full max-w-[1800px] mx-auto gap-1.5 p-1.5"
+            className="layout-grid grid grid-cols-24 grid-flow-row-dense auto-rows-gallery w-full max-w-screen-2xl mx-auto gap-1.5 p-1.5"
         >
             {Array.from({ length: props.itemCount }, (_, index) => props.renderTile(index))}
         </div>
