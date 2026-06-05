@@ -56,7 +56,7 @@ function CopyButton(props: {
             disabled={isCopying}
             title={title}
             aria-label={title}
-            className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-gray-700 bg-[#161616] px-3 text-xs font-semibold uppercase tracking-wide text-gray-300 hover:bg-[#1f1f1f] hover:text-gray-100 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-content/10 bg-surface px-3 text-xs font-semibold uppercase tracking-wide text-content hover:bg-surface-secondary disabled:cursor-wait disabled:opacity-60"
         >
             {isCopied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
             <span>{isCopied ? 'Copied' : label}</span>
@@ -72,13 +72,13 @@ function UiFeedHeader(props: {
 }) {
     const { entryCount, copiedTarget, copyingTarget, onCopy } = props;
     return (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-[#111111] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-content/10 bg-surface-secondary p-4">
             <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">UI Feed</div>
-                <h3 className="mt-1 text-lg font-medium text-gray-100">Frontend received messages</h3>
+                <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">UI Feed</div>
+                <h3 className="mt-1 text-lg font-medium text-content">Frontend received messages</h3>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-                <div className="text-[11px] uppercase tracking-[0.2em] text-gray-500">{entryCount} entries</div>
+                <div className="text-xs uppercase tracking-widest text-content-secondary/70">{entryCount} entries</div>
                 <CopyButton
                     target="all"
                     label="Copy all"
@@ -99,11 +99,11 @@ function UiFeedTable(props: {
 }) {
     const { entries, copiedTarget, copyingTarget, onCopy } = props;
     return (
-        <div className="overflow-hidden rounded-xl border border-gray-800 bg-[#111111]">
+        <div className="overflow-hidden rounded-xl border border-content/10 bg-surface-secondary">
             <div className="max-h-[70vh] overflow-auto">
                 <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 z-10 border-b border-gray-800 bg-[#151515]">
-                        <tr className="text-[10px] uppercase tracking-widest text-gray-400">
+                    <thead className="sticky top-0 z-10 border-b border-content/10 bg-surface">
+                        <tr className="text-xs uppercase tracking-widest text-content-secondary">
                             <th className="px-3 py-2 text-left">Time</th>
                             <th className="px-3 py-2 text-left">Source</th>
                             <th className="px-3 py-2 text-left">Label</th>
@@ -119,22 +119,22 @@ function UiFeedTable(props: {
                     </thead>
                     <tbody>
                         {entries.map((entry) => (
-                            <tr key={entry.id} className="border-b border-gray-900/80 align-top">
-                                <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-gray-300">{formatTimestamp(entry.timestamp)}</td>
-                                <td className="whitespace-nowrap px-3 py-2 text-[11px] text-cyan-300">{getSourceLabel(entry.source)}</td>
-                                <td className="whitespace-nowrap px-3 py-2 text-[11px] text-gray-100">{entry.label}</td>
-                                <td className="px-3 py-2 font-mono text-[11px] text-gray-400">{entry.requestId ?? '-'}</td>
-                                <td className="px-3 py-2 text-right font-mono text-[11px] text-gray-300">{formatCellNumber(entry.assetCount)}</td>
-                                <td className="px-3 py-2 text-right font-mono text-[11px] text-gray-300">{formatCellNumber(entry.previewCount)}</td>
-                                <td className="px-3 py-2 text-right font-mono text-[11px] text-gray-300">{formatCellNumber(entry.previousAssetCount)}</td>
-                                <td className="px-3 py-2 text-right font-mono text-[11px] text-gray-300">{formatCellNumber(entry.nextAssetCount)}</td>
-                                <td className="px-3 py-2 text-[11px] text-gray-300">
+                            <tr key={entry.id} className="border-b border-content/5 align-top">
+                                <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-content-secondary">{formatTimestamp(entry.timestamp)}</td>
+                                <td className="whitespace-nowrap px-3 py-2 text-xs text-cyan-500 font-bold">{getSourceLabel(entry.source)}</td>
+                                <td className="whitespace-nowrap px-3 py-2 text-xs text-content font-medium">{entry.label}</td>
+                                <td className="px-3 py-2 font-mono text-xs text-content-secondary/70">{entry.requestId ?? '-'}</td>
+                                <td className="px-3 py-2 text-right font-mono text-xs text-content-secondary">{formatCellNumber(entry.assetCount)}</td>
+                                <td className="px-3 py-2 text-right font-mono text-xs text-content-secondary">{formatCellNumber(entry.previewCount)}</td>
+                                <td className="px-3 py-2 text-right font-mono text-xs text-content-secondary">{formatCellNumber(entry.previousAssetCount)}</td>
+                                <td className="px-3 py-2 text-right font-mono text-xs text-content-secondary">{formatCellNumber(entry.nextAssetCount)}</td>
+                                <td className="px-3 py-2 text-xs text-content-secondary">
                                     {(function () {
                                         if (entry.applied === undefined) {return '-';}
                                         return entry.applied ? 'yes' : 'no';
                                     }())}
                                 </td>
-                                <td className="min-w-[360px] px-3 py-2 font-mono text-[11px] leading-4 text-gray-200">{entry.detail}</td>
+                                <td className="min-w-90 sm:min-w-full px-3 py-2 font-mono text-xs leading-4 text-content">{entry.detail}</td>
                                 <td className="px-3 py-2 text-right">
                                     <CopyButton
                                         target={entry.id}
@@ -181,9 +181,9 @@ export const UiFeedPanel: React.FC<UiFeedPanelProps> = ({ entries }) => {
 
     if (entries.length === 0) {
         return (
-            <section className="rounded-xl border border-gray-800 bg-[#111111] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">UI Feed</div>
-                <p className="mt-3 text-sm text-gray-400">No frontend diagnostics captured yet.</p>
+            <section className="rounded-xl border border-content/10 bg-surface-secondary p-4">
+                <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">UI Feed</div>
+                <p className="mt-3 text-sm text-content-secondary">No frontend diagnostics captured yet.</p>
             </section>
         );
     }

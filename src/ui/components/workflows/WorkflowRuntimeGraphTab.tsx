@@ -12,7 +12,7 @@ function getNodeTone(status: WorkflowVisualiserGraphNode['status']): string {
     if (status === 'completed') {return 'border-emerald-700/60 bg-emerald-950/15';}
     if (status === 'running') {return 'border-cyan-700/60 bg-cyan-950/15';}
     if (status === 'failed') {return 'border-red-700/60 bg-red-950/15';}
-    return 'border-gray-700 bg-[#0a0a0a]';
+    return 'border-content/10 bg-surface';
 }
 
 function formatNodeCounts(node: WorkflowVisualiserGraphNode): string {
@@ -22,29 +22,29 @@ function formatNodeCounts(node: WorkflowVisualiserGraphNode): string {
 
 export const WorkflowRuntimeGraphTab: React.FC<WorkflowRuntimeGraphTabProps> = ({ nodes, edges, onSelectDetail, showRuntimeDetails }) => (
     <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-        <section className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
-            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">Runtime Graph</div>
+        <section className="rounded-2xl border border-content/10 bg-surface-secondary p-5">
+            <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">Runtime Graph</div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {nodes.map((node) => (
                     <button
                         key={node.id}
                         onClick={() => onSelectDetail(node.id)}
-                        className={`rounded-xl border p-4 text-left transition-colors hover:border-cyan-500/40 ${getNodeTone(node.status)}`}
+                        className={`rounded-xl border p-4 text-left transition-colors hover:border-brand-accent/45 ${getNodeTone(node.status)}`}
                     >
-                        <div className="text-xs uppercase tracking-[0.2em] text-gray-500">{node.kind}</div>
-                        <div className="mt-2 text-sm font-semibold text-gray-100">{node.label}</div>
-                        {showRuntimeDetails ? <div className="mt-2 text-xs text-gray-400">{formatNodeCounts(node)}</div> : null}
-                        <div className="mt-1 text-xs text-gray-500">{node.upstreamIds.length} upstream · {node.downstreamIds.length} downstream</div>
+                        <div className="text-xs uppercase tracking-widest text-content-secondary">{node.kind}</div>
+                        <div className="mt-2 text-sm font-semibold text-content">{node.label}</div>
+                        {showRuntimeDetails ? <div className="mt-2 text-xs text-content-secondary">{formatNodeCounts(node)}</div> : null}
+                        <div className="mt-1 text-xs text-content-secondary">{node.upstreamIds.length} upstream · {node.downstreamIds.length} downstream</div>
                     </button>
                 ))}
             </div>
         </section>
 
-        <section className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
-            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">Connections</div>
-            <div className="mt-4 space-y-2 text-sm text-gray-300">
+        <section className="rounded-2xl border border-content/10 bg-surface-secondary p-5">
+            <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">Connections</div>
+            <div className="mt-4 space-y-2 text-sm text-content-secondary">
                 {edges.map((edge) => (
-                    <div key={edge.id} className="rounded-lg border border-gray-800 bg-[#0a0a0a] px-3 py-2">
+                    <div key={edge.id} className="rounded-lg border border-content/10 bg-surface px-3 py-2">
                         {edge.source} {'->'} {edge.target}
                     </div>
                 ))}

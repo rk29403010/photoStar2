@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TagDefinitionSummary } from '@contracts/core';
 import type { BusyAction, TagDetail } from './tagVocabularyTypes';
 import {
@@ -59,11 +59,17 @@ function useActiveRefreshEffect(params: {
     refresh: () => Promise<void>;
 }) {
     const { active, refresh } = params;
+    const refreshRef = useRef(refresh);
+
+    useEffect(() => {
+        refreshRef.current = refresh;
+    }, [refresh]);
+
     useEffect(() => {
         if (active) {
-            void refresh();
+            void refreshRef.current();
         }
-    }, [active, refresh]);
+    }, [active]);
 }
 
 function useSelectedDetailEffect(params: {
@@ -243,7 +249,7 @@ function useTagVocabularyActions(params: {
             params.setErrorMessage('Choose an existing target tag before merging.');
             return;
         }
-        if (!globalThis.confirm(`Merge ${selectedDetail.tag.canonicalLabel} into ${mergeTarget.canonicalLabel}?`)) {
+        if (!globalThis.confirm(`Merge ${selectedDetail.tag.canonicalLabel} -> ${mergeTarget.canonicalLabel}?`)) {
             return;
         }
 
@@ -278,14 +284,14 @@ export function TagVocabularyView(props: TagVocabularyViewProps) {
         setErrorMessage: data.setErrorMessage,
     });
     return (
-        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', background: '#06080d', color: '#e5e7eb', padding: 24, display: 'grid', gridTemplateRows: 'auto auto 1fr', gap: 20 }}>
+        <div className="flex-1 min-h-0 overflow-hidden bg-surface text-content p-6 grid grid-rows-[auto_auto_1fr] gap-5">
             <VocabularyHeader tagCount={data.tags.length} loading={data.loading} onRefresh={() => void data.refresh()} />
             <VocabularySearchBar searchText={searchText} errorMessage={data.errorMessage} onSearchTextChange={setSearchText} />
-            <div style={{ minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(260px, 340px) minmax(0, 1fr)', gap: 20 }}>
-                <div style={{ minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+            <div className="min-h-0 grid grid-cols-[minmax(260px,340px)_minmax(0,1fr)] gap-5">
+                <div className="min-h-0 overflow-y-auto pr-1">
                     <TagList tags={filteredTags} selectedTagId={data.selectedTagId} onSelect={(tagDefinitionId) => { data.setSelectedTagId(tagDefinitionId); data.setErrorMessage(null); }} />
                 </div>
-                <div style={{ minHeight: 0, overflowY: 'auto' }}>
+                <div className="min-h-0 overflow-y-auto">
                     <TagDetailPanelEditor
                         key={data.selectedDetail?.tag.id ?? 'empty'}
                         tags={data.tags}

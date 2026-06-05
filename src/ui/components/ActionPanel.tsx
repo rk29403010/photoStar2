@@ -49,11 +49,11 @@ const ACTION_TABS: TabDefinition[] = [
 
 function PanelHeader({ onClose }: { readonly onClose: () => void }) {
     return (
-        <div className="mb-6 flex items-center justify-between border-b border-[#333] pb-4">
+        <div className="mb-6 flex items-center justify-between border-b border-content/10 pb-4">
             <div>
                 <h2 className="bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-2xl font-bold text-transparent">Library Actions</h2>
             </div>
-            <button onClick={onClose} className="rounded-full p-2 text-gray-400 transition-colors hover:bg-[#333] hover:text-white" aria-label="Close">
+            <button onClick={onClose} className="rounded-full p-2 text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content" aria-label="Close">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -76,8 +76,8 @@ function TabButton({
             onClick={onClick}
             className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
                 active
-                    ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-100'
-                    : 'border-[#333] bg-[#171717] text-gray-300 hover:border-[#4b5563] hover:bg-[#202020] hover:text-white'
+                    ? 'border-cyan-500/50 bg-cyan-500/15 text-brand-accent'
+                    : 'border-content/10 bg-surface-secondary text-content-secondary hover:border-content/30 hover:bg-surface hover:text-content'
             }`}
         >
             {label}
@@ -94,17 +94,17 @@ function ActionCard({
         <button
             onClick={item.onClick}
             disabled={item.disabled}
-            className={`group flex min-h-[132px] w-full flex-col rounded-xl border border-[#333] bg-[#242424] px-4 py-4 text-left transition-all ${
+            className={`group flex min-h-[132px] w-full flex-col rounded-xl border border-content/10 bg-surface px-4 py-4 text-left motion-safe:transition-all ${
                 item.disabled
                     ? 'cursor-not-allowed opacity-45'
-                    : `hover:bg-[#2d2d2d] ${item.accentClassName}`
+                    : `hover:bg-surface-secondary ${item.accentClassName}`
             }`}
         >
             <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-white">{item.label}</span>
+                <span className="text-sm font-semibold text-content">{item.label}</span>
                 <span className="text-xl">{item.icon}</span>
             </div>
-            <p className="text-[11px] leading-relaxed text-gray-300">{item.description}</p>
+            <p className="text-xs leading-relaxed text-content-secondary">{item.description}</p>
         </button>
     );
 }
@@ -121,17 +121,17 @@ function RecentPaths({
     }
 
     return (
-        <section className="mt-6 rounded-xl border border-[#333] bg-[#151515] p-4">
+        <section className="mt-6 rounded-xl border border-content/10 bg-surface-secondary p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-                <h4 className="text-xs font-black uppercase tracking-widest text-gray-300">Recent Paths</h4>
-                <span className="text-[10px] uppercase tracking-[0.25em] text-gray-500">Quick restart</span>
+                <h3 className="text-xs font-black uppercase tracking-widest text-content-secondary">Recent Paths</h3>
+                <span className="text-xs uppercase tracking-widest text-content-secondary/65">Quick restart</span>
             </div>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {entries.map((entry) => (
                     <button
                         key={entry.path}
                         onClick={() => onScan(entry.path)}
-                        className="truncate rounded-lg border border-[#2d2d2d] bg-[#202020] px-3 py-2 text-left text-xs text-gray-300 transition-colors hover:border-[#4b5563] hover:bg-[#2a2a2a] hover:text-white"
+                        className="truncate rounded-lg border border-content/10 bg-surface px-3 py-2 text-left text-xs text-content-secondary transition-colors hover:border-content/30 hover:bg-surface-secondary hover:text-content"
                         title={entry.path}
                     >
                         <span className="mr-2 opacity-65">📁</span>
@@ -305,16 +305,18 @@ function ManualPathPrompt(props: {
     const [manualPath, setManualPath] = useState('');
 
     return (
-        <section className="mt-4 rounded-xl border border-[#333] bg-[#151515] p-4">
-            <h4 className="text-xs font-black uppercase tracking-widest text-gray-300">Folder To Ingest</h4>
-            <p className="mt-1 text-xs text-gray-400">Enter an absolute path (example: C:/Users/robin/Photos)</p>
+        <section className="mt-4 rounded-xl border border-content/10 bg-surface-secondary p-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-content-secondary">Folder To Ingest</h3>
+            <p className="mt-1 text-xs text-content-secondary">Enter an absolute path (example: C:/Users/robin/Photos)</p>
             <div className="mt-3 flex flex-wrap gap-2">
                 <input
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
+                    aria-label="Folder absolute path to ingest"
                     value={manualPath}
                     onChange={(event) => setManualPath(event.target.value)}
                     placeholder="C:/Users/robin/Photos"
-                    className="min-w-[280px] flex-1 rounded-lg border border-[#2d2d2d] bg-[#202020] px-3 py-2 text-sm text-gray-100"
+                    className="min-w-72 sm:min-w-full flex-1 rounded-lg border border-content/10 bg-surface px-3 py-2 text-sm text-content"
                 />
                 <button
                     type="button"
@@ -331,7 +333,7 @@ function ManualPathPrompt(props: {
                 <button
                     type="button"
                     onClick={props.onCancel}
-                    className="rounded-lg border border-[#3a3a3a] bg-[#202020] px-3 py-2 text-xs font-semibold text-gray-300"
+                    className="rounded-lg border border-content/10 bg-surface px-3 py-2 text-xs font-semibold text-content-secondary hover:bg-surface-secondary hover:text-content"
                 >
                     Cancel
                 </button>
@@ -374,7 +376,7 @@ function OpenActionPanel(props: ActionPanelProps) {
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 px-4 py-4">
-            <dialog ref={panelRef} className="mx-auto w-full max-w-6xl rounded-xl border border-[#333] bg-[#1a1a1a]/95 p-8 text-white shadow-2xl backdrop-blur-md" open aria-modal="true">
+            <dialog ref={panelRef} className="mx-auto w-full max-w-6xl rounded-xl border border-content/10 bg-surface/95 p-8 text-content shadow-2xl backdrop-blur-md" open aria-modal="true">
                 <PanelHeader onClose={props.onClose} />
 
                 <div className="mb-5 flex flex-wrap gap-2">
@@ -383,9 +385,9 @@ function OpenActionPanel(props: ActionPanelProps) {
                     ))}
                 </div>
 
-                <div className="mb-5 rounded-xl border border-[#333] bg-[#141414] px-4 py-3">
-                    <h3 className="text-sm font-semibold text-white">{activeTabDefinition.label}</h3>
-                    <p className="mt-1 text-xs text-gray-300">{activeTabDefinition.summary}</p>
+                <div className="mb-5 rounded-xl border border-content/10 bg-surface px-4 py-3">
+                    <h3 className="text-sm font-semibold text-content">{activeTabDefinition.label}</h3>
+                    <p className="mt-1 text-xs text-content-secondary">{activeTabDefinition.summary}</p>
                 </div>
 
                 <ActionGrid items={tabItems[activeTab]} />

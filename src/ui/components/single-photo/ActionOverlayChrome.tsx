@@ -46,42 +46,46 @@ export const TopBar: React.FC<TopBarProps> = ({
     controlsVisible,
     showInfoPanel,
     getOverlayVisibilityStyle,
-}) => (
-    <>
-        <div
-            style={getTopBarStyle({
-                controlsVisible,
-                showInfoPanel,
-                infoPanelWidth: DEFAULT_INFO_PANEL_WIDTH,
-                visibilityStyle: getOverlayVisibilityStyle(controlsVisible),
-            })}
-            onClick={(event) => {
-                event.stopPropagation();
-                if (showActionMenu) {
-                    setShowActionMenu(false);
-                }
-            }}
-        >
-            <div className="text-xs opacity-60 flex items-center">{currentIndex + 1} / {assetsLength}</div>
-            <div className="flex gap-3 items-center">
-                {actionMenu}
-                <button onClick={onClose} className="bg-transparent border-none text-white text-2xl cursor-pointer opacity-70 leading-none p-1">✕</button>
-            </div>
-        </div>
-        {persistentAnalysisStatus ? (
+}) => {
+    return (
+        <>
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events, deslint/prefer-semantic-html -- container click stops propagation to prevent toggling visibility */}
             <div
-                style={getAnalysisStatusContainerStyle({
+                style={getTopBarStyle({
                     controlsVisible,
                     showInfoPanel,
                     infoPanelWidth: DEFAULT_INFO_PANEL_WIDTH,
+                    visibilityStyle: getOverlayVisibilityStyle(controlsVisible),
                 })}
-                onClick={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    if (showActionMenu) {
+                        setShowActionMenu(false);
+                    }
+                }}
             >
-                {persistentAnalysisStatus}
+                <div className="text-xs opacity-60 flex items-center">{currentIndex + 1} / {assetsLength}</div>
+                <div className="flex gap-3 items-center">
+                    {actionMenu}
+                    <button onClick={onClose} className="bg-transparent border-none text-white text-2xl cursor-pointer opacity-70 leading-none p-1">✕</button>
+                </div>
             </div>
-        ) : null}
-    </>
-);
+            {persistentAnalysisStatus ? (
+                /* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events, deslint/prefer-semantic-html -- container click stops propagation to prevent toggling visibility */
+                <div
+                    style={getAnalysisStatusContainerStyle({
+                        controlsVisible,
+                        showInfoPanel,
+                        infoPanelWidth: DEFAULT_INFO_PANEL_WIDTH,
+                    })}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    {persistentAnalysisStatus}
+                </div>
+            ) : null}
+        </>
+    );
+};
 
 export const ZoomBar: React.FC<ZoomBarProps> = ({
     scale,
@@ -94,23 +98,27 @@ export const ZoomBar: React.FC<ZoomBarProps> = ({
     setShowInfoPanel,
     controlsVisible,
     getOverlayVisibilityStyle,
-}) => (
-    <div
-        style={{
-            ...getOverlayVisibilityStyle(controlsVisible),
-            zIndex: 1001,
-        }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-slate-900/85 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 items-center"
-        onClick={(event) => event.stopPropagation()}
-    >
-        <button onClick={() => { const nextScale = getNextZoomScale(scale, -1); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} className={zoomButtonClass} title="Zoom out">−</button>
-        <div className="text-content-secondary text-xs min-w-[40px] text-center">{Math.round(scale * 100)}%</div>
-        <button onClick={() => setScale(getNextZoomScale(scale, 1))} className={zoomButtonClass} title="Zoom in">+</button>
-        <div className={dividerClass} />
-        <button onClick={resetPanZoom} className="bg-transparent border-none text-white cursor-pointer text-xs flex items-center gap-1 hover:opacity-80 active:scale-95" title="Reset zoom"><span className="text-sm">⟲</span> Reset</button>
-        <div className={dividerClass} />
-        <button onClick={() => setShowFaces(!showFaces)} title={showFaces ? 'Hide faces' : 'Show faces'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded transition-all duration-200 active:scale-95 ${showFaces ? 'bg-cyan-500/25 border border-cyan-500/50 text-cyan-400' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">👤</span></button>
-        <div className={dividerClass} />
-        <button onClick={() => setShowInfoPanel(!showInfoPanel)} title={showInfoPanel ? 'Hide info panel (I)' : 'Show info panel (I)'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded transition-all duration-200 active:scale-95 ${showInfoPanel ? 'bg-indigo-500/25 border border-indigo-500/50 text-indigo-300' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">ℹ</span></button>
-    </div>
-);
+}) => {
+    /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events, deslint/prefer-semantic-html */
+    return (
+        <div
+            style={{
+                ...getOverlayVisibilityStyle(controlsVisible),
+                zIndex: 1001,
+            }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-slate-900/85 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 items-center"
+            onClick={(event) => event.stopPropagation()}
+        >
+            <button onClick={() => { const nextScale = getNextZoomScale(scale, -1); setScale(nextScale); if (nextScale <= 1) {setPan({ x: 0, y: 0 });} }} className={zoomButtonClass} title="Zoom out">−</button>
+            <div className="text-content-secondary text-xs min-w-[40px] text-center">{Math.round(scale * 100)}%</div>
+            <button onClick={() => setScale(getNextZoomScale(scale, 1))} className={zoomButtonClass} title="Zoom in">+</button>
+            <div className={dividerClass} />
+            <button onClick={resetPanZoom} className="bg-transparent border-none text-white cursor-pointer text-xs flex items-center gap-1 hover:opacity-80 active:scale-95" title="Reset zoom"><span className="text-sm">⟲</span> Reset</button>
+            <div className={dividerClass} />
+            <button onClick={() => setShowFaces(!showFaces)} title={showFaces ? 'Hide faces' : 'Show faces'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${showFaces ? 'bg-cyan-500/25 border border-cyan-500/50 text-cyan-400' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">👤</span></button>
+            <div className={dividerClass} />
+            <button onClick={() => setShowInfoPanel(!showInfoPanel)} title={showInfoPanel ? 'Hide info panel (I)' : 'Show info panel (I)'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${showInfoPanel ? 'bg-indigo-500/25 border border-indigo-500/50 text-indigo-300' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">ℹ</span></button>
+        </div>
+    );
+    /* eslint-enable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events, deslint/prefer-semantic-html */
+};

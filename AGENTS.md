@@ -3,6 +3,13 @@
 Repo-local instructions for AI coding sessions. Prefer commands, evidence, and
 repo checks over prose, memory, or vibes.
 
+## AI-First Project
+
+This project is **AI-first**, written and maintained through AI prompts rather than directly through manual code edits.
+
+- Design, implement, and refactor code via structured prompt instructions.
+- Ensure codebase clarity, simplicity, and comments are optimized for AI context parsing.
+
 ## Verbosity & Noise (CRITICAL)
 
 1. **Zero Narration**: Never output "Prioritizing Tool Usage," "Thinking about tools," or any other process narration.
@@ -29,7 +36,7 @@ repo checks over prose, memory, or vibes.
 
 ## Windows Commands
 
-- Prefer direct executables: `rg.exe`, `git.exe`, `node.exe`, `npm.cmd`,
+- Prefer direct executables: `rg.exe`, `git.exe`, `node.exe`, `pnpm.cmd`,
   `npx.cmd`, `python.exe`.
 - Use Git Bash only for shell composition: pipes, redirects, globs, `&&`, `||`,
   or command substitution.
@@ -40,19 +47,18 @@ repo checks over prose, memory, or vibes.
 - Do not launch repo dev scripts in detached visible terminal windows unless the
   user asks.
 
-## Quality Gates
+## Quality Gates & Verification
 
-- Never commit code that fails `npm.cmd run quality`.
-- Partial work: run `npm.cmd run quality:staged`.
-- Core/runtime changes: run `npm.cmd run test:core`.
-- UI model changes: run `npm.cmd run test:ui`.
-- Repo/tooling changes: run `npm.cmd run test:repo`.
-- Larger changes, config/runtime wiring, or handoff-ready work: run
-  `npm.cmd run quality`.
-- Branch-heavy TS/TSX, React render shells, coordinator code, or several new
-  boolean branches: run `npm.cmd run complexity:staged` early.
-- Noisy index: pass explicit files, for example
-  `npm.cmd run complexity:staged -- --files=src/foo.ts,src/bar.tsx`.
+To maintain fast progress and optimize token usage, quality checking should be offloaded to deterministic local processes (like formatters and linters) with auto-fixing enabled wherever possible.
+
+- **AI-Led Quality Control**: The AI determines when to run quality checks during development. Avoid executing heavy quality gates (like full typechecking or complete test suites) after every prompt. Instead, hold off running comprehensive checks until the task is complete and ready to be committed or handed off.
+- **Automated Auto-Fixing**: Prefer using auto-fixing lint/format commands first to automatically correct style/formatting issues (e.g. `pnpm.cmd run quality:fix` or `pnpm.cmd run lint:fix`).
+- **Required Handoff Gates**: Full quality verification must pass before claiming success or staging commits. Ensure the following gates run before final handoff:
+  - Commit/Handoff gate: `pnpm.cmd run quality` (or `pnpm.cmd run quality:staged` for partial work).
+  - Core changes: `pnpm.cmd run test:core`
+  - UI changes: `pnpm.cmd run test:ui`
+  - Tooling/repo changes: `pnpm.cmd run test:repo`
+- **Branch/Complexity Monitoring**: Run `pnpm.cmd run complexity:staged` for complex, branch-heavy files, or pass explicit files: `pnpm.cmd run complexity:staged -- --files=src/foo.ts`.
 
 ## Code Shape
 
@@ -72,6 +78,8 @@ repo checks over prose, memory, or vibes.
 - Do not add lint disables unless the reason is written inline.
 
 ### SonarQube & Code Quality Rules
+
+These rules are programmatically checked and enforced by our ESLint setup (using `eslint-plugin-sonarjs`, `eslint-plugin-jsx-a11y`, and `@deslint/eslint-plugin`). The rules listed below are indicative guidelines that the linter automatically verifies:
 
 - **Accessibility:**
   - Use native `<dialog>` tags instead of `<div role="dialog">` (S6819).
@@ -101,6 +109,8 @@ repo checks over prose, memory, or vibes.
    - `text-brand-accent` / `hover:bg-brand-accent-hover`
 6. **No Arbitrary Square Brackets**: Do not use arbitrary square-bracket values for colors or dimensions (e.g., `bg-[#1a1a1a]`, `border-[#333]`, `w-[31px]`, `p-[15px]`). Snap all values to the standard Tailwind sizing/spacing scale (e.g., `p-4`, `w-8`) and standard theme tokens.
 7. **Ensure Theme Consistency**: Design and test all new and modified UI components to look correct in both light and dark modes natively via the semantic tokens.
+8. **Semantic Styling**: Ensure styles are semantic and not just presentational. For example, use `bg-error`, `border-danger`, etc. instead of arbitrary colors.
+9. **Text to background contrast**: Always verify there is sufficient contrast between text and background colors, especially for smaller font sizes. Use WCAG 2.1 AA guidelines (a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text).
 
 ## Feedback Framework
 
@@ -139,14 +149,14 @@ command/workflow start, and user-visible feedback.
 - New independent task:
 
 ```bash
-npm.cmd run thread:new -- --task "<task name>"
+pnpm.cmd run thread:new -- --task "<task name>"
 ```
 
 - Follow-up requests stay in the same worktree unless the user asks to split.
-- Register existing worktrees with `npm.cmd run thread:register -- --task "<task name>"`.
-- Update state with `npm.cmd run thread:update -- --status <active|blocked|ready-to-merge|parked>`.
-- Close finished threads with `npm.cmd run thread:close -- --status <merged|parked|discarded>`.
-- Before handoff, run `npm.cmd run thread:status`; use `npm.cmd run thread:list`
+- Register existing worktrees with `pnpm.cmd run thread:register -- --task "<task name>"`.
+- Update state with `pnpm.cmd run thread:update -- --status <active|blocked|ready-to-merge|parked>`.
+- Close finished threads with `pnpm.cmd run thread:close -- --status <merged|parked|discarded>`.
+- Before handoff, run `pnpm.cmd run thread:status`; use `pnpm.cmd run thread:list`
   when reporting active threads. Report the worktree path, branch, running
   script, app URL, and backend port shown there.
 - Tell the user the worktree path, branch, and current app URL/port state when
@@ -156,11 +166,11 @@ npm.cmd run thread:new -- --task "<task name>"
 Runtime ownership:
 
 - New threads are edit-only by default.
-- Use `npm.cmd run thread:start-dev` only when branch-local runtime verification
+- Use `pnpm.cmd run thread:start-dev` only when branch-local runtime verification
   or interactive debugging is needed.
 - When a thread becomes runtime-owning, state the exact app URL and backend port.
-  Use `npm.cmd run thread:runtime-url` for a quick check and
-  `npm.cmd run thread:doctor` when multiple instances or stale ports are likely.
+  Use `pnpm.cmd run thread:runtime-url` for a quick check and
+  `pnpm.cmd run thread:doctor` when multiple instances or stale ports are likely.
 - Promote before signoff for visible UI, desktop runtime, routing, app state,
   backend wiring, persistence, imports/exports, background jobs, or meaningful
   user-visible side effects.
@@ -172,7 +182,7 @@ Runtime handoff block format:
 
 ```bash
 cd /c/Users/robin/Projects/photoStar2/.worktrees/<worktree-name>
-npm.cmd run dev:desktop-runtime
+pnpm.cmd run dev:desktop-runtime
 ```
 
 ## Subagents And Handoffs
@@ -192,8 +202,8 @@ npm.cmd run dev:desktop-runtime
   low-risk work.
 - `JDI` does not waive runtime evidence for runtime-facing bugs.
 - Keep exploration tight.
-- Prefer targeted verification plus `npm.cmd run quality:staged` while iterating.
-- Use `npm.cmd run dev:impact` before recommending a runtime restart.
+- Prefer targeted verification plus `pnpm.cmd run quality:staged` while iterating.
+- Use `pnpm.cmd run dev:impact` before recommending a runtime restart.
 
 ## Git Ownership
 

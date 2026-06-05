@@ -11,10 +11,10 @@ function formatPercent(value: number): string {
 
 function MetricCard({ title, value, hint }: { readonly title: string; readonly value: string; readonly hint?: string }) {
     return (
-        <div className="rounded-xl border border-gray-800 bg-[#111111] p-4">
-            <div className="text-[10px] uppercase tracking-widest text-gray-400">{title}</div>
-            <div className="mt-2 text-2xl font-semibold text-gray-100">{value}</div>
-            {hint && <div className="mt-1 text-xs text-gray-400">{hint}</div>}
+        <div className="rounded-xl border border-content/10 bg-surface-secondary p-4">
+            <div className="text-xs uppercase tracking-widest text-content-secondary">{title}</div>
+            <div className="mt-2 text-2xl font-semibold text-content">{value}</div>
+            {hint && <div className="mt-1 text-xs text-content-secondary">{hint}</div>}
         </div>
     );
 }
@@ -44,7 +44,7 @@ function getEmptyStats(): DataStatsSnapshot {
 export const DataStatsPanel: React.FC<{ readonly stats: DataStatsSnapshot | null; readonly loading?: boolean }> = ({ stats, loading }) => {
     if (!stats && !loading) {
         return (
-            <div className="rounded-xl border border-gray-800 bg-[#111111] p-6 text-gray-300">
+            <div className="rounded-xl border border-content/10 bg-surface-secondary p-6 text-content-secondary">
                 No data metrics available yet.
             </div>
         );
@@ -54,7 +54,7 @@ export const DataStatsPanel: React.FC<{ readonly stats: DataStatsSnapshot | null
 
     return (
         <div className="space-y-4">
-            <div className="text-[10px] text-gray-400 font-mono tracking-wider">
+            <div className="text-xs text-content-secondary font-mono tracking-wider">
                 UPDATED {new Date(values.generatedAt).toLocaleTimeString()}
             </div>
             <div className="grid gap-4" style={METRICS_GRID_STYLE}>

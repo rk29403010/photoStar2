@@ -79,27 +79,37 @@ function ReviewRow(props: {
     };
 
     return (
-        <article style={{ border: '1px solid rgba(148,163,184,0.18)', borderRadius: 14, background: 'rgba(15,23,42,0.55)', padding: 16, display: 'grid', gap: 12 }}>
+        <article className="border border-content/10 rounded-2xl bg-surface-secondary p-4 grid gap-3">
             <div>
-                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#60a5fa', marginBottom: 6 }}>{props.reviewItem.reviewItemType.replaceAll('_', ' ')}</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#e2e8f0', marginBottom: 4 }}>{proposedLabel || 'Untitled proposal'}</div>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>Subject: {props.reviewItem.subjectType} {props.reviewItem.subjectId}</div>
+                <div className="text-xs uppercase tracking-wider text-brand-accent mb-1.5">{props.reviewItem.reviewItemType.replaceAll('_', ' ')}</div>
+                <div className="text-lg font-bold text-content mb-1">{proposedLabel || 'Untitled proposal'}</div>
+                <div className="text-xs text-content-secondary">Subject: {props.reviewItem.subjectType} {props.reviewItem.subjectId}</div>
             </div>
-            <label style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Approve As</span>
+            <label className="grid gap-1.5">
+                <span className="text-xs text-content-secondary uppercase tracking-wide">Approve As</span>
                 <input
                     type="text"
                     value={tagLabel}
                     list="reviews-tag-suggestions"
                     onChange={(event) => setTagLabel(event.target.value)}
-                    style={{ background: '#111827', color: '#e5e7eb', border: '1px solid rgba(148,163,184,0.24)', borderRadius: 10, padding: '10px 12px', fontSize: 13 }}
+                    className="bg-surface text-content border border-content/20 rounded-lg p-2.5 px-3 text-sm focus:border-brand-accent focus:outline-none"
                 />
             </label>
-            <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" disabled={busy} onClick={() => void handleAction('approved')} style={{ border: '1px solid rgba(74,222,128,0.38)', background: 'rgba(34,197,94,0.14)', color: '#86efac', borderRadius: 10, padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: busy ? 'wait' : 'pointer' }}>
+            <div className="flex gap-2">
+                <button 
+                    type="button" 
+                    disabled={busy} 
+                    onClick={() => void handleAction('approved')} 
+                    className={`border border-green-500/35 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg px-3 py-2 text-xs font-semibold transition-colors duration-150 disabled:opacity-50 ${busy ? 'cursor-wait' : 'cursor-pointer'}`}
+                >
                     Approve
                 </button>
-                <button type="button" disabled={busy} onClick={() => void handleAction('rejected')} style={{ border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(239,68,68,0.12)', color: '#fca5a5', borderRadius: 10, padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: busy ? 'wait' : 'pointer' }}>
+                <button 
+                    type="button" 
+                    disabled={busy} 
+                    onClick={() => void handleAction('rejected')} 
+                    className={`border border-red-500/35 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg px-3 py-2 text-xs font-semibold transition-colors duration-150 disabled:opacity-50 ${busy ? 'cursor-wait' : 'cursor-pointer'}`}
+                >
                     Reject
                 </button>
             </div>
@@ -115,24 +125,29 @@ export function ReviewsView(props: ReviewsViewProps) {
     const tagCountLabel = useMemo(() => `${availableTags.length} approved tags`, [availableTags.length]);
 
     return (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#06080d', color: '#e5e7eb', padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 24 }}>
+        <div className="flex-1 min-h-0 overflow-y-auto bg-surface text-content p-6">
+            <div className="flex justify-between items-end gap-4 mb-6">
                 <div>
-                    <div style={{ fontSize: 12, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>Review Inbox</div>
-                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700 }}>Pending Tag Proposals</h2>
-                    <div style={{ marginTop: 8, fontSize: 13, color: '#94a3b8' }}>{reviewItems.length} pending proposals, {tagCountLabel}</div>
+                    <div className="text-xs text-brand-accent uppercase tracking-widest mb-2">Review Inbox</div>
+                    <h2 className="m-0 text-3xl font-bold">Pending Tag Proposals</h2>
+                    <div className="mt-2 text-sm text-content-secondary">{reviewItems.length} pending proposals, {tagCountLabel}</div>
                 </div>
-                <button type="button" onClick={() => void refresh()} disabled={loading} style={{ border: '1px solid rgba(96,165,250,0.35)', background: 'rgba(37,99,235,0.12)', color: '#bfdbfe', borderRadius: 10, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: loading ? 'wait' : 'pointer' }}>
+                <button 
+                    type="button" 
+                    onClick={() => void refresh()} 
+                    disabled={loading} 
+                    className={`border border-brand-accent/35 bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/25 rounded-lg px-3.5 py-2.5 text-xs font-semibold transition-colors duration-150 disabled:opacity-50 ${loading ? 'cursor-wait' : 'cursor-pointer'}`}
+                >
                     Refresh
                 </button>
             </div>
 
             {reviewItems.length === 0 ? (
-                <div style={{ border: '1px dashed rgba(148,163,184,0.2)', borderRadius: 16, padding: 24, color: '#94a3b8', textAlign: 'center' }}>
+                <div className="border border-dashed border-content/20 rounded-2xl p-6 text-content-secondary text-center">
                     No pending tag proposals right now.
                 </div>
             ) : (
-                <div style={{ display: 'grid', gap: 16 }}>
+                <div className="grid gap-4">
                     {reviewItems.map((reviewItem) => (
                         <ReviewRow
                             key={reviewItem.id}

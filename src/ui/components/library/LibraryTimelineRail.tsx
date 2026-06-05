@@ -57,7 +57,7 @@ function TimelineRailBucketButton(props: {
 
     return (
         <button
-            className={`timeline-rail-button flex items-center justify-center w-full min-h-0 rounded-full border text-[11px] cursor-pointer px-1.5 transition-all outline-none scale-100 shadow-none ${activeClass}`}
+            className={`timeline-rail-button flex items-center justify-center w-full min-h-0 rounded-full border text-[11px] cursor-pointer px-1.5 motion-safe:transition-all outline-none scale-100 shadow-none ${activeClass}`}
             type="button"
             title={`${props.bucket.label}: ${props.bucket.count} photo${props.bucket.count === 1 ? '' : 's'}`}
             onClick={props.onClick}
@@ -153,7 +153,7 @@ export function LibraryTimelineRail(props: LibraryTimelineRailProps) {
             data-timeline-active-index={String(activeIndex)}
             data-timeline-displayed-index={String(displayedIndex)}
             data-timeline-viewport-index={props.viewportBucketIndex == null ? 'null' : String(props.viewportBucketIndex)}
-            className="w-[92px] min-w-[92px] flex flex-col gap-2.5 pt-3.5 pb-3.5 pl-2.5 pr-2 bg-surface-secondary border-r border-content/10"
+            className="w-24 min-w-[92px] flex flex-col gap-2.5 pt-3.5 pb-3.5 pl-2.5 pr-2 bg-surface-secondary border-r border-content/10"
         >
             <TimelineRailHeader />
             <TimelineRailTrack

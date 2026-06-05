@@ -18,7 +18,7 @@ function getSeverityClass(severity: string) {
         case 'warning':
             return 'text-amber-300 border-amber-500/30 bg-amber-500/10';
         default:
-            return 'text-gray-300 border-gray-700 bg-gray-900';
+            return 'text-content-secondary border-content/10 bg-surface';
     }
 }
 
@@ -38,16 +38,16 @@ const ErrorsHeader: React.FC<{
 }> = ({ modules, moduleFilter, onModuleFilterChange }) => (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-200">Job Errors</h3>
-            <p className="mt-1 text-xs text-gray-400">Paged history across failed jobs and processing issues.</p>
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-content">Job Errors</h3>
+            <p className="mt-1 text-xs text-content-secondary">Paged history across failed jobs and processing issues.</p>
         </div>
         <div className="flex items-center gap-3">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400" htmlFor="dashboard-error-module-filter">Module</label>
+            <label className="text-xs font-semibold uppercase tracking-widest text-content-secondary" htmlFor="dashboard-error-module-filter">Module</label>
             <select
                 id="dashboard-error-module-filter"
                 value={moduleFilter ?? ''}
                 onChange={(event) => onModuleFilterChange(event.target.value || null)}
-                className="rounded-md border border-gray-700 bg-[#0b0b0b] px-3 py-2 text-xs text-gray-200 outline-none transition-colors focus:border-cyan-500"
+                className="rounded-md border border-content/20 bg-surface px-3 py-2 text-xs text-content outline-none transition-colors focus:border-brand-accent"
             >
                 <option value="">All Modules</option>
                 {modules.map((module) => (
@@ -61,16 +61,17 @@ const ErrorsHeader: React.FC<{
 function ErrorMeta({ item }: { readonly item: JobErrorListItem }) {
     const meta = [item.jobId, item.task, item.stage].filter(Boolean).join(' • ');
     if (!meta) {return null;}
-    return <div className="mt-1 text-[11px] text-gray-500">{meta}</div>;
+    return <div className="mt-1 text-xs text-content-secondary/70">{meta}</div>;
 }
 
 const ErrorsTable: React.FC<{
     readonly items: JobErrorListItem[];
     readonly loading?: boolean;
+    readonly totalCount?: number;
 }> = ({ items, loading }) => (
-    <div className="overflow-hidden rounded-lg border border-gray-800/70">
-        <table className="min-w-full divide-y divide-gray-800 text-left">
-            <thead className="bg-black/30 text-[10px] uppercase tracking-[0.2em] text-gray-400">
+    <div className="overflow-hidden rounded-lg border border-content/10">
+        <table className="min-w-full divide-y divide-content/10 text-left">
+            <thead className="bg-surface text-xs uppercase tracking-widest text-content-secondary border-b border-content/10">
                 <tr>
                     <th className="px-4 py-3 font-medium">Time</th>
                     <th className="px-4 py-3 font-medium">Module</th>
@@ -78,30 +79,30 @@ const ErrorsTable: React.FC<{
                     <th className="px-4 py-3 font-medium">Message</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-gray-900 bg-[#0b0b0b] text-sm text-gray-200">
+            <tbody className="divide-y divide-content/10 bg-surface-secondary text-sm text-content">
                 {!loading && items.length === 0 && (
                     <tr>
-                        <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={4}>No job errors found for this filter.</td>
+                        <td className="px-4 py-8 text-center text-sm text-content-secondary" colSpan={4}>No job errors found for this filter.</td>
                     </tr>
                 )}
                 {items.map((item) => (
                     <tr key={item.id}>
-                        <td className="px-4 py-3 align-top text-xs text-gray-400">{formatErrorDate(item.createdAt)}</td>
-                        <td className="px-4 py-3 align-top text-xs text-gray-300">{item.moduleLabel}</td>
+                        <td className="px-4 py-3 align-top text-xs text-content-secondary">{formatErrorDate(item.createdAt)}</td>
+                        <td className="px-4 py-3 align-top text-xs text-content">{item.moduleLabel}</td>
                         <td className="px-4 py-3 align-top">
-                            <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${getSeverityClass(item.severity)}`}>
+                            <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-widest ${getSeverityClass(item.severity)}`}>
                                 {item.severity}
                             </span>
                         </td>
                         <td className="px-4 py-3 align-top">
-                            <div className="text-sm text-gray-100">{item.message}</div>
+                            <div className="text-sm text-content">{item.message}</div>
                             <ErrorMeta item={item} />
                         </td>
                     </tr>
                 ))}
                 {loading && (
                     <tr>
-                        <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={4}>Loading errors...</td>
+                        <td className="px-4 py-8 text-center text-sm text-content-secondary" colSpan={4}>Loading errors...</td>
                     </tr>
                 )}
             </tbody>
@@ -120,14 +121,14 @@ const ErrorsPagination: React.FC<{
     const canNext = currentPage < totalPages;
 
     return (
-        <div className="flex items-center justify-between text-xs text-gray-400">
+        <div className="flex items-center justify-between text-xs text-content-secondary">
             <span>{getRangeLabel(total, currentPage, pageSize)}</span>
             <div className="flex items-center gap-2">
                 <button
                     type="button"
                     onClick={() => canPrev && onPageChange(currentPage - 1)}
                     disabled={!canPrev}
-                    className="rounded-md border border-gray-700 px-3 py-1.5 text-xs text-gray-300 transition-colors enabled:hover:border-gray-500 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-md border border-content/10 px-3 py-1.5 text-xs text-content bg-surface transition-colors enabled:hover:border-content/30 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     Previous
                 </button>
@@ -136,7 +137,7 @@ const ErrorsPagination: React.FC<{
                     type="button"
                     onClick={() => canNext && onPageChange(currentPage + 1)}
                     disabled={!canNext}
-                    className="rounded-md border border-gray-700 px-3 py-1.5 text-xs text-gray-300 transition-colors enabled:hover:border-gray-500 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-md border border-content/10 px-3 py-1.5 text-xs text-content bg-surface transition-colors enabled:hover:border-content/30 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     Next
                 </button>
@@ -165,7 +166,7 @@ export const SystemErrorsPanel: React.FC<{
     const { modules, items, currentPage, pageSize, total } = getSnapshotValues(snapshot);
 
     return (
-        <div className="flex flex-col gap-4 rounded-xl border border-[#1e1e1e] bg-[#101010] p-4">
+        <div className="flex flex-col gap-4 rounded-xl border border-content/10 bg-surface-secondary p-4">
             <ErrorsHeader modules={modules} moduleFilter={moduleFilter} onModuleFilterChange={onModuleFilterChange} />
             <ErrorsTable items={items} loading={loading} />
             <ErrorsPagination total={total} currentPage={currentPage} pageSize={pageSize} onPageChange={onPageChange} />

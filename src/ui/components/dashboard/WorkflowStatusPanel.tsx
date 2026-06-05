@@ -22,8 +22,8 @@ function SummaryCard({
     readonly tone: string;
 }) {
     return (
-        <div className="rounded-lg border border-gray-800 bg-[#0b0b0b] p-4">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-gray-500">{label}</div>
+        <div className="rounded-lg border border-content/10 bg-surface p-4">
+            <div className="text-xs uppercase tracking-widest text-content-secondary">{label}</div>
             <div className={`mt-2 text-2xl font-semibold ${tone}`}>{formatCount(value)}</div>
         </div>
     );
@@ -35,9 +35,9 @@ export const WorkflowStatusPanel: React.FC<{
 }> = ({ snapshot, loading }) => {
     if (!snapshot && !loading) {
         return (
-            <section className="rounded-xl border border-gray-800 bg-[#111111] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">Workflow Status</div>
-                <p className="mt-3 text-sm text-gray-400">No runtime workflow activity has been recorded yet.</p>
+            <section className="rounded-xl border border-content/10 bg-surface-secondary p-4">
+                <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">Workflow Status</div>
+                <p className="mt-3 text-sm text-content-secondary">No runtime workflow activity has been recorded yet.</p>
             </section>
         );
     }
@@ -51,42 +51,42 @@ export const WorkflowStatusPanel: React.FC<{
     const workflows = snapshot?.workflows ?? [];
 
     return (
-        <section className="rounded-xl border border-gray-800 bg-[#111111] p-4">
+        <section className="rounded-xl border border-content/10 bg-surface-secondary p-4">
             <div className="flex items-center justify-between gap-3">
                 <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">Workflow Status</div>
-                    <h3 className="mt-1 text-lg font-medium text-gray-100">Runtime workflow coverage</h3>
+                    <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">Workflow Status</div>
+                    <h3 className="mt-1 text-lg font-medium text-content">Runtime workflow coverage</h3>
                 </div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-gray-500">
+                <div className="text-xs uppercase tracking-widest text-content-secondary">
                     {snapshot ? new Date(snapshot.generatedAt).toLocaleTimeString() : 'Loading'}
                 </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-4">
-                <SummaryCard label="Running" value={totals.running} tone="text-cyan-300" />
-                <SummaryCard label="Completed" value={totals.completed} tone="text-emerald-300" />
-                <SummaryCard label="Failed" value={totals.failed} tone="text-rose-300" />
-                <SummaryCard label="Total Runs" value={totals.totalRuns} tone="text-gray-100" />
+                <SummaryCard label="Running" value={totals.running} tone="text-cyan-500 font-bold" />
+                <SummaryCard label="Completed" value={totals.completed} tone="text-emerald-500 font-bold" />
+                <SummaryCard label="Failed" value={totals.failed} tone="text-rose-500 font-bold" />
+                <SummaryCard label="Total Runs" value={totals.totalRuns} tone="text-content font-bold" />
             </div>
 
             <div className="mt-4 grid gap-3">
                 {workflows.length === 0 ? (
-                    <div className="rounded-lg border border-gray-800 bg-[#0b0b0b] p-4 text-sm text-gray-400">
+                    <div className="rounded-lg border border-content/10 bg-surface p-4 text-sm text-content-secondary">
                         Workflow summaries will appear here after the first runtime run starts.
                     </div>
                 ) : workflows.map((workflow) => (
-                    <article key={workflow.workflowId} className="rounded-lg border border-gray-800 bg-[#0b0b0b] p-4">
+                    <article key={workflow.workflowId} className="rounded-lg border border-content/10 bg-surface p-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                                <div className="text-sm font-semibold text-gray-100">{workflow.displayName}</div>
-                                <div className="mt-1 text-xs text-gray-400">
+                                <div className="text-sm font-semibold text-content">{workflow.displayName}</div>
+                                <div className="mt-1 text-xs text-content-secondary">
                                     Latest: {workflow.latestStatus ?? 'never run'}
                                 </div>
-                                <div className="mt-1 text-xs text-gray-500">
+                                <div className="mt-1 text-xs text-content-secondary/70">
                                     {formatTimestamp(workflow.latestCreatedAt)}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs text-gray-300 md:grid-cols-4">
+                            <div className="grid grid-cols-2 gap-2 text-xs text-content-secondary md:grid-cols-4">
                                 <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-1">
                                     Running {workflow.running}
                                 </span>
@@ -96,7 +96,7 @@ export const WorkflowStatusPanel: React.FC<{
                                 <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-1">
                                     Failed {workflow.failed}
                                 </span>
-                                <span className="rounded-full border border-gray-700 px-2 py-1">
+                                <span className="rounded-full border border-content/20 px-2 py-1">
                                     Total {workflow.totalRuns}
                                 </span>
                             </div>

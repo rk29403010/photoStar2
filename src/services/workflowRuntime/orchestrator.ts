@@ -174,7 +174,7 @@ export class WorkflowRuntimeOrchestrator {
     ): Promise<{ costPerCall: number; emitted: SubjectRef[] }> {
         const primarySubject = nodeSubjects[0] || {
             subjectType: 'batch',
-            subjectId: 'estimate:' + node.id,
+            subjectId: `estimate:${node.id}`,
         };
         const estimateResult = await module.estimate!({
             runId: 'estimate',

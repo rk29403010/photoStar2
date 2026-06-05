@@ -20,7 +20,7 @@ function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
 function TimelineSeekOverlay({ seek }: { readonly seek: GalleryTimelineSeek | null }) {
     return (
         <div className="absolute right-4 bottom-4 z-10 pointer-events-none flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-black/80 border border-content/10 text-content shadow-lg backdrop-blur-md">
-            <div className="animate-pulse w-2 h-2 rounded-full bg-blue-400" />
+            <div className="motion-safe:animate-pulse w-2 h-2 rounded-full bg-blue-400" />
             <span className="text-xs font-semibold">Jumping to {getTimelineSeekLabel(seek)}...</span>
         </div>
     );

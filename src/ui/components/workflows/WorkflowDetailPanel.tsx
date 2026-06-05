@@ -36,11 +36,11 @@ function InteractiveIdList({ ids, onSelect }: { readonly ids: string[], readonly
                 <span key={id} className="inline-flex items-center">
                     <button 
                         onClick={() => onSelect(id)}
-                        className="font-mono text-xs text-cyan-400 transition-colors hover:text-cyan-200 hover:underline"
+                        className="font-mono text-xs text-brand-accent transition-colors hover:text-brand-accent-hover hover:underline"
                     >
                         {id}
                     </button>
-                    {index < ids.length - 1 && <span className="text-gray-600">,</span>}
+                    {index < ids.length - 1 && <span className="text-content-secondary/60">,</span>}
                 </span>
             ))}
         </span>
@@ -50,41 +50,41 @@ function InteractiveIdList({ ids, onSelect }: { readonly ids: string[], readonly
 export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail, onClose, onSelectDetail, showRuntimeDetails }) => {
     if (!detail) {
         return (
-            <aside className="rounded-2xl border border-gray-800 bg-[#111111] p-5 text-sm text-gray-400">
+            <aside className="rounded-2xl border border-content/10 bg-surface-secondary p-5 text-sm text-content-secondary">
                 Select a stage or node to inspect it.
             </aside>
         );
     }
 
     return (
-        <aside className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
+        <aside className="rounded-2xl border border-content/10 bg-surface-secondary p-5">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">{detail.kind}</div>
-                    <h3 className="mt-2 text-lg font-semibold text-gray-100">{detail.label}</h3>
+                    <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">{detail.kind}</div>
+                    <h3 className="mt-2 text-lg font-semibold text-content">{detail.label}</h3>
                 </div>
-                <button onClick={onClose} className="rounded-md border border-gray-700 px-2 py-1 text-xs uppercase tracking-[0.2em] text-gray-400 transition-colors hover:bg-gray-800">
+                <button onClick={onClose} className="rounded-md border border-content/20 px-2 py-1 text-xs uppercase tracking-widest text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content">
                     Close
                 </button>
             </div>
-            <p className="mt-3 text-sm leading-6 text-gray-400">{detail.description}</p>
-            <div className="mt-4 space-y-2 text-sm text-gray-300">
+            <p className="mt-3 text-sm leading-6 text-content-secondary">{detail.description}</p>
+            <div className="mt-4 space-y-2 text-sm text-content-secondary">
                 {detail.errorMessage && <div className="text-red-400">Error: {detail.errorMessage}</div>}
                 {showRuntimeDetails ? buildRuntimeDetailRows(detail).map((row) => <div key={row}>{row}</div>) : null}
                 <div className="flex items-baseline gap-2">
                     <span className="opacity-60">ID:</span>
-                    <span className="font-mono text-xs text-cyan-400">{detail.id}</span>
+                    <span className="font-mono text-xs text-brand-accent">{detail.id}</span>
                 </div>
                 {detail.moduleId && (
                     <div className="flex items-baseline gap-2">
                         <span className="opacity-60">Module:</span>
-                        <span className="font-mono text-xs text-cyan-400">{detail.moduleId}</span>
+                        <span className="font-mono text-xs text-brand-accent">{detail.moduleId}</span>
                     </div>
                 )}
                 {detail.controlType && (
                     <div className="flex items-baseline gap-2">
                         <span className="opacity-60">Control:</span>
-                        <span className="font-mono text-xs text-cyan-400">{detail.controlType}</span>
+                        <span className="font-mono text-xs text-brand-accent">{detail.controlType}</span>
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
@@ -99,3 +99,4 @@ export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail
         </aside>
     );
 };
+

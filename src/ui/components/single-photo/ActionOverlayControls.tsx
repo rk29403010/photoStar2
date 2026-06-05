@@ -395,11 +395,11 @@ function renderAnalysisStatus({
     }
 
     if (analysisState === 'analyzing') {
-        return <div className="animate-pulse" style={getAnalysisStatusBadgeStyle('analyzing')}><span style={{ fontSize: '13px' }}>✨</span> Analyzing…</div>;
+        return <div className="motion-safe:animate-pulse" style={getAnalysisStatusBadgeStyle('analyzing')}><span style={{ fontSize: '13px' }}>✨</span> Analyzing…</div>;
     }
 
     if (analysisState === 'cancelling') {
-        return <div className="animate-pulse" style={getAnalysisStatusBadgeStyle('cancelling')}>Cancelling…</div>;
+        return <div className="motion-safe:animate-pulse" style={getAnalysisStatusBadgeStyle('cancelling')}>Cancelling…</div>;
     }
 
     return null;

@@ -79,7 +79,7 @@ function assertTimelineRailAndJumpWiring(sources) {
     assert.doesNotMatch(timelineRailSource, /key=.*vp=.*shown=/);
     assert.doesNotMatch(timelineRailSource, /Oldest /);
     assert.doesNotMatch(timelineRailSource, /Newest /);
-    assert.match(timelineRailSource, /Unknown date/);
+    assert.match(timelineRailSource, /Unknown/);
     assert.match(timelineJumpSource, /getTimelineSectionIdForSeek/);
     assert.match(timelineJumpSource, /loadedGroupIdsRef\.current\.has\(groupId\)/);
     assert.match(timelineJumpSource, /requestTimelineJump\(groupId, groupIndex\)/);

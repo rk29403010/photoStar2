@@ -184,7 +184,7 @@ function VariantMemberTile(props: {
             title={getVariantTileTitle(isStarred)}
         >
             <div style={{ position: 'relative', width: '100%', height: 52 }}>
-                <img src={imgSrc} alt="Variant preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img loading="lazy" src={imgSrc} alt="Variant preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <GroupBadge item={item} />
                 {starDisplayState === 'filled' && <StarIndicator isStarred />}
             </div>

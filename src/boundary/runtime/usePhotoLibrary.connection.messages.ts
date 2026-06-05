@@ -46,6 +46,7 @@ function appendAssets(existingAssets: Asset[], incomingAssets: Asset[]) {
 }
 
 function createUiFeedId(prefix: string) {
+    // eslint-disable-next-line sonarjs/pseudo-random -- non-cryptographic ID generation for UI feeds
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -406,8 +407,7 @@ function handleEventMessage(msg: WsResponse, params: ConnectionStateParams) {
     applyEventAssetUpdates(event, params);
 }
 
-function createPendingInitialSyncIds(includeTimelineGroups: boolean): Set<string> {
-    void includeTimelineGroups;
+function createPendingInitialSyncIds(_includeTimelineGroups: boolean): Set<string> {
     return new Set<string>(BASE_INITIAL_SYNC_REQUEST_IDS);
 }
 

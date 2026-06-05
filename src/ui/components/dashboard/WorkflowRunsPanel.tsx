@@ -68,57 +68,57 @@ function buildEnrichmentSummary(run: WorkflowRunListItem): string[] {
 export const WorkflowRunsPanel: React.FC<{ readonly runs: WorkflowRunListItem[] }> = ({ runs }) => {
     if (runs.length === 0) {
         return (
-            <section className="rounded-xl border border-gray-800 bg-[#111111] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">Workflow Runs</div>
-                <p className="mt-3 text-sm text-gray-400">No workflow runs yet.</p>
+            <section className="rounded-xl border border-content/10 bg-surface-secondary p-4">
+                <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">Workflow Runs</div>
+                <p className="mt-3 text-sm text-content-secondary">No workflow runs yet.</p>
             </section>
         );
     }
 
     return (
-        <section className="rounded-xl border border-gray-800 bg-[#111111] p-4">
+        <section className="rounded-xl border border-content/10 bg-surface-secondary p-4">
             <div className="flex items-center justify-between gap-3">
                 <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">Workflow Runs</div>
-                    <h3 className="mt-1 text-lg font-medium text-gray-100">Recent runtime activity</h3>
+                    <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">Workflow Runs</div>
+                    <h3 className="mt-1 text-lg font-medium text-content">Recent runtime activity</h3>
                 </div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-gray-500">{runs.length} runs</div>
+                <div className="text-xs uppercase tracking-widest text-content-secondary">{runs.length} runs</div>
             </div>
 
             <div className="mt-4 grid gap-3">
                 {runs.map((run) => (
-                    <article key={run.runId} className="rounded-lg border border-gray-800 bg-[#0a0a0a] p-3">
+                    <article key={run.runId} className="rounded-lg border border-content/10 bg-surface p-3">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div className="text-sm font-semibold text-gray-100">{run.displayName}</div>
-                                <div className="mt-1 text-xs text-gray-400">
+                                <div className="text-sm font-semibold text-content">{run.displayName}</div>
+                                <div className="mt-1 text-xs text-content-secondary">
                                     {buildPrimarySummary(run)}
                                 </div>
                                 {buildSecondarySummary(run) ? (
-                                    <div className="mt-1 text-xs text-gray-500">{buildSecondarySummary(run)}</div>
+                                    <div className="mt-1 text-xs text-content-secondary/70">{buildSecondarySummary(run)}</div>
                                 ) : null}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-content-secondary/70">
                                 {new Date(run.createdAt).toLocaleString()}
                             </div>
                         </div>
 
                         <div className="mt-3 flex flex-wrap gap-2">
                             {run.milestones.map((milestone) => (
-                                <span key={milestone.milestoneId} className="rounded-full border border-gray-700 px-2 py-1 text-xs text-gray-300">
+                                <span key={milestone.milestoneId} className="rounded-full border border-content/20 px-2 py-1 text-xs text-content-secondary bg-surface-secondary">
                                     {milestone.label}: {formatStatus(milestone.status)}
                                 </span>
                             ))}
                         </div>
 
-                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-400">
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-content-secondary/80">
                             <span>Mode: {String(run.parameters.aiMode ?? 'n/a')}</span>
                             <span>Traversal: {String(run.parameters.traversalMode ?? 'n/a')}</span>
                             <span>Failures: {run.failedItems}</span>
                         </div>
 
                         {buildEnrichmentSummary(run).length > 0 ? (
-                            <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+                            <div className="mt-3 flex flex-wrap gap-3 text-xs text-content-secondary/60">
                                 {buildEnrichmentSummary(run).map((summary) => (
                                     <span key={summary}>{summary}</span>
                                 ))}

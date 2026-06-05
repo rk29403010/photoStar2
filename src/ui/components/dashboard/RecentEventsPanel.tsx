@@ -44,18 +44,19 @@ function EventsFilterBar(props: {
     const { activeFilter, eventTypes, filteredCount, totalCount, onChange } = props;
     return (
         <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[10px] uppercase tracking-widest text-gray-400">Event Type</label>
+            <label htmlFor="events-filter-select" className="text-xs uppercase tracking-widest text-content-secondary">Event Type</label>
             <select
+                id="events-filter-select"
                 value={activeFilter}
                 onChange={(event) => onChange(event.target.value)}
-                className="rounded-md border border-gray-700 bg-[#111111] px-3 py-2 text-xs text-gray-200"
+                className="rounded-md border border-content/10 bg-surface-secondary px-3 py-2 text-xs text-content focus:outline-none focus:border-brand-accent"
             >
                 <option value="all">All Types ({totalCount})</option>
                 {eventTypes.map((type) => (
                     <option key={type} value={type}>{type}</option>
                 ))}
             </select>
-            <div className="text-[10px] font-mono tracking-wider text-gray-400">
+            <div className="text-xs font-mono tracking-wider text-content-secondary">
                 SHOWING {filteredCount} OF {totalCount}
             </div>
         </div>
@@ -83,7 +84,7 @@ function CopyRawButton(props: {
             disabled={isCopying}
             aria-label={label}
             title={label}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-700 bg-[#161616] text-gray-300 hover:bg-[#1f1f1f] hover:text-gray-100 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-content/10 bg-surface text-content hover:bg-surface-secondary disabled:cursor-wait disabled:opacity-60"
         >
             {isCopied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
         </button>
@@ -98,11 +99,11 @@ function EventsTable(props: {
 }) {
     const { events, copiedEventId, copyingEventId, onCopy } = props;
     return (
-        <div className="rounded-xl border border-gray-800 bg-[#111111] overflow-hidden">
+        <div className="rounded-xl border border-content/10 bg-surface-secondary overflow-hidden">
             <div className="max-h-[70vh] overflow-auto">
                 <table className="min-w-full text-sm">
-                    <thead className="bg-[#151515] border-b border-gray-800">
-                        <tr className="text-[10px] uppercase tracking-widest text-gray-400">
+                    <thead className="bg-surface border-b border-content/10">
+                        <tr className="text-xs uppercase tracking-widest text-content-secondary">
                             <th className="text-left px-3 py-2">Time</th>
                             <th className="text-left px-3 py-2">Type</th>
                             <th className="text-left px-3 py-2">Payload</th>
@@ -111,18 +112,18 @@ function EventsTable(props: {
                     </thead>
                     <tbody>
                         {events.map((event) => (
-                            <tr key={event.id} className="border-b border-gray-900/80 align-top">
-                                <td className="px-3 py-2 text-[11px] whitespace-nowrap font-mono">
-                                    <div className="text-gray-300">{formatTimestamp(event.createdAt)}</div>
-                                    <div className="mt-0.5 text-[10px] text-gray-500">{formatDate(event.createdAt)}</div>
+                             <tr key={event.id} className="border-b border-content/5 align-top">
+                                <td className="px-3 py-2 text-xs whitespace-nowrap font-mono">
+                                    <div className="text-content">{formatTimestamp(event.createdAt)}</div>
+                                    <div className="mt-0.5 text-xs text-content-secondary">{formatDate(event.createdAt)}</div>
                                 </td>
-                                <td className="px-3 py-2 text-[11px] text-cyan-300 uppercase tracking-wide whitespace-nowrap">{event.type}</td>
+                                <td className="px-3 py-2 text-xs text-cyan-500 font-bold uppercase tracking-wide whitespace-nowrap">{event.type}</td>
                                 <td className="px-3 py-2">
-                                    <pre className={`text-[11px] leading-4 whitespace-pre-wrap break-all font-mono ${(function () {
+                                    <pre className={`text-xs leading-4 whitespace-pre-wrap break-all font-mono ${(function () {
                                         const tone = getEventToneForDisplay(event.payload);
-                                        if (tone === 'error') {return 'text-red-300';}
-                                        if (tone === 'warning') {return 'text-amber-300';}
-                                        return 'text-gray-200';
+                                        if (tone === 'error') {return 'text-red-400';}
+                                        if (tone === 'warning') {return 'text-amber-400';}
+                                        return 'text-content';
                                     }())}`}>
                                         {formatForEventLog(event.payload)}
                                     </pre>
@@ -179,7 +180,7 @@ export const RecentEventsPanel: React.FC<{
     }, [onGetEventPayloadRaw]);
 
     if (events.length === 0 && !loading) {
-        return <div className="rounded-xl border border-gray-800 bg-[#111111] p-6 text-gray-300">No recent events available.</div>;
+        return <div className="rounded-xl border border-content/10 bg-surface-secondary p-6 text-content-secondary">No recent events available.</div>;
     }
 
     return (

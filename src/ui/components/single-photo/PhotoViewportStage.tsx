@@ -60,7 +60,7 @@ const StageImage: FC<{
     readonly alt: string;
     readonly onLoad: () => void;
 }> = ({ src, alt, onLoad }) => (
-    <img
+    <img loading="lazy"
         src={src}
         alt={alt}
         onLoad={onLoad}

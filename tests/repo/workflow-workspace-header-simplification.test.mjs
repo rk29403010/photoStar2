@@ -12,6 +12,6 @@ test('workflow workspace header keeps controls while removing redundant explanat
     assert.doesNotMatch(headerSource, />Run Context</);
     assert.doesNotMatch(headerSource, /props\.model\.selectedRun \?/);
     assert.doesNotMatch(headerSource, /rounded-xl border border-gray-800/);
-    assert.match(headerSource, /<select[\s\S]*props\.selectedWorkflowId/);
-    assert.match(headerSource, /<select[\s\S]*props\.selectedRunValue/);
+    assert.match(headerSource, /<[Ss]elect[\s\S]*props\.selectedWorkflowId/);
+    assert.match(headerSource, /<[Ss]elect[\s\S]*props\.selectedRunValue/);
 });

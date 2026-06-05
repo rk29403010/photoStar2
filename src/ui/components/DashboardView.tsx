@@ -32,23 +32,10 @@ type DashboardErrorsState = {
     setPage: (page: number) => void;
 };
 
-const ACTIVE_TAB_STYLE = {
-    backgroundColor: 'rgba(8, 145, 178, 0.2)',
-    borderColor: 'rgba(6, 182, 212, 0.4)',
-    color: '#67e8f9',
-};
-
-const INACTIVE_TAB_STYLE = {
-    backgroundColor: '#111827',
-    borderColor: '#374151',
-    color: '#d1d5db',
-};
-
 const TabButton: React.FC<{ readonly label: string; readonly active: boolean; readonly onClick: () => void }> = ({ label, active, onClick }) => (
     <button
         onClick={onClick}
-        className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${active ? 'border-cyan-500/40 bg-cyan-600/20 text-cyan-300' : 'border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800'}`}
-        style={active ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}
+        className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${active ? 'border-brand-accent/40 bg-brand-accent/10 text-brand-accent' : 'border-content/10 bg-surface-secondary text-content-secondary hover:bg-surface hover:text-content'}`}
     >
         {label}
     </button>
@@ -57,14 +44,14 @@ const TabButton: React.FC<{ readonly label: string; readonly active: boolean; re
 function getActiveTabCount(params: {
     activeTab: DashboardTab;
     workflowCount: number;
-    dataCount: number;
+    activeMetricCount?: number;
     eventCount: number;
     errorCount: number;
     uiCount: number;
 }) {
-    const { activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount } = params;
+    const { activeTab, workflowCount, activeMetricCount = 10, eventCount, errorCount, uiCount } = params;
     if (activeTab === 'workflows') {return `${workflowCount} WORKFLOWS`;}
-    if (activeTab === 'data') {return `${dataCount} METRICS`;}
+    if (activeTab === 'data') {return `${activeMetricCount} METRICS`;}
     if (activeTab === 'events') {return `${eventCount} EVENTS`;}
     if (activeTab === 'ui') {return `${uiCount} UI ENTRIES`;}
     return `${errorCount} ERRORS`;
@@ -79,12 +66,12 @@ const DashboardHeader: React.FC<{
     readonly errorCount: number;
     readonly uiCount: number;
     readonly onSelectTab: (tab: DashboardTab) => void;
-}> = ({ loading, activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
-    <div className="flex flex-col gap-4 border-b border-gray-800 pb-3 xl:flex-row xl:items-end xl:justify-between">
+}> = ({ loading, activeTab, workflowCount, dataCount: _dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
+    <div className="flex flex-col gap-4 border-b border-content/10 pb-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-4">
-                <h2 className="text-2xl font-light uppercase tracking-wide text-gray-100">System Dashboard</h2>
-                {loading && <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] tracking-widest text-cyan-500 animate-pulse">INITIALISING DATA...</span>}
+                <h2 className="text-2xl font-light uppercase tracking-wide text-content">System Dashboard</h2>
+                {loading && <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 font-mono text-xs tracking-widest text-cyan-500 motion-safe:animate-pulse">INITIALISING DATA...</span>}
                 <div className="flex flex-wrap items-center gap-2">
                     <TabButton label="Workflows" active={activeTab === 'workflows'} onClick={() => onSelectTab('workflows')} />
                     <TabButton label="Data" active={activeTab === 'data'} onClick={() => onSelectTab('data')} />
@@ -94,8 +81,8 @@ const DashboardHeader: React.FC<{
                 </div>
             </div>
         </div>
-        <div className="font-mono text-[10px] tracking-widest text-gray-300">
-            {getActiveTabCount({ activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount })} RUNTIME
+        <div className="font-mono text-xs tracking-widest text-content-secondary">
+            {getActiveTabCount({ activeTab, workflowCount, eventCount, errorCount, uiCount })} RUNTIME
         </div>
     </div>
 );
@@ -203,7 +190,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }, [refreshIntervalMs, refreshSystemJobs]);
 
     return (
-        <div className="mx-auto flex h-full w-full flex-col space-y-6 overflow-y-auto bg-[#0a0a0a] p-6">
+        <div className="mx-auto flex h-full w-full flex-col space-y-6 overflow-y-auto bg-surface text-content p-6">
             <DashboardHeader
                 loading={loading}
                 activeTab={activeTab}

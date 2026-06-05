@@ -13,8 +13,8 @@ function runMigration(db: Database.Database, sql: string): void {
   try {
     db.prepare(sql).run();
   } catch {
-    // ignore migration already applied / unsupported on this DB state
-    }
+     
+  }
 }
 
 const INTERRUPTED_WORKFLOW_MESSAGE = 'Workflow execution was interrupted before this step finished. Retry the remaining work from the workflow view.';
@@ -47,7 +47,7 @@ function reconcileStaleWorkflowRuns(db: Database.Database): void {
             `).run(now);
         })();
     } catch {
-        // ignore workflow recovery failures so startup still proceeds
+         
     }
 }
 
@@ -136,7 +136,7 @@ export class DatabaseManager {
         "UPDATE jobs SET status = 'failed', finished_at = COALESCE(finished_at, ?) WHERE status = 'running'"
       ).run(new Date().toISOString());
     } catch {
-      // ignore
+       
     }
   }
 
@@ -150,7 +150,7 @@ export class DatabaseManager {
         `).run(...LEGACY_WORKFLOW_SETTINGS);
       })();
     } catch {
-      // ignore cleanup failures so startup still proceeds
+       
     }
   }
 
@@ -275,7 +275,7 @@ export class DatabaseManager {
     try {
       this.db.pragma('wal_checkpoint(TRUNCATE)');
     } catch {
-      // ignore checkpoint failures during shutdown
+       
     }
     this.db.close();
 
@@ -283,7 +283,7 @@ export class DatabaseManager {
       try {
         this.diagnosticsDb.pragma('wal_checkpoint(TRUNCATE)');
       } catch {
-        // ignore checkpoint failures
+         
       }
       this.diagnosticsDb.close();
     }

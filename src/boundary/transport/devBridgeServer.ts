@@ -1,3 +1,4 @@
+/* eslint-disable deslint/no-prod-console -- devBridgeServer is a dev-only tool, console logging is expected */
 import { execSync } from 'node:child_process';
 import { createReadStream, existsSync } from 'node:fs';
 import { createServer, type Server, type ServerResponse, type IncomingMessage } from 'node:http';
@@ -39,18 +40,20 @@ function killForeignProcesses(pids: number[]) {
         try {
             process.kill(pid, 9);
         } catch {
-            // Ignore targeted kill failures during recovery.
+             
         }
     }
 }
 
 function getPortOwners(port: number): number[] {
     if (os.platform() === 'win32') {
+        // eslint-disable-next-line sonarjs/os-command, deslint/no-shell-injection -- port is a trusted number, shell execution is required for powershell query
         const output = execSync(`powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"`, { encoding: "utf8" }).trim();
         return output ? parsePidList(output) : [];
     }
 
     try {
+        // eslint-disable-next-line sonarjs/os-command, deslint/no-shell-injection -- port is a trusted number, shell execution is required for lsof query
         const output = execSync(`lsof -ti:${port}`, { encoding: 'utf8' }).trim();
         return output ? parsePidList(output) : [];
     } catch {
@@ -61,6 +64,7 @@ function getPortOwners(port: number): number[] {
 function getImageRequestLogger(filePath: string) {
     const requestStartedAt = Date.now();
     const fileLabel = path.basename(filePath);
+    // eslint-disable-next-line sonarjs/pseudo-random -- non-cryptographic request tracking ID
     const requestId = Math.random().toString(36).slice(2, 8);
 
     return {
@@ -177,7 +181,7 @@ function createPortRetryHandler(server: Server) {
         try {
             killForeignProcesses(getPortOwners(port));
         } catch {
-            // Ignore sweeping errors to let the natural retry loop continue.
+             
         }
         retryServerListen(port);
     };

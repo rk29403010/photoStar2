@@ -16,7 +16,7 @@ export function TaskDrawer({
 
     return (
         <div
-            className="fixed bottom-8 right-3 flex max-h-[70vh] w-[26rem] flex-col overflow-hidden rounded-t-xl border border-content/10 bg-surface shadow-2xl transition-all"
+            className="fixed bottom-8 right-3 flex max-h-[70vh] w-[26rem] flex-col overflow-hidden rounded-t-xl border border-content/10 bg-surface shadow-2xl motion-safe:transition-all"
             style={{ zIndex: 9995 }}
         >
             <div

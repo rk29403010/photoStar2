@@ -71,7 +71,7 @@ export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTML
         <input
             ref={ref}
             type={type}
-            className={`w-full bg-surface-secondary text-content border border-content/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-all ${className}`}
+            className={`w-full bg-surface-secondary text-content border border-content/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent motion-safe:transition-all ${className}`}
             {...props}
         />
     );
@@ -87,7 +87,7 @@ export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<H
     return (
         <select
             ref={ref}
-            className={`w-full bg-surface-secondary text-content border border-content/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent cursor-pointer transition-all ${className}`}
+            className={`w-full bg-surface-secondary text-content border border-content/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent cursor-pointer motion-safe:transition-all ${className}`}
             {...props}
         >
             {children}

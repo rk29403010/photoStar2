@@ -73,7 +73,7 @@ function getStatusTone(status: WorkflowVisualiserStatus, isSelected: boolean): s
     if (status === 'completed') {return 'border-emerald-700/60 bg-emerald-950/15 text-emerald-100';}
     if (status === 'running') {return 'border-cyan-700/60 bg-cyan-950/20 text-cyan-100';}
     if (status === 'failed') {return 'border-red-700/60 bg-red-950/20 text-red-100';}
-    return 'border-gray-700 bg-[#111111] text-gray-200';
+    return 'border-content/10 bg-surface-secondary text-content';
 }
 
 function formatNodeCounts(data: SequenceWorkflowNodeData): string {
@@ -89,7 +89,7 @@ function SequenceStageNode({ data, selected }: NodeProps<Node<SequenceStageNodeD
                     <div className="cursor-help text-lg font-semibold" title={data.description}>{data.label}</div>
                 </div>
                 {data.showRuntimeDetails ? (
-                    <div className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-80">
+                    <div className="rounded-full border border-white/10 px-2 py-1 text-xs font-semibold uppercase tracking-widest opacity-80">
                         {data.status}
                     </div>
                 ) : null}
@@ -105,35 +105,35 @@ function SequenceWorkflowNode({ data, selected }: NodeProps<Node<SequenceWorkflo
                 id={SEQUENCE_NODE_LEFT_HANDLE_ID}
                 type="target"
                 position={Position.Left}
-                style={{ width: 10, height: 10, opacity: 0, border: 'none', background: 'transparent' }}
+                className="!h-2.5 !w-2.5 !border-none !bg-transparent !opacity-0"
             />
             <Handle
                 id={SEQUENCE_NODE_RIGHT_HANDLE_ID}
                 type="source"
                 position={Position.Right}
-                style={{ width: 10, height: 10, opacity: 0, border: 'none', background: 'transparent' }}
+                className="!h-2.5 !w-2.5 !border-none !bg-transparent !opacity-0"
             />
             <Handle
                 id={SEQUENCE_NODE_TOP_HANDLE_ID}
                 type="target"
                 position={Position.Top}
-                style={{ width: 10, height: 10, opacity: 0, border: 'none', background: 'transparent' }}
+                className="!h-2.5 !w-2.5 !border-none !bg-transparent !opacity-0"
             />
             <Handle
                 id={SEQUENCE_NODE_BOTTOM_HANDLE_ID}
                 type="source"
                 position={Position.Bottom}
-                style={{ width: 10, height: 10, opacity: 0, border: 'none', background: 'transparent' }}
+                className="!h-2.5 !w-2.5 !border-none !bg-transparent !opacity-0"
             />
             <div className={`h-full rounded-2xl border px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.35)] ${getStatusTone(data.status, selected)}`}>
                 {data.showRuntimeDetails ? (
                     <div className="flex min-h-6 items-start justify-end">
-                        <div className="inline-flex rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80">
+                        <div className="inline-flex rounded-full border border-white/10 px-2 py-1 text-xs font-semibold uppercase tracking-widest opacity-80">
                             {data.status}
                         </div>
                     </div>
                 ) : null}
-                <div className={data.showRuntimeDetails ? 'mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60' : 'text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60'}>
+                <div className={data.showRuntimeDetails ? 'mt-2 text-xs font-semibold uppercase tracking-widest opacity-60' : 'text-xs font-semibold uppercase tracking-widest opacity-60'}>
                     {data.kind}
                 </div>
                 <div className="mt-2 break-words text-sm font-semibold leading-5">{data.label}</div>
@@ -141,12 +141,12 @@ function SequenceWorkflowNode({ data, selected }: NodeProps<Node<SequenceWorkflo
                     <div className="mt-4 text-xs opacity-80">{formatNodeCounts(data)} • {data.failedItems} failed</div>
                 ) : null}
                 {data.totalEstimatedCost !== undefined && (
-                    <div className="mt-2 text-[10px] font-semibold text-amber-500">
+                    <div className="mt-2 text-xs font-semibold text-amber-500">
                         EST. COST: £{data.totalEstimatedCost.toFixed(4)}
                     </div>
                 )}
                 {data.totalEstimatedCost === undefined && data.estimatedCostPerCall !== undefined && (
-                    <div className="mt-2 text-[10px] font-semibold text-amber-500/70">
+                    <div className="mt-2 text-xs font-semibold text-amber-500/70">
                         EST. COST: £{data.estimatedCostPerCall.toFixed(4)} / CALL
                     </div>
                 )}
@@ -249,20 +249,20 @@ export const WorkflowSequenceMapTab: React.FC<WorkflowSequenceMapTabProps> = ({
     };
 
     return (
-        <section className="rounded-2xl border border-gray-800 bg-[#111111] p-5">
+        <section className="rounded-2xl border border-content/10 bg-surface-secondary p-5">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">Sequence Map</div>
-                    <div className="mt-2 text-sm text-gray-300">
+                    <div className="text-xs font-semibold uppercase tracking-widest text-content-secondary">Sequence Map</div>
+                    <div className="mt-2 text-sm text-content-secondary">
                         Nodes are laid out in run order, with stage containers around them and arrows preserving runtime relationships.
                     </div>
                 </div>
-                <div className="text-xs uppercase tracking-[0.2em] text-gray-500">
+                <div className="text-xs uppercase tracking-widest text-content-secondary">
                     Pan, zoom, and select a stage or node for details
                 </div>
             </div>
 
-            <div className="mt-5 h-[720px] overflow-hidden rounded-2xl border border-gray-800 bg-[#0a0a0a]">
+            <div className="mt-5 h-180 overflow-hidden rounded-2xl border border-content/10 bg-surface">
                 <ReactFlow
                     nodes={flowNodes}
                     edges={flowEdges}
@@ -282,7 +282,7 @@ export const WorkflowSequenceMapTab: React.FC<WorkflowSequenceMapTabProps> = ({
                     proOptions={SEQUENCE_MAP_PRO_OPTIONS}
                     defaultEdgeOptions={SEQUENCE_MAP_DEFAULT_EDGE_OPTIONS}
                 >
-                    <Background color="#1f2937" gap={20} size={1} />
+                    <Background color="currentColor" className="text-content/5" gap={20} size={1} />
                     <Controls showInteractive={false} />
                 </ReactFlow>
             </div>

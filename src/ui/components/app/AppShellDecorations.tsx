@@ -35,7 +35,7 @@ function TaskDrawerStatusButton({
       id="task-drawer-toggle"
       onClick={onClick}
       title="Toggle Background Tasks"
-      className={`flex items-center gap-1.5 px-2 py-0.75 text-[11px] rounded-md font-mono cursor-pointer border backdrop-blur-md transition-all shadow-md shrink-0 mr-2 ${activeClass}`}
+      className={`flex items-center gap-1.5 px-2 py-0.75 text-[11px] rounded-md font-mono cursor-pointer border backdrop-blur-md motion-safe:transition-all shadow-md shrink-0 mr-2 ${activeClass}`}
     >
       <span className="text-sm">⚡</span>
       {!isMinimized ? 'Hide Tasks' : `Tasks${jobCount > 0 ? ` (${jobCount})` : ''}`}

@@ -12,10 +12,7 @@ export function getOpenUiConnectionCount(wss: WebSocketServer) {
     return count;
 }
 
-export function closeSupersededUiConnections(wss: WebSocketServer, activeWs: DevBridgeWebSocket) {
-    void wss;
-    void activeWs;
-
+export function closeSupersededUiConnections(_wss: WebSocketServer, _activeWs: DevBridgeWebSocket) {
     // Multiple dev clients are valid during reloads and browser restarts.
     // Forcing older sockets closed created reconnect loops on the active UI.
 }

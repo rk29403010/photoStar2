@@ -69,7 +69,7 @@ const PanelTabs: React.FC<{ readonly activeTab: TabId; readonly setActiveTab: (t
         <button
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
-          className={`flex-1 pt-2.5 pb-2 px-1 bg-transparent border-b-2 cursor-pointer transition-all duration-150 flex flex-col items-center gap-0.5 relative ${
+          className={`flex-1 pt-2.5 pb-2 px-1 bg-transparent border-b-2 cursor-pointer motion-safe:transition-all motion-safe:duration-150 flex flex-col items-center gap-0.5 relative ${
             isActive ? 'border-brand-accent' : 'border-transparent'
           }`}
         >

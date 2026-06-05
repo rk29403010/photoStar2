@@ -63,8 +63,8 @@ function SystemTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap;
             </div>
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-content-secondary">Log Level</label>
-                    <Select value={dbSettings.system_log_level || 'info'} onChange={(e) => onChange('system_log_level', e.target.value)}>
+                    <label htmlFor="setting-system-log-level" className="text-xs font-medium text-content-secondary">Log Level</label>
+                    <Select id="setting-system-log-level" value={dbSettings.system_log_level || 'info'} onChange={(e) => onChange('system_log_level', e.target.value)}>
                         <option value="debug">Debug</option>
                         <option value="info">Info</option>
                         <option value="warn">Warn</option>
@@ -72,8 +72,8 @@ function SystemTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap;
                     </Select>
                 </div>
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-content-secondary">Maximum Worker Threads (Example)</label>
-                    <Input type="number" value={dbSettings.system_max_threads || '4'} onChange={(e) => onChange('system_max_threads', e.target.value)} />
+                    <label htmlFor="setting-system-max-threads" className="text-xs font-medium text-content-secondary">Maximum Worker Threads (Example)</label>
+                    <Input id="setting-system-max-threads" type="number" value={dbSettings.system_max_threads || '4'} onChange={(e) => onChange('system_max_threads', e.target.value)} />
                 </div>
             </div>
         </div>
@@ -96,8 +96,9 @@ function UiTab({
             </div>
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-content-secondary">AI Mode</label>
+                    <label htmlFor="setting-ai-mode" className="text-xs font-medium text-content-secondary">AI Mode</label>
                     <Select
+                        id="setting-ai-mode"
                         aria-label="AI Mode"
                         value={aiMode}
                         onChange={(event) => setAiMode(event.target.value as AiMode)}
@@ -109,8 +110,8 @@ function UiTab({
                     <p className="text-xs text-content-secondary">Folder ingest and AI metadata actions will use this mode.</p>
                 </div>
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-content-secondary">Color Theme</label>
-                    <Select value={theme} onChange={(e) => setTheme(e.target.value)}>
+                    <label htmlFor="setting-color-theme" className="text-xs font-medium text-content-secondary">Color Theme</label>
+                    <Select id="setting-color-theme" value={theme} onChange={(e) => setTheme(e.target.value)}>
                         <option value="dark">Dark Theme (Default)</option>
                         <option value="light">Light Theme (Preview)</option>
                     </Select>
@@ -133,8 +134,8 @@ function WorkflowsTab({ dbSettings, onChange }: { readonly dbSettings: SettingsM
             </div>
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-content-secondary">Auto-Scan Strategy</label>
-                    <Select value={dbSettings.workflow_auto_scan || 'manual'} onChange={(e) => onChange('workflow_auto_scan', e.target.value)}>
+                    <label htmlFor="setting-workflow-auto-scan" className="text-xs font-medium text-content-secondary">Auto-Scan Strategy</label>
+                    <Select id="setting-workflow-auto-scan" value={dbSettings.workflow_auto_scan || 'manual'} onChange={(e) => onChange('workflow_auto_scan', e.target.value)}>
                         <option value="manual">Manual Only</option>
                         <option value="startup">Scan watched folders on Startup</option>
                     </Select>
@@ -151,28 +152,28 @@ function AiJobSection({ dbSettings, onChange }: { readonly dbSettings: SettingsM
     return (
         <Card className="gap-4">
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">AI Metadata V2 API Key</label>
-                <Input id="setting-ai-metadata-v2-api-key" type="password" value={dbSettings.ai_metadata_v2_api_key || ''} onChange={(e) => onChange('ai_metadata_v2_api_key', e.target.value)} placeholder="AIzaSy..." />
+                <label htmlFor="setting-ai-metadata-v2-api-key" className="text-xs font-medium uppercase tracking-wider text-content-secondary">AI Metadata V2 API Key</label>
+                <Input id="setting-ai-metadata-v2-api-key" type="password" autoComplete="current-password" value={dbSettings.ai_metadata_v2_api_key || ''} onChange={(e) => onChange('ai_metadata_v2_api_key', e.target.value)} placeholder="AIzaSy..." />
                 <p className="text-xs text-content-secondary">Preferred by the runtime AI metadata module. Falls back to the Gemini key, then <code className="rounded bg-black/30 px-1 py-0.5 font-mono">GEMINI_API_KEY</code> from <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code>, if left blank.</p>
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Gemini API Key</label>
-                <Input id="setting-gemini-api-key" type="password" value={dbSettings.gemini_api_key || ''} onChange={(e) => onChange('gemini_api_key', e.target.value)} placeholder="AIzaSy..." />
-                <p className="text-xs text-content-secondary">Optional fallback key for Gemini-backed runtime metadata execution before the <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code> fallback. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-accent hover:underline">aistudio.google.com/apikey</a></p>
+                <label htmlFor="setting-gemini-api-key" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Gemini API Key</label>
+                <Input id="setting-gemini-api-key" type="password" autoComplete="current-password" value={dbSettings.gemini_api_key || ''} onChange={(e) => onChange('gemini_api_key', e.target.value)} placeholder="AIzaSy..." />
+                <p className="text-xs text-content-secondary">Optional fallback key for Gemini-backed runtime metadata execution before the <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code> fallback. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-brand-accent hover:underline">aistudio.google.com/apikey</a></p>
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Kinship Explorer CSV Path</label>
-                <Input type="text" value={dbSettings.gemini_csv_path || ''} onChange={(e) => onChange('gemini_csv_path', e.target.value)} placeholder="C:/Path/To/Names.csv" />
+                <label htmlFor="setting-gemini-csv-path" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Kinship Explorer CSV Path</label>
+                <Input id="setting-gemini-csv-path" type="text" value={dbSettings.gemini_csv_path || ''} onChange={(e) => onChange('gemini_csv_path', e.target.value)} placeholder="C:/Path/To/Names.csv" />
                 <p className="text-xs text-content-secondary">Used to identify people across generations</p>
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Scout Model</label>
-                <Input type="text" value={dbSettings.job_ai_model_scout || 'gemini-2.5-flash'} onChange={(e) => onChange('job_ai_model_scout', e.target.value)} placeholder="gemini-2.5-flash" />
+                <label htmlFor="setting-job-ai-model-scout" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Scout Model</label>
+                <Input id="setting-job-ai-model-scout" type="text" value={dbSettings.job_ai_model_scout || 'gemini-2.5-flash'} onChange={(e) => onChange('job_ai_model_scout', e.target.value)} placeholder="gemini-2.5-flash" />
                 <p className="text-xs text-content-secondary">Cheap first-pass ingest model. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-2.5-flash</code>.</p>
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Refine Model</label>
-                <Input type="text" value={dbSettings.job_ai_model_refine || 'gemini-3.1-pro-preview'} onChange={(e) => onChange('job_ai_model_refine', e.target.value)} placeholder="gemini-3.1-pro-preview" />
+                <label htmlFor="setting-job-ai-model-refine" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Refine Model</label>
+                <Input id="setting-job-ai-model-refine" type="text" value={dbSettings.job_ai_model_refine || 'gemini-3.1-pro-preview'} onChange={(e) => onChange('job_ai_model_refine', e.target.value)} placeholder="gemini-3.1-pro-preview" />
                 <p className="text-xs text-content-secondary">Optional higher-quality second-pass model for refine treatment. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-3.1-pro-preview</code>.</p>
             </div>
         </Card>
@@ -185,8 +186,9 @@ function ClusterJobSection({ dbSettings, onChange }: { readonly dbSettings: Sett
     return (
         <Card className="gap-4">
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Face Matching Mode</label>
+                <label htmlFor="setting-job-face-matching-mode" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Face Matching Mode</label>
                 <Select
+                    id="setting-job-face-matching-mode"
                     value={faceMatchingMode}
                     onChange={(e) => onChange('job_face_matching_mode', e.target.value)}
                 >
@@ -199,8 +201,8 @@ function ClusterJobSection({ dbSettings, onChange }: { readonly dbSettings: Sett
                 </p>
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium uppercase tracking-wider text-content-secondary">Cluster Distance Threshold</label>
-                <Input type="number" step="0.01" value={dbSettings.job_cluster_threshold || '0.55'} onChange={(e) => onChange('job_cluster_threshold', e.target.value)} />
+                <label htmlFor="setting-job-cluster-threshold" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Cluster Distance Threshold</label>
+                <Input id="setting-job-cluster-threshold" type="number" step="0.01" value={dbSettings.job_cluster_threshold || '0.55'} onChange={(e) => onChange('job_cluster_threshold', e.target.value)} />
                 <p className="text-xs text-content-secondary">Lower values mean stricter clustering. Default is usually ~0.55.</p>
             </div>
         </Card>

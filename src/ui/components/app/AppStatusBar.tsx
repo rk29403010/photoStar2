@@ -56,7 +56,7 @@ function CurrentPhotoSegment({ currentPhoto }: { readonly currentPhoto: CurrentP
   return (
     <div
       key={currentPhoto.filename}
-      className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-content/5 text-content-secondary animate-[statusBarCurrentPhotoEnter_0.18s_ease-out]"
+      className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-content/5 text-content-secondary motion-safe:animate-[statusBarCurrentPhotoEnter_0.18s_ease-out]"
     >
       <span className="text-brand-accent text-[11px] tracking-wider uppercase">Current photo</span>
       <span className="text-content font-medium">{currentPhoto.filename}</span>
@@ -79,7 +79,7 @@ export function AppStatusBar({ statusBanner, activityMessage, status, view, libr
 
   return (
     <div
-      className="h-[30px] bg-surface-secondary border-t border-content/10 flex items-center px-2.5 text-xs text-content-secondary shrink-0 gap-3"
+      className="h-7 bg-surface-secondary border-t border-content/10 flex items-center px-2.5 text-xs text-content-secondary shrink-0 gap-3"
     >
       <div className="flex-1 flex items-center">
         <span className={`mr-2 ${dotColorClass}`}>●</span>

@@ -108,6 +108,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@deslint/eslint-plugin": "^0.10.0",
     "@eslint/js": "^9.39.1",
     "@oxlint/binding-win32-x64-msvc": "1.51.0",
     "@tailwindcss/vite": "^4.2.1",
@@ -123,10 +124,12 @@
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-oxlint": "1.51.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "eslint-plugin-sonarjs": "^4.0.3",
     "globals": "^16.5.0",
     "markdownlint-cli": "^0.48.0",
     "oxlint": "1.51.0",

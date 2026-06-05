@@ -93,7 +93,7 @@ function AlbumCard({
         >
             <div style={{ height: 200, background: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {coverUrl ? (
-                    <img src={coverUrl} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img loading="lazy" src={coverUrl} alt={album.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     <div style={{ color: '#9ca3af', fontSize: '2rem' }}>📁</div>
                 )}

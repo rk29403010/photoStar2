@@ -147,7 +147,7 @@ const CaptionOverlay: React.FC<{ show: boolean; caption?: string }> = ({ show, c
     if (!show || !caption) {return null;}
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-5 p-2 pointer-events-none animate-[fadeIn_0.15s_ease-in_forwards]">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent pt-5 p-2 pointer-events-none motion-safe:animate-[fadeIn_0.15s_ease-in_forwards]">
             <p className="m-0 text-xs text-slate-200 leading-snug italic line-clamp-3">
                 {caption}
             </p>
@@ -161,7 +161,7 @@ const DeclusterButton: React.FC<{
     assetId: string;
     onUntagAsset?: (assetId: string, personId: string) => void;
 }> = ({ visible, activeFilter, assetId, onUntagAsset }) => {
-    if (!visible || !activeFilter || activeFilter.type !== 'person_any' || activeFilter.personIds.length !== 1) {return null;}
+    if (!visible || activeFilter?.type !== 'person_any' || activeFilter?.personIds?.length !== 1) {return null;}
 
     return (
         <button
@@ -183,13 +183,13 @@ const FaceBoxes: React.FC<{ asset: Asset; showFaces: boolean; activeFilter?: Lib
 
     return (
         <>
-            {asset.faces.map((face, i) => {
+            {asset.faces.map((face) => {
                 const visuals = getFaceVisuals(face.person_id, activeFilter, showFaces);
                 if (!showFaces && !visuals.isFilteredPerson) {return null;}
 
                 return (
                     <div
-                        key={i}
+                        key={`${face.box.x}-${face.box.y}`}
                         title={face.person_name || 'Unknown Person'}
                         className="absolute border-2 rounded-sm pointer-events-none z-10"
                         style={{

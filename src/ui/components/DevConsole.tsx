@@ -118,7 +118,7 @@ function DevConsoleToggle({
             id="dev-console-toggle"
             onClick={onClick}
             title="Toggle Dev Console"
-            className={`flex items-center gap-1.5 px-2 py-0.75 text-[11px] rounded-md font-mono cursor-pointer border backdrop-blur-md transition-all shadow-md shrink-0 ${borderClass} ${textClass} ${activeClass}`}
+            className={`flex items-center gap-1.5 px-2 py-0.75 text-[11px] rounded-md font-mono cursor-pointer border backdrop-blur-md motion-safe:transition-all shadow-md shrink-0 ${borderClass} ${textClass} ${activeClass}`}
         >
             <span className="text-sm">🖥️</span>
             {unreadCounts.errors > 0 && (
@@ -168,7 +168,7 @@ function FilterButton({
     return (
         <button
             onClick={onClick}
-            className={`border rounded px-2 py-0.5 cursor-pointer text-[10px] transition-all ${activeClass} ${textClass}`}
+            className={`border rounded px-2 py-0.5 cursor-pointer text-[10px] motion-safe:transition-all ${activeClass} ${textClass}`}
         >
             {getFilterLabel(level, entries)}
         </button>
@@ -217,7 +217,7 @@ function DevConsolePanel({
     return (
         <div
             id="dev-console-panel"
-            className="fixed bottom-[38px] right-3 w-[680px] max-w-[calc(100vw-24px)] h-[340px] z-[9998] bg-surface/95 border border-content/10 rounded-lg flex flex-col shadow-2xl backdrop-blur-md font-mono text-[11px] overflow-hidden"
+            className="fixed bottom-9 right-3 w-[680px] max-w-[calc(100vw-24px)] h-[340px] z-[9998] bg-surface/95 border border-content/10 rounded-lg flex flex-col shadow-2xl backdrop-blur-md font-mono text-[11px] overflow-hidden"
         >
             <div className="flex items-center gap-2 px-3 py-2 border-b border-content/10 bg-surface-secondary/80">
                 <span className="text-content-secondary text-[11px] font-semibold tracking-wider">DEV CONSOLE</span>

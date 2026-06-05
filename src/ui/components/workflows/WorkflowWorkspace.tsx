@@ -62,7 +62,7 @@ function useWorkflowWorkspacePersistence(workflowId: string) {
 
 function renderWorkflowWorkspaceState(message: string, tone: 'idle' | 'error') {
     return (
-        <div className={`flex h-full items-center justify-center text-sm ${tone === 'error' ? 'text-red-300' : 'text-gray-400'}`}>
+        <div className={`flex h-full items-center justify-center text-sm ${tone === 'error' ? 'text-red-400' : 'text-content-secondary'}`}>
             {message}
         </div>
     );
@@ -185,9 +185,7 @@ function useWorkflowWorkspaceData(
                     setModel(nextModel);
                     const refreshIntervalMs = getWorkflowWorkspaceRefreshIntervalMs(nextModel);
                     if (refreshIntervalMs !== null) {
-                        timeoutId = setTimeout(() => {
-                            fetchModel(false);
-                        }, refreshIntervalMs);
+                        timeoutId = setTimeout(fetchModel, refreshIntervalMs, false);
                     }
                 },
                 (nextError: unknown) => {
@@ -214,14 +212,14 @@ function useWorkflowWorkspaceData(
     return { model, loading, error };
 }
 
-function WorkflowWorkspaceContent(params: {
+function WorkflowWorkspaceContent(params: Readonly<{
     model: WorkflowVisualiserModel;
     activeTab: WorkflowWorkspaceTabId;
     onSelectDetail: (detailId: string) => void;
     selectedDetailId: string | null;
     sequenceViewport: WorkflowSequenceMapViewport | null;
     onSequenceViewportChange: (viewport: WorkflowSequenceMapViewport) => void;
-}) {
+}>) {
     if (params.activeTab === 'overview') {
         return <WorkflowOverviewTab overview={params.model.tabs.overview} selectedRun={params.model.selectedRun} />;
     }
@@ -278,7 +276,7 @@ function renderWorkflowWorkspaceReadyState(params: {
     const selectedDetail = getWorkflowDetail(params.model, params.selectedDetailId);
 
     return (
-        <div className="mx-auto flex h-full w-full flex-col gap-5 overflow-y-auto bg-[#0a0a0a] p-6">
+        <div className="mx-auto flex h-full w-full flex-col gap-5 overflow-y-auto bg-surface text-content p-6">
             <WorkflowWorkspaceHeader
                 model={params.model}
                 selectedWorkflowId={params.workflowId}

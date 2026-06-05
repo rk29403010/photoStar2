@@ -324,7 +324,7 @@ test('database startup backfills legacy stored coordinate payloads into canonica
 
         dbManager.close();
 
-        const { execSync } = require('child_process');
+        const { execSync } = require('node:child_process');
         execSync(`node tooling/scripts/repo/migrate-stored-photo-coordinates.cjs`, {
             env: {
                 ...process.env,
@@ -412,7 +412,7 @@ test('database startup backfills obvious pixel-space photo metadata boxes using 
 
         dbManager.close();
 
-        const { execSync } = require('child_process');
+        const { execSync } = require('node:child_process');
         execSync(`node tooling/scripts/repo/migrate-stored-photo-coordinates.cjs`, {
             env: {
                 ...process.env,

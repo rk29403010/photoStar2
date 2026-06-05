@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Person } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
@@ -19,22 +19,6 @@ type SelectionActionConfig = {
     disabled: boolean;
 };
 
-function getPersonCardStyle(isSelected: boolean, isMultiSelect: boolean) {
-    return {
-        background: isSelected ? '#1e3a8a' : '#111',
-        borderRadius: 16,
-        padding: 20,
-        display: 'flex',
-        flexDirection: 'column' as const,
-        alignItems: 'center',
-        textAlign: 'center' as const,
-        border: isSelected ? '2px solid #3b82f6' : '1px solid #222',
-        transition: 'all 0.2s',
-        cursor: 'pointer',
-        opacity: isMultiSelect && !isSelected ? 0.6 : 1
-    };
-}
-
 function getRejectedCountLabel(rejectedCount: number) {
     return `${rejectedCount} photo${rejectedCount === 1 ? '' : 's'} rejected`;
 }
@@ -45,11 +29,8 @@ function getFaceCountLabel(faceCount: number) {
 
 function PersonCover({ coverSrc, alt }: { readonly coverSrc: string | null; readonly alt: string }) {
     return (
-        <div style={{
-            width: 120, height: 120, borderRadius: '50%', overflow: 'hidden', background: '#222',
-            marginBottom: 16, border: '3px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-            {coverSrc ? <img src={coverSrc} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} /> : <span style={{ fontSize: '2rem', opacity: 0.3 }}>👤</span>}
+        <div className="w-28 h-28 rounded-full overflow-hidden bg-surface mb-4 border-2 border-content/10 flex items-center justify-center">
+            {coverSrc ? <img loading="lazy" src={coverSrc} alt={alt} width={112} height={112} className="w-full h-full object-cover" draggable={false} /> : <span className="text-3xl opacity-30">👤</span>}
         </div>
     );
 }
@@ -60,10 +41,7 @@ function RejectedCountBadge({ rejectedCount }: { readonly rejectedCount: number 
     }
 
     return (
-        <span style={{
-            fontSize: '0.7rem', color: '#ef4444', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 10, padding: '0px 5px', lineHeight: '1.4', cursor: 'help'
-        }}>
+        <span className="text-xs text-red-500 bg-red-500/10 border border-red-500/30 rounded px-1.5 py-0.5 leading-none cursor-help">
             -{rejectedCount}
         </span>
     );
@@ -71,7 +49,7 @@ function RejectedCountBadge({ rejectedCount }: { readonly rejectedCount: number 
 
 function PersonStats({ faceCount, rejectedCount }: { readonly faceCount: number; readonly rejectedCount: number }) {
     return (
-        <div title={rejectedCount ? getRejectedCountLabel(rejectedCount) : undefined} style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div title={rejectedCount ? getRejectedCountLabel(rejectedCount) : undefined} className="text-xs text-content-secondary font-medium flex items-center gap-1">
             <span>{getFaceCountLabel(faceCount)}</span>
             <RejectedCountBadge rejectedCount={rejectedCount} />
         </div>
@@ -158,15 +136,27 @@ function PersonCard({
         setEditingId(null);
     };
 
+    const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+        }
+    }, [onClick]);
+
     return (
-        <button
-            type="button"
-            key={person.id}
-            style={{ ...getPersonCardStyle(isSelected, isMultiSelect), textAlign: 'center', font: 'inherit', color: 'inherit', border: isSelected ? '2px solid #3b82f6' : '1px solid #222' }}
+        <div
+            role="button"
+            tabIndex={0}
+            className={`flex flex-col items-center text-center p-5 rounded-2xl border motion-safe:transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-brand-accent ${
+                isSelected
+                    ? 'bg-blue-600/20 border-brand-accent shadow-md shadow-brand-accent/20'
+                    : 'bg-surface-secondary border-content/10 hover:border-content/20 text-content'
+            } ${isMultiSelect && !isSelected ? 'opacity-60' : 'opacity-100'}`}
             onPointerDown={onPressStart}
             onPointerUp={onPressEnd}
             onPointerLeave={onPressEnd}
             onClick={onClick}
+            onKeyDown={handleKeyDown}
         >
             <PersonCover coverSrc={coverSrc} alt={personName} />
 
@@ -181,7 +171,7 @@ function PersonCard({
             />
 
             <PersonStats faceCount={person.face_count} rejectedCount={person.rejected_count ?? 0} />
-        </button>
+        </div>
     );
 }
 
@@ -205,7 +195,9 @@ function PersonNameEditor({
     if (editingId === person.id) {
         return (
             <input
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
+                aria-label={`Rename ${personName}`}
                 value={editingName}
                 onChange={e => setEditingName(e.target.value)}
                 onClick={e => e.stopPropagation()}
@@ -215,7 +207,7 @@ function PersonNameEditor({
                     else if (e.key === 'Escape') {setEditingId(null);}
                 }}
                 onBlur={onSave}
-                style={{ width: '80%', padding: '4px', textAlign: 'center', background: '#333', color: '#fff', border: '1px solid #555', borderRadius: 4, marginBottom: 4 }}
+                className="w-4/5 p-1 text-center bg-surface text-content border border-content/20 rounded mb-1 outline-none focus:border-brand-accent text-sm"
             />
         );
     }
@@ -230,7 +222,7 @@ function PersonNameEditor({
             }}
             onPointerDown={e => e.stopPropagation()}
             title="Click to rename"
-            style={{ fontWeight: '600', color: '#fff', fontSize: '1rem', marginBottom: 4, cursor: 'text', padding: '0 8px', borderRadius: 4, background: 'transparent', border: 'none', font: 'inherit' }}
+            className="font-semibold text-content text-base mb-1 cursor-text px-2 rounded bg-transparent border-none hover:bg-content/5 font-inherit"
         >
             {personName}
         </button>
@@ -286,7 +278,9 @@ function SelectionActionButton({
         <button
             onClick={onClick}
             disabled={action.disabled}
-            style={{ padding: '8px 16px', borderRadius: 20, border: 'none', background: '#3b82f6', color: '#fff', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : 0.5, fontWeight: 'bold' }}
+            className={`px-4 py-2 rounded-full border-none font-bold text-white transition-opacity ${
+                enabled ? 'bg-brand-accent cursor-pointer opacity-100 hover:bg-brand-accent-hover' : 'bg-brand-accent/50 cursor-not-allowed opacity-50'
+            }`}
         >
             {action.label}
         </button>
@@ -324,12 +318,11 @@ function SelectionActionBar({
     };
 
     return (
-        <div style={{
-            position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-            background: '#222', padding: '12px 24px', borderRadius: 32, display: 'flex', gap: 12, alignItems: 'center',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', border: '1px solid #333', zIndex: 50
-        }}>
-            <span style={{ color: '#d1d5db', marginRight: 8, fontSize: '0.9rem' }}>{selectedCount} selected</span>
+        <div 
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface-secondary p-3 px-6 rounded-full flex gap-3 items-center shadow-2xl border border-content/10"
+            style={{ zIndex: 50 }}
+        >
+            <span className="text-content-secondary mr-2 text-sm">{selectedCount} selected</span>
             {actions.map((action) => (
                 <SelectionActionButton
                     key={action.type}
@@ -337,16 +330,18 @@ function SelectionActionBar({
                     onClick={() => handleMultiFilter(action.type)}
                 />
             ))}
-            <div style={{ width: 1, height: 24, background: '#444', margin: '0 8px' }} />
+            <div className="w-px h-6 bg-content/10 mx-2" />
             <button
                 onClick={handleMerge}
                 disabled={selectedCount < 2}
-                style={{ padding: '8px 16px', borderRadius: 20, border: 'none', background: '#eab308', color: '#000', cursor: selectedCount > 1 ? 'pointer' : 'not-allowed', opacity: selectedCount > 1 ? 1 : 0.5, fontWeight: 'bold' }}
+                className={`px-4 py-2 rounded-full border-none font-bold text-slate-950 transition-opacity ${
+                    selectedCount > 1 ? 'bg-amber-500 cursor-pointer opacity-100 hover:bg-amber-600' : 'bg-amber-500/50 cursor-not-allowed opacity-50'
+                }`}
             >
                 Merge
             </button>
-            <div style={{ width: 1, height: 24, background: '#444', margin: '0 8px' }} />
-            <button onClick={clearSelection} style={{ padding: '8px 16px', borderRadius: 20, border: 'none', background: '#444', color: '#fff', cursor: 'pointer' }}>Cancel</button>
+            <div className="w-px h-6 bg-content/10 mx-2" />
+            <button onClick={clearSelection} className="px-4 py-2 rounded-full border-none bg-content/10 text-content hover:bg-content/20 transition-colors cursor-pointer">Cancel</button>
         </div>
     );
 }
@@ -376,11 +371,14 @@ export function PeopleView({ people, onFilter, onSelectionChange, onRename, onMe
         });
     };
 
-    if (people.length === 0) {return <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No people found.</div>;}
+    if (people.length === 0) {return <div className="p-10 text-center text-content-secondary">No people found.</div>;}
 
     return (
-        <div style={{ position: 'relative', height: '100%', overflow: 'auto' }}>
-            <div style={{ padding: 24, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 24, background: '#0a0a0a', paddingBottom: selection.isMultiSelect ? 100 : 24 }}>
+        <div className="relative h-full overflow-auto bg-surface">
+            <div 
+                className="p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+                style={{ paddingBottom: selection.isMultiSelect ? 100 : 24 }}
+            >
                 {people.map(person => (
                     <PersonCard
                         key={person.id}

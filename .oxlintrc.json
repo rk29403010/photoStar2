@@ -115,6 +115,14 @@
       "env": {
         "node": true
       }
+    },
+    {
+      "files": [
+        "tests/**/*.{ts,tsx,js,jsx,cjs,mjs}"
+      ],
+      "rules": {
+        "max-lines-per-function": "off"
+      }
     }
   ]
 }

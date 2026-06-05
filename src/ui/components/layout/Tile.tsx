@@ -111,6 +111,9 @@ const LoadedTileImage: React.FC<{
             <img
                 ref={handleImageRef}
                 src={imgSrc}
+                alt="Asset preview"
+                width={100}
+                height={100}
                 loading={loadingMode}
                 fetchPriority={fetchPriority}
                 decoding="async"
@@ -119,7 +122,7 @@ const LoadedTileImage: React.FC<{
                     setIsLoaded(true);
                     onImageVisibleChange(false);
                 }}
-                className="w-full h-full object-contain block transition-opacity duration-200 ease-out"
+                className="w-full h-full object-contain block transition-opacity duration-200 ease-out aspect-auto"
                 style={{ opacity: isLoaded ? 1 : 0 }}
             />
         </div>
@@ -164,10 +167,10 @@ export const Tile: React.FC<TileProps> = (props) => {
     const isImageVisible = visibleImageSrc === imgSrc;
 
     return (
-        <div
+        <li
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`w-full h-full bg-surface-secondary overflow-hidden relative rounded box-border cursor-pointer transition-all duration-200 ease-out ${getBorderClass(selected)}`}
+            className={`w-full h-full bg-surface-secondary overflow-hidden relative rounded box-border cursor-pointer motion-safe:transition-all motion-safe:duration-200 motion-safe:ease-out ${getBorderClass(selected)}`}
         >
             <TileMedia imgSrc={imgSrc} loadingMode={imageLoading} fetchPriority={imageFetchPriority} onImageVisibleChange={(visible) => setVisibleImageSrc(visible ? imgSrc : null)} />
             <TileOverlays
@@ -192,6 +195,6 @@ export const Tile: React.FC<TileProps> = (props) => {
                 isScrollSettled={isScrollSettled}
             />
             <style>{TILE_FADE_IN_KEYFRAMES}</style>
-        </div>
+        </li>
     );
 };
