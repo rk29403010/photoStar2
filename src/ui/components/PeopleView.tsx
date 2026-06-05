@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Person } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
@@ -136,18 +136,9 @@ function PersonCard({
         setEditingId(null);
     };
 
-    const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onClick();
-        }
-    }, [onClick]);
-
     return (
         <div
-            role="button"
-            tabIndex={0}
-            className={`flex flex-col items-center text-center p-5 rounded-2xl border motion-safe:transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-brand-accent ${
+            className={`relative flex flex-col items-center text-center p-5 rounded-2xl border motion-safe:transition-all ${
                 isSelected
                     ? 'bg-blue-600/20 border-brand-accent shadow-md shadow-brand-accent/20'
                     : 'bg-surface-secondary border-content/10 hover:border-content/20 text-content'
@@ -155,20 +146,26 @@ function PersonCard({
             onPointerDown={onPressStart}
             onPointerUp={onPressEnd}
             onPointerLeave={onPressEnd}
-            onClick={onClick}
-            onKeyDown={handleKeyDown}
         >
+            <button
+                type="button"
+                className="absolute inset-0 w-full h-full cursor-pointer rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-brand-accent bg-transparent border-none"
+                onClick={onClick}
+                aria-label={`Select ${personName}`}
+            />
             <PersonCover coverSrc={coverSrc} alt={personName} />
 
-            <PersonNameEditor
-                person={person}
-                personName={personName}
-                editingId={editingId}
-                editingName={editingName}
-                setEditingId={setEditingId}
-                setEditingName={setEditingName}
-                onSave={saveName}
-            />
+            <div className="relative z-10 w-full flex justify-center">
+                <PersonNameEditor
+                    person={person}
+                    personName={personName}
+                    editingId={editingId}
+                    editingName={editingName}
+                    setEditingId={setEditingId}
+                    setEditingName={setEditingName}
+                    onSave={saveName}
+                />
+            </div>
 
             <PersonStats faceCount={person.face_count} rejectedCount={person.rejected_count ?? 0} />
         </div>
