@@ -1,19 +1,20 @@
-import type { DatabaseManager } from '../../../data/db';
-import type { DomainEvent } from '../../events/types';
+import type { DatabaseManager } from '../../../../data/db';
+import type { DomainEvent } from '../../../events/types';
 import {
     getLiveAiConfigurationError,
     generateLiveAiMetadata,
     type LiveMetadataEvidence,
-} from '../../aiMetadata/liveRuntime';
+} from './liveRuntime';
 import {
     persistAiMetadataResult,
     persistPhotoMetadataEvidence,
-} from '../../aiMetadata/liveEvidencePersistence';
+} from './liveEvidencePersistence';
 import type {
     ParsedAiMetadataRow,
     StoredAiMetadataResult,
-} from '../../aiMetadata/geminiTypes';
-import type { ModuleDefinition } from '../contracts';
+} from './geminiTypes';
+import type { ModuleDefinition, RuntimeModuleContext, RuntimeModuleRunResult } from '../../contracts';
+import { generateAiMetadataParamsSchema } from './schema';
 
 function buildMetadataPayload(assetId: string, mode: 'mock' | 'live'): Record<string, unknown> {
     return {
@@ -66,13 +67,6 @@ function isUnsafeRow(row: ParsedAiMetadataRow): boolean {
         || (row.sensitivity_status !== 'safe' && row.sensitivity_score !== null && row.sensitivity_score > 75);
 }
 
-function resolveAiMode(value: unknown): 'mock' | 'live' | 'off' {
-    if (value === 'mock' || value === 'live') {
-        return value;
-    }
-    return 'off';
-}
-
 
 
 export function resolveLiveMetadataTimeoutMs(params: {
@@ -98,7 +92,7 @@ function assertLiveAiConfiguration(
         return;
     }
 
-    if (!emittedRunIds || !emittedRunIds.has(runId)) {
+    if (!emittedRunIds?.has(runId)) {
         if (emittedRunIds) {
             emittedRunIds.add(runId);
         }
@@ -223,12 +217,75 @@ function persistMachineMetadataEvidence(params: {
     });
 }
 
-function resolveImageStrategy(value: unknown): 'overview_only' | 'overview_plus_tiles' {
-    return value === 'overview_plus_tiles' ? 'overview_plus_tiles' : 'overview_only';
-}
+async function runGenerateAiMetadata(
+    context: RuntimeModuleContext,
+    options: GenerateAiMetadataModuleOptions,
+    params: {
+        id: string;
+        imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+        metadataPass?: 'scout' | 'refine';
+    },
+    liveRuntime: NonNullable<GenerateAiMetadataModuleOptions['aiRuntime']>,
+    emittedRunIds: Set<string>,
+): Promise<RuntimeModuleRunResult> {
+    const validatedParams = generateAiMetadataParamsSchema.parse(context.parameters);
+    const aiMode = validatedParams.aiMode;
+    const metadataPass = params.metadataPass ?? validatedParams.metadataPass ?? 'scout';
+    const imageStrategy = params.imageStrategy ?? validatedParams.imageStrategy ?? 'overview_only';
+    
+    const liveMetadataTimeoutMs = resolveLiveMetadataTimeoutMs({
+        metadataPass,
+        configuredTimeoutMs: options.liveMetadataTimeoutMs,
+    });
 
-function resolveMetadataPass(value: unknown): 'scout' | 'refine' {
-    return value === 'refine' ? 'refine' : 'scout';
+    if (aiMode === 'off') {
+        return { outputs: [] };
+    }
+
+    if (aiMode === 'live') {
+        assertLiveAiConfiguration(options, context.runId, emittedRunIds);
+    }
+
+    const db = options.dbManager.getDb();
+    const row = loadAssetRow(db, context.subject.subjectId);
+    if (!row || isUnsafeRow(row)) {
+        return { outputs: [] };
+    }
+
+    // Idempotency check: skip if we already have this pass's evidence
+    const existingBlocks = db.prepare(`SELECT id FROM photo_metadata_blocks WHERE asset_id = ? AND source_kind = ?`).get(context.subject.subjectId, metadataPass);
+    if (existingBlocks) {
+        return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
+    }
+
+    const result = await withLiveMetadataTimeout(
+        (signal) => generateMetadataResult({
+            aiMode,
+            assetId: context.subject.subjectId,
+            dbManager: options.dbManager,
+            eventBus: options.eventBus,
+            imageStrategy,
+            metadataPass,
+            moduleId: params.id,
+            liveRuntime,
+            row,
+            signal,
+        }),
+        liveMetadataTimeoutMs,
+        context.subject.subjectId,
+    );
+
+    persistMachineMetadataEvidence({
+        dbManager: options.dbManager,
+        assetId: context.subject.subjectId,
+        row,
+        result,
+    });
+    options.eventBus?.emit({
+        type: 'AssetUpdated',
+        assetId: context.subject.subjectId,
+    });
+    return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
 }
 
 function createBaseGenerateAiMetadataModule(
@@ -252,67 +309,10 @@ function createBaseGenerateAiMetadataModule(
         accepts: ['asset'],
         produces: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }],
         estimatedCostPerCall: params.estimatedCostPerCall,
-        run: async (context) => {
-            const aiMode = resolveAiMode(context.parameters.aiMode);
-            const metadataPass = params.metadataPass ?? resolveMetadataPass(context.parameters.metadataPass);
-            const imageStrategy = params.imageStrategy ?? resolveImageStrategy(context.parameters.imageStrategy);
-            
-            const liveMetadataTimeoutMs = resolveLiveMetadataTimeoutMs({
-                metadataPass,
-                configuredTimeoutMs: options.liveMetadataTimeoutMs,
-            });
-
-            if (aiMode === 'off') {
-                return { outputs: [] };
-            }
-
-            if (aiMode === 'live') {
-                assertLiveAiConfiguration(options, context.runId, emittedRunIds);
-            }
-
-            const db = options.dbManager.getDb();
-            const row = loadAssetRow(db, context.subject.subjectId);
-            if (!row || isUnsafeRow(row)) {
-                return { outputs: [] };
-            }
-
-            // Idempotency check: skip if we already have this pass's evidence
-            const existingBlocks = db.prepare(`SELECT id FROM photo_metadata_blocks WHERE asset_id = ? AND source_kind = ?`).get(context.subject.subjectId, metadataPass);
-            if (existingBlocks) {
-                return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
-            }
-
-            const result = await withLiveMetadataTimeout(
-                (signal) => generateMetadataResult({
-                    aiMode,
-                    assetId: context.subject.subjectId,
-                    dbManager: options.dbManager,
-                    eventBus: options.eventBus,
-                    imageStrategy,
-                    metadataPass,
-                    moduleId: params.id,
-                    liveRuntime,
-                    row,
-                    signal,
-                }),
-                liveMetadataTimeoutMs,
-                context.subject.subjectId,
-            );
-
-            persistMachineMetadataEvidence({
-                dbManager: options.dbManager,
-                assetId: context.subject.subjectId,
-                row,
-                result,
-            });
-            options.eventBus?.emit({
-                type: 'AssetUpdated',
-                assetId: context.subject.subjectId,
-            });
-            return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
-        },
+        run: (context) => runGenerateAiMetadata(context, options, params, liveRuntime, emittedRunIds),
         estimate: async (context) => {
-            const aiMode = resolveAiMode(context.parameters.aiMode);
+            const validatedParams = generateAiMetadataParamsSchema.parse(context.parameters);
+            const aiMode = validatedParams.aiMode;
             const cost = aiMode === 'live' ? params.estimatedCostPerCall : 0;
             return {
                 outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }],

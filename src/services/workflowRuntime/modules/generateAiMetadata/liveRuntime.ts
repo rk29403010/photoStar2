@@ -3,14 +3,14 @@ import { extname } from 'node:path';
 import type { GoogleGenerativeAI } from '@google/generative-ai';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import type { DatabaseManager } from '../../data/db';
-import type { DomainEvent } from '../events/types';
-import type { PhotoMetadataBlock, PhotoMetadataRegionOfInterest } from '../photoMetadata/types';
+import type { DatabaseManager } from '../../../../data/db';
+import type { DomainEvent } from '../../../events/types';
+import type { PhotoMetadataBlock, PhotoMetadataRegionOfInterest } from '../../../photoMetadata/types';
 import {
     normalizePhotoMetadataBlockBoxes,
     type LocalFaceLike,
-} from '../photoMetadata/coordinateNormalization';
-import { isPhotoMetadataBlock } from '../photoMetadata/validation';
+} from '../../../photoMetadata/coordinateNormalization';
+import { isPhotoMetadataBlock } from '../../../photoMetadata/validation';
 import {
     assertGeminiResponseContract,
     isGeminiResponseContractError,

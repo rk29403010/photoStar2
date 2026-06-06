@@ -1,4 +1,4 @@
-import type { PhotoMetadataBlock } from '../photoMetadata/types';
+import type { PhotoMetadataBlock } from '../../../photoMetadata/types';
 
 export const MODEL_REFINE = 'gemini-3.1-pro-preview';
 export const MODEL_SCOUT = 'gemini-2.5-flash';

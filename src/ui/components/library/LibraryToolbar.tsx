@@ -23,30 +23,21 @@ function ToggleButton({
     label,
     active,
     onClick,
-    variant = 'blue',
 }: {
     readonly label: string;
     readonly active: boolean;
     readonly onClick: () => void;
-    readonly variant?: 'blue' | 'cyan' | 'indigo';
 }) {
-    let activeClass = 'bg-content/5 text-content-secondary border border-content/10 hover:bg-content/10';
-    if (active) {
-        if (variant === 'blue') {
-            activeClass = 'bg-blue-500/15 text-blue-700 dark:text-blue-200 border border-blue-500/30 hover:bg-blue-500/25';
-        } else if (variant === 'cyan') {
-            activeClass = 'bg-cyan-500/15 text-cyan-800 dark:text-cyan-200 border border-cyan-500/30 hover:bg-cyan-500/25';
-        } else if (variant === 'indigo') {
-            activeClass = 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-200 border border-indigo-500/30 hover:bg-indigo-500/25';
-        }
-    }
+    const activeClass = active
+        ? 'bg-content text-surface border-transparent hover:opacity-90'
+        : 'bg-surface-secondary text-content-secondary border-content/10 hover:bg-content/10 hover:text-content';
 
     return (
         <button
             type="button"
             aria-pressed={active}
             onClick={onClick}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors ${activeClass}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold cursor-pointer border transition-colors ${activeClass}`}
         >
             {label}
         </button>
@@ -86,9 +77,9 @@ export function LibraryToolbar(props: LibraryToolbarProps) {
         <div className="flex flex-col gap-2 px-3.5 py-2.5 border-b border-content/5 bg-gradient-to-b from-surface-secondary to-surface">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                    <ToggleButton label="Group similar photos" active={props.groupSimilarPhotos} onClick={() => props.onGroupSimilarPhotosChange(!props.groupSimilarPhotos)} variant="blue" />
-                    <ToggleButton label="Show group IDs" active={props.showGroupIds} onClick={() => props.onShowGroupIdsChange(!props.showGroupIds)} variant="cyan" />
-                    <ToggleButton label="Info panel" active={props.showInfoPanel} onClick={() => props.onShowInfoPanelChange(!props.showInfoPanel)} variant="indigo" />
+                    <ToggleButton label="Group similar photos" active={props.groupSimilarPhotos} onClick={() => props.onGroupSimilarPhotosChange(!props.groupSimilarPhotos)} />
+                    <ToggleButton label="Show group IDs" active={props.showGroupIds} onClick={() => props.onShowGroupIdsChange(!props.showGroupIds)} />
+                    <ToggleButton label="Info panel" active={props.showInfoPanel} onClick={() => props.onShowInfoPanelChange(!props.showInfoPanel)} />
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <ToolbarSelect label="Tag" ariaLabel="Filter gallery by tag" value={props.selectedTag} onChange={props.onTagChange}>

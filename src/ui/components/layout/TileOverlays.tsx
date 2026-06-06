@@ -92,18 +92,6 @@ const SelectedStarBadge: React.FC = () => (
     </div>
 );
 
-const GroupModeBadge: React.FC<{ show: boolean }> = ({ show }) => {
-    if (!show) {return null;}
-
-    return (
-        <div
-            className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-slate-900/80 border border-content-secondary/25 text-blue-100 text-xs font-bold tracking-wider uppercase z-15 pointer-events-none"
-        >
-            Group
-        </div>
-    );
-};
-
 const GroupIdPills: React.FC<{
     memberships: Asset['group_memberships'];
     show: boolean;
@@ -253,7 +241,6 @@ export const TileOverlays: React.FC<TileOverlaysProps> = ({
             {selected && <SelectedStarBadge />}
             <SensitivityBadgeView badge={sensitivityBadge} />
             <StackBadge count={overlayVisibility.showStackBadge ? stackCount : null} />
-            <GroupModeBadge show={overlayVisibility.showGroupModeBadge} />
             <GroupIdPills
                 memberships={groupMemberships}
                 show={overlayVisibility.showGroupIdPills}

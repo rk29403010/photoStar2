@@ -12,7 +12,6 @@ export function getTileOverlayVisibility(params: {
         showCaption: showSettledOverlays,
         showDeclusterButton: showSettledOverlays,
         showStackBadge: showVisibleOverlays,
-        showGroupModeBadge: params.isGroupRepresentative && showVisibleOverlays,
         showGroupIdPills: params.showGroupIds && showVisibleOverlays,
     };
 }

@@ -1,13 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { DatabaseManager } from '../../data/db';
-import { createTagRepository } from '../tags/tagRepository';
-import type { PhotoMetadataProjectionInput, PhotoMetadataProjectionRow } from '../photoMetadata/repository';
-import { createPhotoMetadataRepository } from '../photoMetadata/repository';
-import type { PhotoMetadataBlock } from '../photoMetadata/types';
+import type { DatabaseManager } from '../../../../data/db';
+import { createTagRepository } from '../../../tags/tagRepository';
+import type { PhotoMetadataProjectionInput, PhotoMetadataProjectionRow } from '../../../photoMetadata/repository';
+import { createPhotoMetadataRepository } from '../../../photoMetadata/repository';
+import type { PhotoMetadataBlock } from '../../../photoMetadata/types';
 import {
     normalizePhotoMetadataBlockBoxes,
     type PhotoMetadataCoordinateSpace,
-} from '../photoMetadata/coordinateNormalization';
+} from '../../../photoMetadata/coordinateNormalization';
 
 type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
 type MetadataSourceRank = 0 | 1 | 2;

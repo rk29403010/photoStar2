@@ -1,4 +1,4 @@
-import type { DatabaseManager } from '../../data/db';
+import type { DatabaseManager } from '../../../../data/db';
 import type { GeminiResponse } from './geminiTypes';
 import { splitAiTagsAgainstVocabulary } from './tagVocabularyEnforcement';
 

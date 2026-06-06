@@ -1,4 +1,4 @@
-import { normalizeStoredPhotoBox } from '../faces/faceImageGeometry';
+import { normalizeStoredPhotoBox } from '../../../faces/faceImageGeometry';
 import type { GeminiResponse } from './geminiTypes';
 
 type ImageStrategy = 'overview_only' | 'overview_plus_tiles';
