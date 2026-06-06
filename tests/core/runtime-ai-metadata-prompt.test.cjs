@@ -16,7 +16,7 @@ function expectSharedMetadataFields(prompt) {
 }
 
 test('buildGemini prompts request the same shared archival metadata fields', async () => {
-    const { buildGeminiFlashPrompt, buildGeminiProPrompt } = await import('../../dist/core/src/services/aiMetadata/geminiPrompts.js');
+    const { buildGeminiFlashPrompt, buildGeminiProPrompt } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.js');
 
     const commonInput = {
         filename: 'Family Picnic 1964.jpg',
@@ -37,7 +37,7 @@ test('buildGemini prompts request the same shared archival metadata fields', asy
 });
 
 test('buildGemini tiled prompts include crop bounds while keeping full-photo normalized coordinates', async () => {
-    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/aiMetadata/geminiPrompts.js');
+    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.js');
 
     const prompt = buildGeminiFlashPrompt({
         filename: 'Group Photo.jpg',
@@ -55,7 +55,7 @@ test('buildGemini tiled prompts include crop bounds while keeping full-photo nor
 });
 
 test('buildGemini overview-only prompts constrain source image references to the overview image', async () => {
-    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/aiMetadata/geminiPrompts.js');
+    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.js');
 
     const prompt = buildGeminiFlashPrompt({
         filename: 'Doorway Portrait.jpg',
@@ -69,7 +69,7 @@ test('buildGemini overview-only prompts constrain source image references to the
 });
 
 test('buildGemini prompts repeat EXIF-oriented pixel dimensions in the coordinate contract when provided', async () => {
-    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/aiMetadata/geminiPrompts.js');
+    const { buildGeminiFlashPrompt } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.js');
 
     const prompt = buildGeminiFlashPrompt({
         filename: 'b3s8_09.jpg',

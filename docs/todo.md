@@ -26,7 +26,7 @@
 
 ## Jobs
 
-### Sensitive Content Detection [x]
+### Sensitive Content Detection [Not done - module exists, but it doesn't actually call any detection services]
 
 Create a new job to detect potentially sensitive content in images (specifically nudity and sexual content). This must only run on the local machine - no cloud services should be used. This can use local AI models and/or local libraries. The output should be a %age likelyhood of the image containing sensitive content. This should be stored in the database.
 The sensitivity score should then be used to  drive the following:
@@ -133,7 +133,7 @@ Detect frames around images.
 Define a rectangle that is the maximum rectangle that sits fully within the frame (e.g. a photo 200x200px with a polaroid style frame 10px top, left and right and 50px bottom would be {10,10,180,140}. If the image has no border {0,0,200,200}).
 Also identify the primary colour used in the border to allow blending into background.
 
-Workflow changes.
+## Workflow changes
 
 1. Confirm/standardise the naming around workflows.
 to equate to coding

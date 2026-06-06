@@ -26,12 +26,12 @@ function loadTsModule(relativePath) {
 }
 
 test('ai tagging prompt, schema, and runtime helper enforce approved vocabulary with proposals', () => {
-    const { buildGeminiFlashPrompt } = loadTsModule('src/services/aiMetadata/geminiPrompts.ts');
-    const { splitAiTagsAgainstVocabulary } = loadTsModule('src/services/aiMetadata/tagVocabularyEnforcement.ts');
-    const schemaSource = fs.readFileSync('src/services/aiMetadata/geminiResponseSchema.ts', 'utf8');
-    const liveRuntimeSource = fs.readFileSync('src/services/aiMetadata/liveRuntime.ts', 'utf8');
-    const runtimeHelperSource = fs.readFileSync('src/services/aiMetadata/liveRuntimeTagHelpers.ts', 'utf8');
-    const persistenceSource = fs.readFileSync('src/services/aiMetadata/liveEvidencePersistence.ts', 'utf8');
+    const { buildGeminiFlashPrompt } = loadTsModule('src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.ts');
+    const { splitAiTagsAgainstVocabulary } = loadTsModule('src/services/workflowRuntime/modules/generateAiMetadata/tagVocabularyEnforcement.ts');
+    const schemaSource = fs.readFileSync('src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema.ts', 'utf8');
+    const liveRuntimeSource = fs.readFileSync('src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.ts', 'utf8');
+    const runtimeHelperSource = fs.readFileSync('src/services/workflowRuntime/modules/generateAiMetadata/liveRuntimeTagHelpers.ts', 'utf8');
+    const persistenceSource = fs.readFileSync('src/services/workflowRuntime/modules/generateAiMetadata/liveEvidencePersistence.ts', 'utf8');
 
     const prompt = buildGeminiFlashPrompt({
         filename: 'family-photo.jpg',

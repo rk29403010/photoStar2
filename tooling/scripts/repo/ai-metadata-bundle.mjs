@@ -14,8 +14,8 @@ const aliasRoots = new Map([
 ]);
 
 const defaultEntries = [
-    'src/services/workflowRuntime/modules/generateAiMetadataModule.ts',
-    'src/services/aiMetadata/liveRuntime.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/index.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.ts',
     'tooling/scripts/repo/ai-metadata-debug.mjs',
 ];
 

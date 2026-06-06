@@ -30,7 +30,11 @@ async function writePreviewVariants(
         const outputPath = join(previewsDir, `${asset.id}-${sizeName}.webp`);
         await sharp(asset.original_path)
             .rotate()
-            .resize(width, null, { withoutEnlargement: true, fit: 'inside' })
+            .resize(width, null, {
+                withoutEnlargement: true,
+                fit: 'inside',
+                background: { r: 0, g: 0, b: 0, alpha: 0 }
+            })
             .webp({ effort: 4, quality: 80 })
             .toFile(outputPath);
 

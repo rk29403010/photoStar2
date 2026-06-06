@@ -77,7 +77,7 @@ function buildValidMetadataResponse(overrides = {}) {
 async function runLiveMetadataCapture({ tempDir, imageStrategy }) {
     const sharp = (await import('sharp')).default;
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+    const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
 
     const imagePath = path.join(tempDir, `oversized-${imageStrategy}.png`);
     await sharp({
@@ -277,7 +277,7 @@ function createEnvFallbackGoogleGenerativeAI(captureApiKey) {
 
 async function runEnvFallbackCapture({ tempDir }) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+    const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
     const imagePath = await writeFallbackImage({ tempDir });
     const dbManager = new DatabaseManager(tempDir);
     let capturedApiKey = null;
@@ -367,7 +367,7 @@ test('generateLiveAiMetadata repairs impossible source_image_index for overview-
 
     try {
         const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-        const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+        const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
         const imagePath = await writeFallbackImage({ tempDir });
 
         dbManager = new DatabaseManager(tempDir);
@@ -421,7 +421,7 @@ test('generateLiveAiMetadata rejects impossible source_image_index values after 
 
     try {
         const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-        const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+        const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
         const imagePath = await createLargeImage({ tempDir, filename: 'contract-tiled.png' });
 
         dbManager = new DatabaseManager(tempDir);
@@ -501,7 +501,7 @@ test('generateLiveAiMetadata normalizes obvious pixel-space Gemini boxes using t
 
     try {
         const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-        const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+        const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
         const imagePath = await createLargeImage({ tempDir, filename: 'pixel-boxes.png' });
 
         dbManager = new DatabaseManager(tempDir);
@@ -571,7 +571,7 @@ test('generateLiveAiMetadata remaps crop-local Gemini boxes into full-photo coor
 
     try {
         const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-        const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+        const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
         const imagePath = await createLargeImage({ tempDir, filename: 'crop-local-boxes.png' });
 
         dbManager = new DatabaseManager(tempDir);
@@ -642,7 +642,7 @@ test('generateLiveAiMetadata logs Gemini call timings', async () => {
 
     try {
         const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-        const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+        const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
         const imagePath = await writeFallbackImage({ tempDir });
         dbManager = new DatabaseManager(tempDir);
         dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
@@ -699,7 +699,7 @@ test('generateLiveAiMetadata sanitizes expected Gemini network fetch failures', 
 
     try {
         const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-        const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+        const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
         const imagePath = await writeFallbackImage({ tempDir });
         dbManager = new DatabaseManager(tempDir);
         dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');

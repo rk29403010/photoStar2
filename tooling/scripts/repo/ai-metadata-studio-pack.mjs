@@ -6,18 +6,19 @@ const workspaceRoot = path.resolve(import.meta.dirname, '..', '..', '..');
 const defaultOutputDir = path.join(workspaceRoot, 'artifacts', 'ai-metadata-studio-pack');
 
 const includedFiles = [
-    'src/services/aiMetadata/geminiPrompts.ts',
-    'src/services/aiMetadata/geminiResponseSchema.ts',
-    'src/services/aiMetadata/geminiResponseBoxes.ts',
-    'src/services/aiMetadata/geminiTypes.ts',
-    'src/services/aiMetadata/liveRuntime.ts',
-    'src/services/aiMetadata/liveRuntimeTagHelpers.ts',
-    'src/services/aiMetadata/tagVocabularyEnforcement.ts',
-    'src/services/aiMetadata/quotaManager.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseBoxes.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/geminiTypes.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/liveRuntimeTagHelpers.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/tagVocabularyEnforcement.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/quotaManager.ts',
     'src/services/photoMetadata/coordinateNormalization.ts',
     'src/services/photoMetadata/types.ts',
     'src/services/photoMetadata/validation.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadataModule.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/index.ts',
+    'src/services/workflowRuntime/modules/generateAiMetadata/schema.ts',
     'src/boundary/contracts/core.ts',
     'src/shared/aiMetadata/analysisOptions.ts',
     'tooling/scripts/repo/ai-metadata-debug.mjs',
@@ -61,10 +62,10 @@ function buildReadme() {
 This pack is a smaller, round-trip-safe subset of the AI metadata system intended for prompt tuning in Google AI Studio.
 
 ## Recommended edit targets
-- src/services/aiMetadata/geminiPrompts.ts
-- src/services/aiMetadata/geminiResponseSchema.ts
-- src/services/aiMetadata/geminiResponseBoxes.ts
-- src/services/aiMetadata/liveRuntime.ts
+- src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.ts
+- src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema.ts
+- src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseBoxes.ts
+- src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.ts
 
 ## Included files
 ${fileList}

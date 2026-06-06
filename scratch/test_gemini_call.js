@@ -22,7 +22,7 @@ async function run() {
     const imageBuffer = await fs.readFile(imagePath);
     
     // Load the prompt from theprompts builder
-    const { buildGeminiFlashPrompt } = await import('../src/services/aiMetadata/geminiPrompts.ts');
+    const { buildGeminiFlashPrompt } = await import('../src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.ts');
     const prompt = buildGeminiFlashPrompt({
         filename: '221421-082918_05.jpg',
         exifDataString: '',

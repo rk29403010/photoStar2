@@ -253,7 +253,7 @@ function createProxyGoogleGenerativeAI(options, runs) {
 }
 
 async function runDebugCaptures(params) {
-    const liveRuntime = await import('../../../dist/core/src/services/aiMetadata/liveRuntime.js');
+    const liveRuntime = await import('../../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
     const runs = [];
     const ProxyGoogleGenerativeAI = createProxyGoogleGenerativeAI(params.options, runs);
 

@@ -191,7 +191,7 @@ const ErrorBanner: React.FC<ErrorBannerProps> = ({ text }) => (
   </div>
 );
 
-import { buildGeminiResponseSchema } from '../../../../services/aiMetadata/geminiResponseSchema';
+import { buildGeminiResponseSchema } from '../../../../services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema';
 
 type LogDetailViewProps = {
   readonly detail: AiCallDetail;

@@ -1,7 +1,7 @@
 import type { EventBus } from '../../services/events/bus';
 import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
 import { createDetectSensitiveContentModule } from '../../services/workflowRuntime/modules/detectSensitiveContentModule';
-import { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } from '../../services/workflowRuntime/modules/generateAiMetadataModule';
+import { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } from '../../services/workflowRuntime/modules/generateAiMetadata';
 import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
 import { createGeneratePreviewsModule } from '../../services/workflowRuntime/modules/generatePreviewsModule';
 import { createGroupSimilarPhotosModule } from '../../services/workflowRuntime/modules/groupSimilarPhotosModule';

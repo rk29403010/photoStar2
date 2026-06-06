@@ -16,7 +16,6 @@ test('tile overlays stay quiet while the gallery is scrolling', async () => {
             showCaption: false,
             showDeclusterButton: false,
             showStackBadge: false,
-            showGroupModeBadge: false,
             showGroupIdPills: false,
         },
     );
@@ -37,7 +36,6 @@ test('tile overlays return once the gallery settles without affecting selection 
             showCaption: true,
             showDeclusterButton: true,
             showStackBadge: true,
-            showGroupModeBadge: true,
             showGroupIdPills: true,
         },
     );
@@ -58,7 +56,6 @@ test('tile overlays stay hidden until the image is actually visible', async () =
             showCaption: false,
             showDeclusterButton: false,
             showStackBadge: false,
-            showGroupModeBadge: false,
             showGroupIdPills: false,
         },
     );

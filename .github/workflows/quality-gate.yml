@@ -29,6 +29,12 @@ jobs:
       - name: Run quality gate
         run: npm run quality:changed:full
 
+      - name: Run Markdown Lint
+        run: npm run lint:md
+
+      - name: Run Typecheck
+        run: npm run typecheck
+
       - name: Run repo wiring tests
         run: npm run test:repo
 

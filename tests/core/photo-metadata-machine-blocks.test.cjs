@@ -185,7 +185,7 @@ function buildBlockPersistedAssertion(checks, row, expectedSourceKind) {
 
 async function createHarness(tempDir, options = {}) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/index.js');
 
     const dbManager = new DatabaseManager(tempDir);
     dbManager.setSetting('ai_metadata_v2_api_key', options.apiKey || 'AIzaSyDUMMYKEY12345678901234567890');
@@ -202,7 +202,7 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
     const tempDir = createTempDir();
     const imagePath = await createImage(tempDir);
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+    const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
     const dbManager = new DatabaseManager(tempDir);
     dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
     seedAsset(dbManager.getDb(), imagePath);
@@ -253,7 +253,7 @@ test('generateLiveAiMetadata returns tagged machine evidence blocks for flash an
 });
 
 test('generate ai metadata uses a longer default timeout for refine passes', async () => {
-    const { resolveLiveMetadataTimeoutMs } = require('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadataModule.js');
+    const { resolveLiveMetadataTimeoutMs } = require('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/index.js');
 
     assert.equal(resolveLiveMetadataTimeoutMs({ metadataPass: 'scout' }), 120_000);
     assert.equal(resolveLiveMetadataTimeoutMs({ metadataPass: 'refine' }), 300_000);
@@ -264,7 +264,7 @@ test('generateLiveAiMetadata preserves pending pro status on flash fallback comp
     const tempDir = createTempDir();
     const imagePath = await createImage(tempDir);
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const liveRuntime = await import('../../dist/core/src/services/aiMetadata/liveRuntime.js');
+    const liveRuntime = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.js');
     const dbManager = new DatabaseManager(tempDir);
     dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
     dbManager.setSetting('job_ai_model_refine', 'gemini-3.1-pro-preview');

@@ -94,7 +94,7 @@ test('buildGemini response schemas share the same archival metadata fields', asy
     const {
         buildGeminiFlashResponseSchema,
         buildGeminiProResponseSchema,
-    } = await import('../../dist/core/src/services/aiMetadata/geminiResponseSchema.js');
+    } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema.js');
 
     const flashSchema = buildGeminiFlashResponseSchema();
     const proSchema = buildGeminiProResponseSchema();
@@ -126,7 +126,7 @@ test('buildGemini response schemas share the same archival metadata fields', asy
 });
 
 test('buildGemini overview-only response schema only allows full_photo coordinate space', async () => {
-    const { buildGeminiFlashResponseSchema } = await import('../../dist/core/src/services/aiMetadata/geminiResponseSchema.js');
+    const { buildGeminiFlashResponseSchema } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema.js');
 
     const overviewSchema = buildGeminiFlashResponseSchema('overview_only');
     const subjectCoord = getSubjectSchema(overviewSchema).properties.bounding_box_coordinate_space;
