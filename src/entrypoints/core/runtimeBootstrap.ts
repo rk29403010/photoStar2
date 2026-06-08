@@ -1,5 +1,6 @@
 import type { EventBus } from '../../services/events/bus';
 import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
+import { createDetectFramesModule } from '../../services/workflowRuntime/modules/detectFramesModule';
 import { createDetectSensitiveContentModule } from '../../services/workflowRuntime/modules/detectSensitiveContentModule';
 import { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } from '../../services/workflowRuntime/modules/generateAiMetadata';
 import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
@@ -99,6 +100,7 @@ function registerModules(modules: ModuleRegistry, dbManager: DatabaseManager, ev
     modules.register(createExtractEmbeddedMetadataModule({ dbManager, eventBus }));
     modules.register(createGeneratePreviewsModule({ dbManager, eventBus }));
     modules.register(createDetectFacesModule({ dbManager, eventBus }));
+    modules.register(createDetectFramesModule({ dbManager, eventBus }));
     modules.register(createGenerateFaceVectorsModule({ dbManager, eventBus }));
     modules.register(createResolvePeopleModule({ dbManager, eventBus }));
     modules.register(createGroupSimilarPhotosModule({ dbManager }));
