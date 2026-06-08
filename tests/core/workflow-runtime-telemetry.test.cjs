@@ -92,7 +92,6 @@ test('workflow telemetry emits started and completed events for detached runs', 
                     id: 'success-step',
                     kind: 'module',
                     moduleId: 'fake.success',
-                    step: 'test',
                 },
             ],
         });
@@ -160,7 +159,6 @@ test('workflow telemetry emits failed events for detached runs that error', asyn
                     id: 'failure-step',
                     kind: 'module',
                     moduleId: 'fake.failure',
-                    step: 'test',
                 },
             ],
         });

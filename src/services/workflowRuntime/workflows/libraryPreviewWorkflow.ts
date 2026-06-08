@@ -13,7 +13,6 @@ export const libraryPreviewWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-previews',
             kind: 'module',
             moduleId: 'runtime.generate_previews',
-            step: 'previews',
             completesMilestones: ['previews_complete'],
             presentation: {
                 label: 'Generate previews',

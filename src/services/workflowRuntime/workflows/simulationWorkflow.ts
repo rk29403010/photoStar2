@@ -12,11 +12,45 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
             { id: 'medium_processing', label: 'Medium Processing' },
             { id: 'slow_processing', label: 'Slow Processing' },
         ],
+        stages: [
+            {
+                id: 'enumeration',
+                label: 'Discovery',
+                description: 'Simulate discovery of items.',
+                nodeIds: ['enumerate-sim'],
+            },
+            {
+                id: 'fast_processing',
+                label: 'Fast Processing',
+                description: 'Simulate fast task step.',
+                nodeIds: ['fast-task-sim', 'fast-task-sim-2', 'fast-task-sim-3'],
+            },
+            {
+                id: 'medium_processing',
+                label: 'Medium Processing',
+                description: 'Simulate medium task step.',
+                nodeIds: [
+                    'medium-task-sim',
+                    'medium-branch-success-each',
+                    'medium-branch-failure-each',
+                    'medium-branch-1-step-1',
+                    'medium-branch-1-step-2',
+                    'medium-branch-1-step-3',
+                    'medium-branch-2-step-1',
+                    'medium-branch-3-step-1',
+                ],
+            },
+            {
+                id: 'slow_processing',
+                label: 'Slow Processing',
+                description: 'Simulate slow task step.',
+                nodeIds: ['slow-task-sim'],
+            },
+        ],
     },
     nodes: [
         {
             id: 'enumerate-sim',
-            step: 'enumeration',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'once_per_batch',
@@ -30,7 +64,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'fast-task-sim',
-            step: 'fast_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -43,7 +76,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'fast-task-sim-2',
-            step: 'fast_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -56,7 +88,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'fast-task-sim-3',
-            step: 'fast_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -70,7 +101,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-task-sim',
-            step: 'medium_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -84,7 +114,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-branch-success-each',
-            step: 'medium_processing',
             kind: 'control',
             controlType: 'for_each',
             outputsTo: ['medium-branch-1-step-1', 'medium-branch-2-step-1'],
@@ -92,7 +121,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-branch-failure-each',
-            step: 'medium_processing',
             kind: 'control',
             controlType: 'for_each',
             outputsTo: ['medium-branch-3-step-1'],
@@ -100,7 +128,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-branch-1-step-1',
-            step: 'medium_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -110,7 +137,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-branch-1-step-2',
-            step: 'medium_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -120,7 +146,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-branch-1-step-3',
-            step: 'medium_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -130,7 +155,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-branch-2-step-1',
-            step: 'medium_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -140,7 +164,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'medium-branch-3-step-1',
-            step: 'medium_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',
@@ -150,7 +173,6 @@ export const simulationWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'slow-task-sim',
-            step: 'slow_processing',
             kind: 'module',
             moduleId: 'runtime.simulator',
             runMode: 'per_subject',

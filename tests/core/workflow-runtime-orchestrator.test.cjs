@@ -54,9 +54,9 @@ test('orchestrator expands for_each and records aggregate progress', async () =>
             version: 1,
             inputs: ['asset'],
             nodes: [
-                { id: 'expand-assets', kind: 'control', controlType: 'for_each', step: 'test', outputsTo: ['tag-assets'] },
-                { id: 'tag-assets', kind: 'module', moduleId: 'fake.tag', step: 'test', outputsTo: ['classify-assets'] },
-                { id: 'classify-assets', kind: 'module', moduleId: 'fake.classify', step: 'test' },
+                { id: 'expand-assets', kind: 'control', controlType: 'for_each', outputsTo: ['tag-assets'] },
+                { id: 'tag-assets', kind: 'module', moduleId: 'fake.tag', outputsTo: ['classify-assets'] },
+                { id: 'classify-assets', kind: 'module', moduleId: 'fake.classify' },
             ],
         });
 

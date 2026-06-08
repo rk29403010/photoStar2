@@ -25,14 +25,19 @@ test('folder ingest contracts support folder subjects, parameters, labels, and m
                 { id: 'library_ready', label: 'Library ready' },
                 { id: 'enrichment_complete', label: 'Enrichment complete' },
             ],
+            stages: [
+                { id: 'discovery', label: 'Discovery', description: 'Discovery', nodeIds: ['scan-folder'] },
+                { id: 'ingest', label: 'Ingest', description: 'Ingest', nodeIds: ['preview-each', 'generate-previews'] },
+                { id: 'enrichment', label: 'Enrichment', description: 'Enrichment', nodeIds: ['extract-embedded-metadata', 'estimate-photo-date-from-embedded', 'estimate-photo-date-from-ai'] },
+            ],
         },
         nodes: [
-            { id: 'scan-folder', kind: 'module', moduleId: 'runtime.scan_folder', step: 'discovery', outputsTo: ['preview-each'] },
-            { id: 'preview-each', kind: 'control', controlType: 'for_each', step: 'ingest', outputsTo: ['generate-previews'] },
-            { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata', step: 'enrichment', outputsTo: ['estimate-photo-date-from-embedded'] },
-            { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews', step: 'ingest' },
-            { id: 'estimate-photo-date-from-embedded', kind: 'module', moduleId: 'runtime.estimate_photo_date', step: 'enrichment' },
-            { id: 'estimate-photo-date-from-ai', kind: 'module', moduleId: 'runtime.estimate_photo_date', step: 'enrichment' },
+            { id: 'scan-folder', kind: 'module', moduleId: 'runtime.scan_folder', outputsTo: ['preview-each'] },
+            { id: 'preview-each', kind: 'control', controlType: 'for_each', outputsTo: ['generate-previews'] },
+            { id: 'extract-embedded-metadata', kind: 'module', moduleId: 'runtime.extract_embedded_metadata', outputsTo: ['estimate-photo-date-from-embedded'] },
+            { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews' },
+            { id: 'estimate-photo-date-from-embedded', kind: 'module', moduleId: 'runtime.estimate_photo_date' },
+            { id: 'estimate-photo-date-from-ai', kind: 'module', moduleId: 'runtime.estimate_photo_date' },
         ],
     };
 

@@ -47,7 +47,6 @@ export type WorkflowModuleNodeDefinition = {
     id: string;
     kind: 'module';
     moduleId: string;
-    step: string;
     runMode?: 'per_subject' | 'once_per_batch';
     completesMilestones?: string[];
     outputsTo?: string[];
@@ -60,7 +59,6 @@ export type WorkflowControlNodeDefinition = {
     id: string;
     kind: 'control';
     controlType: 'for_each' | 'batch' | 'collect' | 'approval_gate';
-    step: string;
     outputsTo?: string[];
     presentation?: WorkflowNodePresentationDefinition;
 }
@@ -92,9 +90,17 @@ export type WorkflowNodePresentationDefinition = {
     artifactNoun?: WorkflowCountNounDefinition;
 }
 
+export type WorkflowStageDefinition = {
+    id: string;
+    label: string;
+    description: string;
+    nodeIds: string[];
+}
+
 export type WorkflowPresentationDefinition = {
     defaultRunLabel: string;
     milestones: WorkflowMilestoneDefinition[];
+    stages?: WorkflowStageDefinition[];
 }
 
 export type ModuleArtifactOutputDefinition = {
@@ -373,7 +379,6 @@ function assertControlNode(node: WorkflowControlNodeDefinition): void {
 
 function assertWorkflowNode(node: WorkflowNodeDefinition): void {
     assertNonEmptyString(node.id, 'workflow.node.id');
-    assertNonEmptyString(node.step, 'workflow.node.step');
     if (node.kind === 'module') {
         assertModuleNode(node);
         return;

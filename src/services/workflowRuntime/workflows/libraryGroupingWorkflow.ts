@@ -15,7 +15,6 @@ export const libraryGroupingWorkflowDefinition: WorkflowDefinition = {
             id: 'group-library-assets',
             kind: 'module',
             moduleId: 'runtime.group_similar_photos',
-            step: 'grouping',
             runMode: 'once_per_batch',
             completesMilestones: ['grouping_complete'],
             presentation: {

@@ -245,79 +245,11 @@ function summariseStage(
     };
 }
 function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRunDetail | null) {
-    if (definition.id === 'folder_ingest_v1') {
+    if (definition.presentation?.stages && definition.presentation.stages.length > 0) {
         return {
-            stages: [
-                summariseStage('discovery', 'Discovery', 'Scan the folder and discover files.', ['scan-folder'], runDetail, definition),
-                summariseStage(
-                    'library-ready',
-                    'Ingest',
-                    'Prepare previews and unlock the browsable library.',
-                    ['preview-each', 'detect-frame-fast', 'generate-previews', 'collect-previewed-assets'],
-                    runDetail,
-                    definition,
-                ),
-                summariseStage(
-                    'enrichment',
-                    'Enrichment',
-                    'Run downstream analysis, grouping, and metadata branches.',
-                    [
-                        'enrichment-each',
-                        'extract-embedded-metadata',
-                        'detect-frame-deep',
-                        'estimate-photo-date-from-embedded',
-                        'detect-faces',
-                        'generate-face-vectors',
-                        'collect-people',
-                        'resolve-people',
-                        'collect-similar',
-                        'group-similar-photos',
-                        'detect-sensitive-content',
-                        'generate-ai-metadata',
-                        'estimate-photo-date-from-ai',
-                    ],
-                    runDetail,
-                    definition,
-                ),
-            ],
-        };
-    }
-
-    if (definition.id === 'runtime.simulation_workflow') {
-        return {
-            stages: [
-                summariseStage('enumeration', 'Discovery', 'Simulate discovery of items.', ['enumerate-sim'], runDetail, definition),
-                summariseStage('fast_processing', 'Fast Processing', 'Simulate fast task step.', ['fast-task-sim', 'fast-task-sim-2', 'fast-task-sim-3'], runDetail, definition),
-                summariseStage('medium_processing', 'Medium Processing', 'Simulate medium task step.', [
-                    'medium-task-sim', 
-                    'medium-branch-success-each', 
-                    'medium-branch-failure-each',
-                    'medium-branch-1-step-1', 
-                    'medium-branch-1-step-2', 
-                    'medium-branch-1-step-3',
-                    'medium-branch-2-step-1',
-                    'medium-branch-3-step-1'
-                ], runDetail, definition),
-                summariseStage('slow_processing', 'Slow Processing', 'Simulate slow task step.', ['slow-task-sim'], runDetail, definition),
-            ],
-        };
-    }
-
-    if (definition.id === 'library_face_pipeline_v1') {
-        return {
-            stages: [
-                summariseStage('detection', 'Detection', 'Detect faces in assets.', ['detect-faces', 'generate-face-vectors'], runDetail, definition),
-                summariseStage('resolution', 'Resolution', 'Group and resolve people candidate identities.', ['collect-people', 'resolve-people'], runDetail, definition),
-            ],
-        };
-    }
-
-    if (definition.id === 'selected_subject_metadata_v1') {
-        return {
-            stages: [
-                summariseStage('preparation', 'Preparation', 'Expand selected subjects.', ['expand-selection'], runDetail, definition),
-                summariseStage('generation', 'Generation', 'Generate AI metadata and estimate photo dates.', ['generate-ai-metadata', 'estimate-photo-date-from-ai'], runDetail, definition),
-            ],
+            stages: definition.presentation.stages.map((stage) =>
+                summariseStage(stage.id, stage.label, stage.description, stage.nodeIds, runDetail, definition)
+            ),
         };
     }
 

@@ -22,8 +22,8 @@ test('workflow runtime validates subject types and DAG workflow definitions', as
             version: 1,
             inputs: ['asset'],
             nodes: [
-                { id: 'a', kind: 'module', moduleId: 'demo', step: 'test', outputsTo: ['b'] },
-                { id: 'b', kind: 'module', moduleId: 'demo', step: 'test', outputsTo: ['a'] },
+                { id: 'a', kind: 'module', moduleId: 'demo', outputsTo: ['b'] },
+                { id: 'b', kind: 'module', moduleId: 'demo', outputsTo: ['a'] },
             ],
         }),
         /cycle/i
@@ -71,7 +71,6 @@ test('workflow runtime registries reject duplicates and invalid workflow referen
                     id: 'generate-preview',
                     kind: 'module',
                     moduleId: 'missing.module',
-                    step: 'test',
                 },
             ],
         }),

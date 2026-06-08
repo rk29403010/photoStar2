@@ -12,13 +12,26 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
     presentation: {
         defaultRunLabel: 'Selected subject metadata workflow',
         milestones: [{ id: 'ai_metadata_complete', label: 'AI metadata complete' }],
+        stages: [
+            {
+                id: 'preparation',
+                label: 'Preparation',
+                description: 'Expand selected subjects.',
+                nodeIds: ['expand-selection'],
+            },
+            {
+                id: 'generation',
+                label: 'Generation',
+                description: 'Generate AI metadata and estimate photo dates.',
+                nodeIds: ['generate-ai-metadata', 'estimate-photo-date-from-ai'],
+            },
+        ],
     },
     nodes: [
         {
             id: 'expand-selection',
             kind: 'module',
             moduleId: 'runtime.expand_selection',
-            step: 'ai_metadata',
             outputsTo: ['generate-ai-metadata'],
             presentation: {
                 label: 'Expand selection',
@@ -30,7 +43,6 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
             id: 'generate-ai-metadata',
             kind: 'module',
             moduleId: 'runtime.generate_ai_metadata_scout',
-            step: 'ai_metadata',
             outputsTo: ['estimate-photo-date-from-ai'],
             presentation: {
                 label: 'Generate AI metadata',
@@ -42,7 +54,6 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
             id: 'estimate-photo-date-from-ai',
             kind: 'module',
             moduleId: 'runtime.estimate_photo_date',
-            step: 'ai_metadata',
             completesMilestones: ['ai_metadata_complete'],
             presentation: {
                 label: 'Estimate photo date from AI metadata',
