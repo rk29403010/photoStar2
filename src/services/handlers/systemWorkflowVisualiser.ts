@@ -253,7 +253,7 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
                     'library-ready',
                     'Ingest',
                     'Prepare previews and unlock the browsable library.',
-                    ['preview-each', 'generate-previews', 'collect-previewed-assets'],
+                    ['preview-each', 'detect-frame-fast', 'generate-previews', 'collect-previewed-assets'],
                     runDetail,
                     definition,
                 ),
@@ -264,6 +264,7 @@ function buildProgression(definition: WorkflowDefinition, runDetail: WorkflowRun
                     [
                         'enrichment-each',
                         'extract-embedded-metadata',
+                        'detect-frame-deep',
                         'estimate-photo-date-from-embedded',
                         'detect-faces',
                         'generate-face-vectors',
