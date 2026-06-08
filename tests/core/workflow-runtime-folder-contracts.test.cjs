@@ -142,7 +142,7 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     assert.ok(enrichmentFanout);
     assert.equal(enrichmentFanout.kind, 'control');
     assert.equal(enrichmentFanout.controlType, 'for_each');
-    assert.deepEqual(enrichmentFanout.outputsTo, ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content']);
+    assert.deepEqual(enrichmentFanout.outputsTo, ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-frame-deep']);
     assert.ok(detectFaces);
     assert.deepEqual(generateFaceVectors.outputsTo, ['collect-people']);
     assert.deepEqual(collectSimilar.outputsTo, ['group-similar-photos']);
