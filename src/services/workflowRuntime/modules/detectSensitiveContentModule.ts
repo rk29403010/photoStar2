@@ -9,6 +9,8 @@ export type DetectSensitiveContentModuleOptions = {
     };
 }
 
+// TODO: Implement actual sensitive content detection.
+
 export function createDetectSensitiveContentModule(options: DetectSensitiveContentModuleOptions): ModuleDefinition {
     return {
         id: 'runtime.detect_sensitive_content',

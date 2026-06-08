@@ -43,7 +43,7 @@ function findContourPoints(mask: Uint8Array, width: number, height: number): Arr
 
 export function createDetectFramesModule(options: DetectFramesModuleOptions): ModuleDefinition {
     return {
-        id: 'runtime.detect_frames',
+        id: 'runtime.detect_frame',
         version: 1,
         capability: 'analyze',
         accepts: ['asset'],

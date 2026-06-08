@@ -35,9 +35,20 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             step: 'ingest',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['generate-previews'],
+            outputsTo: ['detect-frame-fast'],
             presentation: {
                 label: 'Preview each',
+                countNoun: { singular: 'image', plural: 'images' },
+            },
+        },
+        {
+            id: 'detect-frame-fast',
+            step: 'ingest',
+            kind: 'module',
+            moduleId: 'runtime.detect_frame',
+            outputsTo: ['generate-previews'], // Now we generate previews using the fast frame bounds
+            presentation: {
+                label: 'Quick border scan',
                 countNoun: { singular: 'image', plural: 'images' },
             },
         },
@@ -70,7 +81,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             step: 'enrichment',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content'],
+            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-frame-deep'],
             presentation: {
                 label: 'Enrich each image',
                 countNoun: { singular: 'image', plural: 'images' },
@@ -86,6 +97,17 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
                 label: 'Extract embedded metadata',
                 countNoun: { singular: 'image', plural: 'images' },
                 artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
+            },
+        },
+        {
+            id: 'detect-frame-deep',
+            step: 'enrichment',
+            kind: 'module',
+            moduleId: 'runtime.detect_frame',
+            outputsTo: ['generate-ai-metadata'], // Or whatever makes logical sense for your dependency graph
+            presentation: {
+                label: 'AI frame segmentation',
+                countNoun: { singular: 'image', plural: 'images' },
             },
         },
         {
