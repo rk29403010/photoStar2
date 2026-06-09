@@ -149,6 +149,7 @@ function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], 
       onRemoveAssetTag={props.onRemoveAssetTag}
       onSetReviewItemStatus={props.onSetReviewItemStatus}
       onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+      onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
     />
   );
 }
