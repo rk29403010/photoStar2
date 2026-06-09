@@ -15,7 +15,7 @@ const NODE_WIDTH = 248;
 const NODE_MAX_WIDTH = 360;
 const NODE_HEIGHT = 148;
 const NODE_GAP_X = 28;
-const NODE_GAP_Y = 56;
+const NODE_GAP_Y = 80;
 
 export type WorkflowSequenceMapStageBox = {
     id: string;
@@ -66,8 +66,8 @@ export type WorkflowSequenceMap = {
     edges: WorkflowSequenceMapEdge[];
 }
 
-function getNodeHeight(showRuntimeDetails: boolean): number {
-    return showRuntimeDetails ? NODE_HEIGHT : 96;
+function getNodeHeight(_showRuntimeDetails: boolean): number {
+    return NODE_HEIGHT;
 }
 
 function getNodeWidth(node: WorkflowVisualiserGraphNode, showRuntimeDetails: boolean): number {
@@ -266,7 +266,7 @@ export function buildWorkflowSequenceMap(params: {
         const previousStage = stageBoxes[stageIndex - 1];
         const stageX = previousStage
             ? previousStage.position.x + previousStage.size.width + STAGE_GAP_X
-            : 0;
+            : 40;
         const stageY = 0;
 
         stageBoxes.push({
