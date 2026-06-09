@@ -62,7 +62,7 @@ function JobProgressStats({ job }: { readonly job: BackgroundJob }) {
     const { current, facesRecognised, indexed, message, warnings } = job.progress;
 
     return (
-        <div className="mt-1 flex gap-3 text-xs text-slate-300">
+        <div className="mt-1 flex gap-3 text-xs text-content-secondary">
             {indexed != null && <span>{indexed} indexed</span>}
             {facesRecognised != null && <span>{facesRecognised} faces</span>}
             {warnings ? <span>{warnings} warnings</span> : null}
@@ -94,11 +94,11 @@ export function JobRow({ job, onStop }: { readonly job: BackgroundJob, readonly 
     };
 
     return (
-        <div className="border-b border-slate-800 py-3">
+        <div className="border-b border-content/10 py-3">
             <div className="flex justify-between items-center mb-1">
-                <div className="font-medium text-slate-100">{job.title}</div>
+                <div className="font-medium text-content">{job.title}</div>
                 <div className="flex items-center gap-2">
-                    <div className="text-xs text-slate-300 capitalize">{job.state}</div>
+                    <div className="text-xs text-content-secondary capitalize">{job.state}</div>
                     <StopJobButton actionLabel={actionLabel} isStopping={isStopping} onStop={handleStop} />
                 </div>
             </div>
@@ -113,13 +113,13 @@ export function JobRow({ job, onStop }: { readonly job: BackgroundJob, readonly 
                         indeterminate={stagePercent == null}
                         percent={stagePercent}
                     />
-                    <div className="mt-1 text-[10px] text-slate-400">
+                    <div className="mt-1 text-[10px] text-content-secondary/80">
                         {runningStage.label}: {runningStage.done ?? 0}/{runningStage.total ?? 0}
                     </div>
                 </div>
             ) : null}
 
-            <div className="text-slate-300">
+            <div className="text-content-secondary">
                 <JobProgressStats job={job} />
             </div>
         </div>
