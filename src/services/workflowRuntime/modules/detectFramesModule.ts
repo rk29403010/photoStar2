@@ -41,6 +41,32 @@ function findContourPoints(mask: Uint8Array, width: number, height: number): Arr
     return points;
 }
 
+async function runDeepPathSegmentation(originalPath: string): Promise<Array<{ x: number; y: number }>> {
+    await initImageSegmentation();
+    const image = sharp(originalPath);
+    const TARGET_WIDTH = 1024;
+    const TARGET_HEIGHT = 1024;
+
+    const resizedImage = await image
+        .rotate()
+        .resize(TARGET_WIDTH, TARGET_HEIGHT, {
+            fit: 'fill',
+        })
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+    const float32Data = new Float32Array(3 * TARGET_HEIGHT * TARGET_WIDTH);
+    for (let index = 0; index < TARGET_HEIGHT * TARGET_WIDTH; index += 1) {
+        float32Data[index] = resizedImage.data[index * 3] / 255;
+        float32Data[index + TARGET_HEIGHT * TARGET_WIDTH] = resizedImage.data[index * 3 + 1] / 255;
+        float32Data[index + 2 * TARGET_HEIGHT * TARGET_WIDTH] = resizedImage.data[index * 3 + 2] / 255;
+    }
+
+    const mask = await segmentPhotoFromFrame(float32Data, TARGET_WIDTH, TARGET_HEIGHT);
+    return findContourPoints(mask, TARGET_WIDTH, TARGET_HEIGHT);
+}
+
 export function createDetectFramesModule(options: DetectFramesModuleOptions): ModuleDefinition {
     return {
         id: 'runtime.detect_frame',
@@ -69,29 +95,7 @@ export function createDetectFramesModule(options: DetectFramesModuleOptions): Mo
                         pathType = 'fast';
                     } else {
                         // 2. Deep Path: Execute segmentPhotoFromFrame
-                        await initImageSegmentation();
-                        const image = sharp(asset.original_path);
-                        const TARGET_WIDTH = 1024;
-                        const TARGET_HEIGHT = 1024;
-
-                        const resizedImage = await image
-                            .rotate()
-                            .resize(TARGET_WIDTH, TARGET_HEIGHT, {
-                                fit: 'fill',
-                            })
-                            .removeAlpha()
-                            .raw()
-                            .toBuffer({ resolveWithObject: true });
-
-                        const float32Data = new Float32Array(3 * TARGET_HEIGHT * TARGET_WIDTH);
-                        for (let index = 0; index < TARGET_HEIGHT * TARGET_WIDTH; index += 1) {
-                            float32Data[index] = resizedImage.data[index * 3] / 255.0;
-                            float32Data[index + TARGET_HEIGHT * TARGET_WIDTH] = resizedImage.data[index * 3 + 1] / 255.0;
-                            float32Data[index + 2 * TARGET_HEIGHT * TARGET_WIDTH] = resizedImage.data[index * 3 + 2] / 255.0;
-                        }
-
-                        const mask = await segmentPhotoFromFrame(float32Data, TARGET_WIDTH, TARGET_HEIGHT);
-                        const polygon = findContourPoints(mask, TARGET_WIDTH, TARGET_HEIGHT);
+                        const polygon = await runDeepPathSegmentation(asset.original_path);
                         boundaryData = {
                             type: 'polygon',
                             points: polygon

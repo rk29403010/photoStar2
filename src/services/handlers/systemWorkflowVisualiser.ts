@@ -155,8 +155,8 @@ function buildGraph(definition: WorkflowDefinition, runDetail: WorkflowRunDetail
 }
 
 function buildVisualiserNodes(
-    definition: WorkflowDefinition, 
-    runDetail: WorkflowRunDetail | null, 
+    definition: WorkflowDefinition,
+    runDetail: WorkflowRunDetail | null,
     upstreamIdsByNode: Map<string, string[]>,
     getModuleDefinition: (moduleId: string) => ModuleDefinition
 ): WorkflowVisualiserGraphNode[] {
@@ -164,7 +164,7 @@ function buildVisualiserNodes(
         const counts = getStepCounts(runDetail, node.id);
         const moduleDef = node.kind === 'module' ? getModuleDefinition(node.moduleId) : undefined;
         const estimatedCostPerCall = moduleDef?.estimatedCostPerCall;
-        const totalEstimatedCost = estimatedCostPerCall !== undefined ? estimatedCostPerCall * counts.totalItems : undefined;
+        const totalEstimatedCost = estimatedCostPerCall === undefined ? undefined : estimatedCostPerCall * counts.totalItems;
 
         return {
             id: node.id,
