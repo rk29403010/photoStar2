@@ -12,7 +12,7 @@ import { usePhotoViewportImageState } from './usePhotoViewportImageState';
 import { useViewportStageDimensions } from './useViewportStageDimensions';
 export type PanelState = { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json' | 'ailogs'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json' | 'ailogs') => void }
 export type AnalysisState = { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
-type PhotoViewportProps = { readonly asset: Asset; readonly assetsLength: number; readonly currentIndex: number; readonly showControls: boolean; readonly setShowControls: Dispatch<SetStateAction<boolean>>; readonly showFaces: boolean; readonly setShowFaces: Dispatch<SetStateAction<boolean>>; readonly showActionMenu: boolean; readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>; readonly hoveredFaceKey: string | null; readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; readonly panelState: PanelState; readonly onClose: () => void; readonly onFaceClick?: (personId: string, personName: string) => void; readonly onIsolateFace?: (assetId: string, faceIndex: number) => void; readonly onSetSensitivity?: (assetId: string, status: string | null) => void; readonly onMoveToBin?: (assetId: string) => Promise<void>; readonly onRestoreFromBin?: (assetId: string) => Promise<void>; readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>; readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>; readonly onOpenSettings?: () => void; readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; readonly onOrbitLoaded: (assets: Asset[]) => void; readonly onSelectAsset: (assetId: string) => void; readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; readonly onExplodeGroup?: (groupId: string) => Promise<void>; readonly onChangeIndex: (delta: -1 | 1) => void; readonly analysis: AnalysisState; readonly onRevealControls: () => void }
+type PhotoViewportProps = { readonly asset: Asset; readonly assetsLength: number; readonly currentIndex: number; readonly showControls: boolean; readonly setShowControls: Dispatch<SetStateAction<boolean>>; readonly showFaces: boolean; readonly setShowFaces: Dispatch<SetStateAction<boolean>>; readonly showActionMenu: boolean; readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>; readonly hoveredFaceKey: string | null; readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; readonly panelState: PanelState; readonly onClose: () => void; readonly onFaceClick?: (personId: string, personName: string) => void; readonly onIsolateFace?: (assetId: string, faceIndex: number) => void; readonly onSetSensitivity?: (assetId: string, status: string | null) => void; readonly onMoveToBin?: (assetId: string) => Promise<void>; readonly onRestoreFromBin?: (assetId: string) => Promise<void>; readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>; readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>; readonly onOpenSettings?: () => void; readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; readonly onOrbitLoaded: (assets: Asset[]) => void; readonly onSelectAsset: (assetId: string) => void; readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; readonly onExplodeGroup?: (groupId: string) => Promise<void>; readonly onChangeIndex: (delta: -1 | 1) => void; readonly analysis: AnalysisState; readonly onRevealControls: () => void; readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void }
 
 const ViewportActions: FC<{
     readonly asset: Asset;
@@ -40,6 +40,7 @@ const ViewportActions: FC<{
     readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     readonly onOpenSettings?: () => void;
     readonly analysis: AnalysisState;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }> = ({
     asset,
     assetsLength,
@@ -65,7 +66,8 @@ const ViewportActions: FC<{
     onExtractAiMetadata,
     onRerunFaceDetection,
     onOpenSettings,
-    analysis
+    analysis,
+    onRunWorkflowOnAssets
 }) => {
     return (
     <ActionOverlays
@@ -102,6 +104,7 @@ const ViewportActions: FC<{
         analyzingAssetId={analysis.analyzingAssetId}
         setAnalyzingAssetId={analysis.setAnalyzingAssetId}
         setAnalyzingJobId={analysis.setAnalyzingJobId}
+        onRunWorkflowOnAssets={onRunWorkflowOnAssets}
     />
     );
 };
@@ -154,6 +157,7 @@ type PhotoViewportFrameProps = {
     readonly onRevealControls: () => void;
     readonly onActiveImageLoad: () => void;
     readonly onPendingImageLoad: () => void;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 };
 
 const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', userSelect: 'none' } as const;
@@ -222,7 +226,7 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
     );
 };
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onMoveToBin' | 'onRestoreFromBin' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onRerunFaceDetection' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset'> & { readonly actionAsset: Asset; readonly onActiveGroupChange: (groupId: string) => void }> = ({
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onMoveToBin' | 'onRestoreFromBin' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onRerunFaceDetection' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset' | 'onRunWorkflowOnAssets'> & { readonly actionAsset: Asset; readonly onActiveGroupChange: (groupId: string) => void }> = ({
     selectedAsset,
     actionAsset,
     assetsLength,
@@ -253,6 +257,7 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'a
     onOrbitLoaded,
     onSelectAsset,
     onActiveGroupChange,
+    onRunWorkflowOnAssets
 }) => (
     <>
         <ViewportActions
@@ -281,6 +286,7 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'a
             onRerunFaceDetection={onRerunFaceDetection}
             onOpenSettings={onOpenSettings}
             analysis={analysis}
+            onRunWorkflowOnAssets={onRunWorkflowOnAssets}
         />
 
         <VariantFilmstripOverlay
@@ -352,6 +358,7 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 onOrbitLoaded={props.onOrbitLoaded}
                 onSelectAsset={props.onSelectAsset}
                 onActiveGroupChange={props.onActiveGroupChange}
+                onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
             />
         </>
     );
@@ -438,6 +445,7 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             onPendingImageLoad={commitPendingImage}
             actionAsset={actionAsset}
             onActiveGroupChange={setRequestedActiveGroupId}
+            onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
         />
     );
 };

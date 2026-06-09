@@ -49,6 +49,7 @@ export type SinglePhotoOverlayProps = {
     readonly analysis: AnalysisState;
     readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
     readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }
 
 function PhotoInfoSidebar(props: {
@@ -134,6 +135,7 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
             onChangeIndex={props.onChangeIndex}
             onRevealControls={props.onRevealControls}
             analysis={props.analysis}
+            onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
         />
         <PhotoInfoSidebar
             asset={props.asset}

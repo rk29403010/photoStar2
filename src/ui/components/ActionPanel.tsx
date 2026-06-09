@@ -23,6 +23,8 @@ type ActionPanelProps = {
     readonly onOpenGroupDiagnostics: () => void;
     readonly onStartSimulationWorkflow: (params?: { speed?: string; iterations?: string; errorType?: string; errorRate?: string }) => void;
     readonly folderHistory?: { path: string; last_scanned_at: string }[];
+    readonly selectedAssetIds?: string[];
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }
 
 type ActionCardItem = {
@@ -342,6 +344,95 @@ function ManualPathPrompt(props: {
     );
 }
 
+function RunWorkflowSection(props: {
+    readonly selectedAssetIds?: string[];
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onClose: () => void;
+}) {
+    const [selectedWorkflow, setSelectedWorkflow] = useState('library_previews_v1');
+    const selectionCount = props.selectedAssetIds?.length ?? 0;
+
+    return (
+        <section className={`mt-6 rounded-xl border border-content/10 bg-surface-secondary p-4 ${selectionCount === 0 ? 'opacity-50' : ''}`}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-xs font-black uppercase tracking-widest text-content-secondary">
+                    Run Workflow on Selected Photos ({selectionCount} selected)
+                </h3>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+                <select
+                    aria-label="Select workflow to run"
+                    value={selectedWorkflow}
+                    onChange={(e) => setSelectedWorkflow(e.target.value)}
+                    className="min-w-64 rounded-lg border border-content/10 bg-surface px-3 py-2 text-sm text-content"
+                    disabled={selectionCount === 0}
+                >
+                    <option value="library_previews_v1">Generate Previews</option>
+                    <option value="library_face_pipeline_v1">Run Face Workflow</option>
+                    <option value="library_ai_metadata_v1">Run AI Metadata</option>
+                    <option value="library_sensitive_scan_v1">Scan Sensitive Content</option>
+                    <option value="library_photo_date_v1">Recalculate Photo Dates</option>
+                </select>
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (props.selectedAssetIds && props.selectedAssetIds.length > 0) {
+                            props.onRunWorkflowOnAssets?.(selectedWorkflow, props.selectedAssetIds);
+                            props.onClose();
+                        }
+                    }}
+                    disabled={selectionCount === 0}
+                    className="rounded-lg border border-blue-500/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-100 hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    Run Workflow
+                </button>
+            </div>
+        </section>
+    );
+}
+
+function ActionPanelTabContent(props: {
+    readonly activeTab: ActionTab;
+    readonly showManualPathPrompt: boolean;
+    readonly tabItems: Record<ActionTab, ActionCardItem[]>;
+    readonly actionPanelProps: ActionPanelProps;
+    readonly setShowManualPathPrompt: (show: boolean) => void;
+}) {
+    const { activeTab, showManualPathPrompt, tabItems, actionPanelProps, setShowManualPathPrompt } = props;
+
+    return (
+        <>
+            <ActionGrid items={tabItems[activeTab]} />
+            {activeTab === 'workflows' && (
+                <RunWorkflowSection
+                    selectedAssetIds={actionPanelProps.selectedAssetIds}
+                    onRunWorkflowOnAssets={actionPanelProps.onRunWorkflowOnAssets}
+                    onClose={actionPanelProps.onClose}
+                />
+            )}
+            {activeTab === 'ingest' && showManualPathPrompt && (
+                <ManualPathPrompt
+                    onScan={(path) => {
+                        actionPanelProps.onScan(path);
+                        setShowManualPathPrompt(false);
+                        actionPanelProps.onClose();
+                    }}
+                    onCancel={() => setShowManualPathPrompt(false)}
+                />
+            )}
+            {activeTab === 'ingest' && (
+                <RecentPaths
+                    entries={actionPanelProps.folderHistory ?? []}
+                    onScan={(path) => {
+                        actionPanelProps.onScan(path);
+                        actionPanelProps.onClose();
+                    }}
+                />
+            )}
+        </>
+    );
+}
+
 function OpenActionPanel(props: ActionPanelProps) {
     const panelRef = useRef<HTMLDialogElement>(null);
     const [activeTab, setActiveTab] = useState<ActionTab>('ingest');
@@ -390,26 +481,13 @@ function OpenActionPanel(props: ActionPanelProps) {
                     <p className="mt-1 text-xs text-content-secondary">{activeTabDefinition.summary}</p>
                 </div>
 
-                <ActionGrid items={tabItems[activeTab]} />
-                {activeTab === 'ingest' && showManualPathPrompt && (
-                    <ManualPathPrompt
-                        onScan={(path) => {
-                            props.onScan(path);
-                            setShowManualPathPrompt(false);
-                            props.onClose();
-                        }}
-                        onCancel={() => setShowManualPathPrompt(false)}
-                    />
-                )}
-                {activeTab === 'ingest' && (
-                    <RecentPaths
-                        entries={props.folderHistory ?? []}
-                        onScan={(path) => {
-                            props.onScan(path);
-                            props.onClose();
-                        }}
-                    />
-                )}
+                <ActionPanelTabContent
+                    activeTab={activeTab}
+                    showManualPathPrompt={showManualPathPrompt}
+                    tabItems={tabItems}
+                    actionPanelProps={props}
+                    setShowManualPathPrompt={setShowManualPathPrompt}
+                />
             </dialog>
         </div>
     );

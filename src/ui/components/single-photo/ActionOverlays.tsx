@@ -39,6 +39,7 @@ type ActionOverlaysProps = {
     readonly setAnalyzingJobId: (id: string | null) => void;
     readonly showInfoPanel: boolean;
     readonly setShowInfoPanel: (show: boolean) => void;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }
 
 export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
@@ -74,7 +75,8 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
     setAnalyzingAssetId,
     setAnalyzingJobId,
     showInfoPanel,
-    setShowInfoPanel
+    setShowInfoPanel,
+    onRunWorkflowOnAssets
 }) => (
     <>
         <ControlsOverlay
@@ -109,6 +111,7 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
             showInfoPanel={showInfoPanel}
             setShowInfoPanel={setShowInfoPanel}
             controlsVisible={showControls}
+            onRunWorkflowOnAssets={onRunWorkflowOnAssets}
         />
         {analysisError && (
             <AnalysisErrorDialog

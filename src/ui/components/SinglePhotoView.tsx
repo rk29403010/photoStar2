@@ -58,6 +58,7 @@ type SinglePhotoViewProps = {
     readonly onActiveInfoTabChange?: (t: ActiveInfoTab) => void;
     readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
     readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }
 
 type ControlsState = {
@@ -326,6 +327,7 @@ function renderSinglePhotoOverlay(params: {
             onFlagPhotoDateCorrection={params.props.onFlagPhotoDateCorrection}
             onGetAiCallsLog={params.props.onGetAiCallsLog}
             onGetAiCallLogDetail={params.props.onGetAiCallLogDetail}
+            onRunWorkflowOnAssets={params.props.onRunWorkflowOnAssets}
             onChangeIndex={params.controls.onChangeIndex}
             onRevealControls={params.controls.revealControls}
             analysis={buildAnalysisState(params.analysisUi)}

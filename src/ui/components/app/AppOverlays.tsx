@@ -5,6 +5,7 @@ import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDet
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
+import { getLibrarySelectionAssetIds, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { TaskDrawer } from '../jobs/TaskDrawer';
 import { ActionPanel } from '../ActionPanel';
 import { SettingsModal } from '../SettingsModal';
@@ -77,6 +78,8 @@ type AppOverlaysProps = {
   readonly onTaskDrawerMinimizedChange: (minimized: boolean) => void;
   readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
   readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
+  readonly librarySelection: LibrarySelectionState;
+  readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[]) => void;
 }
 
 function createSelectedAssetCache() {
@@ -175,6 +178,8 @@ export function AppOverlays(props: AppOverlaysProps) {
         onOpenGroupDiagnostics={props.onOpenGroupDiagnostics}
         onStartSimulationWorkflow={props.onStartSimulationWorkflow}
         folderHistory={props.folderHistory}
+        selectedAssetIds={getLibrarySelectionAssetIds(props.librarySelection, props.assets)}
+        onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
       />
 
       <SettingsModal

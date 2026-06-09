@@ -1,4 +1,4 @@
-import type React from 'react';
+import React, { useState } from 'react';
 import type { Asset } from '@contracts/core';
 import type { AiMetadataRequestOptions, AiMetadataImageStrategy, AiMetadataPass } from '@shared/aiMetadata/analysisOptions';
 import { TopBar, ZoomBar } from './ActionOverlayChrome';
@@ -40,6 +40,7 @@ type ControlsOverlayProps = {
     readonly showInfoPanel: boolean;
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly controlsVisible: boolean;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }
 
 type ActionMenuProps = {
@@ -58,6 +59,7 @@ type ActionMenuProps = {
     readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly onExplodeGroup?: (groupId: string) => Promise<void>;
     readonly setShowActionMenu: (show: boolean) => void;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }
 
 function menuHover() {
@@ -405,6 +407,96 @@ function renderAnalysisStatus({
     return null;
 }
 
+function RunWorkflowMenuItems(props: ActionMenuProps) {
+    const [showSelector, setShowSelector] = useState(false);
+
+    if (!props.onRunWorkflowOnAssets) {
+        return null;
+    }
+
+    if (!showSelector) {
+        return (
+            <>
+                <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
+                <MenuItem
+                    color="#38bdf8"
+                    active={false}
+                    icon="⚙️"
+                    label="Run Workflow"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        setShowSelector(true);
+                    }}
+                />
+            </>
+        );
+    }
+
+    const handleSelect = (workflowId: string) => {
+        props.onRunWorkflowOnAssets?.(workflowId, [props.asset.id]);
+        props.setShowActionMenu(false);
+        setShowSelector(false);
+    };
+
+    return (
+        <>
+            <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
+            <div style={{ padding: '4px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>SELECT WORKFLOW</span>
+                <button
+                    onClick={() => handleSelect('library_previews_v1')}
+                    style={menuItemStyle('#c084fc', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🖼️ Generate Previews
+                </button>
+                <button
+                    onClick={() => handleSelect('library_face_pipeline_v1')}
+                    style={menuItemStyle('#67e8f9', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🎯 Run Face Workflow
+                </button>
+                <button
+                    onClick={() => handleSelect('library_ai_metadata_v1')}
+                    style={menuItemStyle('#6366f1', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🧠 Run AI Metadata
+                </button>
+                <button
+                    onClick={() => handleSelect('library_sensitive_scan_v1')}
+                    style={menuItemStyle('#ef4444', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🔞 Scan Sensitive Content
+                </button>
+                <button
+                    onClick={() => handleSelect('library_photo_date_v1')}
+                    style={menuItemStyle('#facc15', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🗓️ Recalculate Photo Dates
+                </button>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSelector(false);
+                    }}
+                    style={{ ...menuItemStyle('#94a3b8', false), justifyContent: 'center', fontSize: '11px', border: '1px solid #1f2937', marginTop: '4px' }}
+                >
+                    Back
+                </button>
+            </div>
+        </>
+    );
+}
+
 const ActionMenu: React.FC<ActionMenuProps> = (props) => {
     if (!props.show) {return null;}
 
@@ -415,6 +507,7 @@ const ActionMenu: React.FC<ActionMenuProps> = (props) => {
             <GroupMenuItems asset={props.asset} onSetCanonical={props.onSetCanonical} onExplodeGroup={props.onExplodeGroup} setShowActionMenu={props.setShowActionMenu} />
             <BinMenuItem asset={props.asset} onMoveToBin={props.onMoveToBin} onRestoreFromBin={props.onRestoreFromBin} setShowActionMenu={props.setShowActionMenu} />
             <SensitivityMenuItems asset={props.asset} onSetSensitivity={props.onSetSensitivity} setShowActionMenu={props.setShowActionMenu} />
+            <RunWorkflowMenuItems {...props} />
         </div>
     );
 };
@@ -475,7 +568,8 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
     setAnalyzingJobId,
     showInfoPanel,
     setShowInfoPanel,
-    controlsVisible
+    controlsVisible,
+    onRunWorkflowOnAssets
 }) => {
     const persistentAnalysisStatus = renderAnalysisStatus({
         analysisState,
@@ -498,6 +592,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
         onSetCanonical,
         onExplodeGroup,
         setShowActionMenu,
+        onRunWorkflowOnAssets,
     });
 
     return (
