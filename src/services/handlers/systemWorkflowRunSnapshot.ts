@@ -63,7 +63,7 @@ function getWorkflowDisplayName(workflowId: string, workflows?: WorkflowRegistry
             // fallback
         }
     }
-    return workflowId === 'folder_ingest_v1' ? 'Folder ingest' : workflowId;
+    return workflowId;
 }
 
 function loadWorkflowRuns(db: DbLike): WorkflowRunRow[] {

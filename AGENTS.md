@@ -254,3 +254,9 @@ After Playwright-driven test/debug runs, check for `@playwright/mcp` or
 
 - Any database migrations, backfills of existing records, or data cleanup tasks must be implemented as dev-time one-off scripts (e.g. under `tooling/scripts/repo/`), rather than during application startup runtime initialization (such as `initSchema`).
 - Database schema changes (DDL) should be applied to standard DB creation and schema scripts so that deleting the DB and starting from scratch is always possible.
+
+## Workflows and Modules
+
+- Workflows and modules must be completely self-contained and self-describing.
+- Never hardcode workflow presentation details (like fallback names, display labels, or stages) outside the actual workflow definition files.
+- If a workflow configuration or definition is not found in the registry, the system must degrade gracefully (e.g., return the workflow ID itself as the fallback name and leave the stage undefined), rather than introducing hardcoded dependencies or lookup tables.

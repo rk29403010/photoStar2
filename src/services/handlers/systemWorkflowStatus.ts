@@ -23,16 +23,6 @@ function asDbLike(db: unknown): DbLike {
     return db as DbLike;
 }
 
-const WORKFLOW_FALLBACK_NAMES: Record<string, string> = {
-    folder_ingest_v1: 'Folder ingest',
-    library_grouping_v1: 'Library grouping',
-    library_previews_v1: 'Library previews',
-    library_face_pipeline_v1: 'Face workflow',
-    library_sensitive_scan_v1: 'Sensitive content workflow',
-    library_ai_metadata_v1: 'AI metadata workflow',
-    library_photo_date_v1: 'Photo date recalculation',
-};
-
 function getWorkflowDisplayName(workflowId: string, workflows?: WorkflowRegistry): string {
     if (workflows) {
         try {
@@ -44,15 +34,8 @@ function getWorkflowDisplayName(workflowId: string, workflows?: WorkflowRegistry
             // fallback if not found in registry
         }
     }
-    return WORKFLOW_FALLBACK_NAMES[workflowId] ?? workflowId;
+    return workflowId;
 }
-
-const WORKFLOW_FALLBACK_STAGES: Record<string, string> = {
-    library_previews_v1: 'preview_generation',
-    library_face_pipeline_v1: 'face_analysis',
-    library_ai_metadata_v1: 'ai_metadata',
-    library_sensitive_scan_v1: 'sensitive_scan',
-};
 
 function getWorkflowStage(workflowId: string, workflows?: WorkflowRegistry): string | undefined {
     if (workflows) {
@@ -65,7 +48,7 @@ function getWorkflowStage(workflowId: string, workflows?: WorkflowRegistry): str
             // fallback if not found in registry
         }
     }
-    return WORKFLOW_FALLBACK_STAGES[workflowId] ?? 'scan';
+    return undefined;
 }
 
 export function getWorkflowStatusSnapshot(db: unknown, workflows?: WorkflowRegistry) {
