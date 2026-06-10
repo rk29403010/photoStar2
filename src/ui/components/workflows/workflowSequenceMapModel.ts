@@ -66,8 +66,8 @@ export type WorkflowSequenceMap = {
     edges: WorkflowSequenceMapEdge[];
 }
 
-function getNodeHeight(_showRuntimeDetails: boolean): number {
-    return NODE_HEIGHT;
+function getNodeHeight(showRuntimeDetails: boolean): number {
+    return showRuntimeDetails ? NODE_HEIGHT : 96;
 }
 
 function getNodeWidth(node: WorkflowVisualiserGraphNode, showRuntimeDetails: boolean): number {

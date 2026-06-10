@@ -9,9 +9,9 @@ export const SEQUENCE_NODE_BOTTOM_HANDLE_ID = 'sequence-node-bottom';
 
 function getEdgeClearanceY(
     sourceStageId: string,
-    stageBoxesById: Record<string, WorkflowSequenceMapStageBox>
+    stageBoxesById?: Record<string, WorkflowSequenceMapStageBox>
 ): number {
-    const sourceStage = stageBoxesById[sourceStageId];
+    const sourceStage = stageBoxesById?.[sourceStageId];
     const sourceBottom = sourceStage ? sourceStage.position.y + sourceStage.size.height : 0;
     return sourceBottom + 32;
 }
@@ -19,10 +19,10 @@ function getEdgeClearanceY(
 function getEdgeGapX(
     sourceStageId: string,
     targetStageId: string,
-    stageBoxesById: Record<string, WorkflowSequenceMapStageBox>
+    stageBoxesById?: Record<string, WorkflowSequenceMapStageBox>
 ): number {
-    const sourceStage = stageBoxesById[sourceStageId];
-    const targetStage = stageBoxesById[targetStageId];
+    const sourceStage = stageBoxesById?.[sourceStageId];
+    const targetStage = stageBoxesById?.[targetStageId];
     const sourceRight = sourceStage ? sourceStage.position.x + sourceStage.size.width : 0;
     const targetLeft = targetStage ? targetStage.position.x : 0;
     return (sourceRight + targetLeft) / 2;
@@ -31,7 +31,7 @@ function getEdgeGapX(
 export function buildWorkflowSequenceFlowEdges(
     edges: WorkflowVisualiserGraphEdge[],
     stageIdsByNodeId: Record<string, string>,
-    stageBoxesById: Record<string, WorkflowSequenceMapStageBox>,
+    stageBoxesById?: Record<string, WorkflowSequenceMapStageBox>,
 ): Edge[] {
     return edges.map((edge) => {
         const isFailure = edge.kind === 'failure';

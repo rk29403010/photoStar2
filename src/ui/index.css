@@ -85,6 +85,14 @@
   --btn-bg: #1a1a1a;
   --btn-border-hover: #646cff;
 
+  --json-key: #93c5fd;
+  --json-str: #86efac;
+  --json-num: #fcd34d;
+  --json-bool: #67e8f9;
+  --json-nil: #f87171;
+  --json-brace: #94a3b8;
+  --json-index: #64748b;
+
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -116,6 +124,14 @@ body,
   --link-hover: #747bff;
   --btn-bg: #f9f9f9;
   --btn-border-hover: #747bff;
+
+  --json-key: #2563eb;
+  --json-str: #16a34a;
+  --json-num: #d97706;
+  --json-bool: #0891b2;
+  --json-nil: #dc2626;
+  --json-brace: #64748b;
+  --json-index: #94a3b8;
 
   color-scheme: light;
   color: var(--content-primary);
@@ -224,3 +240,12 @@ h1 {
     opacity: 1;
   }
 }
+
+.json-key { color: var(--json-key); }
+.json-str { color: var(--json-str); }
+.json-num { color: var(--json-num); }
+.json-bool { color: var(--json-bool); }
+.json-nil { color: var(--json-nil); }
+.json-brace { color: var(--json-brace); }
+.json-index { color: var(--json-index); }
+

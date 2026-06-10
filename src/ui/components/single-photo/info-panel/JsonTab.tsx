@@ -2,7 +2,6 @@ import type React from 'react';
 import { useState } from 'react';
 import type { Asset } from '@contracts/core';
 
-const J = { key: '#93c5fd', str: '#86efac', num: '#fcd34d', bool: '#67e8f9', nil: '#f87171', brace: '#94a3b8', index: '#475569' } as const;
 type JsonValue = unknown;
 
 type JsonNodeProps = {
@@ -22,42 +21,42 @@ function getEntries(value: JsonValue): [string, unknown][] {
 
 function renderKeyLabel(keyName: string | undefined, isArrayParent: boolean): React.ReactNode {
   if (keyName === undefined) {return null;}
-  if (isArrayParent && /^\d+$/.test(keyName)) {return <span style={{ color: J.index }}>[{keyName}]&nbsp;</span>;}
-  return <><span style={{ color: J.key }}>&quot;{keyName}&quot;</span><span style={{ color: J.brace }}>:&nbsp;</span></>;
+  if (isArrayParent && /^\d+$/.test(keyName)) {return <span className="json-index">[{keyName}]&nbsp;</span>;}
+  return <><span className="json-key">&quot;{keyName}&quot;</span><span className="json-brace">:&nbsp;</span></>;
 }
 
 const JsonLeaf: React.FC<{ readonly value: JsonValue; readonly keyLabel: React.ReactNode; readonly comma: string; readonly indent: number; readonly wordWrap: boolean }> = ({ value, keyLabel, comma, indent, wordWrap }) => {
   const valueEl = (function () {
     if (typeof value === 'string') {
-      return <span style={{ color: J.str, wordBreak: wordWrap ? 'break-all' : 'normal', whiteSpace: wordWrap ? 'pre-wrap' : 'nowrap' }}>&quot;{value}&quot;</span>;
+      return <span className={`json-str ${wordWrap ? 'break-all whitespace-pre-wrap' : 'normal whitespace-nowrap'}`}>&quot;{value}&quot;</span>;
     }
     if (typeof value === 'number') {
-      return <span style={{ color: J.num }}>{value}</span>;
+      return <span className="json-num">{value}</span>;
     }
     if (typeof value === 'boolean') {
-      return <span style={{ color: J.bool }}>{String(value)}</span>;
+      return <span className="json-bool">{String(value)}</span>;
     }
-    return <span style={{ color: J.nil }}>null</span>;
+    return <span className="json-nil">null</span>;
   }());
 
-  return <div style={{ paddingLeft: indent, lineHeight: '1.7', display: 'flex', gap: 2, minWidth: 0 }}>{keyLabel}{valueEl}<span style={{ color: J.brace }}>{comma}</span></div>;
+  return <div className="leading-relaxed flex gap-0.5 min-w-0" style={{ paddingLeft: indent }}>{keyLabel}{valueEl}<span className="json-brace">{comma}</span></div>;
 };
 
 const JsonBranch: React.FC<{ readonly value: JsonValue; readonly entries: [string, unknown][]; readonly keyLabel: React.ReactNode; readonly comma: string; readonly isArray: boolean; readonly wordWrap: boolean; readonly defaultOpen: boolean; readonly depth: number }> = ({ value, entries, keyLabel, comma, isArray, wordWrap, defaultOpen, depth }) => {
   const [open, setOpen] = useState(defaultOpen);
-  const summary = isArray ? <span style={{ color: J.brace }}>[<span style={{ color: J.index, fontSize: 9 }}> {entries.length} </span>]</span> : <span style={{ color: J.brace }}>{'{'}…{'}'}</span>;
+  const summary = isArray ? <span className="json-brace">[<span className="json-index text-[9px]"> {entries.length} </span>]</span> : <span className="json-brace">{'{'}…{'}'}</span>;
 
   return (
     <div style={{ paddingLeft: depth === 0 ? 0 : depth * 14 }}>
-      <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', borderRadius: 3, padding: '1px 2px', lineHeight: '1.7', userSelect: 'none' }} onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }} onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-        <span style={{ fontSize: 9, color: '#475569', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.12s', width: 10, flexShrink: 0 }}>▶</span>
+      <div onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 cursor-pointer rounded px-0.5 py-px leading-relaxed select-none hover:bg-content/5">
+        <span className={`text-[9px] text-zinc-500 inline-block w-2.5 shrink-0 motion-safe:transition-transform motion-safe:duration-100 ${open ? 'rotate-90' : 'rotate-0'}`}>▶</span>
         {keyLabel}
-        {!open && <>{summary}<span style={{ color: J.brace }}>{comma}</span></>}
-        {open && <span style={{ color: J.brace }}>{Array.isArray(value) ? '[' : '{'}</span>}
+        {!open && <>{summary}<span className="json-brace">{comma}</span></>}
+        {open && <span className="json-brace">{Array.isArray(value) ? '[' : '{'}</span>}
       </div>
 
-      {open && <div style={{ paddingLeft: 14, borderLeft: '1px solid rgba(255,255,255,0.05)' }}>{entries.map(([k, v], i) => <JsonNode key={k} keyName={k} value={v} depth={0} isLast={i === entries.length - 1} wordWrap={wordWrap} defaultOpen={false} />)}</div>}
-      {open && <div style={{ lineHeight: '1.7' }}><span style={{ color: J.brace }}>{Array.isArray(value) ? ']' : '}'}{comma}</span></div>}
+      {open && <div className="pl-3.5 border-l border-content/5">{entries.map(([k, v], i) => <JsonNode key={k} keyName={k} value={v} depth={0} isLast={i === entries.length - 1} wordWrap={wordWrap} defaultOpen={false} />)}</div>}
+      {open && <div className="leading-relaxed"><span className="json-brace">{Array.isArray(value) ? ']' : '}'}{comma}</span></div>}
     </div>
   );
 };
@@ -83,16 +82,16 @@ export const JsonTab: React.FC<{ readonly asset: Asset }> = ({ asset }) => {
   return (
     <div>
       {isLoadingEvidence && (
-        <div style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 6, border: '1px solid rgba(96,165,250,0.25)', background: 'rgba(30,41,59,0.55)', fontSize: 11, color: '#93c5fd' }}>
+        <div className="mb-2.5 px-2.5 py-2 rounded-md border border-sky-400/20 bg-sky-950/20 text-[11px] text-sky-400 dark:text-sky-300">
           Loading full metadata evidence for this photo…
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 8 }}>
-        <button onClick={() => setWordWrap((w) => !w)} title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'} style={{ background: wordWrap ? 'rgba(99,102,241,0.25)' : 'rgba(51,65,85,0.8)', border: `1px solid ${wordWrap ? '#6366f1' : '#334155'}`, color: wordWrap ? '#a5b4fc' : '#94a3b8', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 14, lineHeight: 1, transition: 'all 0.15s' }}>↵</button>
-        <button onClick={async () => { try { await navigator.clipboard.writeText(jsonStr); } catch { /* ignore */ } }} style={{ background: 'rgba(51,65,85,0.8)', border: '1px solid #334155', color: '#94a3b8', padding: '4px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>📋 Copy JSON</button>
+      <div className="flex justify-end gap-1.5 mb-2">
+        <button onClick={() => setWordWrap((w) => !w)} title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'} className={`px-2 py-1 rounded cursor-pointer text-sm leading-none transition-colors border ${wordWrap ? 'bg-indigo-600/20 border-indigo-500 text-indigo-400' : 'bg-surface-secondary/80 border-content/10 text-content-secondary hover:text-content'}`}>↵</button>
+        <button onClick={async () => { try { await navigator.clipboard.writeText(jsonStr); } catch { /* ignore */ } }} className="bg-surface-secondary/80 border border-content/10 text-content-secondary hover:text-content px-2.5 py-1 rounded cursor-pointer text-[11px]">📋 Copy JSON</button>
       </div>
 
-      <div style={{ fontFamily: '"Cascadia Code","Consolas",monospace', fontSize: 11, background: 'rgba(0,0,0,0.4)', border: '1px solid #1e293b', borderRadius: 6, padding: '10px 12px', overflowY: 'auto', overflowX: wordWrap ? 'hidden' : 'auto', maxHeight: 'calc(100vh - 240px)', lineHeight: 1.6 }}>
+      <div className="font-mono text-[11px] bg-surface-secondary border border-content/10 rounded-lg p-3 overflow-y-auto leading-normal max-h-[calc(100vh-240px)]" style={{ overflowX: wordWrap ? 'hidden' : 'auto' }}>
         {Object.entries(sanitised).map(([k, v], i, arr) => <JsonNode key={k} keyName={k} value={v} depth={0} isLast={i === arr.length - 1} wordWrap={wordWrap} defaultOpen />)}
       </div>
     </div>
