@@ -6,6 +6,7 @@ export const detectFramesWorkflowDefinition: WorkflowDefinition = {
     inputs: ['asset'],
     presentation: {
         defaultRunLabel: 'Detect frames workflow',
+        stage: 'scan',
         milestones: [{ id: 'detect_frames_complete', label: 'Frame detection complete' }],
     },
     nodes: [

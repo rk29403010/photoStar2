@@ -6,6 +6,7 @@ export const librarySensitiveScanWorkflowDefinition: WorkflowDefinition = {
     inputs: ['asset'],
     presentation: {
         defaultRunLabel: 'Sensitive content workflow',
+        stage: 'sensitive_scan',
         milestones: [{ id: 'sensitive_scan_complete', label: 'Sensitive scan complete' }],
     },
     nodes: [

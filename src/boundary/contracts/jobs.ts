@@ -110,6 +110,7 @@ export type JobErrorSnapshot = {
 export type WorkflowStatusListItem = {
     workflowId: string;
     displayName: string;
+    stage?: string;
     totalRuns: number;
     running: number;
     completed: number;

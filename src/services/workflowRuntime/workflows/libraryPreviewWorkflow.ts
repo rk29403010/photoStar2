@@ -6,6 +6,7 @@ export const libraryPreviewWorkflowDefinition: WorkflowDefinition = {
     inputs: ['asset'],
     presentation: {
         defaultRunLabel: 'Library previews',
+        stage: 'preview_generation',
         milestones: [{ id: 'previews_complete', label: 'Previews complete' }],
     },
     nodes: [

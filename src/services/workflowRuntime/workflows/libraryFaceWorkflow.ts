@@ -6,6 +6,7 @@ export const libraryFaceWorkflowDefinition: WorkflowDefinition = {
     inputs: ['asset'],
     presentation: {
         defaultRunLabel: 'Face workflow',
+        stage: 'face_analysis',
         milestones: [{ id: 'face_pipeline_complete', label: 'Face workflow complete' }],
         stages: [
             {

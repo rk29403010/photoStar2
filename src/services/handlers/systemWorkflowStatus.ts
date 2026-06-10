@@ -1,3 +1,5 @@
+import type { WorkflowRegistry } from '../workflowRuntime/workflowRegistry';
+
 type WorkflowStatusCountRow = {
     workflow_id: string;
     status: string;
@@ -21,28 +23,52 @@ function asDbLike(db: unknown): DbLike {
     return db as DbLike;
 }
 
-function getWorkflowDisplayName(workflowId: string): string {
-    switch (workflowId) {
-        case 'folder_ingest_v1':
-            return 'Folder ingest';
-        case 'library_grouping_v1':
-            return 'Library grouping';
-        case 'library_previews_v1':
-            return 'Library previews';
-        case 'library_face_pipeline_v1':
-            return 'Face workflow';
-        case 'library_sensitive_scan_v1':
-            return 'Sensitive content workflow';
-        case 'library_ai_metadata_v1':
-            return 'AI metadata workflow';
-        case 'library_photo_date_v1':
-            return 'Photo date recalculation';
-        default:
-            return workflowId;
+const WORKFLOW_FALLBACK_NAMES: Record<string, string> = {
+    folder_ingest_v1: 'Folder ingest',
+    library_grouping_v1: 'Library grouping',
+    library_previews_v1: 'Library previews',
+    library_face_pipeline_v1: 'Face workflow',
+    library_sensitive_scan_v1: 'Sensitive content workflow',
+    library_ai_metadata_v1: 'AI metadata workflow',
+    library_photo_date_v1: 'Photo date recalculation',
+};
+
+function getWorkflowDisplayName(workflowId: string, workflows?: WorkflowRegistry): string {
+    if (workflows) {
+        try {
+            const def = workflows.get(workflowId);
+            if (def.presentation?.defaultRunLabel) {
+                return def.presentation.defaultRunLabel;
+            }
+        } catch {
+            // fallback if not found in registry
+        }
     }
+    return WORKFLOW_FALLBACK_NAMES[workflowId] ?? workflowId;
 }
 
-export function getWorkflowStatusSnapshot(db: unknown) {
+const WORKFLOW_FALLBACK_STAGES: Record<string, string> = {
+    library_previews_v1: 'preview_generation',
+    library_face_pipeline_v1: 'face_analysis',
+    library_ai_metadata_v1: 'ai_metadata',
+    library_sensitive_scan_v1: 'sensitive_scan',
+};
+
+function getWorkflowStage(workflowId: string, workflows?: WorkflowRegistry): string | undefined {
+    if (workflows) {
+        try {
+            const def = workflows.get(workflowId);
+            if (def.presentation?.stage) {
+                return def.presentation.stage;
+            }
+        } catch {
+            // fallback if not found in registry
+        }
+    }
+    return WORKFLOW_FALLBACK_STAGES[workflowId] ?? 'scan';
+}
+
+export function getWorkflowStatusSnapshot(db: unknown, workflows?: WorkflowRegistry) {
     const typedDb = asDbLike(db);
     const countRows = typedDb.prepare(`
         SELECT workflow_id, status, COUNT(*) AS count
@@ -71,6 +97,7 @@ export function getWorkflowStatusSnapshot(db: unknown) {
     const byWorkflow = new Map<string, {
         workflowId: string;
         displayName: string;
+        stage?: string;
         totalRuns: number;
         running: number;
         completed: number;
@@ -83,7 +110,8 @@ export function getWorkflowStatusSnapshot(db: unknown) {
     for (const row of countRows) {
         const entry = byWorkflow.get(row.workflow_id) ?? {
             workflowId: row.workflow_id,
-            displayName: getWorkflowDisplayName(row.workflow_id),
+            displayName: getWorkflowDisplayName(row.workflow_id, workflows),
+            stage: getWorkflowStage(row.workflow_id, workflows),
             totalRuns: 0,
             running: 0,
             completed: 0,

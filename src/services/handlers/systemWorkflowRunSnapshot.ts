@@ -1,3 +1,5 @@
+import type { WorkflowRegistry } from '../workflowRuntime/workflowRegistry';
+
 type WorkflowRunRow = {
     id: string;
     workflow_id: string;
@@ -50,7 +52,17 @@ function parseParametersJson(raw: string): Record<string, unknown> {
     }
 }
 
-function getWorkflowDisplayName(workflowId: string): string {
+function getWorkflowDisplayName(workflowId: string, workflows?: WorkflowRegistry): string {
+    if (workflows) {
+        try {
+            const def = workflows.get(workflowId);
+            if (def.presentation?.defaultRunLabel) {
+                return def.presentation.defaultRunLabel;
+            }
+        } catch {
+            // fallback
+        }
+    }
     return workflowId === 'folder_ingest_v1' ? 'Folder ingest' : workflowId;
 }
 
@@ -135,12 +147,13 @@ function buildRunSnapshot(
     countsByRun: Map<string, WorkflowRunCountRow>,
     milestonesByRun: Map<string, WorkflowRunMilestoneRow[]>,
     stepsByRun: Map<string, WorkflowStepCountRow[]>,
+    workflows?: WorkflowRegistry,
 ) {
     const counts = countsByRun.get(run.id);
     return {
         runId: run.id,
         workflowId: run.workflow_id,
-        displayName: getWorkflowDisplayName(run.workflow_id),
+        displayName: getWorkflowDisplayName(run.workflow_id, workflows),
         status: run.status,
         createdAt: run.created_at,
         parameters: parseParametersJson(run.parameters_json),
@@ -152,7 +165,7 @@ function buildRunSnapshot(
     };
 }
 
-export function getWorkflowRunsSnapshot(db: unknown) {
+export function getWorkflowRunsSnapshot(db: unknown, workflows?: WorkflowRegistry) {
     const typedDb = asDbLike(db);
     const runs = loadWorkflowRuns(typedDb);
     if (runs.length === 0) {
@@ -169,5 +182,5 @@ export function getWorkflowRunsSnapshot(db: unknown) {
     const stepsByRun = groupRowsByRunId(stepRows);
     const countsByRun = new Map(countRows.map((row) => [row.workflow_run_id, row]));
 
-    return runs.map((run) => buildRunSnapshot(run, countsByRun, milestonesByRun, stepsByRun));
+    return runs.map((run) => buildRunSnapshot(run, countsByRun, milestonesByRun, stepsByRun, workflows));
 }

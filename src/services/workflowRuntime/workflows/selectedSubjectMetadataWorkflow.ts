@@ -11,6 +11,7 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
     ],
     presentation: {
         defaultRunLabel: 'Selected subject metadata workflow',
+        stage: 'ai_metadata',
         milestones: [{ id: 'ai_metadata_complete', label: 'AI metadata complete' }],
         stages: [
             {

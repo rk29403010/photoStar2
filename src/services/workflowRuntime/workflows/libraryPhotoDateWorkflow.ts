@@ -6,6 +6,7 @@ export const libraryPhotoDateWorkflowDefinition: WorkflowDefinition = {
     inputs: ['asset'],
     presentation: {
         defaultRunLabel: 'Photo date recalculation workflow',
+        stage: 'scan',
         milestones: [{ id: 'photo_date_recalculation_complete', label: 'Photo date recalculation complete' }],
     },
     nodes: [

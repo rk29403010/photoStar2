@@ -385,7 +385,8 @@ function useWorkflowActions(params: {
         addNotification: state.addNotification,
         refreshLibrary,
         refreshSystemJobs,
-    }), [addJob, refreshLibrary, refreshSystemJobs, request, state.addNotification, updateJobProgress, updateJobState]);
+        workflowStatus: state.workflowStatus,
+    }), [addJob, refreshLibrary, refreshSystemJobs, request, state.addNotification, updateJobProgress, updateJobState, state.workflowStatus]);
 
     const systemActions = useSystemWorkflowActions({
         state,

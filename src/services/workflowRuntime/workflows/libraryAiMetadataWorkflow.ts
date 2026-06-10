@@ -10,6 +10,7 @@ export const libraryAiMetadataWorkflowDefinition: WorkflowDefinition = {
     ],
     presentation: {
         defaultRunLabel: 'AI metadata workflow',
+        stage: 'ai_metadata',
         milestones: [{ id: 'ai_metadata_complete', label: 'AI metadata complete' }],
     },
     nodes: [

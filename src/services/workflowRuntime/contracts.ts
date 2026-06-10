@@ -101,6 +101,7 @@ export type WorkflowPresentationDefinition = {
     defaultRunLabel: string;
     milestones: WorkflowMilestoneDefinition[];
     stages?: WorkflowStageDefinition[];
+    stage?: string;
 }
 
 export type ModuleArtifactOutputDefinition = {
@@ -257,6 +258,9 @@ function assertWorkflowPresentationDefinition(
     fieldName: string,
 ): void {
     assertNonEmptyString(value.defaultRunLabel, `${fieldName}.defaultRunLabel`);
+    if (value.stage !== undefined) {
+        assertNonEmptyString(value.stage, `${fieldName}.stage`);
+    }
     if (!Array.isArray(value.milestones)) {
         throw new Error(`${fieldName}.milestones must be an array`);
     }

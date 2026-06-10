@@ -10,12 +10,13 @@ export const systemJobsCommandHandlers: CommandHandlerMap = {
         const { id, originWs, dbManager, respond } = ctx;
         try {
             const db = dbManager.getDb();
+            const workflows = ctx.workflowRuntime?.workflows;
             respond(id, 'ok', {
                 jobs: [],
                 dataStats: getDataStats(db),
                 recentEvents: getRecentEventsSnapshot(db),
-                workflowRuns: getWorkflowRunsSnapshot(db),
-                workflowStatus: getWorkflowStatusSnapshot(db),
+                workflowRuns: getWorkflowRunsSnapshot(db, workflows),
+                workflowStatus: getWorkflowStatusSnapshot(db, workflows),
             }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
