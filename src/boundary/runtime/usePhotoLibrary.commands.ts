@@ -257,27 +257,36 @@ function getWorkflowConfig(workflowId: string, assetIds: string[]) {
         inputSubjects: assetIds.map(id => ({ subjectType: 'asset', subjectId: id })),
     };
 
-    if (workflowId === 'library_previews_v1') {
-        stage = 'preview_generation';
-        title = 'Generating Previews';
-    } else if (workflowId === 'library_face_pipeline_v1') {
-        stage = 'face_analysis';
-        title = 'Analysing Faces';
-    } else if (workflowId === 'library_ai_metadata_v1') {
-        stage = 'ai_metadata';
-        title = 'Generating AI Metadata';
-        command = 'start_selected_subject_metadata_workflow';
-        payload = {
-            aiMode: 'live',
-            imageStrategy: 'overview_only',
-            metadataPass: 'scout',
-            selectedSubjects: assetIds.map(id => ({ subjectType: 'asset', subjectId: id })),
-        };
-    } else if (workflowId === 'library_sensitive_scan_v1') {
-        stage = 'sensitive_scan';
-        title = 'Scanning Sensitive Content';
-    } else if (workflowId === 'library_photo_date_v1') {
-        title = 'Estimating Photo Dates';
+    switch (workflowId) {
+        case 'library_previews_v1':
+            stage = 'preview_generation';
+            title = 'Generating Previews';
+            break;
+        case 'library_face_pipeline_v1':
+            stage = 'face_analysis';
+            title = 'Analysing Faces';
+            break;
+        case 'library_ai_metadata_v1':
+            stage = 'ai_metadata';
+            title = 'Generating AI Metadata';
+            command = 'start_selected_subject_metadata_workflow';
+            payload = {
+                aiMode: 'live',
+                imageStrategy: 'overview_only',
+                metadataPass: 'scout',
+                selectedSubjects: assetIds.map(id => ({ subjectType: 'asset', subjectId: id })),
+            };
+            break;
+        case 'library_sensitive_scan_v1':
+            stage = 'sensitive_scan';
+            title = 'Scanning Sensitive Content';
+            break;
+        case 'library_photo_date_v1':
+            title = 'Estimating Photo Dates';
+            break;
+        case 'library_detect_frames_v1':
+            title = 'Detecting Frames';
+            break;
     }
     return { stage, title, command, payload };
 }

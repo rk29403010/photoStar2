@@ -407,6 +407,77 @@ function renderAnalysisStatus({
     return null;
 }
 
+function WorkflowSubMenu(props: {
+    readonly onSelect: (workflowId: string) => void;
+    readonly onCancel: () => void;
+}) {
+    return (
+        <>
+            <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
+            <div style={{ padding: '4px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>SELECT WORKFLOW</span>
+                <button
+                    onClick={() => props.onSelect('library_previews_v1')}
+                    style={menuItemStyle('#c084fc', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🖼️ Generate Previews
+                </button>
+                <button
+                    onClick={() => props.onSelect('library_face_pipeline_v1')}
+                    style={menuItemStyle('#67e8f9', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🎯 Run Face Workflow
+                </button>
+                <button
+                    onClick={() => props.onSelect('library_ai_metadata_v1')}
+                    style={menuItemStyle('#6366f1', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🧠 Run AI Metadata
+                </button>
+                <button
+                    onClick={() => props.onSelect('library_sensitive_scan_v1')}
+                    style={menuItemStyle('#ef4444', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🔞 Scan Sensitive Content
+                </button>
+                <button
+                    onClick={() => props.onSelect('library_photo_date_v1')}
+                    style={menuItemStyle('#facc15', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🗓️ Recalculate Photo Dates
+                </button>
+                <button
+                    onClick={() => props.onSelect('library_detect_frames_v1')}
+                    style={menuItemStyle('#f43f5e', false)}
+                    onMouseOver={menuHover()}
+                    onMouseOut={menuOut}
+                >
+                    🖼️ Detect Frames
+                </button>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        props.onCancel();
+                    }}
+                    style={{ ...menuItemStyle('#94a3b8', false), justifyContent: 'center', fontSize: '11px', border: '1px solid #1f2937', marginTop: '4px' }}
+                >
+                    Back
+                </button>
+            </div>
+        </>
+    );
+}
+
 function RunWorkflowMenuItems(props: ActionMenuProps) {
     const [showSelector, setShowSelector] = useState(false);
 
@@ -439,61 +510,10 @@ function RunWorkflowMenuItems(props: ActionMenuProps) {
     };
 
     return (
-        <>
-            <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
-            <div style={{ padding: '4px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>SELECT WORKFLOW</span>
-                <button
-                    onClick={() => handleSelect('library_previews_v1')}
-                    style={menuItemStyle('#c084fc', false)}
-                    onMouseOver={menuHover()}
-                    onMouseOut={menuOut}
-                >
-                    🖼️ Generate Previews
-                </button>
-                <button
-                    onClick={() => handleSelect('library_face_pipeline_v1')}
-                    style={menuItemStyle('#67e8f9', false)}
-                    onMouseOver={menuHover()}
-                    onMouseOut={menuOut}
-                >
-                    🎯 Run Face Workflow
-                </button>
-                <button
-                    onClick={() => handleSelect('library_ai_metadata_v1')}
-                    style={menuItemStyle('#6366f1', false)}
-                    onMouseOver={menuHover()}
-                    onMouseOut={menuOut}
-                >
-                    🧠 Run AI Metadata
-                </button>
-                <button
-                    onClick={() => handleSelect('library_sensitive_scan_v1')}
-                    style={menuItemStyle('#ef4444', false)}
-                    onMouseOver={menuHover()}
-                    onMouseOut={menuOut}
-                >
-                    🔞 Scan Sensitive Content
-                </button>
-                <button
-                    onClick={() => handleSelect('library_photo_date_v1')}
-                    style={menuItemStyle('#facc15', false)}
-                    onMouseOver={menuHover()}
-                    onMouseOut={menuOut}
-                >
-                    🗓️ Recalculate Photo Dates
-                </button>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setShowSelector(false);
-                    }}
-                    style={{ ...menuItemStyle('#94a3b8', false), justifyContent: 'center', fontSize: '11px', border: '1px solid #1f2937', marginTop: '4px' }}
-                >
-                    Back
-                </button>
-            </div>
-        </>
+        <WorkflowSubMenu
+            onSelect={handleSelect}
+            onCancel={() => setShowSelector(false)}
+        />
     );
 }
 

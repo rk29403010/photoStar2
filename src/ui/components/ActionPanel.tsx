@@ -372,6 +372,7 @@ function RunWorkflowSection(props: {
                     <option value="library_ai_metadata_v1">Run AI Metadata</option>
                     <option value="library_sensitive_scan_v1">Scan Sensitive Content</option>
                     <option value="library_photo_date_v1">Recalculate Photo Dates</option>
+                    <option value="library_detect_frames_v1">Detect Frames</option>
                 </select>
                 <button
                     type="button"

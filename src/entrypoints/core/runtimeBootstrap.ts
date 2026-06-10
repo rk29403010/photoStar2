@@ -22,6 +22,7 @@ import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntim
 import { libraryPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPreviewWorkflow';
 import { librarySensitiveScanWorkflowDefinition } from '../../services/workflowRuntime/workflows/librarySensitiveScanWorkflow';
 import { selectedSubjectMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow';
+import { detectFramesWorkflowDefinition } from '../../services/workflowRuntime/workflows/detectFramesWorkflow';
 import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
 import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
 import { SubjectRegistry } from '../../services/workflowRuntime/subjectRegistry';
@@ -127,6 +128,7 @@ function registerWorkflows(workflows: WorkflowRegistry) {
     workflows.register(libraryAiMetadataWorkflowDefinition);
     workflows.register(libraryPhotoDateWorkflowDefinition);
     workflows.register(selectedSubjectMetadataWorkflowDefinition);
+    workflows.register(detectFramesWorkflowDefinition);
 }
 
 export function createWorkflowRuntimeBundle(dbManager: DatabaseManager, eventBus: EventBus): WorkflowRuntimeBundle {
