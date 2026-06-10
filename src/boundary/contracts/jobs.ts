@@ -7,19 +7,7 @@ export type StageState =
 
 export type IssueSeverity = "info" | "warning" | "error" | "fatal";
 
-export type PipelineStage =
-    | "bulk_ingest"
-    | "watched_folder_ingest"
-    | "reindex"
-    | "scan"
-    | "onboarding"
-    | "previews"
-    | "analysis"
-    | "face_analysis"
-    | "similarity_cluster"
-    | "preview_generation"
-    | "sensitive_scan"
-    | "ai_metadata";
+export type PipelineStage = string;
 
 export type JobIssue = {
     id: string;
