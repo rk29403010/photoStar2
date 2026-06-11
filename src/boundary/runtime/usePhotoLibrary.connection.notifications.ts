@@ -7,8 +7,8 @@ function getQuotaWarningCount(event: Record<string, unknown>): number {
 }
 
 function buildQuotaWarningMessage(event: Record<string, unknown>): string {
-    const model = String(event.model || 'model');
-    const fallback = event.fallbackModel ? String(event.fallbackModel) : '';
+    const model = typeof event.model === 'string' ? event.model : 'model';
+    const fallback = typeof event.fallbackModel === 'string' ? event.fallbackModel : '';
     const count = getQuotaWarningCount(event);
     const isFallbackWarning = fallback.length > 0 && count > 0;
 
