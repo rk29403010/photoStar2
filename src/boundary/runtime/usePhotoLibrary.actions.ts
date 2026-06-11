@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { Asset, Album, ReviewItemSummary, SimilarityOrbit, TagDefinitionSummary } from '@contracts/core';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
-import type { JobState, PipelineStage } from '@contracts/jobs';
+import type { JobState } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
@@ -38,7 +38,7 @@ type GroupActionParams = {
 type BuildActionParams = {
     transport: BackendTransport | null;
     request: RequestFn;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     updateJobState: (id: string, state: JobState) => void;
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     refreshSystemJobs: () => void;
@@ -174,77 +174,89 @@ export function createGroupActions(params: GroupActionParams) {
     };
 }
 
+async function performResetGroupingData(transport: BackendTransport | null) {
+    const jobId = `reset-grouping-${Date.now()}`;
+    await writeCommand(transport, jobId, 'reset_grouping_data', {});
+}
+
+async function performBuildGroups(params: BuildActionParams): Promise<string> {
+    const { request, addJob, updateJobState, refreshLibrary, refreshSystemJobs } = params;
+    const localJobId = `build-groups-${Date.now()}`;
+    addJob(localJobId, 'similarity_cluster', 'Runtime Grouping (Duplicates, Variants & Bursts)');
+    const runId = await request<string>({
+        idPrefix: 'start_library_grouping',
+        command: 'start_library_grouping',
+        payload: {},
+        timeoutMs: 10000,
+        select: (data) => {
+            const parsedRunId = data && typeof data === 'object' && 'runId' in data ? data.runId : undefined;
+            return typeof parsedRunId === 'string' ? parsedRunId : '';
+        },
+    });
+
+    if (!runId) {
+        updateJobState(localJobId, 'failed');
+        return '';
+    }
+
+    updateJobState(localJobId, 'running');
+    scheduleWorkflowRunRefresh({
+        request,
+        updateJobState,
+        refreshLibrary,
+        refreshSystemJobs,
+        localJobId,
+        runId,
+        title: 'Runtime Grouping (Duplicates, Variants & Bursts)',
+    });
+
+    return runId;
+}
+
+async function performRecalculatePhotoDates(params: BuildActionParams, assetId?: string): Promise<string> {
+    const { request, addJob, updateJobState, refreshLibrary, refreshSystemJobs } = params;
+    const localJobId = `recalculate-photo-dates-${Date.now()}`;
+    addJob(localJobId, 'analysis', assetId ? 'Recalculating Photo Date' : 'Recalculating Photo Dates');
+    updateJobState(localJobId, 'starting');
+
+    const runId = await request<string>({
+        idPrefix: 'start_library_photo_date_workflow',
+        command: 'start_library_photo_date_workflow',
+        payload: assetId ? { mediaId: assetId } : {},
+        timeoutMs: 10000,
+        select: (data) => {
+            const parsedRunId = data && typeof data === 'object' && 'runId' in data ? data.runId : undefined;
+            return typeof parsedRunId === 'string' ? parsedRunId : '';
+        },
+    });
+
+    if (!runId) {
+        updateJobState(localJobId, 'failed');
+        return '';
+    }
+
+    updateJobState(localJobId, 'running');
+    scheduleWorkflowRunRefresh({
+        request,
+        updateJobState,
+        refreshLibrary,
+        refreshSystemJobs,
+        localJobId,
+        runId,
+        title: assetId ? 'Recalculating Photo Date' : 'Recalculating Photo Dates',
+        onCompleted: assetId ? () => {
+            void params.loadAssetDetails(assetId, { includeEvidence: true });
+        } : undefined,
+    });
+
+    return runId;
+}
+
 export function createBuildActions(params: BuildActionParams) {
-    const { transport, request, addJob, updateJobState, refreshLibrary, refreshSystemJobs } = params;
-
     return {
-        resetGroupingData: async () => {
-            const jobId = `reset-grouping-${Date.now()}`;
-            await writeCommand(transport, jobId, 'reset_grouping_data', {});
-        },
-        buildGroups: async (): Promise<string> => {
-            const localJobId = `build-groups-${Date.now()}`;
-            addJob(localJobId, 'similarity_cluster', 'Runtime Grouping (Duplicates, Variants & Bursts)');
-            const runId = await request<string>({
-                idPrefix: 'start_library_grouping',
-                command: 'start_library_grouping',
-                payload: {},
-                timeoutMs: 10000,
-                select: (data) => String(data?.runId || ''),
-            });
-
-            if (!runId) {
-                updateJobState(localJobId, 'failed');
-                return '';
-            }
-
-            updateJobState(localJobId, 'running');
-            scheduleWorkflowRunRefresh({
-                request,
-                updateJobState,
-                refreshLibrary,
-                refreshSystemJobs,
-                localJobId,
-                runId,
-                title: 'Runtime Grouping (Duplicates, Variants & Bursts)',
-            });
-
-            return runId;
-        },
-        recalculatePhotoDates: async (assetId?: string): Promise<string> => {
-            const localJobId = `recalculate-photo-dates-${Date.now()}`;
-            addJob(localJobId, 'analysis', assetId ? 'Recalculating Photo Date' : 'Recalculating Photo Dates');
-            updateJobState(localJobId, 'starting');
-
-            const runId = await request<string>({
-                idPrefix: 'start_library_photo_date_workflow',
-                command: 'start_library_photo_date_workflow',
-                payload: assetId ? { mediaId: assetId } : {},
-                timeoutMs: 10000,
-                select: (data) => String(data?.runId || ''),
-            });
-
-            if (!runId) {
-                updateJobState(localJobId, 'failed');
-                return '';
-            }
-
-            updateJobState(localJobId, 'running');
-            scheduleWorkflowRunRefresh({
-                request,
-                updateJobState,
-                refreshLibrary,
-                refreshSystemJobs,
-                localJobId,
-                runId,
-                title: assetId ? 'Recalculating Photo Date' : 'Recalculating Photo Dates',
-                onCompleted: assetId ? () => {
-                    void params.loadAssetDetails(assetId, { includeEvidence: true });
-                } : undefined,
-            });
-
-            return runId;
-        },
+        resetGroupingData: () => performResetGroupingData(params.transport),
+        buildGroups: () => performBuildGroups(params),
+        recalculatePhotoDates: (assetId?: string) => performRecalculatePhotoDates(params, assetId),
     };
 }
 
@@ -370,7 +382,7 @@ async function runBulkTagMutation(
     command: 'bulk_assign_asset_tag' | 'bulk_remove_asset_tag',
     payload: BulkAssignAssetTagPayload | BulkRemoveAssetTagPayload,
 ) {
-    await requestTagCommand(request, command, command, payload as Record<string, unknown>);
+    await requestTagCommand(request, command, command, payload);
     refreshLibrary({ preservePagingState: true });
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
-import type { JobState, PipelineStage } from '@contracts/jobs';
+import type { JobState, StageState } from '@contracts/jobs';
 import { usePersistedState } from '@ui/hooks/usePersistedState';
 import { WorkflowDetailPanel } from './WorkflowDetailPanel';
 import { WorkflowSequenceMapTab } from './WorkflowSequenceMapTab';
@@ -22,7 +22,7 @@ type WorkflowWorkspaceProps = {
     readonly onWorkflowIdChange: (workflowId: string) => void;
     readonly onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
     readonly onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
-    readonly addJob: (id: string, stage: PipelineStage, title: string) => void;
+    readonly addJob: (id: string, stage: string, title: string) => void;
     readonly updateJobState: (id: string, state: JobState) => void;
     readonly updateJobProgress: (id: string, payload: {
         overallDone?: number;
@@ -31,7 +31,7 @@ type WorkflowWorkspaceProps = {
         message?: string;
         current?: string;
         workflowRunId?: string;
-        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+        stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
     }) => void;
 }
 

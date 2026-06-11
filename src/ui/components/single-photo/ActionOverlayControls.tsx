@@ -63,12 +63,12 @@ type ActionMenuProps = {
 }
 
 function menuHover() {
-    return (e: React.MouseEvent<HTMLButtonElement>) => {
+    return (e: React.MouseEvent<HTMLButtonElement> | React.FocusEvent<HTMLButtonElement>) => {
         e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
     };
 }
 
-function menuOut(e: React.MouseEvent<HTMLButtonElement>) {
+function menuOut(e: React.MouseEvent<HTMLButtonElement> | React.FocusEvent<HTMLButtonElement>) {
     e.currentTarget.style.background = 'transparent';
 }
 
@@ -240,7 +240,7 @@ function MenuItem({
     readonly onClick: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
 }) {
     return (
-        <button onClick={onClick} style={menuItemStyle(color, active)} onMouseOver={menuHover()} onMouseOut={menuOut}>
+        <button onClick={onClick} style={menuItemStyle(color, active)} onMouseOver={menuHover()} onMouseOut={menuOut} onFocus={menuHover()} onBlur={menuOut}>
             <span style={{ fontSize: 15 }}>{icon}</span>
             {label}
         </button>
@@ -421,6 +421,8 @@ function WorkflowSubMenu(props: {
                     style={menuItemStyle('#c084fc', false)}
                     onMouseOver={menuHover()}
                     onMouseOut={menuOut}
+                    onFocus={menuHover()}
+                    onBlur={menuOut}
                 >
                     🖼️ Generate Previews
                 </button>
@@ -429,6 +431,8 @@ function WorkflowSubMenu(props: {
                     style={menuItemStyle('#67e8f9', false)}
                     onMouseOver={menuHover()}
                     onMouseOut={menuOut}
+                    onFocus={menuHover()}
+                    onBlur={menuOut}
                 >
                     🎯 Run Face Workflow
                 </button>
@@ -437,6 +441,8 @@ function WorkflowSubMenu(props: {
                     style={menuItemStyle('#6366f1', false)}
                     onMouseOver={menuHover()}
                     onMouseOut={menuOut}
+                    onFocus={menuHover()}
+                    onBlur={menuOut}
                 >
                     🧠 Run AI Metadata
                 </button>
@@ -445,6 +451,8 @@ function WorkflowSubMenu(props: {
                     style={menuItemStyle('#ef4444', false)}
                     onMouseOver={menuHover()}
                     onMouseOut={menuOut}
+                    onFocus={menuHover()}
+                    onBlur={menuOut}
                 >
                     🔞 Scan Sensitive Content
                 </button>
@@ -453,6 +461,8 @@ function WorkflowSubMenu(props: {
                     style={menuItemStyle('#facc15', false)}
                     onMouseOver={menuHover()}
                     onMouseOut={menuOut}
+                    onFocus={menuHover()}
+                    onBlur={menuOut}
                 >
                     🗓️ Recalculate Photo Dates
                 </button>
@@ -461,6 +471,8 @@ function WorkflowSubMenu(props: {
                     style={menuItemStyle('#f43f5e', false)}
                     onMouseOver={menuHover()}
                     onMouseOut={menuOut}
+                    onFocus={menuHover()}
+                    onBlur={menuOut}
                 >
                     🖼️ Detect Frames
                 </button>
@@ -547,6 +559,12 @@ function renderActionMenuTrigger(props: ActionMenuProps) {
                     event.currentTarget.style.background = 'rgba(255,255,255,0.2)';
                 }}
                 onMouseOut={(event) => {
+                    event.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                }}
+                onFocus={(event) => {
+                    event.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+                }}
+                onBlur={(event) => {
                     event.currentTarget.style.background = 'rgba(255,255,255,0.1)';
                 }}
             >

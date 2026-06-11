@@ -73,14 +73,20 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
                 selectedSubjects: [{ subjectType: 'asset', subjectId: assetId }],
             },
             timeoutMs: 10000,
-            select: (data) => String(requireResponseData(data, 'start_selected_subject_metadata_workflow').runId || ''),
+            select: (data) => {
+                const response = requireResponseData(data, 'start_selected_subject_metadata_workflow');
+                return typeof response.runId === 'string' ? response.runId : '';
+            },
         }),
         recalculatePhotoDate: (assetId: string): Promise<string> => params.request<string>({
             idPrefix: `recalculate_photo_date_${assetId}`,
             command: 'start_library_photo_date_workflow',
             payload: { mediaId: assetId },
             timeoutMs: 10000,
-            select: (data) => String(requireResponseData(data, 'start_library_photo_date_workflow').runId || ''),
+            select: (data) => {
+                const response = requireResponseData(data, 'start_library_photo_date_workflow');
+                return typeof response.runId === 'string' ? response.runId : '';
+            },
         }),
     };
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { BackgroundJob, PipelineStage, JobState } from '@contracts/jobs';
+import type { BackgroundJob, JobState, StageState } from '@contracts/jobs';
 import type { DomainEvent } from '@contracts/events';
 
 const TERMINAL_STATES = new Set<JobState>(['completed', 'failed', 'cancelled']);
@@ -38,7 +38,7 @@ type LegacyProgressPayload = {
     stages?: Array<{
         stageId: string;
         label: string;
-        state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped';
+        state: StageState;
         total?: number;
         done?: number;
     }>;
@@ -156,7 +156,7 @@ function handleWorkflowSubjectEvent(event: DomainEvent, setJobs: Dispatch<SetSta
 function handleBaseEvent(event: DomainEvent, deps: ProcessEventDeps) {
     const { addJob, setJobs, updateJobState, updateJobProgress } = deps;
     if (event.type === 'JobStarted') {
-        addJob(event.jobId, event.pipelineStage as PipelineStage, getDisplayTitle(event));
+        addJob(event.jobId, event.pipelineStage, getDisplayTitle(event));
         updateJobState(event.jobId, 'running');
     } else if (event.type === 'JobProgress') {
         setJobs(updateJobsForProgress(event));
@@ -177,7 +177,7 @@ function handleFaceEvent(event: DomainEvent, setJobs: Dispatch<SetStateAction<Ba
     }
 }
 
-function createQueuedJob(id: string, stage: PipelineStage, title: string): BackgroundJob {
+function createQueuedJob(id: string, stage: string, title: string): BackgroundJob {
     return {
         id,
         stage,
@@ -244,7 +244,7 @@ function applyLegacyProgress(job: BackgroundJob, payload: LegacyProgressPayload)
         message: payload.message,
         current: payload.current,
         workflowRunId: payload.workflowRunId ?? job.progress.workflowRunId,
-        stages: payload.stages !== undefined ? payload.stages : job.progress.stages
+        stages: payload.stages ?? job.progress.stages
     };
 
     return {
@@ -255,7 +255,7 @@ function applyLegacyProgress(job: BackgroundJob, payload: LegacyProgressPayload)
 }
 
 type ProcessEventDeps = {
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     setJobs: Dispatch<SetStateAction<BackgroundJob[]>>;
     updateJobState: (id: string, state: JobState) => void;
     updateJobProgress: (id: string, payload: { status?: string }) => void;
@@ -271,10 +271,10 @@ function createProcessEvent(deps: ProcessEventDeps) {
 }
 
 function useAddJob(setJobs: Dispatch<SetStateAction<BackgroundJob[]>>) {
-    return useCallback((id: string, stage: PipelineStage, title: string) => {
+    return useCallback((id: string, stage: string, title: string) => {
         const newJob = createQueuedJob(id, stage, title);
         setJobs((prev) => {
-            if (prev.find((job) => job.id === id)) {return prev;}
+            if (prev.some((job) => job.id === id)) {return prev;}
             return pruneJobHistory([newJob, ...prev]);
         });
     }, [setJobs]);

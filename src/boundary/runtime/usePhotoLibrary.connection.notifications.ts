@@ -12,7 +12,7 @@ function buildQuotaWarningMessage(event: Record<string, unknown>): string {
     const count = getQuotaWarningCount(event);
     const isFallbackWarning = fallback.length > 0 && count > 0;
 
-    if (String(event.reason || '') === 'daily_quota') {
+    if ((typeof event.reason === 'string' ? event.reason : '') === 'daily_quota') {
         if (isFallbackWarning) {
             return `⚠️ Daily quota exceeded on ${model}. ${count} photo(s) were analysed with ${fallback} and queued for ${model} follow-up tomorrow.`;
         }
@@ -36,7 +36,7 @@ export function applyQuotaNotifications(
 ) {
     if (event.type === 'AiMetadataConfigurationError') {
         addNotification('warning', 'AI metadata configuration issue', {
-            message: String(event.message || 'Live AI metadata is not configured.'),
+            message: typeof event.message === 'string' ? event.message : 'Live AI metadata is not configured.',
         });
     }
 
@@ -47,7 +47,7 @@ export function applyQuotaNotifications(
     if (event.type === 'ProAnalysisPending') {
         const count = Array.isArray(event.assetIds) ? event.assetIds.length : 0;
         addNotification('info', 'Pro analysis queued', {
-            message: `${count} photo(s) queued for enhanced analysis with ${String(event.proModel)} when quota resets.`,
+            message: `${count} photo(s) queued for enhanced analysis with ${typeof event.proModel === 'string' ? event.proModel : 'model'} when quota resets.`,
         });
     }
 }

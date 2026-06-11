@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { Asset } from '@contracts/core';
-import type { JobState, PipelineStage } from '@contracts/jobs';
+import type { JobState, StageState } from '@contracts/jobs';
 import { useJobManager } from './useJobManager';
 import { usePhotoLibraryState } from './usePhotoLibrary.state';
 import { usePhotoLibraryConnection } from '@boundary/runtime/usePhotoLibrary.connection';
@@ -247,7 +247,7 @@ function useRefreshActions(params: {
 function useScanWorkflowActions(params: {
     state: PhotoLibraryState;
     request: RequestFn;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     updateJobState: (id: string, state: JobState) => void;
     updateJobProgress: (id: string, payload: {
         overallDone?: number;
@@ -255,7 +255,7 @@ function useScanWorkflowActions(params: {
         overallPercent?: number;
         message?: string;
         current?: string;
-        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+        stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
     }) => void;
     refreshLibrary: () => void;
     refreshPeople: () => void;
@@ -292,7 +292,7 @@ function useScanWorkflowActions(params: {
 
 function useSystemWorkflowActions(params: {
     state: PhotoLibraryState;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     removeJob: (id: string) => void;
     sendCommand: SendCommandFn;
     request: RequestFn;
@@ -347,7 +347,7 @@ function useSystemWorkflowActions(params: {
 
 function useWorkflowActions(params: {
     state: PhotoLibraryState;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     updateJobState: (id: string, state: JobState) => void;
     updateJobProgress: (id: string, payload: {
         overallDone?: number;
@@ -355,7 +355,7 @@ function useWorkflowActions(params: {
         overallPercent?: number;
         message?: string;
         current?: string;
-        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+        stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
     }) => void;
     removeJob: (id: string) => void;
     sendCommand: SendCommandFn;
@@ -412,7 +412,7 @@ function useWorkflowActions(params: {
 function useSupplementaryActions(params: {
     state: PhotoLibraryState;
     request: RequestFn;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     updateJobState: (id: string, state: JobState) => void;
     sendCommand: SendCommandFn;
     refreshActions: ReturnType<typeof useRefreshActions>;
@@ -479,7 +479,7 @@ function useTimelinePagingActions(
 
 function useComposedActions(
     state: PhotoLibraryState,
-    addJob: (id: string, stage: PipelineStage, title: string) => void,
+    addJob: (id: string, stage: string, title: string) => void,
     updateJobState: (id: string, state: JobState) => void,
     updateJobProgress: (id: string, payload: {
         overallDone?: number;
@@ -487,7 +487,7 @@ function useComposedActions(
         overallPercent?: number;
         message?: string;
         current?: string;
-        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+        stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
     }) => void,
     removeJob: (id: string) => void,
     sendCommand: SendCommandFn,

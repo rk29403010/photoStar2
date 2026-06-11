@@ -1,12 +1,12 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { Person } from '@contracts/core';
-import type { BackgroundJob, PipelineStage } from '@contracts/jobs';
+import type { BackgroundJob } from '@contracts/jobs';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 import { startWorkflowWithOverlayJob } from '@boundary/runtime/workflowOverlayJobs';
 
 type FaceSystemActionParams = {
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     request: RequestFn;
     sendCommand: (command: string, payload?: Record<string, unknown>) => Promise<void>;
     setStatus: (status: string) => void;

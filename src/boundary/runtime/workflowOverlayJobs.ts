@@ -1,5 +1,5 @@
 import React from 'react';
-import type { JobState, PipelineStage } from '@contracts/jobs';
+import type { JobState, StageState } from '@contracts/jobs';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { requestWorkflowRunDetail } from '@boundary/runtime/workflowRunDetail';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
@@ -15,7 +15,7 @@ type ScheduleWorkflowRunRefreshParams = {
         message?: string;
         current?: string;
         workflowRunId?: string;
-        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+        stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
     }) => void;
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     refreshSystemJobs: () => void;
@@ -39,7 +39,7 @@ type ScheduleWorkflowRunRefreshParams = {
 
 type StartWorkflowWithOverlayJobParams = {
     request: RequestFn;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     updateJobState: (id: string, state: JobState) => void;
     refreshLibrary: (options?: RefreshLibraryOptions) => void;
     refreshSystemJobs: () => void;
@@ -47,7 +47,7 @@ type StartWorkflowWithOverlayJobParams = {
     command: string;
     payload?: Record<string, unknown>;
     workflowId?: string;
-    stage: PipelineStage;
+    stage: string;
     title: string;
     addNotification?: (
         type: NotificationItem['type'],
@@ -71,7 +71,7 @@ function formatStepLabel(nodeId: string): string {
     return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function toStageState(status: string): 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped' {
+function toStageState(status: string): StageState {
     if (status === 'completed') {return 'succeeded';}
     if (status === 'failed') {return 'failed';}
     if (status === 'running') {return 'running';}
@@ -85,7 +85,7 @@ type WorkflowPollSnapshot = {
     completedItems: number;
     failedStep: WorkflowRunStep | undefined;
     currentStep: WorkflowRunStep | undefined;
-    stages: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    stages: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
 };
 
 type WorkflowRunStep = {
@@ -271,7 +271,10 @@ export async function startWorkflowWithOverlayJob(params: StartWorkflowWithOverl
             command: params.command,
             payload: params.payload ?? {},
             timeoutMs: 10000,
-            select: (data) => String(data?.runId || ''),
+            select: (data) => {
+                const parsedRunId = data && typeof data === 'object' && 'runId' in data ? data.runId : undefined;
+                return typeof parsedRunId === 'string' ? parsedRunId : '';
+            },
         });
     } catch (error) {
         params.updateJobState(localJobId, 'failed');

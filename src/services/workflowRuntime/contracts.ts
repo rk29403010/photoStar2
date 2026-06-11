@@ -110,7 +110,6 @@ export type ModuleArtifactOutputDefinition = {
     subjectType: string;
 }
 
-export type ModuleOutputDefinition = ModuleArtifactOutputDefinition;
 
 export type RuntimeModuleContext = {
     runId: string;
@@ -127,7 +126,7 @@ export type RuntimeModuleContext = {
 }
 
 export type RuntimeModuleRunResult = {
-    outputs: ModuleOutputDefinition[];
+    outputs: ModuleArtifactOutputDefinition[];
     emittedSubjects?: Array<{
         subjectType: string;
         subjectId: string;
@@ -139,7 +138,7 @@ export type ModuleDefinition = {
     version: number;
     capability: CapabilityClass;
     accepts: string[];
-    produces: ModuleOutputDefinition[];
+    produces: ModuleArtifactOutputDefinition[];
     estimatedCostPerCall?: number;
     run: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult> | RuntimeModuleRunResult;
     estimate?: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult & { cost?: number }> | (RuntimeModuleRunResult & { cost?: number });
@@ -209,7 +208,7 @@ function assertWorkflowParameterDefinition(
         throw new Error(`${fieldName}.valueType is invalid`);
     }
     if (typeof value.required !== 'boolean') {
-        throw new Error(`${fieldName}.required must be boolean`);
+        throw new TypeError(`${fieldName}.required must be boolean`);
     }
 
     if (value.valueType === 'enum') {
@@ -262,7 +261,7 @@ function assertWorkflowPresentationDefinition(
         assertNonEmptyString(value.stage, `${fieldName}.stage`);
     }
     if (!Array.isArray(value.milestones)) {
-        throw new Error(`${fieldName}.milestones must be an array`);
+        throw new TypeError(`${fieldName}.milestones must be an array`);
     }
     for (const [index, milestone] of value.milestones.entries()) {
         assertWorkflowMilestoneDefinition(milestone, `${fieldName}.milestones[${index}]`);
@@ -319,8 +318,8 @@ function assertDag(nodes: WorkflowNodeDefinition[]): void {
     const adjacency = new Map<string, string[]>(
         nodes.map((node) => {
             const targets = [...(node.outputsTo || [])];
-            if (node.kind === 'module' && (node as WorkflowModuleNodeDefinition).onFailureTo) {
-                targets.push(...((node as WorkflowModuleNodeDefinition).onFailureTo || []));
+            if (node.kind === 'module' && node.onFailureTo) {
+                targets.push(...(node.onFailureTo || []));
             }
             return [node.id, targets];
         }),
@@ -394,7 +393,7 @@ function assertWorkflowNode(node: WorkflowNodeDefinition): void {
     throw new Error(`unsupported workflow node kind '${String((node as { kind?: unknown }).kind)}'`);
 }
 
-function assertModuleOutput(output: ModuleOutputDefinition): void {
+function assertModuleOutput(output: ModuleArtifactOutputDefinition): void {
     if (output.kind !== 'artifact') {
         throw new Error(`unsupported module output kind '${String(output.kind)}'`);
     }
@@ -406,14 +405,14 @@ export function validateSubjectType(definition: SubjectTypeDefinition): void {
     assertNonEmptyString(definition.id, 'subjectType.id');
     assertPositiveVersion(definition.version, 'subjectType.version');
     if (typeof definition.durable !== 'boolean') {
-        throw new Error('subjectType.durable must be boolean');
+        throw new TypeError('subjectType.durable must be boolean');
     }
     assertNonEmptyString(definition.summary?.titleField, 'subjectType.summary.titleField');
     if (!SUBJECT_PROGRESS_SEMANTICS.has(definition.progressSemantics)) {
         throw new Error('subjectType.progressSemantics must be one of per_subject, per_related_asset, aggregate');
     }
     if (!Array.isArray(definition.relations)) {
-        throw new Error('subjectType.relations must be an array');
+        throw new TypeError('subjectType.relations must be an array');
     }
     if (!definition.ui || !Array.isArray(definition.ui.detailSections)) {
         throw new Error('subjectType.ui.detailSections must be an array');
@@ -429,7 +428,7 @@ export function validateWorkflowDefinition(definition: WorkflowDefinition): void
     assertStringArray(definition.inputs, 'workflow.inputs');
     if (definition.parameters !== undefined) {
         if (!Array.isArray(definition.parameters)) {
-            throw new Error('workflow.parameters must be an array');
+            throw new TypeError('workflow.parameters must be an array');
         }
         for (const [index, parameter] of definition.parameters.entries()) {
             assertWorkflowParameterDefinition(parameter, `workflow.parameters[${index}]`);
@@ -459,12 +458,12 @@ export function validateModuleDefinition(definition: ModuleDefinition): void {
     }
     assertStringArray(definition.accepts, 'module.accepts');
     if (!Array.isArray(definition.produces)) {
-        throw new Error('module.produces must be an array');
+        throw new TypeError('module.produces must be an array');
     }
     for (const output of definition.produces) {
         assertModuleOutput(output);
     }
     if (typeof definition.run !== 'function') {
-        throw new Error('module.run must be a function');
+        throw new TypeError('module.run must be a function');
     }
 }

@@ -13,7 +13,7 @@ import type {
   DataStatsSnapshot,
   JobErrorSnapshot,
   JobState,
-  PipelineStage,
+  StageState,
   RecentEventSnapshot,
   WorkflowRunListItem,
   WorkflowStatusSnapshot,
@@ -132,7 +132,7 @@ type AppMainContentProps = {
   readonly onDeleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetailPayload>;
   readonly onMergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetailPayload>;
   readonly onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
-  readonly onAddJob: (id: string, stage: PipelineStage, title: string) => void;
+  readonly onAddJob: (id: string, stage: string, title: string) => void;
   readonly onUpdateJobState: (id: string, state: JobState) => void;
   readonly onUpdateJobProgress: (id: string, payload: {
     overallDone?: number;
@@ -140,7 +140,7 @@ type AppMainContentProps = {
     overallPercent?: number;
     message?: string;
     current?: string;
-    stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+    stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
   }) => void;
 }
 
@@ -226,7 +226,7 @@ function LibraryContentView(props: AppMainContentProps & { readonly visibleLibra
 }
 
 export function AppMainContent(props: AppMainContentProps) {
-  const activeFilter = props.filterStack.length > 0 ? props.filterStack[props.filterStack.length - 1] : undefined;
+  const activeFilter = props.filterStack.at(-1);
   const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestActive);
 
   return (

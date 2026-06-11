@@ -7,8 +7,6 @@ export type StageState =
 
 export type IssueSeverity = "info" | "warning" | "error" | "fatal";
 
-export type PipelineStage = string;
-
 export type JobIssue = {
     id: string;
     severity: IssueSeverity;
@@ -49,7 +47,7 @@ export type JobProgress = {
 
 export type BackgroundJob = {
     id: string;
-    stage: PipelineStage;
+    stage: string;
     title: string;
     state: JobState;
     createdAt: string;

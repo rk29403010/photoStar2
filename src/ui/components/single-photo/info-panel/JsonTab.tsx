@@ -2,10 +2,9 @@ import type React from 'react';
 import { useState } from 'react';
 import type { Asset } from '@contracts/core';
 
-type JsonValue = unknown;
 
 type JsonNodeProps = {
-  readonly value: JsonValue;
+  readonly value: unknown;
   readonly keyName?: string;
   readonly depth: number;
   readonly isLast: boolean;
@@ -13,7 +12,7 @@ type JsonNodeProps = {
   readonly defaultOpen: boolean;
 }
 
-function getEntries(value: JsonValue): [string, unknown][] {
+function getEntries(value: unknown): [string, unknown][] {
   if (value === null || typeof value !== 'object') {return [];}
   if (Array.isArray(value)) {return value.map((v, i) => [String(i), v] as [string, unknown]);}
   return Object.entries(value as Record<string, unknown>);
@@ -25,7 +24,7 @@ function renderKeyLabel(keyName: string | undefined, isArrayParent: boolean): Re
   return <><span className="json-key">&quot;{keyName}&quot;</span><span className="json-brace">:&nbsp;</span></>;
 }
 
-const JsonLeaf: React.FC<{ readonly value: JsonValue; readonly keyLabel: React.ReactNode; readonly comma: string; readonly indent: number; readonly wordWrap: boolean }> = ({ value, keyLabel, comma, indent, wordWrap }) => {
+const JsonLeaf: React.FC<{ readonly value: unknown; readonly keyLabel: React.ReactNode; readonly comma: string; readonly indent: number; readonly wordWrap: boolean }> = ({ value, keyLabel, comma, indent, wordWrap }) => {
   const valueEl = (function () {
     if (typeof value === 'string') {
       return <span className={`json-str ${wordWrap ? 'break-all whitespace-pre-wrap' : 'normal whitespace-nowrap'}`}>&quot;{value}&quot;</span>;
@@ -42,18 +41,22 @@ const JsonLeaf: React.FC<{ readonly value: JsonValue; readonly keyLabel: React.R
   return <div className="leading-relaxed flex gap-0.5 min-w-0" style={{ paddingLeft: indent }}>{keyLabel}{valueEl}<span className="json-brace">{comma}</span></div>;
 };
 
-const JsonBranch: React.FC<{ readonly value: JsonValue; readonly entries: [string, unknown][]; readonly keyLabel: React.ReactNode; readonly comma: string; readonly isArray: boolean; readonly wordWrap: boolean; readonly defaultOpen: boolean; readonly depth: number }> = ({ value, entries, keyLabel, comma, isArray, wordWrap, defaultOpen, depth }) => {
+const JsonBranch: React.FC<{ readonly value: unknown; readonly entries: [string, unknown][]; readonly keyLabel: React.ReactNode; readonly comma: string; readonly isArray: boolean; readonly wordWrap: boolean; readonly defaultOpen: boolean; readonly depth: number }> = ({ value, entries, keyLabel, comma, isArray, wordWrap, defaultOpen, depth }) => {
   const [open, setOpen] = useState(defaultOpen);
   const summary = isArray ? <span className="json-brace">[<span className="json-index text-[9px]"> {entries.length} </span>]</span> : <span className="json-brace">{'{'}…{'}'}</span>;
 
   return (
     <div style={{ paddingLeft: depth === 0 ? 0 : depth * 14 }}>
-      <div onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 cursor-pointer rounded px-0.5 py-px leading-relaxed select-none hover:bg-content/5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-1 cursor-pointer rounded px-0.5 py-px leading-relaxed select-none hover:bg-content/5 text-left bg-transparent border-none p-0 text-inherit font-inherit"
+      >
         <span className={`text-[9px] text-zinc-500 inline-block w-2.5 shrink-0 motion-safe:transition-transform motion-safe:duration-100 ${open ? 'rotate-90' : 'rotate-0'}`}>▶</span>
         {keyLabel}
         {!open && <>{summary}<span className="json-brace">{comma}</span></>}
         {open && <span className="json-brace">{Array.isArray(value) ? '[' : '{'}</span>}
-      </div>
+      </button>
 
       {open && <div className="pl-3.5 border-l border-content/5">{entries.map(([k, v], i) => <JsonNode key={k} keyName={k} value={v} depth={0} isLast={i === entries.length - 1} wordWrap={wordWrap} defaultOpen={false} />)}</div>}
       {open && <div className="leading-relaxed"><span className="json-brace">{Array.isArray(value) ? ']' : '}'}{comma}</span></div>}

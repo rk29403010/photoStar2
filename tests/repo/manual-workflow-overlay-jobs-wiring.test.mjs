@@ -32,7 +32,7 @@ test('single-photo face rerun creates an overlay job and schedules workflow refr
 test('usePhotoLibrary composes addJob and updateJobState into manual workflow actions', () => {
     const source = read('src/ui/hooks/usePhotoLibrary.ts');
 
-    assert.match(source, /createPipelineActions\(\{\s*request,\s*addJob,\s*updateJobState,\s*updateJobProgress,\s*addNotification: state\.addNotification,\s*refreshLibrary,\s*refreshSystemJobs,\s*\}\)/s);
+    assert.match(source, /createPipelineActions\(\{\s*request,\s*addJob,\s*updateJobState,\s*updateJobProgress,\s*addNotification: state\.addNotification,\s*refreshLibrary,\s*refreshSystemJobs,.*?\}\)/s);
     assert.match(source, /createFaceSystemActions\(\{\s*addJob,\s*request,\s*updateJobState,/s);
 });
 

@@ -5,10 +5,10 @@ import type {
     BackgroundJob,
     DataStatsSnapshot,
     JobErrorSnapshot,
-    PipelineStage,
     RecentEventSnapshot,
     WorkflowRunListItem,
     WorkflowStatusSnapshot,
+    StageState,
 } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 import { createRequestFn, writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
@@ -31,7 +31,7 @@ type AiMode = 'mock' | 'live' | 'off';
 
 type SharedWorkflowActionParams = {
     transport: BackendTransport | null;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     removeJob: (id: string) => void;
     sendCommand: SendCommand;
     request: RequestFn;
@@ -42,7 +42,7 @@ type SharedWorkflowActionParams = {
 
 type ScanActionParams = {
     transport: BackendTransport | null;
-    addJob: (id: string, stage: PipelineStage, title: string) => void;
+    addJob: (id: string, stage: string, title: string) => void;
     updateJobState: (id: string, state: BackgroundJob['state']) => void;
     updateJobProgress: (id: string, payload: {
         overallDone?: number;
@@ -50,7 +50,7 @@ type ScanActionParams = {
         overallPercent?: number;
         message?: string;
         current?: string;
-        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+        stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
     }) => void;
     addNotification: (
         type: 'warning' | 'info' | 'success' | 'error',
@@ -78,7 +78,7 @@ type PipelineActionParams = Pick<SharedWorkflowActionParams, 'addJob' | 'request
         overallPercent?: number;
         message?: string;
         current?: string;
-        stages?: Array<{ stageId: string; label: string; state: 'idle' | 'queued' | 'running' | 'succeeded' | 'warning' | 'failed' | 'skipped'; total?: number; done?: number }>;
+        stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
     }) => void;
     addNotification: (
         type: 'warning' | 'info' | 'success' | 'error',
@@ -250,7 +250,7 @@ export function createScanActions(params: ScanActionParams) {
 
 function getWorkflowConfig(workflowId: string, assetIds: string[], workflowStatus: WorkflowStatusSnapshot | null) {
     const matched = workflowStatus?.workflows.find(w => w.workflowId === workflowId);
-    const stage: PipelineStage = (matched?.stage as PipelineStage) || 'scan';
+    const stage: string = (matched?.stage as string) || 'scan';
     const title = matched ? matched.displayName : 'Running Workflow';
     const command = 'start_workflow_run';
     const payload: Record<string, unknown> = {
@@ -270,7 +270,7 @@ export function createPipelineActions(params: PipelineActionParams) {
     const startWorkflow = (
         idPrefix: string,
         command: string,
-        stage: PipelineStage,
+        stage: string,
         title: string,
         payload: Record<string, unknown> = {},
     ) => startWorkflowWithOverlayJob({
@@ -424,33 +424,53 @@ export function createSystemActions(params: SystemActionParams) {
     };
 }
 
+function performGetSetting(request: RequestFn, key: string): Promise<string> {
+    return request<string>({
+        idPrefix: `get_setting_${key}`,
+        command: 'get_setting',
+        payload: { key },
+        select: (data) => {
+            const value = data && typeof data === 'object' && 'value' in data ? data.value : undefined;
+            return typeof value === 'string' ? value : '';
+        },
+    });
+}
+
+async function performSetSetting(transport: BackendTransport | null, key: string, value: string) {
+    if (!transport) {return;}
+    await writeCommand(transport, `set_setting_${key}_${Date.now()}`, 'set_setting', { key, value });
+}
+
+async function performSetSensitivity(
+    transport: BackendTransport | null,
+    setAssets: Dispatch<SetStateAction<Asset[]>>,
+    assetId: string,
+    status: string | null
+) {
+    if (!transport) {return;}
+    await writeCommand(transport, `set-sensitivity-${Date.now()}`, 'set_sensitivity', { assetId, status });
+    setAssets((prev) => prev.map((asset) => asset.id === assetId ? { ...asset, sensitivity_status: status } : asset));
+}
+
+function performGetEventPayloadRaw(request: RequestFn, eventId: string): Promise<string> {
+    return request<string>({
+        idPrefix: `get_event_payload_${eventId}`,
+        command: 'get_event_payload',
+        payload: { eventId },
+        timeoutMs: 10000,
+        select: (data) => {
+            const payloadJson = data && typeof data === 'object' && 'payloadJson' in data ? data.payloadJson : undefined;
+            return typeof payloadJson === 'string' ? payloadJson : '';
+        },
+    });
+}
+
 export function createSettingsActions(params: SettingsActionParams) {
-    const { transport, request, setAssets } = params;
-
     return {
-        getSetting: (key: string): Promise<string> => request<string>({
-            idPrefix: `get_setting_${key}`,
-            command: 'get_setting',
-            payload: { key },
-            select: (data) => String(data?.value || ''),
-        }),
-        setSetting: async (key: string, value: string) => {
-            if (!transport) {return;}
-            await writeCommand(transport, `set_setting_${key}_${Date.now()}`, 'set_setting', { key, value });
-        },
-        setSensitivity: async (assetId: string, status: string | null) => {
-            if (!transport) {return;}
-
-            await writeCommand(transport, `set-sensitivity-${Date.now()}`, 'set_sensitivity', { assetId, status });
-            setAssets((prev) => prev.map((asset) => asset.id === assetId ? { ...asset, sensitivity_status: status } : asset));
-        },
-        getEventPayloadRaw: (eventId: string): Promise<string> => request<string>({
-            idPrefix: `get_event_payload_${eventId}`,
-            command: 'get_event_payload',
-            payload: { eventId },
-            timeoutMs: 10000,
-            select: (data) => String(data?.payloadJson || ''),
-        }),
+        getSetting: (key: string) => performGetSetting(params.request, key),
+        setSetting: (key: string, value: string) => performSetSetting(params.transport, key, value),
+        setSensitivity: (assetId: string, status: string | null) => performSetSensitivity(params.transport, params.setAssets, assetId, status),
+        getEventPayloadRaw: (eventId: string) => performGetEventPayloadRaw(params.request, eventId),
     };
 }
 
@@ -459,7 +479,7 @@ export function createRefreshActions(sendCommand: SendCommand, filterStackRef: {
         refreshLibrary: (options: RefreshLibraryOptions = {}) => {
             void sendCommand('get_stats');
             const stack = filterStackRef.current;
-            const currentFilter = stack.length > 0 ? stack[stack.length - 1] : undefined;
+            const currentFilter = stack.at(-1);
             void sendCommand('get_assets', {
                 limit: ASSET_PAGE_SIZE,
                 offset: 0,
