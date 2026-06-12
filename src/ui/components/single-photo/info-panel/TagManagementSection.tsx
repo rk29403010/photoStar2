@@ -14,6 +14,14 @@ type TagManagementSectionProps = {
   }) => Promise<void>;
 }
 
+type TagItem = {
+  type: 'assigned' | 'pending';
+  label: string;
+  sourceKind: string;
+  tagDefinitionId?: string;
+  reviewItemId?: string;
+};
+
 function getReviewItemProposedLabel(reviewItem: ReviewItemSummary) {
   try {
     const parsed = JSON.parse(reviewItem.payloadJson) as { proposedLabel?: unknown };
@@ -27,180 +35,209 @@ function getSuggestedTagLabels(availableTags: TagDefinitionSummary[] | undefined
   return (availableTags ?? []).map((tag) => tag.canonicalLabel);
 }
 
-function getManualTags(asset: Asset) {
-  return (asset.tags ?? []).filter((tag) => tag.sourceKind === 'manual');
-}
+type TagItemBadgeProps = {
+  readonly tag: TagItem;
+  readonly isBusy: boolean;
+  readonly onRemove: (tagDefinitionId: string) => Promise<void>;
+  readonly onReviewAction: (reviewItemId: string, status: ReviewItemSummary['status'], tagLabel?: string) => Promise<void>;
+  readonly onRemoveTagEnabled: boolean;
+};
 
-function getNonManualTags(asset: Asset) {
-  return (asset.tags ?? []).filter((tag) => tag.sourceKind !== 'manual');
-}
-
-function EmptyTagState({ message }: { readonly message: string }) {
-  return <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>{message}</div>;
-}
-
-function TagBadge(props: {
-  readonly label: string;
-  readonly sourceLabel: string;
-  readonly removable: boolean;
-  readonly onRemove?: () => void;
-  readonly busy: boolean;
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.18)', background: 'rgba(15,23,42,0.55)' }}>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 600 }}>{props.label}</div>
-        <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{props.sourceLabel}</div>
-      </div>
-      {props.removable ? (
-        <button type="button" onClick={props.onRemove} disabled={props.busy} style={{ border: '1px solid rgba(248,113,113,0.35)', background: 'transparent', color: '#fca5a5', borderRadius: 8, cursor: props.busy ? 'wait' : 'pointer', padding: '4px 8px', fontSize: 11 }}>
-          Remove
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function TagAssignmentList(props: {
-  readonly asset: Asset;
-  readonly busyKey: string | null;
-  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  readonly setBusyKey: (value: string | null) => void;
-}) {
-  const manualTags = getManualTags(props.asset);
-  const nonManualTags = getNonManualTags(props.asset);
-
-  if (manualTags.length === 0 && nonManualTags.length === 0) {
-    return <EmptyTagState message="No canonical tags assigned yet." />;
+function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnabled }: TagItemBadgeProps) {
+  if (tag.type === 'assigned') {
+    const removable = tag.sourceKind === 'manual' && onRemoveTagEnabled;
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs border font-medium ${
+          tag.sourceKind === 'manual'
+            ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
+            : 'bg-content/5 border-content/10 text-content-secondary/90'
+        }`}
+      >
+        <span>{tag.label}</span>
+        {removable && (
+          <button
+            type="button"
+            onClick={() => tag.tagDefinitionId && void onRemove(tag.tagDefinitionId)}
+            disabled={isBusy}
+            className="text-indigo-400 hover:text-indigo-200 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs ml-0.5 disabled:opacity-50"
+            title="Remove tag"
+          >
+            ×
+          </button>
+        )}
+      </span>
+    );
   }
 
-  const handleRemove = async (tagDefinitionId: string) => {
-    if (!props.onRemoveTag) {
-      return;
-    }
-    props.setBusyKey(`remove-${tagDefinitionId}`);
-    try {
-      await props.onRemoveTag(tagDefinitionId);
-    } finally {
-      props.setBusyKey(null);
-    }
-  };
-
   return (
-    <>
-      {manualTags.map((tag) => (
-        <TagBadge key={`${tag.tagDefinitionId}-${tag.sourceKind}`} label={tag.canonicalLabel} sourceLabel="manual" removable={Boolean(props.onRemoveTag)} busy={props.busyKey === `remove-${tag.tagDefinitionId}`} onRemove={props.onRemoveTag ? () => void handleRemove(tag.tagDefinitionId) : undefined} />
-      ))}
-      {nonManualTags.map((tag) => (
-        <TagBadge key={`${tag.tagDefinitionId}-${tag.sourceKind}`} label={tag.canonicalLabel} sourceLabel={tag.sourceKind} removable={false} busy={false} />
-      ))}
-    </>
+    <span
+      className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs border font-medium bg-amber-500/10 border-amber-500/35 text-amber-300"
+    >
+      <span className="italic">{tag.label} (AI)</span>
+      <span className="flex items-center gap-1.5 ml-1">
+        <button
+          type="button"
+          onClick={() => tag.reviewItemId && void onReviewAction(tag.reviewItemId, 'approved', tag.label)}
+          disabled={isBusy}
+          className="text-emerald-400 hover:text-emerald-300 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs disabled:opacity-50"
+          title="Approve suggestion"
+        >
+          ✓
+        </button>
+        <button
+          type="button"
+          onClick={() => tag.reviewItemId && void onReviewAction(tag.reviewItemId, 'rejected')}
+          disabled={isBusy}
+          className="text-rose-400 hover:text-rose-300 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs disabled:opacity-50"
+          title="Reject suggestion"
+        >
+          ✗
+        </button>
+      </span>
+    </span>
   );
 }
 
-function TagInputRow(props: {
-  readonly newTagLabel: string;
+function useAssetTags(tags?: Asset['tags'], pendingReviewItems?: Asset['pending_review_items']) {
+  return useMemo(() => {
+    const assigned: TagItem[] = (tags ?? []).map((t) => ({
+      type: 'assigned' as const,
+      label: t.canonicalLabel,
+      sourceKind: t.sourceKind,
+      tagDefinitionId: t.tagDefinitionId,
+    }));
+
+    const pending: TagItem[] = (pendingReviewItems ?? [])
+      .map((item) => {
+        const label = getReviewItemProposedLabel(item);
+        return {
+          type: 'pending' as const,
+          label,
+          sourceKind: 'ai_proposal',
+          reviewItemId: item.id,
+        };
+      })
+      .filter((t) => t.label.length > 0);
+
+    return [...assigned, ...pending].sort((a, b) => a.label.localeCompare(b.label));
+  }, [tags, pendingReviewItems]);
+}
+
+type AddTagInputProps = {
+  readonly onAssignTag: (tagLabel: string) => Promise<void>;
   readonly suggestedLabels: string[];
   readonly busyKey: string | null;
-  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
-  readonly onNewTagLabelChange: (value: string) => void;
-  readonly setBusyKey: (value: string | null) => void;
-}) {
-  if (!props.onAssignTag) {
-    return null;
-  }
+  readonly setBusyKey: (key: string | null) => void;
+};
+
+function AddTagInput({ onAssignTag, suggestedLabels, busyKey, setBusyKey }: AddTagInputProps) {
+  const [newTagLabel, setNewTagLabel] = useState('');
 
   const handleAddTag = async () => {
-    const trimmed = props.newTagLabel.trim();
+    const trimmed = newTagLabel.trim();
     if (!trimmed) {
       return;
     }
-    props.setBusyKey('add-tag');
+    setBusyKey('add-tag');
     try {
-      await props.onAssignTag?.(trimmed);
-      props.onNewTagLabelChange('');
+      await onAssignTag(trimmed);
+      setNewTagLabel('');
     } finally {
-      props.setBusyKey(null);
+      setBusyKey(null);
     }
   };
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <input type="text" value={props.newTagLabel} list={props.suggestedLabels.length > 0 ? 'canonical-tag-suggestions' : undefined} onChange={(event) => props.onNewTagLabelChange(event.target.value)} placeholder="Add or reuse a canonical tag" style={{ flex: 1, minWidth: 0, background: 'rgba(15,23,42,0.75)', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.22)', borderRadius: 8, padding: '8px 10px', fontSize: 12 }} />
-      <button type="button" onClick={() => void handleAddTag()} disabled={props.busyKey === 'add-tag' || props.newTagLabel.trim().length === 0} style={{ border: '1px solid rgba(96,165,250,0.35)', background: 'rgba(37,99,235,0.18)', color: '#bfdbfe', borderRadius: 8, cursor: props.busyKey === 'add-tag' ? 'wait' : 'pointer', padding: '8px 12px', fontSize: 11, fontWeight: 600 }}>
+    <div className="flex gap-2 items-center">
+      <input
+        type="text"
+        value={newTagLabel}
+        list={suggestedLabels.length > 0 ? 'canonical-tag-suggestions' : undefined}
+        onChange={(e) => setNewTagLabel(e.target.value)}
+        placeholder="Add or reuse tag"
+        className="flex-1 min-w-[150px] h-8 bg-surface-secondary text-content border border-content/10 rounded px-2.5 text-xs outline-none focus:border-brand-accent/50"
+      />
+      <button
+        type="button"
+        onClick={() => void handleAddTag()}
+        disabled={busyKey === 'add-tag' || newTagLabel.trim().length === 0}
+        className="border border-brand-accent/30 bg-brand-accent/10 text-brand-accent rounded cursor-pointer px-3 h-8 text-xs font-bold hover:bg-brand-accent/20 active:scale-95 motion-safe:transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+      >
         Add Tag
       </button>
-      {props.suggestedLabels.length > 0 ? (
+      {suggestedLabels.length > 0 && (
         <datalist id="canonical-tag-suggestions">
-          {props.suggestedLabels.map((label) => <option key={label} value={label} />)}
+          {suggestedLabels.map((label) => (
+            <option key={label} value={label} />
+          ))}
         </datalist>
-      ) : null}
-    </div>
-  );
-}
-
-function PendingTagProposals(props: {
-  readonly pendingReviewItems: ReviewItemSummary[];
-  readonly busyKey: string | null;
-  readonly onSetReviewItemStatus?: (payload: {
-    reviewItemId: string;
-    status: ReviewItemSummary['status'];
-    tagLabel?: string;
-  }) => Promise<void>;
-  readonly setBusyKey: (value: string | null) => void;
-}) {
-  const handleReviewAction = async (reviewItemId: string, status: ReviewItemSummary['status'], tagLabel?: string) => {
-    if (!props.onSetReviewItemStatus) {
-      return;
-    }
-    props.setBusyKey(reviewItemId);
-    try {
-      await props.onSetReviewItemStatus({ reviewItemId, status, tagLabel });
-    } finally {
-      props.setBusyKey(null);
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6 }}>Pending Tag Proposals</div>
-      {props.pendingReviewItems.length === 0 ? (
-        <EmptyTagState message="No pending tag proposals for this photo." />
-      ) : (
-        props.pendingReviewItems.map((reviewItem) => {
-          const proposedLabel = getReviewItemProposedLabel(reviewItem) || 'Untitled proposal';
-          return (
-            <div key={reviewItem.id} style={{ border: '1px solid rgba(148,163,184,0.18)', borderRadius: 10, padding: 10, background: 'rgba(15,23,42,0.45)' }}>
-              <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 600, marginBottom: 4 }}>{proposedLabel}</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>AI suggested this as a new canonical tag.</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={() => void handleReviewAction(reviewItem.id, 'approved', proposedLabel)} disabled={props.busyKey === reviewItem.id} style={{ border: '1px solid rgba(74,222,128,0.35)', background: 'rgba(34,197,94,0.12)', color: '#86efac', borderRadius: 8, padding: '6px 10px', fontSize: 11, cursor: props.busyKey === reviewItem.id ? 'wait' : 'pointer' }}>
-                  Approve
-                </button>
-                <button type="button" onClick={() => void handleReviewAction(reviewItem.id, 'rejected')} disabled={props.busyKey === reviewItem.id} style={{ border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(239,68,68,0.12)', color: '#fca5a5', borderRadius: 8, padding: '6px 10px', fontSize: 11, cursor: props.busyKey === reviewItem.id ? 'wait' : 'pointer' }}>
-                  Reject
-                </button>
-              </div>
-            </div>
-          );
-        })
       )}
     </div>
   );
 }
 
 export function TagManagementSection(props: TagManagementSectionProps) {
-  const [newTagLabel, setNewTagLabel] = useState('');
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const pendingReviewItems = props.asset.pending_review_items ?? [];
+
   const suggestedLabels = useMemo(() => getSuggestedTagLabels(props.availableTags), [props.availableTags]);
+  const allTags = useAssetTags(props.asset.tags, props.asset.pending_review_items);
+
+  const handleRemove = async (tagDefinitionId: string) => {
+    if (!props.onRemoveTag) {
+      return;
+    }
+    setBusyKey(`remove-${tagDefinitionId}`);
+    try {
+      await props.onRemoveTag(tagDefinitionId);
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleReviewAction = async (reviewItemId: string, status: ReviewItemSummary['status'], tagLabel?: string) => {
+    if (!props.onSetReviewItemStatus) {
+      return;
+    }
+    setBusyKey(reviewItemId);
+    try {
+      await props.onSetReviewItemStatus({ reviewItemId, status, tagLabel });
+    } finally {
+      setBusyKey(null);
+    }
+  };
 
   return (
-    <Section emoji="🏷️" title="Canonical Tags">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <TagAssignmentList asset={props.asset} busyKey={busyKey} onRemoveTag={props.onRemoveTag} setBusyKey={setBusyKey} />
-        <TagInputRow newTagLabel={newTagLabel} suggestedLabels={suggestedLabels} busyKey={busyKey} onAssignTag={props.onAssignTag} onNewTagLabelChange={setNewTagLabel} setBusyKey={setBusyKey} />
-        <PendingTagProposals pendingReviewItems={pendingReviewItems} busyKey={busyKey} onSetReviewItemStatus={props.onSetReviewItemStatus} setBusyKey={setBusyKey} />
+    <Section emoji="🏷️" title="Tags">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-1.5 bg-surface-secondary/40 border border-content/5 rounded-lg p-2.5 min-h-[50px] items-center">
+          {allTags.length === 0 ? (
+            <div className="text-xs text-content-secondary/60 italic">No tags assigned.</div>
+          ) : (
+            allTags.map((tag) => {
+              const isBusy = busyKey === `remove-${tag.tagDefinitionId}` || busyKey === tag.reviewItemId;
+              return (
+                <TagItemBadge
+                  key={tag.type === 'assigned' ? `${tag.tagDefinitionId}-${tag.sourceKind}` : tag.reviewItemId}
+                  tag={tag}
+                  isBusy={isBusy}
+                  onRemove={handleRemove}
+                  onReviewAction={handleReviewAction}
+                  onRemoveTagEnabled={Boolean(props.onRemoveTag)}
+                />
+              );
+            })
+          )}
+        </div>
+
+        {props.onAssignTag && (
+          <AddTagInput
+            onAssignTag={props.onAssignTag}
+            suggestedLabels={suggestedLabels}
+            busyKey={busyKey}
+            setBusyKey={setBusyKey}
+          />
+        )}
       </div>
     </Section>
   );

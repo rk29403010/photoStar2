@@ -29,6 +29,9 @@ type ZoomBarProps = {
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly controlsVisible: boolean;
     readonly getOverlayVisibilityStyle: (controlsVisible: boolean) => React.CSSProperties;
+    readonly hasFrame: boolean;
+    readonly showWithFrame: boolean;
+    readonly setShowWithFrame: (show: boolean) => void;
 }
 
 const zoomButtonClass = "bg-transparent border-none text-white cursor-pointer text-base w-7 h-7 flex items-center justify-center hover:opacity-80 active:scale-95";
@@ -98,8 +101,23 @@ export const ZoomBar: React.FC<ZoomBarProps> = ({
     setShowInfoPanel,
     controlsVisible,
     getOverlayVisibilityStyle,
+    hasFrame,
+    showWithFrame,
+    setShowWithFrame,
 }) => {
     /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events, deslint/prefer-semantic-html */
+    let frameButtonTitle = 'No frame detected';
+    if (hasFrame) {
+        frameButtonTitle = showWithFrame ? 'Hide frame' : 'Show frame';
+    }
+
+    let frameButtonStateClass = 'bg-transparent border border-transparent text-white';
+    if (!hasFrame) {
+        frameButtonStateClass = 'opacity-40 cursor-not-allowed text-slate-500';
+    } else if (showWithFrame) {
+        frameButtonStateClass = 'bg-amber-500/25 border border-amber-500/50 text-amber-300';
+    }
+
     return (
         <div
             style={{
@@ -114,6 +132,8 @@ export const ZoomBar: React.FC<ZoomBarProps> = ({
             <button onClick={() => setScale(getNextZoomScale(scale, 1))} className={zoomButtonClass} title="Zoom in">+</button>
             <div className={dividerClass} />
             <button onClick={resetPanZoom} className="bg-transparent border-none text-white cursor-pointer text-xs flex items-center gap-1 hover:opacity-80 active:scale-95" title="Reset zoom"><span className="text-sm">⟲</span> Reset</button>
+            <div className={dividerClass} />
+            <button onClick={() => setShowWithFrame(!showWithFrame)} disabled={!hasFrame} title={frameButtonTitle} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${frameButtonStateClass}`}><span className="text-sm">🖼️</span></button>
             <div className={dividerClass} />
             <button onClick={() => setShowFaces(!showFaces)} title={showFaces ? 'Hide faces' : 'Show faces'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${showFaces ? 'bg-cyan-500/25 border border-cyan-500/50 text-cyan-400' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">👤</span></button>
             <div className={dividerClass} />

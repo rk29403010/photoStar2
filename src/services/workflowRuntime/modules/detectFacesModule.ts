@@ -5,6 +5,7 @@ import type { FacesDetected } from '@contracts/events';
 import { RetinaFaceDetector } from '../../faces/retinaFaceDetector';
 import { normalizeStoredPhotoBox } from '../../faces/faceImageGeometry';
 import type { ModuleDefinition } from '../contracts';
+import { getFrameInteriorBox } from '../../photoMetadata/frameUtils';
 
 export type DetectFacesModuleOptions = {
     dbManager: DatabaseManager;
@@ -30,7 +31,20 @@ export function createDetectFacesModule(options: DetectFacesModuleOptions): Modu
 
             if (asset?.original_path && existsSync(asset.original_path)) {
                 try {
-                    const detections = await detector.detect(asset.original_path);
+                    const frameDetectionRow = db.prepare('SELECT data FROM derived_results WHERE asset_id = ? AND task = ?')
+                        .get(context.subject.subjectId, 'frame_detection') as { data: string } | undefined;
+
+                    let interiorBox: { x: number; y: number; width: number; height: number } | null = null;
+                    if (frameDetectionRow) {
+                        try {
+                            const boundaryData = JSON.parse(frameDetectionRow.data);
+                            interiorBox = getFrameInteriorBox(boundaryData);
+                        } catch (e) {
+                            console.error('Error parsing frame detection data:', e);
+                        }
+                    }
+
+                    const detections = await detector.detect(asset.original_path, interiorBox);
                     faces = detections.flatMap((detection) => {
                         const normalizedBox = normalizeStoredPhotoBox(detection.box);
                         if (!normalizedBox) {

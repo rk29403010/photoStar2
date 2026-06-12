@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import type { DatabaseManager } from '../../../data/db';
 import type { WorkflowPreviewGenerated } from '@contracts/events';
 import type { ModuleDefinition } from '../contracts';
+import { getFrameInteriorBox } from '../../photoMetadata/frameUtils';
 
 const PREVIEW_SIZES = {
     thumbnail: 256,
@@ -24,12 +25,23 @@ async function writePreviewVariants(
     db: ReturnType<DatabaseManager['getDb']>,
     previewsDir: string,
     asset: { id: string; original_path: string },
+    interiorBox: { x: number; y: number; width: number; height: number } | null,
 ): Promise<string> {
     let thumbnailPath = '';
     for (const [sizeName, width] of Object.entries(PREVIEW_SIZES)) {
         const outputPath = join(previewsDir, `${asset.id}-${sizeName}.webp`);
-        await sharp(asset.original_path)
-            .rotate()
+        let pipeline = sharp(asset.original_path).rotate();
+        if (interiorBox) {
+            const metadata = await sharp(asset.original_path).rotate().metadata();
+            if (metadata.width && metadata.height) {
+                const left = Math.max(0, Math.min(Math.round(interiorBox.x * metadata.width), metadata.width - 1));
+                const top = Math.max(0, Math.min(Math.round(interiorBox.y * metadata.height), metadata.height - 1));
+                const cropWidth = Math.max(1, Math.min(Math.round(interiorBox.width * metadata.width), metadata.width - left));
+                const cropHeight = Math.max(1, Math.min(Math.round(interiorBox.height * metadata.height), metadata.height - top));
+                pipeline = pipeline.extract({ left, top, width: cropWidth, height: cropHeight });
+            }
+        }
+        await pipeline
             .resize(width, null, {
                 withoutEnlargement: true,
                 fit: 'inside',
@@ -73,7 +85,20 @@ export function createGeneratePreviewsModule(options: GeneratePreviewsModuleOpti
                 throw new Error(`Unknown asset '${context.subject.subjectId}'`);
             }
 
-            const thumbnailPath = await writePreviewVariants(db, ensurePreviewsDir(db), asset);
+            const frameDetectionRow = db.prepare('SELECT data FROM derived_results WHERE asset_id = ? AND task = ?')
+                .get(context.subject.subjectId, 'frame_detection') as { data: string } | undefined;
+
+            let interiorBox: { x: number; y: number; width: number; height: number } | null = null;
+            if (frameDetectionRow) {
+                try {
+                    const boundaryData = JSON.parse(frameDetectionRow.data);
+                    interiorBox = getFrameInteriorBox(boundaryData);
+                } catch (e) {
+                    console.error('Error parsing frame detection data:', e);
+                }
+            }
+
+            const thumbnailPath = await writePreviewVariants(db, ensurePreviewsDir(db), asset, interiorBox);
             if (thumbnailPath) {
                 options.eventBus?.emit({
                     type: 'WorkflowPreviewGenerated',

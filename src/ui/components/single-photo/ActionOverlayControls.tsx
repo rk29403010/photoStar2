@@ -41,6 +41,9 @@ type ControlsOverlayProps = {
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly controlsVisible: boolean;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly hasFrame: boolean;
+    readonly showWithFrame: boolean;
+    readonly setShowWithFrame: (show: boolean) => void;
 }
 
 type ActionMenuProps = {
@@ -575,40 +578,18 @@ function renderActionMenuTrigger(props: ActionMenuProps) {
     );
 }
 
-export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
-    asset,
-    assetsLength,
-    currentIndex,
-    showActionMenu,
-    setShowActionMenu,
-    showFaces,
-    setShowFaces,
-    isImageTransitionPending,
-    scale,
-    setScale,
-    setPan,
-    resetPanZoom,
-    onClose,
-    onPrevious,
-    onNext,
-    onSetSensitivity,
-    onMoveToBin,
-    onRestoreFromBin,
-    onSetCanonical,
-    onExplodeGroup,
-    onExtractAiMetadata,
-    onRerunFaceDetection,
-    analysisState,
-    setAnalysisState,
-    setAnalysisError,
-    analyzingAssetId,
-    setAnalyzingAssetId,
-    setAnalyzingJobId,
-    showInfoPanel,
-    setShowInfoPanel,
-    controlsVisible,
-    onRunWorkflowOnAssets
-}) => {
+// eslint-disable-next-line max-lines-per-function -- Cohesive rendering of overlay controls for viewport chrome
+export const ControlsOverlay: React.FC<ControlsOverlayProps> = (props) => {
+    const {
+        asset, assetsLength, currentIndex, showActionMenu, setShowActionMenu,
+        showFaces, setShowFaces, isImageTransitionPending, scale, setScale,
+        setPan, resetPanZoom, onClose, onPrevious, onNext, onSetSensitivity,
+        onMoveToBin, onRestoreFromBin, onSetCanonical, onExplodeGroup,
+        onExtractAiMetadata, onRerunFaceDetection, analysisState, setAnalysisState,
+        setAnalysisError, analyzingAssetId, setAnalyzingAssetId, setAnalyzingJobId,
+        showInfoPanel, setShowInfoPanel, controlsVisible, onRunWorkflowOnAssets,
+        hasFrame, showWithFrame, setShowWithFrame
+    } = props;
     const persistentAnalysisStatus = renderAnalysisStatus({
         analysisState,
         analyzingAssetId,
@@ -660,6 +641,9 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = ({
             setShowInfoPanel={setShowInfoPanel}
             controlsVisible={controlsVisible}
             getOverlayVisibilityStyle={getOverlayVisibilityStyle}
+            hasFrame={hasFrame}
+            showWithFrame={showWithFrame}
+            setShowWithFrame={setShowWithFrame}
         />
         </>
     );

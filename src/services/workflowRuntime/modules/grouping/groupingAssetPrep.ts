@@ -4,6 +4,7 @@ import type { DatabaseManager } from '../../../../data/db';
 import { getFileStats, hashFile } from '../../../file-utils';
 import { blockhashData, dhashData } from '../../../math-utils';
 import { persistAssetEmbeddedMetadata } from '../../../embeddedMetadata';
+import { getFrameInteriorBox } from '../../../photoMetadata/frameUtils';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -74,14 +75,32 @@ function needsFeatureUpdate(row: GroupingAssetRow): boolean {
     return !row.phash64 || !row.dhash64;
 }
 
-async function computePerceptualHashes(filePath: string): Promise<{ phash64: string; dhash64: string }> {
-    const { data: pData } = await sharp(filePath)
+async function computePerceptualHashes(
+    filePath: string,
+    interiorBox: { x: number; y: number; width: number; height: number } | null,
+): Promise<{ phash64: string; dhash64: string }> {
+    let pPipeline = sharp(filePath).rotate();
+    let dPipeline = sharp(filePath).rotate();
+
+    if (interiorBox) {
+        const metadata = await sharp(filePath).rotate().metadata();
+        if (metadata.width && metadata.height) {
+            const left = Math.max(0, Math.min(Math.round(interiorBox.x * metadata.width), metadata.width - 1));
+            const top = Math.max(0, Math.min(Math.round(interiorBox.y * metadata.height), metadata.height - 1));
+            const cropWidth = Math.max(1, Math.min(Math.round(interiorBox.width * metadata.width), metadata.width - left));
+            const cropHeight = Math.max(1, Math.min(Math.round(interiorBox.height * metadata.height), metadata.height - top));
+            pPipeline = pPipeline.extract({ left, top, width: cropWidth, height: cropHeight });
+            dPipeline = dPipeline.extract({ left, top, width: cropWidth, height: cropHeight });
+        }
+    }
+
+    const { data: pData } = await pPipeline
         .resize(8, 8, { fit: 'fill' })
         .greyscale()
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-    const { data: dData } = await sharp(filePath)
+    const { data: dData } = await dPipeline
         .resize(9, 8, { fit: 'fill' })
         .greyscale()
         .raw()
@@ -126,7 +145,21 @@ async function updateAssetPrerequisites(db: DbHandle, row: GroupingAssetRow): Pr
 
 async function updateFeaturePrerequisites(db: DbHandle, row: GroupingAssetRow): Promise<void> {
     const assetHash = row.file_hash ?? await hashFile(row.original_path);
-    const hashes = await computePerceptualHashes(row.original_path);
+
+    const frameDetectionRow = db.prepare('SELECT data FROM derived_results WHERE asset_id = ? AND task = ?')
+        .get(row.id, 'frame_detection') as { data: string } | undefined;
+
+    let interiorBox: { x: number; y: number; width: number; height: number } | null = null;
+    if (frameDetectionRow) {
+        try {
+            const boundaryData = JSON.parse(frameDetectionRow.data);
+            interiorBox = getFrameInteriorBox(boundaryData);
+        } catch (e) {
+            console.error('Error parsing frame detection data:', e);
+        }
+    }
+
+    const hashes = await computePerceptualHashes(row.original_path, interiorBox);
     db.prepare(UPSERT_ASSET_FEATURES_SQL)
         .run(row.id, assetHash, hashes.phash64, hashes.dhash64);
 }

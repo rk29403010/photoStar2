@@ -37,12 +37,26 @@ export class RetinaFaceDetector {
     private session: ort.InferenceSession | null = null;
     private anchorCentersByStride = new Map<number, Array<[number, number]>>();
 
-    public async detect(imagePath: string): Promise<FaceDetectionCandidate[]> {
+    public async detect(
+        imagePath: string,
+        interiorBox: { x: number; y: number; width: number; height: number } | null = null,
+    ): Promise<FaceDetectionCandidate[]> {
         if (!this.session) {
             await this.init();
         }
 
-        const image = sharp(imagePath);
+        let image = sharp(imagePath);
+        if (interiorBox) {
+            const origMetadata = await image.metadata();
+            if (origMetadata.width && origMetadata.height) {
+                const left = Math.max(0, Math.min(Math.round(interiorBox.x * origMetadata.width), origMetadata.width - 1));
+                const top = Math.max(0, Math.min(Math.round(interiorBox.y * origMetadata.height), origMetadata.height - 1));
+                const cropWidth = Math.max(1, Math.min(Math.round(interiorBox.width * origMetadata.width), origMetadata.width - left));
+                const cropHeight = Math.max(1, Math.min(Math.round(interiorBox.height * origMetadata.height), origMetadata.height - top));
+                image = image.extract({ left, top, width: cropWidth, height: cropHeight });
+            }
+        }
+
         const metadata = await image.metadata();
         const orientedDimensions = getOrientedDimensions(metadata);
         if (!orientedDimensions) {
@@ -79,7 +93,26 @@ export class RetinaFaceDetector {
 
         const tensor = new ort.Tensor('float32', float32Data, [1, 3, INPUT_HEIGHT, INPUT_WIDTH]);
         const results = await this.session!.run({ 'input.1': tensor });
-        return this.postProcess(results, orientedDimensions.width, orientedDimensions.height, detScale);
+        const candidates = this.postProcess(results, orientedDimensions.width, orientedDimensions.height, detScale);
+
+        if (interiorBox) {
+            return candidates.map((c) => {
+                const xMin = clampUnit(interiorBox.x + c.box[0] * interiorBox.width);
+                const yMin = clampUnit(interiorBox.y + c.box[1] * interiorBox.height);
+                const xMax = clampUnit(interiorBox.x + c.box[2] * interiorBox.width);
+                const yMax = clampUnit(interiorBox.y + c.box[3] * interiorBox.height);
+                return {
+                    score: c.score,
+                    box: [xMin, yMin, xMax, yMax],
+                    landmarks: c.landmarks.map((l) => ({
+                        x: clampUnit(interiorBox.x + l.x * interiorBox.width),
+                        y: clampUnit(interiorBox.y + l.y * interiorBox.height),
+                    })),
+                };
+            });
+        }
+
+        return candidates;
     }
 
     private async init(): Promise<void> {

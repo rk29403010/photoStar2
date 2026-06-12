@@ -58,6 +58,7 @@ To maintain fast progress and optimize token usage, quality checking should be o
   - Core changes: `pnpm.cmd run test:core`
   - UI changes: `pnpm.cmd run test:ui`
   - Tooling/repo changes: `pnpm.cmd run test:repo`
+- **Track New Files First**: Always track/stage newly created code files (using `git add`) BEFORE running quality checks. Because scripts like `complexity:changed` rely on Git diffs to find changed files, untracked files will be silently skipped by complexity checking unless staged first.
 - **Branch/Complexity Monitoring**: Run `pnpm.cmd run complexity:staged` for complex, branch-heavy files, or pass explicit files: `pnpm.cmd run complexity:staged -- --files=src/foo.ts`.
 
 ## Code Shape

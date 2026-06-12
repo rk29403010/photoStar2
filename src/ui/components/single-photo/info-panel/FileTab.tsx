@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type React from 'react';
 import type { Asset, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
@@ -5,7 +6,7 @@ import { Field, Section, SourceHint, Tag } from './shared';
 import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
 import { PhotoDateReviewSection } from './PhotoDateReviewSection';
 import { TagManagementSection } from './TagManagementSection';
-import { shortPath } from './utils';
+import { shortPathDir } from './utils';
 
 function getModelLabel(asset: Asset): string | undefined {
   const captionSource = asset.photo_metadata?.provenance?.caption?.sourceKind;
@@ -18,13 +19,13 @@ function getModelLabel(asset: Asset): string | undefined {
 
 const CaptionSection: React.FC<{ readonly caption?: unknown }> = ({ caption }) => {
   if (!caption) {return null;}
-  return <Section emoji="💬" title="Caption"><p style={{ margin: 0, fontSize: 13, color: '#e2e8f0', lineHeight: 1.7, fontStyle: 'italic' }}>&ldquo;{String(caption)}&rdquo;</p></Section>;
+  return <Section emoji="💬" title="Caption"><p className="m-0 text-[13px] text-content leading-relaxed italic">&ldquo;{String(caption)}&rdquo;</p></Section>;
 };
 
 const KeywordsSection: React.FC<{ readonly keywords?: unknown }> = ({ keywords }) => {
   const items = Array.isArray(keywords) ? (keywords as string[]) : [];
   if (items.length === 0) {return null;}
-  return <Section emoji="🏷️" title="Keywords"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{items.map((k, i) => <Tag key={i} text={k} />)}</div></Section>;
+  return <Section emoji="🏷️" title="Keywords"><div className="flex flex-wrap gap-1">{items.map((k, i) => <Tag key={i} text={k} />)}</div></Section>;
 };
 
 function formatDateOnly(value: string | null | undefined): string | null {
@@ -57,7 +58,11 @@ const AiInterpretationSection: React.FC<{ readonly asset: Asset; readonly summar
       <Field label="Location" value={summary.location} />
       <SourceHint label={summary.locationSourceLabel} />
       <Field label="Model" value={getModelLabel(asset)} />
-      {Boolean(asset.ai_metadata?._pending_pro) && <div style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 6, padding: '6px 10px', marginTop: 4 }}><span style={{ fontSize: 11, color: '#fbbf24' }}>⏳ Queued for enhanced pro analysis</span></div>}
+      {Boolean(asset.ai_metadata?._pending_pro) && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded px-2.5 py-1.5 mt-1">
+          <span className="text-[11px] text-amber-400 font-medium">⏳ Queued for enhanced pro analysis</span>
+        </div>
+      )}
     </Section>
   );
 };
@@ -70,17 +75,33 @@ const ResolvedMetadataSections: React.FC<{ readonly asset: Asset; readonly capti
   </>
 );
 
-const IdField: React.FC<{ readonly value: string }> = ({ value }) => {
+const IdField: React.FC<{ readonly value: string; readonly filename: string }> = ({ value, filename }) => {
+  const [copied, setCopied] = useState(false);
   const uppercaseValue = value.toUpperCase();
   const prefix = uppercaseValue.slice(0, -4);
   const suffix = uppercaseValue.slice(-4);
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(`${value} (${filename})`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', paddingBottom: 6 }}>
-      <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', minWidth: 90, flexShrink: 0 }}>ID</span>
-      <span style={{ color: '#e2e8f0', lineHeight: 1.4, fontFamily: '"Cascadia Code","Consolas",monospace', userSelect: 'text', whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: 10 }}>{prefix}</span>
-        <span style={{ fontSize: 12 }}>{suffix}</span>
+    <div 
+      className="flex gap-2 items-baseline pb-1.5 cursor-pointer group select-none" 
+      onClick={handleCopy} 
+      title="Click to copy ID with filename"
+    >
+      <span className="text-xs text-content-secondary/90 font-bold w-24 shrink-0">ID</span>
+      <span className="text-[11px] leading-snug text-content-secondary group-hover:text-brand-accent break-all select-text transition-colors flex items-center gap-1.5">
+        <span>{prefix}</span>
+        <span className="font-bold text-content group-hover:text-brand-accent">{suffix}</span>
+        {copied && <span className="text-[9px] text-emerald-400 font-sans font-normal motion-safe:animate-pulse">Copied!</span>}
       </span>
     </div>
   );
@@ -93,9 +114,9 @@ const PhotoCreatedField: React.FC<{ readonly value: string }> = ({ value }) => {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', paddingBottom: 6 }}>
-      <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', minWidth: 90, flexShrink: 0 }}>Photo Created</span>
-      <span style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.5 }}>{label}</span>
+    <div className="flex gap-2 items-baseline pb-1.5">
+      <span className="text-xs text-content-secondary/90 font-bold w-24 shrink-0">Photo Created</span>
+      <span className="text-xs text-content leading-relaxed">{label}</span>
     </div>
   );
 };
@@ -136,16 +157,16 @@ export const FileTab: React.FC<{
 
 const FileSection: React.FC<{ readonly asset: Asset; readonly filename: string; readonly ext: string; readonly summary: ReturnType<typeof buildPhotoMetadataFileSummary> }> = ({ asset, filename, ext, summary }) => (
   <Section emoji="📄" title="File" hideHeader>
-    <IdField value={asset.id} />
+    <IdField value={asset.id} filename={filename} />
     <Field label="Name" value={filename} />
-    <Field label="Path" value={shortPath(asset.original_path)} mono dim />
+    <Field label="Path" value={shortPathDir(asset.original_path)} small dim />
     <Field label="Format" value={ext} />
     {asset.width && asset.height && <Field label="Dimensions" value={`${asset.width} × ${asset.height} px`} />}
     {asset.photo_created_at && <PhotoCreatedField value={asset.photo_created_at} />}
     {summary.estimatedDateRangeLabel && <Field label="Date Range" value={summary.estimatedDateRangeLabel} />}
     {asset.photo_created_at_confidence != null && <Field label="Date Confidence" value={`${Math.round(asset.photo_created_at_confidence * 100)}%`} />}
     {asset.exif_datetime && <Field label="Captured" value={new Date(asset.exif_datetime).toLocaleString()} />}
-    {asset.metadata_timestamp_source && <Field label="Timestamp Source" value={asset.metadata_timestamp_source} mono />}
+    {asset.metadata_timestamp_source && <Field label="Timestamp Source" value={asset.metadata_timestamp_source} />}
     {asset.created_at && <Field label="Imported" value={new Date(asset.created_at).toLocaleString()} />}
   </Section>
 );

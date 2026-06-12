@@ -3,6 +3,7 @@ import type { Asset } from '@contracts/core';
 import { FaceOverlayMap } from './FaceOverlayMap';
 import { getViewportStageIdentity, getViewportStageTransformTransition } from './photoViewportImageState';
 import { getLoadingBadgeStyle } from './singlePhotoOverlayLayout';
+import { getFrameInteriorBox } from '../../../services/photoMetadata/frameUtils';
 
 function getStageCursor(params: {
     isImageTransitionPending: boolean;
@@ -21,13 +22,6 @@ function getStageCursor(params: {
     return 'zoom-in';
 }
 
-const imageStyle = {
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain',
-    pointerEvents: 'none',
-} as const;
-
 function getStageStyle(params: {
     asset: Asset;
     stageSize: { width: number; height: number } | null;
@@ -35,8 +29,19 @@ function getStageStyle(params: {
     scale: number;
     isDragging: boolean;
     isImageTransitionPending: boolean;
+    shouldCrop: boolean;
+    interiorBox: { x: number; y: number; width: number; height: number } | null;
 }) {
-    const { asset, stageSize, pan, scale, isDragging, isImageTransitionPending } = params;
+    const { asset, stageSize, pan, scale, isDragging, isImageTransitionPending, shouldCrop, interiorBox } = params;
+
+    let aspect = 'auto';
+    if (asset.width && asset.height) {
+        if (shouldCrop && interiorBox) {
+            aspect = `${asset.width * interiorBox.width} / ${asset.height * interiorBox.height}`;
+        } else {
+            aspect = `${asset.width} / ${asset.height}`;
+        }
+    }
 
     return {
         position: 'relative',
@@ -47,11 +52,12 @@ function getStageStyle(params: {
         height: stageSize?.height ?? 'auto',
         maxWidth: '100%',
         maxHeight: '100%',
-        aspectRatio: (asset.width && asset.height) ? `${asset.width} / ${asset.height}` : 'auto',
+        aspectRatio: aspect,
         transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
         transition: getViewportStageTransformTransition({ isDragging, isImageTransitionPending }),
         cursor: getStageCursor({ isImageTransitionPending, scale, isDragging }),
         willChange: 'transform',
+        overflow: shouldCrop ? 'hidden' : 'visible',
     } as const;
 }
 
@@ -59,13 +65,14 @@ const StageImage: FC<{
     readonly src: string;
     readonly alt: string;
     readonly onLoad: () => void;
-}> = ({ src, alt, onLoad }) => (
+    readonly style: React.CSSProperties;
+}> = ({ src, alt, onLoad, style }) => (
     <img loading="lazy"
         src={src}
         alt={alt}
         onLoad={onLoad}
         onError={onLoad}
-        style={imageStyle}
+        style={style}
         draggable={false}
     />
 );
@@ -73,7 +80,8 @@ const StageImage: FC<{
 const PendingStageImage: FC<{
     readonly pendingImageSrc: string | null;
     readonly onPendingImageLoad: () => void;
-}> = ({ pendingImageSrc, onPendingImageLoad }) => {
+    readonly style: React.CSSProperties;
+}> = ({ pendingImageSrc, onPendingImageLoad, style }) => {
     if (!pendingImageSrc) {
         return null;
     }
@@ -86,9 +94,8 @@ const PendingStageImage: FC<{
             onLoad={onPendingImageLoad}
             onError={onPendingImageLoad}
             style={{
-                ...imageStyle,
+                ...style,
                 position: 'absolute',
-                inset: 0,
                 opacity: 0,
             }}
             draggable={false}
@@ -105,6 +112,7 @@ const FaceOverlays: FC<{
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly showWithFrame?: boolean;
 }> = ({
     overlaysReady,
     asset,
@@ -114,6 +122,7 @@ const FaceOverlays: FC<{
     setHoveredFaceKey,
     onFaceClick,
     onIsolateFace,
+    showWithFrame,
 }) => {
     if (!overlaysReady) {
         return null;
@@ -128,6 +137,7 @@ const FaceOverlays: FC<{
             onHoverFaceKey={setHoveredFaceKey}
             onFaceClick={onFaceClick}
             onIsolateFace={onIsolateFace}
+            showWithFrame={showWithFrame}
         />
     );
 };
@@ -154,6 +164,7 @@ export const ZoomableStage: FC<{
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly onActiveImageLoad: () => void;
     readonly onPendingImageLoad: () => void;
+    readonly showWithFrame?: boolean;
 }> = ({
     asset,
     imgSrc,
@@ -176,6 +187,7 @@ export const ZoomableStage: FC<{
     onIsolateFace,
     onActiveImageLoad,
     onPendingImageLoad,
+    showWithFrame,
 }) => {
     if (!imgSrc) {
         return <div style={{ color: '#9ca3af' }}>Image not found</div>;
@@ -186,6 +198,26 @@ export const ZoomableStage: FC<{
         imageSrc: imgSrc,
     });
 
+    const shouldCrop = Boolean(asset.frame_detection) && !showWithFrame;
+    const interiorBox = shouldCrop ? getFrameInteriorBox(asset.frame_detection) : null;
+
+    const customImageStyle = shouldCrop && interiorBox
+        ? {
+            width: `${100 / interiorBox.width}%`,
+            height: `${100 / interiorBox.height}%`,
+            left: `${-interiorBox.x * 100 / interiorBox.width}%`,
+            top: `${-interiorBox.y * 100 / interiorBox.height}%`,
+            position: 'absolute' as const,
+            objectFit: 'fill' as const,
+            pointerEvents: 'none' as const,
+          }
+        : {
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain' as const,
+            pointerEvents: 'none' as const,
+          };
+
     return (
         <div
             key={stageIdentity}
@@ -195,10 +227,10 @@ export const ZoomableStage: FC<{
                 setShowControls(!showControls);
                 setShowActionMenu(false);
             }}
-            style={getStageStyle({ asset, stageSize, pan, scale, isDragging, isImageTransitionPending })}
+            style={getStageStyle({ asset, stageSize, pan, scale, isDragging, isImageTransitionPending, shouldCrop, interiorBox })}
         >
-            <StageImage src={imgSrc} alt="Original" onLoad={onActiveImageLoad} />
-            <PendingStageImage pendingImageSrc={pendingImageSrc} onPendingImageLoad={onPendingImageLoad} />
+            <StageImage src={imgSrc} alt="Original" onLoad={onActiveImageLoad} style={customImageStyle} />
+            <PendingStageImage pendingImageSrc={pendingImageSrc} onPendingImageLoad={onPendingImageLoad} style={customImageStyle} />
             <FaceOverlays
                 overlaysReady={overlaysReady}
                 asset={asset}
@@ -208,6 +240,7 @@ export const ZoomableStage: FC<{
                 setHoveredFaceKey={setHoveredFaceKey}
                 onFaceClick={onFaceClick}
                 onIsolateFace={onIsolateFace}
+                showWithFrame={showWithFrame}
             />
             {isImageTransitionPending ? <div style={getLoadingBadgeStyle()}>Loading photo...</div> : null}
         </div>

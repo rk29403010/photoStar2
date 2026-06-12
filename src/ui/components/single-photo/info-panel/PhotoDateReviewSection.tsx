@@ -30,17 +30,17 @@ function SignalList({ asset }: { readonly asset: Asset }) {
       <Field label="Confidence" value={diagnostics.confidenceLabel} />
       <Field label="Range" value={diagnostics.rangeLabel} />
       {diagnostics.reasons.length > 0 && (
-        <div style={{ paddingBottom: 8 }}>
-          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Confidence Notes</div>
-          <div style={{ display: 'grid', gap: 4 }}>
-            {diagnostics.reasons.map((reason) => <div key={reason} style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.5 }}>{reason}</div>)}
+        <div className="pb-2">
+          <div className="text-[10px] text-content-secondary font-bold uppercase mb-1">Confidence Notes</div>
+          <div className="grid gap-1">
+            {diagnostics.reasons.map((reason) => <div key={reason} className="text-xs text-content leading-relaxed">{reason}</div>)}
           </div>
         </div>
       )}
       {diagnostics.signals.length > 0 && (
         <div>
-          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Top Signals</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <div className="text-[10px] text-content-secondary font-bold uppercase mb-1">Top Signals</div>
+          <div className="flex flex-wrap gap-1">
             {diagnostics.signals.slice(0, 5).map((signal) => (
               <Tag key={`${signal.label}-${signal.weightLabel}`} text={`${signal.originLabel} · ${signal.label} · ${signal.weightLabel}`} color="#20314f" />
             ))}
@@ -53,12 +53,12 @@ function SignalList({ asset }: { readonly asset: Asset }) {
 
 function StatusMessage({ message }: { readonly message: string | null }) {
   if (!message) {return null;}
-  return <div style={{ marginTop: 10, fontSize: 12, color: '#93c5fd', lineHeight: 1.5 }}>{message}</div>;
+  return <div className="mt-2.5 text-xs text-sky-400 leading-relaxed">{message}</div>;
 }
 
 function StartReviewButton({ onStart }: { readonly onStart: () => void }) {
   return (
-    <button onClick={onStart} style={{ marginTop: 10, padding: '7px 10px', background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(96,165,250,0.35)', borderRadius: 8, color: '#dbeafe', cursor: 'pointer', fontSize: 12 }}>
+    <button onClick={onStart} className="mt-2.5 px-2.5 py-1.5 border border-brand-accent/30 bg-brand-accent/10 text-brand-accent rounded cursor-pointer text-xs font-bold hover:bg-brand-accent/20 active:scale-95 motion-safe:transition-all">
       Flag Wrong Date
     </button>
   );
@@ -90,28 +90,28 @@ function CorrectionForm({
   const saveDisabled = isSaving || correctedDate.trim().length === 0;
 
   return (
-    <div style={{ marginTop: 12, border: '1px solid rgba(51,65,85,0.9)', borderRadius: 10, padding: 12, background: 'rgba(8,15,30,0.75)' }}>
-      <div style={{ display: 'grid', gap: 10 }}>
-        <label style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase' }}>Correct Date</span>
-          <input value={correctedDate} onChange={(event) => onCorrectedDateChange(event.target.value)} placeholder="1945 or early 1990s" style={{ background: '#020617', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', padding: '8px 10px', fontSize: 12 }} />
+    <div className="mt-3 border border-content/10 rounded-lg p-3 bg-surface-secondary/45 flex flex-col gap-2.5">
+      <div className="grid gap-2.5">
+        <label className="grid gap-1">
+          <span className="text-[10px] text-content-secondary font-bold uppercase">Correct Date</span>
+          <input value={correctedDate} onChange={(event) => onCorrectedDateChange(event.target.value)} placeholder="1945 or early 1990s" className="bg-surface text-content border border-content/10 rounded px-2.5 py-1.5 text-xs outline-none focus:border-brand-accent/50" />
         </label>
-        <label style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase' }}>Reason</span>
-          <select value={reasonCode} onChange={(event) => onReasonCodeChange(event.target.value as PhotoDateReviewReasonCode)} style={{ background: '#020617', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', padding: '8px 10px', fontSize: 12 }}>
+        <label className="grid gap-1">
+          <span className="text-[10px] text-content-secondary font-bold uppercase">Reason</span>
+          <select value={reasonCode} onChange={(event) => onReasonCodeChange(event.target.value as PhotoDateReviewReasonCode)} className="bg-surface text-content border border-content/10 rounded px-2.5 py-1.5 text-xs outline-none cursor-pointer">
             {REVIEW_REASON_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
-        <label style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase' }}>Note</span>
-          <textarea value={note} onChange={(event) => onNoteChange(event.target.value)} rows={3} placeholder="What looked wrong here?" style={{ background: '#020617', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', padding: '8px 10px', fontSize: 12, resize: 'vertical' }} />
+        <label className="grid gap-1">
+          <span className="text-[10px] text-content-secondary font-bold uppercase">Note</span>
+          <textarea value={note} onChange={(event) => onNoteChange(event.target.value)} rows={3} placeholder="What looked wrong here?" className="bg-surface text-content border border-content/10 rounded px-2.5 py-1.5 text-xs outline-none resize-y" />
         </label>
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <button onClick={onCancel} disabled={isSaving} style={{ padding: '7px 10px', background: 'transparent', border: '1px solid #334155', borderRadius: 8, color: '#cbd5e1', cursor: isSaving ? 'wait' : 'pointer', fontSize: 12 }}>
+      <div className="flex gap-2 mt-3 justify-end">
+        <button onClick={onCancel} disabled={isSaving} className="px-2.5 py-1.5 border border-content/10 bg-transparent text-content-secondary rounded cursor-pointer text-xs font-bold hover:bg-surface-secondary/80 disabled:opacity-50 transition-colors">
           Cancel
         </button>
-        <button onClick={onSave} disabled={saveDisabled} style={{ padding: '7px 10px', background: 'rgba(14,165,233,0.18)', border: '1px solid rgba(56,189,248,0.4)', borderRadius: 8, color: '#e0f2fe', cursor: isSaving ? 'wait' : 'pointer', fontSize: 12 }}>
+        <button onClick={onSave} disabled={saveDisabled} className="px-2.5 py-1.5 border border-brand-accent/30 bg-brand-accent/15 text-brand-accent rounded cursor-pointer text-xs font-bold hover:bg-brand-accent/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed motion-safe:transition-all">
           {isSaving ? 'Saving...' : 'Save Review'}
         </button>
       </div>

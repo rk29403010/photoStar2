@@ -40,6 +40,9 @@ type ActionOverlaysProps = {
     readonly showInfoPanel: boolean;
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly hasFrame: boolean;
+    readonly showWithFrame: boolean;
+    readonly setShowWithFrame: (show: boolean) => void;
 }
 
 export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
@@ -76,7 +79,10 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
     setAnalyzingJobId,
     showInfoPanel,
     setShowInfoPanel,
-    onRunWorkflowOnAssets
+    onRunWorkflowOnAssets,
+    hasFrame,
+    showWithFrame,
+    setShowWithFrame
 }) => (
     <>
         <ControlsOverlay
@@ -112,6 +118,9 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
             setShowInfoPanel={setShowInfoPanel}
             controlsVisible={showControls}
             onRunWorkflowOnAssets={onRunWorkflowOnAssets}
+            hasFrame={hasFrame}
+            showWithFrame={showWithFrame}
+            setShowWithFrame={setShowWithFrame}
         />
         {analysisError && (
             <AnalysisErrorDialog

@@ -20,7 +20,7 @@ const QualitySection: React.FC<{ readonly quality?: Record<string, unknown> }> =
       {quality.lighting != null && <StarRating value={quality.lighting as number} label="Lighting" />}
       {quality.composition != null && <StarRating value={quality.composition as number} label="Composition" />}
       {quality.emotional != null && <StarRating value={quality.emotional as number} label="Emotional" />}
-      {quality.discard === true && <div style={{ marginTop: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#fca5a5' }}>🗑️ Suggested for discard</div>}
+      {quality.discard === true && <div className="mt-2 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2 text-xs text-rose-300">🗑️ Suggested for discard</div>}
     </Section>
   );
 };
@@ -32,7 +32,7 @@ const AuthenticitySection: React.FC<{ readonly auth?: Record<string, unknown> }>
     <Section emoji="🔎" title="Authenticity">
       {auth.score != null && <StarRating value={auth.score as number} label="Score" />}
       {Array.isArray(auth.reasons) && auth.reasons.length > 0 && (
-        <ul style={{ margin: '8px 0 0', padding: '0 0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.8 }}>
+        <ul className="m-0 mt-2 pl-4 text-xs text-content-secondary leading-relaxed list-disc">
           {(auth.reasons as string[]).map((reason) => <li key={reason}>{reason}</li>)}
         </ul>
       )}
@@ -42,19 +42,16 @@ const AuthenticitySection: React.FC<{ readonly auth?: Record<string, unknown> }>
 
 const SensitivitySection: React.FC<{ readonly asset: Asset }> = ({ asset }) => (
   <Section emoji="🛡️" title="Sensitivity">
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div className="flex items-center gap-2.5">
       {asset.sensitivity_score == null ? (
-        <span style={{ fontSize: 12, color: '#374151', fontStyle: 'italic' }}>Not yet scored</span>
+        <span className="text-xs text-content-secondary/60 italic">Not yet scored</span>
       ) : (
         <>
-          <span style={{ fontSize: 22, fontWeight: 700, color: getSensitivityColor(asset.sensitivity_score) }}>{Math.round(asset.sensitivity_score)}%</span>
+          <span className="text-2xl font-bold" style={{ color: getSensitivityColor(asset.sensitivity_score) }}>{Math.round(asset.sensitivity_score)}%</span>
           <div>
-            <div style={{ fontSize: 11, color: '#64748b' }}>AI sensitivity score</div>
+            <div className="text-[11px] text-content-secondary">AI sensitivity score</div>
             {asset.sensitivity_status && (
-              <span style={{
-                fontSize: 11,
-                fontWeight: 600,
-                textTransform: 'uppercase',
+              <span className="text-[11px] font-bold uppercase" style={{
                 color: (function () {
                   if (asset.sensitivity_status === 'safe') {return '#4ade80';}
                   if (asset.sensitivity_status === 'unsafe') {return '#ef4444';}
@@ -77,7 +74,7 @@ const EnhancementsSection: React.FC<{ readonly enhancements?: unknown }> = ({ en
 
   return (
     <Section emoji="✨" title="Recommended Enhancements">
-      <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.9 }}>
+      <ul className="m-0 pl-4 text-xs text-content-secondary leading-relaxed list-disc">
         {items.map((item) => <li key={item}>{item}</li>)}
       </ul>
     </Section>
@@ -86,23 +83,23 @@ const EnhancementsSection: React.FC<{ readonly enhancements?: unknown }> = ({ en
 
 const DescriptionSection: React.FC<{ readonly description: string; readonly sourceLabel?: string }> = ({ description, sourceLabel }) => (
   <Section emoji="📝" title="Description">
-    <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>{description}</div>
+    <div className="text-xs text-content leading-relaxed">{description}</div>
     <SourceHint label={sourceLabel} />
   </Section>
 );
 
 const InterpretationSection: React.FC<{ readonly emotionalImpact: string; readonly sourceLabel?: string }> = ({ emotionalImpact, sourceLabel }) => (
   <Section emoji="💖" title="Emotional Impact">
-    <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>{emotionalImpact}</div>
+    <div className="text-xs text-content leading-relaxed">{emotionalImpact}</div>
     <SourceHint label={sourceLabel} />
   </Section>
 );
 
 const EmptyAnalysisState: React.FC = () => (
-  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#374151' }}>
-    <div style={{ fontSize: 32, marginBottom: 10 }}>🤔</div>
-    <div style={{ fontSize: 13 }}>No analysis yet</div>
-    <div style={{ fontSize: 11, color: '#1e293b', marginTop: 4 }}>Use Actions → Quick Analysis or Detailed Analysis</div>
+  <div className="text-center py-10 px-5 text-content-secondary/60">
+    <div className="text-3xl mb-2.5">🤔</div>
+    <div className="text-xs font-bold uppercase text-content-secondary/80">No Analysis Yet</div>
+    <div className="text-[11px] text-content-secondary/70 mt-1">Use Actions → Quick Analysis or Detailed Analysis</div>
   </div>
 );
 
@@ -130,8 +127,8 @@ const AnalysisSummarySection: React.FC<{ readonly asset: Asset }> = ({ asset }) 
       <Field label="Mode" value={details.mode} />
       {details.tags.length > 0 && (
         <div>
-          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Tags</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <div className="text-[10px] text-content-secondary font-bold uppercase mb-1">Tags</div>
+          <div className="flex flex-wrap gap-1">
             {details.tags.map((tag) => <Tag key={tag} text={tag} />)}
           </div>
         </div>

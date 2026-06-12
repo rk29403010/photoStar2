@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import type { Dispatch, FC, MouseEvent, RefObject, SetStateAction } from 'react';
 import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
@@ -13,7 +13,6 @@ import { useViewportStageDimensions } from './useViewportStageDimensions';
 export type PanelState = { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: 'file' | 'analysis' | 'people' | 'json' | 'ailogs'; setActiveInfoTab: (tab: 'file' | 'analysis' | 'people' | 'json' | 'ailogs') => void }
 export type AnalysisState = { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
 type PhotoViewportProps = { readonly asset: Asset; readonly assetsLength: number; readonly currentIndex: number; readonly showControls: boolean; readonly setShowControls: Dispatch<SetStateAction<boolean>>; readonly showFaces: boolean; readonly setShowFaces: Dispatch<SetStateAction<boolean>>; readonly showActionMenu: boolean; readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>; readonly hoveredFaceKey: string | null; readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; readonly panelState: PanelState; readonly onClose: () => void; readonly onFaceClick?: (personId: string, personName: string) => void; readonly onIsolateFace?: (assetId: string, faceIndex: number) => void; readonly onSetSensitivity?: (assetId: string, status: string | null) => void; readonly onMoveToBin?: (assetId: string) => Promise<void>; readonly onRestoreFromBin?: (assetId: string) => Promise<void>; readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>; readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>; readonly onOpenSettings?: () => void; readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; readonly onOrbitLoaded: (assets: Asset[]) => void; readonly onSelectAsset: (assetId: string) => void; readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; readonly onExplodeGroup?: (groupId: string) => Promise<void>; readonly onChangeIndex: (delta: -1 | 1) => void; readonly analysis: AnalysisState; readonly onRevealControls: () => void; readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void }
-
 const ViewportActions: FC<{
     readonly asset: Asset;
     readonly assetsLength: number;
@@ -41,6 +40,9 @@ const ViewportActions: FC<{
     readonly onOpenSettings?: () => void;
     readonly analysis: AnalysisState;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly hasFrame: boolean;
+    readonly showWithFrame: boolean;
+    readonly setShowWithFrame: (show: boolean) => void;
 }> = ({
     asset,
     assetsLength,
@@ -67,7 +69,10 @@ const ViewportActions: FC<{
     onRerunFaceDetection,
     onOpenSettings,
     analysis,
-    onRunWorkflowOnAssets
+    onRunWorkflowOnAssets,
+    hasFrame,
+    showWithFrame,
+    setShowWithFrame
 }) => {
     return (
     <ActionOverlays
@@ -105,6 +110,9 @@ const ViewportActions: FC<{
         setAnalyzingAssetId={analysis.setAnalyzingAssetId}
         setAnalyzingJobId={analysis.setAnalyzingJobId}
         onRunWorkflowOnAssets={onRunWorkflowOnAssets}
+        hasFrame={hasFrame}
+        showWithFrame={showWithFrame}
+        setShowWithFrame={setShowWithFrame}
     />
     );
 };
@@ -158,11 +166,14 @@ type PhotoViewportFrameProps = {
     readonly onActiveImageLoad: () => void;
     readonly onPendingImageLoad: () => void;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly hasFrame: boolean;
+    readonly showWithFrame: boolean;
+    readonly setShowWithFrame: (show: boolean) => void;
 };
 
 const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', userSelect: 'none' } as const;
 
-const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'displayedAsset' | 'imgSrc' | 'pendingImageSrc' | 'stageSize' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'isImageTransitionPending' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls' | 'onActiveImageLoad' | 'onPendingImageLoad'>> = ({
+const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'displayedAsset' | 'imgSrc' | 'pendingImageSrc' | 'stageSize' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'isImageTransitionPending' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls' | 'onActiveImageLoad' | 'onPendingImageLoad' | 'showWithFrame'>> = ({
     containerRef,
     showControls,
     setShowControls,
@@ -186,6 +197,7 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
     onRevealControls,
     onActiveImageLoad,
     onPendingImageLoad,
+    showWithFrame,
 }) => {
     const alwaysShowForPanel = panelState.showInfoPanel && panelState.activeInfoTab === 'people';
 
@@ -221,12 +233,13 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
                 onIsolateFace={onIsolateFace}
                 onActiveImageLoad={onActiveImageLoad}
                 onPendingImageLoad={onPendingImageLoad}
+                showWithFrame={showWithFrame}
             />
         </div>
     );
 };
 
-const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onMoveToBin' | 'onRestoreFromBin' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onRerunFaceDetection' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset' | 'onRunWorkflowOnAssets'> & { readonly actionAsset: Asset; readonly onActiveGroupChange: (groupId: string) => void }> = ({
+const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'assetsLength' | 'currentIndex' | 'showControls' | 'showActionMenu' | 'setShowActionMenu' | 'showFaces' | 'setShowFaces' | 'panelState' | 'isImageTransitionPending' | 'scale' | 'setScale' | 'setPan' | 'resetPanZoom' | 'onClose' | 'onChangeIndex' | 'onSetSensitivity' | 'onMoveToBin' | 'onRestoreFromBin' | 'onSetCanonical' | 'onExplodeGroup' | 'onExtractAiMetadata' | 'onRerunFaceDetection' | 'onOpenSettings' | 'analysis' | 'onGetGroupOrbit' | 'onOrbitLoaded' | 'onSelectAsset' | 'onRunWorkflowOnAssets' | 'hasFrame' | 'showWithFrame' | 'setShowWithFrame'> & { readonly actionAsset: Asset; readonly onActiveGroupChange: (groupId: string) => void }> = ({
     selectedAsset,
     actionAsset,
     assetsLength,
@@ -257,7 +270,10 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'a
     onOrbitLoaded,
     onSelectAsset,
     onActiveGroupChange,
-    onRunWorkflowOnAssets
+    onRunWorkflowOnAssets,
+    hasFrame,
+    showWithFrame,
+    setShowWithFrame
 }) => (
     <>
         <ViewportActions
@@ -287,6 +303,9 @@ const ViewportDecorations: FC<Pick<PhotoViewportFrameProps, 'selectedAsset' | 'a
             onOpenSettings={onOpenSettings}
             analysis={analysis}
             onRunWorkflowOnAssets={onRunWorkflowOnAssets}
+            hasFrame={hasFrame}
+            showWithFrame={showWithFrame}
+            setShowWithFrame={setShowWithFrame}
         />
 
         <VariantFilmstripOverlay
@@ -326,6 +345,7 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 onRevealControls={props.onRevealControls}
                 onActiveImageLoad={props.onActiveImageLoad}
                 onPendingImageLoad={props.onPendingImageLoad}
+                showWithFrame={props.showWithFrame}
             />
             <ViewportDecorations
                 selectedAsset={props.selectedAsset}
@@ -359,11 +379,15 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 onSelectAsset={props.onSelectAsset}
                 onActiveGroupChange={props.onActiveGroupChange}
                 onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
+                hasFrame={props.hasFrame}
+                showWithFrame={props.showWithFrame}
+                setShowWithFrame={props.setShowWithFrame}
             />
         </>
     );
 };
 
+// eslint-disable-next-line max-lines-per-function -- Cohesive orchestration of hooks, refs, and transitions for photo view
 export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scale, setScale, pan, setPan, isDragging, handleMouseDown, resetPanZoom } = usePanZoom(containerRef);
@@ -372,6 +396,14 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const activeGroupId = resolveActiveSinglePhotoGroupId(props.asset, requestedActiveGroupId);
     const actionAsset = applyActiveGroupContext(props.asset, activeGroupId);
     const alwaysShowForPanel = props.panelState.showInfoPanel && props.panelState.activeInfoTab === 'people';
+    const [showWithFrame, setShowWithFrame] = useState(false);
+
+    useEffect(() => {
+        setShowWithFrame(false);
+    }, [props.asset.id]);
+
+    const hasFrame = Boolean(props.asset.frame_detection);
+
     const {
         stageAsset,
         stageImageSrc,
@@ -398,10 +430,8 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
 
     return (
         <PhotoViewportFrame
+            {...props}
             containerRef={containerRef}
-            showControls={props.showControls}
-            setShowControls={props.setShowControls}
-            setShowActionMenu={props.setShowActionMenu}
             displayedAsset={stageAsset}
             selectedAsset={props.asset}
             imgSrc={stageImageSrc}
@@ -411,41 +441,20 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
             scale={scale}
             isDragging={isDragging}
             handleMouseDown={handleMouseDown}
-            showFaces={props.showFaces}
             showFaceOverlays={showFaceOverlays}
             isImageTransitionPending={isImageTransitionPending}
-            panelState={props.panelState}
-            hoveredFaceKey={props.hoveredFaceKey}
-            setHoveredFaceKey={props.setHoveredFaceKey}
-            onFaceClick={props.onFaceClick}
-            onIsolateFace={props.onIsolateFace}
-            assetsLength={props.assetsLength}
-            currentIndex={props.currentIndex}
-            showActionMenu={props.showActionMenu}
-            setShowFaces={props.setShowFaces}
-            setScale={setScale}
-            setPan={setPan}
-            resetPanZoom={resetPanZoom}
-            onClose={props.onClose}
-            onChangeIndex={props.onChangeIndex}
-            onSetSensitivity={props.onSetSensitivity}
-            onMoveToBin={props.onMoveToBin}
-            onRestoreFromBin={props.onRestoreFromBin}
             onSetCanonical={groupActions.handleSetCanonical}
             onExplodeGroup={groupActions.handleExplodeGroup}
-            onExtractAiMetadata={props.onExtractAiMetadata}
-            onRerunFaceDetection={props.onRerunFaceDetection}
-            onOpenSettings={props.onOpenSettings}
-            analysis={props.analysis}
-            onGetGroupOrbit={props.onGetGroupOrbit}
-            onOrbitLoaded={props.onOrbitLoaded}
-            onSelectAsset={props.onSelectAsset}
-            onRevealControls={props.onRevealControls}
             onActiveImageLoad={markActiveImageReady}
             onPendingImageLoad={commitPendingImage}
             actionAsset={actionAsset}
             onActiveGroupChange={setRequestedActiveGroupId}
-            onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
+            hasFrame={hasFrame}
+            showWithFrame={showWithFrame}
+            setShowWithFrame={setShowWithFrame}
+            setScale={setScale}
+            setPan={setPan}
+            resetPanZoom={resetPanZoom}
         />
     );
 };

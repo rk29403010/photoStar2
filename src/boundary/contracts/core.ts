@@ -209,6 +209,12 @@ export type PhotoDateEstimateArtifact = {
     signals: PhotoDateEstimateSignal[];
 }
 
+export type FrameDetectionData = {
+    type: 'rectangle' | 'polygon';
+    box?: { x: number; y: number; width: number; height: number };
+    points?: Array<{ x: number; y: number }>;
+}
+
 export type Asset = {
     id: string;
     original_path: string; // Added this
@@ -231,6 +237,7 @@ export type Asset = {
     photo_date_estimate?: PhotoDateEstimateArtifact;
     tags?: AssetTag[];
     pending_review_items?: ReviewItemSummary[];
+    frame_detection?: FrameDetectionData | null;
 
     // Scoring & Analysis (Future proofing A5)
     aesthetic_score?: number;

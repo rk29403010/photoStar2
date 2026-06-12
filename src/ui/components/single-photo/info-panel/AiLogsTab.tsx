@@ -54,28 +54,18 @@ type LogDropdownProps = {
 
 const LogDropdown: React.FC<LogDropdownProps> = ({ logs, selectedLogId, onSelect, loadingList }) => {
   if (loadingList) {
-    return <div style={{ color: '#94a3b8', fontSize: 12, padding: '10px 0' }}>Loading AI logs...</div>;
+    return <div className="text-content-secondary text-xs py-2.5">Loading AI logs...</div>;
   }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label htmlFor="ai-log-select" style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="ai-log-select" className="text-[11px] font-bold text-content-secondary uppercase tracking-wider">
         Select AI Call Log
       </label>
       <select
         id="ai-log-select"
         value={selectedLogId}
         onChange={(e) => onSelect(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '8px 10px',
-          backgroundColor: '#0f172a',
-          border: '1px solid #334155',
-          borderRadius: 6,
-          color: '#e2e8f0',
-          fontSize: 12,
-          outline: 'none',
-          cursor: 'pointer',
-        }}
+        className="w-full px-2.5 py-2 bg-surface border border-content/10 rounded-md text-content text-xs outline-none cursor-pointer"
       >
         <option value="">
           {logs.length === 0 ? 'No logs available' : `Choose from ${logs.length} entries...`}
@@ -95,36 +85,25 @@ type LogMetadataRowProps = {
 };
 
 const LogMetadataRow: React.FC<LogMetadataRowProps> = ({ detail }) => (
-  <div
-    style={{
-      padding: 10,
-      backgroundColor: 'rgba(30, 41, 59, 0.5)',
-      border: '1px solid #1e293b',
-      borderRadius: 6,
-      fontSize: 11,
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: 8,
-    }}
-  >
+  <div className="p-2.5 bg-surface-secondary border border-content/5 rounded-md text-[11px] grid grid-cols-2 gap-2">
     <div>
-      <span style={{ color: '#94a3b8' }}>Model: </span>
-      <span style={{ fontWeight: 500, color: '#cbd5e1' }}>{detail.model_name}</span>
+      <span className="text-content-secondary/80">Model: </span>
+      <span className="font-semibold text-content">{detail.model_name}</span>
     </div>
     <div>
-      <span style={{ color: '#94a3b8' }}>Timestamp: </span>
-      <span style={{ fontWeight: 500, color: '#cbd5e1' }}>{formatTimestamp(detail.created_at)}</span>
+      <span className="text-content-secondary/80">Timestamp: </span>
+      <span className="font-semibold text-content">{formatTimestamp(detail.created_at)}</span>
     </div>
     <div>
-      <span style={{ color: '#94a3b8' }}>Call Type: </span>
-      <span style={{ fontWeight: 500, color: '#cbd5e1' }}>{detail.call_type}</span>
+      <span className="text-content-secondary/80">Call Type: </span>
+      <span className="font-semibold text-content">{detail.call_type}</span>
     </div>
     <div>
-      <span style={{ color: '#94a3b8' }}>Status: </span>
+      <span className="text-content-secondary/80">Status: </span>
       {detail.error_message ? (
-        <span style={{ fontWeight: 600, color: '#f87171' }}>Failed</span>
+        <span className="font-bold text-rose-400">Failed</span>
       ) : (
-        <span style={{ fontWeight: 600, color: '#4ade80' }}>Success</span>
+        <span className="font-bold text-emerald-400">Success</span>
       )}
     </div>
   </div>
@@ -140,42 +119,24 @@ type LogCopyablePanelProps = {
 };
 
 const LogCopyablePanel: React.FC<LogCopyablePanelProps> = ({ label, content, color, isError, onCopy, copied }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 auto', minHeight: 120 }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: isError ? '#f87171' : '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+  <div className="flex flex-col gap-1.5 flex-[1_1_auto] min-h-[120px]">
+    <div className="flex justify-between items-center">
+      <span className={`text-[11px] font-bold uppercase tracking-wider ${isError ? 'text-rose-400' : 'text-content-secondary'}`}>
         {label}
       </span>
       <button
         type="button"
         onClick={onCopy}
-        style={{
-          padding: '2px 8px',
-          fontSize: 10,
-          backgroundColor: '#1e293b',
-          border: '1px solid #334155',
-          borderRadius: 4,
-          color: '#cbd5e1',
-          cursor: 'pointer',
-          transition: 'background-color 0.15s',
-        }}
+        className="px-2 py-0.5 text-[10px] bg-surface border border-content/10 rounded text-content hover:bg-surface-secondary cursor-pointer transition-colors"
       >
         {copied ? 'Copied!' : 'Copy'}
       </button>
     </div>
     <pre
+      className="m-0 p-2.5 bg-zinc-950/70 border rounded-md text-[11px] font-mono overflow-auto whitespace-pre-wrap break-all flex-1"
       style={{
-        margin: 0,
-        padding: 10,
-        backgroundColor: '#090d16',
-        border: isError ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid #1e293b',
-        borderRadius: 6,
-        fontSize: 11,
-        fontFamily: 'monospace',
-        color,
-        overflow: 'auto',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-        flex: 1,
+        borderColor: isError ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+        color
       }}
     >
       {content}
@@ -186,7 +147,7 @@ const LogCopyablePanel: React.FC<LogCopyablePanelProps> = ({ label, content, col
 type ErrorBannerProps = { readonly text: string };
 
 const ErrorBanner: React.FC<ErrorBannerProps> = ({ text }) => (
-  <div style={{ padding: 10, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 6, color: '#fca5a5', fontSize: 12 }}>
+  <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-md text-rose-300 text-xs">
     ⚠️ {text}
   </div>
 );
@@ -207,7 +168,7 @@ const LogDetailView: React.FC<LogDetailViewProps> = ({ detail, copiedPrompt, cop
   const schemaString = JSON.stringify(schemaObj, null, 2);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       <LogMetadataRow detail={detail} />
       <LogCopyablePanel
         label="Prompt"
@@ -254,18 +215,18 @@ type LogEmptyStatesProps = {
 
 const LogEmptyStates: React.FC<LogEmptyStatesProps> = ({ loadingDetail, detail, logsCount, loadingList }) => {
   if (loadingDetail) {
-    return <div style={{ color: '#94a3b8', fontSize: 12, padding: '10px 0' }}>Loading log details...</div>;
+    return <div className="text-content-secondary text-xs py-2.5">Loading log details...</div>;
   }
   if (!detail && logsCount > 0) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #334155', borderRadius: 8, padding: 20, color: '#64748b', fontSize: 12, textAlign: 'center' }}>
+      <div className="flex-1 flex items-center justify-center border border-dashed border-content/10 rounded-lg p-5 text-content-secondary/60 text-xs text-center">
         Select an AI call log entry from the dropdown above to view the prompt and response details.
       </div>
     );
   }
   if (logsCount === 0 && !loadingList) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #334155', borderRadius: 8, padding: 20, color: '#64748b', fontSize: 12, textAlign: 'center' }}>
+      <div className="flex-1 flex items-center justify-center border border-dashed border-content/10 rounded-lg p-5 text-content-secondary/60 text-xs text-center">
         No AI logs recorded for this photo yet.
       </div>
     );
@@ -355,7 +316,7 @@ export const AiLogsTab: React.FC<AiLogsTabProps> = ({ assetId, onGetAiCallsLog, 
   const state = useAiLogsState(assetId, onGetAiCallsLog, onGetAiCallLogDetail, analysisState);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%', color: '#e2e8f0' }}>
+    <div className="flex flex-col gap-3.5 h-full text-content">
       {state.errorText && <ErrorBanner text={state.errorText} />}
 
       <LogDropdown

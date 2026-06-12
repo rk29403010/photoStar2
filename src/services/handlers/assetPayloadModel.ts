@@ -72,6 +72,7 @@ export type AssetPayloadRow = {
     regions_of_interest_source_id: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
+    frame_detection_data: string | null;
     member_group_id?: string | null;
     member_role?: string | null;
     member_rank?: number | null;
@@ -393,6 +394,13 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
     const includeEvidence = options.includeEvidence === true;
     const photoMetadata = toPhotoMetadataBundle(row);
 
+    let frameDetection = null;
+    if (row.frame_detection_data) {
+        try {
+            frameDetection = JSON.parse(row.frame_detection_data);
+        } catch {}
+    }
+
     return {
         ...buildAssetFileFields(row),
         caption: row.caption ?? undefined,
@@ -404,6 +412,7 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
         ai_metadata: includeEvidence ? parseAiMetadata(row) : undefined,
         embedded_metadata: includeEvidence ? parseEmbeddedMetadata(row) : undefined,
         photo_date_estimate: includeEvidence ? parsePhotoDateEstimate(row) : undefined,
+        frame_detection: frameDetection,
         ...buildGroupFields(row),
     };
 }

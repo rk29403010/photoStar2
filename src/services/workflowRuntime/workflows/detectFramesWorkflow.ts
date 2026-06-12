@@ -14,10 +14,21 @@ export const detectFramesWorkflowDefinition: WorkflowDefinition = {
             id: 'detect-frames',
             kind: 'module',
             moduleId: 'runtime.detect_frame',
-            completesMilestones: ['detect_frames_complete'],
+            outputsTo: ['generate-previews'],
             presentation: {
                 label: 'Detect frames',
                 countNoun: { singular: 'image', plural: 'images' },
+            },
+        },
+        {
+            id: 'generate-previews',
+            kind: 'module',
+            moduleId: 'runtime.generate_previews',
+            completesMilestones: ['detect_frames_complete'],
+            presentation: {
+                label: 'Generate previews',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'preview', plural: 'previews' },
             },
         },
     ],

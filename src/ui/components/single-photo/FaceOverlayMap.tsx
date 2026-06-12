@@ -5,6 +5,7 @@ import {
     getSinglePhotoPeopleColor,
     type SinglePhotoPeopleItem,
 } from './singlePhotoPeopleModel';
+import { getFrameInteriorBox } from '../../../services/photoMetadata/frameUtils';
 
 type FaceOverlayMapProps = {
     readonly asset: Asset;
@@ -14,6 +15,7 @@ type FaceOverlayMapProps = {
     readonly onHoverFaceKey?: (key: string | null) => void;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
+    readonly showWithFrame?: boolean;
 }
 
 function getItemLabelOpacity(isHovered: boolean, showFaces: boolean): number {
@@ -93,6 +95,27 @@ const IsolateFaceButton: React.FC<{
     );
 };
 
+function getFaceBoxCoordinates(
+    box: { x: number; y: number; w: number; h: number },
+    interiorBox: { x: number; y: number; width: number; height: number } | null,
+    shouldCrop: boolean,
+) {
+    if (shouldCrop && interiorBox) {
+        return {
+            left: (box.x - interiorBox.x) / interiorBox.width,
+            top: (box.y - interiorBox.y) / interiorBox.height,
+            width: box.w / interiorBox.width,
+            height: box.h / interiorBox.height,
+        };
+    }
+    return {
+        left: box.x,
+        top: box.y,
+        width: box.w,
+        height: box.h,
+    };
+}
+
 const OverlayBox: React.FC<{
     readonly asset: Asset;
     readonly item: SinglePhotoPeopleItem;
@@ -101,12 +124,17 @@ const OverlayBox: React.FC<{
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly showFaces: boolean;
-}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, onFaceClick, onIsolateFace, showFaces }) => {
+    readonly showWithFrame?: boolean;
+}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, onFaceClick, onIsolateFace, showFaces, showWithFrame }) => {
     const isHovered = hoveredFaceKey === item.key;
     const colors = getSinglePhotoPeopleColor(item.kind);
     const face = getFaceRecord(item);
     const canClick = Boolean(face?.person_id && onFaceClick);
     const borderStyle = item.kind === 'remote-subject' || item.kind === 'region-of-interest' ? 'dashed' : 'solid';
+
+    const shouldCrop = Boolean(asset.frame_detection) && !showWithFrame;
+    const interiorBox = shouldCrop ? getFrameInteriorBox(asset.frame_detection) : null;
+    const coords = getFaceBoxCoordinates(item.box, interiorBox, shouldCrop);
 
     return (
         <div
@@ -118,10 +146,10 @@ const OverlayBox: React.FC<{
             onMouseLeave={() => onHoverFaceKey?.(null)}
             style={{
                 position: 'absolute',
-                left: `${item.box.x * 100}%`,
-                top: `${item.box.y * 100}%`,
-                width: `${item.box.w * 100}%`,
-                height: `${item.box.h * 100}%`,
+                left: `${coords.left * 100}%`,
+                top: `${coords.top * 100}%`,
+                width: `${coords.width * 100}%`,
+                height: `${coords.height * 100}%`,
                 border: `2px ${borderStyle} ${isHovered ? colors.borderHover : colors.border}`,
                 borderRadius: '3px',
                 boxShadow: isHovered
@@ -169,6 +197,7 @@ export const FaceOverlayMap: React.FC<FaceOverlayMapProps> = ({
     onHoverFaceKey,
     onFaceClick,
     onIsolateFace,
+    showWithFrame,
 }) => {
     const visible = showFaces || alwaysShowForPanel;
     if (!visible) {
@@ -190,6 +219,7 @@ export const FaceOverlayMap: React.FC<FaceOverlayMapProps> = ({
                     onFaceClick={onFaceClick}
                     onIsolateFace={onIsolateFace}
                     showFaces={showFaces}
+                    showWithFrame={showWithFrame}
                 />
             ))}
             <style>{`
