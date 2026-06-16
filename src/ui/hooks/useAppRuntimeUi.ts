@@ -56,7 +56,8 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [selectedWorkflowId, setSelectedWorkflowId] = usePersistedState<string>('ps_selected_workflow_id', 'folder_ingest_v1');
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
   const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);
-  const [activeInfoTab, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'profile');
+  const [activeInfoTabRaw, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'profile');
+  const activeInfoTab = (activeInfoTabRaw === 'profile' || activeInfoTabRaw === 'people' || activeInfoTabRaw === 'lineage' || activeInfoTabRaw === 'group' || activeInfoTabRaw === 'json' || activeInfoTabRaw === 'ailogs') ? activeInfoTabRaw : 'profile';
   const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
   const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
   const [aiMode, setAiMode] = usePersistedState<AiMode>('ps_ai_mode', 'live');

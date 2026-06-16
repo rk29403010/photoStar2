@@ -140,7 +140,8 @@ const PanelContent: React.FC<{
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, width = 360, activeTab: controlledTab, onTabChange, onClose, hoveredFaceKey, onHoverFaceKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection, onGetAiCallsLog, onGetAiCallLogDetail, analysisState, onRecordPhotoMetadataAssertion, onGetGroupOrbit, onSetCanonical }) => {
   const [internalTab, setInternalTab] = useState<TabId>('profile');
-  const activeTab = controlledTab ?? internalTab;
+  const rawActiveTab = controlledTab ?? internalTab;
+  const activeTab = TABS.some((t) => t.id === rawActiveTab) ? rawActiveTab : 'profile';
   const setActiveTab = useCallback((tab: TabId) => {
     setInternalTab(tab);
     onTabChange?.(tab);

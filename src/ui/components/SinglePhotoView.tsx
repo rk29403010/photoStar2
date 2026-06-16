@@ -92,7 +92,8 @@ function usePanelState({
         onShowInfoPanelChange?.(value);
     }, [onShowInfoPanelChange]);
     const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<ActiveInfoTab>('profile');
-    const activeInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
+    const rawActiveInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
+    const activeInfoTab = (rawActiveInfoTab === 'profile' || rawActiveInfoTab === 'people' || rawActiveInfoTab === 'lineage' || rawActiveInfoTab === 'group' || rawActiveInfoTab === 'json' || rawActiveInfoTab === 'ailogs') ? rawActiveInfoTab : 'profile';
     const setActiveInfoTab = useCallback((tab: ActiveInfoTab) => {
         setActiveInfoTabInternal(tab);
         onActiveInfoTabChange?.(tab);
