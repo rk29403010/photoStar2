@@ -220,6 +220,7 @@ export type Asset = {
     original_path: string; // Added this
     preview_path?: string;
     preview_data_url?: string;
+    file_size?: number | null;
     width?: number;
     height?: number;
     created_at?: string;
@@ -279,6 +280,8 @@ export type Person = {
     face_count: number;
     rejected_count?: number;
     cover_image?: string;
+    birth_date?: string;
+    death_date?: string;
 }
 
 export type LibraryTimelineBucket = {

@@ -52,6 +52,7 @@ type SinglePhotoViewProps = {
         tagLabel?: string;
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
     readonly showInfoPanel?: boolean;
     readonly onShowInfoPanelChange?: (v: boolean) => void;
     readonly activeInfoTab?: ActiveInfoTab;
@@ -76,7 +77,7 @@ type ControlsState = {
     onChangeIndex: (delta: -1 | 1) => void;
 };
 
-export type ActiveInfoTab = 'file' | 'analysis' | 'people' | 'json' | 'ailogs';
+export type ActiveInfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
 
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
@@ -90,7 +91,7 @@ function usePanelState({
         setShowInfoPanelInternal(value);
         onShowInfoPanelChange?.(value);
     }, [onShowInfoPanelChange]);
-    const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<ActiveInfoTab>('file');
+    const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<ActiveInfoTab>('profile');
     const activeInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
     const setActiveInfoTab = useCallback((tab: ActiveInfoTab) => {
         setActiveInfoTabInternal(tab);
@@ -325,6 +326,7 @@ function renderSinglePhotoOverlay(params: {
             onRemoveAssetTag={params.props.onRemoveAssetTag}
             onSetReviewItemStatus={params.props.onSetReviewItemStatus}
             onFlagPhotoDateCorrection={params.props.onFlagPhotoDateCorrection}
+            onRecordPhotoMetadataAssertion={params.props.onRecordPhotoMetadataAssertion}
             onGetAiCallsLog={params.props.onGetAiCallsLog}
             onGetAiCallLogDetail={params.props.onGetAiCallLogDetail}
             onRunWorkflowOnAssets={params.props.onRunWorkflowOnAssets}

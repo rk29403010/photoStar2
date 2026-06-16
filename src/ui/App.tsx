@@ -438,6 +438,17 @@ export default function App() {
     const { status, error, hasCompletedInitialSync, stats, assets, actions } = photoLibrary;
     const { handlers, handleExtractAiMetadata, overlayJobState, uiState } = useAppShellState(photoLibrary);
     const handleFlagPhotoDateCorrection = usePhotoDateReviewHandler(actions);
+    const handleRecordPhotoMetadataAssertion = useCallback(async (assetId: string, fieldPath: string, value: unknown, note?: string | null) => {
+        await actions.recordPhotoMetadataAssertion({
+            assetId,
+            fieldPath,
+            value,
+            userId: 'manual_user',
+            note: note ?? 'Manual edit',
+            includeEvidence: true,
+        });
+        await actions.loadAssetDetails(assetId, { includeEvidence: true });
+    }, [actions]);
     const { groupDiagnosticsReport, isLoadingGroupDiagnostics, loadGroupDiagnosticsReport } = useGroupDiagnosticsView({
         getGroupDiagnosticsReport: actions.getGroupDiagnosticsReport,
         view: uiState.view,
@@ -488,6 +499,7 @@ export default function App() {
                     void loadGroupDiagnosticsReport();
                 }}
                 handleFlagPhotoDateCorrection={handleFlagPhotoDateCorrection}
+                onRecordPhotoMetadataAssertion={handleRecordPhotoMetadataAssertion}
                 uiState={uiState}
             />
         );

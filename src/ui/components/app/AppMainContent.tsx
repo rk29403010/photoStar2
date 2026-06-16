@@ -6,6 +6,7 @@ import type {
   LibraryStats,
   Person,
   ReviewItemSummary,
+  SimilarityOrbit,
   TagAliasSummary,
   TagDefinitionSummary,
 } from '@contracts/core';
@@ -132,6 +133,9 @@ type AppMainContentProps = {
   readonly onDeleteTagAlias: (payload: { tagAliasId: string }) => Promise<TagDetailPayload>;
   readonly onMergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetailPayload>;
   readonly onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
+  readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+  readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
   readonly onAddJob: (id: string, stage: string, title: string) => void;
   readonly onUpdateJobState: (id: string, state: JobState) => void;
   readonly onUpdateJobProgress: (id: string, payload: {
@@ -220,6 +224,9 @@ function LibraryContentView(props: AppMainContentProps & { readonly visibleLibra
         onRemoveAssetTag={props.onRemoveAssetTag}
         onSetReviewItemStatus={props.onSetReviewItemStatus}
         onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+        onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
+        onGetGroupOrbit={props.onGetGroupOrbit}
+        onSetCanonical={props.onSetCanonical}
       />
     </div>
   );

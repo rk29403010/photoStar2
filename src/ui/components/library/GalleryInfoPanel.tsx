@@ -1,4 +1,4 @@
-import type { Asset, ReviewItemSummary } from '@contracts/core';
+import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from '../single-photo/InfoPanel';
@@ -17,6 +17,9 @@ type GalleryInfoPanelProps = {
         tagLabel?: string;
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 }
 
 function EmptyGalleryInfoPanel({ onClose }: Pick<GalleryInfoPanelProps, 'onClose'>) {
@@ -52,6 +55,9 @@ export function GalleryInfoPanel({
     onRemoveTag,
     onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
+    onRecordPhotoMetadataAssertion,
+    onGetGroupOrbit,
+    onSetCanonical,
 }: GalleryInfoPanelProps) {
     if (!asset) {
         return <EmptyGalleryInfoPanel onClose={onClose} />;
@@ -67,6 +73,9 @@ export function GalleryInfoPanel({
             onRemoveTag={onRemoveTag}
             onSetReviewItemStatus={onSetReviewItemStatus}
             onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
+            onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
+            onGetGroupOrbit={onGetGroupOrbit}
+            onSetCanonical={onSetCanonical}
         />
     );
 }

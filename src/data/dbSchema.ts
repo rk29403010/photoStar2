@@ -248,6 +248,8 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     name TEXT,
     thumbnail_path TEXT,
+    birth_date TEXT,
+    death_date TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -447,6 +449,8 @@ export const MIGRATIONS = [
     "ALTER TABLE assets ADD COLUMN binned_at TEXT",
     "ALTER TABLE albums ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE albums ADD COLUMN system_kind TEXT",
+    "ALTER TABLE people ADD COLUMN birth_date TEXT",
+    "ALTER TABLE people ADD COLUMN death_date TEXT",
 ];
 
 export const LEGACY_QUEUE_TABLE_NAME = joinLegacyName('task', 'queue');

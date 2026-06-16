@@ -200,7 +200,9 @@ test('raw evidence stays opt-in and is only requested for the raw tab when it is
         },
     });
 
-    assert.equal(shouldRequestPhotoMetadataEvidence({ activeTab: 'file', asset: assetWithoutEvidence }), true);
+    assert.equal(shouldRequestPhotoMetadataEvidence({ activeTab: 'profile', asset: assetWithoutEvidence }), true);
+    assert.equal(shouldRequestPhotoMetadataEvidence({ activeTab: 'lineage', asset: assetWithoutEvidence }), true);
+    assert.equal(shouldRequestPhotoMetadataEvidence({ activeTab: 'group', asset: assetWithoutEvidence }), true);
     assert.equal(shouldRequestPhotoMetadataEvidence({ activeTab: 'analysis', asset: assetWithoutEvidence }), false);
     assert.equal(shouldRequestPhotoMetadataEvidence({ activeTab: 'json', asset: assetWithoutEvidence }), true);
     assert.equal(shouldRequestPhotoMetadataEvidence({ activeTab: 'json', asset: createAsset() }), false);

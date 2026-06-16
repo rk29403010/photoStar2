@@ -49,6 +49,7 @@ export type SinglePhotoOverlayProps = {
     readonly analysis: AnalysisState;
     readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
     readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
+    readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
 }
 
@@ -68,6 +69,9 @@ function PhotoInfoSidebar(props: {
     readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
     readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
     readonly analysisState?: string;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
 }) {
     const assignAssetTag = props.onAssignAssetTag;
     const removeAssetTag = props.onRemoveAssetTag;
@@ -95,6 +99,9 @@ function PhotoInfoSidebar(props: {
                 onGetAiCallsLog={props.onGetAiCallsLog}
                 onGetAiCallLogDetail={props.onGetAiCallLogDetail}
                 analysisState={props.analysisState}
+                onGetGroupOrbit={props.onGetGroupOrbit}
+                onSetCanonical={props.onSetCanonical}
+                onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
             />
         </div>
     );
@@ -149,6 +156,9 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
             onGetAiCallsLog={props.onGetAiCallsLog}
             onGetAiCallLogDetail={props.onGetAiCallLogDetail}
             analysisState={props.analysis.analysisState}
+            onGetGroupOrbit={props.onGetGroupOrbit}
+            onSetCanonical={props.onSetCanonical}
+            onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
         />
     </div>
 );

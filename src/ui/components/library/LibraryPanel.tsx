@@ -1,4 +1,4 @@
-import type { Asset, GalleryTimelineSeek, ReviewItemSummary } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import type { ComponentProps, CSSProperties, ReactNode, RefObject, UIEvent } from 'react';
@@ -48,6 +48,9 @@ export type LibraryPanelProps = {
         tagLabel?: string;
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly browseRowHeight: number;
     readonly isScrollSettled: boolean;
 }
@@ -70,6 +73,9 @@ export function LibraryPanel({
     onRemoveAssetTag,
     onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
+    onRecordPhotoMetadataAssertion,
+    onGetGroupOrbit,
+    onSetCanonical,
     browseRowHeight,
     isScrollSettled,
 }: LibraryPanelProps) {
@@ -103,6 +109,9 @@ export function LibraryPanel({
                     onRemoveTag={selectedInfoAsset && onRemoveAssetTag ? (tagDefinitionId) => onRemoveAssetTag(selectedInfoAsset.id, tagDefinitionId) : undefined}
                     onSetReviewItemStatus={onSetReviewItemStatus}
                     onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
+                    onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
+                    onGetGroupOrbit={onGetGroupOrbit}
+                    onSetCanonical={onSetCanonical}
                 />
             )}
         </div>

@@ -1,4 +1,4 @@
-import type { Asset, GalleryTimelineSeek, ReviewItemSummary } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { LibraryFilter } from '@ui/hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
@@ -57,6 +57,9 @@ type LibraryPanelContentProps = {
         tagLabel?: string;
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly browseRowHeight: number;
     readonly isScrollSettled: boolean;
     readonly setTopVisibleSelectionKey: (selectionKey: string | null) => void;
@@ -117,6 +120,9 @@ export function LibraryPanelContent(props: LibraryPanelContentProps) {
             onRemoveAssetTag={props.onRemoveAssetTag}
             onSetReviewItemStatus={props.onSetReviewItemStatus}
             onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+            onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
+            onGetGroupOrbit={props.onGetGroupOrbit}
+            onSetCanonical={props.onSetCanonical}
             browseRowHeight={props.browseRowHeight}
             isScrollSettled={props.isScrollSettled}
         />

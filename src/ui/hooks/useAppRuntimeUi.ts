@@ -10,7 +10,7 @@ import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel'
 import { usePersistedState } from './usePersistedState';
 
 export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-export type InfoTab = 'file' | 'analysis' | 'people' | 'json' | 'ailogs';
+export type InfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
 
 function useDevRuntimeImpact(
@@ -56,7 +56,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [selectedWorkflowId, setSelectedWorkflowId] = usePersistedState<string>('ps_selected_workflow_id', 'folder_ingest_v1');
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
   const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);
-  const [activeInfoTab, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'file');
+  const [activeInfoTab, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'profile');
   const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
   const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
   const [aiMode, setAiMode] = usePersistedState<AiMode>('ps_ai_mode', 'live');

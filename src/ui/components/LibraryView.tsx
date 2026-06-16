@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject, type UIEvent } from 'react';
-import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, getLibraryGalleryDataMode, type LibraryGalleryDataMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
@@ -78,6 +78,9 @@ export type LibraryViewProps = {
         tagLabel?: string;
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+    readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 }
 
 const EMPTY_LIBRARY_SELECTION = createEmptyLibrarySelectionState();
@@ -380,6 +383,9 @@ function getLibraryPanelContentProps(params: {
         onRemoveAssetTag: params.props.onRemoveAssetTag,
         onSetReviewItemStatus: params.props.onSetReviewItemStatus,
         onFlagPhotoDateCorrection: params.props.onFlagPhotoDateCorrection,
+        onRecordPhotoMetadataAssertion: params.props.onRecordPhotoMetadataAssertion,
+        onGetGroupOrbit: params.props.onGetGroupOrbit,
+        onSetCanonical: params.props.onSetCanonical,
         browseRowHeight: params.browseRowHeight,
         isScrollSettled: params.isScrollSettled,
         setTopVisibleSelectionKey: params.setTopVisibleSelectionKey,

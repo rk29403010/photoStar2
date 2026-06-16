@@ -3,7 +3,7 @@ import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core'
 import type { BackgroundJob } from '@contracts/jobs';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
-import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
+import type { AiMode, InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { getLibrarySelectionAssetIds, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { TaskDrawer } from '../jobs/TaskDrawer';
@@ -12,7 +12,6 @@ import { SettingsModal } from '../SettingsModal';
 import { SinglePhotoView } from '../SinglePhotoView';
 import { resolveSinglePhotoOverlaySelection } from './singlePhotoOverlaySelection';
 
-type InfoTab = 'file' | 'analysis' | 'people' | 'json' | 'ailogs';
 
 type AppOverlaysProps = {
   readonly assets: Asset[];
@@ -80,6 +79,7 @@ type AppOverlaysProps = {
   readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
   readonly librarySelection: LibrarySelectionState;
   readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[]) => void;
+  readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
 }
 
 function createSelectedAssetCache() {
@@ -149,6 +149,7 @@ function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], 
       onRemoveAssetTag={props.onRemoveAssetTag}
       onSetReviewItemStatus={props.onSetReviewItemStatus}
       onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+      onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
       onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
     />
   );
