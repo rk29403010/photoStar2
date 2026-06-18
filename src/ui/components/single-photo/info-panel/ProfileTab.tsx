@@ -116,43 +116,123 @@ type EditFieldDisplayProps = {
   readonly value: string | null;
   readonly sourceKind?: string | null;
   readonly sourceLabel?: string;
+  readonly tooltip?: string | null;
+  readonly layout?: 'row' | 'block';
   readonly onEdit: () => void;
 };
+
+type FieldDisplayLayoutProps = {
+  readonly label: string;
+  readonly displayVal: string;
+  readonly value: string | null;
+  readonly sourceIcon: string;
+  readonly resolvedTooltip?: string;
+  readonly onEdit: () => void;
+};
+
+const BlockFieldDisplay: React.FC<FieldDisplayLayoutProps> = ({
+  label,
+  displayVal,
+  value,
+  sourceIcon,
+  resolvedTooltip,
+  onEdit,
+}) => (
+  <div 
+    onClick={onEdit}
+    className="flex flex-col pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative"
+  >
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-content-secondary/80 font-bold">{label}</span>
+      {sourceIcon && (
+        <span 
+          className="text-[11px] shrink-0 cursor-help"
+          title={resolvedTooltip || undefined}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {sourceIcon}
+        </span>
+      )}
+    </div>
+    <div className="mt-1 mr-2 pr-6">
+      <p className={`leading-relaxed select-text text-xs line-clamp-5 ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'}`}>
+        {displayVal}
+      </p>
+    </div>
+    <span className="opacity-0 group-hover:opacity-100 absolute right-2 top-2 text-content-secondary/60 hover:text-brand-accent text-[10px] transition-opacity">
+      ✏️
+    </span>
+  </div>
+);
+
+const RowFieldDisplay: React.FC<FieldDisplayLayoutProps> = ({
+  label,
+  displayVal,
+  value,
+  sourceIcon,
+  resolvedTooltip,
+  onEdit,
+}) => (
+  <div 
+    onClick={onEdit}
+    className="flex gap-2 items-center pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative"
+  >
+    <span className="text-xs text-content-secondary/80 font-bold w-18 shrink-0">{label}</span>
+    <div className="flex-1 min-w-0 pr-6 flex items-center justify-between gap-1.5">
+      <span className={`leading-relaxed select-text text-xs ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'}`}>
+        {displayVal}
+      </span>
+      {sourceIcon && (
+        <span 
+          className="text-[11px] shrink-0 cursor-help ml-auto pl-1"
+          title={resolvedTooltip || undefined}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {sourceIcon}
+        </span>
+      )}
+    </div>
+    <span className="opacity-0 group-hover:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 text-content-secondary/60 hover:text-brand-accent text-[10px] transition-opacity">
+      ✏️
+    </span>
+  </div>
+);
 
 const EditFieldDisplay: React.FC<EditFieldDisplayProps> = ({
   label,
   value,
   sourceKind,
   sourceLabel,
+  tooltip,
+  layout = 'row',
   onEdit,
 }) => {
   const displayVal = value == null || value === '' ? '—' : value;
   const sourceIcon = getSourceIcon(sourceKind);
+  const resolvedTooltip = sourceIcon === '⚡' && tooltip ? `${sourceLabel ? `${sourceLabel} - ` : ''}Rationale: ${tooltip}` : sourceLabel;
+
+  if (layout === 'block') {
+    return (
+      <BlockFieldDisplay
+        label={label}
+        displayVal={displayVal}
+        value={value}
+        sourceIcon={sourceIcon}
+        resolvedTooltip={resolvedTooltip ?? undefined}
+        onEdit={onEdit}
+      />
+    );
+  }
 
   return (
-    <div className="flex gap-2 items-baseline pb-2 border-b border-content/5 mt-1.5 group select-none relative">
-      <span className="text-xs text-content-secondary/80 font-bold w-24 shrink-0">{label}</span>
-      <div className="flex-1 min-w-0 pr-12 flex items-center gap-1.5">
-        <span className={`leading-relaxed break-all select-text text-xs ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'}`}>
-          {displayVal}
-        </span>
-        {sourceIcon && (
-          <span 
-            className="text-[11px] shrink-0 cursor-help"
-            title={sourceLabel ? `${sourceLabel}` : undefined}
-          >
-            {sourceIcon}
-          </span>
-        )}
-      </div>
-      <button
-        onClick={onEdit}
-        className="opacity-0 group-hover:opacity-100 absolute right-1 top-1 text-content-secondary/60 hover:text-brand-accent text-xs transition-opacity cursor-pointer p-0.5 bg-transparent border-0"
-        title={`Edit ${label}`}
-      >
-        ✏️
-      </button>
-    </div>
+    <RowFieldDisplay
+      label={label}
+      displayVal={displayVal}
+      value={value}
+      sourceIcon={sourceIcon}
+      resolvedTooltip={resolvedTooltip ?? undefined}
+      onEdit={onEdit}
+    />
   );
 };
 
@@ -161,6 +241,8 @@ type EditableFieldProps = {
   readonly value: string | null;
   readonly sourceKind?: string | null;
   readonly sourceLabel?: string;
+  readonly tooltip?: string | null;
+  readonly layout?: 'row' | 'block';
   readonly inputType?: 'text' | 'textarea' | 'select';
   readonly selectOptions?: string[];
   readonly onSave: (newValue: string) => Promise<void>;
@@ -171,6 +253,8 @@ const EditableField: React.FC<EditableFieldProps> = ({
   value,
   sourceKind,
   sourceLabel,
+  tooltip,
+  layout = 'row',
   inputType = 'text',
   selectOptions = [],
   onSave,
@@ -219,6 +303,8 @@ const EditableField: React.FC<EditableFieldProps> = ({
       value={value}
       sourceKind={sourceKind}
       sourceLabel={sourceLabel}
+      tooltip={tooltip}
+      layout={layout}
       onEdit={() => setIsEditing(true)}
     />
   );
@@ -261,12 +347,13 @@ export const ProfileTab: React.FC<{
 
   return (
     <div className="flex flex-col gap-4">
-      <Section emoji="🏷️" title="Synthesised Profile">
+      <Section emoji="🏷️" title="Synthesised Profile" hideHeader>
         <EditableField
           label="Caption"
           value={summary.caption}
           sourceKind={provenance?.caption?.sourceKind}
           sourceLabel={summary.captionSourceLabel}
+          layout="block"
           onSave={(val) => handleSaveField('caption', val)}
         />
         <EditableField
@@ -275,6 +362,7 @@ export const ProfileTab: React.FC<{
           sourceKind={provenance?.description?.sourceKind}
           sourceLabel={provenance?.description?.sourceKind ? `Source: ${provenance.description.sourceKind}` : undefined}
           inputType="textarea"
+          layout="block"
           onSave={(val) => handleSaveField('description', val)}
         />
         <EditableField
@@ -291,6 +379,7 @@ export const ProfileTab: React.FC<{
           value={summary.estimatedDateLabel}
           sourceKind={provenance?.estimatedDate?.display_label?.sourceKind ?? provenance?.estimatedDate?.sourceKind}
           sourceLabel={summary.estimatedDateSourceLabel}
+          tooltip={summary.dateRationale}
           onSave={(val) => handleSaveField('estimated_date', val)}
         />
         <EditableField
@@ -300,11 +389,6 @@ export const ProfileTab: React.FC<{
           sourceLabel={summary.locationSourceLabel}
           onSave={(val) => handleSaveField('location', val)}
         />
-        {summary.dateRationale && (
-          <div className="mt-2 text-[11px] text-content-secondary/70 italic leading-relaxed pl-1">
-            💡 <strong>Rationale:</strong> {summary.dateRationale}
-          </div>
-        )}
         <div className="mt-3 flex items-center justify-between pl-1">
           <span className="text-[11px] text-content-secondary">Model: {getModelLabel(asset) ?? 'None'}</span>
           {Boolean(asset.ai_metadata?._pending_pro) && (

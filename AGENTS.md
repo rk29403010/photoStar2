@@ -112,6 +112,7 @@ These rules are programmatically checked and enforced by our ESLint setup (using
 7. **Ensure Theme Consistency**: Design and test all new and modified UI components to look correct in both light and dark modes natively via the semantic tokens.
 8. **Semantic Styling**: Ensure styles are semantic and not just presentational. For example, use `bg-error`, `border-danger`, etc. instead of arbitrary colors.
 9. **Text to background contrast**: Always verify there is sufficient contrast between text and background colors, especially for smaller font sizes. Use WCAG 2.1 AA guidelines (a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text).
+10. **Long-Form Text Fields (Caption/Description)**: Display multi-line/long-form text fields underneath the label using a block layout (full column width) rather than squeezed side-by-side. Differentiate editable fields visually with hover background changes, support direct click-to-edit behavior on the whole field container, restrict the display height (e.g., `line-clamp-5`) to prevent layout bloat, and render any source/provenance icons inline directly next to the label. Rationales should be presented via tooltips on the source icon.
 
 ## Feedback Framework
 

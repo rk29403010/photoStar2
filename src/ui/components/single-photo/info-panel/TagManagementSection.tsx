@@ -50,7 +50,7 @@ function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnable
       <span
         className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs border font-medium ${
           tag.sourceKind === 'manual'
-            ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
+            ? 'bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/20 dark:border-indigo-500/30 text-indigo-800 dark:text-indigo-200'
             : 'bg-content/5 border-content/10 text-content-secondary/90'
         }`}
       >
@@ -72,7 +72,7 @@ function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnable
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs border font-medium bg-amber-500/10 border-amber-500/35 text-amber-300"
+      className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs border font-medium bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30 dark:border-amber-500/40 text-amber-800 dark:text-amber-200"
     >
       <span className="italic">{tag.label} (AI)</span>
       <span className="flex items-center gap-1.5 ml-1">
