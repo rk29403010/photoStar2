@@ -390,10 +390,12 @@ const EditableField: React.FC<EditableFieldProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(value ?? '');
+  const [localValue, setLocalValue] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   useEffect(() => {
+    setLocalValue(null);
     setInputValue(value ?? '');
   }, [value]);
 
@@ -402,6 +404,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
     setErrorText(null);
     try {
       await onSave(inputValue);
+      setLocalValue(inputValue);
       setIsEditing(false);
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'Failed to save');
@@ -430,7 +433,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
   return (
     <EditFieldDisplay
       label={label}
-      value={value}
+      value={localValue !== null ? localValue : value}
       sourceKind={sourceKind}
       sourceLabel={sourceLabel}
       tooltip={tooltip}
