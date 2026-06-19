@@ -50,7 +50,7 @@ function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnable
       <span
         className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs border font-medium ${
           tag.sourceKind === 'manual'
-            ? 'bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/20 dark:border-indigo-500/30 text-indigo-800 dark:text-indigo-200'
+            ? 'bg-indigo-100 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100'
             : 'bg-content/5 border-content/10 text-content-secondary/90'
         }`}
       >
@@ -60,7 +60,7 @@ function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnable
             type="button"
             onClick={() => tag.tagDefinitionId && void onRemove(tag.tagDefinitionId)}
             disabled={isBusy}
-            className="text-indigo-400 hover:text-indigo-200 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs ml-0.5 disabled:opacity-50"
+            className="text-indigo-700 hover:text-indigo-950 dark:text-indigo-400 dark:hover:text-indigo-300 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs ml-0.5 disabled:opacity-50"
             title="Remove tag"
           >
             ×
@@ -72,7 +72,7 @@ function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnable
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs border font-medium bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30 dark:border-amber-500/40 text-amber-800 dark:text-amber-200"
+      className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs border font-medium bg-amber-100 dark:bg-amber-950 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100"
     >
       <span className="italic">{tag.label} (AI)</span>
       <span className="flex items-center gap-1.5 ml-1">
@@ -80,7 +80,7 @@ function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnable
           type="button"
           onClick={() => tag.reviewItemId && void onReviewAction(tag.reviewItemId, 'approved', tag.label)}
           disabled={isBusy}
-          className="text-emerald-400 hover:text-emerald-300 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs disabled:opacity-50"
+          className="text-emerald-700 hover:text-emerald-950 dark:text-emerald-400 dark:hover:text-emerald-300 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs disabled:opacity-50"
           title="Approve suggestion"
         >
           ✓
@@ -89,7 +89,7 @@ function TagItemBadge({ tag, isBusy, onRemove, onReviewAction, onRemoveTagEnable
           type="button"
           onClick={() => tag.reviewItemId && void onReviewAction(tag.reviewItemId, 'rejected')}
           disabled={isBusy}
-          className="text-rose-400 hover:text-rose-300 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs disabled:opacity-50"
+          className="text-rose-700 hover:text-rose-955 dark:text-rose-400 dark:hover:text-rose-300 bg-transparent border-none p-0 cursor-pointer font-bold leading-none text-xs disabled:opacity-50"
           title="Reject suggestion"
         >
           ✗

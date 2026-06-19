@@ -30,10 +30,153 @@ type EditFieldInputProps = {
   readonly setInputValue: (v: string) => void;
   readonly selectOptions: string[];
   readonly isSaving: boolean;
+  readonly layout?: 'row' | 'block';
   readonly handleSave: () => void;
   readonly handleCancel: () => void;
   readonly errorText: string | null;
 };
+
+type FieldInputControlProps = {
+  readonly inputType: 'text' | 'textarea' | 'select';
+  readonly inputValue: string;
+  readonly setInputValue: (v: string) => void;
+  readonly selectOptions: string[];
+  readonly isSaving: boolean;
+};
+
+const FieldInputControl: React.FC<FieldInputControlProps> = ({
+  inputType,
+  inputValue,
+  setInputValue,
+  selectOptions,
+  isSaving,
+}) => {
+  const inputBaseClass = "w-full bg-transparent text-content text-xs leading-relaxed outline-none border-0 border-b border-dashed border-brand-accent/40 focus:border-brand-accent focus:ring-0 transition-colors p-0 font-sans";
+
+  if (inputType === 'textarea') {
+    return (
+      <textarea
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        className={`${inputBaseClass} resize-y min-h-[90px]`}
+        disabled={isSaving}
+        rows={5}
+        autoFocus
+      />
+    );
+  }
+  if (inputType === 'select') {
+    return (
+      <select
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        className={`${inputBaseClass} cursor-pointer py-0.5`}
+        disabled={isSaving}
+        autoFocus
+      >
+        <option value="">Select...</option>
+        {selectOptions.map((opt) => (
+          <option key={opt} value={opt} className="bg-surface text-content">{opt}</option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <input
+      type="text"
+      value={inputValue}
+      onChange={(e) => setInputValue(e.target.value)}
+      className={inputBaseClass}
+      disabled={isSaving}
+      autoFocus
+    />
+  );
+};
+
+type ActionButtonsProps = {
+  readonly isSaving: boolean;
+  readonly handleSave: () => void;
+  readonly handleCancel: () => void;
+};
+
+const ActionButtons: React.FC<ActionButtonsProps> = ({
+  isSaving,
+  handleSave,
+  handleCancel,
+}) => (
+  <div className="flex items-center gap-2 shrink-0 ml-2">
+    <button
+      onClick={handleSave}
+      disabled={isSaving}
+      className="text-emerald-500 hover:text-emerald-400 font-bold bg-transparent border-none p-0.5 cursor-pointer disabled:opacity-40"
+      title="Save (Enter)"
+    >
+      <svg className="w-4 h-4 stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    </button>
+    <button
+      onClick={handleCancel}
+      disabled={isSaving}
+      className="text-rose-500 hover:text-rose-400 font-bold bg-transparent border-none p-0.5 cursor-pointer disabled:opacity-40"
+      title="Cancel (Esc)"
+    >
+      <svg className="w-4 h-4 stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+);
+
+type FieldInputLayoutProps = {
+  readonly label: string;
+  readonly inputElement: React.ReactNode;
+  readonly actionButtons: React.ReactNode;
+  readonly errorText: string | null;
+  readonly handleKeyDown: (e: React.KeyboardEvent) => void;
+};
+
+const BlockFieldInput: React.FC<FieldInputLayoutProps> = ({
+  label,
+  inputElement,
+  actionButtons,
+  errorText,
+  handleKeyDown,
+}) => (
+  <div 
+    onKeyDown={handleKeyDown}
+    className="flex flex-col pb-2 border-b border-content/5 mt-1.5 border border-transparent rounded p-1.5 -mx-1.5 relative w-full"
+  >
+    <div className="flex items-center justify-between w-full">
+      <span className="text-xs text-content-secondary/80 font-bold">{label}</span>
+      {actionButtons}
+    </div>
+    <div className="mt-1.5 w-full">
+      {inputElement}
+    </div>
+    {errorText && <span className="text-[10px] text-rose-400 mt-1 font-medium">{errorText}</span>}
+  </div>
+);
+
+const RowFieldInput: React.FC<FieldInputLayoutProps> = ({
+  label,
+  inputElement,
+  actionButtons,
+  errorText,
+  handleKeyDown,
+}) => (
+  <div 
+    onKeyDown={handleKeyDown}
+    className="flex gap-2 items-center pb-2 border-b border-content/5 mt-1.5 border border-transparent rounded p-1.5 -mx-1.5 w-full relative"
+  >
+    <span className="text-xs text-content-secondary/80 font-bold w-18 shrink-0">{label}</span>
+    <div className="flex-1 min-w-0 flex items-center justify-between gap-1.5 w-full">
+      {inputElement}
+      {actionButtons}
+    </div>
+    {errorText && <span className="text-[10px] text-rose-400 font-medium absolute bottom-0 right-0">{errorText}</span>}
+  </div>
+);
 
 const EditFieldInput: React.FC<EditFieldInputProps> = ({
   label,
@@ -42,72 +185,58 @@ const EditFieldInput: React.FC<EditFieldInputProps> = ({
   setInputValue,
   selectOptions,
   isSaving,
+  layout = 'row',
   handleSave,
   handleCancel,
   errorText,
 }) => {
-  let inputElement: React.ReactNode;
-  if (inputType === 'textarea') {
-    inputElement = (
-      <textarea
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        className="flex-1 bg-surface text-content border border-content/15 rounded px-2 py-1 text-xs outline-none focus:border-brand-accent/50 resize-y min-h-[60px]"
-        disabled={isSaving}
-      />
-    );
-  } else if (inputType === 'select') {
-    inputElement = (
-      <select
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        className="flex-1 bg-surface text-content border border-content/15 rounded px-2 py-1 text-xs outline-none focus:border-brand-accent/50 cursor-pointer"
-        disabled={isSaving}
-      >
-        <option value="">Select...</option>
-        {selectOptions.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-    );
-  } else {
-    inputElement = (
-      <input
-        type="text"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        className="flex-1 bg-surface text-content border border-content/15 rounded px-2 py-1 text-xs outline-none focus:border-brand-accent/50"
-        disabled={isSaving}
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      handleCancel();
+    } else if (e.key === 'Enter' && (inputType !== 'textarea' || e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
+  const inputElement = (
+    <FieldInputControl
+      inputType={inputType}
+      inputValue={inputValue}
+      setInputValue={setInputValue}
+      selectOptions={selectOptions}
+      isSaving={isSaving}
+    />
+  );
+
+  const actionButtons = (
+    <ActionButtons
+      isSaving={isSaving}
+      handleSave={handleSave}
+      handleCancel={handleCancel}
+    />
+  );
+
+  if (layout === 'block') {
+    return (
+      <BlockFieldInput
+        label={label}
+        inputElement={inputElement}
+        actionButtons={actionButtons}
+        errorText={errorText}
+        handleKeyDown={handleKeyDown}
       />
     );
   }
 
   return (
-    <div className="flex flex-col gap-1.5 pb-3 border-b border-content/5 mt-1">
-      <span className="text-[10px] text-content-secondary font-bold uppercase tracking-wider">{label}</span>
-      <div className="flex gap-2">
-        {inputElement}
-        <div className="flex flex-col gap-1 shrink-0 justify-end">
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-2 py-1 bg-brand-accent/20 hover:bg-brand-accent/30 text-brand-accent border border-brand-accent/35 rounded text-[11px] font-bold cursor-pointer motion-safe:transition-all disabled:opacity-50"
-            title="Save override"
-          >
-            {isSaving ? '...' : 'Save'}
-          </button>
-          <button
-            onClick={handleCancel}
-            disabled={isSaving}
-            className="px-2 py-1 bg-content/5 hover:bg-content/10 text-content-secondary border border-content/10 rounded text-[11px] cursor-pointer motion-safe:transition-all disabled:opacity-50"
-            title="Cancel"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-      {errorText && <span className="text-[10px] text-rose-400 font-medium">{errorText}</span>}
-    </div>
+    <RowFieldInput
+      label={label}
+      inputElement={inputElement}
+      actionButtons={actionButtons}
+      errorText={errorText}
+      handleKeyDown={handleKeyDown}
+    />
   );
 };
 
@@ -140,9 +269,9 @@ const BlockFieldDisplay: React.FC<FieldDisplayLayoutProps> = ({
 }) => (
   <div 
     onClick={onEdit}
-    className="flex flex-col pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative"
+    className="flex flex-col pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative w-full"
   >
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5 w-full">
       <span className="text-xs text-content-secondary/80 font-bold">{label}</span>
       {sourceIcon && (
         <span 
@@ -154,8 +283,8 @@ const BlockFieldDisplay: React.FC<FieldDisplayLayoutProps> = ({
         </span>
       )}
     </div>
-    <div className="mt-1 mr-2 pr-6">
-      <p className={`leading-relaxed select-text text-xs line-clamp-5 ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'}`}>
+    <div className="mt-1 w-full">
+      <p className={`leading-relaxed select-text text-xs line-clamp-5 ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'} w-full`}>
         {displayVal}
       </p>
     </div>
@@ -175,16 +304,16 @@ const RowFieldDisplay: React.FC<FieldDisplayLayoutProps> = ({
 }) => (
   <div 
     onClick={onEdit}
-    className="flex gap-2 items-center pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative"
+    className="flex gap-2 items-center pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative w-full"
   >
     <span className="text-xs text-content-secondary/80 font-bold w-18 shrink-0">{label}</span>
-    <div className="flex-1 min-w-0 pr-6 flex items-center justify-between gap-1.5">
+    <div className="flex-1 min-w-0 flex items-center gap-1.5 w-full">
       <span className={`leading-relaxed select-text text-xs ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'}`}>
         {displayVal}
       </span>
       {sourceIcon && (
         <span 
-          className="text-[11px] shrink-0 cursor-help ml-auto pl-1"
+          className="text-[11px] shrink-0 cursor-help"
           title={resolvedTooltip || undefined}
           onClick={(e) => e.stopPropagation()}
         >
@@ -290,6 +419,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
         setInputValue={setInputValue}
         selectOptions={selectOptions}
         isSaving={isSaving}
+        layout={layout}
         handleSave={handleSave}
         handleCancel={() => { setIsEditing(false); setErrorText(null); }}
         errorText={errorText}
@@ -353,6 +483,7 @@ export const ProfileTab: React.FC<{
           value={summary.caption}
           sourceKind={provenance?.caption?.sourceKind}
           sourceLabel={summary.captionSourceLabel}
+          inputType="textarea"
           layout="block"
           onSave={(val) => handleSaveField('caption', val)}
         />

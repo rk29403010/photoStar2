@@ -58,17 +58,17 @@ export const Section: React.FC<{ readonly emoji: string; readonly title: string;
 );
 
 export const Tag: React.FC<{ readonly text: string; readonly color?: string; readonly isPending?: boolean }> = ({ text, color, isPending }) => {
-  let bgClass = 'bg-indigo-500/15 border-indigo-500/20 text-indigo-300';
+  let bgClass = 'bg-indigo-100 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200';
   if (isPending) {
-    bgClass = 'bg-amber-500/10 border-amber-500/30 text-amber-300';
+    bgClass = 'bg-amber-100 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200';
   } else if (color) {
     bgClass = '';
   }
   
   return (
     <span 
-      className={`rounded px-2 py-0.5 text-xs inline-block m-0.5 ml-0 border ${bgClass} text-content font-medium`}
-      style={color ? { backgroundColor: color, borderColor: 'transparent' } : undefined}
+      className={`rounded px-2 py-0.5 text-xs inline-block m-0.5 ml-0 border ${bgClass} font-medium`}
+      style={color ? { backgroundColor: color, borderColor: 'transparent', color: '#ffffff' } : undefined}
     >
       {text}
     </span>
