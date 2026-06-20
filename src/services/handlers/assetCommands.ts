@@ -564,4 +564,20 @@ export const assetCommandHandlers: CommandHandlerMap = {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
         }
     },
+
+    get_available_asset_types: (ctx) => {
+        const { id, originWs, dbManager, respond } = ctx;
+        try {
+            const defaultTypes = ['photo', 'document', 'drawing', 'newspaper', 'slide', 'negative', 'postcard'];
+            const rows = dbManager.getDb().prepare(`
+                SELECT DISTINCT type FROM photo_metadata_projection 
+                WHERE type IS NOT NULL AND type != ''
+            `).all() as { type: string }[];
+            const dbTypes = rows.map((r) => r.type);
+            const combined = Array.from(new Set([...defaultTypes, ...dbTypes])).sort((a, b) => a.localeCompare(b));
+            respond(id, 'ok', { types: combined }, null, originWs);
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
 };

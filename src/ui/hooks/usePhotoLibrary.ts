@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import type { Asset } from '@contracts/core';
 import type { JobState, StageState } from '@contracts/jobs';
 import { useJobManager } from './useJobManager';
@@ -33,6 +33,8 @@ export type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 type PhotoLibraryState = ReturnType<typeof usePhotoLibraryState>;
 type RequestFn = ReturnType<typeof useLibraryTransport>['request'];
 type SendCommandFn = (command: string, payload?: Record<string, unknown>) => Promise<void>;
+
+export let globalRequest: RequestFn | null = null;
 
 function useLibraryRefreshAction(params: {
     assets: PhotoLibraryState['assets'];
@@ -570,6 +572,9 @@ export function usePhotoLibrary() {
     const state = usePhotoLibraryState();
     const { jobs, addJob, updateJobState, updateJobProgress, removeJob, processEvent } = useJobManager();
     const { sendCommand, request } = useLibraryTransport(state.transport, state.addLog);
+    useEffect(() => {
+        globalRequest = request;
+    }, [request]);
     const refreshAssetById = useAssetRefreshById({ request, setAssets: state.setAssets });
 
     const connectionParams = useConnectionParams(state, { processEvent, updateJobProgress }, refreshAssetById);

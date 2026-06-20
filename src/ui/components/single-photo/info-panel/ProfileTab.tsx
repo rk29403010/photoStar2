@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Asset, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
 import { Section } from './shared';
 import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
 import { TagManagementSection } from './TagManagementSection';
+import { globalRequest } from '../../../hooks/usePhotoLibrary';
 
 function getModelLabel(asset: Asset): string | undefined {
   const captionSource = asset.photo_metadata?.provenance?.caption?.sourceKind;
@@ -23,425 +24,313 @@ function getSourceIcon(sourceKind: string | null | undefined): string {
   return 'ℹ️';
 }
 
-type EditFieldInputProps = {
-  readonly label: string;
+type SeamlessFieldControlProps = {
   readonly inputType: 'text' | 'textarea' | 'select';
-  readonly inputValue: string;
-  readonly setInputValue: (v: string) => void;
-  readonly selectOptions: string[];
+  readonly localValue: string;
   readonly isSaving: boolean;
-  readonly layout?: 'row' | 'block';
-  readonly handleSave: () => void;
-  readonly handleCancel: () => void;
-  readonly errorText: string | null;
+  readonly options: string[];
+  readonly textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  readonly onChange: (val: string) => void;
+  readonly onFocus: () => void;
+  readonly onBlur: () => void;
 };
 
-type FieldInputControlProps = {
-  readonly inputType: 'text' | 'textarea' | 'select';
-  readonly inputValue: string;
-  readonly setInputValue: (v: string) => void;
-  readonly selectOptions: string[];
-  readonly isSaving: boolean;
-};
-
-const FieldInputControl: React.FC<FieldInputControlProps> = ({
+const SeamlessFieldControl: React.FC<SeamlessFieldControlProps> = ({
   inputType,
-  inputValue,
-  setInputValue,
-  selectOptions,
+  localValue,
   isSaving,
+  options,
+  textareaRef,
+  onChange,
+  onFocus,
+  onBlur,
 }) => {
-  const inputBaseClass = "w-full bg-transparent text-content text-xs leading-relaxed outline-none border-0 border-b border-dashed border-brand-accent/40 focus:border-brand-accent focus:ring-0 transition-colors p-0 font-sans";
+  const inputBaseClass = "w-full bg-transparent text-content text-xs leading-relaxed outline-none border-0 border-b border-dashed border-transparent hover:border-brand-accent/30 focus:border-brand-accent focus:ring-0 transition-colors p-0 rounded-none shadow-none font-sans";
 
   if (inputType === 'textarea') {
     return (
       <textarea
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        className={`${inputBaseClass} resize-y min-h-[90px]`}
+        ref={textareaRef}
+        value={localValue}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        className={`${inputBaseClass} resize-none overflow-hidden`}
         disabled={isSaving}
-        rows={5}
-        autoFocus
+        rows={1}
       />
     );
   }
   if (inputType === 'select') {
     return (
-      <select
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        className={`${inputBaseClass} cursor-pointer py-0.5`}
-        disabled={isSaving}
-        autoFocus
-      >
-        <option value="">Select...</option>
-        {selectOptions.map((opt) => (
-          <option key={opt} value={opt} className="bg-surface text-content">{opt}</option>
-        ))}
-      </select>
+      <div className="relative w-full flex-1">
+        <select
+          value={localValue}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          className={`${inputBaseClass} appearance-none pr-5 cursor-pointer py-0.5`}
+          disabled={isSaving}
+        >
+          <option value="" className="bg-surface text-content">Select...</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt} className="bg-surface text-content">{opt}</option>
+          ))}
+        </select>
+        <svg className="w-3.5 h-3.5 text-content-secondary/60 pointer-events-none absolute right-1 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
     );
   }
   return (
     <input
       type="text"
-      value={inputValue}
-      onChange={(e) => setInputValue(e.target.value)}
+      value={localValue}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       className={inputBaseClass}
       disabled={isSaving}
-      autoFocus
     />
   );
 };
 
-type ActionButtonsProps = {
-  readonly isSaving: boolean;
-  readonly handleSave: () => void;
-  readonly handleCancel: () => void;
-};
-
-const ActionButtons: React.FC<ActionButtonsProps> = ({
-  isSaving,
-  handleSave,
-  handleCancel,
-}) => (
-  <div className="flex items-center gap-2 shrink-0 ml-2">
-    <button
-      onClick={handleSave}
-      disabled={isSaving}
-      className="text-emerald-500 hover:text-emerald-400 font-bold bg-transparent border-none p-0.5 cursor-pointer disabled:opacity-40"
-      title="Save (Enter)"
-    >
-      <svg className="w-4 h-4 stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-      </svg>
-    </button>
-    <button
-      onClick={handleCancel}
-      disabled={isSaving}
-      className="text-rose-500 hover:text-rose-400 font-bold bg-transparent border-none p-0.5 cursor-pointer disabled:opacity-40"
-      title="Cancel (Esc)"
-    >
-      <svg className="w-4 h-4 stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-  </div>
-);
-
-type FieldInputLayoutProps = {
-  readonly label: string;
-  readonly inputElement: React.ReactNode;
-  readonly actionButtons: React.ReactNode;
-  readonly errorText: string | null;
-  readonly handleKeyDown: (e: React.KeyboardEvent) => void;
-};
-
-const BlockFieldInput: React.FC<FieldInputLayoutProps> = ({
-  label,
-  inputElement,
-  actionButtons,
-  errorText,
-  handleKeyDown,
-}) => (
-  <div 
-    onKeyDown={handleKeyDown}
-    className="flex flex-col pb-2 border-b border-content/5 mt-1.5 border border-transparent rounded p-1.5 -mx-1.5 relative w-full"
-  >
-    <div className="flex items-center justify-between w-full">
-      <span className="text-xs text-content-secondary/80 font-bold">{label}</span>
-      {actionButtons}
-    </div>
-    <div className="mt-1.5 w-full">
-      {inputElement}
-    </div>
-    {errorText && <span className="text-[10px] text-rose-400 mt-1 font-medium">{errorText}</span>}
-  </div>
-);
-
-const RowFieldInput: React.FC<FieldInputLayoutProps> = ({
-  label,
-  inputElement,
-  actionButtons,
-  errorText,
-  handleKeyDown,
-}) => (
-  <div 
-    onKeyDown={handleKeyDown}
-    className="flex gap-2 items-center pb-2 border-b border-content/5 mt-1.5 border border-transparent rounded p-1.5 -mx-1.5 w-full relative"
-  >
-    <span className="text-xs text-content-secondary/80 font-bold w-18 shrink-0">{label}</span>
-    <div className="flex-1 min-w-0 flex items-center justify-between gap-1.5 w-full">
-      {inputElement}
-      {actionButtons}
-    </div>
-    {errorText && <span className="text-[10px] text-rose-400 font-medium absolute bottom-0 right-0">{errorText}</span>}
-  </div>
-);
-
-const EditFieldInput: React.FC<EditFieldInputProps> = ({
-  label,
-  inputType,
-  inputValue,
-  setInputValue,
-  selectOptions,
-  isSaving,
-  layout = 'row',
-  handleSave,
-  handleCancel,
-  errorText,
-}) => {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleCancel();
-    } else if (e.key === 'Enter' && (inputType !== 'textarea' || e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      handleSave();
-    }
-  };
-
-  const inputElement = (
-    <FieldInputControl
-      inputType={inputType}
-      inputValue={inputValue}
-      setInputValue={setInputValue}
-      selectOptions={selectOptions}
-      isSaving={isSaving}
-    />
-  );
-
-  const actionButtons = (
-    <ActionButtons
-      isSaving={isSaving}
-      handleSave={handleSave}
-      handleCancel={handleCancel}
-    />
-  );
-
-  if (layout === 'block') {
-    return (
-      <BlockFieldInput
-        label={label}
-        inputElement={inputElement}
-        actionButtons={actionButtons}
-        errorText={errorText}
-        handleKeyDown={handleKeyDown}
-      />
-    );
-  }
-
-  return (
-    <RowFieldInput
-      label={label}
-      inputElement={inputElement}
-      actionButtons={actionButtons}
-      errorText={errorText}
-      handleKeyDown={handleKeyDown}
-    />
-  );
-};
-
-type EditFieldDisplayProps = {
+type SeamlessFieldProps = {
   readonly label: string;
   readonly value: string | null;
-  readonly sourceKind?: string | null;
-  readonly sourceLabel?: string;
-  readonly tooltip?: string | null;
-  readonly layout?: 'row' | 'block';
-  readonly onEdit: () => void;
-};
-
-type FieldDisplayLayoutProps = {
-  readonly label: string;
-  readonly displayVal: string;
-  readonly value: string | null;
-  readonly sourceIcon: string;
-  readonly resolvedTooltip?: string;
-  readonly onEdit: () => void;
-};
-
-const BlockFieldDisplay: React.FC<FieldDisplayLayoutProps> = ({
-  label,
-  displayVal,
-  value,
-  sourceIcon,
-  resolvedTooltip,
-  onEdit,
-}) => (
-  <div 
-    onClick={onEdit}
-    className="flex flex-col pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative w-full"
-  >
-    <div className="flex items-center gap-1.5 w-full">
-      <span className="text-xs text-content-secondary/80 font-bold">{label}</span>
-      {sourceIcon && (
-        <span 
-          className="text-[11px] shrink-0 cursor-help"
-          title={resolvedTooltip || undefined}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {sourceIcon}
-        </span>
-      )}
-    </div>
-    <div className="mt-1 w-full">
-      <p className={`leading-relaxed select-text text-xs line-clamp-5 ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'} w-full`}>
-        {displayVal}
-      </p>
-    </div>
-    <span className="opacity-0 group-hover:opacity-100 absolute right-2 top-2 text-content-secondary/60 hover:text-brand-accent text-[10px] transition-opacity">
-      ✏️
-    </span>
-  </div>
-);
-
-const RowFieldDisplay: React.FC<FieldDisplayLayoutProps> = ({
-  label,
-  displayVal,
-  value,
-  sourceIcon,
-  resolvedTooltip,
-  onEdit,
-}) => (
-  <div 
-    onClick={onEdit}
-    className="flex gap-2 items-center pb-2 border-b border-content/5 mt-1.5 cursor-pointer hover:bg-content/5 hover:border-content/10 border border-transparent rounded p-1.5 -mx-1.5 motion-safe:transition-all select-none group relative w-full"
-  >
-    <span className="text-xs text-content-secondary/80 font-bold w-18 shrink-0">{label}</span>
-    <div className="flex-1 min-w-0 flex items-center gap-1.5 w-full">
-      <span className={`leading-relaxed select-text text-xs ${value == null || value === '' ? 'text-content-secondary/50 italic' : 'text-content'}`}>
-        {displayVal}
-      </span>
-      {sourceIcon && (
-        <span 
-          className="text-[11px] shrink-0 cursor-help"
-          title={resolvedTooltip || undefined}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {sourceIcon}
-        </span>
-      )}
-    </div>
-    <span className="opacity-0 group-hover:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 text-content-secondary/60 hover:text-brand-accent text-[10px] transition-opacity">
-      ✏️
-    </span>
-  </div>
-);
-
-const EditFieldDisplay: React.FC<EditFieldDisplayProps> = ({
-  label,
-  value,
-  sourceKind,
-  sourceLabel,
-  tooltip,
-  layout = 'row',
-  onEdit,
-}) => {
-  const displayVal = value == null || value === '' ? '—' : value;
-  const sourceIcon = getSourceIcon(sourceKind);
-  const resolvedTooltip = sourceIcon === '⚡' && tooltip ? `${sourceLabel ? `${sourceLabel} - ` : ''}Rationale: ${tooltip}` : sourceLabel;
-
-  if (layout === 'block') {
-    return (
-      <BlockFieldDisplay
-        label={label}
-        displayVal={displayVal}
-        value={value}
-        sourceIcon={sourceIcon}
-        resolvedTooltip={resolvedTooltip ?? undefined}
-        onEdit={onEdit}
-      />
-    );
-  }
-
-  return (
-    <RowFieldDisplay
-      label={label}
-      displayVal={displayVal}
-      value={value}
-      sourceIcon={sourceIcon}
-      resolvedTooltip={resolvedTooltip ?? undefined}
-      onEdit={onEdit}
-    />
-  );
-};
-
-type EditableFieldProps = {
-  readonly label: string;
-  readonly value: string | null;
-  readonly sourceKind?: string | null;
-  readonly sourceLabel?: string;
-  readonly tooltip?: string | null;
-  readonly layout?: 'row' | 'block';
   readonly inputType?: 'text' | 'textarea' | 'select';
   readonly selectOptions?: string[];
+  readonly layout?: 'row' | 'block';
+  readonly sourceKind?: string | null;
+  readonly sourceLabel?: string;
+  readonly tooltip?: string | null;
   readonly onSave: (newValue: string) => Promise<void>;
 };
 
-const EditableField: React.FC<EditableFieldProps> = ({
-  label,
-  value,
-  sourceKind,
-  sourceLabel,
-  tooltip,
-  layout = 'row',
-  inputType = 'text',
-  selectOptions = [],
-  onSave,
-}) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [inputValue, setInputValue] = useState(value ?? '');
-  const [localValue, setLocalValue] = useState<string | null>(null);
+function clearTimer(ref: { current: NodeJS.Timeout | null }) {
+  if (ref.current) {
+    clearTimeout(ref.current);
+    ref.current = null;
+  }
+}
+
+function useSeamlessFieldSave(
+  value: string | null,
+  onSave: (newValue: string) => Promise<void>
+) {
   const [isSaving, setIsSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const propValueRef = useRef(value ?? '');
 
   useEffect(() => {
-    setLocalValue(null);
-    setInputValue(value ?? '');
+    propValueRef.current = value ?? '';
   }, [value]);
 
-  const handleSave = async () => {
+  const triggerSave = useCallback(async (valToSave: string) => {
+    const trimmed = valToSave.trim();
+    if (trimmed === propValueRef.current) { return; }
     setIsSaving(true);
     setErrorText(null);
     try {
-      await onSave(inputValue);
-      setLocalValue(inputValue);
-      setIsEditing(false);
+      await onSave(trimmed);
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [onSave]);
 
-  if (isEditing) {
+  return { isSaving, errorText, triggerSave, propValueRef };
+}
+
+function useSeamlessFieldState(
+  value: string | null,
+  inputType: 'text' | 'textarea' | 'select',
+  onSave: (newValue: string) => Promise<void>
+) {
+  const [localValue, setLocalValue] = useState(value ?? '');
+  const [isFocused, setIsFocused] = useState(false);
+  const { isSaving, errorText, triggerSave, propValueRef } = useSeamlessFieldSave(value, onSave);
+
+  const localValueRef = useRef(localValue);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    localValueRef.current = localValue;
+  }, [localValue]);
+
+  useEffect(() => {
+    if (!isFocused) { setLocalValue(value ?? ''); }
+  }, [value, isFocused]);
+
+  const handleChange = useCallback((newVal: string) => {
+    setLocalValue(newVal);
+    clearTimer(saveTimeoutRef);
+    saveTimeoutRef.current = setTimeout(() => {
+      void triggerSave(localValueRef.current);
+    }, 2000);
+  }, [triggerSave]);
+
+  const handleBlur = useCallback(() => {
+    setIsFocused(false);
+    clearTimer(saveTimeoutRef);
+    void triggerSave(localValueRef.current);
+  }, [triggerSave]);
+
+  useEffect(() => {
+    return () => {
+      clearTimer(saveTimeoutRef);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Reading latest ref values at unmount to save any pending edits
+      if (localValueRef.current !== propValueRef.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- Save local change using latest ref value on unmount
+        void triggerSave(localValueRef.current);
+      }
+    };
+  }, [triggerSave, propValueRef]);
+
+  useEffect(() => {
+    if (inputType === 'textarea' && textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [localValue, inputType]);
+
+  return {
+    localValue,
+    isSaving,
+    errorText,
+    textareaRef,
+    handleChange,
+    handleBlur,
+    setIsFocused,
+  };
+}
+
+const SeamlessFieldLayout: React.FC<{
+  readonly layout: 'row' | 'block';
+  readonly label: string;
+  readonly control: React.ReactNode;
+  readonly sourceIcon: string;
+  readonly resolvedTooltip: string | undefined;
+  readonly errorText: string | null;
+}> = ({ layout, label, control, sourceIcon, resolvedTooltip, errorText }) => {
+  const iconEl = sourceIcon ? (
+    <span className="text-[11px] shrink-0 cursor-help" title={resolvedTooltip}>
+      {sourceIcon}
+    </span>
+  ) : null;
+
+  if (layout === 'block') {
     return (
-      <EditFieldInput
-        label={label}
-        inputType={inputType}
-        inputValue={inputValue}
-        setInputValue={setInputValue}
-        selectOptions={selectOptions}
-        isSaving={isSaving}
-        layout={layout}
-        handleSave={handleSave}
-        handleCancel={() => { setIsEditing(false); setErrorText(null); }}
-        errorText={errorText}
-      />
+      <div className="flex flex-col pb-2 border-b border-content/5 mt-1.5 border border-transparent rounded p-1.5 -mx-1.5 relative w-full">
+        <div className="flex items-center gap-1.5 w-full mb-1">
+          <span className="text-xs text-content-secondary/80 font-bold">{label}</span>
+          {iconEl}
+        </div>
+        <div className="w-full">{control}</div>
+        {errorText && <span className="text-[10px] text-rose-400 mt-1 font-medium">{errorText}</span>}
+      </div>
     );
   }
 
   return (
-    <EditFieldDisplay
-      label={label}
-      value={localValue !== null ? localValue : value}
-      sourceKind={sourceKind}
-      sourceLabel={sourceLabel}
-      tooltip={tooltip}
+    <div className="flex gap-2 items-center pb-2 border-b border-content/5 mt-1.5 border border-transparent rounded p-1.5 -mx-1.5 w-full relative">
+      <span className="text-xs text-content-secondary/80 font-bold w-18 shrink-0">{label}</span>
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 w-full">
+        {control}
+        {iconEl}
+      </div>
+      {errorText && <span className="text-[10px] text-rose-400 font-medium absolute bottom-0 right-0">{errorText}</span>}
+    </div>
+  );
+};
+
+const SeamlessField: React.FC<SeamlessFieldProps> = ({
+  label,
+  value,
+  inputType = 'text',
+  selectOptions = [],
+  layout = 'row',
+  sourceKind,
+  sourceLabel,
+  tooltip,
+  onSave,
+}) => {
+  const {
+    localValue,
+    isSaving,
+    errorText,
+    textareaRef,
+    handleChange,
+    handleBlur,
+    setIsFocused,
+  } = useSeamlessFieldState(value, inputType, onSave);
+
+  const sourceIcon = getSourceIcon(sourceKind);
+  const resolvedTooltip = sourceIcon === '⚡' && tooltip ? `${sourceLabel ? `${sourceLabel} - ` : ''}Rationale: ${tooltip}` : sourceLabel;
+
+  const options = useMemo(() => {
+    if (inputType !== 'select') { return []; }
+    return Array.from(new Set([...selectOptions, ...(value ? [value] : [])])).filter(Boolean);
+  }, [inputType, selectOptions, value]);
+
+  const control = (
+    <SeamlessFieldControl
+      inputType={inputType}
+      localValue={localValue}
+      isSaving={isSaving}
+      options={options}
+      textareaRef={textareaRef}
+      onChange={handleChange}
+      onFocus={() => setIsFocused(true)}
+      onBlur={handleBlur}
+    />
+  );
+
+  return (
+    <SeamlessFieldLayout
       layout={layout}
-      onEdit={() => setIsEditing(true)}
+      label={label}
+      control={control}
+      sourceIcon={sourceIcon}
+      resolvedTooltip={resolvedTooltip}
+      errorText={errorText}
     />
   );
 };
+
+function useProfileTabTypes(assetId: string) {
+  const [dbTypes, setDbTypes] = useState<string[]>(['photo', 'document', 'drawing', 'newspaper', 'slide', 'negative', 'postcard']);
+
+  useEffect(() => {
+    let active = true;
+    const loadTypes = async () => {
+      try {
+        if (!globalRequest) { return; }
+        const result = await globalRequest<string[]>({
+          idPrefix: 'get_available_asset_types',
+          command: 'get_available_asset_types',
+          payload: {},
+          timeoutMs: 10000,
+          select: (data) => (data?.types || []) as string[],
+        });
+        if (active && result && result.length > 0) {
+          setDbTypes(result);
+        }
+      } catch (err) {
+        console.error('Failed to load asset types', err);
+      }
+    };
+    void loadTypes();
+    return () => {
+      active = false;
+    };
+  }, [assetId]);
+
+  return dbTypes;
+}
 
 export const ProfileTab: React.FC<{
   readonly asset: Asset;
@@ -464,24 +353,25 @@ export const ProfileTab: React.FC<{
 }) => {
   const summary = buildPhotoMetadataFileSummary(asset);
   const provenance = asset.photo_metadata?.provenance;
+  const dbTypes = useProfileTabTypes(asset.id);
 
-  const handleSaveField = async (fieldPath: string, newValue: string) => {
+  const handleSaveField = useCallback(async (fieldPath: string, newValue: string) => {
     if (!onRecordPhotoMetadataAssertion) {
       return;
     }
-    // For date corrections, we assertions-write both display_label and most_likely_date
     if (fieldPath === 'estimated_date') {
       await onRecordPhotoMetadataAssertion('estimated_date.display_label', newValue, 'Manual profile tab edit');
       await onRecordPhotoMetadataAssertion('estimated_date.most_likely_date', newValue, 'Manual profile tab edit');
     } else {
       await onRecordPhotoMetadataAssertion(fieldPath, newValue, 'Manual profile tab edit');
     }
-  };
+  }, [onRecordPhotoMetadataAssertion]);
 
   return (
     <div className="flex flex-col gap-4">
       <Section emoji="🏷️" title="Synthesised Profile" hideHeader>
-        <EditableField
+        <SeamlessField
+          key={`${asset.id}-caption`}
           label="Caption"
           value={summary.caption}
           sourceKind={provenance?.caption?.sourceKind}
@@ -490,7 +380,8 @@ export const ProfileTab: React.FC<{
           layout="block"
           onSave={(val) => handleSaveField('caption', val)}
         />
-        <EditableField
+        <SeamlessField
+          key={`${asset.id}-description`}
           label="Description"
           value={asset.photo_metadata?.projection.description ?? null}
           sourceKind={provenance?.description?.sourceKind}
@@ -499,16 +390,18 @@ export const ProfileTab: React.FC<{
           layout="block"
           onSave={(val) => handleSaveField('description', val)}
         />
-        <EditableField
+        <SeamlessField
+          key={`${asset.id}-type`}
           label="Type"
           value={summary.type}
           sourceKind={provenance?.type?.sourceKind}
           sourceLabel={summary.typeSourceLabel}
           inputType="select"
-          selectOptions={['photo', 'document', 'drawing', 'newspaper', 'slide', 'negative', 'postcard']}
+          selectOptions={dbTypes}
           onSave={(val) => handleSaveField('type', val)}
         />
-        <EditableField
+        <SeamlessField
+          key={`${asset.id}-estDate`}
           label="Est. Date"
           value={summary.estimatedDateLabel}
           sourceKind={provenance?.estimatedDate?.display_label?.sourceKind ?? provenance?.estimatedDate?.sourceKind}
@@ -516,7 +409,8 @@ export const ProfileTab: React.FC<{
           tooltip={summary.dateRationale}
           onSave={(val) => handleSaveField('estimated_date', val)}
         />
-        <EditableField
+        <SeamlessField
+          key={`${asset.id}-location`}
           label="Location"
           value={summary.location}
           sourceKind={provenance?.location?.sourceKind}

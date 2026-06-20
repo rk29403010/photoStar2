@@ -88,5 +88,12 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
                 return typeof response.runId === 'string' ? response.runId : '';
             },
         }),
+        getAvailableAssetTypes: (): Promise<string[]> => params.request<string[]>({
+            idPrefix: 'get_available_asset_types',
+            command: 'get_available_asset_types',
+            payload: {},
+            timeoutMs: 10000,
+            select: (data) => (data?.types || []) as string[],
+        }),
     };
 }
