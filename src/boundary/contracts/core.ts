@@ -7,6 +7,20 @@ export type {
     TimelineGalleryPage,
     TimelineJumpTarget,
 } from './timelineGallery';
+export type {
+    NormalizedBox,
+    NormalizedPoint,
+    PhotoEditDocument,
+    PhotoEditMask,
+    PhotoEditOperation,
+    PhotoEditStyle,
+    PhotoEditTool,
+    PhotoEditWorkspace,
+    PhotoRotationFillMode,
+    RenderPhotoEditInput,
+    SavePhotoEditInput,
+} from './photoEditor';
+export { PHOTO_ROTATION_FILL } from './photoEditor';
 
 export type TileIntent = 'utility' | 'normal' | 'emphasis' | 'hero';
 

@@ -36,18 +36,14 @@ test('timeline jump and viewport highlight use grouped timeline state instead of
     assert.match(timelineViewSource, /viewportBucketIndex: null,/);
 
     assert.match(groupedTimelineLayoutSource, /onVisibleGroupChange\?: \(groupId: string \| null, groupIndex: number \| null\) => void;/);
-    assert.match(groupedTimelineLayoutSource, /if \(!group \|\| group\.rows\.length <= 0\) \{/);
-    assert.match(groupedTimelineLayoutSource, /containerRef\.current\?\.querySelector<HTMLElement>\(`/);
-    assert.match(groupedTimelineLayoutSource, /customScrollParent\.scrollTo\(\{ top: nextTop, behavior: 'auto' \}\)/);
-    assert.match(groupedTimelineLayoutSource, /targetHeader\.scrollIntoView\(\{ block: 'start', behavior: 'auto' \}\)/);
-    assert.match(groupedTimelineLayoutSource, /syncVisibleStateFromDom\(/);
-    assert.match(groupedTimelineLayoutSource, /getTopVisibleTimelineGroupIdFromScrollContainer/);
-    assert.match(groupedTimelineLayoutSource, /getTopVisibleSelectionKeyFromScrollContainer/);
-    assert.match(groupedTimelineLayoutSource, /function useInitialTimelineVisibleState\(/);
-    assert.match(groupedTimelineLayoutSource, /function useTimelineVisibleStateOnScroll\(/);
-    assert.match(groupedTimelineLayoutSource, /customScrollParent\.addEventListener\('scroll', scheduleVisibleStateSync, \{ passive: true \}\)/);
+    assert.match(groupedTimelineLayoutSource, /function useTimelineJumpHandler\(/);
+    assert.match(groupedTimelineLayoutSource, /virtuosoRef\.current\?\.scrollToIndex\(\{/);
+    assert.match(groupedTimelineLayoutSource, /item\.groupIndex === req\.groupIndex/);
+    assert.match(groupedTimelineLayoutSource, /item\.group\.id === req\.groupId/);
+    assert.match(groupedTimelineLayoutSource, /function useTimelineRangeChangedHandler\(/);
+    assert.match(groupedTimelineLayoutSource, /rangeChanged=\{handleRangeChanged\}/);
     assert.match(groupedTimelineLayoutSource, /data-time-section-id=\{group\.id\}/);
-    assert.match(groupedTimelineLayoutSource, /rowsByGroup\[groupIndex\]\?\.map\(\(row\) => renderTimelineRow\(row, props\)\)/);
+    assert.match(groupedTimelineLayoutSource, /return renderTimelineRow\(item\.row, props\)/);
 
     assert.match(libraryViewSource, /onLoadTimelineGroupPage\?: \(groupId: string\) => void;/);
     assert.match(libraryViewSource, /onRequestTimelineJumpTarget\?: \(groupId: string\) => void;/);

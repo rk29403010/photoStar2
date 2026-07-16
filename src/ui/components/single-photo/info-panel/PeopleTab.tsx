@@ -119,8 +119,8 @@ const CardLinks: React.FC<{
           <button
             key={link.gedcom_person_id}
             onClick={() => {
-              window.dispatchEvent(new CustomEvent('navigate-to-tree', { detail: { treeId: link.gedcom_tree_id, personId: link.gedcom_person_id } }));
-              window.dispatchEvent(new CustomEvent('change-view', { detail: 'familyTree' }));
+              globalThis.dispatchEvent(new CustomEvent('navigate-to-tree', { detail: { treeId: link.gedcom_tree_id, personId: link.gedcom_person_id } }));
+              globalThis.dispatchEvent(new CustomEvent('change-view', { detail: 'familyTree' }));
             }}
             className="text-left text-brand-accent hover:underline bg-transparent border-none p-0 cursor-pointer flex items-center gap-1 font-semibold"
           >

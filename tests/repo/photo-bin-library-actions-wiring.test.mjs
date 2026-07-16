@@ -14,6 +14,7 @@ function readWorkspaceFile(relativePath) {
 test('library and single-photo actions switch between Move to Bin and Restore', () => {
     const actionModelSource = readWorkspaceFile('src/ui/components/app/libraryBinActionModel.ts');
     const filterBarSource = readWorkspaceFile('src/ui/components/app/AppFilterBar.tsx');
+    const toolbarSource = readWorkspaceFile('src/ui/components/library/LibraryToolbar.tsx');
     const hookSource = readWorkspaceFile('src/ui/hooks/usePhotoBinActions.ts');
     const selectionSource = readWorkspaceFile('src/shared/utils/librarySelectionState.ts');
     const appSource = readWorkspaceFile('src/ui/App.tsx');
@@ -27,11 +28,11 @@ test('library and single-photo actions switch between Move to Bin and Restore', 
     assert.match(actionModelSource, /export function isBinLibraryFilter/);
     assert.match(actionModelSource, /export function getLibraryBinActionLabel/);
 
-    assert.match(filterBarSource, /onMoveSelectionToBin: \(\) => Promise<void>/);
-    assert.match(filterBarSource, /onRestoreSelectionFromBin: \(\) => Promise<void>/);
-    assert.match(filterBarSource, /getLibraryBinActionLabel/);
-    assert.match(filterBarSource, /void onRestoreSelectionFromBin\(\)/);
-    assert.match(filterBarSource, /void onMoveSelectionToBin\(\)/);
+    assert.doesNotMatch(filterBarSource, /onMoveSelectionToBin/);
+    assert.match(toolbarSource, /onMoveSelectionToBin\?: \(\) => Promise<void>/);
+    assert.match(toolbarSource, /onRestoreSelectionFromBin\?: \(\) => Promise<void>/);
+    assert.match(toolbarSource, /void props\.onRestoreSelectionFromBin\?\.\(\)/);
+    assert.match(toolbarSource, /void props\.onMoveSelectionToBin\?\.\(\)/);
 
     assert.match(singlePhotoMenuModelSource, /export function getLibraryBinActionLabel/);
     assert.match(controlsSource, /onMoveToBin\?: \(assetId: string\) => Promise<void>/);

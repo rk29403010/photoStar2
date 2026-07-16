@@ -433,6 +433,31 @@ export const SCHEMA_SQL = `
     FOREIGN KEY(gedcom_tree_id) REFERENCES family_trees(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS photo_edit_documents (
+    id TEXT PRIMARY KEY,
+    source_asset_id TEXT NOT NULL,
+    rendered_asset_id TEXT,
+    parent_edit_id TEXT,
+    name TEXT NOT NULL,
+    operations_json TEXT NOT NULL,
+    masks_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (source_asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+    FOREIGN KEY (rendered_asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_edit_id) REFERENCES photo_edit_documents(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS photo_edit_styles (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    operations_json TEXT NOT NULL,
+    masks_json TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE INDEX IF NOT EXISTS idx_asset_groups_type ON asset_groups(type);
   CREATE INDEX IF NOT EXISTS idx_asset_groups_canonical ON asset_groups(canonical_asset_id);
   CREATE INDEX IF NOT EXISTS idx_group_members_asset ON asset_group_members(asset_id);
@@ -444,6 +469,8 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_edges_kind_score ON asset_similarity_edges(kind, score);
   CREATE INDEX IF NOT EXISTS idx_asset_features_phash ON asset_features(phash64);
   CREATE INDEX IF NOT EXISTS idx_album_items_asset ON album_items(asset_id);
+  CREATE INDEX IF NOT EXISTS idx_photo_edit_documents_source ON photo_edit_documents(source_asset_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_photo_edit_documents_rendered ON photo_edit_documents(rendered_asset_id);
 `;
 
 export const MIGRATIONS = [

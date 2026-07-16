@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 test('app runtime ui exposes a vocabulary view', () => {
     const runtimeUiSource = readFileSync(new URL('../../src/ui/hooks/useAppRuntimeUi.ts', import.meta.url), 'utf8');
-    assert.match(runtimeUiSource, /export type AppView = 'library' \| 'people' \| 'dashboard' \| 'albums' \| 'reviews' \| 'vocabulary' \| 'workflows' \| 'groupDiagnostics';/);
+    assert.match(runtimeUiSource, /export type AppView = 'library' \| 'people' \| 'familyTree' \| 'dashboard' \| 'albums' \| 'reviews' \| 'vocabulary' \| 'workflows' \| 'groupDiagnostics';/);
 });
 
 test('top bar includes navigation for the vocabulary view', () => {

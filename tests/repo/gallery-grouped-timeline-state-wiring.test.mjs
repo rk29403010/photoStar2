@@ -83,9 +83,9 @@ test('date-mode wiring reads grouped timeline state from a dedicated slice', () 
 
     assert.doesNotMatch(justifiedLayoutSource, /timelineJumpRequest/);
     assert.match(groupedTimelineLayoutSource, /timelineJumpRequest/);
-    assert.match(groupedTimelineLayoutSource, /const groupIndex = timelineJumpRequest\.groupIndex \?\? groupIndexById\.get\(timelineJumpRequest\.groupId\);/);
-    assert.match(groupedTimelineLayoutSource, /targetHeader\.scrollIntoView\(\{ block: 'start', behavior: 'auto' \}\)/);
-    assert.match(groupedTimelineLayoutSource, /customScrollParent\.scrollTo\(\{ top: nextTop, behavior: 'auto' \}\)/);
+    assert.match(groupedTimelineLayoutSource, /if \(req\.groupIndex != null\) \{/);
+    assert.match(groupedTimelineLayoutSource, /return item\.group\.id === req\.groupId;/);
+    assert.match(groupedTimelineLayoutSource, /virtuosoRef\.current\?\.scrollToIndex\(\{/);
     assert.match(groupedTimelineLayoutSource, /buildJustifiedLayoutRows/);
     assert.match(groupedTimelineLayoutSource, /data-time-section-id=\{group\.id\}/);
 });

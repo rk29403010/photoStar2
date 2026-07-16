@@ -168,11 +168,11 @@ function useDragAutoScroll(
             }
         };
 
-        window.addEventListener('pointermove', handlePointerMove);
+        globalThis.addEventListener('pointermove', handlePointerMove);
         scrollIntervalRef.current = setInterval(performScrollStep, 16);
 
         return () => {
-            window.removeEventListener('pointermove', handlePointerMove);
+            globalThis.removeEventListener('pointermove', handlePointerMove);
             if (scrollIntervalRef.current) {
                 clearInterval(scrollIntervalRef.current);
                 scrollIntervalRef.current = null;

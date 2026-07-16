@@ -50,11 +50,12 @@ export const GROUP_HIERARCHY_CTE = `
 function buildGroupTypeOrder(groupTypeExpression: string): string {
     return `
         CASE ${groupTypeExpression}
-            WHEN 'burst' THEN 0
-            WHEN 'variant_set' THEN 1
-            WHEN 'near_duplicate' THEN 2
-            WHEN 'duplicate' THEN 3
-            ELSE 4
+            WHEN 'edit_version' THEN 0
+            WHEN 'burst' THEN 1
+            WHEN 'variant_set' THEN 2
+            WHEN 'near_duplicate' THEN 3
+            WHEN 'duplicate' THEN 4
+            ELSE 5
         END
     `;
 }

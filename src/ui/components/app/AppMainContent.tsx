@@ -246,6 +246,20 @@ function LibraryContentView(props: AppMainContentProps & { readonly visibleLibra
   );
 }
 
+function GroupDiagnosticsContent(props: AppMainContentProps) {
+  if (props.view !== 'groupDiagnostics') {
+    return null;
+  }
+  return (
+    <GroupingDiagnosticsView
+      report={props.groupDiagnosticsReport}
+      loading={props.isLoadingGroupDiagnostics}
+      onRefresh={props.onRefreshGroupDiagnostics}
+      onAssetClick={(assetId) => props.onAssetClick(assetId)}
+    />
+  );
+}
+
 export function AppMainContent(props: AppMainContentProps) {
   const activeFilter = props.filterStack.at(-1);
   const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestActive);
@@ -328,14 +342,7 @@ export function AppMainContent(props: AppMainContentProps) {
         />
       )}
 
-      {props.view === 'groupDiagnostics' && (
-        <GroupingDiagnosticsView
-          report={props.groupDiagnosticsReport}
-          loading={props.isLoadingGroupDiagnostics}
-          onRefresh={props.onRefreshGroupDiagnostics}
-          onAssetClick={(assetId) => props.onAssetClick(assetId)}
-        />
-      )}
+      <GroupDiagnosticsContent {...props} />
     </div>
   );
 }

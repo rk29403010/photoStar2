@@ -17,8 +17,12 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');
-const worktreeRootMarker = `${path.sep}.worktrees${path.sep}`;
-const primaryWorkspaceRoot = workspaceRoot.includes(worktreeRootMarker)
+const worktreeRootMarkers = [
+    `${path.sep}.worktrees${path.sep}`,
+    `${path.sep}worktrees${path.sep}`,
+];
+const worktreeRootMarker = worktreeRootMarkers.find((marker) => workspaceRoot.includes(marker));
+const primaryWorkspaceRoot = worktreeRootMarker
     ? workspaceRoot.slice(0, workspaceRoot.indexOf(worktreeRootMarker))
     : workspaceRoot;
 const exampleBranch = 'codex/example';

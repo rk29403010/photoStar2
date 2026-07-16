@@ -13,7 +13,7 @@ import {
     createSystemActions,
     useLibraryTransport,
 } from '@boundary/runtime/usePhotoLibrary.commands';
-import { createAlbumActions, createBuildActions, createGroupActions, createTagActions } from '@boundary/runtime/usePhotoLibrary.actions';
+import { createAlbumActions, createBuildActions, createGroupActions, createPhotoEditActions, createTagActions } from '@boundary/runtime/usePhotoLibrary.actions';
 import { createFaceSystemActions } from '@boundary/runtime/usePhotoLibrary.faceSystemActions';
 import { createWorkflowRecoveryActions } from '@boundary/runtime/workflowRecoveryActions';
 import {
@@ -428,6 +428,10 @@ function useSupplementaryActions(params: {
         refreshLibrary: refreshActions.refreshLibrary,
         setAssets: state.setAssets,
     }), [refreshActions.refreshLibrary, request, state.setAssets]);
+    const photoEditActions = useMemo(() => createPhotoEditActions({
+        request,
+        refreshLibrary: refreshActions.refreshLibrary,
+    }), [refreshActions.refreshLibrary, request]);
     const tagActions = useMemo(() => createTagActions({
         request,
         setAssets: state.setAssets,
@@ -458,6 +462,7 @@ function useSupplementaryActions(params: {
         albumActions,
         photoMetadataActions,
         groupActions,
+        photoEditActions,
         tagActions,
         buildActions,
         faceSystemActions,
@@ -559,6 +564,7 @@ function useComposedActions(
         ...supplementaryActions.albumActions,
         ...supplementaryActions.photoMetadataActions,
         ...supplementaryActions.groupActions,
+        ...supplementaryActions.photoEditActions,
         ...supplementaryActions.tagActions,
         ...supplementaryActions.buildActions,
         ...supplementaryActions.faceSystemActions,

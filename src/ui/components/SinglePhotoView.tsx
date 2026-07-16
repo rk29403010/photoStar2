@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Dispatch, FC, SetStateAction } from 'react';
-import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type {
+    Asset,
+    PhotoEditDocument,
+    PhotoEditMask,
+    PhotoEditOperation,
+    PhotoEditStyle,
+    RenderPhotoEditInput,
+    ReviewItemSummary,
+    SavePhotoEditInput,
+    SimilarityOrbit,
+} from '@contracts/core';
 import type { PanelState } from './single-photo/PhotoViewport';
 import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
 import {
@@ -24,6 +34,7 @@ import {
     useAnalysisUiState,
     useAnalysisWorkflowFailureTracking,
 } from './single-photo/singlePhotoAnalysisState';
+import { PhotoEditorErrorBoundary, PhotoEditorWorkspace } from './photo-editor/PhotoEditorWorkspace';
 
 type SinglePhotoViewProps = {
     readonly assets: Asset[];
@@ -60,6 +71,11 @@ type SinglePhotoViewProps = {
     readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
     readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onGetPhotoEditWorkspace?: (assetId: string) => Promise<{ document: PhotoEditDocument | null; styles: PhotoEditStyle[] }>;
+    readonly onPreviewPhotoEdit?: (input: SavePhotoEditInput) => Promise<string>;
+    readonly onSavePhotoEdit?: (input: SavePhotoEditInput) => Promise<PhotoEditDocument>;
+    readonly onRenderPhotoEdit?: (input: RenderPhotoEditInput) => Promise<{ document: PhotoEditDocument; assetId: string }>;
+    readonly onSavePhotoEditStyle?: (style: { id: string; name: string; operations: PhotoEditOperation[]; masks: PhotoEditMask[] }) => Promise<void>;
 }
 
 type ControlsState = {
@@ -294,6 +310,7 @@ function renderSinglePhotoOverlay(params: {
     handleSetCanonical: (groupId: string, assetId: string) => Promise<void>;
     handleExplodeGroup: (groupId: string) => Promise<void>;
     handleSelectAsset: (assetId: string) => void;
+    onEditPhoto: () => void;
 }) {
     return (
         <SinglePhotoOverlay
@@ -331,6 +348,7 @@ function renderSinglePhotoOverlay(params: {
             onGetAiCallsLog={params.props.onGetAiCallsLog}
             onGetAiCallLogDetail={params.props.onGetAiCallLogDetail}
             onRunWorkflowOnAssets={params.props.onRunWorkflowOnAssets}
+            onEditPhoto={params.props.onGetPhotoEditWorkspace ? params.onEditPhoto : undefined}
             onChangeIndex={params.controls.onChangeIndex}
             onRevealControls={params.controls.revealControls}
             analysis={buildAnalysisState(params.analysisUi)}
@@ -339,6 +357,7 @@ function renderSinglePhotoOverlay(params: {
 }
 
 export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
+    const [editorOpen, setEditorOpen] = useState(false);
     const panelState = usePanelState(props);
     const {
         asset,
@@ -363,6 +382,26 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
 
     if (!asset) {return null;}
 
+    if (editorOpen && props.onGetPhotoEditWorkspace && props.onPreviewPhotoEdit && props.onSavePhotoEdit && props.onRenderPhotoEdit && props.onSavePhotoEditStyle) {
+        return (
+            <PhotoEditorErrorBoundary onClose={() => setEditorOpen(false)}>
+                <PhotoEditorWorkspace
+                    asset={asset}
+                    onClose={() => setEditorOpen(false)}
+                    onRendered={(assetId) => {
+                        setEditorOpen(false);
+                        props.onAssetFocusChange?.(assetId);
+                    }}
+                    getWorkspace={props.onGetPhotoEditWorkspace}
+                    preview={props.onPreviewPhotoEdit}
+                    save={props.onSavePhotoEdit}
+                    render={props.onRenderPhotoEdit}
+                    saveStyle={props.onSavePhotoEditStyle}
+                />
+            </PhotoEditorErrorBoundary>
+        );
+    }
+
     return renderSinglePhotoOverlay({
         asset,
         viewAssets,
@@ -374,5 +413,6 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
         handleSetCanonical,
         handleExplodeGroup,
         handleSelectAsset,
+        onEditPhoto: () => setEditorOpen(true),
     });
 };

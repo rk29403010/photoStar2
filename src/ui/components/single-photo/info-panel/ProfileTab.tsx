@@ -332,6 +332,22 @@ function useProfileTabTypes(assetId: string) {
   return dbTypes;
 }
 
+function useProfileFieldSaver(
+  recordAssertion?: (fieldPath: string, value: unknown, note?: string | null) => Promise<void>,
+) {
+  return useCallback(async (fieldPath: string, newValue: string) => {
+    if (!recordAssertion) {
+      return;
+    }
+    if (fieldPath === 'estimated_date') {
+      await recordAssertion('estimated_date.display_label', newValue, 'Manual profile tab edit');
+      await recordAssertion('estimated_date.most_likely_date', newValue, 'Manual profile tab edit');
+      return;
+    }
+    await recordAssertion(fieldPath, newValue, 'Manual profile tab edit');
+  }, [recordAssertion]);
+}
+
 export const ProfileTab: React.FC<{
   readonly asset: Asset;
   readonly availableTags?: TagDefinitionSummary[];
@@ -354,18 +370,7 @@ export const ProfileTab: React.FC<{
   const summary = buildPhotoMetadataFileSummary(asset);
   const provenance = asset.photo_metadata?.provenance;
   const dbTypes = useProfileTabTypes(asset.id);
-
-  const handleSaveField = useCallback(async (fieldPath: string, newValue: string) => {
-    if (!onRecordPhotoMetadataAssertion) {
-      return;
-    }
-    if (fieldPath === 'estimated_date') {
-      await onRecordPhotoMetadataAssertion('estimated_date.display_label', newValue, 'Manual profile tab edit');
-      await onRecordPhotoMetadataAssertion('estimated_date.most_likely_date', newValue, 'Manual profile tab edit');
-    } else {
-      await onRecordPhotoMetadataAssertion(fieldPath, newValue, 'Manual profile tab edit');
-    }
-  }, [onRecordPhotoMetadataAssertion]);
+  const handleSaveField = useProfileFieldSaver(onRecordPhotoMetadataAssertion);
 
   return (
     <div className="flex flex-col gap-4">

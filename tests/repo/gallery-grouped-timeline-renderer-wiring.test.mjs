@@ -12,9 +12,9 @@ test('date-mode renderer routes to deterministic grouped timeline layout', () =>
     assert.match(groupedTimelineLayoutSource, /renderGroupHeader/);
     assert.match(groupedTimelineLayoutSource, /renderTimelineRow/);
     assert.match(groupedTimelineLayoutSource, /timelineJumpRequest/);
-    assert.match(groupedTimelineLayoutSource, /scrollIntoView\(\{ block: 'start', behavior: 'auto' \}\)/);
-    assert.match(groupedTimelineLayoutSource, /customScrollParent\.scrollTo\(\{ top: nextTop, behavior: 'auto' \}\)/);
-    assert.doesNotMatch(groupedTimelineLayoutSource, /<GroupedVirtuoso/);
+    assert.match(groupedTimelineLayoutSource, /virtuosoRef\.current\?\.scrollToIndex\(\{/);
+    assert.match(groupedTimelineLayoutSource, /<Virtuoso/);
+    assert.match(groupedTimelineLayoutSource, /rangeChanged=\{handleRangeChanged\}/);
 
     assert.match(layoutModeRendererSource, /import \{ GroupedTimelineLayout \} from '\.\/GroupedTimelineLayout';/);
     assert.match(layoutModeRendererSource, /props\.layoutMode === 'justified'/);

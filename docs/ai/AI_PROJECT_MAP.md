@@ -1,6 +1,6 @@
 # AI Project Map
 
-Last updated: 2026-05-05
+Last updated: 2026-07-15
 
 ## Product summary
 
@@ -22,6 +22,7 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **import / ingest** | `src/services/workflowRuntime/workflows/folderIngest.ts`, `src/entrypoints/core/main.ts` | `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `tests/core/` |
 | **gallery / browser** | `src/ui/components/LibraryView.tsx`, `src/ui/components/SinglePhotoView.tsx` | `src/services/handlers/assetCommands.ts` | `tests/ui/` |
 | **thumbnails / previews** | `src/services/handlers/assetCommands.ts`, `src/services/workflowRuntime/` | `src/data/dbSchema.ts` (previews table) | `tests/core/` |
+| **photo editing / restoration / masks** | `src/services/handlers/photoEditCommands.ts`, `src/services/photoEditing/editRenderer.ts` | `src/ui/components/photo-editor/`, `src/data/dbSchema.ts` | `tests/core/photo-edit-*.test.cjs`, `tests/repo/photo-editor-wiring.test.mjs` |
 | **face detection / recognition** | `src/services/faces/`, `src/services/handlers/peopleCommands.ts` | `src/ui/components/PeopleView.tsx` | `tests/core/` |
 | **duplicate detection / grouping** | `src/services/handlers/collectionCommands.ts`, `src/services/handlers/groupDiagnosticsCommands.ts` | `src/ui/components/AlbumsView.tsx` | `tests/core/` |
 | **database / schema / migrations** | `src/data/dbSchema.ts`, `src/data/db.ts` | `src/services/events/` | `tests/core/` |
@@ -56,6 +57,26 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts`).
 | `asset_similarity_edges` | Precomputed similarity distances between assets | PK: `asset_id_a, asset_id_b, kind` |
 | `albums` | User-created albums | PK: `id`, FK: `cover_asset_id` |
 | `processing_issues` | Warnings/errors during background ingestion | PK: `id`, FK: `asset_id` |
+| `photo_edit_documents` | Mutable non-destructive edit recipes and rendered-version lineage | PK: `id`, FK: source/rendered assets and parent edit |
+| `photo_edit_styles` | Named reusable edit stacks and normalized mask recipes | PK: `id`, Unique: `name` |
+
+## Non-destructive photo editor
+
+- Edit stacks are ordered `PhotoEditOperation` recipes; source files are never modified.
+- `PhotoEditorWorkspace.tsx` owns document loading, history, draft state, masks, preview requests, save, and render orchestration. Presentation routes through `PhotoEditorPreview.tsx` for fitted canvas/tool previews, `PhotoEditorSidebar.tsx` for tool settings and concertina panels, and `photoEditorTools.ts` for the shared tool catalogue and operation defaults.
+- Preview and final render share `src/services/photoEditing/editRenderer.ts`. The renderer materializes every step so Sharp's internal operation ordering cannot change user stack order.
+- Editor previews use a latest-only serial queue: slider gestures receive an immediate browser-side approximation, then one exact 900px render replaces it without concurrent backend preview work. Colour pop uses its shared pixel algorithm directly on a fitted client canvas for exact interactive feedback.
+- The editor toolbar's `PhotoBeforeChangeButton.tsx` provides a momentary before-current-change comparison. It renders the selected operation's stack prefix while pointer or keyboard activation is held; ordinary tools, colour pop, and rotation retain the active canvas geometry to prevent comparison jumps, while crop intentionally uses an independently fitted source view.
+- Tune image controls use `PhotoTuneOptions.tsx` with pure persisted-value conversion in `tuneImageControls.ts`: brightness, contrast, and saturation are presented as integer percentages from -100% to +100%, while hue uses a full-spectrum track, a hue-coloured thumb, a degree value, and a per-setting reset action.
+- Crop editing uses `src/ui/components/photo-editor/PhotoCropOverlay.tsx`, `PhotoCropOptions.tsx`, crop option metadata in `cropOptions.ts`, and pure normalized geometry in `cropGeometry.ts`. Eight handles resize the frame, dragging inside pans the image underneath it, optional ratios constrain resizing in source-pixel space, and scalable composition guides stay clipped to the crop frame. One exact crop preview runs after the gesture settles.
+- Rotation editing uses `PhotoRotateOverlay.tsx`, `PhotoRotateOptions.tsx`, and pure layout/straightening geometry in `rotationGeometry.ts`. Each rotate operation stores its angle, normalized pivot, horizontal/vertical flip state, fixed-or-expanded canvas choice, and exposed-pixel fill mode. The settings provide whole-degree fine rotation with Shift-modified five-degree snapping, centre-origin angle feedback, 90-degree actions, and flip actions; the renderer applies flips before rotation in stack order at preview and full resolution.
+- Colour pop uses `PhotoColourPopOptions.tsx`, `PhotoColourPopOverlay.tsx`, and the shared deterministic pixel pipeline in `src/shared/photoEditing/colourPop.ts`. Users keep colours by clicking the original-colour image or its quantized palette, then tune colour range and edge transition. Selected RGB values are packed into numeric recipe slots so stacks and styles remain portable; all other pixels are converted to Rec. 709 monochrome by the same algorithm used for interactive preview and full-resolution rendering.
+- The editor sidebar uses accessible concertina sections. Tools and the selected tool's settings are mutually exclusive so the active controls get the available vertical space; layers, masks, styles, and version output retain independent expansion state.
+- Every selected tool preview and controls panel is hosted inside `PhotoEditorToolBoundary.tsx`. A tool render or state-update failure is replaced locally with inline retry feedback, while the editor shell, history, layers, masks, and unsaved edit stack remain mounted. New tools inherit this containment through the shared editor dispatch points.
+- Mask editing uses `PhotoMaskPanel.tsx`, `PhotoMaskOverlay.tsx`, and `maskCandidates.ts`. Rectangle, ellipse, and polygon masks are drawn directly over the fitted preview; saved masks remain visible and selectable on that canvas. Automatic candidates enumerate the persisted `runtime.detect_frame` photo boundary plus every usable face, projected subject, and region-of-interest box already present on the `Asset` payload.
+- A final render creates or updates a normal `assets` row and standard previews. Its locked `edit_version` asset group becomes canonical, and `edit_version` outranks similarity groups in gallery visibility.
+- Reusable styles persist recipe snapshots in `photo_edit_styles`.
+- Dehaze uses a deterministic dark-channel-prior filter; Colour pop uses selective colour retention against a monochrome image. Neither invokes AI models, and both remain compatible with stack masks and reusable styles.
 
 ## Workflows and Modules
 
@@ -91,6 +112,7 @@ The `workflowRuntime` acts as the single orchestration path. It executes defined
 ## Cross-cutting rules and invariants
 
 - **Single Architecture Source:** Follow `docs/architecture.md` as the definitive guide.
+- **UI visual hierarchy:** Avoid rectangles within rectangles. When a framed container contains only another framed container, remove the redundant boundary and use spacing, typography, dividers, or a single state accent for grouping. Keep frames where they communicate an interaction, editable field, selection, or genuinely distinct region.
 - **Workflow Runtime:** Use the `workflow_runs` orchestration model; do not revert to legacy `task_queue` structures.
 - **UI Non-blocking:** Do not block the main/UI thread during long-running data analysis.
 - **Data integrity:** Schema changes in `src/data/dbSchema.ts` require inline SQL migrations in `MIGRATIONS` array and respective TS type updates.

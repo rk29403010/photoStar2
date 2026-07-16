@@ -51,6 +51,25 @@ function useDevRuntimeImpact(
   return devRuntimeImpact;
 }
 
+function useStatusBannerState() {
+  const [statusBanner, setStatusBanner] = useState<StatusBanner | null>(null);
+  const setStatusMessage = useCallback((message: string | null) => {
+    setStatusBanner(message ? createStatusMessageBanner(message) : null);
+  }, []);
+  const showTransientBanner = useCallback((params: {
+    message: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  }) => {
+    setStatusBanner({
+      message: params.message,
+      actionLabel: params.actionLabel,
+      onAction: params.onAction,
+    });
+  }, []);
+  return { statusBanner, setStatusBanner, setStatusMessage, showTransientBanner };
+}
+
 export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpact>) {
   const [view, setView] = usePersistedState<AppView>('ps_view', 'library');
 
@@ -80,21 +99,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [showGroupIds, setShowGroupIds] = usePersistedState<boolean>('ps_show_group_ids', false);
   const [declusteredAssets, setDeclusteredAssets] = useState<Set<string>>(new Set());
   const [showRejected, setShowRejected] = useState(false);
-  const [statusBanner, setStatusBanner] = useState<StatusBanner | null>(null);
-  const setStatusMessage = useCallback((message: string | null) => {
-    setStatusBanner(message ? createStatusMessageBanner(message) : null);
-  }, []);
-  const showTransientBanner = useCallback((params: {
-    message: string;
-    actionLabel?: string;
-    onAction?: () => void;
-  }) => {
-    setStatusBanner({
-      message: params.message,
-      actionLabel: params.actionLabel,
-      onAction: params.onAction,
-    });
-  }, []);
+  const { statusBanner, setStatusBanner, setStatusMessage, showTransientBanner } = useStatusBannerState();
   const [isTaskDrawerMinimized, setIsTaskDrawerMinimized] = useState(true);
   const [hoveredLibraryPhoto, setHoveredLibraryPhoto] = useState<CurrentPhotoStatus | null>(null);
   const devRuntimeImpact = useDevRuntimeImpact(import.meta.env.DEV, getDevRuntimeImpact);

@@ -1,5 +1,17 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Asset, Album, ReviewItemSummary, SimilarityOrbit, TagDefinitionSummary } from '@contracts/core';
+import type {
+    Asset,
+    Album,
+    PhotoEditDocument,
+    PhotoEditMask,
+    PhotoEditOperation,
+    PhotoEditStyle,
+    RenderPhotoEditInput,
+    ReviewItemSummary,
+    SavePhotoEditInput,
+    SimilarityOrbit,
+    TagDefinitionSummary,
+} from '@contracts/core';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import type { JobState } from '@contracts/jobs';
 import type { BackendTransport, RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
@@ -169,6 +181,48 @@ export function createGroupActions(params: GroupActionParams) {
             idPrefix: 'explode_group',
             command: 'explode_group',
             payload: { groupId },
+            select: () => undefined,
+        }),
+    };
+}
+
+export function createPhotoEditActions(params: Pick<GroupActionParams, 'request' | 'refreshLibrary'>) {
+    const { request, refreshLibrary } = params;
+    return {
+        getPhotoEditWorkspace: (assetId: string): Promise<{ document: PhotoEditDocument | null; styles: PhotoEditStyle[] }> => request({
+            idPrefix: `get_photo_edit_workspace_${assetId}`,
+            command: 'get_photo_edit_workspace',
+            payload: { assetId },
+            select: (data) => data as { document: PhotoEditDocument | null; styles: PhotoEditStyle[] },
+        }),
+        previewPhotoEdit: (input: SavePhotoEditInput): Promise<string> => request({
+            idPrefix: `preview_photo_edit_${input.id}`,
+            command: 'preview_photo_edit',
+            payload: input,
+            timeoutMs: 30000,
+            select: (data) => data?.previewDataUrl as string,
+        }),
+        savePhotoEdit: (input: SavePhotoEditInput): Promise<PhotoEditDocument> => request({
+            idPrefix: `save_photo_edit_${input.id}`,
+            command: 'save_photo_edit',
+            payload: input,
+            select: (data) => data?.document as PhotoEditDocument,
+        }),
+        renderPhotoEdit: async (input: RenderPhotoEditInput): Promise<{ document: PhotoEditDocument; assetId: string }> => {
+            const result = await request<{ document: PhotoEditDocument; assetId: string }>({
+                idPrefix: `render_photo_edit_${input.id}`,
+                command: 'render_photo_edit',
+                payload: input,
+                timeoutMs: 120000,
+                select: (data) => data as { document: PhotoEditDocument; assetId: string },
+            });
+            refreshLibrary({ preservePagingState: true });
+            return result;
+        },
+        savePhotoEditStyle: (style: { id: string; name: string; operations: PhotoEditOperation[]; masks: PhotoEditMask[] }): Promise<void> => request<void>({
+            idPrefix: `save_photo_edit_style_${style.id}`,
+            command: 'save_photo_edit_style',
+            payload: style,
             select: () => undefined,
         }),
     };

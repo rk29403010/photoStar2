@@ -101,8 +101,8 @@ const ToolbarSelectionActions: React.FC<{
     useEffect(() => {
         if (!menuOpen) {return;}
         const handleOutsideClick = () => setMenuOpen(false);
-        window.addEventListener('click', handleOutsideClick);
-        return () => window.removeEventListener('click', handleOutsideClick);
+        globalThis.addEventListener('click', handleOutsideClick);
+        return () => globalThis.removeEventListener('click', handleOutsideClick);
     }, [menuOpen]);
 
     return (

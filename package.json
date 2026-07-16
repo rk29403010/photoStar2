@@ -82,7 +82,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "lint:md": "markdownlint \"**/*.md\" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents",
-    "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts"
+    "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

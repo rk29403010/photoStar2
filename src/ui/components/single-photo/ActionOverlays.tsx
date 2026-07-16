@@ -40,6 +40,7 @@ type ActionOverlaysProps = {
     readonly showInfoPanel: boolean;
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onEditPhoto?: () => void;
     readonly hasFrame: boolean;
     readonly showWithFrame: boolean;
     readonly setShowWithFrame: (show: boolean) => void;
@@ -80,6 +81,7 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
     showInfoPanel,
     setShowInfoPanel,
     onRunWorkflowOnAssets,
+    onEditPhoto,
     hasFrame,
     showWithFrame,
     setShowWithFrame
@@ -118,6 +120,7 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
             setShowInfoPanel={setShowInfoPanel}
             controlsVisible={showControls}
             onRunWorkflowOnAssets={onRunWorkflowOnAssets}
+            onEditPhoto={onEditPhoto}
             hasFrame={hasFrame}
             showWithFrame={showWithFrame}
             setShowWithFrame={setShowWithFrame}

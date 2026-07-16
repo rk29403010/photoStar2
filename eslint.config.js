@@ -32,6 +32,7 @@ const correctnessRules = {
 export default defineConfig([
   globalIgnores([
     '.worktrees',
+    'worktrees/**',
     'dist',
     'core/dist',
     'core/node_modules',

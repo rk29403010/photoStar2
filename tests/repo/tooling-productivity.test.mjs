@@ -256,6 +256,6 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['thread:stop-dev'], 'node tooling/scripts/repo/thread-dev-session.js stop');
     assert.equal(scripts['thread:doctor'], 'node tooling/scripts/repo/thread-doctor.js');
     assert.equal(scripts['thread:ship'], 'node tooling/scripts/repo/thread-ship.js');
-    assert.equal(scripts['lint:md'], 'markdownlint "**/*.md" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts');
-    assert.equal(scripts['fix:md'], 'markdownlint "**/*.md" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts');
+    assert.equal(scripts['lint:md'], 'markdownlint "**/*.md" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents');
+    assert.equal(scripts['fix:md'], 'markdownlint "**/*.md" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents');
 });

@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "commonjs",
     "moduleResolution": "node",
+    "rewriteRelativeImportExtensions": true,
     "outDir": "../../dist/core/src",
     "rootDir": "../../src",
     "incremental": true,
