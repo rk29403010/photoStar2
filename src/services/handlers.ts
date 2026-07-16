@@ -9,6 +9,7 @@ import { systemEventLogCommandHandlers } from './handlers/systemEventLogCommands
 import { systemJobsCommandHandlers } from './handlers/systemJobsCommands';
 import { systemWorkflowRuntimeCommandHandlers } from './handlers/systemWorkflowRuntimeCommands';
 import { tagCommandHandlers } from './handlers/tagCommands';
+import { photoEditCommandHandlers } from './handlers/photoEditCommands';
 
 const COMMAND_ROUTES = [
     systemCommandHandlers,
@@ -17,6 +18,7 @@ const COMMAND_ROUTES = [
     peopleCommandHandlers,
     collectionCommandHandlers,
     groupDiagnosticsCommandHandlers,
+    photoEditCommandHandlers,
     assetCommandHandlers,
     tagCommandHandlers,
     systemJobsCommandHandlers,

@@ -1,5 +1,15 @@
 import { useMemo } from 'react';
-import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type {
+  Asset,
+  PhotoEditDocument,
+  PhotoEditMask,
+  PhotoEditOperation,
+  PhotoEditStyle,
+  RenderPhotoEditInput,
+  ReviewItemSummary,
+  SavePhotoEditInput,
+  SimilarityOrbit,
+} from '@contracts/core';
 import type { BackgroundJob } from '@contracts/jobs';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
@@ -11,6 +21,7 @@ import { ActionPanel } from '../ActionPanel';
 import { SettingsModal } from '../SettingsModal';
 import { SinglePhotoView } from '../SinglePhotoView';
 import { resolveSinglePhotoOverlaySelection } from './singlePhotoOverlaySelection';
+import { globalRequest } from '@ui/hooks/usePhotoLibrary';
 
 
 type AppOverlaysProps = {
@@ -80,7 +91,25 @@ type AppOverlaysProps = {
   readonly librarySelection: LibrarySelectionState;
   readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[]) => void;
   readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
+  readonly onGetPhotoEditWorkspace?: (assetId: string) => Promise<{ document: PhotoEditDocument | null; styles: PhotoEditStyle[] }>;
+  readonly onPreviewPhotoEdit?: (input: SavePhotoEditInput) => Promise<string>;
+  readonly onSavePhotoEdit?: (input: SavePhotoEditInput) => Promise<PhotoEditDocument>;
+  readonly onRenderPhotoEdit?: (input: RenderPhotoEditInput) => Promise<{ document: PhotoEditDocument; assetId: string }>;
+  readonly onSavePhotoEditStyle?: (style: { id: string; name: string; operations: PhotoEditOperation[]; masks: PhotoEditMask[] }) => Promise<void>;
 }
+
+function requestEditor<T>(command: string, payload: Record<string, unknown>, select: (data: Record<string, unknown>) => T): Promise<T> {
+  if (!globalRequest) {return Promise.reject(new Error('Photo editor is unavailable until the backend is connected'));}
+  return globalRequest<T>({ idPrefix: `${command}_${Date.now()}`, command, payload, timeoutMs: 120000, select: (data) => select(data ?? {}) });
+}
+
+const defaultPhotoEditActions = {
+  getWorkspace: (assetId: string) => requestEditor('get_photo_edit_workspace', { assetId }, (data) => data as { document: PhotoEditDocument | null; styles: PhotoEditStyle[] }),
+  preview: (input: SavePhotoEditInput) => requestEditor('preview_photo_edit', input, (data) => data.previewDataUrl as string),
+  save: (input: SavePhotoEditInput) => requestEditor('save_photo_edit', input, (data) => data.document as PhotoEditDocument),
+  render: (input: RenderPhotoEditInput) => requestEditor('render_photo_edit', input, (data) => data as { document: PhotoEditDocument; assetId: string }),
+  saveStyle: (style: { id: string; name: string; operations: PhotoEditOperation[]; masks: PhotoEditMask[] }) => requestEditor('save_photo_edit_style', style, () => undefined),
+};
 
 function createSelectedAssetCache() {
   let fallbackSelectedAsset: Asset | null = null;
@@ -151,6 +180,11 @@ function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], 
       onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
       onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
       onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
+      onGetPhotoEditWorkspace={props.onGetPhotoEditWorkspace ?? defaultPhotoEditActions.getWorkspace}
+      onPreviewPhotoEdit={props.onPreviewPhotoEdit ?? defaultPhotoEditActions.preview}
+      onSavePhotoEdit={props.onSavePhotoEdit ?? defaultPhotoEditActions.save}
+      onRenderPhotoEdit={props.onRenderPhotoEdit ?? defaultPhotoEditActions.render}
+      onSavePhotoEditStyle={props.onSavePhotoEditStyle ?? defaultPhotoEditActions.saveStyle}
     />
   );
 }

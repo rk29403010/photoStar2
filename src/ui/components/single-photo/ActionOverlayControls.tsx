@@ -41,6 +41,7 @@ type ControlsOverlayProps = {
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly controlsVisible: boolean;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onEditPhoto?: () => void;
     readonly hasFrame: boolean;
     readonly showWithFrame: boolean;
     readonly setShowWithFrame: (show: boolean) => void;
@@ -63,6 +64,7 @@ type ActionMenuProps = {
     readonly onExplodeGroup?: (groupId: string) => Promise<void>;
     readonly setShowActionMenu: (show: boolean) => void;
     readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onEditPhoto?: () => void;
 }
 
 function menuHover() {
@@ -383,6 +385,15 @@ function GroupMenuItems(props: Pick<ActionMenuProps, 'asset' | 'onSetCanonical' 
     );
 }
 
+function EditPhotoMenuItem(props: Pick<ActionMenuProps, 'onEditPhoto' | 'setShowActionMenu'>) {
+    if (!props.onEditPhoto) {return null;}
+    return <MenuItem color="#c084fc" active={false} icon="✎" label="Edit photo" onClick={(event) => {
+        event.stopPropagation();
+        closeActionMenu(props.setShowActionMenu);
+        props.onEditPhoto?.();
+    }} />;
+}
+
 function renderAnalysisStatus({
     analysisState,
     analyzingAssetId,
@@ -537,6 +548,7 @@ const ActionMenu: React.FC<ActionMenuProps> = (props) => {
 
     return (
         <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: '#111827', border: '1px solid #1f2937', borderRadius: '10px', padding: '6px', minWidth: '200px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <EditPhotoMenuItem onEditPhoto={props.onEditPhoto} setShowActionMenu={props.setShowActionMenu} />
             <AiActionMenuItem {...props} />
             <FaceDetectionMenuItem {...props} />
             <GroupMenuItems asset={props.asset} onSetCanonical={props.onSetCanonical} onExplodeGroup={props.onExplodeGroup} setShowActionMenu={props.setShowActionMenu} />
@@ -588,7 +600,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = (props) => {
         onExtractAiMetadata, onRerunFaceDetection, analysisState, setAnalysisState,
         setAnalysisError, analyzingAssetId, setAnalyzingAssetId, setAnalyzingJobId,
         showInfoPanel, setShowInfoPanel, controlsVisible, onRunWorkflowOnAssets,
-        hasFrame, showWithFrame, setShowWithFrame
+        onEditPhoto, hasFrame, showWithFrame, setShowWithFrame
     } = props;
     const persistentAnalysisStatus = renderAnalysisStatus({
         analysisState,
@@ -612,6 +624,7 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = (props) => {
         onExplodeGroup,
         setShowActionMenu,
         onRunWorkflowOnAssets,
+        onEditPhoto,
     });
 
     return (

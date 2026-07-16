@@ -1,5 +1,11 @@
 # TO DO List
 
+## Photo editor
+
+1. Move high-resolution rendering into a tracked, cancellable workflow and use disk-backed intermediate stages for very high-megapixel photos.
+2. Ship and validate a promptable local segmentation model for pixel-accurate subject, background, and picked-element masks; the current editor uses detected normalized face/subject/region boxes when available.
+3. Clarify and add the third requested non-AI editing tool; the original request left list item 3 blank.
+
 ## Gallery
 
 1. [x] Hover on photo
@@ -218,3 +224,33 @@ UI Improvements
 
 - Factory reset can fail with `EBUSY ... library.db` when another core backend process is running from a different worktree/runtime but sharing `%APPDATA%/PhotoLibraryDesktop/library.db`.
 - Follow-up: isolate per-runtime storage paths in dev sessions (or add single-instance lock enforcement) so parallel runtimes cannot contend for the same DB file.
+
+## 2026-07-14 - Local masked-edit feedback
+
+- Whole-photo slider edits now receive an immediate browser-side approximation before the exact low-resolution preview arrives. Masked edits intentionally skip that global approximation to avoid showing the effect outside its real scope.
+- Follow-up: add a fast, localized mask overlay or per-mask canvas approximation so masked slider gestures receive equally immediate and spatially accurate feedback.
+
+## 2026-07-15 - Worktree-aware repository tests
+
+- The repository suite still has 2 path assertions that assume tests run from the primary workspace; update them to accept registered linked worktrees so `test:repo` can pass in thread worktrees.
+
+## 2026-07-15 - Existing full-repository lint failure
+
+- Split `ProfileTab` in `src/ui/components/single-photo/info-panel/ProfileTab.tsx`; the existing function is 92 lines against the 90-line Oxlint limit and prevents the full-repository fast-lint gate from passing even when staged photo-editor files are clean.
+
+## 2026-07-15 - Rotation AI fill
+
+- Rotation exposes an AI fill option alongside transparent, black, and white fills, but keeps it disabled until an inpainting workflow can generate pixels for the newly exposed canvas regions.
+
+## 2026-07-15 - Existing accessibility audit backlog
+
+- The project-wide accessibility checker reports 43 existing issues across 35 files. None point to the photo-editor files changed for the nested-frame cleanup; address the wider backlog separately.
+
+## 2026-07-15 - Semantic segmentation candidates
+
+- `runtime.detect_frame` currently asks FastSAM for one centre-point photo-content mask and persists that boundary as `frame_detection`; it does not yet request or label every semantic object in the photo.
+- The editor now lists that real boundary together with persisted faces, AI subjects, and regions of interest. A future segmentation workflow should persist multiple labelled contours if pixel-accurate masks for arbitrary elements are required.
+
+## 2026-07-16 - Photo editor component extraction
+
+- The staged complexity report flags the editor preview dispatcher and crop, rotate, and colour-pop overlays, plus several editor workspace functions, above the project thresholds. Split these into smaller canvas, controls, and workspace-state components without changing the verified preview geometry.
