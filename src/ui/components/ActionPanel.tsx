@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { canUseNativeDirectoryPicker } from '@boundary/runtime/backend';
+import { globalRequest } from '@ui/hooks/usePhotoLibrary';
+import { parseGedcom } from '../../services/gedcom/gedcomParser';
 
 type ActionTab = 'ingest' | 'workflows' | 'library' | 'danger';
 
@@ -392,6 +394,154 @@ function RunWorkflowSection(props: {
     );
 }
 
+type IngestTreeInfo = {
+    id: string;
+    filename: string;
+    version_label?: string;
+};
+
+type IngestPersonInfo = {
+    id: string;
+    name: string;
+};
+
+function IngestGedcomFields(props: {
+    readonly people: IngestPersonInfo[];
+    readonly selectedHomePersonId: string;
+    readonly selectedTreeId: string;
+    readonly trees: IngestTreeInfo[];
+    readonly onHomePersonChange: (personId: string) => void;
+    readonly onTreeChange: (treeId: string) => void;
+}) {
+    return (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label htmlFor="ingest-default-family-tree" className="block text-xs font-semibold mb-1 text-content-secondary">Default Family Tree</label>
+                <select
+                    id="ingest-default-family-tree"
+                    value={props.selectedTreeId}
+                    onChange={(event) => props.onTreeChange(event.target.value)}
+                    className="w-full rounded-lg border border-content/10 bg-surface px-3 py-2 text-sm text-content outline-none"
+                >
+                    <option value="">None</option>
+                    {props.trees.map(tree => (
+                        <option key={tree.id} value={tree.id}>{tree.filename} ({tree.version_label || 'v1'})</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label htmlFor="ingest-default-home-person" className="block text-xs font-semibold mb-1 text-content-secondary">Default Home Person</label>
+                <select
+                    id="ingest-default-home-person"
+                    value={props.selectedHomePersonId}
+                    onChange={(event) => props.onHomePersonChange(event.target.value)}
+                    disabled={!props.selectedTreeId}
+                    className="w-full rounded-lg border border-content/10 bg-surface px-3 py-2 text-sm text-content outline-none disabled:opacity-50"
+                >
+                    <option value="">Select a Home Person</option>
+                    {props.people.map(person => (
+                        <option key={person.id} value={person.id}>{person.name}</option>
+                    ))}
+                </select>
+            </div>
+        </div>
+    );
+}
+
+function saveIngestSetting(key: string, value: string) {
+    if (!globalRequest) {return;}
+    void globalRequest({
+        idPrefix: `save_${key}`,
+        command: 'save_setting',
+        payload: { key, value }
+    });
+}
+
+function IngestGedcomSettings() {
+    const [trees, setTrees] = useState<IngestTreeInfo[]>([]);
+    const [selectedTreeId, setSelectedTreeId] = useState<string>('');
+    const [people, setPeople] = useState<IngestPersonInfo[]>([]);
+    const [selectedHomePersonId, setSelectedHomePersonId] = useState<string>('');
+
+    useEffect(() => {
+        if (!globalRequest) {return;}
+        void globalRequest<{ trees: IngestTreeInfo[] }>({
+            idPrefix: 'get_family_trees',
+            command: 'get_family_trees',
+            payload: {},
+            select: (d) => d as { trees: IngestTreeInfo[] }
+        }).then(res => {
+            setTrees(res.trees || []);
+        });
+
+        void globalRequest<{ value: string }>({
+            idPrefix: 'get_default_tree_setting',
+            command: 'get_setting',
+            payload: { key: 'default_gedcom_tree_id' },
+            select: (d) => d as { value: string }
+        }).then(res => {
+            if (res.value) {
+                setSelectedTreeId(res.value);
+            }
+        });
+
+        void globalRequest<{ value: string }>({
+            idPrefix: 'get_default_home_setting',
+            command: 'get_setting',
+            payload: { key: 'default_home_person_id' },
+            select: (d) => d as { value: string }
+        }).then(res => {
+            if (res.value) {
+                setSelectedHomePersonId(res.value);
+            }
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!selectedTreeId || !globalRequest) {
+            setPeople([]);
+            return;
+        }
+        void globalRequest<{ content: string }>({
+            idPrefix: 'get_tree_content',
+            command: 'get_family_tree_content',
+            payload: { treeId: selectedTreeId },
+            select: (d) => d as { content: string }
+        }).then(res => {
+            const parsed = parseGedcom(res.content);
+            setPeople(Object.values(parsed.people));
+        });
+    }, [selectedTreeId]);
+
+    const handleTreeChange = (treeId: string) => {
+        setSelectedTreeId(treeId);
+        setSelectedHomePersonId('');
+        saveIngestSetting('default_gedcom_tree_id', treeId);
+        saveIngestSetting('default_home_person_id', '');
+    };
+
+    const handleHomePersonChange = (personId: string) => {
+        setSelectedHomePersonId(personId);
+        saveIngestSetting('default_home_person_id', personId);
+    };
+
+    return (
+        <div className="mb-6 rounded-xl border border-content/10 bg-surface-secondary p-4">
+            <h4 className="mb-3 text-xs font-black uppercase tracking-widest text-content-secondary">
+                Optional Ingestion Family Tree Settings
+            </h4>
+            <IngestGedcomFields
+                people={people}
+                selectedHomePersonId={selectedHomePersonId}
+                selectedTreeId={selectedTreeId}
+                trees={trees}
+                onHomePersonChange={handleHomePersonChange}
+                onTreeChange={handleTreeChange}
+            />
+        </div>
+    );
+}
+
 function ActionPanelTabContent(props: {
     readonly activeTab: ActionTab;
     readonly showManualPathPrompt: boolean;
@@ -410,6 +560,11 @@ function ActionPanelTabContent(props: {
                     onRunWorkflowOnAssets={actionPanelProps.onRunWorkflowOnAssets}
                     onClose={actionPanelProps.onClose}
                 />
+            )}
+            {activeTab === 'ingest' && (
+                <div className="mt-6">
+                    <IngestGedcomSettings />
+                </div>
             )}
             {activeTab === 'ingest' && showManualPathPrompt && (
                 <ManualPathPrompt

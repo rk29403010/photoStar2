@@ -26,6 +26,12 @@ export function useLibraryChrome(params: {
     handleShowInfoPanelChange: (show: boolean) => void;
     onGalleryTimelineSeek: (seek: GalleryTimelineSeek | null) => void;
     onTimelineBucketJump: (bucket: NonNullable<LibraryTimelineSummary>['buckets'][number]) => void;
+    onDeclusterSelection?: (personId: string) => void;
+    onBulkTagSelection?: () => Promise<void>;
+    onBulkUntagSelection?: () => Promise<void>;
+    onMoveSelectionToBin?: () => Promise<void>;
+    onRestoreSelectionFromBin?: () => Promise<void>;
+    onClearSelection?: () => void;
 }) {
     const rawSelectedTag = params.activeFilter?.type === 'tag' ? params.activeFilter.value : '';
     const availableTags = useMemo(
@@ -47,6 +53,13 @@ export function useLibraryChrome(params: {
         onShowGroupIdsChange: params.onShowGroupIdsChange,
         showInfoPanel: params.showInfoPanel,
         handleShowInfoPanelChange: params.handleShowInfoPanelChange,
+        onDeclusterSelection: params.onDeclusterSelection,
+        onBulkTagSelection: params.onBulkTagSelection,
+        onBulkUntagSelection: params.onBulkUntagSelection,
+        onMoveSelectionToBin: params.onMoveSelectionToBin,
+        onRestoreSelectionFromBin: params.onRestoreSelectionFromBin,
+        onClearSelection: params.onClearSelection,
+        activeFilter: params.activeFilter,
     });
     const timelineRail = getTimelineRailElement({
         timeline: params.timeline,

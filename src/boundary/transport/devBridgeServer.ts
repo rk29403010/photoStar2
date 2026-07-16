@@ -205,8 +205,8 @@ function registerServerLifecycle(server: Server, wss: WebSocketServer, onReady?:
         }
     });
 
-    server.listen(bridgePort, '0.0.0.0', () => {
-        console.error(`[Dev] HTTP / WebSocket Bridge listening on port ${bridgePort} (all interfaces)`);
+    server.listen(bridgePort, '127.0.0.1', () => {
+        console.error(`[Dev] HTTP / WebSocket Bridge listening on port ${bridgePort} (localhost only)`);
         onReady?.();
     });
 

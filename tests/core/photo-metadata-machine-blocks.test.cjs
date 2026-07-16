@@ -4,6 +4,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+// Mock keytar for test execution
+require.cache[require.resolve('keytar')] = {
+    id: require.resolve('keytar'),
+    filename: require.resolve('keytar'),
+    loaded: true,
+    exports: {
+        getPassword: async () => 'AIzaSyDUMMYKEY12345678901234567890',
+        setPassword: async () => {},
+        deletePassword: async () => true,
+    }
+};
+
 function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-machine-blocks-'));
 }

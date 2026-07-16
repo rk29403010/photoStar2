@@ -33,6 +33,12 @@ export function useLibraryViewPresentation(params: {
     onTimelineBucketJump: (bucket: NonNullable<LibraryStats['timeline']>['buckets'][number]) => void;
     timelineVisibleGroupId: TimelineGroupId | null;
     timelineVisibleGroupIndex: number | null;
+    onDeclusterSelection?: (personId: string) => void;
+    onBulkTagSelection?: () => Promise<void>;
+    onBulkUntagSelection?: () => Promise<void>;
+    onMoveSelectionToBin?: () => Promise<void>;
+    onRestoreSelectionFromBin?: () => Promise<void>;
+    onClearSelection?: () => void;
 }) {
     const timeline = useMemo(() => getTimelineSummaryForGalleryMode(params.stats, params.groupSimilarPhotos), [params.groupSimilarPhotos, params.stats]);
     const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({
@@ -70,6 +76,12 @@ export function useLibraryViewPresentation(params: {
         handleShowInfoPanelChange: params.handleShowInfoPanelChange,
         onGalleryTimelineSeek: params.onGalleryTimelineSeek,
         onTimelineBucketJump: params.onTimelineBucketJump,
+        onDeclusterSelection: params.onDeclusterSelection,
+        onBulkTagSelection: params.onBulkTagSelection,
+        onBulkUntagSelection: params.onBulkUntagSelection,
+        onMoveSelectionToBin: params.onMoveSelectionToBin,
+        onRestoreSelectionFromBin: params.onRestoreSelectionFromBin,
+        onClearSelection: params.onClearSelection,
     });
 
     return {

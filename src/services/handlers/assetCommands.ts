@@ -110,16 +110,26 @@ function getDetailLevel(payload: AssetQueryPayload | undefined): AssetDetailLeve
     return payload?.detailLevel === 'gallery' ? 'gallery' : 'full';
 }
 
-function buildFilteredAssetsQuery(
-    filterSubquery: string,
-    timelineSeekClause: AssetTimelineSeekClause,
-    params: (string | number)[],
-    limit: number,
-    offset: number,
-    detailLevel: AssetDetailLevel,
-    galleryOrder: AssetGalleryOrder,
-    includeEvidence: boolean,
-): AssetQueryParts {
+function buildFilteredAssetsQuery(options: {
+    filterSubquery: string;
+    timelineSeekClause: AssetTimelineSeekClause;
+    params: (string | number)[];
+    limit: number;
+    offset: number;
+    detailLevel: AssetDetailLevel;
+    galleryOrder: AssetGalleryOrder;
+    includeEvidence: boolean;
+}): AssetQueryParts {
+    const {
+        filterSubquery,
+        timelineSeekClause,
+        params,
+        limit,
+        offset,
+        detailLevel,
+        galleryOrder,
+        includeEvidence,
+    } = options;
     const detail = buildAssetDetailFragments({
         detailLevel,
         includeEvidence,
@@ -131,8 +141,7 @@ function buildFilteredAssetsQuery(
     });
     const groupFields = buildGroupFieldFragments('a');
     const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
-    params.push(...timelineSeekClause.params);
-    params.push(limit, offset);
+    params.push(...timelineSeekClause.params, limit, offset);
 
     return {
         sql: `
@@ -149,7 +158,7 @@ function buildFilteredAssetsQuery(
                 ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
                 (
-                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
+                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name, 'is_suggested', fa.is_suggested))
                     FROM face_assignments fa
                     JOIN people per ON fa.person_id = per.id
                     WHERE fa.asset_id = a.id
@@ -217,7 +226,7 @@ function buildGroupedAssetsQuery(
                 ${detail.aiSelect}
                 ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
-                json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
+                json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name, 'is_suggested', fa.is_suggested)) as people_data,
                 ${groupFields.memberGroupIdSelect}
                 ${groupFields.memberRoleSelect}
                 ${groupFields.memberRankSelect}
@@ -339,7 +348,7 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
                 ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
                 (
-                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name))
+                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', per.id, 'name', per.name, 'is_suggested', fa.is_suggested))
                     FROM face_assignments fa
                     JOIN people per ON fa.person_id = per.id
                     WHERE fa.asset_id = a.id
@@ -380,7 +389,7 @@ function toAsset(row: AssetRow, photoMetadata?: PhotoMetadataBundle) {
 
 function dedupeAssetsById(assets: ReturnType<typeof toAsset>[]) {
     const deduped = new Map<string, ReturnType<typeof toAsset>>();
-    for (const asset of assets) {deduped.set(asset.id, asset);}
+    for (const asset of assets) { deduped.set(asset.id, asset); }
     return Array.from(deduped.values());
 }
 
@@ -395,8 +404,19 @@ function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
     const params: (string | number)[] = [];
     const filterSubquery = buildFilterSubquery(payload.filter, params);
 
-    if (filterSubquery) {return buildFilteredAssetsQuery(filterSubquery, timelineSeekClause, params, limit, offset, detailLevel, galleryOrder, includeEvidence);}
-    if (withGroupCounts) {return buildGroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence);}
+    if (filterSubquery) {
+        return buildFilteredAssetsQuery({
+            filterSubquery,
+            timelineSeekClause,
+            params,
+            limit,
+            offset,
+            detailLevel,
+            galleryOrder,
+            includeEvidence,
+        });
+    }
+    if (withGroupCounts) { return buildGroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence); }
     return buildUngroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence);
 }
 
@@ -536,7 +556,7 @@ export const assetCommandHandlers: CommandHandlerMap = {
 
             db.transaction(() => {
                 const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(assetId) as { original_path: string } | undefined;
-                if (!asset) {throw new Error(`Asset ${assetId} not found`);}
+                if (!asset) { throw new Error(`Asset ${assetId} not found`); }
 
                 let identity = db.prepare('SELECT guid FROM asset_identities WHERE original_path = ?').get(asset.original_path) as { guid: string } | undefined;
                 if (!identity) {

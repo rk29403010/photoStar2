@@ -9,7 +9,7 @@ import type { StatusBanner } from '@ui/components/app/statusBannerModel';
 import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel';
 import { usePersistedState } from './usePersistedState';
 
-export type AppView = 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
 export type InfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
 
@@ -53,6 +53,17 @@ function useDevRuntimeImpact(
 
 export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpact>) {
   const [view, setView] = usePersistedState<AppView>('ps_view', 'library');
+
+  useEffect(() => {
+    const handleChangeView = (e: Event) => {
+      const customEvent = e as CustomEvent<AppView>;
+      if (customEvent.detail) {
+        setView(customEvent.detail);
+      }
+    };
+    globalThis.addEventListener('change-view', handleChangeView);
+    return () => globalThis.removeEventListener('change-view', handleChangeView);
+  }, [setView]);
   const [selectedWorkflowId, setSelectedWorkflowId] = usePersistedState<string>('ps_selected_workflow_id', 'folder_ingest_v1');
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
   const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);

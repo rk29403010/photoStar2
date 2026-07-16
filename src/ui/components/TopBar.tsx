@@ -2,8 +2,8 @@ import type React from 'react';
 import { Button } from './Primitives';
 
 type TopBarProps = {
-    readonly view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-    readonly setView: (view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics') => void;
+    readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+    readonly setView: (view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics') => void;
     readonly onOpenActions: () => void;
     readonly onOpenSettings: () => void;
     readonly showSettings: boolean;
@@ -12,7 +12,9 @@ type TopBarProps = {
 type ViewType = TopBarProps['view'];
 
 function formatViewLabel(view: ViewType) {
-    return view === 'groupDiagnostics' ? 'Diagnostics' : view[0].toUpperCase() + view.slice(1);
+    if (view === 'groupDiagnostics') {return 'Diagnostics';}
+    if (view === 'familyTree') {return 'Family Tree';}
+    return view[0].toUpperCase() + view.slice(1);
 }
 
 function Icon({
@@ -91,6 +93,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <div className="flex flex-wrap gap-2">
                 <ViewButton view="library" current={view} setView={setView} />
                 <ViewButton view="people" current={view} setView={setView} />
+                <ViewButton view="familyTree" current={view} setView={setView} />
                 <ViewButton view="albums" current={view} setView={setView} />
                 <ViewButton view="reviews" current={view} setView={setView} />
                 <ViewButton view="vocabulary" current={view} setView={setView} />

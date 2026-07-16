@@ -1,10 +1,11 @@
+import { useCallback, type ComponentProps, type CSSProperties, type ReactNode, type RefObject, type UIEvent } from 'react';
 import type { Asset, GalleryTimelineSeek, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
-import type { ComponentProps, CSSProperties, ReactNode, RefObject, UIEvent } from 'react';
 import { GalleryInfoPanel } from './GalleryInfoPanel';
 import { LibraryGalleryPane } from './LibraryGalleryPane';
 import { LibraryToolbar } from './LibraryToolbar';
+import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
     if (seek?.kind === 'unknown') {
@@ -55,6 +56,32 @@ export type LibraryPanelProps = {
     readonly isScrollSettled: boolean;
 }
 
+function useContainerPointerDownHandler(
+    onLibrarySelectionChange: ((selection: LibrarySelectionState) => void) | undefined
+) {
+    return useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        const target = event.target as HTMLElement;
+        if (
+            target.closest('[data-selection-key]') ||
+            target.closest('[data-time-section-id]') ||
+            target.closest('button') ||
+            target.closest('a')
+        ) {
+            return;
+        }
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientX > rect.left + event.currentTarget.clientWidth) {
+            return;
+        }
+        onLibrarySelectionChange?.({
+            photoIds: new Set(),
+            groupIds: new Set(),
+            anchorKey: null,
+            mostRecentSelectionKey: null,
+        });
+    }, [onLibrarySelectionChange]);
+}
+
 export function LibraryPanel({
     scrollRef,
     handleScroll,
@@ -83,14 +110,17 @@ export function LibraryPanel({
         '--gallery-browse-row-height': `${browseRowHeight}px`,
     } as CSSProperties;
 
+    const handleContainerPointerDown = useContainerPointerDownHandler(layout.onLibrarySelectionChange);
+
     return (
         <div className="relative flex-1 min-h-0 min-w-0 flex overflow-hidden bg-surface">
             {timelineRail}
             <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-                <LibraryToolbar {...toolbar} />
+                <LibraryToolbar {...toolbar} librarySelection={layout.librarySelection} />
                 <div
                     ref={scrollRef}
                     onScroll={handleScroll}
+                    onPointerDown={handleContainerPointerDown}
                     data-scroll-settled={isScrollSettled ? 'true' : 'false'}
                     className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 bg-surface"
                     style={scrollContainerStyle}

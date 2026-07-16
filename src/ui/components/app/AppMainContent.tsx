@@ -26,7 +26,7 @@ import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
-import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
+import type { InfoTab, AppView } from '@ui/hooks/useAppRuntimeUi';
 import type { GalleryOrder } from '@ui/hooks/usePhotoLibrary.gallery';
 import type { TimelineGalleryStateSlice } from '@ui/hooks/useTimelineGalleryState';
 import { useAvailableTags } from '@ui/hooks/useAvailableTags';
@@ -36,6 +36,7 @@ import { DashboardView } from '../DashboardView';
 import { GroupingDiagnosticsView } from '../group-diagnostics/GroupingDiagnosticsView';
 import { LibraryView } from '../LibraryView';
 import { PeopleView } from '../PeopleView';
+import { FamilyTreeView } from '../family-tree/FamilyTreeView';
 import { ReviewsView } from '../ReviewsView';
 import { TagVocabularyView } from '../TagVocabularyView';
 import { WorkflowWorkspace } from '../workflows/WorkflowWorkspace';
@@ -46,7 +47,8 @@ type TagDetailPayload = {
 };
 
 type AppMainContentProps = {
-  readonly view: 'library' | 'people' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly onViewChange?: (view: AppView) => void;
   readonly selectedWorkflowId: string;
   readonly onSelectWorkflowId: (workflowId: string) => void;
   readonly stats: LibraryStats | null;
@@ -146,6 +148,12 @@ type AppMainContentProps = {
     current?: string;
     stages?: Array<{ stageId: string; label: string; state: StageState; total?: number; done?: number }>;
   }) => void;
+  readonly onDeclusterSelection: (personId: string) => void;
+  readonly onBulkTagSelection: () => Promise<void>;
+  readonly onBulkUntagSelection: () => Promise<void>;
+  readonly onMoveSelectionToBin: () => Promise<void>;
+  readonly onRestoreSelectionFromBin: () => Promise<void>;
+  readonly onClearSelection: () => void;
 }
 
 function getPanelStyle(active: boolean) {
@@ -227,6 +235,12 @@ function LibraryContentView(props: AppMainContentProps & { readonly visibleLibra
         onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
         onGetGroupOrbit={props.onGetGroupOrbit}
         onSetCanonical={props.onSetCanonical}
+        onDeclusterSelection={props.onDeclusterSelection}
+        onBulkTagSelection={props.onBulkTagSelection}
+        onBulkUntagSelection={props.onBulkUntagSelection}
+        onMoveSelectionToBin={props.onMoveSelectionToBin}
+        onRestoreSelectionFromBin={props.onRestoreSelectionFromBin}
+        onClearSelection={props.onClearSelection}
       />
     </div>
   );
@@ -247,6 +261,14 @@ export function AppMainContent(props: AppMainContentProps) {
           onSelectionChange={props.onPeopleSelectionChange}
           onRename={props.onRenamePerson}
           onMerge={props.onMergePeople}
+        />
+      )}
+
+      {props.view === 'familyTree' && (
+        <FamilyTreeView
+          people={props.people}
+          onFilter={props.onPeopleFilter}
+          setView={props.onViewChange}
         />
       )}
 

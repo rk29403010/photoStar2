@@ -465,12 +465,80 @@ function performGetEventPayloadRaw(request: RequestFn, eventId: string): Promise
     });
 }
 
+async function performTestProviderKey(request: RequestFn, provider: string, key: string): Promise<{ valid: boolean; error?: string }> {
+    return request<{ valid: boolean; error?: string }>({
+        idPrefix: `test_provider_key_${provider}`,
+        command: 'test_provider_key',
+        payload: { provider, key },
+        select: (data) => {
+            if (data && typeof data === 'object') {
+                const valid = 'valid' in data && typeof data.valid === 'boolean' ? data.valid : false;
+                const error = 'error' in data && typeof data.error === 'string' ? data.error : undefined;
+                return { valid, error };
+            }
+            return { valid: false, error: 'Invalid response from backend' };
+        },
+    });
+}
+
+async function performSaveProviderKey(request: RequestFn, provider: string, key: string): Promise<{ success: boolean; error?: string }> {
+    return request<{ success: boolean; error?: string }>({
+        idPrefix: `save_provider_key_${provider}`,
+        command: 'save_provider_key',
+        payload: { provider, key },
+        select: (data) => {
+            if (data && typeof data === 'object') {
+                const success = 'success' in data && typeof data.success === 'boolean' ? data.success : false;
+                const error = 'error' in data && typeof data.error === 'string' ? data.error : undefined;
+                return { success, error };
+            }
+            return { success: false, error: 'Invalid response from backend' };
+        },
+    });
+}
+
+async function performDeleteProviderKey(request: RequestFn, provider: string): Promise<{ success: boolean; error?: string }> {
+    return request<{ success: boolean; error?: string }>({
+        idPrefix: `delete_provider_key_${provider}`,
+        command: 'delete_provider_key',
+        payload: { provider },
+        select: (data) => {
+            if (data && typeof data === 'object') {
+                const success = 'success' in data && typeof data.success === 'boolean' ? data.success : false;
+                const error = 'error' in data && typeof data.error === 'string' ? data.error : undefined;
+                return { success, error };
+            }
+            return { success: false, error: 'Invalid response from backend' };
+        },
+    });
+}
+
+async function performGetRedactedProviderKey(request: RequestFn, provider: string): Promise<{ redactedKey: string | null; error?: string }> {
+    return request<{ redactedKey: string | null; error?: string }>({
+        idPrefix: `get_redacted_provider_key_${provider}`,
+        command: 'get_redacted_provider_key',
+        payload: { provider },
+        select: (data) => {
+            if (data && typeof data === 'object') {
+                const redactedKey = 'redactedKey' in data && (typeof data.redactedKey === 'string' || data.redactedKey === null) ? data.redactedKey : null;
+                const error = 'error' in data && typeof data.error === 'string' ? data.error : undefined;
+                return { redactedKey, error };
+            }
+            return { redactedKey: null, error: 'Invalid response from backend' };
+        },
+    });
+}
+
 export function createSettingsActions(params: SettingsActionParams) {
     return {
         getSetting: (key: string) => performGetSetting(params.request, key),
         setSetting: (key: string, value: string) => performSetSetting(params.transport, key, value),
         setSensitivity: (assetId: string, status: string | null) => performSetSensitivity(params.transport, params.setAssets, assetId, status),
         getEventPayloadRaw: (eventId: string) => performGetEventPayloadRaw(params.request, eventId),
+        testProviderKeyCommand: (provider: string, key: string) => performTestProviderKey(params.request, provider, key),
+        saveProviderKey: (provider: string, key: string) => performSaveProviderKey(params.request, provider, key),
+        deleteProviderKey: (provider: string) => performDeleteProviderKey(params.request, provider),
+        getRedactedProviderKey: (provider: string) => performGetRedactedProviderKey(params.request, provider),
     };
 }
 

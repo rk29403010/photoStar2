@@ -4,6 +4,24 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+// Mock keytar dynamically
+let mockApiKey = 'AIzaSyDUMMYKEY12345678901234567890';
+require.cache[require.resolve('keytar')] = {
+    id: require.resolve('keytar'),
+    filename: require.resolve('keytar'),
+    loaded: true,
+    exports: {
+        getPassword: async () => mockApiKey,
+        setPassword: async (service, account, password) => {
+            mockApiKey = password;
+        },
+        deletePassword: async () => {
+            mockApiKey = null;
+            return true;
+        },
+    }
+};
+
 function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-folder-ai-modes-'));
 }
@@ -52,9 +70,7 @@ async function createHarness(tempDir, options = {}) {
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
-    if (options.apiKey) {
-        dbManager.setSetting('ai_metadata_v2_api_key', options.apiKey);
-    }
+    mockApiKey = options.apiKey || null;
     const subjects = new runtime.SubjectRegistry();
     const modules = new runtime.ModuleRegistry();
     const workflows = new runtime.WorkflowRegistry({ subjects, modules });

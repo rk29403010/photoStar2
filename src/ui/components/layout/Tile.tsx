@@ -20,6 +20,7 @@ type TileProps = {
     hoveredGroupId?: string | null;
     onHoveredGroupIdChange?: (groupId: string | null) => void;
     isScrollSettled?: boolean;
+    hasSelection?: boolean;
 }
 
 type TileMediaProps = {
@@ -45,6 +46,7 @@ const DEFAULT_TILE_PROPS = {
     isGroupRepresentative: false,
     showGroupIds: false,
     isScrollSettled: true,
+    hasSelection: false,
 };
 
 function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
@@ -159,6 +161,7 @@ export const Tile: React.FC<TileProps> = (props) => {
         hoveredGroupId,
         onHoveredGroupIdChange,
         isScrollSettled,
+        hasSelection,
     } = getTileProps(props);
     const imgSrc = asset.preview_data_url ?? resolveImageUrl(asset.preview_path);
     const sensitivityBadge = getSensitivityDisplay(asset);
@@ -193,6 +196,7 @@ export const Tile: React.FC<TileProps> = (props) => {
                 intent={intent}
                 isImageVisible={isImageVisible}
                 isScrollSettled={isScrollSettled}
+                hasSelection={hasSelection}
             />
             <style>{TILE_FADE_IN_KEYFRAMES}</style>
         </li>

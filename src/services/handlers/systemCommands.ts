@@ -7,6 +7,7 @@ import { createPhotoMetadataRepository } from '../photoMetadata/repository';
 import type { CommandContext, CommandHandlerMap } from './types';
 import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
 import { buildLibraryTimelineStats } from './libraryTimelineStats';
+import { ApiKeyManager } from '../security/ApiKeyManager';
 
 function respondError(ctx: CommandContext, error: unknown) {
     ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
@@ -195,6 +196,46 @@ export const systemCommandHandlers: CommandHandlerMap = {
             const { key, value } = ctx.payload as { key: string; value: string };
             ctx.dbManager.setSetting(key, value);
             ctx.respond(ctx.id, 'ok', { message: 'Setting saved' }, null, ctx.originWs);
+        } catch (error) {
+            respondError(ctx, error);
+        }
+    },
+
+    test_provider_key: async (ctx) => {
+        try {
+            const { provider, key } = ctx.payload as { provider: string; key: string };
+            const result = await ApiKeyManager.testProviderKey(provider, key);
+            ctx.respond(ctx.id, 'ok', result, null, ctx.originWs);
+        } catch (error) {
+            respondError(ctx, error);
+        }
+    },
+
+    save_provider_key: async (ctx) => {
+        try {
+            const { provider, key } = ctx.payload as { provider: string; key: string };
+            await ApiKeyManager.setKey(provider, key);
+            ctx.respond(ctx.id, 'ok', { success: true }, null, ctx.originWs);
+        } catch (error) {
+            respondError(ctx, error);
+        }
+    },
+
+    delete_provider_key: async (ctx) => {
+        try {
+            const { provider } = ctx.payload as { provider: string };
+            const success = await ApiKeyManager.deleteKey(provider);
+            ctx.respond(ctx.id, 'ok', { success }, null, ctx.originWs);
+        } catch (error) {
+            respondError(ctx, error);
+        }
+    },
+
+    get_redacted_provider_key: async (ctx) => {
+        try {
+            const { provider } = ctx.payload as { provider: string };
+            const redactedKey = await ApiKeyManager.getRedactedKey(provider);
+            ctx.respond(ctx.id, 'ok', { redactedKey }, null, ctx.originWs);
         } catch (error) {
             respondError(ctx, error);
         }

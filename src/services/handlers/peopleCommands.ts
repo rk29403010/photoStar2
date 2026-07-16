@@ -117,8 +117,10 @@ export const peopleCommandHandlers: CommandHandlerMap = {
     get_people: (ctx) => {
         const { id, originWs, dbManager, respond } = ctx;
         try {
-            const people = dbManager.getDb().prepare(`
-                SELECT p.id, p.name, COUNT(DISTINCT fa.asset_id) as face_count,
+            const db = dbManager.getDb();
+            const people = db.prepare(`
+                SELECT p.id, p.name, p.birth_date, p.death_date,
+                       COUNT(DISTINCT CASE WHEN fa.is_suggested = 0 THEN fa.asset_id END) as face_count,
                        (
                            SELECT COUNT(DISTINCT a2.id)
                            FROM manual_face_isolations mfi
@@ -129,7 +131,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                            SELECT path FROM previews
                            WHERE asset_id = (
                                SELECT asset_id FROM face_assignments fa2
-                               WHERE fa2.person_id = p.id
+                               WHERE fa2.person_id = p.id AND fa2.is_suggested = 0
                                ORDER BY fa2.confidence DESC LIMIT 1
                            ) AND size = 'thumbnail' LIMIT 1
                        )) as cover_image
@@ -137,8 +139,26 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 LEFT JOIN face_assignments fa ON fa.person_id = p.id
                 GROUP BY p.id
                 ORDER BY face_count DESC
-            `).all() as { id: string; name: string; face_count: number; rejected_count: number; cover_image: string | null }[];
-            respond(id, 'ok', { people }, null, originWs);
+            `).all() as { id: string; name: string; birth_date: string | null; death_date: string | null; face_count: number; rejected_count: number; cover_image: string | null }[];
+
+            const links = db.prepare(`
+                SELECT person_id as personId, gedcom_tree_id as treeId, gedcom_person_id as personIdInTree
+                FROM people_gedcom_links
+            `).all() as { personId: string; treeId: string; personIdInTree: string }[];
+
+            const peopleWithLinks = people.map(p => {
+                const pLinks = links
+                    .filter(l => l.personId === p.id)
+                    .map(l => ({ treeId: l.treeId, personId: l.personIdInTree }));
+                return {
+                    ...p,
+                    birth_date: p.birth_date || undefined,
+                    death_date: p.death_date || undefined,
+                    gedcom_links: pLinks.length > 0 ? pLinks : undefined
+                };
+            });
+
+            respond(id, 'ok', { people: peopleWithLinks }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
         }
@@ -159,6 +179,61 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 ORDER BY mfi.created_at ASC
             `).all(personId) as { id: string; original_path: string; width: number; height: number; preview_path: string | null }[];
             respond(id, 'ok', { assets }, null, originWs);
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
+
+    get_person_face_assignments: (ctx) => {
+        const { id, payload, originWs, dbManager, respond } = ctx;
+        try {
+            const { personId } = payload as { personId: string };
+            const assignments = dbManager.getDb().prepare(`
+                SELECT fa.asset_id, fa.face_index, fa.confidence, fa.is_suggested,
+                       a.original_path,
+                       p.path as preview_path
+                FROM face_assignments fa
+                JOIN assets a ON a.id = fa.asset_id
+                LEFT JOIN previews p ON p.asset_id = a.id AND p.size = 'thumbnail'
+                WHERE fa.person_id = ?
+                ORDER BY fa.confidence DESC
+            `).all(personId);
+            respond(id, 'ok', { assignments }, null, originWs);
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
+
+    confirm_face_assignment: (ctx) => {
+        const { id, payload, originWs, dbManager, respond } = ctx;
+        try {
+            const { assetId, faceIndex } = payload as { assetId: string; faceIndex: number };
+            dbManager.getDb().prepare(`
+                UPDATE face_assignments SET is_suggested = 0
+                WHERE asset_id = ? AND face_index = ?
+            `).run(assetId, faceIndex);
+            respond(id, 'ok', { message: 'Face assignment confirmed' }, null, originWs);
+        } catch (error) {
+            respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
+        }
+    },
+
+    reject_face_assignment: (ctx) => {
+        const { id, payload, originWs, dbManager, respond } = ctx;
+        try {
+            const { assetId, faceIndex, personId } = payload as { assetId: string; faceIndex: number; personId: string };
+            const db = dbManager.getDb();
+            db.transaction(() => {
+                db.prepare(`
+                    INSERT OR REPLACE INTO manual_face_isolations (original_path, face_index, from_person_id)
+                    SELECT original_path, ?, ? FROM assets WHERE id = ?
+                `).run(faceIndex, personId, assetId);
+                db.prepare(`
+                    DELETE FROM face_assignments
+                    WHERE asset_id = ? AND face_index = ?
+                `).run(assetId, faceIndex);
+            })();
+            respond(id, 'ok', { message: 'Face assignment rejected' }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
         }

@@ -4,6 +4,24 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+// Mock keytar dynamically
+let mockApiKey = 'AIzaSyDUMMYKEY12345678901234567890';
+require.cache[require.resolve('keytar')] = {
+    id: require.resolve('keytar'),
+    filename: require.resolve('keytar'),
+    loaded: true,
+    exports: {
+        getPassword: async () => mockApiKey,
+        setPassword: async (service, account, password) => {
+            mockApiKey = password;
+        },
+        deletePassword: async () => {
+            mockApiKey = null;
+            return true;
+        },
+    }
+};
+
 function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-ai-live-runtime-'));
 }
@@ -305,12 +323,14 @@ test('generateLiveAiMetadata falls back to GEMINI_API_KEY when DB settings are b
     let dbManager = null;
 
     try {
+        mockApiKey = null;
         process.env.GEMINI_API_KEY = 'AIzaSyENVKEY1234567890123456789012';
         const result = await runEnvFallbackCapture({ tempDir });
         dbManager = result.dbManager;
 
         assert.equal(result.capturedApiKey, 'AIzaSyENVKEY1234567890123456789012');
     } finally {
+        mockApiKey = 'AIzaSyDUMMYKEY12345678901234567890';
         if (originalGeminiApiKey === undefined) {
             delete process.env.GEMINI_API_KEY;
         } else {

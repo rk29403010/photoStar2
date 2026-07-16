@@ -233,7 +233,19 @@ test('rerun_missing_folder_ai_metadata starts a new selected-subject workflow fo
     let harness;
 
     try {
-        harness = await createCommandHarness(tempDir);
+        harness = await createCommandHarness(tempDir, {
+            aiRuntime: {
+                async generateLiveMetadata() {
+                    return {
+                        tagProposals: ['nature', 'sunset'],
+                        captionsProposals: ['A beautiful sunset over the mountains.'],
+                        imageWidth: 100,
+                        imageHeight: 100,
+                        subjectBlocks: [],
+                    };
+                },
+            },
+        });
 
         handleSystemCommand({
             id: 'cmd-1',
@@ -291,7 +303,19 @@ test('start_selected_subject_metadata_workflow preserves requested analysis mode
     let harness;
 
     try {
-        harness = await createCommandHarness(tempDir);
+        harness = await createCommandHarness(tempDir, {
+            aiRuntime: {
+                async generateLiveMetadata() {
+                    return {
+                        tagProposals: ['nature', 'sunset'],
+                        captionsProposals: ['A beautiful sunset over the mountains.'],
+                        imageWidth: 100,
+                        imageHeight: 100,
+                        subjectBlocks: [],
+                    };
+                },
+            },
+        });
         harness.dbManager.getDb().prepare(`
             INSERT INTO assets (id, original_path, file_hash, file_size, width, height, exif_datetime, created_at)
             VALUES ('asset-1', ?, NULL, 1, 100, 100, NULL, CURRENT_TIMESTAMP)

@@ -300,12 +300,77 @@ function buildRegionOfInterestItems(asset: Asset): SinglePhotoPeopleItem[] {
     });
 }
 
+function calculateOverlapCoefficient(boxA: SinglePhotoOverlayBox, boxB: SinglePhotoOverlayBox): number {
+    const xA = Math.max(boxA.x, boxB.x);
+    const yA = Math.max(boxA.y, boxB.y);
+    const xB = Math.min(boxA.x + boxA.w, boxB.x + boxB.w);
+    const yB = Math.min(boxA.y + boxA.h, boxB.y + boxB.h);
+
+    const interWidth = Math.max(0, xB - xA);
+    const interHeight = Math.max(0, yB - yA);
+    const interArea = interWidth * interHeight;
+
+    if (interArea === 0) {return 0;}
+
+    const areaA = boxA.w * boxA.h;
+    const areaB = boxB.w * boxB.h;
+
+    return interArea / Math.min(areaA, areaB);
+}
+
+function findOverlappingFace(
+    faces: SinglePhotoPeopleItem[],
+    subject: SinglePhotoPeopleItem
+): SinglePhotoPeopleItem | null {
+    let bestMatch: SinglePhotoPeopleItem | null = null;
+    let maxOverlap = 0.70;
+    for (const face of faces) {
+        const overlap = calculateOverlapCoefficient(face.box, subject.box);
+        if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            bestMatch = face;
+        }
+    }
+    return bestMatch;
+}
+
+function mergeSubjectIntoFace(
+    face: SinglePhotoPeopleItem,
+    subject: SinglePhotoPeopleItem
+) {
+    if (face.label === 'Unknown person' && subject.label && !subject.label.startsWith('Subject')) {
+        face.label = subject.label;
+    }
+    if (subject.tags.length > 0) {
+        face.tags = Array.from(new Set([...face.tags, ...subject.tags]));
+    }
+    if (subject.sourceLabel && !face.tags.includes(subject.sourceLabel)) {
+        face.tags.push(subject.sourceLabel);
+    }
+    face.detail = `${face.detail || ''} | AI Subject: ${subject.label} (${subject.detail || ''})`.trim();
+}
+
+function coalescePeopleItems(
+    faceItems: SinglePhotoPeopleItem[],
+    subjectItems: SinglePhotoPeopleItem[]
+): SinglePhotoPeopleItem[] {
+    const result = [...faceItems];
+    for (const subject of subjectItems) {
+        const matchingFace = findOverlappingFace(result, subject);
+        if (matchingFace) {
+            mergeSubjectIntoFace(matchingFace, subject);
+        } else {
+            result.push(subject);
+        }
+    }
+    return result;
+}
+
 export function buildSinglePhotoPeopleModel(asset: Asset): SinglePhotoPeopleModel {
+    const faceItems = buildFaceItems(asset);
+    const subjectItems = buildSubjectItems(asset);
     return {
-        peopleItems: [
-            ...buildFaceItems(asset),
-            ...buildSubjectItems(asset),
-        ],
+        peopleItems: coalescePeopleItems(faceItems, subjectItems),
         regionsOfInterest: buildRegionOfInterestItems(asset),
     };
 }

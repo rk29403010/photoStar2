@@ -4,10 +4,11 @@ import { JustifiedLayout } from './JustifiedLayout';
 import type { GalleryTimeSection, GalleryTimeSectionMode } from './galleryTimeSections';
 import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
 import { GroupedTimelineLayout } from './GroupedTimelineLayout';
+import type { LibrarySelectableItem, LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 type LayoutModeRendererProps = {
     readonly layoutMode: GalleryLayoutMode;
-    readonly justifiedItems: Array<{ id: string; width?: number; height?: number }>;
+    readonly justifiedItems: Array<{ id: string; width?: number; height?: number; selectableItem?: LibrarySelectableItem }>;
     readonly justifiedSections?: GalleryTimeSection[];
     readonly timeSectionMode?: GalleryTimeSectionMode;
     readonly scrollContainerRef?: RefObject<HTMLDivElement | null>;
@@ -19,6 +20,8 @@ type LayoutModeRendererProps = {
     readonly onVisibleTimelineGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
     readonly timelineJumpRequest?: TimelineJumpRequest | null;
     readonly renderTile: (index: number, shellStyleOverride?: CSSProperties) => ReactNode;
+    readonly librarySelection?: LibrarySelectionState;
+    readonly onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
 }
 
 export function LayoutModeRenderer(props: LayoutModeRendererProps) {
@@ -30,11 +33,13 @@ export function LayoutModeRenderer(props: LayoutModeRendererProps) {
             items: section.items.flatMap((item) => {
                 const index = indexById.get(item.selectionKey);
                 if (index == null) {return [];}
+                const justifiedItem = props.justifiedItems[index];
                 return [{
                     id: item.selectionKey,
                     index,
                     width: item.asset.width,
                     height: item.asset.height,
+                    selectableItem: justifiedItem?.selectableItem,
                 }];
             }),
         }));
@@ -50,6 +55,8 @@ export function LayoutModeRenderer(props: LayoutModeRendererProps) {
                     onTopVisibleSelectionKeyChange={props.onTopVisibleSelectionKeyChange}
                     onVisibleGroupChange={props.onVisibleTimelineGroupChange}
                     timelineJumpRequest={props.timelineJumpRequest}
+                    librarySelection={props.librarySelection}
+                    onLibrarySelectionChange={props.onLibrarySelectionChange}
                     renderTile={(index, size) => props.renderTile(index, {
                         width: size.width,
                         height: size.height,

@@ -35,6 +35,7 @@ type TileOverlaysProps = {
     intent: TileIntent;
     isImageVisible: boolean;
     isScrollSettled: boolean;
+    hasSelection: boolean;
 }
 
 function getFaceVisuals(facePersonId: string | undefined, activeFilter: LibraryFilter | undefined, showFaces: boolean): FaceOverlayVisuals {
@@ -84,13 +85,29 @@ const StackBadge: React.FC<{ count: number | null | undefined }> = ({ count }) =
     );
 };
 
-const SelectedStarBadge: React.FC = () => (
-    <div
-        className="absolute top-2 left-2 w-6 h-6 rounded-full bg-slate-900/90 text-amber-500 border border-indigo-500/50 flex items-center justify-center text-sm z-18 pointer-events-none shadow-lg"
-    >
-        ★
-    </div>
-);
+const SelectionCheckbox: React.FC<{
+    selected: boolean;
+    visible: boolean;
+}> = ({ selected, visible }) => {
+    if (!visible) {return null;}
+
+    return (
+        <div
+            data-selection-toggle="true"
+            className={`absolute top-2.5 left-2.5 w-5 h-5 rounded-full flex items-center justify-center z-18 shadow-md motion-safe:transition-all motion-safe:duration-150 cursor-pointer border ${
+                selected
+                    ? 'bg-brand-accent text-white border-brand-accent scale-100'
+                    : 'bg-black/40 hover:bg-black/60 text-transparent border-white/60 hover:border-white scale-95 hover:scale-100'
+            }`}
+        >
+            {selected && (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+            )}
+        </div>
+    );
+};
 
 const GroupIdPills: React.FC<{
     memberships: Asset['group_memberships'];
@@ -227,6 +244,7 @@ export const TileOverlays: React.FC<TileOverlaysProps> = ({
     intent,
     isImageVisible,
     isScrollSettled,
+    hasSelection,
 }) => {
     const overlayVisibility = getTileOverlayVisibility({
         isHovered,
@@ -238,7 +256,7 @@ export const TileOverlays: React.FC<TileOverlaysProps> = ({
 
     return (
         <>
-            {selected && <SelectedStarBadge />}
+            <SelectionCheckbox selected={selected} visible={selected || isHovered || hasSelection} />
             <SensitivityBadgeView badge={sensitivityBadge} />
             <StackBadge count={overlayVisibility.showStackBadge ? stackCount : null} />
             <GroupIdPills

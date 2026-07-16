@@ -78,6 +78,11 @@ To maintain fast progress and optimize token usage, quality checking should be o
   hook, effect, or event-handler boundaries.
 - Do not add lint disables unless the reason is written inline.
 
+## Error Handling & Visual Resilience
+
+- **Avoid Visual Failures**: Protect the application from "white screen of death" style failures. Major settings screens, tabs, panels, and viewports must be wrapped in React Error Boundaries to isolate runtime rendering errors and keep the remaining UI functional.
+- **Fail Gracefully**: UI elements experiencing errors should render a clean fallback UI with diagnostic detail (e.g., an error message or icon with reset options) instead of crashing the parent layout.
+
 ### SonarQube & Code Quality Rules
 
 These rules are programmatically checked and enforced by our ESLint setup (using `eslint-plugin-sonarjs`, `eslint-plugin-jsx-a11y`, and `@deslint/eslint-plugin`). The rules listed below are indicative guidelines that the linter automatically verifies:

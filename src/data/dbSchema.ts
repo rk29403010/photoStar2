@@ -412,6 +412,27 @@ export const SCHEMA_SQL = `
     FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS family_trees (
+    id TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    file_hash TEXT NOT NULL UNIQUE,
+    gedcom_content TEXT NOT NULL,
+    tree_group_id TEXT NOT NULL,
+    version_label TEXT,
+    home_person_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS people_gedcom_links (
+    person_id TEXT NOT NULL,
+    gedcom_tree_id TEXT NOT NULL,
+    gedcom_person_id TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (person_id, gedcom_tree_id, gedcom_person_id),
+    FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE CASCADE,
+    FOREIGN KEY(gedcom_tree_id) REFERENCES family_trees(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_asset_groups_type ON asset_groups(type);
   CREATE INDEX IF NOT EXISTS idx_asset_groups_canonical ON asset_groups(canonical_asset_id);
   CREATE INDEX IF NOT EXISTS idx_group_members_asset ON asset_group_members(asset_id);
@@ -451,6 +472,9 @@ export const MIGRATIONS = [
     "ALTER TABLE albums ADD COLUMN system_kind TEXT",
     "ALTER TABLE people ADD COLUMN birth_date TEXT",
     "ALTER TABLE people ADD COLUMN death_date TEXT",
+    "CREATE TABLE IF NOT EXISTS family_trees (id TEXT PRIMARY KEY, filename TEXT NOT NULL, file_hash TEXT NOT NULL UNIQUE, gedcom_content TEXT NOT NULL, tree_group_id TEXT NOT NULL, version_label TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS people_gedcom_links (person_id TEXT NOT NULL, gedcom_tree_id TEXT NOT NULL, gedcom_person_id TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (person_id, gedcom_tree_id, gedcom_person_id))",
+    "ALTER TABLE face_assignments ADD COLUMN is_suggested INTEGER DEFAULT 0",
 ];
 
 export const LEGACY_QUEUE_TABLE_NAME = joinLegacyName('task', 'queue');

@@ -4,6 +4,7 @@ import type { GoogleGenerativeAI } from '@google/generative-ai';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../../data/db';
+import { ApiKeyManager, KeyNotFoundError } from '../../../security/ApiKeyManager';
 import type { DomainEvent } from '../../../events/types';
 import type { PhotoMetadataBlock, PhotoMetadataRegionOfInterest } from '../../../photoMetadata/types';
 import {
@@ -99,23 +100,28 @@ const GEMINI_GENERATION_CONFIG_BASE = {
     topK: 1,
 } as const;
 
-function validateApiKey(dbManager: DatabaseManager): string {
-    const apiKey = dbManager.getSetting('ai_metadata_v2_api_key')
-        || dbManager.getSetting('gemini_api_key')
-        || process.env.GEMINI_API_KEY;
-    const keyTrimmed = apiKey?.trim() ?? '';
-    if (!keyTrimmed) {
-        throw new Error('MISSING_API_KEY');
+async function validateApiKey(): Promise<string> {
+    let apiKey: string | null = null;
+    try {
+        apiKey = await ApiKeyManager.getPlaintextKey('gemini');
+    } catch (error) {
+        if (error instanceof KeyNotFoundError) {
+            apiKey = process.env.GEMINI_API_KEY || null;
+            if (!apiKey) {
+                throw new Error('MISSING_API_KEY');
+            }
+        } else {
+            throw error;
+        }
     }
-    if (!keyTrimmed.startsWith('AIza') || keyTrimmed.length < 30) {
-        throw new Error('INVALID_API_KEY_FORMAT');
-    }
-    return keyTrimmed;
+
+    ApiKeyManager.validateKeyFormat('gemini', apiKey);
+    return apiKey!.trim();
 }
 
-export function getLiveAiConfigurationError(dbManager: DatabaseManager): string | null {
+export async function getLiveAiConfigurationError(): Promise<string | null> {
     try {
-        validateApiKey(dbManager);
+        await validateApiKey();
         return null;
     } catch (error) {
         return getUnrecoverableAiReason(error as Error) ?? (error as Error).message;
@@ -131,7 +137,7 @@ function resolveConfiguredModel(settingValue: string): string {
 }
 
 async function resolveModelConfig(dbManager: DatabaseManager): Promise<ModelConfig> {
-    const apiKey = validateApiKey(dbManager);
+    const apiKey = await validateApiKey();
     const configuredScoutModel = resolveConfiguredModel(dbManager.getSetting('job_ai_model_scout') || '');
     const configuredRefineModel = resolveConfiguredModel(
         dbManager.getSetting('job_ai_model_refine') || dbManager.getSetting('job_ai_model') || '',

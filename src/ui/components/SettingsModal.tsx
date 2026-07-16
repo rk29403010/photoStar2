@@ -13,15 +13,19 @@ type SettingsModalProps = {
     readonly setAnimationsEnabled: (v: boolean) => void;
     readonly aiMode: AiMode;
     readonly setAiMode: (mode: AiMode) => void;
+    readonly testProviderKeyCommand: (provider: string, key: string) => Promise<{ valid: boolean; error?: string }>;
+    readonly saveProviderKey: (provider: string, key: string) => Promise<{ success: boolean; error?: string }>;
+    readonly deleteProviderKey: (provider: string) => Promise<{ success: boolean; error?: string }>;
+    readonly getRedactedProviderKey: (provider: string) => Promise<{ redactedKey: string | null; error?: string }>;
 }
 
-type Tab = 'system' | 'ui' | 'workflows' | 'jobs';
+type Tab = 'system' | 'ui' | 'providers' | 'workflows' | 'jobs';
 type FaceMatchingMode = 'strict' | 'balanced' | 'loose';
 type SettingsMap = { [key: string]: string };
 
 const dbKeys = [
     'system_log_level', 'system_max_threads', 'workflow_auto_scan',
-    'ai_metadata_v2_api_key', 'gemini_api_key', 'gemini_csv_path', 'job_cluster_threshold', 'job_face_matching_mode',
+    'gemini_csv_path', 'job_cluster_threshold', 'job_face_matching_mode',
     'job_ai_model_scout', 'job_ai_model_refine',
 ];
 
@@ -34,6 +38,7 @@ const FACE_MATCHING_MODE_OPTIONS: Array<{ value: FaceMatchingMode; label: string
 const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'system', label: 'System Settings' },
     { id: 'ui', label: 'UI Settings' },
+    { id: 'providers', label: 'AI API Keys' },
     { id: 'workflows', label: 'Workflows' },
     { id: 'jobs', label: 'Registered Jobs' },
 ];
@@ -152,16 +157,6 @@ function AiJobSection({ dbSettings, onChange }: { readonly dbSettings: SettingsM
     return (
         <Card className="gap-4">
             <div className="flex flex-col gap-1">
-                <label htmlFor="setting-ai-metadata-v2-api-key" className="text-xs font-medium uppercase tracking-wider text-content-secondary">AI Metadata V2 API Key</label>
-                <Input id="setting-ai-metadata-v2-api-key" type="password" autoComplete="current-password" value={dbSettings.ai_metadata_v2_api_key || ''} onChange={(e) => onChange('ai_metadata_v2_api_key', e.target.value)} placeholder="AIzaSy..." />
-                <p className="text-xs text-content-secondary">Preferred by the runtime AI metadata module. Falls back to the Gemini key, then <code className="rounded bg-black/30 px-1 py-0.5 font-mono">GEMINI_API_KEY</code> from <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code>, if left blank.</p>
-            </div>
-            <div className="flex flex-col gap-1">
-                <label htmlFor="setting-gemini-api-key" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Gemini API Key</label>
-                <Input id="setting-gemini-api-key" type="password" autoComplete="current-password" value={dbSettings.gemini_api_key || ''} onChange={(e) => onChange('gemini_api_key', e.target.value)} placeholder="AIzaSy..." />
-                <p className="text-xs text-content-secondary">Optional fallback key for Gemini-backed runtime metadata execution before the <code className="rounded bg-black/30 px-1 py-0.5 font-mono">.env.local</code> fallback. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-brand-accent hover:underline">aistudio.google.com/apikey</a></p>
-            </div>
-            <div className="flex flex-col gap-1">
                 <label htmlFor="setting-gemini-csv-path" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Kinship Explorer CSV Path</label>
                 <Input id="setting-gemini-csv-path" type="text" value={dbSettings.gemini_csv_path || ''} onChange={(e) => onChange('gemini_csv_path', e.target.value)} placeholder="C:/Path/To/Names.csv" />
                 <p className="text-xs text-content-secondary">Used to identify people across generations</p>
@@ -219,6 +214,193 @@ function JobsTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; r
             <div className="flex flex-col gap-4">
                 <h3 className="border-b border-content/10 pb-2 text-lg font-semibold text-brand-accent">Workflow: library_grouping_v1</h3>
                 <ClusterJobSection dbSettings={dbSettings} onChange={onChange} />
+            </div>
+        </div>
+    );
+}
+
+type ApiProviderSettingsProps = {
+    readonly testProviderKeyCommand: SettingsModalProps['testProviderKeyCommand'];
+    readonly saveProviderKey: SettingsModalProps['saveProviderKey'];
+    readonly deleteProviderKey: SettingsModalProps['deleteProviderKey'];
+    readonly getRedactedProviderKey: SettingsModalProps['getRedactedProviderKey'];
+};
+
+const API_PROVIDERS = [
+    {
+        id: 'gemini',
+        name: 'Google Gemini AI',
+        description: 'Used for live image analysis, tag suggestions, and caption refinement.',
+    },
+];
+
+function useProviderKeyState(getRedactedProviderKey: ApiProviderSettingsProps['getRedactedProviderKey']) {
+    const [providerKeys, setProviderKeys] = useState<Record<string, string | null>>({});
+    const [inputs, setInputs] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState<Record<string, boolean>>({});
+    const [errors, setErrors] = useState<Record<string, string | null>>({});
+    const [successMsg, setSuccessMsg] = useState<Record<string, string | null>>({});
+    useEffect(() => {
+        let active = true;
+        async function loadKeys() {
+            const nextKeys: Record<string, string | null> = {};
+            for (const provider of API_PROVIDERS) {
+                try {
+                    const res = await getRedactedProviderKey(provider.id);
+                    if (active) {
+                        nextKeys[provider.id] = res.redactedKey;
+                    }
+                } catch {
+                    if (active) {
+                        nextKeys[provider.id] = null;
+                    }
+                }
+            }
+            if (active) {
+                setProviderKeys(nextKeys);
+            }
+        }
+        void loadKeys();
+        return () => {
+            active = false;
+        };
+    }, [getRedactedProviderKey]);
+    return {
+        errors, inputs, loading, providerKeys, setErrors, setInputs,
+        setLoading, setProviderKeys, setSuccessMsg, successMsg,
+    };
+}
+
+async function validateAndStoreProviderKey(
+    props: ApiProviderSettingsProps,
+    provider: string,
+    key: string,
+): Promise<string | null> {
+    const testResult = await props.testProviderKeyCommand(provider, key);
+    if (!testResult.valid) {
+        throw new Error(testResult.error || 'Key validation failed');
+    }
+    const saveResult = await props.saveProviderKey(provider, key);
+    if (!saveResult.success) {
+        throw new Error(saveResult.error || 'Failed to save key to secure vault');
+    }
+    return (await props.getRedactedProviderKey(provider)).redactedKey;
+}
+
+function useProviderKeyActions(
+    props: ApiProviderSettingsProps,
+    state: ReturnType<typeof useProviderKeyState>,
+) {
+    const start = (provider: string) => {
+        state.setLoading((current) => ({ ...current, [provider]: true }));
+        state.setErrors((current) => ({ ...current, [provider]: null }));
+        state.setSuccessMsg((current) => ({ ...current, [provider]: null }));
+    };
+    const stop = (provider: string) =>
+        state.setLoading((current) => ({ ...current, [provider]: false }));
+    const fail = (provider: string, error: unknown) =>
+        state.setErrors((current) => ({
+            ...current,
+            [provider]: error instanceof Error ? error.message : String(error),
+        }));
+
+    const handleTestAndSave = async (provider: string) => {
+        const proposedKey = (state.inputs[provider] || '').trim();
+        if (!proposedKey) {
+            fail(provider, 'Please enter a valid key');
+            return;
+        }
+        start(provider);
+        try {
+            const redactedKey = await validateAndStoreProviderKey(props, provider, proposedKey);
+            state.setProviderKeys((current) => ({ ...current, [provider]: redactedKey }));
+            state.setInputs((current) => ({ ...current, [provider]: '' }));
+            state.setSuccessMsg((current) => ({ ...current, [provider]: 'Key verified & securely stored! ✓' }));
+        } catch (error) {
+            fail(provider, error);
+        } finally {
+            stop(provider);
+        }
+    };
+    const handleDelete = async (provider: string) => {
+        start(provider);
+        try {
+            const result = await props.deleteProviderKey(provider);
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to delete key');
+            }
+            state.setProviderKeys((current) => ({ ...current, [provider]: null }));
+            state.setSuccessMsg((current) => ({ ...current, [provider]: 'Key removed securely ✓' }));
+        } catch (error) {
+            fail(provider, error);
+        } finally {
+            stop(provider);
+        }
+    };
+    return { handleDelete, handleTestAndSave };
+}
+
+function ProviderKeyCard(props: {
+    readonly provider: (typeof API_PROVIDERS)[number];
+    readonly state: ReturnType<typeof useProviderKeyState>;
+    readonly actions: ReturnType<typeof useProviderKeyActions>;
+}) {
+    const id = props.provider.id;
+    const savedKey = props.state.providerKeys[id];
+    const hasKey = savedKey !== null && savedKey !== undefined;
+    const isLoading = props.state.loading[id];
+    return (
+        <Card className="flex flex-col gap-4 p-5 bg-surface-secondary border border-content/5 rounded-lg">
+            <div className="flex flex-col gap-1">
+                <h4 className="font-semibold text-content">{props.provider.name}</h4>
+                <p className="text-xs text-content-secondary">{props.provider.description}</p>
+            </div>
+            {hasKey ? (
+                <div className="flex items-center justify-between bg-surface p-3 rounded-md border border-content/10">
+                    <div className="flex items-center gap-2">
+                        <span className="text-emerald-500">🔒</span>
+                        <span className="font-mono text-sm tracking-wider text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded">{savedKey}</span>
+                        <span className="text-xs text-content-secondary">(Securely configured)</span>
+                    </div>
+                    <Button onClick={() => props.actions.handleDelete(id)} disabled={isLoading}>Delete Key</Button>
+                </div>
+            ) : (
+                <div className="flex gap-2">
+                    <Input
+                        type="password"
+                        autoComplete="current-password"
+                        value={props.state.inputs[id] || ''}
+                        onChange={(event) => props.state.setInputs((current) => ({ ...current, [id]: event.target.value }))}
+                        placeholder="Enter API key"
+                        disabled={isLoading}
+                    />
+                    <Button onClick={() => props.actions.handleTestAndSave(id)} disabled={isLoading}>
+                        {isLoading ? 'Testing...' : 'Test & Save'}
+                    </Button>
+                </div>
+            )}
+            {props.state.errors[id] && <div className="text-xs text-red-400">⚠️ {props.state.errors[id]}</div>}
+            {props.state.successMsg[id] && <div className="text-xs text-emerald-400">{props.state.successMsg[id]}</div>}
+        </Card>
+    );
+}
+
+function ApiProviderSettings(props: ApiProviderSettingsProps) {
+    const state = useProviderKeyState(props.getRedactedProviderKey);
+    const actions = useProviderKeyActions(props, state);
+
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="border-b border-content/10 pb-2">
+                <h3 className="text-lg font-semibold text-brand-accent">Secure API Keys</h3>
+                <p className="mt-1 text-xs text-content-secondary">
+                    All API keys are verified on-the-fly and stored securely in your operating system&apos;s credential vault.
+                </p>
+            </div>
+            <div className="flex flex-col gap-6">
+                {API_PROVIDERS.map((provider) => (
+                    <ProviderKeyCard key={provider.id} provider={provider} state={state} actions={actions} />
+                ))}
             </div>
         </div>
     );
@@ -310,6 +492,10 @@ function SettingsContent({
     setAnimationsEnabled,
     aiMode,
     setAiMode,
+    testProviderKeyCommand,
+    saveProviderKey,
+    deleteProviderKey,
+    getRedactedProviderKey,
 }: {
     readonly activeTab: Tab;
     readonly dbSettings: SettingsMap;
@@ -320,6 +506,10 @@ function SettingsContent({
     readonly setAnimationsEnabled: (v: boolean) => void;
     readonly aiMode: AiMode;
     readonly setAiMode: (mode: AiMode) => void;
+    readonly testProviderKeyCommand: SettingsModalProps['testProviderKeyCommand'];
+    readonly saveProviderKey: SettingsModalProps['saveProviderKey'];
+    readonly deleteProviderKey: SettingsModalProps['deleteProviderKey'];
+    readonly getRedactedProviderKey: SettingsModalProps['getRedactedProviderKey'];
 }) {
     if (activeTab === 'system') {
         return <SystemTab dbSettings={dbSettings} onChange={onDbChange} />;
@@ -334,6 +524,17 @@ function SettingsContent({
                 setAnimationsEnabled={setAnimationsEnabled}
                 aiMode={aiMode}
                 setAiMode={setAiMode}
+            />
+        );
+    }
+
+    if (activeTab === 'providers') {
+        return (
+            <ApiProviderSettings
+                testProviderKeyCommand={testProviderKeyCommand}
+                saveProviderKey={saveProviderKey}
+                deleteProviderKey={deleteProviderKey}
+                getRedactedProviderKey={getRedactedProviderKey}
             />
         );
     }
@@ -354,7 +555,7 @@ function SettingsFooter({
     readonly saveStatus: string | null;
     readonly onSave: () => void;
 }) {
-    if (activeTab === 'ui') {
+    if (activeTab === 'ui' || activeTab === 'providers') {
         return null;
     }
 
@@ -369,6 +570,7 @@ function SettingsFooter({
 export function SettingsModal({
     isOpen, onClose, getSetting, setSetting,
     theme, setTheme, animationsEnabled, setAnimationsEnabled, aiMode, setAiMode,
+    testProviderKeyCommand, saveProviderKey, deleteProviderKey, getRedactedProviderKey,
 }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<Tab>('system');
     const [dbSettings, setDbSettings] = useState<SettingsMap>({});
@@ -408,6 +610,10 @@ export function SettingsModal({
                             setAnimationsEnabled={setAnimationsEnabled}
                             aiMode={aiMode}
                             setAiMode={setAiMode}
+                            testProviderKeyCommand={testProviderKeyCommand}
+                            saveProviderKey={saveProviderKey}
+                            deleteProviderKey={deleteProviderKey}
+                            getRedactedProviderKey={getRedactedProviderKey}
                         />
                     </div>
                 </div>

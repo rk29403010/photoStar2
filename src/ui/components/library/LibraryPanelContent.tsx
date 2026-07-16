@@ -26,6 +26,13 @@ type LibraryPanelContentProps = {
         onShowGroupIdsChange: (enabled: boolean) => void;
         showInfoPanel: boolean;
         onShowInfoPanelChange: (show: boolean) => void;
+        onDeclusterSelection?: (personId: string) => void;
+        onBulkTagSelection?: () => Promise<void>;
+        onBulkUntagSelection?: () => Promise<void>;
+        onMoveSelectionToBin?: () => Promise<void>;
+        onRestoreSelectionFromBin?: () => Promise<void>;
+        onClearSelection?: () => void;
+        activeFilter?: LibraryFilter;
     };
     readonly timelineRail?: ReactNode;
     readonly displayItems: LibrarySelectableItem[];

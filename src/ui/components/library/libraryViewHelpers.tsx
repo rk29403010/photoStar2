@@ -157,6 +157,12 @@ export function useLibraryPresentationModel(params: {
             onTimelineBucketJump: params.handleTimelineBucketJump,
             timelineVisibleGroupId: params.timelineVisibleGroupId,
             timelineVisibleGroupIndex: params.timelineVisibleGroupIndex,
+            onDeclusterSelection: params.props.onDeclusterSelection,
+            onBulkTagSelection: params.props.onBulkTagSelection,
+            onBulkUntagSelection: params.props.onBulkUntagSelection,
+            onMoveSelectionToBin: params.props.onMoveSelectionToBin,
+            onRestoreSelectionFromBin: params.props.onRestoreSelectionFromBin,
+            onClearSelection: params.props.onClearSelection,
         }),
     };
 }

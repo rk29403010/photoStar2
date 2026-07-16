@@ -148,12 +148,12 @@ function resolveAssetRow(db, assetSelector) {
     };
 }
 
-function loadDebugContext(db, options) {
+async function loadDebugContext(db, options) {
     const asset = resolveAssetRow(db, options.assetSelector);
     const settingsRows = db.prepare(`
         SELECT id, value
         FROM settings
-        WHERE id IN ('ai_metadata_v2_api_key', 'gemini_api_key', 'job_ai_model_scout', 'job_ai_model_refine', 'job_ai_model')
+        WHERE id IN ('job_ai_model_scout', 'job_ai_model_refine', 'job_ai_model')
     `).all();
     const settings = new Map(settingsRows.map((row) => [row.id, row.value]));
     const approvedTagRows = db.prepare(`
@@ -163,9 +163,17 @@ function loadDebugContext(db, options) {
         ORDER BY canonical_label COLLATE NOCASE ASC
     `).all();
     const approvedTags = approvedTagRows.map((row) => row.canonical_label);
-    const apiKey = settings.get('ai_metadata_v2_api_key') || settings.get('gemini_api_key') || process.env.GEMINI_API_KEY || '';
-    if (!apiKey && !options.dryRun) {
-        throw new Error('No Gemini API key configured for live debug runs.');
+
+    let apiKey = process.env.GEMINI_API_KEY || '';
+    if (!options.dryRun) {
+        try {
+            const { ApiKeyManager } = await import('../../../dist/core/src/services/security/ApiKeyManager.js');
+            apiKey = await ApiKeyManager.getPlaintextKey('gemini');
+        } catch (error) {
+            if (!apiKey) {
+                throw new Error(`No Gemini API key configured for live debug runs. Reason: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
     }
 
     return { apiKey, approvedTags, asset, settings };
@@ -367,7 +375,7 @@ async function main() {
 
     const sourceDb = new Database(options.dbPath, { readonly: true, fileMustExist: true });
     try {
-        const context = loadDebugContext(sourceDb, options);
+        const context = await loadDebugContext(sourceDb, options);
         const fakeDb = createFakeDb(context.approvedTags);
         const dbManager = createFakeDbManager(context.settings, fakeDb, options);
         const runs = await runDebugCaptures({

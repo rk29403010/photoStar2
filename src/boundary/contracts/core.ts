@@ -282,6 +282,7 @@ export type Person = {
     cover_image?: string;
     birth_date?: string;
     death_date?: string;
+    gedcom_links?: Array<{ treeId: string; personId: string }>;
 }
 
 export type LibraryTimelineBucket = {

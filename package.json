@@ -81,7 +81,7 @@
     "benchmark:quality": "node tooling/scripts/repo/benchmark-quality.js",
     "preview": "vite preview",
     "tauri": "tauri",
-    "lint:md": "markdownlint \"**/*.md\" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts",
+    "lint:md": "markdownlint \"**/*.md\" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents",
     "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts"
   },
   "dependencies": {
@@ -94,8 +94,10 @@
     "@types/react-virtualized-auto-sizer": "^1.0.4",
     "@xyflow/react": "^12.10.1",
     "better-sqlite3": "^11.10.0",
+    "d3": "^7.9.0",
     "exif-parser": "^0.1.12",
     "fs-extra": "^11.2.0",
+    "keytar": "^7.9.0",
     "lucide-react": "^0.575.0",
     "nsfwjs": "^4.2.1",
     "onnxruntime-node": "^1.20.0",
@@ -114,6 +116,7 @@
     "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/cli": "^2.9.6",
     "@types/better-sqlite3": "^7.6.12",
+    "@types/d3": "^7.4.3",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",

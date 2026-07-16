@@ -4,6 +4,7 @@ import { clearLibrarySelection, type LibrarySelectableItem, type LibrarySelectio
 import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LibraryTimelineRail } from './LibraryTimelineRail';
+import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { createSelectionKeyTimelineBucketIndex, isTimelineSortMode } from './libraryTimelineModel';
 
 function getTimelineGroupIdForBucketStartYear(startYear: number): TimelineGroupId {
@@ -72,6 +73,13 @@ export function getLibraryToolbarProps(params: {
     onShowGroupIdsChange: (enabled: boolean) => void;
     showInfoPanel: boolean;
     handleShowInfoPanelChange: (show: boolean) => void;
+    onDeclusterSelection?: (personId: string) => void;
+    onBulkTagSelection?: () => Promise<void>;
+    onBulkUntagSelection?: () => Promise<void>;
+    onMoveSelectionToBin?: () => Promise<void>;
+    onRestoreSelectionFromBin?: () => Promise<void>;
+    onClearSelection?: () => void;
+    activeFilter?: LibraryFilter;
 }) {
     return {
         sortMode: params.sortMode,
@@ -87,6 +95,13 @@ export function getLibraryToolbarProps(params: {
         onShowGroupIdsChange: params.onShowGroupIdsChange,
         showInfoPanel: params.showInfoPanel,
         onShowInfoPanelChange: params.handleShowInfoPanelChange,
+        onDeclusterSelection: params.onDeclusterSelection,
+        onBulkTagSelection: params.onBulkTagSelection,
+        onBulkUntagSelection: params.onBulkUntagSelection,
+        onMoveSelectionToBin: params.onMoveSelectionToBin,
+        onRestoreSelectionFromBin: params.onRestoreSelectionFromBin,
+        onClearSelection: params.onClearSelection,
+        activeFilter: params.activeFilter,
     };
 }
 

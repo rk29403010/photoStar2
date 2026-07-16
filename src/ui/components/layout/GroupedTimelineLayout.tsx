@@ -1,16 +1,20 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { buildJustifiedLayoutRows } from '@shared/utils/libraryJustifiedLayout';
 import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
-import {
-    getTopVisibleSelectionKeyFromScrollContainer,
-    getTopVisibleTimelineGroupIdFromScrollContainer,
-} from '../library/libraryVisibleSelectionKey';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { isItemSelected, type LibrarySelectableItem, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 type GroupedTimelineLayoutProps = {
     readonly sections: Array<{
         id: string;
         label: string | null;
-        items: Array<{ id: string; index: number; width?: number; height?: number }>;
+        items: Array<{
+            id: string;
+            index: number;
+            width?: number;
+            height?: number;
+            selectableItem?: LibrarySelectableItem;
+        }>;
     }>;
     readonly scrollContainerRef?: RefObject<HTMLDivElement | null>;
     readonly gap?: number;
@@ -21,6 +25,8 @@ type GroupedTimelineLayoutProps = {
     readonly onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
     readonly timelineJumpRequest?: TimelineJumpRequest | null;
     readonly renderTile: (index: number, size: { width: number; height: number }) => ReactNode;
+    readonly librarySelection?: LibrarySelectionState;
+    readonly onLibrarySelectionChange?: (selection: LibrarySelectionState) => void;
 }
 
 type TimelineLayoutGroup = {
@@ -46,12 +52,12 @@ function useContainerWidth() {
         if (!element) {return;}
 
         const updateWidth = () => {
-            setContainerWidth(Math.max(0, Math.floor(element.clientWidth)));
+            setContainerWidth(element.getBoundingClientRect().width);
         };
 
-        updateWidth();
-        const observer = new ResizeObserver(() => updateWidth());
+        const observer = new ResizeObserver(updateWidth);
         observer.observe(element);
+        updateWidth();
 
         return () => observer.disconnect();
     }, []);
@@ -63,25 +69,9 @@ function useCustomScrollParent(scrollContainerRef?: RefObject<HTMLDivElement | n
     const [customScrollParent, setCustomScrollParent] = useState<HTMLDivElement | undefined>();
 
     useEffect(() => {
-        let animationFrameId: number | null = null;
-
-        const syncScrollParent = () => {
-            const nextScrollParent = scrollContainerRef?.current ?? undefined;
-            setCustomScrollParent((currentScrollParent) => (
-                currentScrollParent === nextScrollParent ? currentScrollParent : nextScrollParent
-            ));
-            if (scrollContainerRef && !nextScrollParent) {
-                animationFrameId = globalThis.requestAnimationFrame(syncScrollParent);
-            }
-        };
-
-        syncScrollParent();
-
-        return () => {
-            if (animationFrameId != null) {
-                globalThis.cancelAnimationFrame(animationFrameId);
-            }
-        };
+        if (scrollContainerRef) {
+            setCustomScrollParent(scrollContainerRef.current ?? undefined);
+        }
     }, [scrollContainerRef]);
 
     return customScrollParent;
@@ -89,7 +79,7 @@ function useCustomScrollParent(scrollContainerRef?: RefObject<HTMLDivElement | n
 
 function buildTimelineLayoutGroups(
     sections: GroupedTimelineLayoutProps['sections'],
-    options: Pick<GroupedTimelineLayoutProps, 'gap' | 'maxRowHeight' | 'targetRowHeight'> & { containerWidth: number },
+    options: Parameters<typeof buildJustifiedLayoutRows>[1],
 ) {
     return sections.map((section) => ({
         id: section.id,
@@ -110,20 +100,118 @@ function buildTimelineLayoutRows(groups: TimelineLayoutGroup[]) {
     ));
 }
 
-function renderGroupHeader(group: TimelineLayoutGroup | undefined) {
-    if (!group?.label) {
-        return <div className="w-full min-h-11" />;
+function calculateSectionSelectionState(
+    validItems: Array<{ selectableItem?: LibrarySelectableItem }>,
+    librarySelection: LibrarySelectionState | undefined
+) {
+    if (!librarySelection || validItems.length === 0) {
+        return { allSelected: false, someSelected: false };
+    }
+    const selectedCount = validItems.filter(item => item.selectableItem && isItemSelected(librarySelection, item.selectableItem)).length;
+    return {
+        allSelected: selectedCount === validItems.length,
+        someSelected: selectedCount > 0 && selectedCount < validItems.length
+    };
+}
+
+function toggleSectionSelection(
+    validItems: Array<{ selectableItem?: LibrarySelectableItem }>,
+    librarySelection: LibrarySelectionState,
+    onLibrarySelectionChange: (selection: LibrarySelectionState) => void,
+    allSelected: boolean
+) {
+    const nextSelection = {
+        photoIds: new Set(librarySelection.photoIds),
+        groupIds: new Set(librarySelection.groupIds),
+        anchorKey: librarySelection.anchorKey,
+        mostRecentSelectionKey: librarySelection.mostRecentSelectionKey,
+    };
+
+    validItems.forEach(item => {
+        if (!item.selectableItem) {return;}
+        const key = item.selectableItem.entityType === 'group' && item.selectableItem.groupId ? 'groupIds' : 'photoIds';
+        const val = item.selectableItem.entityType === 'group' && item.selectableItem.groupId ? item.selectableItem.groupId : item.selectableItem.photoId;
+        if (allSelected) {
+            nextSelection[key].delete(val);
+        } else {
+            nextSelection[key].add(val);
+        }
+    });
+
+    onLibrarySelectionChange(nextSelection);
+}
+
+const DecadeHeaderLabel: React.FC<{ label: string }> = ({ label }) => (
+    <div className="text-sm font-bold tracking-wider uppercase text-content-secondary flex items-baseline gap-0.5">
+        <span>{label.slice(0, -1)}</span>
+        <span className="text-xs tracking-normal">{label.slice(-1)}</span>
+    </div>
+);
+
+const DecadeHeaderCheckbox: React.FC<{
+    hasSelection: boolean;
+    allSelected: boolean;
+    someSelected: boolean;
+    onClick: () => void;
+}> = ({ hasSelection, allSelected, someSelected, onClick }) => {
+    let checkboxClass = 'bg-black/20 hover:bg-black/40 text-transparent border-content/25 hover:border-content/50 scale-95 hover:scale-100';
+    if (allSelected) {
+        checkboxClass = 'bg-brand-accent text-white border-brand-accent scale-100';
+    } else if (someSelected) {
+        checkboxClass = 'bg-brand-accent/25 text-brand-accent border-brand-accent scale-100';
     }
 
     return (
         <div
-            data-time-section-id={group.id}
-            className="w-full max-w-screen-2xl min-h-11 mx-auto pt-4 pb-2 px-0 box-border bg-surface border-b border-content/5"
+            onClick={onClick}
+            className={`w-5 h-5 rounded flex items-center justify-center cursor-pointer border motion-safe:transition-all motion-safe:duration-150 ${
+                hasSelection ? 'opacity-100' : 'opacity-0 group-hover/header:opacity-100'
+            } ${checkboxClass}`}
         >
-            <div className="text-sm font-bold tracking-wider uppercase text-content-secondary flex items-baseline gap-0.5">
-                <span>{group.label.slice(0, -1)}</span>
-                <span className="text-xs tracking-normal">{group.label.slice(-1)}</span>
-            </div>
+            {allSelected && (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+            )}
+            {someSelected && (
+                <div className="w-2.5 h-0.5 bg-brand-accent rounded-sm" />
+            )}
+        </div>
+    );
+};
+
+function renderGroupHeader(
+    group: TimelineLayoutGroup | undefined,
+    section: GroupedTimelineLayoutProps['sections'][number] | undefined,
+    librarySelection: LibrarySelectionState | undefined,
+    onLibrarySelectionChange: ((selection: LibrarySelectionState) => void) | undefined,
+) {
+    if (!group?.label) {
+        return <div className="w-full min-h-11" />;
+    }
+
+    const hasSelection = librarySelection ? (librarySelection.photoIds.size > 0 || librarySelection.groupIds.size > 0) : false;
+    const sectionItems = section?.items ?? [];
+    const validItems = sectionItems.filter(item => item.selectableItem);
+    const { allSelected, someSelected } = calculateSectionSelectionState(validItems, librarySelection);
+
+    return (
+        <div
+            data-time-section-id={group.id}
+            className="w-full max-w-screen-2xl min-h-11 mx-auto pt-4 pb-2 px-0 box-border bg-surface border-b border-content/5 flex items-center justify-between group/header"
+        >
+            <DecadeHeaderLabel label={group.label} />
+            {validItems.length > 0 && (
+                <DecadeHeaderCheckbox
+                    hasSelection={hasSelection}
+                    allSelected={allSelected}
+                    someSelected={someSelected}
+                    onClick={() => {
+                        if (!librarySelection || !onLibrarySelectionChange) {return;}
+                        toggleSectionSelection(validItems, librarySelection, onLibrarySelectionChange, allSelected);
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -152,151 +240,9 @@ function renderTimelineRow(
     );
 }
 
-function resolveTimelineJumpGroup(
-    timelineJumpRequest: TimelineJumpRequest,
-    groupIndexById: Map<string, number>,
-    groups: TimelineLayoutGroup[],
-) {
-    const groupIndex = timelineJumpRequest.groupIndex ?? groupIndexById.get(timelineJumpRequest.groupId);
-    if (groupIndex == null) {
-        return null;
-    }
-    const group = groups[groupIndex] ?? null;
-    if (!group || group.rows.length <= 0) {
-        return null;
-    }
-    return { group, groupIndex };
-}
-
-function scrollTimelineHeaderIntoView(params: {
-    containerRef: RefObject<HTMLDivElement | null>;
-    customScrollParent?: HTMLDivElement;
-    groupId: string;
-}) {
-    const targetHeader = params.containerRef.current?.querySelector<HTMLElement>(`[data-time-section-id="${params.groupId}"]`);
-    if (!targetHeader) {
-        return false;
-    }
-
-    if (params.customScrollParent) {
-        const nextTop = params.customScrollParent.scrollTop
-            + targetHeader.getBoundingClientRect().top
-            - params.customScrollParent.getBoundingClientRect().top;
-        params.customScrollParent.scrollTo({ top: nextTop, behavior: 'auto' });
-        return true;
-    }
-
-    targetHeader.scrollIntoView({ block: 'start', behavior: 'auto' });
-    return true;
-}
-
-function useTimelineJumpScroller(params: {
-    containerRef: RefObject<HTMLDivElement | null>;
-    customScrollParent?: HTMLDivElement;
-    groups: TimelineLayoutGroup[];
-    groupIndexById: Map<string, number>;
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-    timelineJumpRequest?: TimelineJumpRequest | null;
-}) {
-    const {
-        containerRef,
-        customScrollParent,
-        groupIndexById,
-        groups,
-        onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange,
-        timelineJumpRequest,
-    } = params;
-    const lastAppliedTimelineJumpNonceRef = useRef<number | null>(null);
-
-    useEffect(() => {
-        if (!timelineJumpRequest) {return;}
-        if (lastAppliedTimelineJumpNonceRef.current === timelineJumpRequest.nonce) {return;}
-
-        const resolvedGroup = resolveTimelineJumpGroup(timelineJumpRequest, groupIndexById, groups);
-        if (!resolvedGroup) {return;}
-        if (!scrollTimelineHeaderIntoView({
-            containerRef,
-            customScrollParent,
-            groupId: timelineJumpRequest.groupId,
-        })) {return;}
-
-        lastAppliedTimelineJumpNonceRef.current = timelineJumpRequest.nonce;
-        onVisibleGroupChange?.(resolvedGroup.group.id, resolvedGroup.groupIndex);
-        onTopVisibleSelectionKeyChange?.(resolvedGroup.group.firstSelectionKey ?? null);
-    }, [
-        containerRef,
-        customScrollParent,
-        groupIndexById,
-        groups,
-        onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange,
-        timelineJumpRequest,
-    ]);
-}
-
-function syncVisibleStateFromDom(params: {
-    customScrollParent?: HTMLDivElement;
-    groupIndexById: Map<string, number>;
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-}) {
-    if (!params.customScrollParent) {
-        return false;
-    }
-
-    const visibleGroupId = getTopVisibleTimelineGroupIdFromScrollContainer(params.customScrollParent);
-    const visibleSelectionKey = getTopVisibleSelectionKeyFromScrollContainer(params.customScrollParent);
-    if (!visibleGroupId && !visibleSelectionKey) {
-        return false;
-    }
-
-    const groupIndex = visibleGroupId == null ? null : (params.groupIndexById.get(visibleGroupId) ?? null);
-    params.onVisibleGroupChange?.(visibleGroupId, groupIndex);
-    params.onTopVisibleSelectionKeyChange?.(visibleSelectionKey);
-    return true;
-}
-
-function shouldSkipInitialTimelineVisibleState(params: {
-    customScrollParent?: HTMLDivElement;
-    groupIndexById: Map<string, number>;
-    groups: TimelineLayoutGroup[];
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-}) {
-    if (params.groups.length === 0) {
-        return true;
-    }
-    if (syncVisibleStateFromDom(params)) {
-        return true;
-    }
-    return (params.customScrollParent?.scrollTop ?? 0) > 1;
-}
-
-function applyFirstTimelineGroupVisibleState(params: {
-    groups: TimelineLayoutGroup[];
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-}) {
-    const firstGroup = params.groups[0] ?? null;
-    const firstGroupIndex = firstGroup ? 0 : null;
-    params.onVisibleGroupChange?.(firstGroup?.id ?? null, firstGroupIndex);
-    params.onTopVisibleSelectionKeyChange?.(firstGroup?.firstSelectionKey ?? null);
-}
-
-function syncInitialTimelineVisibleState(params: {
-    customScrollParent?: HTMLDivElement;
-    groupIndexById: Map<string, number>;
-    groups: TimelineLayoutGroup[];
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-}) {
-    if (shouldSkipInitialTimelineVisibleState(params)) {
-        return;
-    }
-    applyFirstTimelineGroupVisibleState(params);
-}
+type GroupedTimelineItem =
+    | { type: 'header'; id: string; group: TimelineLayoutGroup; groupIndex: number }
+    | { type: 'row'; id: string; row: TimelineLayoutRow; groupIndex: number };
 
 function useTimelineLayoutData(props: GroupedTimelineLayoutProps) {
     const { containerRef, containerWidth } = useContainerWidth();
@@ -332,86 +278,66 @@ function useTimelineLayoutData(props: GroupedTimelineLayoutProps) {
     };
 }
 
-function useInitialTimelineVisibleState(params: {
-    customScrollParent?: HTMLDivElement;
-    groupIndexById: Map<string, number>;
-    groups: TimelineLayoutGroup[];
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-}) {
-    const {
-        customScrollParent,
-        groupIndexById,
-        groups,
-        onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange,
-    } = params;
+function useTimelineJumpHandler(
+    timelineJumpRequest: TimelineJumpRequest | null | undefined,
+    virtualItems: GroupedTimelineItem[],
+    virtuosoRef: RefObject<VirtuosoHandle | null>,
+    onVisibleGroupChangeRef: RefObject<((groupId: string | null, groupIndex: number | null) => void) | undefined>,
+    onTopVisibleSelectionKeyChangeRef: RefObject<((selectionKey: string | null) => void) | undefined>
+) {
+    const lastAppliedTimelineJumpNonceRef = useRef<number | null>(null);
 
     useEffect(() => {
-        syncInitialTimelineVisibleState({
-            customScrollParent,
-            groupIndexById,
-            groups,
-            onTopVisibleSelectionKeyChange,
-            onVisibleGroupChange,
+        if (!timelineJumpRequest) {return;}
+        if (lastAppliedTimelineJumpNonceRef.current === timelineJumpRequest.nonce) {return;}
+
+        const req = timelineJumpRequest;
+        const targetIndex = virtualItems.findIndex((item) => {
+            if (item.type !== 'header') {return false;}
+            if (req.groupIndex != null) {
+                return item.groupIndex === req.groupIndex;
+            }
+            return item.group.id === req.groupId;
         });
-    }, [
-        customScrollParent,
-        groupIndexById,
-        groups,
-        onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange,
-    ]);
+
+        if (targetIndex !== -1) {
+            lastAppliedTimelineJumpNonceRef.current = req.nonce;
+            virtuosoRef.current?.scrollToIndex({
+                index: targetIndex,
+                align: 'start',
+                behavior: 'auto',
+            });
+            const headerItem = virtualItems[targetIndex];
+            if (headerItem && headerItem.type === 'header') {
+                onVisibleGroupChangeRef.current?.(headerItem.group.id, headerItem.groupIndex);
+                onTopVisibleSelectionKeyChangeRef.current?.(headerItem.group.firstSelectionKey ?? null);
+            }
+        }
+    }, [timelineJumpRequest, virtualItems, virtuosoRef, onVisibleGroupChangeRef, onTopVisibleSelectionKeyChangeRef]);
 }
 
-function useTimelineVisibleStateOnScroll(params: {
-    customScrollParent?: HTMLDivElement;
-    groupIndexById: Map<string, number>;
-    onTopVisibleSelectionKeyChange?: (selectionKey: string | null) => void;
-    onVisibleGroupChange?: (groupId: string | null, groupIndex: number | null) => void;
-}) {
-    const {
-        customScrollParent,
-        groupIndexById,
-        onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange,
-    } = params;
+function useTimelineRangeChangedHandler(
+    virtualItems: GroupedTimelineItem[],
+    groups: TimelineLayoutGroup[],
+    onVisibleGroupChangeRef: RefObject<((groupId: string | null, groupIndex: number | null) => void) | undefined>,
+    onTopVisibleSelectionKeyChangeRef: RefObject<((selectionKey: string | null) => void) | undefined>
+) {
+    return useCallback(({ startIndex }: { startIndex: number }) => {
+        const item = virtualItems[startIndex];
+        if (!item) {return;}
 
-    useEffect(() => {
-        if (!customScrollParent) {
-            return;
+        const groupIndex = item.groupIndex;
+        const group = groups[groupIndex];
+        if (!group) {return;}
+
+        onVisibleGroupChangeRef.current?.(group.id, groupIndex);
+
+        if (item.type === 'row') {
+            onTopVisibleSelectionKeyChangeRef.current?.(item.row.firstSelectionKey ?? group.firstSelectionKey ?? null);
+        } else {
+            onTopVisibleSelectionKeyChangeRef.current?.(group.firstSelectionKey ?? null);
         }
-
-        let animationFrameId: number | null = null;
-        const syncVisibleState = () => {
-            animationFrameId = null;
-            syncVisibleStateFromDom({
-                customScrollParent,
-                groupIndexById,
-                onTopVisibleSelectionKeyChange,
-                onVisibleGroupChange,
-            });
-        };
-        const scheduleVisibleStateSync = () => {
-            if (animationFrameId != null) {return;}
-            animationFrameId = globalThis.requestAnimationFrame(syncVisibleState);
-        };
-
-        customScrollParent.addEventListener('scroll', scheduleVisibleStateSync, { passive: true });
-        scheduleVisibleStateSync();
-
-        return () => {
-            customScrollParent.removeEventListener('scroll', scheduleVisibleStateSync);
-            if (animationFrameId != null) {
-                globalThis.cancelAnimationFrame(animationFrameId);
-            }
-        };
-    }, [
-        customScrollParent,
-        groupIndexById,
-        onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange,
-    ]);
+    }, [virtualItems, groups, onVisibleGroupChangeRef, onTopVisibleSelectionKeyChangeRef]);
 }
 
 export function GroupedTimelineLayout(props: GroupedTimelineLayoutProps) {
@@ -420,48 +346,85 @@ export function GroupedTimelineLayout(props: GroupedTimelineLayoutProps) {
         customScrollParent,
         groups,
         rowsByGroup,
-        groupIndexById,
     } = useTimelineLayoutData(props);
 
-    useTimelineJumpScroller({
-        containerRef,
-        customScrollParent,
-        groups,
-        groupIndexById,
-        onTopVisibleSelectionKeyChange: props.onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange: props.onVisibleGroupChange,
-        timelineJumpRequest: props.timelineJumpRequest,
-    });
-    useInitialTimelineVisibleState({
-        customScrollParent,
-        groupIndexById,
-        groups,
-        onTopVisibleSelectionKeyChange: props.onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange: props.onVisibleGroupChange,
-    });
-    useTimelineVisibleStateOnScroll({
-        customScrollParent,
-        groupIndexById,
-        onTopVisibleSelectionKeyChange: props.onTopVisibleSelectionKeyChange,
-        onVisibleGroupChange: props.onVisibleGroupChange,
-    });
+    const {
+        timelineJumpRequest,
+        onVisibleGroupChange,
+        onTopVisibleSelectionKeyChange,
+        scrollContainerRef,
+    } = props;
 
-    if (props.scrollContainerRef && !customScrollParent) {
+    const onVisibleGroupChangeRef = useRef(onVisibleGroupChange);
+    useEffect(() => {
+        onVisibleGroupChangeRef.current = onVisibleGroupChange;
+    }, [onVisibleGroupChange]);
+
+    const onTopVisibleSelectionKeyChangeRef = useRef(onTopVisibleSelectionKeyChange);
+    useEffect(() => {
+        onTopVisibleSelectionKeyChangeRef.current = onTopVisibleSelectionKeyChange;
+    }, [onTopVisibleSelectionKeyChange]);
+
+    const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+
+    const virtualItems = useMemo<GroupedTimelineItem[]>(() => {
+        const items: GroupedTimelineItem[] = [];
+        groups.forEach((group, groupIndex) => {
+            items.push({
+                type: 'header',
+                id: `header-${group.id}`,
+                group,
+                groupIndex,
+            });
+            const rows = rowsByGroup[groupIndex] ?? [];
+            rows.forEach((row) => {
+                items.push({
+                    type: 'row',
+                    id: row.rowKey,
+                    row,
+                    groupIndex,
+                });
+            });
+        });
+        return items;
+    }, [groups, rowsByGroup]);
+
+    useTimelineJumpHandler(
+        timelineJumpRequest,
+        virtualItems,
+        virtuosoRef,
+        onVisibleGroupChangeRef,
+        onTopVisibleSelectionKeyChangeRef
+    );
+
+    const handleRangeChanged = useTimelineRangeChangedHandler(
+        virtualItems,
+        groups,
+        onVisibleGroupChangeRef,
+        onTopVisibleSelectionKeyChangeRef
+    );
+
+    if (scrollContainerRef && !customScrollParent) {
         return <div ref={containerRef} className="w-full" />;
     }
 
     return (
-        <div
-            ref={containerRef}
-            className="w-full box-border"
-            style={{ paddingBottom: '70vh' }}
-        >
-            {groups.map((group, groupIndex) => (
-                <div key={group.id}>
-                    {renderGroupHeader(group)}
-                    {rowsByGroup[groupIndex]?.map((row) => renderTimelineRow(row, props))}
-                </div>
-            ))}
+        <div ref={containerRef} className="w-full box-border">
+            <Virtuoso
+                ref={virtuosoRef}
+                customScrollParent={customScrollParent}
+                data={virtualItems}
+                computeItemKey={(_index, item) => item.id}
+                rangeChanged={handleRangeChanged}
+                useWindowScroll={!customScrollParent}
+                itemContent={(_index, item) => {
+                    if (item.type === 'header') {
+                        return renderGroupHeader(item.group, props.sections[item.groupIndex], props.librarySelection, props.onLibrarySelectionChange);
+                    } else {
+                        return renderTimelineRow(item.row, props);
+                    }
+                }}
+            />
         </div>
     );
 }

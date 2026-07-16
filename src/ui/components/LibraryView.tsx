@@ -81,6 +81,12 @@ export type LibraryViewProps = {
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
     readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onDeclusterSelection?: (personId: string) => void;
+    readonly onBulkTagSelection?: () => Promise<void>;
+    readonly onBulkUntagSelection?: () => Promise<void>;
+    readonly onMoveSelectionToBin?: () => Promise<void>;
+    readonly onRestoreSelectionFromBin?: () => Promise<void>;
+    readonly onClearSelection?: () => void;
 }
 
 const EMPTY_LIBRARY_SELECTION = createEmptyLibrarySelectionState();

@@ -116,8 +116,8 @@ function persistClusters(
 
     const insertPerson = db.prepare('INSERT OR IGNORE INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)');
     const insertAssignment = db.prepare(`
-        INSERT INTO face_assignments (asset_id, face_index, person_id, confidence)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO face_assignments (asset_id, face_index, person_id, confidence, is_suggested)
+        VALUES (?, ?, ?, ?, ?)
     `);
     const deleteAssignments = db.prepare('DELETE FROM face_assignments');
 
@@ -137,11 +137,14 @@ function persistClusters(
 
             for (const faceIndex of cluster.faces) {
                 const face = allFaces[faceIndex];
+                const confidence = cosineSimilarity(face.embedding, cluster.centroid);
+                const isSuggested = confidence < 0.72 ? 1 : 0;
                 insertAssignment.run(
                     face.assetId,
                     face.faceIndex,
                     cluster.id,
-                    cosineSimilarity(face.embedding, cluster.centroid),
+                    confidence,
+                    isSuggested
                 );
             }
 
@@ -226,7 +229,7 @@ function loadThumbnailSource(
     const bestFace = db.prepare(`
         SELECT asset_id, face_index
         FROM face_assignments
-        WHERE person_id = ?
+        WHERE person_id = ? AND is_suggested = 0
         ORDER BY confidence DESC
         LIMIT 1
     `).get(personId) as { asset_id: string; face_index: number } | undefined;
@@ -238,7 +241,7 @@ function loadThumbnailSource(
         .get(bestFace.asset_id) as { original_path: string; width: number; height: number } | undefined;
     const detection = db.prepare("SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'")
         .get(bestFace.asset_id) as { data: string } | undefined;
-    if (!asset || !asset.width || !asset.height || !detection) {
+    if (!asset?.width || !asset.height || !detection) {
         return null;
     }
 
@@ -327,8 +330,8 @@ export async function resolvePeopleAssignments(params: {
     }
 
     const thresholdSetting = params.dbManager.getSetting('job_cluster_threshold');
-    const threshold = thresholdSetting ? Number.parseFloat(thresholdSetting) : 0.65;
-    const clusters = buildClusters(faces, Number.isFinite(threshold) ? threshold : 0.65);
+    const threshold = thresholdSetting ? Number.parseFloat(thresholdSetting) : 0.6;
+    const clusters = buildClusters(faces, Number.isFinite(threshold) ? threshold : 0.6);
     assignStableClusterIds(db, faces, clusters);
     persistClusters(db, clusters, faces, params.eventSink);
     applyManualOverrides(db);

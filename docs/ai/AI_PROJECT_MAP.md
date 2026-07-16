@@ -28,6 +28,7 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **background jobs / workflows** | `src/services/workflowRuntime/`, `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `src/data/dbSchema.ts` (workflow_runs) | `tests/core/` |
 | **AI / local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
 | **settings / configuration** | `src/ui/components/SettingsModal.tsx`, `src/services/handlers/systemCommands.ts` | `src/entrypoints/core/main.ts` | `tests/ui/` |
+| **family tree / GEDCOM** | `src/ui/components/family-tree/FamilyTreeView.tsx`, `src/ui/components/family-tree/familyTreeHooks.ts` | `src/ui/components/family-tree/familyTreeLayout.ts`, `src/services/gedcom/` | `tests/core/`, `tests/ui/` |
 
 ## Core domain entities & Data Model
 

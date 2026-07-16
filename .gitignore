@@ -13,6 +13,9 @@ worktrees/
 dist
 dist-ssr
 *.local
+# scratch - Used by antigrav to import external project from github
+scratch
+.agents/
 
 # Editor directories and files
 .vscode/*

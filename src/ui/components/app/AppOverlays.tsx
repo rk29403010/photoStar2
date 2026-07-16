@@ -49,6 +49,10 @@ type AppOverlaysProps = {
   readonly onStartSimulationWorkflow: (params?: { speed?: string; iterations?: string; errorType?: string; errorRate?: string }) => void;
   readonly onGetSetting: (key: string) => Promise<string>;
   readonly onSetSetting: (key: string, value: string) => Promise<void>;
+  readonly onTestProviderKey: (provider: string, key: string) => Promise<{ valid: boolean; error?: string }>;
+  readonly onSaveProviderKey: (provider: string, key: string) => Promise<{ success: boolean; error?: string }>;
+  readonly onDeleteProviderKey: (provider: string) => Promise<{ success: boolean; error?: string }>;
+  readonly onGetRedactedProviderKey: (provider: string) => Promise<{ redactedKey: string | null; error?: string }>;
   readonly theme: string;
   readonly setTheme: (theme: string) => void;
   readonly animationsEnabled: boolean;
@@ -195,6 +199,10 @@ export function AppOverlays(props: AppOverlaysProps) {
         setAnimationsEnabled={props.setAnimationsEnabled}
         aiMode={props.aiMode}
         setAiMode={props.setAiMode}
+        testProviderKeyCommand={props.onTestProviderKey}
+        saveProviderKey={props.onSaveProviderKey}
+        deleteProviderKey={props.onDeleteProviderKey}
+        getRedactedProviderKey={props.onGetRedactedProviderKey}
       />
 
       {hasSelectedAsset && (

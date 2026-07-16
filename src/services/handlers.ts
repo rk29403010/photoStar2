@@ -9,6 +9,7 @@ import { systemEventLogCommandHandlers } from './handlers/systemEventLogCommands
 import { systemJobsCommandHandlers } from './handlers/systemJobsCommands';
 import { systemWorkflowRuntimeCommandHandlers } from './handlers/systemWorkflowRuntimeCommands';
 import { tagCommandHandlers } from './handlers/tagCommands';
+import { gedcomCommandHandlers } from './handlers/gedcomCommands';
 
 const COMMAND_ROUTES = [
     systemCommandHandlers,
@@ -20,6 +21,7 @@ const COMMAND_ROUTES = [
     assetCommandHandlers,
     tagCommandHandlers,
     systemJobsCommandHandlers,
+    gedcomCommandHandlers,
 ];
 
 export type { CommandContext } from './handlers/types';

@@ -82,12 +82,12 @@ export function resolveLiveMetadataTimeoutMs(params: {
         : DEFAULT_SCOUT_LIVE_METADATA_TIMEOUT_MS;
 }
 
-function assertLiveAiConfiguration(
+async function assertLiveAiConfiguration(
     options: GenerateAiMetadataModuleOptions,
     runId: string,
     emittedRunIds?: Set<string>,
-): void {
-    const configurationError = getLiveAiConfigurationError(options.dbManager);
+): Promise<void> {
+    const configurationError = await getLiveAiConfigurationError();
     if (!configurationError) {
         return;
     }
@@ -243,7 +243,7 @@ async function runGenerateAiMetadata(
     }
 
     if (aiMode === 'live') {
-        assertLiveAiConfiguration(options, context.runId, emittedRunIds);
+        await assertLiveAiConfiguration(options, context.runId, emittedRunIds);
     }
 
     const db = options.dbManager.getDb();
