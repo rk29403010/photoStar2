@@ -110,7 +110,8 @@ export function resolveRepositoryRootFromCommonDir(commonDirPath) {
         throw new Error(`Unable to resolve repository root from git common dir: ${commonDirPath}`);
     }
 
-    return path.join(...segments.slice(0, gitIndex + 1), '..');
+    const gitDirectory = segments.slice(0, gitIndex + 1).join(path.sep);
+    return path.dirname(gitDirectory);
 }
 
 function collectAvailableDirectories(targetWorkspaceRoot) {
