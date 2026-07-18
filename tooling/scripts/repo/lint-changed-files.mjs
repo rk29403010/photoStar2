@@ -2,20 +2,40 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { getNpxExecutable, runCommandSync } from "./process-invocation.js";
+import { runCommandSync } from "./process-invocation.js";
+import { selectQualityFiles } from "./quality-file-selection.js";
+import { isTypeAwareApplicationFile } from "./quality-policy.js";
 
 const args = new Set(process.argv.slice(2));
-const mode = args.has("--staged") ? "staged" : args.has("--all") ? "all" : "changed";
+function resolveMode() {
+  if (args.has("--staged")) {
+    return "staged";
+  }
+  return args.has("--all") ? "all" : "changed";
+}
+
+const mode = resolveMode();
 const fix = args.has("--fix");
 const restage = args.has("--restage");
+const typeAware = args.has("--type-aware");
+const applicationOnly = args.has("--application-only");
 const toolArg = process.argv.find((arg) => arg.startsWith("--tool="));
 const explicitFilesArgIndex = process.argv.findIndex((arg) => arg === "--files");
 const explicitFilesInline = process.argv.find((arg) => arg.startsWith("--files="));
 const lintableExtensions = new Set([".js", ".jsx", ".ts", ".tsx", ".cjs", ".mjs"]);
 const tool = toolArg ? toolArg.slice("--tool=".length) : "eslint";
 
+function getLocalLinterExecutable() {
+  const executable = process.platform === "win32" ? `${tool}.cmd` : tool;
+  return path.join(process.cwd(), "node_modules", ".bin", executable);
+}
+
 if (tool !== "eslint" && tool !== "oxlint") {
   console.error(`[lint-changed] Unsupported tool "${tool}". Expected "eslint" or "oxlint".`);
+  process.exit(1);
+}
+if ((typeAware || applicationOnly) && tool !== "oxlint") {
+  console.error("[lint-changed] --type-aware and --application-only require --tool=oxlint.");
   process.exit(1);
 }
 
@@ -44,12 +64,7 @@ function runGit(gitArgs) {
     throw new Error(`git ${gitArgs.join(" ")} failed: ${message}`);
   }
 
-  return (result.stdout || "").trim();
-}
-
-function toLines(text) {
-  if (!text) {return [];}
-  return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return result.stdout || "";
 }
 
 function getCandidateFiles() {
@@ -58,25 +73,12 @@ function getCandidateFiles() {
     return explicitFiles;
   }
 
-  if (mode === "all") {
-    return toLines(runGit(["ls-files"]));
-  }
-
-  if (mode === "staged") {
-    return toLines(runGit(["diff", "--cached", "--name-only", "--diff-filter=ACMRT"]));
-  }
-
-  const explicitBase = process.env.LINT_DIFF_BASE;
-  if (explicitBase) {
-    return toLines(runGit(["diff", "--name-only", "--diff-filter=ACMRT", `${explicitBase}...HEAD`]));
-  }
-
-  const githubBaseRef = process.env.GITHUB_BASE_REF;
-  if (githubBaseRef) {
-    return toLines(runGit(["diff", "--name-only", "--diff-filter=ACMRT", `origin/${githubBaseRef}...HEAD`]));
-  }
-
-  return toLines(runGit(["diff", "--name-only", "--diff-filter=ACMRT", "HEAD"]));
+  return selectQualityFiles({
+    mode,
+    diffBase: process.env.LINT_DIFF_BASE,
+    githubBaseRef: process.env.GITHUB_BASE_REF,
+    runGit,
+  });
 }
 
 let candidateFiles;
@@ -88,7 +90,8 @@ try {
 }
 
 const filesToLint = candidateFiles.filter((filePath) => {
-  return lintableExtensions.has(path.extname(filePath).toLowerCase()) && existsSync(filePath);
+  const isLintable = lintableExtensions.has(path.extname(filePath).toLowerCase()) && existsSync(filePath);
+  return isLintable && (!applicationOnly || isTypeAwareApplicationFile(filePath));
 });
 
 if (filesToLint.length === 0) {
@@ -96,34 +99,44 @@ if (filesToLint.length === 0) {
   process.exit(0);
 }
 
-const toolLabel = tool === "oxlint" ? "Oxlint" : "ESLint";
-const oxlintConfigPath = tool === "oxlint" ? ".oxlintrc.fast-loop.json" : null;
-const linterArgs = tool === "oxlint"
-  ? [
+function resolveToolLabel() {
+  if (typeAware) {
+    return "type-aware Oxlint";
+  }
+  return tool === "oxlint" ? "Oxlint" : "ESLint";
+}
+
+const toolLabel = resolveToolLabel();
+const oxlintConfigPath = typeAware ? ".oxlintrc.json" : ".oxlintrc.fast-loop.json";
+let linterArgs;
+if (tool === "oxlint") {
+  linterArgs = [
       "oxlint",
       "-c",
       oxlintConfigPath,
+      ...(typeAware ? ["--type-aware"] : []),
       ...(fix ? ["--fix"] : []),
       ...filesToLint,
-    ]
-  : [
+    ];
+} else {
+  linterArgs = [
       "eslint",
       ...(fix ? ["--fix"] : []),
       "--no-warn-ignored",
       "--max-warnings=0",
       ...filesToLint,
     ];
+}
 
-const phaseLabel = fix
-  ? restage || mode === "staged"
-    ? "autofix + restage"
-    : "autofix"
-  : "verify";
+let phaseLabel = "verify";
+if (fix) {
+  phaseLabel = restage || mode === "staged" ? "autofix + restage" : "autofix";
+}
 console.log(`[lint-changed] Running ${toolLabel} ${phaseLabel} on ${filesToLint.length} file(s).`);
 
 const result = runCommandSync({
-  command: getNpxExecutable(),
-  args: linterArgs,
+  command: getLocalLinterExecutable(),
+  args: linterArgs.slice(1),
   stdio: "inherit",
 });
 

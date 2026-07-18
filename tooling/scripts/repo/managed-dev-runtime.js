@@ -46,7 +46,8 @@ function parseArgs(argv) {
 }
 
 function formatPrefixedLine(label, line) {
-    return `${PREFIX_BY_LABEL[label] ?? `[${label}]`} ${line}\n`;
+    const prefix = PREFIX_BY_LABEL[label] ?? `[${label}]`;
+    return `${prefix} ${line}\n`;
 }
 
 function createPrefixedOutputHandler({ label, write }) {
@@ -102,8 +103,10 @@ function killChildTree(child) {
 
     try {
         child.kill('SIGTERM');
-    } catch {
-        // Ignore already-exited children.
+    } catch (error) {
+        if (error.code !== 'ESRCH') {
+            console.warn(`[managed-dev-runtime] Could not stop child ${child.pid}: ${error.message}`);
+        }
     }
 }
 
@@ -143,7 +146,8 @@ function main() {
     let exitHandled = false;
 
     function shutdown(signal = 'SIGTERM') {
-        children.forEach((child) => killChildTree(child, signal));
+        console.log(`[managed-dev-runtime] Shutting down after ${signal}`);
+        children.forEach((child) => killChildTree(child));
     }
 
     for (const child of children) {

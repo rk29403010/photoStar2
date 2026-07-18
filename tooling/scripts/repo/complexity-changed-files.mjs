@@ -1,23 +1,29 @@
 #!/usr/bin/env node
 
 import { buildReport } from "./complexity-report.js";
+import { resolveComplexityThresholds } from "./quality-policy.js";
+import { selectQualityFiles } from "./quality-file-selection.js";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
 const args = new Set(process.argv.slice(2));
-const mode = args.has("--staged") ? "staged" : args.has("--all") ? "all" : "changed";
+function resolveMode() {
+  if (args.has("--staged")) {
+    return "staged";
+  }
+  return args.has("--all") ? "all" : "changed";
+}
+
+const mode = resolveMode();
 const explicitFilesArgIndex = process.argv.findIndex((arg) => arg === "--files");
 const explicitFilesInline = process.argv.find((arg) => arg.startsWith("--files="));
 const typescriptExtensions = new Set([".ts", ".tsx"]);
-const thresholds = {
-  maxCyclomatic: Number.parseInt(process.env.COMPLEXITY_MAX_CYCLOMATIC || "10", 10),
-  maxCognitive: Number.parseInt(process.env.COMPLEXITY_MAX_COGNITIVE || "20", 10),
-  maxLoc: Number.parseInt(process.env.COMPLEXITY_MAX_LOC || "90", 10),
-};
+const thresholds = resolveComplexityThresholds();
 
 function runGit(gitArgs) {
-  const result = spawnSync("git", gitArgs, {
+  // Git is an operator-installed prerequisite, so PATH lookup is intentional here.
+  const result = spawnSync(process.platform === "win32" ? "git.exe" : "git", gitArgs, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -27,15 +33,7 @@ function runGit(gitArgs) {
     throw new Error(`git ${gitArgs.join(" ")} failed: ${message}`);
   }
 
-  return (result.stdout || "").trim();
-}
-
-function toLines(text) {
-  if (!text) {
-    return [];
-  }
-
-  return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return result.stdout || "";
 }
 
 function getExplicitFiles() {
@@ -56,25 +54,12 @@ function getCandidateFiles() {
     return explicitFiles;
   }
 
-  if (mode === "all") {
-    return toLines(runGit(["ls-files"]));
-  }
-
-  if (mode === "staged") {
-    return toLines(runGit(["diff", "--cached", "--name-only", "--diff-filter=ACMRT"]));
-  }
-
-  const explicitBase = process.env.LINT_DIFF_BASE;
-  if (explicitBase) {
-    return toLines(runGit(["diff", "--name-only", "--diff-filter=ACMRT", `${explicitBase}...HEAD`]));
-  }
-
-  const githubBaseRef = process.env.GITHUB_BASE_REF;
-  if (githubBaseRef) {
-    return toLines(runGit(["diff", "--name-only", "--diff-filter=ACMRT", `origin/${githubBaseRef}...HEAD`]));
-  }
-
-  return toLines(runGit(["diff", "--name-only", "--diff-filter=ACMRT", "HEAD"]));
+  return selectQualityFiles({
+    mode,
+    diffBase: process.env.LINT_DIFF_BASE,
+    githubBaseRef: process.env.GITHUB_BASE_REF,
+    runGit,
+  });
 }
 
 let candidateFiles;

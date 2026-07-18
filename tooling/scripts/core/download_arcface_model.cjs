@@ -66,8 +66,8 @@ download().catch((error) => {
     if (fs.existsSync(MODEL_FILE)) {
         try {
             fs.unlinkSync(MODEL_FILE);
-        } catch {
-            // Ignore cleanup failures for partial downloads.
+        } catch (cleanupError) {
+            console.warn(`[ArcFaceModel] Could not remove partial download: ${cleanupError.message}`);
         }
     }
     process.exit(1);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { runCommandSync } from './process-invocation.js';
 import {
     collectThreadSnapshot,
@@ -14,6 +14,7 @@ const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 const gitExecutable = process.platform === 'win32' ? 'git.exe' : 'git';
 const nodeExecutable = process.execPath;
 const pnpmExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const ghExecutable = process.platform === 'win32' ? 'gh.exe' : 'gh';
 
 export function getShipIgnorePaths({ includeArtifacts = false } = {}) {
     return includeArtifacts ? ['.local'] : ['artifacts', '.local'];
@@ -21,6 +22,19 @@ export function getShipIgnorePaths({ includeArtifacts = false } = {}) {
 
 function normalizePath(value) {
     return String(value ?? '').replaceAll('\\', '/').toLowerCase();
+}
+
+export function isMainModule({ argvPath, moduleUrl, platform = process.platform }) {
+    if (!argvPath) {
+        return false;
+    }
+    const windows = platform === 'win32';
+    const pathApi = windows ? path.win32 : path.posix;
+    const launchedPath = pathApi.resolve(argvPath);
+    const sourcePath = fileURLToPath(moduleUrl, { windows });
+    return platform === 'win32'
+        ? normalizePath(launchedPath) === normalizePath(sourcePath)
+        : launchedPath === sourcePath;
 }
 
 function isIgnoredShipPath(filePath, ignorePaths = getShipIgnorePaths()) {
@@ -168,6 +182,49 @@ function runPnpm(args, cwd) {
     });
 }
 
+function canRun(command, args, cwd) {
+    const result = runCommandSync({ command, args, cwd, encoding: 'utf8' });
+    return (result.status ?? 1) === 0;
+}
+
+export function getIntegrationStrategy({ hasOrigin, githubAvailable }) {
+    if (hasOrigin && githubAvailable) {
+        return 'github-pr';
+    }
+    if (!hasOrigin) {
+        return 'local-only';
+    }
+    return 'blocked';
+}
+
+export function hasRegisteredGitHubChecks(stdout) {
+    try {
+        const checks = JSON.parse(String(stdout ?? ''));
+        return Array.isArray(checks) && checks.length > 0;
+    } catch {
+        return false;
+    }
+}
+
+function waitForGitHubCheckRegistration({ cwd, branch, attempts = 24, delayMs = 5_000 }) {
+    console.log('Waiting for GitHub to register checks for the pushed head.');
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        const probe = runCommandSync({
+            command: ghExecutable,
+            args: ['pr', 'checks', branch, '--json', 'name,state'],
+            cwd,
+            encoding: 'utf8',
+        });
+        if (hasRegisteredGitHubChecks(probe.stdout)) {
+            return;
+        }
+        if (attempt < attempts) {
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+        }
+    }
+    throw new Error(`GitHub did not register checks for ${branch} within ${Math.ceil((attempts * delayMs) / 1_000)} seconds. The pushed branch and worktree were left intact.`);
+}
+
 function getCurrentThreadEntry(cwd) {
     const registryPath = resolveThreadRegistryPath(cwd);
     const registry = readThreadRegistry(registryPath);
@@ -214,12 +271,78 @@ function mergeBranchIntoMain({ branch, mainWorktreePath }) {
     runGit(['merge', '--no-ff', branch, '-m', `Merge branch '${branch}'`], mainWorktreePath);
 }
 
-function pushMain(mainWorktreePath) {
-    runGit(['push', 'origin', 'main'], mainWorktreePath);
+function pushBranch(cwd, branch) {
+    runGit(['push', '--set-upstream', 'origin', branch], cwd);
 }
 
-function closeMergedThread(cwd) {
-    runNode([path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'thread-state.js'), 'close', '--status', 'merged'], cwd);
+function integrateWithGitHub({ cwd, branch }) {
+    const existingPr = runCommandSync({
+        command: ghExecutable,
+        args: ['pr', 'view', branch, '--json', 'state', '--jq', '.state'],
+        cwd,
+        encoding: 'utf8',
+    });
+    const existingState = (existingPr.status ?? 1) === 0 ? existingPr.stdout.trim() : '';
+    if (existingState === 'MERGED') {
+        runGit(['fetch', 'origin', 'main'], cwd);
+        return;
+    }
+    pushBranch(cwd, branch);
+    if (existingState !== 'OPEN') {
+        runCommandOrThrow({
+            command: ghExecutable,
+            args: ['pr', 'create', '--fill', '--head', branch, '--base', 'main'],
+            cwd,
+            stdio: 'inherit',
+        });
+    }
+    waitForGitHubCheckRegistration({ cwd, branch });
+    runCommandOrThrow({
+        command: ghExecutable,
+        args: ['pr', 'checks', branch, '--watch', '--fail-fast'],
+        cwd,
+        stdio: 'inherit',
+    });
+    runCommandOrThrow({
+        command: ghExecutable,
+        args: ['pr', 'merge', branch, '--merge', '--delete-branch'],
+        cwd,
+        stdio: 'inherit',
+    });
+    runGit(['fetch', 'origin', 'main'], cwd);
+}
+
+function verifyIntegrated({ cwd, head, target = 'origin/main' }) {
+    const result = runCommandSync({
+        command: gitExecutable,
+        args: ['merge-base', '--is-ancestor', head, target],
+        cwd,
+        encoding: 'utf8',
+    });
+    if ((result.status ?? 1) !== 0) {
+        throw new Error(`Integration could not be proven: ${head} is not contained in ${target}. The task was left intact.`);
+    }
+}
+
+function configureMainProtection(mainWorktreePath) {
+    runNode([
+        path.join(mainWorktreePath, 'tooling', 'scripts', 'repo', 'configure-main-protection.js'),
+    ], mainWorktreePath);
+}
+
+function closeMergedThread(cwd, removedWorktreePath) {
+    runNode([
+        path.join(cwd, 'tooling', 'scripts', 'repo', 'thread-state.js'),
+        'close',
+        '--status',
+        'merged',
+        '--cwd',
+        removedWorktreePath,
+    ], cwd);
+}
+
+function updateThreadStatus(cwd, status) {
+    runNode([path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'thread-state.js'), 'update', '--status', status], cwd);
 }
 
 function cleanupMergedWorktree({ branch, worktreePath, mainWorktreePath }) {
@@ -239,31 +362,63 @@ function stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths }) {
         runGit(['commit', '-m', commitMessage], cwd);
     }
 
+    runPnpm(['run', 'qa:merge'], cwd);
+
     return { entry, stagedFiles };
 }
 
 function shipMain({ cwd, commitMessage, ignorePaths }) {
+    if (canRun(gitExecutable, ['remote', 'get-url', 'origin'], cwd)) {
+        throw new Error('Refusing to ship directly from main. Create or switch to a task branch/worktree so the protected GitHub PR gate can run.');
+    }
     stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths });
-    pushMain(cwd);
-    console.log('Shipped main to origin/main.');
+    console.log('Committed and verified main locally; no origin remote is configured.');
 }
 
 function shipWorktree({ cwd, snapshot, commitMessage, ignorePaths }) {
-    stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths });
+    if (snapshot.detached || !snapshot.branch) {
+        throw new Error('Cannot ship a detached checkout. Attach it to a task branch first; no merge or cleanup was attempted.');
+    }
+    const { entry } = stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths });
+    const head = runGitText(['rev-parse', 'HEAD'], cwd);
 
     const worktreeRecords = parseWorktreeList(runGitText(['worktree', 'list', '--porcelain'], cwd));
     const mainWorktreePath = resolveMainWorktreePath(worktreeRecords);
     ensureMainWorkspaceReady(mainWorktreePath);
-    mergeBranchIntoMain({ branch: snapshot.branch, mainWorktreePath });
-    pushMain(mainWorktreePath);
-    closeMergedThread(cwd);
-    cleanupMergedWorktree({
-        branch: snapshot.branch,
-        worktreePath: snapshot.worktreePath,
-        mainWorktreePath,
-    });
+    const hasOrigin = canRun(gitExecutable, ['remote', 'get-url', 'origin'], cwd);
+    const githubAvailable = canRun(ghExecutable, ['auth', 'status'], cwd);
+    const strategy = getIntegrationStrategy({ hasOrigin, githubAvailable });
+    if (strategy === 'blocked') {
+        throw new Error('Shipping requires an authenticated GitHub CLI because origin is configured and main is protected. Run `gh auth login`, then retry; the committed task branch was left intact.');
+    }
+    if (strategy === 'github-pr') {
+        integrateWithGitHub({ cwd, branch: snapshot.branch });
+        verifyIntegrated({ cwd, head });
+        runGit(['merge', '--ff-only', 'origin/main'], mainWorktreePath);
+        configureMainProtection(mainWorktreePath);
+    } else {
+        mergeBranchIntoMain({ branch: snapshot.branch, mainWorktreePath });
+        verifyIntegrated({ cwd: mainWorktreePath, head, target: 'main' });
+        console.warn('No origin remote is configured; integration was completed locally and was not pushed.');
+    }
+    if (entry) {
+        updateThreadStatus(cwd, 'cleanup-pending');
+    }
+    try {
+        cleanupMergedWorktree({
+            branch: snapshot.branch,
+            worktreePath: snapshot.worktreePath,
+            mainWorktreePath,
+        });
+        if (entry) {
+            closeMergedThread(mainWorktreePath, snapshot.worktreePath);
+        }
+    } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`The change is merged and verified, but local cleanup did not finish: ${detail} Run thread:reconcile from main, inspect the dry run, then retry with --apply.`);
+    }
 
-    console.log(`Shipped ${snapshot.branch} to main and pushed origin/main.`);
+    console.log(`Shipped ${snapshot.branch} through ${strategy}, verified integration, and removed its worktree and local branch.`);
 }
 
 function main() {
@@ -286,7 +441,7 @@ function main() {
     shipWorktree({ cwd, snapshot, commitMessage, ignorePaths });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule({ argvPath: process.argv[1], moduleUrl: import.meta.url })) {
     try {
         main();
     } catch (error) {

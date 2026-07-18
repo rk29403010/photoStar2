@@ -8,7 +8,7 @@
  *   node tooling/scripts/repo/migrate-all.cjs
  */
 
-const { execSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
 const MIGRATIONS = [
@@ -30,8 +30,8 @@ for (const migration of MIGRATIONS) {
   console.log(`\n--- Running: ${migration.name} ---`);
   console.log(`    ${migration.description}`);
   try {
-    execSync(`node.exe "${migration.script}"`, { stdio: 'inherit' });
-  } catch (e) {
+    execFileSync(process.execPath, [migration.script], { stdio: 'inherit' });
+  } catch {
     console.error(`    FAILED: ${migration.name}`);
     failed++;
   }

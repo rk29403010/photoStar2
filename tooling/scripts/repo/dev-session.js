@@ -59,8 +59,9 @@ function clearSessionPid() {
         return;
     }
 
-    const { pid: _pid, ...rest } = current;
-    writeSession(rest);
+    const nextSession = { ...current };
+    delete nextSession.pid;
+    writeSession(nextSession);
 }
 
 function isManagedScript(scriptName) {
@@ -126,34 +127,6 @@ export function getManagedScriptConfig(scriptName) {
         command: scriptConfig.command,
         args: [...scriptConfig.args],
     };
-}
-
-function cleanupManagedPorts({
-    env = process.env,
-    cwd = workspaceRoot,
-    platform = process.platform,
-}) {
-    const legacyInvocation = buildLegacyManagedProcessCleanupInvocation({ cwd, platform });
-    if (legacyInvocation) {
-        runCommandSync({
-            command: legacyInvocation.command,
-            args: legacyInvocation.args,
-            cwd,
-            env,
-            stdio: 'ignore',
-            platform,
-        });
-    }
-
-    const invocation = buildManagedPortCleanupInvocation({ env, cwd, platform });
-    runCommandSync({
-        command: invocation.command,
-        args: invocation.args,
-        cwd,
-        env,
-        stdio: 'ignore',
-        platform,
-    });
 }
 
 export function getManagedSpawnOptions({
@@ -225,10 +198,6 @@ function spawnManagedScript(scriptName) {
     }
 
     const managedEnv = createManagedDevEnv();
-    cleanupManagedPorts({
-        env: managedEnv,
-        cwd: workspaceRoot,
-    });
     const invocation = buildManagedSpawnInvocation({
         command: scriptConfig.command,
         args: scriptConfig.args,
@@ -296,7 +265,6 @@ function pauseManagedSession() {
     const session = readSession();
     const killed = killPidTree(session?.pid);
     clearSessionPid();
-    cleanupManagedPorts({ cwd: workspaceRoot });
 
     if (killed) {
         console.log(`[dev-session] Paused ${session?.lastScript ?? 'dev session'}.`);
@@ -312,10 +280,6 @@ function resumeManagedSession(requestedScript) {
         : getResumeScript(readSession());
 
     const managedEnv = createManagedDevEnv();
-    cleanupManagedPorts({
-        env: managedEnv,
-        cwd: workspaceRoot,
-    });
     const invocation = buildManagedResumeInvocation({
         scriptName: scriptToRun,
         env: managedEnv,

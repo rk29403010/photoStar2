@@ -297,6 +297,18 @@ test('rerun_missing_folder_ai_metadata starts a new selected-subject workflow fo
     }
 });
 
+test('folder recovery matches Windows and POSIX descendant paths', async () => {
+    const { buildFolderPathPatterns } = await import('../../dist/core/src/services/handlers/systemWorkflowRuntimeCommands.js');
+    assert.deepEqual(buildFolderPathPatterns('C:\\photos\\family'), {
+        exactPath: 'C:\\photos\\family',
+        descendantPatterns: ['C:\\photos\\family\\%', 'C:\\photos\\family/%'],
+    });
+    assert.deepEqual(buildFolderPathPatterns('/photos/family'), {
+        exactPath: '/photos/family',
+        descendantPatterns: ['/photos/family\\%', '/photos/family/%'],
+    });
+});
+
 test('start_selected_subject_metadata_workflow preserves requested analysis mode parameters', async () => {
     const tempDir = createTempDir();
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');

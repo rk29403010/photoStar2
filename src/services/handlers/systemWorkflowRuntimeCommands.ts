@@ -98,12 +98,26 @@ function resolveWorkflowDefinition(workflowDefinitions: WorkflowDefinition[], re
     throw new Error(`unknown workflow '${requestedWorkflowId ?? ''}'`);
 }
 
+export function buildFolderPathPatterns(folderPath: string): {
+    exactPath: string;
+    descendantPatterns: [string, string];
+} {
+    const exactPath = folderPath.replace(/[\\/]+$/, '') || folderPath;
+    const hasTrailingSeparator = exactPath.endsWith('\\') || exactPath.endsWith('/');
+    return {
+        exactPath,
+        descendantPatterns: hasTrailingSeparator
+            ? [`${exactPath}%`, `${exactPath}%`]
+            : [`${exactPath}\\%`, `${exactPath}/%`],
+    };
+}
+
 function loadMissingFolderAiMetadataSubjects(ctx: CommandContext, folderPath: string): AssetSubject[] {
-    const folderPattern = `${folderPath}${folderPath.endsWith('\\') ? '' : '\\'}%`;
+    const { exactPath, descendantPatterns } = buildFolderPathPatterns(folderPath);
     const rows = ctx.dbManager.getDb().prepare(`
         SELECT a.id
         FROM assets a
-        WHERE (a.original_path = ? OR a.original_path LIKE ?)
+        WHERE (a.original_path = ? OR a.original_path LIKE ? OR a.original_path LIKE ?)
           AND NOT EXISTS (
               SELECT 1
               FROM photo_metadata_blocks pmb
@@ -117,7 +131,7 @@ function loadMissingFolderAiMetadataSubjects(ctx: CommandContext, folderPath: st
                 AND dr.task = 'ai_metadata'
           )
         ORDER BY a.created_at ASC, a.id ASC
-    `).all(folderPath, folderPattern) as Array<{ id: string }>;
+    `).all(exactPath, ...descendantPatterns) as Array<{ id: string }>;
 
     return rows.map((row) => ({
         subjectType: 'asset',

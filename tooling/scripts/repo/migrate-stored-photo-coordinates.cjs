@@ -206,34 +206,50 @@ function validateAndAlignScale(sx, sy) {
   return { sx: sxValid ? sx : sy, sy: syValid ? sy : sx };
 }
 
-function generateTranslationCandidates(subjectCenters, faceCenters) {
-  const candidates = [];
+function addDirectTranslationCandidates(candidates, subjectCenters, faceCenters) {
   for (const fc of faceCenters) {
     for (const sc of subjectCenters) {
       candidates.push({ sx: 1.0, sy: 1.0, dx: fc.x - sc.x, dy: fc.y - sc.y });
     }
   }
+}
 
+function createScaledTranslationCandidate(s1, s2, f1, f2) {
+  const dxS = s1.x - s2.x, dyS = s1.y - s2.y;
+  const sx = Math.abs(dxS) >= 0.01 ? (f1.x - f2.x) / dxS : 1.0;
+  const sy = Math.abs(dyS) >= 0.01 ? (f1.y - f2.y) / dyS : 1.0;
+  const scale = validateAndAlignScale(sx, sy);
+  if (!scale) {return null;}
+  const dx = f1.x - scale.sx * s1.x, dy = f1.y - scale.sy * s1.y;
+  const isPlausible = dx >= -0.1 && dx <= 0.5 && dy >= -0.1 && dy <= 0.5;
+  return isPlausible ? { sx: scale.sx, sy: scale.sy, dx, dy } : null;
+}
+
+function addScaledCandidatesForSubjectPair(candidates, s1, s2, faceCenters) {
+  for (let a = 0; a < faceCenters.length; a++) {
+    for (let b = 0; b < faceCenters.length; b++) {
+      if (a === b) {continue;}
+      const candidate = createScaledTranslationCandidate(s1, s2, faceCenters[a], faceCenters[b]);
+      if (candidate) {candidates.push(candidate);}
+    }
+  }
+}
+
+function addScaledTranslationCandidates(candidates, subjectCenters, faceCenters) {
   for (let i = 0; i < subjectCenters.length; i++) {
     for (let j = i + 1; j < subjectCenters.length; j++) {
       const s1 = subjectCenters[i], s2 = subjectCenters[j];
       const dxS = s1.x - s2.x, dyS = s1.y - s2.y;
       if (Math.hypot(dxS, dyS) < 0.01) {continue;}
-      for (let a = 0; a < faceCenters.length; a++) {
-        for (let b = 0; b < faceCenters.length; b++) {
-          if (a === b) {continue;}
-          const f1 = faceCenters[a], f2 = faceCenters[b];
-          const sx = Math.abs(dxS) >= 0.01 ? (f1.x - f2.x) / dxS : 1.0;
-          const sy = Math.abs(dyS) >= 0.01 ? (f1.y - f2.y) / dyS : 1.0;
-          const scale = validateAndAlignScale(sx, sy);
-          if (!scale) {continue;}
-          const dx = f1.x - scale.sx * s1.x, dy = f1.y - scale.sy * s1.y;
-          if (dx >= -0.1 && dx <= 0.5 && dy >= -0.1 && dy <= 0.5)
-            {candidates.push({ sx: scale.sx, sy: scale.sy, dx, dy });}
-        }
-      }
+      addScaledCandidatesForSubjectPair(candidates, s1, s2, faceCenters);
     }
   }
+}
+
+function generateTranslationCandidates(subjectCenters, faceCenters) {
+  const candidates = [];
+  addDirectTranslationCandidates(candidates, subjectCenters, faceCenters);
+  addScaledTranslationCandidates(candidates, subjectCenters, faceCenters);
   return candidates;
 }
 
@@ -319,6 +335,16 @@ function normalizeProjectionPayload(data, kind, dimensions, faces, subjectsJson)
   } catch { return null; }
 }
 
+function readFacesForAsset(db, assetId) {
+  try {
+    const row = db.prepare(`SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'`).get(assetId);
+    return row ? JSON.parse(row.data).faces || [] : [];
+  } catch (error) {
+    console.warn(`Unable to read face detections for asset ${assetId}; continuing without them.`, error);
+    return [];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -344,11 +370,7 @@ try {
     `).all();
     const updateBlock = db.prepare('UPDATE photo_metadata_blocks SET data = ? WHERE id = ?');
     for (const row of blockRows) {
-      let faces = [];
-      try {
-        const fr = db.prepare(`SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'`).get(row.asset_id);
-        if (fr) {faces = JSON.parse(fr.data).faces || [];}
-      } catch { /* ignore */ }
+      const faces = readFacesForAsset(db, row.asset_id);
       const n = normalizePhotoMetadataBlockPayload(row.data, { width: row.width, height: row.height }, faces);
       if (n) { updateBlock.run(n, row.id); updated++; }
     }
@@ -363,11 +385,7 @@ try {
       UPDATE photo_metadata_projection SET subjects_json = ?, regions_of_interest_json = ?, updated_at = CURRENT_TIMESTAMP WHERE asset_id = ?
     `);
     for (const row of projRows) {
-      let faces = [];
-      try {
-        const fr = db.prepare(`SELECT data FROM derived_results WHERE asset_id = ? AND task = 'face_detection'`).get(row.asset_id);
-        if (fr) {faces = JSON.parse(fr.data).faces || [];}
-      } catch { /* ignore */ }
+      const faces = readFacesForAsset(db, row.asset_id);
       const cs = { width: row.width, height: row.height };
       const sj = normalizeProjectionPayload(row.subjects_json, 'subjects', cs, faces) ?? row.subjects_json;
       const rj = normalizeProjectionPayload(row.regions_of_interest_json, 'regions', cs, faces, row.subjects_json) ?? row.regions_of_interest_json;

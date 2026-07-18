@@ -20,9 +20,9 @@ const defaultEntries = [
 ];
 
 const importPatterns = [
-    /\bimport\s+[^'"]*?from\s+['"]([^'"]+)['"]/g,
+    /\bimport\s+[^'"]{0,10000}?from\s+['"]([^'"]+)['"]/g,
     /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-    /\bexport\s+[^'"]*?from\s+['"]([^'"]+)['"]/g,
+    /\bexport\s+[^'"]{0,10000}?from\s+['"]([^'"]+)['"]/g,
 ];
 
 function parseArgs(argv) {
@@ -283,9 +283,12 @@ async function writeBundleMetadata(params) {
         `${JSON.stringify(externalPackages, null, 2)}\n`,
         'utf8',
     );
+    const externalPackagesText = externalPackages
+        .map((entry) => `${entry.packageName} ${entry.version}`)
+        .join('\n');
     await fs.writeFile(
         path.join(outputDir, 'external-packages.txt'),
-        `${externalPackages.map((entry) => `${entry.packageName} ${entry.version}`).join('\n')}\n`,
+        `${externalPackagesText}\n`,
         'utf8',
     );
     await fs.writeFile(

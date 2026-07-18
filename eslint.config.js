@@ -11,14 +11,28 @@ import tseslint from 'typescript-eslint'
 import sonarjs from 'eslint-plugin-sonarjs'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 import deslint from '@deslint/eslint-plugin'
+import { qualityPolicy } from './tooling/scripts/repo/quality-policy.js'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 const reviewabilityRules = {
   // Keep functions reviewable; file size gets a softer global warning and a higher app-code cap below.
-  'max-lines-per-function': ['error', { max: 90, skipBlankLines: true, skipComments: true, IIFEs: true }],
+  'max-lines-per-function': ['error', {
+    max: qualityPolicy.complexity.maxFunctionLines,
+    skipBlankLines: true,
+    skipComments: true,
+    IIFEs: true,
+  }],
 }
-const advisoryFileSizeRule = ['warn', { max: 800, skipBlankLines: true, skipComments: true }]
-const applicationFileSizeRule = ['error', { max: 1200, skipBlankLines: true, skipComments: true }]
+const advisoryFileSizeRule = ['warn', {
+  max: qualityPolicy.reviewability.advisoryFileLines,
+  skipBlankLines: true,
+  skipComments: true,
+}]
+const applicationFileSizeRule = ['error', {
+  max: qualityPolicy.reviewability.applicationFileLines,
+  skipBlankLines: true,
+  skipComments: true,
+}]
 const correctnessRules = {
   curly: ['error', 'all'],
   eqeqeq: ['error', 'smart'],
@@ -30,26 +44,7 @@ const correctnessRules = {
 }
 
 export default defineConfig([
-  globalIgnores([
-    '.worktrees',
-    'worktrees/**',
-    'dist',
-    'core/dist',
-    'core/node_modules',
-    'core/models/nsfwjs',
-    'deployments/desktop/tauri/target',
-    'deployments/desktop/tauri/gen',
-    'deployments/desktop/tauri/binaries',
-    'src-tauri/target',
-    'src-tauri/gen',
-    'src-tauri/binaries',
-    'artifacts/**',
-    '.local/**',
-    '.vscode/**',
-    'scratch/**',
-    'tooling/scripts/**',
-    'vite.config.ts.timestamp-*.mjs',
-  ]),
+  globalIgnores(qualityPolicy.lintIgnores),
   {
     linterOptions: {
       reportUnusedDisableDirectives: 'off',

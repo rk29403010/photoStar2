@@ -15,7 +15,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const gitExecutable = process.platform === 'win32' ? 'git.exe' : 'git';
 const nodeExecutable = process.execPath;
-const DEFAULT_BRANCH_PREFIX = 'codex';
+const DEFAULT_BRANCH_PREFIX = 'task';
 const WORKTREE_DIRECTORY_CANDIDATES = ['.worktrees', 'worktrees'];
 
 function parseArgs(argv) {
@@ -44,7 +44,7 @@ function parseArgs(argv) {
 
 function requireTask(task) {
     if (typeof task !== 'string' || task.trim() === '') {
-        throw new Error('Usage: node tooling/scripts/repo/thread-bootstrap.js --task "<task>" [--owner "<owner>"] [--note "<note>"] [--start-dev] [--script "<dev-script>"]');
+        throw new Error('Usage: node tooling/scripts/repo/thread-bootstrap.js --task "<task>" [--owner "<owner>"] [--note "<note>"] [--branch-prefix "<prefix>"] [--share-dependencies] [--start-dev] [--script "<dev-script>"]');
     }
 
     return task.trim();
@@ -54,7 +54,9 @@ export function normalizeThreadSlug(task) {
     const normalizedTask = String(task)
         .toLowerCase()
         .replaceAll(/[^a-z0-9]+/g, '-')
-        .replaceAll(/^-+|-+$/g, '');
+        .split('-')
+        .filter(Boolean)
+        .join('-');
     return normalizedTask || 'thread';
 }
 
@@ -299,6 +301,9 @@ function main() {
         task,
         workspaceRoot,
         worktreeDirectory,
+        branchPrefix: typeof args['branch-prefix'] === 'string'
+            ? args['branch-prefix'].trim()
+            : DEFAULT_BRANCH_PREFIX,
     });
 
     ensureBranchDoesNotExist(plan.branch, workspaceRoot);
@@ -308,10 +313,12 @@ function main() {
         worktreePath: plan.worktreePath,
         cwd: workspaceRoot,
     });
-    const linkedSharedNodeModules = ensureSharedNodeModulesLink({
-        workspaceRoot,
-        worktreePath: plan.worktreePath,
-    });
+    const linkedSharedNodeModules = args['share-dependencies'] === true
+        ? ensureSharedNodeModulesLink({
+            workspaceRoot,
+            worktreePath: plan.worktreePath,
+        })
+        : false;
     registerNewThread({
         task: plan.task,
         owner,

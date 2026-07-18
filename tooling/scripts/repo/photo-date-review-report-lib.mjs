@@ -195,6 +195,10 @@ function formatConfidence(score) {
     return typeof score === 'number' ? `${Math.round(score * 100)}%` : 'Unknown';
 }
 
+function formatTimestampSource(source) {
+    return source ? ` (${source})` : '';
+}
+
 function renderCaseSection(caseSummary) {
     const lines = [
         `## ${caseSummary.assetId}`,
@@ -206,7 +210,7 @@ function renderCaseSection(caseSummary) {
         `- Review reason: ${caseSummary.reasonCode}`,
         `- Suggested action: ${caseSummary.suggestedAction}`,
         `- AI date: ${caseSummary.aiMostLikelyDate ?? caseSummary.aiDisplayLabel ?? 'Unknown'}`,
-        `- Metadata timestamp: ${caseSummary.exifDateTime ?? 'Unknown'}${caseSummary.storedTimestampSource ? ` (${caseSummary.storedTimestampSource})` : ''}`,
+        `- Metadata timestamp: ${caseSummary.exifDateTime ?? 'Unknown'}${formatTimestampSource(caseSummary.storedTimestampSource)}`,
         `- Estimate confidence: ${formatConfidence(caseSummary.estimateConfidence)}`,
     ];
 

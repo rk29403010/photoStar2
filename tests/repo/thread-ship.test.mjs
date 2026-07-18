@@ -3,12 +3,35 @@ import assert from 'node:assert/strict';
 
 import {
     getShipCommitMessage,
+    getIntegrationStrategy,
+    hasRegisteredGitHubChecks,
     getShipIgnorePaths,
     getShipMode,
+    isMainModule,
     parseGitStatusLines,
     parseWorktreeList,
     resolveMainWorktreePath,
 } from '../../tooling/scripts/repo/thread-ship.js';
+
+test('GitHub check registration distinguishes an empty propagation window', () => {
+    assert.equal(hasRegisteredGitHubChecks('[]'), false);
+    assert.equal(hasRegisteredGitHubChecks(''), false);
+    assert.equal(hasRegisteredGitHubChecks('[{"name":"quality-gate","state":"PENDING"}]'), true);
+});
+
+test('Windows launcher detection tolerates path casing differences', () => {
+    assert.equal(isMainModule({
+        argvPath: 'C:\\Users\\Robin\\repo\\thread-ship.js',
+        moduleUrl: 'file:///c:/users/robin/repo/thread-ship.js',
+        platform: 'win32',
+    }), true);
+});
+
+test('integration strategy requires GitHub for a configured remote', () => {
+    assert.equal(getIntegrationStrategy({ hasOrigin: true, githubAvailable: true }), 'github-pr');
+    assert.equal(getIntegrationStrategy({ hasOrigin: true, githubAvailable: false }), 'blocked');
+    assert.equal(getIntegrationStrategy({ hasOrigin: false, githubAvailable: false }), 'local-only');
+});
 
 test('parseWorktreeList extracts worktree records from porcelain output', () => {
     const records = parseWorktreeList([

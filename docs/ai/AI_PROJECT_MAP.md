@@ -15,6 +15,26 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **Services** | Handles commands, executes workflow definitions, and projects runtime state. | `src/services/handlers/`, `src/services/workflowRuntime/` |
 | **Data** | Stores catalog state, workflow runtime state, job history, and recent events. | `src/data/db.ts`, `src/services/events/` |
 
+## Repository change lifecycle
+
+- `docs/ai/change-workflow.md` is the operating guide for task creation,
+  editor handoff, QA, runtime ownership, shipping, and cleanup.
+- `docs/architecture/adr-002-agent-neutral-change-lifecycle.md` records the
+  editor-neutral lifecycle decision.
+- `qa:quick` is the fast edit loop, `qa:ready` evaluates the complete branch
+  diff, and `qa:merge` is the canonical local and GitHub integration gate. The
+  merge gate adds Oxlint multi-file cycle detection and application type-aware
+  analysis while retaining typed ESLint and both TypeScript compiler projects.
+- `task:audit` is read-only visibility across Git worktrees and task metadata;
+  `task:reconcile` plans and safely removes only state proven stale or already
+  integrated.
+- The phrase `ship this change` instructs Codex or Antigravity to fix in-scope
+  gate failures, integrate and push `main`, verify required checks and commit
+  containment, stop the task-owned runtime, remove the task branch/worktree,
+  reconcile stale state, and report any blocker precisely.
+- Git refs and worktree state are authoritative. Editor, path, runtime, and port
+  data are transferable task metadata, not separate editor-specific systems.
+
 ## Feature routing table
 
 | User request mentions... | Start with these files | Also check | Relevant tests |

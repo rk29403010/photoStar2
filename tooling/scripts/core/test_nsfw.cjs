@@ -4,7 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const modelDir = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models', 'nsfwjs');
-const modelUrl = 'file://' + modelDir.replaceAll('\\', '/') + '/model.json';
+const modelUrl = `file://${modelDir.replaceAll('\\', '/')}/model.json`;
 
 console.log('[Test] Loading model from:', modelUrl);
 console.log('[Test] Files in model dir:', fs.readdirSync(modelDir));
@@ -17,12 +17,12 @@ nsfw.load(modelUrl, { size: 224 }).then(model => {
         dummyTensor.dispose();
         console.log('[Test] classify() returned', predictions.length, 'classes:');
         predictions.forEach(p =>
-            console.log('  ', p.className.padEnd(10), (p.probability * 100).toFixed(2) + '%')
+            console.log('  ', p.className.padEnd(10), `${(p.probability * 100).toFixed(2)}%`)
         );
         const score = predictions
             .filter(p => ['Porn', 'Sexy', 'Hentai'].includes(p.className))
             .reduce((acc, p) => acc + p.probability, 0);
-        console.log('[Test] Sensitivity score for dummy image:', Math.round(score * 100) + '%');
+        console.log('[Test] Sensitivity score for dummy image:', `${Math.round(score * 100)}%`);
         console.log('[Test] ✓ ALL OK - scan_sensitive job is fully operational.');
     });
 }).catch(e => {
