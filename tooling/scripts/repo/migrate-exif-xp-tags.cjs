@@ -1,6 +1,6 @@
 const Database = require('better-sqlite3');
-const path = require('path');
-const os = require('os');
+const path = require('node:path');
+const os = require('node:os');
 
 const APP_DATA_DIR = process.env.APPDATA || os.homedir() || '.';
 const dbPath = path.join(APP_DATA_DIR, 'PhotoLibraryDesktop', 'library.db');

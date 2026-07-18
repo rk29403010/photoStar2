@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { execSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const SOURCE_DIRS = [
@@ -27,8 +27,8 @@ function getAllFiles(dirPath, arrayOfFiles) {
     arrayOfFiles = arrayOfFiles || [];
 
     files.forEach(function (file) {
-        if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-            arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles);
+        if (fs.statSync(`${dirPath}/${file}`).isDirectory()) {
+            arrayOfFiles = getAllFiles(`${dirPath}/${file}`, arrayOfFiles);
         } else {
             arrayOfFiles.push(path.join(dirPath, file));
         }
@@ -38,7 +38,7 @@ function getAllFiles(dirPath, arrayOfFiles) {
 }
 
 function calculateHash() {
-    const hash = crypto.createHash('md5');
+    const hash = crypto.createHash('sha256');
 
     // Hash critical config files
     ['package.json', 'package-lock.json', 'tsconfig.json'].forEach(f => {
@@ -57,6 +57,18 @@ function calculateHash() {
     });
 
     return hash.digest('hex');
+}
+
+function runPackageScript(scriptName) {
+    const packageManagerCli = process.env.npm_execpath;
+    if (!packageManagerCli || !path.isAbsolute(packageManagerCli)) {
+        throw new Error('Run smart_build.cjs through pnpm so npm_execpath identifies the package manager executable.');
+    }
+
+    execFileSync(process.execPath, [packageManagerCli, 'run', scriptName], {
+        stdio: 'inherit',
+        cwd: REPO_ROOT,
+    });
 }
 
 function main() {
@@ -103,11 +115,11 @@ function runBuild(hashFile, currentHash) {
         fs.mkdirSync(HASH_DIR, { recursive: true });
 
         console.log('[SmartBuild] Running core compile...');
-        execSync('npx pnpm run build:core:ts', { stdio: 'inherit', cwd: REPO_ROOT });
+        runPackageScript('build:core:ts');
 
         if (!isCompileOnly) {
             console.log('[SmartBuild] Packaging binary...');
-            execSync('npx pnpm run package:core', { stdio: 'inherit', cwd: REPO_ROOT });
+            runPackageScript('package:core');
         }
 
         fs.writeFileSync(hashFile, currentHash);
@@ -119,4 +131,3 @@ function runBuild(hashFile, currentHash) {
 }
 
 main();
-

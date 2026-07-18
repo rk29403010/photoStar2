@@ -9,6 +9,43 @@ const DEFAULT_TOP = 80;
 const IGNORE_DIRS = new Set(['node_modules', 'dist', 'build', '.git', '.local', 'deployments']);
 const EXTENSIONS = new Set(['.ts', '.tsx']);
 
+function parseInteger(value, fallback) {
+    return Number.parseInt(value, 10) || fallback;
+}
+
+function parseList(value) {
+    return value.split(',').map(item => item.trim()).filter(Boolean);
+}
+
+const ARG_OPTION_DEFINITIONS = new Map([
+    ['--top', { key: 'top', parse: value => parseInteger(value, DEFAULT_TOP) }],
+    ['--dirs', { key: 'dirs', parse: parseList }],
+    ['--files', { key: 'files', parse: parseList }],
+    ['--min-cyclomatic', { key: 'minCyclomatic', parse: value => parseInteger(value, 0) }],
+    ['--min-cognitive', { key: 'minCognitive', parse: value => parseInteger(value, 0) }]
+]);
+
+function parseValueOption(argv, index) {
+    const arg = argv[index];
+    const equalsIndex = arg.indexOf('=');
+    const optionName = equalsIndex === -1 ? arg : arg.slice(0, equalsIndex);
+    const definition = ARG_OPTION_DEFINITIONS.get(optionName);
+    if (!definition) {
+        return null;
+    }
+
+    const inlineValue = equalsIndex === -1 ? null : arg.slice(equalsIndex + 1);
+    const value = inlineValue ?? argv[index + 1];
+    if (inlineValue === null && !value) {
+        return null;
+    }
+    return {
+        consumedNext: inlineValue === null,
+        key: definition.key,
+        value: definition.parse(value)
+    };
+}
+
 export function parseArgs(argv) {
     const options = {
         dirs: [...DEFAULT_DIRS],
@@ -21,8 +58,6 @@ export function parseArgs(argv) {
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
-        const next = argv[i + 1];
-
         if (arg === '--help' || arg === '-h') {
             options.help = true;
             continue;
@@ -31,50 +66,12 @@ export function parseArgs(argv) {
             options.json = true;
             continue;
         }
-        if (arg.startsWith('--top=')) {
-            options.top = Number.parseInt(arg.slice('--top='.length), 10) || DEFAULT_TOP;
-            continue;
-        }
-        if (arg === '--top' && next) {
-            options.top = Number.parseInt(next, 10) || DEFAULT_TOP;
-            i++;
-            continue;
-        }
-        if (arg.startsWith('--dirs=')) {
-            options.dirs = arg.slice('--dirs='.length).split(',').map(s => s.trim()).filter(Boolean);
-            continue;
-        }
-        if (arg === '--dirs' && next) {
-            options.dirs = next.split(',').map(s => s.trim()).filter(Boolean);
-            i++;
-            continue;
-        }
-        if (arg.startsWith('--files=')) {
-            options.files = arg.slice('--files='.length).split(',').map(s => s.trim()).filter(Boolean);
-            continue;
-        }
-        if (arg === '--files' && next) {
-            options.files = next.split(',').map(s => s.trim()).filter(Boolean);
-            i++;
-            continue;
-        }
-        if (arg.startsWith('--min-cyclomatic=')) {
-            options.minCyclomatic = Number.parseInt(arg.slice('--min-cyclomatic='.length), 10) || 0;
-            continue;
-        }
-        if (arg === '--min-cyclomatic' && next) {
-            options.minCyclomatic = Number.parseInt(next, 10) || 0;
-            i++;
-            continue;
-        }
-        if (arg.startsWith('--min-cognitive=')) {
-            options.minCognitive = Number.parseInt(arg.slice('--min-cognitive='.length), 10) || 0;
-            continue;
-        }
-        if (arg === '--min-cognitive' && next) {
-            options.minCognitive = Number.parseInt(next, 10) || 0;
-            i++;
-            continue;
+        const parsedOption = parseValueOption(argv, i);
+        if (parsedOption) {
+            options[parsedOption.key] = parsedOption.value;
+            if (parsedOption.consumedNext) {
+                i++;
+            }
         }
     }
 
@@ -112,7 +109,9 @@ function walkFiles(rootDir, outFiles) {
         const fullPath = path.join(rootDir, entry.name);
 
         if (entry.isDirectory()) {
-            if (IGNORE_DIRS.has(entry.name)) {continue;}
+            if (IGNORE_DIRS.has(entry.name)) {
+                continue;
+            }
             walkFiles(fullPath, outFiles);
             continue;
         }
@@ -206,6 +205,10 @@ function getFunctionName(node, sourceFile) {
         return node.name ? node.name.getText(sourceFile) : '<anonymous_function_decl>';
     }
 
+    return getMemberOrLambdaName(node, sourceFile);
+}
+
+function getMemberOrLambdaName(node, sourceFile) {
     if (ts.isMethodDeclaration(node)) {
         const className = getEnclosingClassName(node);
         const methodName = node.name ? node.name.getText(sourceFile) : '<anonymous_method>';
@@ -224,13 +227,20 @@ function getFunctionName(node, sourceFile) {
     }
 
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
-        const parent = node.parent;
-        if (parent && ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) {return parent.name.text;}
-        if (parent && ts.isPropertyAssignment(parent)) {return parent.name.getText(sourceFile);}
-        return '<anonymous_lambda>';
+        return getLambdaName(node.parent, sourceFile);
     }
 
     return '<unknown_function>';
+}
+
+function getLambdaName(parent, sourceFile) {
+    if (parent && ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) {
+        return parent.name.text;
+    }
+    if (parent && ts.isPropertyAssignment(parent)) {
+        return parent.name.getText(sourceFile);
+    }
+    return '<anonymous_lambda>';
 }
 
 function getFunctionBody(node) {

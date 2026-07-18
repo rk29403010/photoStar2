@@ -91,6 +91,11 @@ export function buildThreadDoctorRow({
     sessionRunning,
     listenerMap,
 }) {
+    let trackedState = 'none';
+    if (sessionPid) {
+        trackedState = sessionRunning ? 'live' : 'stale';
+    }
+
     return {
         task: entry.task,
         status: entry.status,
@@ -99,7 +104,7 @@ export function buildThreadDoctorRow({
         url: `http://localhost:${webPort}`,
         backendPort,
         trackedPid: sessionPid ?? null,
-        trackedState: sessionPid ? (sessionRunning ? 'live' : 'stale') : 'none',
+        trackedState,
         webPid: listenerMap.get(webPort) ?? null,
         backendPid: listenerMap.get(backendPort) ?? null,
     };

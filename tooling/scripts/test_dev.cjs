@@ -5,7 +5,7 @@ const path = require('node:path');
 const corePath = path.join(__dirname, '..', '..', 'dist', 'core', 'src', 'entrypoints', 'core', 'main.js');
 console.log('[TEST-DEV] Starting backend service at:', corePath);
 
-const child = spawn('node', [corePath], {
+const child = spawn(process.execPath, [corePath], {
     stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr too
     cwd: __dirname
 });
@@ -21,7 +21,7 @@ child.stdout.on('data', (data) => {
             command: 'detect_faces',
             payload: {}
         });
-        child.stdin.write(command + '\n');
+        child.stdin.write(`${command}\n`);
     }
 
     if (str.includes('"status":"complete"')) {
@@ -41,4 +41,3 @@ setTimeout(() => {
     console.log('[TEST-DEV] Timeout reached (30s)');
     child.kill();
 }, 30000); // 30 seconds
-

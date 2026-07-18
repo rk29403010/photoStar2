@@ -3,6 +3,12 @@
 Repo-local instructions for AI coding sessions. Prefer commands, evidence, and
 repo checks over prose, memory, or vibes.
 
+These rules are editor-neutral. Codex, Antigravity, and other agents must use
+the same repository commands, task metadata, quality gates, and finish
+semantics. Do not introduce an editor-named branch namespace, worktree root,
+registry, hook, port range, or generated-file location as a repository
+requirement.
+
 ## AI-First Project
 
 This project is **AI-first**, written and maintained through AI prompts rather than directly through manual code edits.
@@ -51,15 +57,22 @@ This project is **AI-first**, written and maintained through AI prompts rather t
 
 To maintain fast progress and optimize token usage, quality checking should be offloaded to deterministic local processes (like formatters and linters) with auto-fixing enabled wherever possible.
 
-- **AI-Led Quality Control**: The AI determines when to run quality checks during development. Avoid executing heavy quality gates (like full typechecking or complete test suites) after every prompt. Instead, hold off running comprehensive checks until the task is complete and ready to be committed or handed off.
-- **Automated Auto-Fixing**: Prefer using auto-fixing lint/format commands first to automatically correct style/formatting issues (e.g. `pnpm.cmd run quality:fix` or `pnpm.cmd run lint:fix`).
-- **Required Handoff Gates**: Full quality verification must pass before claiming success or staging commits. Ensure the following gates run before final handoff:
-  - Commit/Handoff gate: `pnpm.cmd run quality` (or `pnpm.cmd run quality:staged` for partial work).
-  - Core changes: `pnpm.cmd run test:core`
-  - UI changes: `pnpm.cmd run test:ui`
-  - Tooling/repo changes: `pnpm.cmd run test:repo`
-- **Track New Files First**: Always track/stage newly created code files (using `git add`) BEFORE running quality checks. Because scripts like `complexity:changed` rely on Git diffs to find changed files, untracked files will be silently skipped by complexity checking unless staged first.
-- **Branch/Complexity Monitoring**: Run `pnpm.cmd run complexity:staged` for complex, branch-heavy files, or pass explicit files: `pnpm.cmd run complexity:staged -- --files=src/foo.ts`.
+- **AI-Led Quality Control**: Use `pnpm.cmd run qa:quick` during normal editing.
+  Do not run the comprehensive gate after every prompt.
+- **Automated Auto-Fixing**: Prefer repository auto-fix commands before a gate
+  when they are applicable to the current files.
+- **Readiness Gate**: Run `pnpm.cmd run qa:ready` before handing a branch off
+  for review. It checks the complete branch diff against its base.
+- **Required Merge Gate**: `pnpm.cmd run qa:merge` is the canonical local and CI
+  integration gate. It must pass at the exact head being integrated before a
+  change may enter `main`.
+- Do not substitute legacy `quality*` commands or a manually selected subset
+  for `qa:merge` when shipping a change.
+- **New Files**: The canonical QA selectors include relevant untracked files.
+  Stage first only when deliberately using a staged-only legacy command.
+- **Branch/Complexity Monitoring**: Prefer the complexity check included in
+  `qa:quick` or `qa:ready`. For isolated diagnosis, pass explicit files to the
+  complexity script rather than changing Git state merely to select them.
 
 ## Code Shape
 
@@ -158,7 +171,12 @@ command/workflow start, and user-visible feedback.
 
 ## Worktrees And Runtime
 
-- One chat thread equals one task capsule: one worktree, one branch, one goal.
+- One task equals one task capsule: one worktree, one branch, one goal. A task
+  may move between Codex and Antigravity; the editor is metadata, not identity.
+- Discover worktrees from Git and the shared task registry. Do not assume the
+  task lives under `.worktrees/`, `worktrees/`, or an editor-managed directory.
+- Use a neutral branch name accepted by the task tooling. Do not require an
+  editor-specific prefix.
 - New independent task:
 
 ```bash
@@ -169,12 +187,17 @@ pnpm.cmd run thread:new -- --task "<task name>"
 - Register existing worktrees with `pnpm.cmd run thread:register -- --task "<task name>"`.
 - Update state with `pnpm.cmd run thread:update -- --status <active|blocked|ready-to-merge|parked>`.
 - Close finished threads with `pnpm.cmd run thread:close -- --status <merged|parked|discarded>`.
+- Audit all live and stale task state with `pnpm.cmd run task:audit`. Use
+  `pnpm.cmd run task:reconcile` only after reviewing its dry-run output.
 - Before handoff, run `pnpm.cmd run thread:status`; use `pnpm.cmd run thread:list`
   when reporting active threads. Report the worktree path, branch, running
   script, app URL, and backend port shown there.
 - Tell the user the worktree path, branch, and current app URL/port state when
   work starts.
 - Do not leave dirty active worktrees unregistered.
+- Never delete a worktree or branch until Git proves its committed head is
+  contained in the destination branch. Never remove uncommitted files as
+  cleanup.
 
 Runtime ownership:
 
@@ -191,10 +214,11 @@ Runtime ownership:
 - Treat existing `dev:*` sessions as user-owned unless this task started them or
   the user asked to stop them.
 
-Runtime handoff block format:
+Runtime handoff commands must use the actual path reported by task status, not
+an assumed editor-owned directory. Example:
 
 ```bash
-cd /c/Users/robin/Projects/photoStar2/.worktrees/<worktree-name>
+cd <reported-worktree-path>
 pnpm.cmd run dev:desktop-runtime
 ```
 
@@ -237,19 +261,32 @@ asked. Never use destructive git commands such as `git reset --hard` or
 
 Finish commands:
 
-- `ship it`: commit, merge to `main`, push, close as merged.
-- `finish this thread and merge it back`: clean, merge, close as merged.
+- `ship this change`: canonical editor-neutral end-to-end finish command. Run
+  `pnpm.cmd run thread:ship`, fix in-scope failures, and retry until it completes.
+  This includes the full merge gate, commit, protected integration into `main`,
+  push, remote-check and containment verification, stopping the task-owned
+  runtime, and removing the integrated branch/worktree. Then audit and safely
+  reconcile the task registry. Continue through fixable failures without
+  returning a partial handoff. If safe completion is impossible, stop before
+  destructive cleanup and report the failed command, concrete cause, retained
+  worktree and branch, and the exact recovery action.
+- `ship it` and `finish this thread and merge it back` are aliases for
+  `ship this change`.
 - `finish this thread, commit it, and keep the branch`: commit, mark ready.
 - `make a WIP commit and park this thread`: WIP commit, close as parked.
 - `discard this thread`: confirm before destructive cleanup, close discarded.
 
+The authoritative workflow and completion checklist are in
+`docs/ai/change-workflow.md`.
+
 ## Dependencies
 
-- Do not install per worktree by default.
-- Install or rebuild only when the thread needs to run and dependencies are not
-  usable.
-- Be careful with shared `node_modules`; native packages and lockfile drift can
-  break it.
+- Use a separate `node_modules` per worktree backed by pnpm's shared global
+  content store. Install only when the task needs to run checks or a runtime.
+- `thread:new -- --share-dependencies` is an explicit speed/risk opt-in for a
+  task that will not change dependency manifests or native packages. Never use
+  writable shared `node_modules` concurrently when lockfiles or dependencies
+  may change.
 
 ## Browser Cleanup
 

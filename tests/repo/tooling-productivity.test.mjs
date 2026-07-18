@@ -234,10 +234,12 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     const packageJson = JSON.parse(await import('node:fs/promises').then((fs) => fs.readFile(packageJsonPath, 'utf8')));
     const scripts = packageJson.scripts ?? {};
 
+    assert.equal(scripts['qa:quick'], 'node tooling/scripts/repo/quality-gate.js quick');
+    assert.equal(scripts['qa:ready'], 'node tooling/scripts/repo/quality-gate.js ready');
+    assert.equal(scripts['qa:merge'], 'node tooling/scripts/repo/quality-gate.js merge');
     assert.equal(scripts['quality:changed'], 'pnpm run lint:fast:changed && pnpm run complexity:changed');
     assert.equal(scripts['quality:changed:full'], 'pnpm run lint:fast:changed && pnpm run lint:changed && pnpm run complexity:changed');
-    assert.match(scripts.quality, /pnpm run test:repo/);
-    assert.match(scripts.quality, /pnpm run test:ui/);
+    assert.equal(scripts.quality, 'pnpm run qa:merge');
     assert.equal(scripts.test, 'pnpm run test:repo');
     assert.equal(scripts['test:repo'], 'node --test tests/repo/*.test.mjs');
     assert.equal(scripts['test:ui'], 'node --test tests/ui/*.test.cjs');
@@ -256,6 +258,9 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['thread:stop-dev'], 'node tooling/scripts/repo/thread-dev-session.js stop');
     assert.equal(scripts['thread:doctor'], 'node tooling/scripts/repo/thread-doctor.js');
     assert.equal(scripts['thread:ship'], 'node tooling/scripts/repo/thread-ship.js');
+    assert.equal(scripts['task:audit'], 'node tooling/scripts/repo/thread-state.js audit');
+    assert.equal(scripts['task:reconcile'], 'node tooling/scripts/repo/thread-state.js reconcile');
+    assert.equal(scripts['repo:protect-main'], 'node tooling/scripts/repo/configure-main-protection.js');
     assert.equal(scripts['lint:md'], 'markdownlint "**/*.md" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents');
     assert.equal(scripts['fix:md'], 'markdownlint "**/*.md" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents');
 });

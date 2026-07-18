@@ -53,7 +53,7 @@ test('buildThreadBootstrapPlan derives branch and worktree path from the task sl
         {
             task: 'Automatic Thread Worktrees',
             slug: 'automatic-thread-worktrees',
-            branch: 'codex/automatic-thread-worktrees',
+            branch: 'task/automatic-thread-worktrees',
             worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
         },
     );
@@ -63,7 +63,7 @@ test('buildThreadBootstrapSummary preserves managed runtime URL output', () => {
     const output = buildThreadBootstrapSummary({
         plan: {
             task: 'Automatic Thread Worktrees',
-            branch: 'codex/automatic-thread-worktrees',
+            branch: 'task/automatic-thread-worktrees',
             worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
         },
         linkedSharedNodeModules: true,
@@ -73,7 +73,7 @@ test('buildThreadBootstrapSummary preserves managed runtime URL output', () => {
         ].join('\n'),
     });
 
-    assert.match(output, /Branch: codex\/automatic-thread-worktrees/);
+    assert.match(output, /Branch: task\/automatic-thread-worktrees/);
     assert.match(output, /Worktree: .*automatic-thread-worktrees/);
     assert.match(output, /http:\/\/localhost:6231 \(backend 6232\)/);
 });

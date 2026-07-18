@@ -17,13 +17,31 @@ const path = require('node:path');
 const BASE = 'https://raw.githubusercontent.com/infinitered/nsfwjs/master/models/mobilenet_v2';
 const MODEL_DIR = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models', 'nsfwjs');
 
+function removePartialDownload(dest) {
+    try {
+        fs.unlinkSync(dest);
+    } catch (error) {
+        if (error.code !== 'ENOENT') {
+            console.warn(`[NSFWModel] Could not remove partial download ${dest}: ${error.message}`);
+        }
+    }
+}
+
+function finishDownload(out, dest, resolve) {
+    out.close(() => {
+        const size = fs.statSync(dest).size;
+        console.log(`\r  ${path.basename(dest)}: ${(size / 1024).toFixed(0)} KB [done]    `);
+        resolve();
+    });
+}
+
 function download(url, dest) {
     return new Promise((resolve, reject) => {
         const out = fs.createWriteStream(dest);
         const req = https.get(url, { timeout: 120_000 }, res => {
             if (res.statusCode !== 200) {
                 out.destroy();
-                try { fs.unlinkSync(dest); } catch { /* ignore */ }
+                removePartialDownload(dest);
                 reject(new Error(`HTTP ${res.statusCode} for ${url}`));
                 return;
             }
@@ -35,13 +53,13 @@ function download(url, dest) {
                 }
             });
             res.pipe(out);
-            out.on('finish', () => out.close(() => {
-                const size = fs.statSync(dest).size;
-                console.log(`\r  ${path.basename(dest)}: ${(size / 1024).toFixed(0)} KB [done]    `);
-                resolve();
-            }));
+            out.on('finish', () => finishDownload(out, dest, resolve));
         });
-        req.on('error', e => { out.destroy(); try { fs.unlinkSync(dest); } catch { /* ignore */ } reject(e); });
+        req.on('error', e => {
+            out.destroy();
+            removePartialDownload(dest);
+            reject(e);
+        });
         req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
     });
 }

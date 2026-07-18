@@ -10,7 +10,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 
 const MODEL_DIR = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models', 'nsfwjs');
-const modelUrl = 'file://' + MODEL_DIR.replaceAll('\\', '/') + '/model.json';
+const modelUrl = `file://${MODEL_DIR.replaceAll('\\', '/')}/model.json`;
 
 async function main() {
     // Create a synthetic 224x224 WebP test image using sharp
@@ -35,7 +35,7 @@ async function main() {
     tensor.dispose();
 
     console.log('[Test] classify() returned', predictions.length, 'classes:');
-    predictions.forEach(p => console.log('  ', p.className.padEnd(10), (p.probability * 100).toFixed(2) + '%'));
+    predictions.forEach(p => console.log('  ', p.className.padEnd(10), `${(p.probability * 100).toFixed(2)}%`));
 
     fs.unlinkSync(tmpWebp);
     console.log('[Test] ✓ WebP → PNG → TF pipeline works correctly.');

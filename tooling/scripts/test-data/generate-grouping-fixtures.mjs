@@ -6,6 +6,7 @@ import sharp from 'sharp';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const outputRoot = path.join(repoRoot, 'tests', 'fixtures', 'grouping-permutations');
+const WINDOWS_POWERSHELL = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 
 const CANVAS_SIZE = 512;
 const BACKGROUND = '#f7f7f2';
@@ -301,14 +302,14 @@ async function renderImage(subject, variant, extension, captureAt) {
 }
 
 function setWindowsTimestamp(filePath, captureAt) {
-    const escapedPath = filePath.replaceAll('\'', "''");
     const command = [
-        `$ts = [datetime]'${captureAt}'`,
-        `[System.IO.File]::SetCreationTimeUtc('${escapedPath}', $ts.ToUniversalTime())`,
-        `[System.IO.File]::SetLastWriteTimeUtc('${escapedPath}', $ts.ToUniversalTime())`,
-        `[System.IO.File]::SetLastAccessTimeUtc('${escapedPath}', $ts.ToUniversalTime())`,
+        '$filePath = $args[0]',
+        '$ts = [datetime]$args[1]',
+        '[System.IO.File]::SetCreationTimeUtc($filePath, $ts.ToUniversalTime())',
+        '[System.IO.File]::SetLastWriteTimeUtc($filePath, $ts.ToUniversalTime())',
+        '[System.IO.File]::SetLastAccessTimeUtc($filePath, $ts.ToUniversalTime())',
     ].join('; ');
-    execFileSync('powershell.exe', ['-NoProfile', '-Command', command], {
+    execFileSync(WINDOWS_POWERSHELL, ['-NoProfile', '-NonInteractive', '-Command', command, filePath, captureAt], {
         stdio: 'ignore',
     });
 }

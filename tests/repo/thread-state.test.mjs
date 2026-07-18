@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import {
     closeThreadEntry,
+    buildReconciliationPlan,
     createEmptyThreadRegistry,
     findThreadEntry,
     getManagedSessionState,
@@ -12,8 +15,76 @@ import {
     isBranchMergedIntoTargets,
     refreshThreadRegistry,
     renderThreadList,
+    readThreadRegistry,
+    writeThreadRegistry,
     upsertThreadEntry,
 } from '../../tooling/scripts/repo/thread-state.js';
+
+test('registry writes are atomic and corrupt registries fail closed', () => {
+    const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), 'photo-star-task-state-'));
+    const registryPath = path.join(temporaryDirectory, 'task-state.json');
+    try {
+        writeThreadRegistry(registryPath, createEmptyThreadRegistry());
+        assert.deepEqual(readThreadRegistry(registryPath), createEmptyThreadRegistry());
+        writeFileSync(registryPath, '{broken');
+        assert.throws(() => readThreadRegistry(registryPath), /registry is corrupt.*Refusing to overwrite/);
+    } finally {
+        rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+});
+
+test('reconciliation only closes missing tasks whose merge is proven', () => {
+    const registry = { version: 1, entries: [
+        { cwd: 'C:/gone/merged', task: 'merged', status: 'active', missing: true, includedInMain: true },
+        { cwd: 'C:/gone/open', task: 'open', status: 'active', missing: true, includedInMain: false },
+    ] };
+    assert.deepEqual(buildReconciliationPlan(registry).map((item) => item.action), [
+        'cleanup-merged-residue',
+        'keep',
+    ]);
+});
+
+test('reconciliation closes stale dirty metadata when the worktree is already absent', () => {
+    const registry = { version: 1, entries: [{
+        cwd: 'C:/gone/stale-dirty-record',
+        task: 'stale dirty metadata',
+        status: 'active',
+        missing: true,
+        dirty: true,
+        includedInMain: true,
+    }] };
+
+    assert.equal(buildReconciliationPlan(registry)[0].action, 'cleanup-merged-residue');
+});
+
+test('reconciliation removes a clean merged task whose worktree still exists', () => {
+    const registry = { version: 1, entries: [{
+        cwd: 'C:/residual/merged-task',
+        task: 'merged with residue',
+        status: 'merged',
+        missing: false,
+        dirty: false,
+        includedInMain: true,
+    }] };
+
+    assert.deepEqual(buildReconciliationPlan(registry).map((item) => item.action), [
+        'cleanup-merged-residue',
+    ]);
+});
+
+test('reconciliation removes a merged residual directory after Git metadata is gone', () => {
+    const registry = { version: 1, entries: [{
+        cwd: 'C:/residual/merged-task',
+        task: 'merged residual files',
+        status: 'merged',
+        missing: true,
+        residualPathExists: true,
+        dirty: false,
+        includedInMain: true,
+    }] };
+
+    assert.equal(buildReconciliationPlan(registry)[0].action, 'cleanup-merged-residue');
+});
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');

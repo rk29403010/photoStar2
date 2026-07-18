@@ -3,12 +3,19 @@ import assert from 'node:assert/strict';
 
 import {
     getShipCommitMessage,
+    getIntegrationStrategy,
     getShipIgnorePaths,
     getShipMode,
     parseGitStatusLines,
     parseWorktreeList,
     resolveMainWorktreePath,
 } from '../../tooling/scripts/repo/thread-ship.js';
+
+test('integration strategy requires GitHub for a configured remote', () => {
+    assert.equal(getIntegrationStrategy({ hasOrigin: true, githubAvailable: true }), 'github-pr');
+    assert.equal(getIntegrationStrategy({ hasOrigin: true, githubAvailable: false }), 'blocked');
+    assert.equal(getIntegrationStrategy({ hasOrigin: false, githubAvailable: false }), 'local-only');
+});
 
 test('parseWorktreeList extracts worktree records from porcelain output', () => {
     const records = parseWorktreeList([

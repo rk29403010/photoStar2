@@ -254,3 +254,18 @@ UI Improvements
 ## 2026-07-16 - Photo editor component extraction
 
 - The staged complexity report flags the editor preview dispatcher and crop, rotate, and colour-pop overlays, plus several editor workspace functions, above the project thresholds. Split these into smaller canvas, controls, and workspace-state components without changing the verified preview geometry.
+
+## 2026-07-16 - Agent-neutral workflow rollout verification
+
+- After the QA/task lifecycle tooling lands, run `ship this change` once from
+  Codex and once from Antigravity on disposable test changes. Verify that both
+  use the same gates and registry, allocate distinct runtimes/ports, and leave
+  no branch, worktree, runtime, or stale task record after successful shipping.
+
+## 2026-07-16 - TypeScript 7 backend migration
+
+- Move the repository compiler to TypeScript 7 after `typescript-eslint`
+  supports it and the CommonJS backend build no longer depends on the removed
+  Node10 module resolver. Preserve CommonJS runtime output and make the core
+  tsconfig acceptable to `typescript-go` before expanding type-aware Oxlint
+  from the application project to the backend project.

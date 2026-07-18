@@ -17,9 +17,9 @@ test('colour pop preserves selected hues and converts other colours to monochrom
 test('quantised image palette keeps distinct common and saturated colours', async () => {
     const colourPop = await import('../../src/shared/photoEditing/colourPop.ts');
     const pixels = Uint8Array.from([
-        ...Array(20).fill([120, 118, 116, 255]).flat(),
-        ...Array(8).fill([210, 25, 30, 255]).flat(),
-        ...Array(8).fill([25, 60, 210, 255]).flat(),
+        ...Array.from({ length: 20 }, () => [120, 118, 116, 255]).flat(),
+        ...Array.from({ length: 8 }, () => [210, 25, 30, 255]).flat(),
+        ...Array.from({ length: 8 }, () => [25, 60, 210, 255]).flat(),
     ]);
     const palette = colourPop.quantizeColourPalette(pixels, 5);
     assert.ok(palette.some((colour) => colour.red > 180 && colour.green < 60));

@@ -62,6 +62,7 @@ export function runCommandSync({
     stdio = 'pipe',
     detached = false,
     platform = process.platform,
+    input,
 }) {
     const invocation = buildSpawnInvocation({
         command,
@@ -76,6 +77,7 @@ export function runCommandSync({
     return spawnSync(invocation.command, invocation.args, {
         ...invocation.options,
         ...(encoding ? { encoding } : {}),
+        ...(input === undefined ? {} : { input }),
     });
 }
 

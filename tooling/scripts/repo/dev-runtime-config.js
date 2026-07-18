@@ -71,7 +71,8 @@ function getAutomaticPortOffset(cwd) {
     return 0;
   }
 
-  return hashWorktreeName(worktreeName) + 1;
+  const worktreeIdentity = `${worktreeName}:${normalizeCwd(cwd).toLowerCase()}`;
+  return hashWorktreeName(worktreeIdentity) + 1;
 }
 
 function normalizePath(filePath) {
