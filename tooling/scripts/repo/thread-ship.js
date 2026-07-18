@@ -28,8 +28,10 @@ export function isMainModule({ argvPath, moduleUrl, platform = process.platform 
     if (!argvPath) {
         return false;
     }
-    const launchedPath = path.resolve(argvPath);
-    const sourcePath = fileURLToPath(moduleUrl);
+    const windows = platform === 'win32';
+    const pathApi = windows ? path.win32 : path.posix;
+    const launchedPath = pathApi.resolve(argvPath);
+    const sourcePath = fileURLToPath(moduleUrl, { windows });
     return platform === 'win32'
         ? normalizePath(launchedPath) === normalizePath(sourcePath)
         : launchedPath === sourcePath;
