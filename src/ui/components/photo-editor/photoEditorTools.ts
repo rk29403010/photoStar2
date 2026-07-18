@@ -1,4 +1,5 @@
 import {
+  Aperture,
   Blend,
   CloudSun,
   Contrast,
@@ -8,9 +9,12 @@ import {
   Palette,
   RotateCw,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PhotoEditOperation, PhotoEditTool } from "@contracts/core";
+import { PHOTO_EFFECT_DEFAULTS, PHOTO_EFFECT_KIND } from "@shared/photoEditing/effects";
+import { FOCUS_DEFAULTS } from "@shared/photoEditing/focus";
 
 export type ToolDefinition = {
   id: PhotoEditTool;
@@ -31,7 +35,18 @@ export const PHOTO_EDITOR_TOOLS: ToolDefinition[] = [
     id: "adjust",
     label: "Tune image",
     icon: SlidersHorizontal,
-    defaults: { brightness: 1, contrast: 0, saturation: 1, hue: 0 },
+    defaults: {
+      brightness: 1,
+      contrast: 0,
+      saturation: 1,
+      hue: 0,
+      blackPoint: 0,
+      whitePoint: 255,
+      shadows: 0,
+      highlights: 0,
+      temperature: 0,
+      tint: 0,
+    },
     controls: [
       { key: "brightness", label: "Brightness", min: 0.2, max: 2, step: 0.01 },
       { key: "contrast", label: "Contrast", min: -1, max: 1, step: 0.01 },
@@ -96,6 +111,20 @@ export const PHOTO_EDITOR_TOOLS: ToolDefinition[] = [
     label: "Colour pop",
     icon: Palette,
     defaults: { colourCount: 0, colourRange: 28, softness: 0.35 },
+    controls: [],
+  },
+  {
+    id: "effects",
+    label: "Effects",
+    icon: Sparkles,
+    defaults: PHOTO_EFFECT_DEFAULTS[PHOTO_EFFECT_KIND.ripple],
+    controls: [],
+  },
+  {
+    id: "focus",
+    label: "Focus",
+    icon: Aperture,
+    defaults: FOCUS_DEFAULTS,
     controls: [],
   },
   {

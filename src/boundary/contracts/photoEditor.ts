@@ -4,6 +4,8 @@ export type PhotoEditTool =
     | 'colour_pop'
     | 'crop'
     | 'dehaze'
+    | 'effects'
+    | 'focus'
     | 'grayscale'
     | 'restore'
     | 'rotate'

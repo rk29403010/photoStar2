@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { PhotoColourPopOverlay } from "./PhotoColourPopOverlay";
 import { PhotoCropOverlay } from "./PhotoCropOverlay";
 import { PhotoEditorToolBoundary } from "./PhotoEditorToolBoundary";
+import { PhotoEffectsOverlay } from "./PhotoEffectsOverlay";
+import { PhotoFocusOverlay } from "./PhotoFocusOverlay";
 import { PhotoMaskOverlay } from "./PhotoMaskOverlay";
 import { PhotoRotateOverlay } from "./PhotoRotateOverlay";
 import { getLivePreviewStyle } from "./photoEditLivePreview";
@@ -21,7 +23,9 @@ function StandardPreview(props: ToolPreviewProps) {
   const isStandardTool =
     props.selected?.tool !== "crop" &&
     props.selected?.tool !== "rotate" &&
-    props.selected?.tool !== "colour_pop";
+    props.selected?.tool !== "colour_pop" &&
+    props.selected?.tool !== "effects" &&
+    props.selected?.tool !== "focus";
   if (props.showWithoutChange && isStandardTool && props.operationSourceUrl) {
     return (
       <img
@@ -95,6 +99,31 @@ function SelectedToolPreview(props: ToolPreviewProps): ReactNode {
         showWithoutChange={props.showWithoutChange}
         sourceUrl={props.operationSourceUrl}
         onChange={props.onCommitSelected}
+      />
+    );
+  }
+  if (selected?.tool === "effects") {
+    return (
+      <PhotoEffectsOverlay
+        key={selected.id}
+        operation={selected}
+        previewUrl={props.previewUrl}
+        showWithoutChange={props.showWithoutChange}
+        sourceUrl={props.operationSourceUrl}
+        onChange={props.onCommitSelected}
+      />
+    );
+  }
+  if (selected?.tool === "focus") {
+    return (
+      <PhotoFocusOverlay
+        key={selected.id}
+        operation={selected}
+        previewUrl={props.previewUrl}
+        showWithoutChange={props.showWithoutChange}
+        sourceUrl={props.operationSourceUrl}
+        onCommit={props.onCommitSelected}
+        onPreviewChange={props.onDraftSelected}
       />
     );
   }
