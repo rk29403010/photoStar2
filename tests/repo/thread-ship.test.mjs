@@ -6,10 +6,19 @@ import {
     getIntegrationStrategy,
     getShipIgnorePaths,
     getShipMode,
+    isMainModule,
     parseGitStatusLines,
     parseWorktreeList,
     resolveMainWorktreePath,
 } from '../../tooling/scripts/repo/thread-ship.js';
+
+test('Windows launcher detection tolerates path casing differences', () => {
+    assert.equal(isMainModule({
+        argvPath: 'C:\\Users\\Robin\\repo\\thread-ship.js',
+        moduleUrl: 'file:///c:/users/robin/repo/thread-ship.js',
+        platform: 'win32',
+    }), true);
+});
 
 test('integration strategy requires GitHub for a configured remote', () => {
     assert.equal(getIntegrationStrategy({ hasOrigin: true, githubAvailable: true }), 'github-pr');

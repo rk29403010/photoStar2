@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { runCommandSync } from './process-invocation.js';
 import {
     collectThreadSnapshot,
@@ -22,6 +22,17 @@ export function getShipIgnorePaths({ includeArtifacts = false } = {}) {
 
 function normalizePath(value) {
     return String(value ?? '').replaceAll('\\', '/').toLowerCase();
+}
+
+export function isMainModule({ argvPath, moduleUrl, platform = process.platform }) {
+    if (!argvPath) {
+        return false;
+    }
+    const launchedPath = path.resolve(argvPath);
+    const sourcePath = fileURLToPath(moduleUrl);
+    return platform === 'win32'
+        ? normalizePath(launchedPath) === normalizePath(sourcePath)
+        : launchedPath === sourcePath;
 }
 
 function isIgnoredShipPath(filePath, ignorePaths = getShipIgnorePaths()) {
@@ -399,7 +410,7 @@ function main() {
     shipWorktree({ cwd, snapshot, commitMessage, ignorePaths });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule({ argvPath: process.argv[1], moduleUrl: import.meta.url })) {
     try {
         main();
     } catch (error) {
