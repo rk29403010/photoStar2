@@ -12,6 +12,7 @@ test('GitHub runs the canonical merge gate with an explicit event base', async (
     assert.match(workflow, /QA_BASE_SHA:.*github\.event\.pull_request\.base\.sha.*github\.event\.before/);
     assert.match(workflow, /run: pnpm run qa:merge/);
     assert.match(workflow, /node-version-file: \.node-version/);
+    assert.match(workflow, /apt-get install .*libsecret-1-0/);
     assert.match(workflow, /timeout-minutes: 30/);
 });
 
