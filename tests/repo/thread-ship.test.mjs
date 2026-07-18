@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
     getShipCommitMessage,
     getIntegrationStrategy,
+    hasRegisteredGitHubChecks,
     getShipIgnorePaths,
     getShipMode,
     isMainModule,
@@ -11,6 +12,12 @@ import {
     parseWorktreeList,
     resolveMainWorktreePath,
 } from '../../tooling/scripts/repo/thread-ship.js';
+
+test('GitHub check registration distinguishes an empty propagation window', () => {
+    assert.equal(hasRegisteredGitHubChecks('[]'), false);
+    assert.equal(hasRegisteredGitHubChecks(''), false);
+    assert.equal(hasRegisteredGitHubChecks('[{"name":"quality-gate","state":"PENDING"}]'), true);
+});
 
 test('Windows launcher detection tolerates path casing differences', () => {
     assert.equal(isMainModule({

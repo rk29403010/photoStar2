@@ -197,6 +197,34 @@ export function getIntegrationStrategy({ hasOrigin, githubAvailable }) {
     return 'blocked';
 }
 
+export function hasRegisteredGitHubChecks(stdout) {
+    try {
+        const checks = JSON.parse(String(stdout ?? ''));
+        return Array.isArray(checks) && checks.length > 0;
+    } catch {
+        return false;
+    }
+}
+
+function waitForGitHubCheckRegistration({ cwd, branch, attempts = 24, delayMs = 5_000 }) {
+    console.log('Waiting for GitHub to register checks for the pushed head.');
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        const probe = runCommandSync({
+            command: ghExecutable,
+            args: ['pr', 'checks', branch, '--json', 'name,state'],
+            cwd,
+            encoding: 'utf8',
+        });
+        if (hasRegisteredGitHubChecks(probe.stdout)) {
+            return;
+        }
+        if (attempt < attempts) {
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+        }
+    }
+    throw new Error(`GitHub did not register checks for ${branch} within ${Math.ceil((attempts * delayMs) / 1_000)} seconds. The pushed branch and worktree were left intact.`);
+}
+
 function getCurrentThreadEntry(cwd) {
     const registryPath = resolveThreadRegistryPath(cwd);
     const registry = readThreadRegistry(registryPath);
@@ -268,6 +296,7 @@ function integrateWithGitHub({ cwd, branch }) {
             stdio: 'inherit',
         });
     }
+    waitForGitHubCheckRegistration({ cwd, branch });
     runCommandOrThrow({
         command: ghExecutable,
         args: ['pr', 'checks', branch, '--watch', '--fail-fast'],
