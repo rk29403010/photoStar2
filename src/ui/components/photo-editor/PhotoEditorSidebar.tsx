@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, Save, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Save, WandSparkles, X } from "lucide-react";
 import type {
   PhotoEditMask,
   PhotoEditOperation,
@@ -9,16 +9,22 @@ import type {
 } from "@contracts/core";
 import { Button, Checkbox, IconButton, Input, Select } from "../Primitives";
 import { PhotoColourPopOptions } from "./PhotoColourPopOptions";
+import { PhotoAutomaticPanel } from "./PhotoAutomaticPanel";
 import { PhotoCropOptions } from "./PhotoCropOptions";
 import { PhotoEditorToolBoundary } from "./PhotoEditorToolBoundary";
+import { PhotoEffectsOptions } from "./PhotoEffectsOptions";
+import { PhotoFocusOptions } from "./PhotoFocusOptions";
 import { PhotoMaskPanel } from "./PhotoMaskPanel";
 import { PhotoRotateOptions } from "./PhotoRotateOptions";
 import { PhotoTuneOptions } from "./PhotoTuneOptions";
+import { buildPhotoAutomaticSuggestions } from "./photoAutomatic";
+import type { PhotoAutomaticSuggestion } from "./photoAutomatic";
 import {
   PHOTO_EDITOR_TOOLS,
   type ToolDefinition,
 } from "./photoEditorTools";
 import type { EditorViewProps } from "./PhotoEditorWorkspace";
+import { usePhotoAutomaticAnalysis } from "./usePhotoAutomaticAnalysis";
 
 function instantiatePhotoEditStyle(
   style: Pick<PhotoEditStyle, "operations" | "masks">,
@@ -112,11 +118,17 @@ function StackList(props: {
 }
 
 type OperationControlsProps = {
+  readonly asset: EditorViewProps["asset"];
   readonly operation: PhotoEditOperation;
+  readonly semanticGeometrySafe: boolean;
   readonly masks: PhotoEditMask[];
   readonly sourceUrl: string | null;
   readonly onCommit: (operation: PhotoEditOperation) => void;
   readonly onPreviewChange: (operation: PhotoEditOperation) => void;
+};
+
+type AutomaticOperationControlsProps = OperationControlsProps & {
+  readonly automatic: ReturnType<typeof usePhotoAutomaticAnalysis>;
 };
 
 function GenericOperationControls(
@@ -184,7 +196,7 @@ function MaskTargetControl(props: OperationControlsProps) {
 }
 
 function ToolSpecificOptions(
-  props: OperationControlsProps & { readonly definition: ToolDefinition },
+  props: AutomaticOperationControlsProps & { readonly definition: ToolDefinition },
 ): ReactNode {
   if (props.operation.tool === "rotate") {
     return (
@@ -199,6 +211,7 @@ function ToolSpecificOptions(
     return (
       <PhotoTuneOptions
         operation={props.operation}
+        automatic={props.automatic}
         onCommit={props.onCommit}
         onPreviewChange={props.onPreviewChange}
       />
@@ -214,10 +227,72 @@ function ToolSpecificOptions(
       />
     );
   }
+  if (props.operation.tool === "effects") {
+    return (
+      <PhotoEffectsOptions
+        operation={props.operation}
+        onCommit={props.onCommit}
+        onPreviewChange={props.onPreviewChange}
+      />
+    );
+  }
+  if (props.operation.tool === "focus") {
+    return (
+      <PhotoFocusOptions
+        operation={props.operation}
+        onCommit={props.onCommit}
+        onPreviewChange={props.onPreviewChange}
+      />
+    );
+  }
   return <GenericOperationControls {...props} />;
 }
 
+function toolAutomaticSuggestion(
+  props: AutomaticOperationControlsProps,
+): PhotoAutomaticSuggestion | null {
+  if (!props.automatic.analysis || props.operation.tool === "adjust") {
+    return null;
+  }
+  return buildPhotoAutomaticSuggestions(
+    props.asset,
+    props.automatic.analysis,
+    props.semanticGeometrySafe,
+  )
+    .find((suggestion) => suggestion.tool === props.operation.tool) ?? null;
+}
+
+function ToolAutomaticAction(props: AutomaticOperationControlsProps) {
+  const suggestion = toolAutomaticSuggestion(props);
+  if (!suggestion) {
+    return null;
+  }
+  const apply = () => {
+    const operation = {
+      ...props.operation,
+      values: { ...props.operation.values, ...suggestion.values },
+    };
+    props.onPreviewChange(operation);
+    props.onCommit(operation);
+  };
+  return (
+    <div className="space-y-2">
+      <Button className="w-full" variant="secondary" onClick={apply}>
+        <WandSparkles aria-hidden="true" size={16} />
+        {suggestion.label}
+      </Button>
+      <p className="text-xs leading-5 text-content-secondary">{suggestion.rationale}</p>
+    </div>
+  );
+}
+
 function OperationControls(props: OperationControlsProps) {
+  const automatic = usePhotoAutomaticAnalysis(
+    props.sourceUrl,
+    props.asset,
+    props.semanticGeometrySafe,
+  );
+  const automaticProps = { ...props, automatic };
   const definition = PHOTO_EDITOR_TOOLS.find(
     (tool) => tool.id === props.operation.tool,
   );
@@ -229,11 +304,17 @@ function OperationControls(props: OperationControlsProps) {
       props.onPreviewChange(operation);
       props.onCommit(operation);
     };
-    return <PhotoCropOptions operation={props.operation} onChange={update} />;
+    return (
+      <div className="space-y-3">
+        <ToolAutomaticAction {...automaticProps} />
+        <PhotoCropOptions operation={props.operation} onChange={update} />
+      </div>
+    );
   }
   return (
     <div className="space-y-3">
-      <ToolSpecificOptions {...props} definition={definition} />
+      <ToolAutomaticAction {...automaticProps} />
+      <ToolSpecificOptions {...automaticProps} definition={definition} />
       {props.operation.tool !== "rotate" && <MaskTargetControl {...props} />}
     </div>
   );
@@ -265,9 +346,30 @@ function ToolTile(props: {
   );
 }
 
+function AutomaticToolTile(props: { readonly onSelect: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      className="h-24 w-full flex-col px-2 touch-manipulation focus-visible:ring-2 focus-visible:ring-brand-accent"
+      onClick={props.onSelect}
+    >
+      <WandSparkles
+        aria-hidden="true"
+        focusable="false"
+        size={28}
+        strokeWidth={1.8}
+        className="shrink-0 text-brand-accent"
+      />
+      <span className="min-h-8 text-center text-xs leading-4">Automatic</span>
+    </Button>
+  );
+}
+
 function ToolControlsRegion(
   props: Pick<
     EditorViewProps,
+    | "asset"
     | "history"
     | "onCommitSelected"
     | "onDraftSelected"
@@ -278,6 +380,12 @@ function ToolControlsRegion(
   if (!props.selected) {
     return null;
   }
+  const selectedIndex = props.history.present.operations.findIndex(
+    (operation) => operation.id === props.selected?.id,
+  );
+  const semanticGeometrySafe = !props.history.present.operations
+    .slice(0, Math.max(0, selectedIndex))
+    .some((operation) => operation.enabled && (operation.tool === "crop" || operation.tool === "rotate"));
   return (
     <PhotoEditorToolBoundary
       key={`${props.selected.id}-controls`}
@@ -285,7 +393,9 @@ function ToolControlsRegion(
       region="controls"
     >
       <OperationControls
+        asset={props.asset}
         operation={props.selected}
+        semanticGeometrySafe={semanticGeometrySafe}
         masks={props.history.present.masks}
         sourceUrl={props.operationSourceUrl}
         onCommit={props.onCommitSelected}
@@ -339,6 +449,8 @@ function ToolsAccordion(props: {
   readonly editor: EditorViewProps;
   readonly open: boolean;
   readonly onToggle: () => void;
+  readonly onAutomatic: () => void;
+  readonly onToolAdd: (tool: ToolDefinition) => void;
 }) {
   return (
     <AccordionSection
@@ -348,8 +460,9 @@ function ToolsAccordion(props: {
       onToggle={props.onToggle}
     >
       <div className="grid grid-cols-3 gap-2">
+        <AutomaticToolTile onSelect={props.onAutomatic} />
         {PHOTO_EDITOR_TOOLS.map((tool) => (
-          <ToolTile key={tool.id} tool={tool} onAdd={props.editor.onAddTool} />
+          <ToolTile key={tool.id} tool={tool} onAdd={props.onToolAdd} />
         ))}
       </div>
     </AccordionSection>
@@ -358,32 +471,59 @@ function ToolsAccordion(props: {
 
 function SettingsAccordion(props: {
   readonly editor: EditorViewProps;
+  readonly automaticActive: boolean;
   readonly open: boolean;
   readonly onToggle: () => void;
 }) {
   const editor = props.editor;
+  const title = settingsTitle(props.automaticActive, editor.selected);
+  const content = settingsContent(props.automaticActive, editor);
   return (
     <AccordionSection
       id="photo-editor-settings"
       open={props.open}
-      title={editor.selected ? `${editor.selected.name} settings` : "Tool settings"}
+      title={title}
       onToggle={props.onToggle}
     >
-      {editor.selected ? (
-        <ToolControlsRegion
-          history={editor.history}
-          selected={editor.selected}
-          operationSourceUrl={editor.operationSourceUrl}
-          onCommitSelected={editor.onCommitSelected}
-          onDraftSelected={editor.onDraftSelected}
-        />
-      ) : (
-        <p className="text-sm text-content-secondary">
-          Choose a tool to edit its settings.
-        </p>
-      )}
+      {content}
     </AccordionSection>
   );
+}
+
+function settingsTitle(automaticActive: boolean, selected: PhotoEditOperation | null): string {
+  if (automaticActive) {
+    return "Automatic settings";
+  }
+  if (selected) {
+    return `${selected.name} settings`;
+  }
+  return "Tool settings";
+}
+
+function settingsContent(automaticActive: boolean, editor: EditorViewProps): ReactNode {
+  if (automaticActive) {
+    return (
+      <PhotoAutomaticPanel
+        asset={editor.asset}
+        operations={editor.history.present.operations}
+        sourceUrl={editor.previewUrl}
+        onApply={editor.onSetOperations}
+      />
+    );
+  }
+  if (editor.selected) {
+    return (
+      <ToolControlsRegion
+        asset={editor.asset}
+        history={editor.history}
+        selected={editor.selected}
+        operationSourceUrl={editor.operationSourceUrl}
+        onCommitSelected={editor.onCommitSelected}
+        onDraftSelected={editor.onDraftSelected}
+      />
+    );
+  }
+  return <p className="text-sm text-content-secondary">Choose a tool to edit its settings.</p>;
 }
 
 function LayersAccordion(props: {
@@ -509,6 +649,7 @@ export function EditorSidebar(props: EditorViewProps) {
   const [primaryPanel, setPrimaryPanel] = useState<PrimaryPanel>(
     props.selected ? "settings" : "tools",
   );
+  const [automaticActive, setAutomaticActive] = useState(false);
   const [layersOpen, setLayersOpen] = useState(true);
   const [stylesOpen, setStylesOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
@@ -517,6 +658,9 @@ export function EditorSidebar(props: EditorViewProps) {
       scrollRef.current.scrollTop = 0;
     }
   }, []);
+  useEffect(() => {
+    setAutomaticActive(false);
+  }, [props.selected?.id]);
   const togglePrimary = (panel: Exclude<PrimaryPanel, null>) => {
     setPrimaryPanel((current) => (current === panel ? null : panel));
     requestAnimationFrame(() => {
@@ -532,9 +676,18 @@ export function EditorSidebar(props: EditorViewProps) {
           editor={props}
           open={primaryPanel === "tools"}
           onToggle={() => togglePrimary("tools")}
+          onAutomatic={() => {
+            setAutomaticActive(true);
+            setPrimaryPanel("settings");
+          }}
+          onToolAdd={(tool) => {
+            setAutomaticActive(false);
+            props.onAddTool(tool);
+          }}
         />
         <SettingsAccordion
           editor={props}
+          automaticActive={automaticActive}
           open={primaryPanel === "settings"}
           onToggle={() => togglePrimary("settings")}
         />

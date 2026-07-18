@@ -77,6 +77,34 @@ test('photo edit renderer restricts an adjustment to an elliptical mask', async 
     assert.ok(pixel(40, 40) > pixel(2, 2) + 70);
 });
 
+test('photo edit renderer applies automatic levels, shadow recovery, and colour balance', async () => {
+    const { renderPhotoEdit } = await import('../../src/services/photoEditing/editRenderer.ts');
+    const pixels = Buffer.from([30, 35, 70, 220, 220, 245]);
+    const source = await sharp(pixels, { raw: { width: 2, height: 1, channels: 3 } }).png().toBuffer();
+    const values = {
+        blackPoint: 20,
+        whitePoint: 240,
+        shadows: 0.2,
+        highlights: -0.1,
+        temperature: 0.2,
+        tint: 0,
+        brightness: 1,
+        contrast: 0,
+        saturation: 1,
+        hue: 0,
+    };
+    const output = await renderPhotoEdit(source, [operation('adjust', values)], []);
+    const withoutShadowRecovery = await renderPhotoEdit(source, [operation('adjust', { ...values, shadows: 0 })], []);
+    const withoutWarmth = await renderPhotoEdit(source, [operation('adjust', { ...values, temperature: 0 })], []);
+    const outputPixels = await sharp(output).removeAlpha().raw().toBuffer();
+    const baselinePixels = await sharp(withoutShadowRecovery).removeAlpha().raw().toBuffer();
+    const neutralPixels = await sharp(withoutWarmth).removeAlpha().raw().toBuffer();
+
+    assert.ok(outputPixels[0] > baselinePixels[0]);
+    assert.ok(outputPixels[2] - outputPixels[0] < neutralPixels[2] - neutralPixels[0]);
+    assert.ok(outputPixels[3] < 255);
+});
+
 test('disabled operations are skipped and preview width is capped', async () => {
     const { renderPhotoEdit } = await import('../../src/services/photoEditing/editRenderer.ts');
     const source = await sharp({ create: { width: 200, height: 100, channels: 3, background: '#808080' } }).png().toBuffer();
@@ -124,4 +152,79 @@ test('zero-strength dehaze is an exact no-op', async () => {
         operation('dehaze', { strength: 0, radiusPercent: 1.5 }),
     ], []);
     assert.deepEqual(output, baseline);
+});
+
+test('photo effects render deterministically and preserve image dimensions', async () => {
+    const { renderPhotoEdit } = await import('../../src/services/photoEditing/editRenderer.ts');
+    const width = 32;
+    const height = 24;
+    const pixels = Buffer.alloc(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const offset = (y * width + x) * 4;
+            pixels[offset] = x * 7;
+            pixels[offset + 1] = y * 9;
+            pixels[offset + 2] = 80;
+            pixels[offset + 3] = 180;
+        }
+    }
+    const source = await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer();
+    const recipes = [
+        { effectType: 0, centerX: 0.5, centerY: 0.5, size: 0.8, intensity: 0.9, wavelength: 0.12, softness: 0.5 },
+        { effectType: 1, centerX: 0.4, centerY: 0.4, size: 0.9, intensity: 0.7, rayCount: 16, variant: 2 },
+        { effectType: 2, centerX: 0.2, centerY: 0.2, size: 0.7, intensity: 0.7, hue: 45 },
+        { effectType: 3, centerX: 0, centerY: 0.5, size: 0.9, intensity: 0.7, hue: 18 },
+    ];
+    for (const values of recipes) {
+        const first = await renderPhotoEdit(source, [operation('effects', values)], []);
+        const second = await renderPhotoEdit(source, [operation('effects', values)], []);
+        const metadata = await sharp(first).metadata();
+        const output = await sharp(first).ensureAlpha().raw().toBuffer();
+        assert.deepEqual({ width: metadata.width, height: metadata.height }, { width, height });
+        assert.notDeepEqual(output, pixels);
+        assert.deepEqual(first, second);
+        assert.equal(output[3], 180);
+    }
+});
+
+test('focus renders normal, inverted, straight, and multi-point recipes', async () => {
+    const { renderPhotoEdit } = await import('../../src/services/photoEditing/editRenderer.ts');
+    const width = 48;
+    const height = 36;
+    const pixels = Buffer.alloc(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const offset = (y * width + x) * 4;
+            const light = (x + y) % 2 === 0 ? 240 : 20;
+            pixels[offset] = light;
+            pixels[offset + 1] = 255 - light;
+            pixels[offset + 2] = x * 5;
+            pixels[offset + 3] = 170;
+        }
+    }
+    const source = await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer();
+    const recipe = {
+        shape: 0, style: 0, pointCount: 1, pointX0: 0.5, pointY0: 0.5,
+        size: 0.12, falloff: 0.12, strength: 0.9, inverted: false,
+    };
+    const renderRaw = async (values) => sharp(await renderPhotoEdit(source, [operation('focus', values)], []))
+        .ensureAlpha().raw().toBuffer();
+    const normal = await renderRaw(recipe);
+    const inverted = await renderRaw({ ...recipe, inverted: true });
+    const straight = await renderRaw({ ...recipe, shape: 1, angle: 35 });
+    const multiple = await renderRaw({
+        ...recipe,
+        pointCount: 2,
+        pointX0: 0.25,
+        pointY0: 0.5,
+        pointX1: 0.75,
+        pointY1: 0.5,
+    });
+    const offset = (x, y) => (y * width + x) * 4;
+    const difference = (output, x, y) => Math.abs(output[offset(x, y)] - pixels[offset(x, y)]);
+    assert.ok(difference(normal, 24, 18) < difference(normal, 2, 2));
+    assert.ok(difference(inverted, 24, 18) > difference(inverted, 2, 2));
+    assert.notDeepEqual(straight, normal);
+    assert.ok(difference(multiple, 12, 18) < difference(multiple, 24, 18));
+    assert.equal(normal[offset(2, 2) + 3], 170);
 });

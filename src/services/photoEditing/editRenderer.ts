@@ -1,12 +1,15 @@
 import sharp from 'sharp';
 import type { PhotoEditMask, PhotoEditOperation } from '../../boundary/contracts/photoEditor';
 import { applyColourPopPixels } from '../../shared/photoEditing/colourPop.ts';
+import { applyPhotoEffectPixels } from '../../shared/photoEditing/effects.ts';
+import { applyFocusPixels } from '../../shared/photoEditing/focus.ts';
+import { applyAdvancedTunePixels } from '../../shared/photoEditing/tune.ts';
 
 type RenderOptions = {
     maxWidth?: number;
 };
 
-type FilterTool = Exclude<PhotoEditOperation['tool'], 'colour_pop' | 'crop' | 'dehaze' | 'rotate'>;
+type FilterTool = Exclude<PhotoEditOperation['tool'], 'adjust' | 'colour_pop' | 'crop' | 'dehaze' | 'effects' | 'focus' | 'rotate'>;
 type FilterPipeline = ReturnType<typeof sharp>;
 type FilterHandler = (pipeline: FilterPipeline, operation: PhotoEditOperation) => FilterPipeline;
 type RawImage = { data: Buffer; width: number; height: number };
@@ -288,6 +291,18 @@ async function applyColourPop(input: Buffer, operation: PhotoEditOperation): Pro
     return encodeRgba({ ...image, data: Buffer.from(applyColourPopPixels(image.data, operation.values)) });
 }
 
+async function applyEffects(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+    const image = await decodeRgba(input);
+    const data = Buffer.from(applyPhotoEffectPixels(image.data, image.width, image.height, operation.values));
+    return encodeRgba({ ...image, data });
+}
+
+async function applyFocus(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+    const image = await decodeRgba(input);
+    const data = Buffer.from(applyFocusPixels(image.data, image.width, image.height, operation.values));
+    return encodeRgba({ ...image, data });
+}
+
 async function applyCrop(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const metadata = await sharp(input).metadata();
     if (!metadata.width || !metadata.height) {return input;}
@@ -300,16 +315,20 @@ async function applyCrop(input: Buffer, operation: PhotoEditOperation): Promise<
     return sharp(input).extract({ left, top, width, height }).png().toBuffer();
 }
 
-function applyAdjust(pipeline: FilterPipeline, operation: PhotoEditOperation): FilterPipeline {
+async function applyAdjust(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+    const image = await decodeRgba(input);
+    const advanced = Buffer.from(applyAdvancedTunePixels(image.data, operation.values));
     const contrast = clamp(numberValue(operation, 'contrast', 0), -1, 1);
     const multiplier = 1 + contrast;
-    return pipeline
+    return sharp(advanced, { raw: { width: image.width, height: image.height, channels: 4 } })
         .linear(multiplier, 128 * (1 - multiplier))
         .modulate({
             brightness: clamp(numberValue(operation, 'brightness', 1), 0.1, 3),
             saturation: clamp(numberValue(operation, 'saturation', 1), 0, 3),
             hue: clamp(numberValue(operation, 'hue', 0), -180, 180),
-        });
+        })
+        .png()
+        .toBuffer();
 }
 
 function applyRestore(pipeline: FilterPipeline, operation: PhotoEditOperation): FilterPipeline {
@@ -326,7 +345,6 @@ function applyRestore(pipeline: FilterPipeline, operation: PhotoEditOperation): 
 }
 
 const FILTER_HANDLERS: Record<FilterTool, FilterHandler> = {
-    adjust: applyAdjust,
     blur: (pipeline, operation) => pipeline.blur(clamp(numberValue(operation, 'sigma', 2), 0.3, 100)),
     grayscale: (pipeline) => pipeline.greyscale(),
     restore: applyRestore,
@@ -334,12 +352,15 @@ const FILTER_HANDLERS: Record<FilterTool, FilterHandler> = {
 };
 
 async function applyOperation(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+    if (operation.tool === 'adjust') {return applyAdjust(input, operation);}
     if (operation.tool === 'crop') {return applyCrop(input, operation);}
     if (operation.tool === 'rotate') {
         return applyRotation(input, operation);
     }
     if (operation.tool === 'dehaze') {return applyDehaze(input, operation);}
     if (operation.tool === 'colour_pop') {return applyColourPop(input, operation);}
+    if (operation.tool === 'effects') {return applyEffects(input, operation);}
+    if (operation.tool === 'focus') {return applyFocus(input, operation);}
 
     return FILTER_HANDLERS[operation.tool](sharp(input), operation).png().toBuffer();
 }
