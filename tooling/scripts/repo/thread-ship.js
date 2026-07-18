@@ -197,6 +197,10 @@ export function getIntegrationStrategy({ hasOrigin, githubAvailable }) {
     return 'blocked';
 }
 
+export function getGitHubMergeArgs(branch) {
+    return ['pr', 'merge', branch, '--merge'];
+}
+
 export function hasRegisteredGitHubChecks(stdout) {
     try {
         const checks = JSON.parse(String(stdout ?? ''));
@@ -275,6 +279,18 @@ function pushBranch(cwd, branch) {
     runGit(['push', '--set-upstream', 'origin', branch], cwd);
 }
 
+function deleteRemoteBranchIfPresent(cwd, branch) {
+    const remoteBranch = runCommandSync({
+        command: gitExecutable,
+        args: ['ls-remote', '--exit-code', '--heads', 'origin', `refs/heads/${branch}`],
+        cwd,
+        encoding: 'utf8',
+    });
+    if ((remoteBranch.status ?? 1) === 0) {
+        runGit(['push', 'origin', '--delete', branch], cwd);
+    }
+}
+
 function integrateWithGitHub({ cwd, branch }) {
     const existingPr = runCommandSync({
         command: ghExecutable,
@@ -284,6 +300,7 @@ function integrateWithGitHub({ cwd, branch }) {
     });
     const existingState = (existingPr.status ?? 1) === 0 ? existingPr.stdout.trim() : '';
     if (existingState === 'MERGED') {
+        deleteRemoteBranchIfPresent(cwd, branch);
         runGit(['fetch', 'origin', 'main'], cwd);
         return;
     }
@@ -305,10 +322,11 @@ function integrateWithGitHub({ cwd, branch }) {
     });
     runCommandOrThrow({
         command: ghExecutable,
-        args: ['pr', 'merge', branch, '--merge', '--delete-branch'],
+        args: getGitHubMergeArgs(branch),
         cwd,
         stdio: 'inherit',
     });
+    deleteRemoteBranchIfPresent(cwd, branch);
     runGit(['fetch', 'origin', 'main'], cwd);
 }
 

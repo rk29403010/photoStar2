@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
     getShipCommitMessage,
     getIntegrationStrategy,
+    getGitHubMergeArgs,
     hasRegisteredGitHubChecks,
     getShipIgnorePaths,
     getShipMode,
@@ -12,6 +13,11 @@ import {
     parseWorktreeList,
     resolveMainWorktreePath,
 } from '../../tooling/scripts/repo/thread-ship.js';
+
+test('GitHub merge avoids local checkout cleanup in a multi-worktree repository', () => {
+    assert.deepEqual(getGitHubMergeArgs('task/example'), ['pr', 'merge', 'task/example', '--merge']);
+    assert.equal(getGitHubMergeArgs('task/example').includes('--delete-branch'), false);
+});
 
 test('GitHub check registration distinguishes an empty propagation window', () => {
     assert.equal(hasRegisteredGitHubChecks('[]'), false);
