@@ -28,6 +28,9 @@ test('photo editor is registered across command, overlay, and gallery priority b
     const focusOptions = readFileSync('src/ui/components/photo-editor/PhotoFocusOptions.tsx', 'utf8');
     const focusOverlay = readFileSync('src/ui/components/photo-editor/PhotoFocusOverlay.tsx', 'utf8');
     const focusRenderer = readFileSync('src/shared/photoEditing/focus.ts', 'utf8');
+    const redEyeOptions = readFileSync('src/ui/components/photo-editor/PhotoRedEyeOptions.tsx', 'utf8');
+    const redEyeOverlay = readFileSync('src/ui/components/photo-editor/PhotoRedEyeOverlay.tsx', 'utf8');
+    const redEyeRenderer = readFileSync('src/shared/photoEditing/redEye.ts', 'utf8');
     const automaticPanel = readFileSync('src/ui/components/photo-editor/PhotoAutomaticPanel.tsx', 'utf8');
     const automaticAnalysis = readFileSync('src/shared/photoEditing/automatic.ts', 'utf8');
     const tuneOptions = readFileSync('src/ui/components/photo-editor/PhotoTuneOptions.tsx', 'utf8');
@@ -48,6 +51,7 @@ test('photo editor is registered across command, overlay, and gallery priority b
     assert.match(editorToolStrings, /id: 'colour_pop'[\s\S]*label: 'Colour pop'/);
     assert.match(editorToolStrings, /id: 'effects'[\s\S]*label: 'Effects'/);
     assert.match(editorToolStrings, /id: 'focus'[\s\S]*label: 'Focus'/);
+    assert.match(editorToolStrings, /id: 'red_eye'[\s\S]*label: 'Red eye'/);
     assert.match(editorTools, /defaults: \{ colourCount: 0, colourRange: 28, softness: 0\.35 \}/);
     assert.match(editorSidebarStrings, /operation\.tool === 'colour_pop'/);
     assert.match(editorSidebar, /PhotoColourPopOptions/);
@@ -69,6 +73,12 @@ test('photo editor is registered across command, overlay, and gallery priority b
     assert.match(focusOverlay, /Shift-click to add a point/);
     assert.match(focusRenderer, /applyFocusPixels/);
     assert.match(focusRenderer, /orbitalBlur/);
+    assert.match(editorSidebar, /PhotoRedEyeOptions/);
+    assert.match(editorPreview, /PhotoRedEyeOverlay/);
+    assert.match(redEyeOptions, /Detect in faces/);
+    assert.match(redEyeOverlay, /Click to add an eye point/);
+    assert.match(redEyeRenderer, /detectRedEyePoints/);
+    assert.match(redEyeRenderer, /applyRedEyePixels/);
     assert.match(editorSidebar, /PhotoAutomaticPanel/);
     assert.match(editorSidebar, /AutomaticToolTile/);
     assert.match(editorSidebar, /Automatic settings/);
@@ -104,7 +114,7 @@ test('photo editor is registered across command, overlay, and gallery priority b
     assert.match(colourPopOverlay, /colourAt\((?:props\.)?source, point\)/);
     assert.match(colourPopOverlay, /Click a colour to keep it/);
     assert.match(editorSidebar, /grid grid-cols-3 gap-2/);
-    assert.equal(editorTools.match(/icon: \w+,\s*defaults:/g)?.length, 11);
+    assert.equal(editorTools.match(/icon: \w+,\s*defaults:/g)?.length, 12);
     assert.equal(cropOverlay.match(/Resize crop from/g)?.length, 1);
     assert.match(cropOverlay, /Move image within crop/);
     assert.match(cropOverlay, /CROP_SETTLE_DELAY_MS = 3000/);

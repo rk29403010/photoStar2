@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import path from 'node:path';
+import net from 'node:net';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveDevRuntimePorts } from './dev-runtime-config.js';
 import { runCommandSync } from './process-invocation.js';
@@ -20,6 +21,8 @@ const SUPPORTED_MANAGED_SCRIPTS = new Set([
     'dev:desktop-runtime',
     'dev:desktop-runtime:debug',
 ]);
+const RUNTIME_READY_TIMEOUT_MS = 30_000;
+const RUNTIME_READY_POLL_MS = 250;
 
 export function shouldStartManagedDevSessionInForeground({
     foreground = false,
@@ -134,6 +137,41 @@ function startManagedDevSession(script, options = {}) {
     return { mode: 'background' };
 }
 
+function canConnect(port) {
+    return new Promise((resolve) => {
+        const socket = net.createConnection({ host: '127.0.0.1', port });
+        const finish = (ready) => {
+            socket.destroy();
+            resolve(ready);
+        };
+        socket.setTimeout(1_000);
+        socket.once('connect', () => finish(true));
+        socket.once('error', () => finish(false));
+        socket.once('timeout', () => finish(false));
+    });
+}
+
+function delay(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+export async function waitForRuntimePorts({
+    backendPort,
+    probe = canConnect,
+    timeoutMs = RUNTIME_READY_TIMEOUT_MS,
+    webPort,
+}) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const [webReady, backendReady] = await Promise.all([probe(webPort), probe(backendPort)]);
+        if (webReady && backendReady) {
+            return;
+        }
+        await delay(RUNTIME_READY_POLL_MS);
+    }
+    throw new Error(`Desktop runtime did not become ready within ${Math.ceil(timeoutMs / 1_000)} seconds (web ${webPort}, backend ${backendPort}).`);
+}
+
 function stopManagedDevSession(cwd = process.cwd()) {
     runDevSessionCommand('pause', null, cwd);
 }
@@ -239,7 +277,7 @@ function clearCurrentThreadRuntime({ cwd = process.cwd() }) {
     };
 }
 
-function main() {
+async function main() {
     const args = parseArgs(process.argv.slice(2));
     const command = typeof args._[0] === 'string' ? args._[0].trim() : 'start';
     if (command === 'stop') {
@@ -260,6 +298,15 @@ function main() {
         foreground,
         forceForeground,
     });
+    const ports = resolveDevRuntimePorts(process.env, process.cwd());
+    if (startMode.mode === 'background') {
+        try {
+            await waitForRuntimePorts(ports);
+        } catch (error) {
+            stopManagedDevSession(process.cwd());
+            throw error;
+        }
+    }
     const result = updateCurrentThreadEntry({
         task: typeof args.task === 'string' ? args.task : '',
         owner: typeof args.owner === 'string' ? args.owner : '',
@@ -269,6 +316,9 @@ function main() {
 
     console.log(`Started ${script} for ${result.worktreeName} as "${result.task}".`);
     console.log(result.sessionNote);
+    if (startMode.mode === 'background') {
+        console.log(`Desktop runtime ready: web ${ports.webPort}, backend ${ports.backendPort}.`);
+    }
     if (startMode.mode === 'foreground') {
         const runArgs = [
             path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'dev-session.js'),
@@ -286,5 +336,8 @@ function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    main();
+    main().catch((error) => {
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exitCode = 1;
+    });
 }

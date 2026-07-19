@@ -1,5 +1,9 @@
 # TO DO List
 
+## 2026-07-19 - Reference-photo red-eye assist
+
+- The red-eye tool uses only the current photo and persisted human face regions. Add an opt-in reference-photo workflow only after landmark-alignment and confidence checks can ensure that pose, lighting, and identity match before sampling a neutral iris colour.
+
 ## Photo editor
 
 1. Move high-resolution rendering into a tracked, cancellable workflow and use disk-backed intermediate stages for very high-megapixel photos.

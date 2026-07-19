@@ -6,6 +6,7 @@ import {
     buildThreadDevSessionNote,
     getDefaultThreadTask,
     shouldStartManagedDevSessionInForeground,
+    waitForRuntimePorts,
 } from '../../tooling/scripts/repo/thread-dev-session.js';
 
 test('getDefaultThreadTask prefers linked worktree names over branch names', () => {
@@ -16,6 +17,21 @@ test('getDefaultThreadTask prefers linked worktree names over branch names', () 
         }),
         'codex-library-selection',
     );
+});
+
+test('runtime startup waits until both web and backend ports accept connections', async () => {
+    const attempts = new Map([[6231, 0], [6232, 0]]);
+    await waitForRuntimePorts({
+        webPort: 6231,
+        backendPort: 6232,
+        timeoutMs: 1_000,
+        probe: async (port) => {
+            attempts.set(port, attempts.get(port) + 1);
+            return attempts.get(port) >= 2;
+        },
+    });
+    assert.equal(attempts.get(6231), 2);
+    assert.equal(attempts.get(6232), 2);
 });
 
 test('getDefaultThreadTask falls back to branch for main worktree sessions', () => {

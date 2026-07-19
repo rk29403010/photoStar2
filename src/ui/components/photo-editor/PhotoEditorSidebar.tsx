@@ -13,6 +13,7 @@ import { PhotoCropOptions } from "./PhotoCropOptions";
 import { PhotoEditorToolBoundary } from "./PhotoEditorToolBoundary";
 import { PhotoEffectsOptions } from "./PhotoEffectsOptions";
 import { PhotoFocusOptions } from "./PhotoFocusOptions";
+import { PhotoRedEyeOptions } from "./PhotoRedEyeOptions";
 import { PhotoMaskPanel } from "./PhotoMaskPanel";
 import { PhotoRotateOptions } from "./PhotoRotateOptions";
 import { PhotoTuneOptions } from "./PhotoTuneOptions";
@@ -238,6 +239,17 @@ function ToolSpecificOptions(
     return (
       <PhotoFocusOptions
         operation={props.operation}
+        onCommit={props.onCommit}
+        onPreviewChange={props.onPreviewChange}
+      />
+    );
+  }
+  if (props.operation.tool === "red_eye") {
+    return (
+      <PhotoRedEyeOptions
+        asset={props.asset}
+        operation={props.operation}
+        sourceUrl={props.sourceUrl}
         onCommit={props.onCommit}
         onPreviewChange={props.onPreviewChange}
       />

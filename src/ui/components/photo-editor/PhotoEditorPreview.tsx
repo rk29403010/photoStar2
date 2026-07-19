@@ -7,6 +7,7 @@ import { PhotoFocusOverlay } from "./PhotoFocusOverlay";
 import { PhotoMaskOverlay } from "./PhotoMaskOverlay";
 import { PhotoRotateOverlay } from "./PhotoRotateOverlay";
 import { PhotoTuneOverlay } from "./PhotoTuneOverlay";
+import { PhotoRedEyeOverlay } from "./PhotoRedEyeOverlay";
 import { getLivePreviewStyle } from "./photoEditLivePreview";
 import type { EditorViewProps } from "./PhotoEditorWorkspace";
 
@@ -21,12 +22,8 @@ function StandardPreview(props: ToolPreviewProps) {
         props.livePreview.baseline,
       )
     : undefined;
-  const isStandardTool =
-    props.selected?.tool !== "crop" &&
-    props.selected?.tool !== "rotate" &&
-    props.selected?.tool !== "colour_pop" &&
-    props.selected?.tool !== "effects" &&
-    props.selected?.tool !== "focus";
+  const isStandardTool = !["crop", "rotate", "colour_pop", "effects", "focus", "red_eye"]
+    .includes(props.selected?.tool ?? "");
   if (props.showWithoutChange && isStandardTool && props.operationSourceUrl) {
     return (
       <img
@@ -136,6 +133,17 @@ function SelectedToolPreview(props: ToolPreviewProps): ReactNode {
         previewUrl={props.previewUrl}
         showWithoutChange={props.showWithoutChange}
         sourceUrl={props.operationSourceUrl}
+      />
+    );
+  }
+  if (selected?.tool === "red_eye") {
+    return (
+      <PhotoRedEyeOverlay
+        key={selected.id}
+        operation={selected}
+        previewUrl={props.previewUrl}
+        showWithoutChange={props.showWithoutChange}
+        onChange={props.onCommitSelected}
       />
     );
   }

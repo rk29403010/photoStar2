@@ -7,6 +7,7 @@ import {
   Focus,
   ImageUp,
   Palette,
+  ScanEye,
   RotateCw,
   SlidersHorizontal,
   Sparkles,
@@ -15,6 +16,7 @@ import type { LucideIcon } from "lucide-react";
 import type { PhotoEditOperation, PhotoEditTool } from "@contracts/core";
 import { PHOTO_EFFECT_DEFAULTS, PHOTO_EFFECT_KIND } from "@shared/photoEditing/effects";
 import { FOCUS_DEFAULTS } from "@shared/photoEditing/focus";
+import { RED_EYE_DEFAULTS } from "@shared/photoEditing/redEye";
 
 export type ToolDefinition = {
   id: PhotoEditTool;
@@ -135,6 +137,13 @@ export const PHOTO_EDITOR_TOOLS: ToolDefinition[] = [
     label: "Focus",
     icon: Aperture,
     defaults: FOCUS_DEFAULTS,
+    controls: [],
+  },
+  {
+    id: "red_eye",
+    label: "Red eye",
+    icon: ScanEye,
+    defaults: RED_EYE_DEFAULTS,
     controls: [],
   },
   {
