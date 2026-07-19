@@ -5,7 +5,6 @@ import type {
   PhotoEditMask,
   PhotoEditOperation,
   PhotoEditStyle,
-  RenderPhotoEditInput,
 } from "@contracts/core";
 import { Button, Checkbox, IconButton, Input, Select } from "../Primitives";
 import { PhotoColourPopOptions } from "./PhotoColourPopOptions";
@@ -211,7 +210,6 @@ function ToolSpecificOptions(
     return (
       <PhotoTuneOptions
         operation={props.operation}
-        automatic={props.automatic}
         onCommit={props.onCommit}
         onPreviewChange={props.onPreviewChange}
       />
@@ -632,7 +630,9 @@ function OutputAccordion(props: {
           value={editor.renderMode}
           onChange={(event) =>
             editor.onRenderModeChange(
-              event.target.value as RenderPhotoEditInput["mode"],
+              event.target.value === "replace_rendered"
+                ? "replace_rendered"
+                : "new_version",
             )
           }
         >

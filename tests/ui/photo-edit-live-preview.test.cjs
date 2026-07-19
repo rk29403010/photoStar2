@@ -16,12 +16,12 @@ test('dehaze slider drafts produce an immediate browser-side approximation', asy
 
 test('tune image drafts combine brightness, contrast, saturation, and hue feedback', async () => {
     const { getLivePreviewStyle } = await import('../../src/ui/components/photo-editor/photoEditLivePreview.ts');
-    const baseline = operation('adjust', { brightness: 1, contrast: 0, saturation: 1, hue: 0 });
-    const current = operation('adjust', { brightness: 1.2, contrast: 0.1, saturation: 1.3, hue: 20 });
+    const baseline = operation('adjust', { brightness: 0, contrast: 0, saturation: 0, hue: 0 });
+    const current = operation('adjust', { brightness: 8, contrast: 10, saturation: 30, hue: 20 });
 
     assert.equal(
         getLivePreviewStyle(current, baseline).filter,
-        'brightness(1.200) contrast(1.100) saturate(1.300) hue-rotate(20.000deg)',
+        'brightness(1.040) contrast(1.100) saturate(1.300) hue-rotate(20.000deg)',
     );
 });
 

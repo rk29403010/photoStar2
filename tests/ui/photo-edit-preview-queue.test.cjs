@@ -37,6 +37,27 @@ test('preview queue starts the first request immediately', async () => {
     assert.deepEqual(ready, ['preview-1']);
 });
 
+test('debounced preview queue skips stale slider values before starting a render', async () => {
+    const { LatestPreviewQueue } = await import('../../src/ui/components/photo-editor/photoEditPreviewQueue.ts');
+    const waits = [];
+    const requests = [];
+    const queue = new LatestPreviewQueue({
+        debounceMs: 160,
+        minimumIntervalMs: 0,
+        request: async (input) => { requests.push(input); return `preview-${input}`; },
+        wait: async (milliseconds) => { waits.push(milliseconds); },
+        callbacks: { onError: () => assert.fail('preview should not fail'), onQueued: () => undefined, onReady: () => undefined },
+    });
+
+    queue.enqueue(1);
+    queue.enqueue(8);
+    await flush();
+    await flush();
+
+    assert.deepEqual(waits, [160, 160]);
+    assert.deepEqual(requests, [8]);
+});
+
 test('preview queue collapses rapid updates to the latest pending request', async () => {
     const { LatestPreviewQueue } = await import('../../src/ui/components/photo-editor/photoEditPreviewQueue.ts');
     const first = deferred();

@@ -48,7 +48,7 @@ test('automatic context consumes frame, face, subject, and scene metadata', asyn
     assert.equal(context.sceneHint, 'portrait');
 });
 
-test('photo suggestions combine conservative corrections and portrait focus', async () => {
+test('photo suggestions omit Tune Image auto-improve and retain crop and portrait focus', async () => {
     const { buildPhotoAutomaticSuggestions } = await import('../../src/ui/components/photo-editor/photoAutomatic.ts');
     const suggestions = buildPhotoAutomaticSuggestions({
         id: 'asset-1',
@@ -57,7 +57,7 @@ test('photo suggestions combine conservative corrections and portrait focus', as
         faces: [{ box: { x: 0.3, y: 0.2, width: 0.2, height: 0.3 } }],
     }, analysis());
 
-    assert.deepEqual(suggestions.map((item) => item.tool), ['crop', 'adjust', 'focus']);
+    assert.deepEqual(suggestions.map((item) => item.tool), ['crop', 'focus']);
 });
 
 test('EXIF orientation never creates a second rotation suggestion', async () => {

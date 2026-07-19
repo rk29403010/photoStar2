@@ -6,18 +6,14 @@ function numericValue(operation: PhotoEditOperation, key: string, fallback: numb
     return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function safeRatio(value: number, baseline: number): number {
-    return baseline === 0 ? 1 + value : value / baseline;
-}
-
 function fixed(value: number): string {
     return value.toFixed(3);
 }
 
 function adjustmentFilter(current: PhotoEditOperation, baseline: PhotoEditOperation): string {
-    const brightness = safeRatio(numericValue(current, 'brightness', 1), numericValue(baseline, 'brightness', 1));
-    const contrast = 1 + numericValue(current, 'contrast', 0) - numericValue(baseline, 'contrast', 0);
-    const saturation = safeRatio(numericValue(current, 'saturation', 1), numericValue(baseline, 'saturation', 1));
+    const brightness = 1 + (numericValue(current, 'brightness', 0) - numericValue(baseline, 'brightness', 0)) / 200;
+    const contrast = 1 + (numericValue(current, 'contrast', 0) - numericValue(baseline, 'contrast', 0)) / 100;
+    const saturation = 1 + (numericValue(current, 'saturation', 0) - numericValue(baseline, 'saturation', 0)) / 100;
     const hue = numericValue(current, 'hue', 0) - numericValue(baseline, 'hue', 0);
     return `brightness(${fixed(brightness)}) contrast(${fixed(contrast)}) saturate(${fixed(saturation)}) hue-rotate(${fixed(hue)}deg)`;
 }
@@ -33,8 +29,8 @@ function detailFilter(current: PhotoEditOperation, baseline: PhotoEditOperation)
 }
 
 function restoreFilter(current: PhotoEditOperation, baseline: PhotoEditOperation): string {
-    const brightness = safeRatio(numericValue(current, 'fadeRecovery', 1.08), numericValue(baseline, 'fadeRecovery', 1.08));
-    const saturation = safeRatio(numericValue(current, 'saturation', 1.08), numericValue(baseline, 'saturation', 1.08));
+    const brightness = numericValue(current, 'fadeRecovery', 1.08) / numericValue(baseline, 'fadeRecovery', 1.08);
+    const saturation = numericValue(current, 'saturation', 1.08) / numericValue(baseline, 'saturation', 1.08);
     const contrast = 1 + numericValue(current, 'contrast', 0.12) - numericValue(baseline, 'contrast', 0.12);
     return `brightness(${fixed(brightness)}) contrast(${fixed(contrast)}) saturate(${fixed(saturation)})`;
 }

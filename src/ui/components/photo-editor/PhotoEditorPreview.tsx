@@ -6,6 +6,7 @@ import { PhotoEffectsOverlay } from "./PhotoEffectsOverlay";
 import { PhotoFocusOverlay } from "./PhotoFocusOverlay";
 import { PhotoMaskOverlay } from "./PhotoMaskOverlay";
 import { PhotoRotateOverlay } from "./PhotoRotateOverlay";
+import { PhotoTuneOverlay } from "./PhotoTuneOverlay";
 import { getLivePreviewStyle } from "./photoEditLivePreview";
 import type { EditorViewProps } from "./PhotoEditorWorkspace";
 
@@ -124,6 +125,17 @@ function SelectedToolPreview(props: ToolPreviewProps): ReactNode {
         sourceUrl={props.operationSourceUrl}
         onCommit={props.onCommitSelected}
         onPreviewChange={props.onDraftSelected}
+      />
+    );
+  }
+  if (selected?.tool === "adjust" && !selected.maskId) {
+    return (
+      <PhotoTuneOverlay
+        key={selected.id}
+        operation={selected}
+        previewUrl={props.previewUrl}
+        showWithoutChange={props.showWithoutChange}
+        sourceUrl={props.operationSourceUrl}
       />
     );
   }
