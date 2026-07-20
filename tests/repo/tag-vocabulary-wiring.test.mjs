@@ -7,9 +7,12 @@ test('app runtime ui exposes a vocabulary view', () => {
     assert.match(runtimeUiSource, /export type AppView = 'library' \| 'people' \| 'familyTree' \| 'dashboard' \| 'albums' \| 'reviews' \| 'vocabulary' \| 'workflows' \| 'groupDiagnostics';/);
 });
 
-test('top bar includes navigation for the vocabulary view', () => {
+test('Actions menu includes navigation for the vocabulary view', () => {
     const topBarSource = readFileSync(new URL('../../src/ui/components/TopBar.tsx', import.meta.url), 'utf8');
-    assert.match(topBarSource, /<ViewButton view="vocabulary" current=\{view\} setView=\{setView\} \/>/);
+    const actionPanelSource = readFileSync(new URL('../../src/ui/components/ActionPanel.tsx', import.meta.url), 'utf8');
+
+    assert.doesNotMatch(topBarSource, /<ViewButton view="vocabulary" current=\{view\} setView=\{setView\} \/>/);
+    assert.match(actionPanelSource, /\{ label: 'Vocabulary', onClick: navigateTo\('vocabulary'\) \}/);
 });
 
 test('app main content renders the vocabulary view and shell passes the required actions', () => {

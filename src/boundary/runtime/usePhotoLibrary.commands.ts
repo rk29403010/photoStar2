@@ -28,6 +28,7 @@ export { createPhotoMetadataActions } from './photoMetadataActions';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
 type AiMode = 'mock' | 'live' | 'off';
+type FolderTraversalMode = 'folder_only' | 'recursive';
 
 type SharedWorkflowActionParams = {
     transport: BackendTransport | null;
@@ -200,19 +201,28 @@ export function useLibraryTransport(transport: BackendTransport | null, addLog: 
 
 export function createScanActions(params: ScanActionParams) {
     return {
-        estimateFolderIngest: (path: string, aiMode: AiMode = 'live'): Promise<{ cost: number; fileCount: number }> => {
+        estimateFolderIngest: (
+            path: string,
+            aiMode: AiMode = 'live',
+            traversalMode: FolderTraversalMode = 'recursive',
+        ): Promise<{ cost: number; fileCount: number }> => {
             return params.request<{ cost: number; fileCount: number }>({
                 idPrefix: 'estimate_folder_ingest',
                 command: 'estimate_folder_ingest',
                 payload: {
                     folderPath: path,
-                    traversalMode: 'recursive',
+                    traversalMode,
                     aiMode,
                 },
+                // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- folder-ingest estimate response is defined by the runtime command contract.
                 select: (data) => data as { cost: number; fileCount: number },
             });
         },
-        scanLibrary: async (path: string, aiMode: AiMode = 'live') => {
+        scanLibrary: async (
+            path: string,
+            aiMode: AiMode = 'live',
+            traversalMode: FolderTraversalMode = 'recursive',
+        ) => {
             if (!params.transport) {return;}
             const runId = await startWorkflowWithOverlayJob({
                 request: params.request,
@@ -225,7 +235,7 @@ export function createScanActions(params: ScanActionParams) {
                 command: 'start_folder_ingest',
                 payload: {
                     folderPath: path,
-                    traversalMode: 'recursive',
+                    traversalMode,
                     aiMode,
                 },
                 workflowId: 'folder_ingest_v1',
@@ -250,7 +260,7 @@ export function createScanActions(params: ScanActionParams) {
 
 function getWorkflowConfig(workflowId: string, assetIds: string[], workflowStatus: WorkflowStatusSnapshot | null) {
     const matched = workflowStatus?.workflows.find(w => w.workflowId === workflowId);
-    const stage: string = (matched?.stage as string) || 'scan';
+    const stage: string = matched?.stage || 'scan';
     const title = matched ? matched.displayName : 'Running Workflow';
     const command = 'start_workflow_run';
     const payload: Record<string, unknown> = {
@@ -417,6 +427,7 @@ export function createSystemActions(params: SystemActionParams) {
             command: 'get_job_errors',
             payload,
             timeoutMs: 10000,
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- job-error response is the typed runtime command payload.
             select: (data) => data as unknown as JobErrorSnapshot,
         }),
         resetLibrary: resetActions.resetLibrary,
@@ -583,6 +594,7 @@ export function createTimelinePagingActions(
             }));
         },
         loadTimelineGroupPage: (groupId: string, options: { cursor?: string | null; limit?: number } = {}) => {
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- timeline group IDs originate from the runtime timeline response.
             timelineState?.setTimelineGroupLoading(groupId as TimelineGroupId, true);
             void sendCommand('get_timeline_group_page', buildTimelineGroupPagePayload({
                 filter: getCurrentFilter(filterStackRef),
@@ -593,6 +605,7 @@ export function createTimelinePagingActions(
             }));
         },
         requestTimelineJumpTarget: (groupId: string) => {
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- timeline group IDs originate from the runtime timeline response.
             timelineState?.setTimelineActiveJumpTarget({ groupId: groupId as TimelineGroupId });
             void sendCommand('get_timeline_jump_target', buildTimelineJumpTargetPayload({
                 filter: getCurrentFilter(filterStackRef),

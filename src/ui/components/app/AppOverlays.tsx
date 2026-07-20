@@ -40,7 +40,7 @@ type AppOverlaysProps = {
   readonly setActiveInfoTab: (tab: InfoTab) => void;
   readonly jobs: BackgroundJob[];
   readonly folderHistory: { path: string; last_scanned_at: string }[];
-  readonly onScan: (specificPath?: string) => Promise<void>;
+  readonly onScan: (options: { path?: string; includeSubfolders: boolean }) => Promise<void>;
   readonly onPreviews: () => void;
   readonly onDetect: () => void;
   readonly onCluster: () => void;
@@ -108,9 +108,13 @@ function requestEditor<T>(command: string, payload: Record<string, unknown>, sel
 }
 
 const defaultPhotoEditActions = {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- photo-editor workspace response is produced by the typed backend command.
   getWorkspace: (assetId: string) => requestEditor('get_photo_edit_workspace', { assetId }, (data) => data as { document: PhotoEditDocument | null; styles: PhotoEditStyle[] }),
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- preview response is the backend-generated data URL.
   preview: (input: SavePhotoEditInput) => requestEditor('preview_photo_edit', input, (data) => data.previewDataUrl as string),
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- save response is the backend's persisted photo-edit document.
   save: (input: SavePhotoEditInput) => requestEditor('save_photo_edit', input, (data) => data.document as PhotoEditDocument),
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- render response is the backend's typed document and asset identifier pair.
   render: (input: RenderPhotoEditInput) => requestEditor('render_photo_edit', input, (data) => data as { document: PhotoEditDocument; assetId: string }),
   saveStyle: (style: { id: string; name: string; operations: PhotoEditOperation[]; masks: PhotoEditMask[] }) => requestEditor('save_photo_edit_style', style, () => undefined),
 };
@@ -201,14 +205,18 @@ export function AppOverlays(props: AppOverlaysProps) {
       <ActionPanel
         isOpen={props.showActions}
         onClose={() => props.setShowActions(false)}
-        onScan={props.onScan}
+        onScan={(options) => {
+          void props.onScan(options);
+        }}
         onPreviews={props.onPreviews}
         onDetect={props.onDetect}
         onCluster={props.onCluster}
         onRecalculatePhotoDates={props.onRecalculatePhotoDates}
         onScanSensitive={props.onScanSensitive}
         onScanSensitiveAll={props.onScanSensitiveAll}
-        onExtractAiMetadata={props.onExtractAiMetadata}
+        onExtractAiMetadata={() => {
+          void props.onExtractAiMetadata();
+        }}
         onRefresh={props.onRefresh}
         onResetFaces={props.onResetFaces}
         onResetAll={props.onResetAll}
@@ -217,6 +225,7 @@ export function AppOverlays(props: AppOverlaysProps) {
         onStopScan={props.onStopScan}
         onOpenGroupDiagnostics={props.onOpenGroupDiagnostics}
         onStartSimulationWorkflow={props.onStartSimulationWorkflow}
+        onOpenSettings={() => props.setShowSettings(true)}
         folderHistory={props.folderHistory}
         selectedAssetIds={getLibrarySelectionAssetIds(props.librarySelection, props.assets)}
         onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
