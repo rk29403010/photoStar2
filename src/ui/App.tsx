@@ -127,22 +127,23 @@ function useAppActionHandlers(params: UseAppActionHandlersParams) {
         showRejected,
     });
 
-    const handleScan = useCallback(async (specificPath?: string) => {
-        const path = specificPath ?? await requestScanPath();
+    const handleScan = useCallback(async (options: { path?: string; includeSubfolders: boolean }) => {
+        const path = options.path ?? await requestScanPath();
         if (!path) {return;}
+        const traversalMode = options.includeSubfolders ? 'recursive' : 'folder_only';
         try {
-            const estimation = await actions.estimateFolderIngest(path, aiMode);
+            const estimation = await actions.estimateFolderIngest(path, aiMode, traversalMode);
             const formattedCost = estimation.cost.toFixed(4);
             const userConfirmed = globalThis.confirm(
                 `Folder contains ${estimation.fileCount} images. Expected cost for AI operations: $${formattedCost}.\n\nDo you want to continue?`
             );
             if (userConfirmed) {
-                void actions.scanLibrary(path, aiMode);
+                void actions.scanLibrary(path, aiMode, traversalMode);
             }
         } catch (error) {
             console.error('Failed to estimate folder cost:', error);
             if (globalThis.confirm('Failed to calculate folder cost estimate. Do you want to proceed with scan anyway?')) {
-                void actions.scanLibrary(path, aiMode);
+                void actions.scanLibrary(path, aiMode, traversalMode);
             }
         }
     }, [actions, aiMode]);
@@ -480,14 +481,20 @@ export default function App() {
                 handlers={handlers}
                 aiMode={uiState.aiMode}
                 setAiMode={uiState.setAiMode}
-                onScanSensitiveAll={actions.scanSensitiveAll}
-                onStartSimulationWorkflow={actions.startSimulationWorkflow}
+                onScanSensitiveAll={() => {
+                    void actions.scanSensitiveAll();
+                }}
+                onStartSimulationWorkflow={(params) => {
+                    void actions.startSimulationWorkflow(params);
+                }}
                 handleExtractAiMetadata={handleExtractAiMetadata}
                 getWorkflowRunDetail={photoLibrary.actions.getWorkflowRunDetail}
                 totalPhotoCount={stats?.count ?? 0}
             activeOverlayJobs={activeOverlayJobs}
             handleOverlayStopJob={handleOverlayStopJob}
-            onRunWorkflowOnAssets={actions.runWorkflowOnAssets}
+            onRunWorkflowOnAssets={(workflowId, assetIds) => {
+                void actions.runWorkflowOnAssets(workflowId, assetIds);
+            }}
             connectionUiState={getConnectionUiState(status, error)}
             groupDiagnosticsReport={groupDiagnosticsReport}
             isLoadingGroupDiagnostics={isLoadingGroupDiagnostics}

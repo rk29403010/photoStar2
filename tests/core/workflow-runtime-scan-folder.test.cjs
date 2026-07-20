@@ -32,6 +32,9 @@ function createFixtureFolder(rootDir) {
     );
     fs.writeFileSync(path.join(folderPath, 'one.png'), pngBytes);
     fs.writeFileSync(path.join(folderPath, 'two.png'), pngBytes);
+    const nestedFolderPath = path.join(folderPath, 'nested');
+    fs.mkdirSync(nestedFolderPath);
+    fs.writeFileSync(path.join(nestedFolderPath, 'three.png'), pngBytes);
     return folderPath;
 }
 
@@ -105,7 +108,7 @@ async function createFolderIngestHarness(tempDir) {
     };
 }
 
-function assertFolderIngestResults(dbManager, run) {
+function assertFolderIngestResults(dbManager, run, expectedAssetCount) {
     assert.equal(
         run.milestones.find((milestone) => milestone.milestoneId === 'library_ready')?.status,
         'completed'
@@ -115,15 +118,15 @@ function assertFolderIngestResults(dbManager, run) {
     const previewCount = dbManager.getDb().prepare(
         "SELECT COUNT(DISTINCT asset_id) AS count FROM previews WHERE size = 'thumbnail'"
     ).get();
-    assert.equal(previewCount.count, 2);
+    assert.equal(previewCount.count, expectedAssetCount);
 
     const assetRows = dbManager.getDb().prepare(
         'SELECT file_hash, width, height, metadata_timestamp_source FROM assets ORDER BY created_at ASC'
     ).all();
-    assert.equal(assetRows.length, 2);
+    assert.equal(assetRows.length, expectedAssetCount);
     assert.ok(assetRows.every((row) => typeof row.file_hash === 'string' && row.file_hash.length > 0));
-    assert.deepEqual(assetRows.map((row) => [row.width, row.height]), [[1, 1], [1, 1]]);
-    assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), [null, null]);
+    assert.deepEqual(assetRows.map((row) => [row.width, row.height]), Array.from({ length: expectedAssetCount }, () => [1, 1]));
+    assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), Array(expectedAssetCount).fill(null));
 }
 
 test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library ready after previews', async () => {
@@ -146,7 +149,33 @@ test('folder_ingest_v1 scans a folder, creates asset work, and reaches Library r
         });
 
         const run = harness.store.getRunDetail(runId);
-        assertFolderIngestResults(harness.dbManager, run);
+        assertFolderIngestResults(harness.dbManager, run, 2);
+    } finally {
+        harness?.dbManager.close();
+        await removeDirWithRetry(tempDir);
+    }
+});
+
+test('folder_ingest_v1 includes nested images when traversalMode is recursive', async () => {
+    const tempDir = createTempDir();
+    const folderPath = createFixtureFolder(tempDir);
+    let harness;
+
+    try {
+        harness = await createFolderIngestHarness(tempDir);
+
+        const runId = await harness.orchestrator.start({
+            workflowId: 'folder_ingest_v1',
+            triggerType: 'manual',
+            inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
+            parameters: {
+                folderPath,
+                traversalMode: 'recursive',
+                aiMode: 'off',
+            },
+        });
+
+        assertFolderIngestResults(harness.dbManager, harness.store.getRunDetail(runId), 3);
     } finally {
         harness?.dbManager.close();
         await removeDirWithRetry(tempDir);
