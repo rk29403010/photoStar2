@@ -3,7 +3,7 @@ import type { PhotoEditMask, PhotoEditOperation } from '../../boundary/contracts
 import { applyColourPopPixels } from '../../shared/photoEditing/colourPop.ts';
 import { applyPhotoEffectPixels } from '../../shared/photoEditing/effects.ts';
 import { applyFocusPixels } from '../../shared/photoEditing/focus.ts';
-import { applyAdvancedTunePixels } from '../../shared/photoEditing/tune.ts';
+import { applyTuneImagePixels } from '../../shared/photoEditing/tune.ts';
 
 type RenderOptions = {
     maxWidth?: number;
@@ -317,18 +317,7 @@ async function applyCrop(input: Buffer, operation: PhotoEditOperation): Promise<
 
 async function applyAdjust(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const image = await decodeRgba(input);
-    const advanced = Buffer.from(applyAdvancedTunePixels(image.data, operation.values));
-    const contrast = clamp(numberValue(operation, 'contrast', 0), -1, 1);
-    const multiplier = 1 + contrast;
-    return sharp(advanced, { raw: { width: image.width, height: image.height, channels: 4 } })
-        .linear(multiplier, 128 * (1 - multiplier))
-        .modulate({
-            brightness: clamp(numberValue(operation, 'brightness', 1), 0.1, 3),
-            saturation: clamp(numberValue(operation, 'saturation', 1), 0, 3),
-            hue: clamp(numberValue(operation, 'hue', 0), -180, 180),
-        })
-        .png()
-        .toBuffer();
+    return encodeRgba({ ...image, data: Buffer.from(applyTuneImagePixels(image.data, operation.values)) });
 }
 
 function applyRestore(pipeline: FilterPipeline, operation: PhotoEditOperation): FilterPipeline {

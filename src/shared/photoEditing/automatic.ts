@@ -19,11 +19,13 @@ export type AutomaticTuneValues = {
   brightness: number;
   contrast: number;
   highlights: number;
+  midtones: number;
   hue: number;
   saturation: number;
   shadows: number;
   temperature: number;
   tint: number;
+  vibrance: number;
   whitePoint: number;
 };
 
@@ -42,14 +44,16 @@ export type AutomaticPhotoAnalysis = {
 
 const DEFAULT_TUNE: AutomaticTuneValues = {
   blackPoint: 0,
-  brightness: 1,
+  brightness: 0,
   contrast: 0,
   highlights: 0,
+  midtones: 0,
   hue: 0,
-  saturation: 1,
+  saturation: 0,
   shadows: 0,
   temperature: 0,
   tint: 0,
+  vibrance: 0,
   whitePoint: 255,
 };
 
@@ -185,23 +189,23 @@ function recommendedTone(
   scene: AutomaticScene,
 ) {
   const targetMedian = scene === "portrait" || scene === "group" ? 132 : 122;
-  const brightness = clamp(targetMedian / Math.max(48, exposureMedian), 0.82, 1.2);
+  const brightness = clamp((targetMedian / Math.max(48, exposureMedian) - 1) * 100, -18, 20);
   const range = Math.max(48, high - low);
-  const contrast = clamp((190 - range) / 520, -0.12, 0.18);
-  const shadows = low < 18 || exposureMedian < 92 ? clamp((92 - exposureMedian) / 300, 0, 0.22) : 0;
+  const contrast = clamp((190 - range) / 5.2, -12, 18);
+  const shadows = low < 18 || exposureMedian < 92 ? clamp((92 - exposureMedian) / 3, 0, 22) : 0;
   const highlights = clippedHighlights > 0.008 || high > 248
-    ? -clamp((high - 238) / 90 + clippedHighlights, 0, 0.22)
+    ? -clamp((high - 238) / 0.9 + clippedHighlights * 100, 0, 22)
     : 0;
   return { brightness, contrast, highlights, shadows };
 }
 
 function recommendedColour(metrics: HistogramMetrics, scene: AutomaticScene) {
   const channelAverage = (metrics.averageRed + metrics.averageGreen + metrics.averageBlue) / 3;
-  const temperature = clamp((metrics.averageBlue - metrics.averageRed) / Math.max(128, channelAverage * 2), -0.28, 0.28);
-  const tint = clamp((metrics.averageGreen - (metrics.averageRed + metrics.averageBlue) / 2) / Math.max(128, channelAverage * 2), -0.2, 0.2);
+  const temperature = clamp((metrics.averageBlue - metrics.averageRed) / Math.max(128, channelAverage * 2) * 100, -28, 28);
+  const tint = clamp((metrics.averageGreen - (metrics.averageRed + metrics.averageBlue) / 2) / Math.max(128, channelAverage * 2) * 100, -20, 20);
   const targetSaturation = scene === "portrait" || scene === "group" ? 0.3 : 0.36;
-  const saturation = clamp(1 + (targetSaturation - metrics.saturation) * 0.35, 0.94, 1.12);
-  return { saturation, temperature, tint };
+  const vibrance = clamp((targetSaturation - metrics.saturation) * 35, -6, 12);
+  return { temperature, tint, vibrance };
 }
 
 function tuneFromMetrics(metrics: HistogramMetrics, scene: AutomaticScene): AutomaticTuneValues {
@@ -217,16 +221,18 @@ function tuneFromMetrics(metrics: HistogramMetrics, scene: AutomaticScene): Auto
   const tone = recommendedTone(low, high, exposureMedian, metrics.clippedHighlights, scene);
   const colour = recommendedColour(metrics, scene);
   return {
-    blackPoint: clamp(low - 1, 0, 42),
+    blackPoint: clamp(low - 1, -10, 42),
     brightness: clean(tone.brightness),
     contrast: clean(tone.contrast),
     highlights: clean(tone.highlights),
+    midtones: 0,
     hue: 0,
-    saturation: clean(colour.saturation),
+    saturation: 0,
     shadows: clean(tone.shadows),
-    temperature: clean(Math.abs(colour.temperature) < 0.025 ? 0 : colour.temperature),
-    tint: clean(Math.abs(colour.tint) < 0.02 ? 0 : colour.tint),
-    whitePoint: clamp(high + 1, 213, 255),
+    temperature: clean(Math.abs(colour.temperature) < 2.5 ? 0 : colour.temperature),
+    tint: clean(Math.abs(colour.tint) < 2 ? 0 : colour.tint),
+    vibrance: clean(colour.vibrance),
+    whitePoint: clamp(255 - (high + 1), -42, 10),
   };
 }
 

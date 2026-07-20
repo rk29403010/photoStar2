@@ -11,6 +11,7 @@ type PreviewJob<T> = {
 
 type PreviewQueueOptions<T> = {
     callbacks: PreviewQueueCallbacks;
+    debounceMs?: number;
     minimumIntervalMs?: number;
     now?: () => number;
     request: (input: T) => Promise<string>;
@@ -23,6 +24,7 @@ const defaultWait = (milliseconds: number) => new Promise<void>((resolve) => {
 
 export class LatestPreviewQueue<T> {
     private readonly callbacks: PreviewQueueCallbacks;
+    private readonly debounceMs: number;
     private disposed = false;
     private lastStartedAt = Number.NEGATIVE_INFINITY;
     private latestRevision = 0;
@@ -35,6 +37,7 @@ export class LatestPreviewQueue<T> {
 
     constructor(options: PreviewQueueOptions<T>) {
         this.callbacks = options.callbacks;
+        this.debounceMs = options.debounceMs ?? 0;
         this.minimumIntervalMs = options.minimumIntervalMs ?? 80;
         this.now = options.now ?? Date.now;
         this.request = options.request;
@@ -64,9 +67,11 @@ export class LatestPreviewQueue<T> {
     }
 
     private async runJob(job: PreviewJob<T>): Promise<void> {
+        if (this.debounceMs > 0) {await this.wait(this.debounceMs);}
+        if (!this.isCurrent(job)) {return;}
         const delay = this.startDelay();
         if (delay > 0) {await this.wait(delay);}
-        if (this.disposed) {return;}
+        if (!this.isCurrent(job)) {return;}
         this.lastStartedAt = this.now();
         try {
             const url = await this.request(job.input);

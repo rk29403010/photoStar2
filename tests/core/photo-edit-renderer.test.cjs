@@ -69,12 +69,12 @@ test('rotation applies horizontal and vertical flips without changing the source
 test('photo edit renderer restricts an adjustment to an elliptical mask', async () => {
     const { renderPhotoEdit } = await import('../../src/services/photoEditing/editRenderer.ts');
     const source = await sharp({ create: { width: 80, height: 80, channels: 3, background: '#808080' } }).png().toBuffer();
-    const output = await renderPhotoEdit(source, [operation('adjust', { brightness: 2, contrast: 0, saturation: 1, hue: 0 }, { maskId: 'center' })], [{
+    const output = await renderPhotoEdit(source, [operation('adjust', { brightness: 100, contrast: 0, saturation: 0, hue: 0 }, { maskId: 'center' })], [{
         id: 'center', name: 'Center', kind: 'ellipse', box: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 }, feather: 0, source: 'user',
     }]);
     const { data, info } = await sharp(output).removeAlpha().raw().toBuffer({ resolveWithObject: true });
     const pixel = (x, y) => data[(y * info.width + x) * info.channels];
-    assert.ok(pixel(40, 40) > pixel(2, 2) + 70);
+    assert.ok(pixel(40, 40) > pixel(2, 2) + 50);
 });
 
 test('photo edit renderer applies automatic levels, shadow recovery, and colour balance', async () => {
@@ -83,14 +83,14 @@ test('photo edit renderer applies automatic levels, shadow recovery, and colour 
     const source = await sharp(pixels, { raw: { width: 2, height: 1, channels: 3 } }).png().toBuffer();
     const values = {
         blackPoint: 20,
-        whitePoint: 240,
-        shadows: 0.2,
-        highlights: -0.1,
-        temperature: 0.2,
+        whitePoint: 15,
+        shadows: 20,
+        highlights: -10,
+        temperature: 20,
         tint: 0,
-        brightness: 1,
+        brightness: 0,
         contrast: 0,
-        saturation: 1,
+        saturation: 0,
         hue: 0,
     };
     const output = await renderPhotoEdit(source, [operation('adjust', values)], []);

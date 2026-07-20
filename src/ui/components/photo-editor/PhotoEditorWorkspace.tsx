@@ -675,6 +675,7 @@ function useWorkspacePreview(params: {
     [setStatus],
   );
   usePhotoEditPreview({
+    debounceMs: 160,
     enabled: params.state.ready,
     input,
     request: params.props.preview,

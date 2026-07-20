@@ -8,17 +8,19 @@ type PreviewHookParams<T> = {
     onQueued: (revision: number) => void;
     onReady: (url: string, revision: number) => void;
     request: (input: T) => Promise<string>;
+    debounceMs?: number;
 };
 
 export function usePhotoEditPreview<T>(params: PreviewHookParams<T>): void {
     const queue = useMemo(() => new LatestPreviewQueue<T>({
+        debounceMs: params.debounceMs,
         request: params.request,
         callbacks: {
             onError: params.onError,
             onQueued: params.onQueued,
             onReady: params.onReady,
         },
-    }), [params.onError, params.onQueued, params.onReady, params.request]);
+    }), [params.debounceMs, params.onError, params.onQueued, params.onReady, params.request]);
 
     useEffect(() => () => queue.dispose(), [queue]);
     useEffect(() => {

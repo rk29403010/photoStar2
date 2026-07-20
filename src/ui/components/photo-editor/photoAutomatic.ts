@@ -59,35 +59,6 @@ export function automaticContextFromAsset(asset: Asset): AutomaticPhotoContext {
   };
 }
 
-function toneChanged(analysis: AutomaticPhotoAnalysis): boolean {
-  const tune = analysis.tune;
-  return Math.abs(tune.brightness - 1) >= 0.015
-    || Math.abs(tune.contrast) >= 0.015
-    || tune.blackPoint >= 2
-    || tune.whitePoint <= 253
-    || Math.abs(tune.shadows) >= 0.015
-    || Math.abs(tune.highlights) >= 0.015
-    || Math.abs(tune.temperature) >= 0.015
-    || Math.abs(tune.tint) >= 0.015;
-}
-
-function tuneSuggestion(analysis: AutomaticPhotoAnalysis): PhotoAutomaticSuggestion | null {
-  if (!toneChanged(analysis)) {
-    return null;
-  }
-  return {
-    confidence: analysis.confidence,
-    id: "automatic-tune",
-    label: "Balance light & colour",
-    name: "Automatic tune",
-    rationale: analysis.subjectMedian === null
-      ? "Uses highlight, shadow, contrast, and neutral-colour measurements from the photo."
-      : "Weights detected people while protecting highlights across the whole photo.",
-    tool: "adjust",
-    values: analysis.tune,
-  };
-}
-
 function cropSuggestion(
   analysis: AutomaticPhotoAnalysis,
   context: AutomaticPhotoContext,
@@ -174,7 +145,6 @@ export function buildPhotoAutomaticSuggestions(
   return [
     cropSuggestion(analysis, context),
     rotationSuggestion(analysis),
-    tuneSuggestion(analysis),
     focusSuggestion(analysis, context),
   ].filter((suggestion): suggestion is PhotoAutomaticSuggestion => suggestion !== null);
 }

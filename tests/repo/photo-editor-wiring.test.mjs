@@ -32,6 +32,7 @@ test('photo editor is registered across command, overlay, and gallery priority b
     const automaticAnalysis = readFileSync('src/shared/photoEditing/automatic.ts', 'utf8');
     const tuneOptions = readFileSync('src/ui/components/photo-editor/PhotoTuneOptions.tsx', 'utf8');
     const tuneRenderer = readFileSync('src/shared/photoEditing/tune.ts', 'utf8');
+    const tuneOverlay = readFileSync('src/ui/components/photo-editor/PhotoTuneOverlay.tsx', 'utf8');
     const previewQueue = readFileSync('src/ui/components/photo-editor/photoEditPreviewQueue.ts', 'utf8');
     const singlePhotoOverlay = readFileSync('src/ui/components/single-photo/SinglePhotoOverlay.tsx', 'utf8');
     const grouping = readFileSync('src/services/handlers/assetGroupingQueryFragments.ts', 'utf8');
@@ -76,11 +77,10 @@ test('photo editor is registered across command, overlay, and gallery priority b
     assert.match(automaticPanel, /EXIF orientation is already corrected/);
     assert.match(automaticAnalysis, /estimateStraighten/);
     assert.match(automaticAnalysis, /pixelAttentionCrop/);
-    assert.match(tuneOptions, /Auto tune/);
-    assert.match(tuneOptions, /Auto light/);
-    assert.match(tuneOptions, /Auto colour/);
-    assert.match(tuneOptions, /Automatically set/);
-    assert.match(tuneRenderer, /applyAdvancedTunePixels/);
+    assert.match(tuneOptions, /Guided/);
+    assert.match(tuneOptions, /Advanced/);
+    assert.match(tuneRenderer, /applyTuneImagePixels/);
+    assert.match(tuneOverlay, /applyTuneImagePixels/);
     assert.match(editor, /const sourceOperation = history\.present\.operations\.find/);
     assert.match(editor, /const operationsBefore = history\.present\.operations\.slice/);
     assert.match(editor, /PhotoBeforeChangeButton/);
