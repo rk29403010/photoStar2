@@ -3,13 +3,14 @@ import type { PhotoEditMask, PhotoEditOperation } from '../../boundary/contracts
 import { applyColourPopPixels } from '../../shared/photoEditing/colourPop.ts';
 import { applyPhotoEffectPixels } from '../../shared/photoEditing/effects.ts';
 import { applyFocusPixels } from '../../shared/photoEditing/focus.ts';
+import { applyRedEyePixels } from '../../shared/photoEditing/redEye.ts';
 import { applyTuneImagePixels } from '../../shared/photoEditing/tune.ts';
 
 type RenderOptions = {
     maxWidth?: number;
 };
 
-type FilterTool = Exclude<PhotoEditOperation['tool'], 'adjust' | 'colour_pop' | 'crop' | 'dehaze' | 'effects' | 'focus' | 'rotate'>;
+type FilterTool = Exclude<PhotoEditOperation['tool'], 'adjust' | 'colour_pop' | 'crop' | 'dehaze' | 'effects' | 'focus' | 'red_eye' | 'rotate'>;
 type FilterPipeline = ReturnType<typeof sharp>;
 type FilterHandler = (pipeline: FilterPipeline, operation: PhotoEditOperation) => FilterPipeline;
 type RawImage = { data: Buffer; width: number; height: number };
@@ -303,6 +304,12 @@ async function applyFocus(input: Buffer, operation: PhotoEditOperation): Promise
     return encodeRgba({ ...image, data });
 }
 
+async function applyRedEye(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+    const image = await decodeRgba(input);
+    const data = Buffer.from(applyRedEyePixels(image.data, image.width, image.height, operation.values));
+    return encodeRgba({ ...image, data });
+}
+
 async function applyCrop(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const metadata = await sharp(input).metadata();
     if (!metadata.width || !metadata.height) {return input;}
@@ -350,6 +357,7 @@ async function applyOperation(input: Buffer, operation: PhotoEditOperation): Pro
     if (operation.tool === 'colour_pop') {return applyColourPop(input, operation);}
     if (operation.tool === 'effects') {return applyEffects(input, operation);}
     if (operation.tool === 'focus') {return applyFocus(input, operation);}
+    if (operation.tool === 'red_eye') {return applyRedEye(input, operation);}
 
     return FILTER_HANDLERS[operation.tool](sharp(input), operation).png().toBuffer();
 }

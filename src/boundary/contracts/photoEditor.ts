@@ -7,6 +7,7 @@ export type PhotoEditTool =
     | 'effects'
     | 'focus'
     | 'grayscale'
+    | 'red_eye'
     | 'restore'
     | 'rotate'
     | 'sharpen';
