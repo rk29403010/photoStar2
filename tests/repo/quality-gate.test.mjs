@@ -20,10 +20,41 @@ test('quality base compares task branches with origin main', () => {
     assert.equal(resolveQualityBase({ env: {}, git: taskBranchGitFixture }), 'origin/main');
 });
 
-test('quick gate contains only changed fast checks', () => {
-    assert.deepEqual(buildQualitySteps('quick').map((step) => step.label), [
+test('quick gate contains changed fast checks and native app/core typechecks', () => {
+    const steps = buildQualitySteps('quick');
+    assert.deepEqual(steps.map((step) => step.label), [
         'changed Oxlint',
         'changed complexity',
+        'native application typecheck',
+        'native core typecheck',
+    ]);
+    assert.ok(steps.every((step) => !/tsc6(?:\.cmd)?$/u.test(step.command)));
+});
+
+test('native and compatibility typecheck commands keep compiler selection in the quality orchestrator', () => {
+    const nativeLabels = buildQualitySteps('typecheck:native').map((step) => step.label);
+    assert.deepEqual(nativeLabels, [
+        'native application typecheck',
+        'native tooling typecheck',
+        'native core typecheck',
+    ]);
+    const nativeStep = buildQualitySteps('typecheck:native:app')[0];
+    assert.equal(nativeStep.command, process.execPath);
+    assert.match(nativeStep.args[0], /node_modules[\\/]@typescript[\\/]native[\\/]bin[\\/]tsc$/u);
+    assert.match(buildQualitySteps('typecheck:compat')[0].command, /tsc(?:\.cmd)?$/u);
+    assert.doesNotMatch(buildQualitySteps('typecheck:compat')[0].command, /tsc6/u);
+});
+
+test('ready gate checks the complete branch with native types and affected test layers', () => {
+    const labels = buildQualitySteps('ready').map((step) => step.label);
+    assert.deepEqual(labels, [
+        'full Oxlint',
+        'changed type-aware ESLint',
+        'changed complexity',
+        'native application typecheck',
+        'native core typecheck',
+        'repository tests',
+        'UI tests',
     ]);
 });
 
@@ -32,8 +63,11 @@ test('merge gate includes full typed lint, all typechecks, and all test layers',
     assert.ok(labels.includes('full Oxlint'));
     assert.ok(labels.includes('changed application type-aware Oxlint'));
     assert.ok(labels.includes('full type-aware ESLint'));
-    assert.ok(labels.includes('application typecheck'));
-    assert.ok(labels.includes('core typecheck'));
+    assert.ok(labels.includes('native application typecheck'));
+    assert.ok(labels.includes('native core build'));
+    assert.ok(!labels.includes('native core typecheck'));
+    assert.equal(labels.filter((label) => label === 'native core build').length, 1);
+    assert.equal(labels.filter((label) => label === 'native core typecheck').length, 0);
     assert.ok(labels.includes('repository tests'));
     assert.ok(labels.includes('UI tests'));
     assert.ok(labels.includes('core tests'));

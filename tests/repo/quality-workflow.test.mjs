@@ -22,4 +22,16 @@ test('package pins the supported package manager and Node range', async () => {
     assert.equal(packageJson.engines.node, '>=22.13.0 <23');
     assert.equal(packageJson.engines.pnpm, '11.3.0');
     assert.equal(packageJson.devDependencies['oxlint-tsgolint'], '0.24.0');
+    assert.equal(packageJson.devDependencies['@typescript/native'], 'npm:typescript@^7.0.2');
+    assert.equal(packageJson.devDependencies.typescript, '~5.9.3');
+});
+
+test('native core configuration retains CommonJS output without removed resolution options', async () => {
+    const configPath = path.join(workspaceRoot, 'tooling', 'config', 'tsconfig.core.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+
+    assert.equal(config.compilerOptions.module, 'commonjs');
+    assert.equal(config.compilerOptions.moduleResolution, 'bundler');
+    assert.equal('baseUrl' in config.compilerOptions, false);
+    assert.deepEqual(config.compilerOptions.paths['@shared/*'], ['../../src/shared/*']);
 });

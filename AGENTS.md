@@ -58,7 +58,8 @@ This project is **AI-first**, written and maintained through AI prompts rather t
 To maintain fast progress and optimize token usage, quality checking should be offloaded to deterministic local processes (like formatters and linters) with auto-fixing enabled wherever possible.
 
 - **AI-Led Quality Control**: Use `pnpm.cmd run qa:quick` during normal editing.
-  Do not run the comprehensive gate after every prompt.
+  It includes native TypeScript checks for the application and CommonJS core;
+  do not run the comprehensive gate after every prompt.
 - **Automated Auto-Fixing**: Prefer repository auto-fix commands before a gate
   when they are applicable to the current files.
 - **Readiness Gate**: Run `pnpm.cmd run qa:ready` before handing a branch off

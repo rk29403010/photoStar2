@@ -1,5 +1,13 @@
 # TO DO List
 
+## 2026-07-21 - Adopt TypeScript 6 API tooling and triage newly exposed typed-lint findings
+
+- A controlled clean-install comparison proved that switching the `typescript`
+  package used by `typescript-eslint` from 5.9.3 to TypeScript 6 produces 142
+  new typed-lint errors across unchanged source. Adopt the TypeScript 6 API only
+  in a dedicated task that deliberately triages those findings and preserves a
+  passing complete gate.
+
 ## 2026-07-19 - Reference-photo red-eye assist
 
 - The red-eye tool uses only the current photo and persisted human face regions. Add an opt-in reference-photo workflow only after landmark-alignment and confidence checks can ensure that pose, lighting, and identity match before sampling a neutral iris colour.

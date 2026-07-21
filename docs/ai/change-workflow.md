@@ -129,7 +129,7 @@ or an unavailable protected-branch decision is never cleaned up by assumption.
 
 | Mode | Command | Purpose | Expected scope |
 | --- | --- | --- | --- |
-| Edit loop | `pnpm.cmd run qa:quick` | Fast feedback while changing code | Changed, staged, and relevant untracked files; fast lint, complexity, and targeted checks |
+| Edit loop | `pnpm.cmd run qa:quick` | Fast feedback while changing code | Changed, staged, and relevant untracked files; fast lint, complexity, plus native application and core typechecks |
 | Readiness | `pnpm.cmd run qa:ready` | Decide whether the branch is reviewable | Complete `base...HEAD` diff plus required affected tests and types |
 | Integration | `pnpm.cmd run qa:merge` | Protect `main` locally and in CI | Reproducible comprehensive repository gate at the candidate SHA, including multi-file import-cycle analysis and application type-aware Oxlint |
 
@@ -141,14 +141,34 @@ Moving expensive checks out of the keystroke or pre-commit loop is safe only
 because `qa:merge` remains mandatory before integration. Skipping or weakening
 `qa:merge` weakens protection on `main`.
 
+### TypeScript compiler arrangement
+
+`@typescript/native` aliases stable TypeScript 7 for the explicit native `tsc`
+for command-line typechecking and CommonJS core builds. The quality orchestrator
+is the only place that selects this binary; package scripts and CI invoke its
+named modes rather than duplicating compiler paths.
+
+The `typescript` dependency remains on 5.9.3 for `typescript-eslint`, ESLint,
+Vite plug-ins, and other programmatic API consumers. `typecheck:compat` runs
+that API-consumer compiler as an explicit validation; it is not the normal
+fast-loop compiler. TypeScript 6 API adoption is deferred because it changes
+whole-repository typed-lint results; revisit it only when a dedicated task can
+triage those findings and `qa:merge` proves the replacement arrangement.
+
+Use `typecheck:native`, `typecheck:native:app`, and `typecheck:native:core` for
+direct native checks. `qa:quick` runs the app and core native checks; `qa:ready`
+runs them once for the branch handoff; `qa:merge` runs the app check and uses a
+native core build as the core type proof, avoiding a duplicate core typecheck.
+
 The full Oxlint pass enables the `import` plugin and `import/no-cycle`, so it
 builds the repository module graph and rejects dependency cycles. The merge
 gate also runs Oxlint's `tsgolint`-backed type-aware rules against changed files
 in the application TypeScript project. The type program is project-wide, but
 the incremental gate avoids making unrelated work repair the existing
-type-aware backlog. The fast loop deliberately keeps both project-wide modes
-off. Typed ESLint and both `tsc` projects remain required until Oxlint coverage
-is proven equivalent across the application and CommonJS backend projects.
+type-aware backlog. The fast loop deliberately keeps project-wide type-aware
+lint off, but runs native application and core compiler checks. Typed ESLint
+continues to use TypeScript 5.9.3 until its programmatic consumers support
+TypeScript 7 without changing complete-repository lint results.
 
 The pre-commit hook is stored in Git's shared common directory, so it must work
 from old and new worktrees at the same time. It resolves the committing

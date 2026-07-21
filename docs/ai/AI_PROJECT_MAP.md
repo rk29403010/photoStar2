@@ -22,7 +22,9 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 - `docs/architecture/adr-002-agent-neutral-change-lifecycle.md` records the
   editor-neutral lifecycle decision.
 - `qa:quick` is the fast edit loop, `qa:ready` evaluates the complete branch
-  diff, and `qa:merge` is the canonical local and GitHub integration gate. The
+  diff, and `qa:merge` is the canonical local and GitHub integration gate.
+  `qa:quick` includes native TypeScript 7 app and core checks so type failures
+  appear with the edit that caused them. The
   merge gate adds Oxlint multi-file cycle detection and application type-aware
   analysis while retaining typed ESLint and both TypeScript compiler projects.
 - `task:audit` is read-only visibility across Git worktrees and task metadata;
@@ -39,6 +41,20 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   reconciliation.
 - Git refs and worktree state are authoritative. Editor, path, runtime, and port
   data are transferable task metadata, not separate editor-specific systems.
+
+### TypeScript tooling
+
+- `@typescript/native` aliases stable TypeScript 7 for command-line
+  checks and CommonJS core builds. The quality orchestrator owns compiler
+  selection; package scripts and CI call its modes.
+- `typescript` remains at 5.9.3 for programmatic API consumers such as
+  `typescript-eslint`. `typecheck:compat` verifies that API-consumer
+  path; normal `qa:*` checks use the native compiler.
+- TypeScript 6 API adoption is deferred because it changes complete-repository
+  typed-lint results. Remove the API compiler only after programmatic consumers
+  explicitly support TypeScript 7 and the complete gate prove it is no longer
+  required. Use `benchmark:quality -- --typechecks-only` to
+  compare the compatibility and native compiler paths on the current machine.
 
 ## Extension architecture
 
