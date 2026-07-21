@@ -273,3 +273,10 @@ UI Improvements
   Node10 module resolver. Preserve CommonJS runtime output and make the core
   tsconfig acceptable to `typescript-go` before expanding type-aware Oxlint
   from the application project to the backend project.
+
+## 2026-07-21 - Deterministic publication lifecycle implementation
+
+- Implement the documented `published`, `merge-queued`, `merged`, and
+  `cleanup-pending` task lifecycle commands. Replace the synchronous
+  `thread:ship` compatibility behaviour with repository-owned remote
+  observation and separate reconciliation; preserve protected merge gates.

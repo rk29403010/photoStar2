@@ -4,36 +4,116 @@ This is the editor-neutral operating guide for making and shipping changes to
 PhotoStar2. Codex and Antigravity use the same Git worktrees, task registry,
 quality policy, runtime ownership rules, and completion language.
 
+## Authoritative vocabulary
+
+- **Task capsule:** the registered unit for one independent task: exactly one
+  worktree, one neutral branch, one task record, and an optional task-owned
+  runtime.
+- **Host:** the stable shell that discovers and orchestrates plug-ins solely
+  through their extension contract.
+- **Plug-in:** a self-contained feature contribution (including a workflow
+  module, photo-editing tool, or future extension-family member) that owns its
+  implementation, metadata, tests, and declared registration input.
+- **Extension contract:** the versioned boundary that specifies how a host
+  discovers, validates, invokes, and presents a plug-in without knowing that
+  plug-in's identity or implementation details.
+- **Machine-owned registry:** reproducible generated output whose generator and
+  declared plug-in inputs determine every entry. Humans edit inputs, never the
+  generated registry.
+- **Leaf task:** a task capsule assigned a disjoint implementation scope. It
+  may not opportunistically refactor files owned by another active task.
+- **Integration task:** a task capsule and integration branch that owns shared
+  contracts, hosts, generated registries, or other integration files for a
+  related set of leaves. Leaves sharing those files target this branch instead
+  of competing with separate PRs to `main`.
+- **Published:** a committed candidate is pushed and has a deterministic remote
+  publication record (normally a PR). It does not mean checks have completed.
+- **Merge-queued:** the remote platform has accepted the published candidate
+  into its protected merge queue. It does not mean the candidate is merged.
+- **Merged:** Git proves the candidate head is contained in its target branch.
+- **Cleanup-pending:** merge is proven, but task-owned runtime shutdown, local
+  worktree/branch removal, or registry reconciliation remains incomplete.
+- **Blocked:** a task cannot safely progress because a required command,
+  authority, ownership boundary, or deterministic repository operation failed;
+  it retains its recoverable capsule and a precise recovery instruction.
+
+These definitions apply equally to Codex and Antigravity. Editor identity may
+be recorded as task metadata but never changes branch names, paths, commands,
+or lifecycle rules.
+
+## Extension and ownership contract
+
+- Prefer self-contained plug-ins and deterministic registration. Hosts may
+  orchestrate plug-ins but contain no individual plug-in IDs, labels, defaults,
+  UI components, or algorithms.
+- A host discovers declared plug-in inputs or consumes a deterministic generated
+  registry. Hand-maintained catalogues and central switch statements are shared
+  edit hotspots to reduce, not normal extension points to preserve.
+- Give peer agents disjoint file and contract ownership. A leaf task encountering
+  a missing shared extension point records the exact blocker; it does not patch
+  another active task's files. An assigned integration task owns the shared
+  change and its integration branch.
+- Generated registries are machine-owned and reproducible: update their source
+  inputs and generator, regenerate, and test the result. Do not edit generated
+  registry files manually.
+
+## Intended lifecycle (commands not implemented yet)
+
+1. Create/register a leaf or integration task capsule and assign its ownership
+   scope. A runtime is optional and task-owned only when started through task
+   tooling.
+2. Develop within that scope; run `qa:quick`, then `qa:ready` for handoff.
+3. A deterministic repository publish operation commits the candidate, runs the
+   required local gate, pushes it, and creates/updates its remote publication.
+   The state becomes **published**.
+4. A deterministic repository merge operation requests protected integration.
+   If the platform accepts it, the state becomes **merge-queued**. Automation,
+   not an attached agent, observes remote checks and completes the merge.
+5. Repository reconciliation later proves containment and records **merged**.
+   It separately stops only the task-owned runtime and removes only clean,
+   proven-integrated local state. Until then the state is **cleanup-pending**.
+
+The future commands will express these operations directly. Until then, the
+following current commands are compatibility layers with semantics that will
+change in later prompts: `thread:ship`, `thread:update`, `thread:close`,
+`task:audit`, and `task:reconcile`. Do not manually write future lifecycle
+states into the registry.
+
 ## The one finish phrase
 
 Tell either editor:
 
 > **ship this change**
 
-This is authorization to take the current task through the complete safe finish
-sequence. It means:
+This is authorization to use the intended deterministic publication workflow.
+It does not require an agent to remain attached while GitHub checks run. The
+agent reports the resulting local and remote lifecycle state, then repository
+automation owns remote waiting, merge observation, and later reconciliation.
+
+**Current compatibility note (will change in a later prompt):** the existing
+`thread:ship` implementation is synchronous: it waits for GitHub checks and
+attempts local cleanup. It remains the current implementation only; agents must
+not add polling around it or document that behaviour as the target contract.
+
+The future sequence is:
 
 1. Confirm the current worktree, branch, base, head, dirty state, ownership, and
    task-owned runtime.
-2. Run `pnpm.cmd run thread:ship`. This is the repository automation for the
-   remaining gate, commit, protected integration, verification, and cleanup
-   steps.
-3. Fix failures caused by the current change and rerun `thread:ship`. It runs
-   `qa:merge` at the exact candidate head before integration.
-4. Confirm the task head is contained in the pushed `main`, the task-owned
-   runtime is stopped, and the integrated local worktree/branch are removed.
-5. Run `pnpm.cmd run task:audit`, inspect `pnpm.cmd run task:reconcile`, and
-   apply its proven-safe registry plan with
-   `pnpm.cmd run task:reconcile -- --apply`.
-6. Report the commit, pushed branch, checks, containment proof, cleanup, and
-    any unrelated state deliberately left untouched.
+2. Run the future repository publication command. It runs `qa:merge` at the
+   exact candidate head, commits, pushes, and records **published**.
+3. Request protected merge through the future deterministic merge command. It
+   records **merge-queued** when accepted and returns without waiting.
+4. Later repository automation proves **merged**, then independently records
+   **cleanup-pending** until safe local reconciliation finishes.
+5. Report the commit, publication/queue state, local checks, and any retained
+   cleanup; do not claim merge completion before containment is proven.
 
 The agent should continue through ordinary, in-scope lint, type, test, merge,
 and cross-platform failures. It should not hand back a half-finished task merely
 because a check needed a code fix.
 
-If completion is unsafe or impossible, the agent must stop before destructive
-cleanup and say clearly:
+If publication or reconciliation is unsafe or impossible, the agent must stop
+before destructive cleanup and say clearly:
 
 - which command or required check failed;
 - the concrete error or missing authority;
@@ -78,7 +158,8 @@ references a file which exists only on the installing branch.
 
 ## Starting and moving a task between editors
 
-- Use one branch and one worktree per independent task.
+- Use one registered task capsule per independent task: one branch, one
+  worktree, one task record, and an optional runtime.
 - Register the task once. Record the current editor/agent as mutable ownership
   metadata; do not encode it in the task identity.
 - An editor taking over an existing task must inspect task status and the Git
@@ -116,8 +197,22 @@ SHA, and stale reason.
 - Never assume a port belongs to the current task. Check its ownership lease and
   process identity before stopping it.
 - Never stop a runtime belonging to another task/editor to make a port free.
-- `ship this change` stops only the runtime proven to belong to the shipped
-  task. Unknown listeners are a blocker, not cleanup candidates.
+- During current compatibility behaviour, `thread:ship` stops only the runtime
+  proven to belong to the shipped task. Under the intended lifecycle,
+  reconciliation performs that cleanup after merge proof. Unknown listeners are
+  always a blocker, not cleanup candidates.
+
+## Publication, integration, and cleanup
+
+Publishing, queueing, merging, and reconciliation are deterministic repository
+operations, not AI reasoning tasks. Repository automation owns remote check
+observation after it has published or queued a candidate; agents must not wait
+or poll for GitHub Actions.
+
+An integration task is required when related changes share a host, extension
+contract, generator, registry input, or other integration file. Its branch is
+the merge target for those leaves, and only the integration task publishes the
+combined result toward `main`.
 
 ## Cleanup and stale-state recovery
 
@@ -138,10 +233,10 @@ stale tasks. Audit is read-only. It should identify at least:
 Run `pnpm.cmd run task:reconcile` to inspect its dry-run plan, then
 `pnpm.cmd run task:reconcile -- --apply` to apply proven-safe registry cleanup.
 Reconciliation removes clean residual worktrees and local branches only when
-Git proves the work is integrated, then closes their metadata. Ordinary cleanup
-remains the responsibility of `thread:ship`; reconciliation is the recovery
-path for an interrupted finish. Ambiguous, dirty, or uncontained work remains
-visible with a precise recovery instruction.
+Git proves the work is integrated, then closes their metadata. Cleanup is
+separate from publication and merge confirmation: a proven merge with retained
+local state is **cleanup-pending**. Ambiguous, dirty, or uncontained work
+remains visible with a precise recovery instruction.
 
 ## GitHub integration
 
@@ -150,10 +245,14 @@ should reject force-pushes and deletion. GitHub Actions must use repository-
 pinned Node and pnpm versions, a frozen lockfile, and the same quality policy as
 local commands. PR selection uses the merge base; push verification uses the
 event's before/after SHAs and must never degrade to an empty working-tree diff.
-After a successful first integration, `thread:ship` applies this protection
-idempotently through `repo:protect-main`; failure to apply it is reported as an
-incomplete finish rather than silently leaving direct pushes enabled.
+**Current compatibility note (will change in a later prompt):** after a
+successful current `thread:ship` integration, it applies this protection
+idempotently through `repo:protect-main`. The future deterministic publication
+and merge operations retain this protection requirement without requiring an
+agent to wait for checks; failure is a blocked lifecycle state rather than a
+reason to silently weaken protection.
 
-The final report for `ship this change` must distinguish local gate success from
-remote required-check success. A successful local merge with a failed or
-unverified protected check is not complete.
+The final report for `ship this change` must distinguish local gate success,
+published/merge-queued status, proven merge containment, and cleanup state. A
+successful local gate is not a remote merge, and a merged candidate can still
+be cleanup-pending.

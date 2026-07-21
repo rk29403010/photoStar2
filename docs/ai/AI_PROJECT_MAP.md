@@ -1,6 +1,6 @@
 # AI Project Map
 
-Last updated: 2026-07-16
+Last updated: 2026-07-21
 
 ## Product summary
 
@@ -28,12 +28,30 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 - `task:audit` is read-only visibility across Git worktrees and task metadata;
   `task:reconcile` plans and safely removes only state proven stale or already
   integrated.
-- The phrase `ship this change` instructs Codex or Antigravity to fix in-scope
-  gate failures, integrate and push `main`, verify required checks and commit
-  containment, stop the task-owned runtime, remove the task branch/worktree,
-  reconcile stale state, and report any blocker precisely.
+- The authoritative lifecycle vocabulary is in `docs/ai/change-workflow.md`:
+  task capsule, leaf task, integration task, published, merge-queued, merged,
+  cleanup-pending, and blocked. Current task commands are marked compatibility
+  layers until the future deterministic publication and reconciliation commands
+  are implemented.
+- `ship this change` authorizes deterministic publication and merge submission;
+  it does not require either editor to remain attached while GitHub checks run.
+  Remote automation owns check observation, merge completion, and later cleanup
+  reconciliation.
 - Git refs and worktree state are authoritative. Editor, path, runtime, and port
   data are transferable task metadata, not separate editor-specific systems.
+
+## Extension architecture
+
+- Workflow modules, photo-editing tools, and future extension families use
+  self-contained plug-ins behind extension contracts. Hosts orchestrate
+  discovered plug-ins but do not encode individual IDs, labels, defaults, UI
+  components, or algorithms.
+- Registries are discovered or deterministically generated. Generated registries
+  are machine-owned, reproducible outputs; edit declared inputs and generators,
+  never generated registry files.
+- Reduce shared edit hotspots. Assign disjoint scopes to peer leaf tasks; use an
+  integration task and branch when related leaves share host, contract, or
+  registry integration files.
 
 ## Feature routing table
 

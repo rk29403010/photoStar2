@@ -171,8 +171,20 @@ command/workflow start, and user-visible feedback.
 
 ## Worktrees And Runtime
 
-- One task equals one task capsule: one worktree, one branch, one goal. A task
-  may move between Codex and Antigravity; the editor is metadata, not identity.
+- One independent task equals one registered **task capsule**: one worktree,
+  one neutral branch, one task record, and an optional task-owned runtime. A
+  task may move between Codex and Antigravity; editor identity is mutable task
+  metadata, never task identity.
+- Follow the authoritative vocabulary and lifecycle in
+  `docs/ai/change-workflow.md`. A task is either a **leaf task** with a disjoint
+  implementation scope or an **integration task** that owns shared integration
+  files and its integration branch. Related leaves that still share integration
+  files target that integration branch; they do not compete with separate PRs
+  to `main`.
+- Peer agents receive disjoint file/contract ownership. Do not opportunistically
+  refactor files owned by another active task. Record a precise blocker when an
+  extension point is missing; create or join an integration task only when its
+  owner assigns that shared scope.
 - Discover worktrees from Git and the shared task registry. Do not assume the
   task lives under `.worktrees/`, `worktrees/`, or an editor-managed directory.
 - Use a neutral branch name accepted by the task tooling. Do not require an
@@ -185,8 +197,11 @@ pnpm.cmd run thread:new -- --task "<task name>"
 
 - Follow-up requests stay in the same worktree unless the user asks to split.
 - Register existing worktrees with `pnpm.cmd run thread:register -- --task "<task name>"`.
-- Update state with `pnpm.cmd run thread:update -- --status <active|blocked|ready-to-merge|parked>`.
-- Close finished threads with `pnpm.cmd run thread:close -- --status <merged|parked|discarded>`.
+- **Current command compatibility (will change in a later prompt):**
+  `thread:update`, `thread:close`, `thread:ship`, `task:audit`, and
+  `task:reconcile` expose the pre-publication lifecycle today. Do not infer the
+  future `published` or `merge-queued` states from their current output, and do
+  not manually emulate them in registry files.
 - Audit all live and stale task state with `pnpm.cmd run task:audit`. Use
   `pnpm.cmd run task:reconcile` only after reviewing its dry-run output.
 - Before handoff, run `pnpm.cmd run thread:status`; use `pnpm.cmd run thread:list`
@@ -232,6 +247,23 @@ pnpm.cmd run dev:desktop-runtime
 - When delegating, tell the user what was handed off and fold the result back
   into the main thread with evidence.
 
+## Extension Architecture And Registry Ownership
+
+- Build workflow modules, photo-editing tools, and future extension families as
+  self-contained **plug-ins** behind a small **extension contract**. A plug-in
+  owns its implementation, metadata, tests, and declared registration inputs.
+- A **host** orchestrates discovered plug-ins through that contract. Host shells
+  must not contain individual plug-in IDs, labels, defaults, UI components, or
+  algorithms. Shared host changes require an assigned integration task.
+- Discover registries from declared plug-in inputs where practical; otherwise
+  generate them deterministically. A **machine-owned registry** is generated
+  output whose source inputs and generator fully determine its content. Never
+  hand-edit it; regenerate and verify it instead.
+- Reduce existing shared edit hotspots rather than accepting them as normal.
+  New extensions must avoid central switch statements and hand-maintained
+  catalogues; move the relevant decision into the plug-in or a generated
+  registry contract.
+
 ## Fast Loop
 
 - Default to the fastest safe path for small local fixes.
@@ -261,15 +293,14 @@ asked. Never use destructive git commands such as `git reset --hard` or
 
 Finish commands:
 
-- `ship this change`: canonical editor-neutral end-to-end finish command. Run
-  `pnpm.cmd run thread:ship`, fix in-scope failures, and retry until it completes.
-  This includes the full merge gate, commit, protected integration into `main`,
-  push, remote-check and containment verification, stopping the task-owned
-  runtime, and removing the integrated branch/worktree. Then audit and safely
-  reconcile the task registry. Continue through fixable failures without
-  returning a partial handoff. If safe completion is impossible, stop before
-  destructive cleanup and report the failed command, concrete cause, retained
-  worktree and branch, and the exact recovery action.
+- `ship this change`: canonical editor-neutral publication instruction. The
+  intended lifecycle is documented in `docs/ai/change-workflow.md`: repository
+  automation validates, commits, publishes, and requests/enters deterministic
+  integration without an agent waiting for GitHub checks. Publication or queue
+  acceptance is distinct from later merge confirmation and local reconciliation.
+  **Current command compatibility (will change in a later prompt):** today's
+  `thread:ship` still waits for remote checks and attempts cleanup; do not add
+  agent-side polling or treat that behaviour as the future contract.
 - `ship it` and `finish this thread and merge it back` are aliases for
   `ship this change`.
 - `finish this thread, commit it, and keep the branch`: commit, mark ready.
