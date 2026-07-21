@@ -38,8 +38,11 @@ test('native and compatibility typecheck commands keep compiler selection in the
         'native tooling typecheck',
         'native core typecheck',
     ]);
-    assert.match(buildQualitySteps('typecheck:native:app')[0].command, /tsgo(?:\.cmd)?$/u);
-    assert.match(buildQualitySteps('typecheck:compat')[0].command, /tsc6(?:\.cmd)?$/u);
+    const nativeStep = buildQualitySteps('typecheck:native:app')[0];
+    assert.equal(nativeStep.command, process.execPath);
+    assert.match(nativeStep.args[0], /node_modules[\\/]@typescript[\\/]native[\\/]bin[\\/]tsc$/u);
+    assert.match(buildQualitySteps('typecheck:compat')[0].command, /tsc(?:\.cmd)?$/u);
+    assert.doesNotMatch(buildQualitySteps('typecheck:compat')[0].command, /tsc6/u);
 });
 
 test('ready gate checks the complete branch with native types and affected test layers', () => {

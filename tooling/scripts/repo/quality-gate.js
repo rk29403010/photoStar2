@@ -13,6 +13,10 @@ function packageBinary(name, platform = process.platform) {
     return path.join(workspaceRoot, 'node_modules', '.bin', platform === 'win32' ? `${name}.cmd` : name);
 }
 
+function nativeCompilerPath() {
+    return path.join(workspaceRoot, 'node_modules', '@typescript', 'native', 'bin', 'tsc');
+}
+
 function parseArgs(argv) {
     const mode = argv.find((token) => !token.startsWith('--')) ?? 'quick';
     const baseIndex = argv.indexOf('--base');
@@ -76,8 +80,8 @@ function changedStep(label, scriptName, extraArgs = []) {
 function nativeTypecheckStep(label, configPath, { emit = false } = {}) {
     return {
         label,
-        command: packageBinary('tsgo'),
-        args: ['-p', configPath, ...(emit ? [] : ['--noEmit']), '--pretty', 'false'],
+        command: nodeExecutable,
+        args: [nativeCompilerPath(), '-p', configPath, ...(emit ? [] : ['--noEmit']), '--pretty', 'false'],
     };
 }
 
@@ -119,8 +123,8 @@ export function buildQualitySteps(mode) {
     }
     if (mode === 'typecheck:compat') {
         return [{
-            label: 'compatibility API typecheck',
-            command: packageBinary('tsc6'),
+            label: 'API-consumer TypeScript check',
+            command: packageBinary('tsc'),
             args: ['-b', '--pretty', 'false'],
         }];
     }

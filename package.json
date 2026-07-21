@@ -138,7 +138,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.18.1",
-    "@typescript/native-preview": "7.0.0-dev.20260707.2",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
@@ -157,7 +157,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "tsc-watch": "^7.2.0",
-    "typescript": "npm:@typescript/typescript6@~6.0.2",
+    "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^8.0.10",
     "vite-plugin-checker": "^0.12.0"

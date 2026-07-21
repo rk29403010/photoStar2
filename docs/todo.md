@@ -1,8 +1,12 @@
 # TO DO List
 
-## 2026-07-21 - TypeScript 6 compatibility lint investigation
+## 2026-07-21 - Adopt TypeScript 6 API tooling and triage newly exposed typed-lint findings
 
-- The TypeScript 7 fast-loop migration keeps `typescript-eslint` on the TypeScript 6 compatibility API. On a freshly installed worktree, full typed ESLint reports 142 existing Sonar findings outside the migration scope; determine whether the TypeScript 6 program changes rule behaviour before enabling a merge-gate-clean migration.
+- A controlled clean-install comparison proved that switching the `typescript`
+  package used by `typescript-eslint` from 5.9.3 to TypeScript 6 produces 142
+  new typed-lint errors across unchanged source. Adopt the TypeScript 6 API only
+  in a dedicated task that deliberately triages those findings and preserves a
+  passing complete gate.
 
 ## 2026-07-19 - Reference-photo red-eye assist
 

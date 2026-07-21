@@ -143,18 +143,17 @@ because `qa:merge` remains mandatory before integration. Skipping or weakening
 
 ### TypeScript compiler arrangement
 
-`@typescript/native-preview` supplies the TypeScript 7 native `tsgo` compiler
+`@typescript/native` aliases stable TypeScript 7 for the explicit native `tsc`
 for command-line typechecking and CommonJS core builds. The quality orchestrator
 is the only place that selects this binary; package scripts and CI invoke its
 named modes rather than duplicating compiler paths.
 
-The `typescript` dependency is an alias to `@typescript/typescript6`. It keeps
-the TypeScript programmatic API available for `typescript-eslint`, ESLint, Vite
-plug-ins, and other API consumers. `typecheck:compat` runs its `tsc6` command as
-an explicit compatibility validation; it is not the normal fast-loop compiler.
-The native preview API is incomplete, so remove the compatibility compiler only
-when all programmatic consumers explicitly support TypeScript 7 and `qa:merge`
-proves the replacement arrangement.
+The `typescript` dependency remains on 5.9.3 for `typescript-eslint`, ESLint,
+Vite plug-ins, and other programmatic API consumers. `typecheck:compat` runs
+that API-consumer compiler as an explicit validation; it is not the normal
+fast-loop compiler. TypeScript 6 API adoption is deferred because it changes
+whole-repository typed-lint results; revisit it only when a dedicated task can
+triage those findings and `qa:merge` proves the replacement arrangement.
 
 Use `typecheck:native`, `typecheck:native:app`, and `typecheck:native:core` for
 direct native checks. `qa:quick` runs the app and core native checks; `qa:ready`
@@ -168,8 +167,8 @@ in the application TypeScript project. The type program is project-wide, but
 the incremental gate avoids making unrelated work repair the existing
 type-aware backlog. The fast loop deliberately keeps project-wide type-aware
 lint off, but runs native application and core compiler checks. Typed ESLint
-continues to use the TypeScript 6 compatibility API until its programmatic
-consumers support TypeScript 7.
+continues to use TypeScript 5.9.3 until its programmatic consumers support
+TypeScript 7 without changing complete-repository lint results.
 
 The pre-commit hook is stored in Git's shared common directory, so it must work
 from old and new worktrees at the same time. It resolves the committing

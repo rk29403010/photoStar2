@@ -44,16 +44,16 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 
 ### TypeScript tooling
 
-- `@typescript/native-preview` provides TypeScript 7 `tsgo` for command-line
+- `@typescript/native` aliases stable TypeScript 7 for command-line
   checks and CommonJS core builds. The quality orchestrator owns compiler
   selection; package scripts and CI call its modes.
-- `typescript` aliases `@typescript/typescript6` for programmatic API consumers
-  such as `typescript-eslint`. `typecheck:compat` verifies that compatibility
+- `typescript` remains at 5.9.3 for programmatic API consumers such as
+  `typescript-eslint`. `typecheck:compat` verifies that API-consumer
   path; normal `qa:*` checks use the native compiler.
-- The native preview API is not ready for programmatic consumers. Retain the
-  compatibility compiler until those consumers explicitly support TypeScript 7;
-  remove it only after their supported versions and the complete gate prove it
-  is no longer required. Use `benchmark:quality -- --typechecks-only` to
+- TypeScript 6 API adoption is deferred because it changes complete-repository
+  typed-lint results. Remove the API compiler only after programmatic consumers
+  explicitly support TypeScript 7 and the complete gate prove it is no longer
+  required. Use `benchmark:quality -- --typechecks-only` to
   compare the compatibility and native compiler paths on the current machine.
 
 ## Extension architecture
