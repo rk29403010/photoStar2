@@ -2,13 +2,12 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "rewriteRelativeImportExtensions": true,
     "outDir": "../../dist/core/src",
     "rootDir": "../../src",
     "incremental": true,
     "tsBuildInfoFile": "../../dist/core/.tsbuildinfo",
-    "baseUrl": "../../",
     "strict": true,
     "esModuleInterop": true,
     "noUnusedLocals": true,
@@ -19,10 +18,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@ui/*": ["src/ui/*"],
-      "@boundary/*": ["src/boundary/*"],
-      "@contracts/*": ["src/boundary/contracts/*"],
-      "@shared/*": ["src/shared/*"]
+      "@ui/*": ["../../src/ui/*"],
+      "@boundary/*": ["../../src/boundary/*"],
+      "@contracts/*": ["../../src/boundary/contracts/*"],
+      "@shared/*": ["../../src/shared/*"]
     }
   },
   "include": [

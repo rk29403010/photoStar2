@@ -73,21 +73,67 @@ function changedStep(label, scriptName, extraArgs = []) {
     };
 }
 
+function nativeTypecheckStep(label, configPath, { emit = false } = {}) {
+    return {
+        label,
+        command: packageBinary('tsgo'),
+        args: ['-p', configPath, ...(emit ? [] : ['--noEmit']), '--pretty', 'false'],
+    };
+}
+
+function nativeAppTypecheckStep() {
+    return nativeTypecheckStep('native application typecheck', 'tsconfig.app.json');
+}
+
+function nativeNodeTypecheckStep() {
+    return nativeTypecheckStep('native tooling typecheck', 'tsconfig.node.json');
+}
+
+function nativeCoreTypecheckStep() {
+    return nativeTypecheckStep('native core typecheck', 'tooling/config/tsconfig.core.json');
+}
+
+function nativeCoreBuildStep() {
+    return nativeTypecheckStep('native core build', 'tooling/config/tsconfig.core.json', { emit: true });
+}
+
 export function buildQualitySteps(mode) {
     const quick = [
         changedStep('changed Oxlint', 'lint-changed-files.mjs', ['--tool=oxlint']),
         changedStep('changed complexity', 'complexity-changed-files.mjs'),
+        nativeAppTypecheckStep(),
+        nativeCoreTypecheckStep(),
     ];
     if (mode === 'quick') {
         return quick;
+    }
+
+    if (mode === 'typecheck:native') {
+        return [nativeAppTypecheckStep(), nativeNodeTypecheckStep(), nativeCoreTypecheckStep()];
+    }
+    if (mode === 'typecheck:native:app') {
+        return [nativeAppTypecheckStep()];
+    }
+    if (mode === 'typecheck:native:core') {
+        return [nativeCoreTypecheckStep()];
+    }
+    if (mode === 'typecheck:compat') {
+        return [{
+            label: 'compatibility API typecheck',
+            command: packageBinary('tsc6'),
+            args: ['-b', '--pretty', 'false'],
+        }];
+    }
+    if (mode === 'build:native:core') {
+        return [nativeCoreBuildStep()];
     }
 
     const ready = [
         { label: 'full Oxlint', command: packageBinary('oxlint'), args: ['-c', '.oxlintrc.json', '.'] },
         changedStep('changed type-aware ESLint', 'lint-changed-files.mjs'),
         changedStep('changed complexity', 'complexity-changed-files.mjs'),
-        { label: 'application typecheck', command: packageBinary('tsc'), args: ['-b', '--pretty', 'false'] },
-        { label: 'core typecheck', command: packageBinary('tsc'), args: ['-p', 'tooling/config/tsconfig.core.json', '--noEmit', '--pretty', 'false'] },
+        nativeAppTypecheckStep(),
+        nativeCoreTypecheckStep(),
         { label: 'repository tests', command: nodeExecutable, args: ['--test', 'tests/repo/*.test.mjs'] },
         { label: 'UI tests', command: nodeExecutable, args: ['--test', 'tests/ui/*.test.cjs'] },
     ];
@@ -112,8 +158,8 @@ export function buildQualitySteps(mode) {
         },
         changedStep('branch complexity', 'complexity-changed-files.mjs'),
         { label: 'Markdown lint', command: packageBinary('markdownlint'), args: markdownArgs },
-        { label: 'application typecheck', command: packageBinary('tsc'), args: ['-b', '--pretty', 'false'] },
-        { label: 'core typecheck', command: packageBinary('tsc'), args: ['-p', 'tooling/config/tsconfig.core.json', '--noEmit', '--pretty', 'false'] },
+        nativeAppTypecheckStep(),
+        nativeCoreBuildStep(),
         { label: 'repository tests', command: nodeExecutable, args: ['--test', 'tests/repo/*.test.mjs'] },
         { label: 'UI tests', command: nodeExecutable, args: ['--test', 'tests/ui/*.test.cjs'] },
         {

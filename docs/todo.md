@@ -1,5 +1,9 @@
 # TO DO List
 
+## 2026-07-21 - TypeScript 6 compatibility lint investigation
+
+- The TypeScript 7 fast-loop migration keeps `typescript-eslint` on the TypeScript 6 compatibility API. On a freshly installed worktree, full typed ESLint reports 142 existing Sonar findings outside the migration scope; determine whether the TypeScript 6 program changes rule behaviour before enabling a merge-gate-clean migration.
+
 ## 2026-07-19 - Reference-photo red-eye assist
 
 - The red-eye tool uses only the current photo and persisted human face regions. Add an opt-in reference-photo workflow only after landmark-alignment and confidence checks can ensure that pose, lighting, and identity match before sampling a neutral iris colour.
