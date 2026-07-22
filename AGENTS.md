@@ -198,7 +198,7 @@ pnpm.cmd run thread:new -- --task "<task name>"
 
 - Follow-up requests stay in the same worktree unless the user asks to split.
 - Register existing worktrees with `pnpm.cmd run thread:register -- --task "<task name>"`.
-- `thread:publish` publishes a registered non-main task, arms PR auto-merge,
+- `task:finish` is the normal human-facing completion command. It publishes a registered non-main task, arms PR auto-merge,
   records publication metadata, and returns without waiting for GitHub Actions.
   `thread:ship` is its compatibility alias. Use `task:reconcile` later to prove
   containment and clean only task-owned, clean, integrated local state.
@@ -293,7 +293,7 @@ asked. Never use destructive git commands such as `git reset --hard` or
 
 Finish commands:
 
-- `ship this change`: canonical editor-neutral publication instruction. The
+- `finish this task` and `ship this change`: canonical editor-neutral publication instruction. Run `pnpm.cmd run task:finish`; users receive only DONE, WAITING ON CI, FAILED, or ACTION NEEDED. Use `task:status` or `task:resume` after a restart; do not ask users to interpret Git or reconciliation commands.
   intended lifecycle is documented in `docs/ai/change-workflow.md`: repository
   automation validates, commits, publishes, and requests/enters deterministic
   integration without an agent waiting for GitHub checks. Publication or queue

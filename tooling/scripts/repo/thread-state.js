@@ -485,6 +485,9 @@ function handleRegister(args, registryPath) {
     upsertThreadEntry(registry, {
         ...snapshot,
         task,
+        taskId: `task-${task.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-').replaceAll(/(^-|-$)/g, '')}`,
+        objective: typeof args.objective === 'string' ? args.objective.trim() : '',
+        acceptanceCriteria: typeof args.acceptance === 'string' ? args.acceptance.split('|').map((item) => item.trim()).filter(Boolean) : [],
         kind: typeof args.kind === 'string' ? args.kind.trim() : 'leaf',
         integrationTaskId: typeof args.integration === 'string' ? args.integration.trim() : '',
         intendedBaseBranch: typeof args.base === 'string' ? args.base.trim() : snapshot.baseRef,
@@ -517,6 +520,8 @@ function handleUpdate(args, registryPath) {
         ...existingEntry,
         ...snapshot,
         task: typeof args.task === 'string' ? args.task.trim() : existingEntry.task,
+        objective: typeof args.objective === 'string' ? args.objective.trim() : existingEntry.objective ?? '',
+        acceptanceCriteria: typeof args.acceptance === 'string' ? args.acceptance.split('|').map((item) => item.trim()).filter(Boolean) : existingEntry.acceptanceCriteria ?? [],
         kind: typeof args.kind === 'string' ? args.kind.trim() : existingEntry.kind ?? 'leaf',
         integrationTaskId: typeof args.integration === 'string' ? args.integration.trim() : existingEntry.integrationTaskId ?? '',
         intendedBaseBranch: typeof args.base === 'string' ? args.base.trim() : existingEntry.intendedBaseBranch ?? snapshot.baseRef,
