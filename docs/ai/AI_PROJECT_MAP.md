@@ -27,14 +27,13 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   appear with the edit that caused them. The
   merge gate adds Oxlint multi-file cycle detection and application type-aware
   analysis while retaining typed ESLint and both TypeScript compiler projects.
-- `task:audit` is read-only visibility across Git worktrees and task metadata;
-  `task:reconcile` plans and safely removes only state proven stale or already
-  integrated.
+- `thread:publish` is the non-blocking publication command; `thread:ship` is
+  its compatibility alias. `task:audit` reports attention-only task state and
+  `task:reconcile` plans or applies only containment-proven cleanup.
 - The authoritative lifecycle vocabulary is in `docs/ai/change-workflow.md`:
   task capsule, leaf task, integration task, published, merge-queued, merged,
-  cleanup-pending, and blocked. Current task commands are marked compatibility
-  layers until the future deterministic publication and reconciliation commands
-  are implemented.
+  cleanup-pending, and blocked. Publication records the PR number plus exact
+  published/base SHAs; reconciliation later proves integration from origin.
 - `ship this change` authorizes deterministic publication and merge submission;
   it does not require either editor to remain attached while GitHub checks run.
   Remote automation owns check observation, merge completion, and later cleanup

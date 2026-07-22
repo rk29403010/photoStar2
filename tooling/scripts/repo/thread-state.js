@@ -17,10 +17,13 @@ import { runCommandSync } from './process-invocation.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 const gitExecutable = process.platform === 'win32' ? 'git.exe' : 'git';
+const ghExecutable = process.platform === 'win32' ? 'gh.exe' : 'gh';
 const VALID_STATUSES = new Set([
     'active',
     'blocked',
     'ready-to-merge',
+    'published',
+    'merge-queued',
     'cleanup-pending',
     'parked',
     'merged',
@@ -90,22 +93,6 @@ function sortEntries(entries) {
 
         return left.task.localeCompare(right.task);
     });
-}
-
-function getThreadAppLabel(entry, runningLabel) {
-    if (runningLabel === 'none') {
-        return 'none';
-    }
-
-    if (typeof entry.appUrl === 'string' && entry.appUrl.trim() !== '') {
-        return entry.appUrl;
-    }
-
-    if (Number.isInteger(entry.webPort)) {
-        return `http://localhost:${entry.webPort}`;
-    }
-
-    return 'unknown';
 }
 
 export function upsertThreadEntry(registry, entry) {
@@ -179,30 +166,56 @@ export function findThreadEntry(registry, options = {}) {
     return null;
 }
 
-export function renderThreadList(registry) {
+function matchesEntryFilters(entry, filters = {}) {
+    return entryMatchesFilter(entry.status, filters.status)
+        && entryMatchesFilter(entry.task, filters.task)
+        && entryMatchesFilter(entry.branch, filters.branch)
+        && entryMatchesFilter(entry.cwd, filters.worktree);
+}
+
+function entryMatchesFilter(value, filter) {
+    return !filter || String(value ?? '').toLowerCase().includes(filter.toLowerCase());
+}
+
+function getPublicationLabel(entry) {
+    if (entry.prNumber) {
+        return `#${entry.prNumber} ${entry.status}`;
+    }
+    return entry.status === 'published' || entry.status === 'merge-queued' ? entry.status : '-';
+}
+
+function formatTable(rows, columns) {
+    const widths = columns.map((column, index) => Math.max(column.length, ...rows.map((row) => String(row[index] ?? '').length)));
+    const formatRow = (row) => row.map((cell, index) => String(cell ?? '').padEnd(widths[index])).join('  ');
+    return [formatRow(columns), formatRow(columns.map((column, index) => '-'.repeat(widths[index]))), ...rows.map(formatRow)].join('\n');
+}
+
+export function renderThreadList(registry, options = {}) {
     const nextRegistry = normalizeRegistry(registry);
-    if (nextRegistry.entries.length === 0) {
+    const entries = sortEntries(nextRegistry.entries)
+        .filter((entry) => options.all === true || !isClosedStatus(entry.status))
+        .filter((entry) => matchesEntryFilters(entry, options));
+    if (entries.length === 0) {
         return 'No registered threads.';
     }
 
-    return sortEntries(nextRegistry.entries)
-        .map((entry) => {
-            const dirtyLabel = entry.dirty ? `dirty:${entry.dirtyCount}` : 'clean';
-            const runningLabel = entry.running && entry.running !== 'none' ? entry.running : 'none';
-            const appLabel = getThreadAppLabel(entry, runningLabel);
-            const backendLabel = Number.isInteger(entry.backendPort) ? String(entry.backendPort) : 'unknown';
-            const pathLabel = entry.worktreePath ?? entry.cwd;
-            const ownerLabel = entry.owner ? ` | owner:${entry.owner}` : '';
-            const noteLabel = entry.note ? ` | note:${normalizeThreadNote(entry.note)}` : '';
-            const branchLabel = entry.branch || '(detached)';
-            const divergenceLabel = Number.isInteger(entry.ahead) && Number.isInteger(entry.behind)
-                ? ` | base:${entry.baseRef ?? 'main'} | ahead:${entry.ahead} | behind:${entry.behind}`
-                : '';
-            const integrationLabel = entry.includedInMain ? ' | included-in-main:yes' : ' | included-in-main:no';
-            const staleLabel = entry.missing ? ` | stale:${entry.staleReason || 'worktree-missing'}` : '';
-            return `${entry.status} | ${entry.task} | ${branchLabel} | ${entry.worktreeName} | ${dirtyLabel} | running:${runningLabel} | app:${appLabel} | backend:${backendLabel} | path:${pathLabel} | commit:${entry.lastCommit}${divergenceLabel}${integrationLabel}${staleLabel}${ownerLabel}${noteLabel}`;
-        })
-        .join('\n');
+    if (options.json === true) {
+        return JSON.stringify(entries, null, 2);
+    }
+
+    if (options.verbose === true) {
+        return JSON.stringify(entries, null, 2);
+    }
+
+    return formatTable(entries.map((entry) => [
+        entry.status,
+        entry.task,
+        entry.branch || '(detached)',
+        entry.dirty ? `dirty:${entry.dirtyCount}` : 'clean',
+        entry.running && entry.running !== 'none' ? entry.running : 'none',
+        Number.isInteger(entry.ahead) && Number.isInteger(entry.behind) ? `${entry.ahead}/${entry.behind}` : '-/-',
+        getPublicationLabel(entry),
+    ]), ['STATUS', 'TASK', 'BRANCH', 'DIRTY', 'RUNNING', 'AHEAD/BEHIND', 'PUBLICATION']);
 }
 
 export function resolveThreadRegistryPath(cwd = workspaceRoot) {
@@ -526,7 +539,7 @@ function handleClose(args, registryPath) {
     console.log(`Closed ${existingEntry.worktreeName} as ${status}.`);
 }
 
-function handleStatus(registryPath) {
+function handleStatus(registryPath, args) {
     const registry = refreshThreadRegistry(readThreadRegistry(registryPath));
     const snapshot = collectThreadSnapshot(process.cwd());
     const entry = registry.entries.find((candidate) => normalizePathForKey(candidate.cwd) === normalizePathForKey(snapshot.worktreePath));
@@ -541,7 +554,7 @@ function handleStatus(registryPath) {
                 note: 'Run thread:register to track this worktree.',
                 updatedAt: new Date().toISOString(),
             }],
-        }));
+        }, { verbose: args.verbose === true, json: args.json === true }));
         return;
     }
 
@@ -551,10 +564,22 @@ function handleStatus(registryPath) {
             ...entry,
             ...snapshot,
         }],
-    }));
+    }, { verbose: args.verbose === true, json: args.json === true }));
 }
 
-function handleList(registryPath) {
+function getListOptions(args) {
+    return {
+        all: args.all === true,
+        status: typeof args.status === 'string' ? args.status : '',
+        task: typeof args.task === 'string' ? args.task : '',
+        branch: typeof args.branch === 'string' ? args.branch : '',
+        worktree: typeof args.worktree === 'string' ? args.worktree : '',
+        verbose: args.verbose === true,
+        json: args.json === true,
+    };
+}
+
+function handleList(args, registryPath) {
     const registry = refreshThreadRegistry(readThreadRegistry(registryPath));
     const worktreeOutput = runGitText(['worktree', 'list', '--porcelain'], process.cwd());
     const attachedPaths = worktreeOutput
@@ -580,11 +605,18 @@ function handleList(registryPath) {
             console.warn(`[task-audit] Unable to inspect attached worktree ${worktreePath}: ${detail}`);
         }
     }
-    console.log(renderThreadList(registry));
+    console.log(renderThreadList(registry, getListOptions(args)));
 }
 
-export function buildReconciliationPlan(registry) {
+function findUnregisteredAttachedWorktrees(registry) {
+    const output = runGitText(['worktree', 'list', '--porcelain'], process.cwd());
+    return output.split(/\r?\n/).filter((line) => line.startsWith('worktree ')).map((line) => line.slice('worktree '.length))
+        .filter((worktreePath) => !findThreadEntry(registry, { cwd: worktreePath }));
+}
+
+export function buildReconciliationPlan(registry, filters = {}) {
     return normalizeRegistry(registry).entries
+        .filter((entry) => matchesEntryFilters(entry, filters))
         .filter((entry) => {
             const unfinishedResidue = !isClosedStatus(entry.status)
                 && (entry.missing || entry.status === 'cleanup-pending');
@@ -612,22 +644,84 @@ export function buildReconciliationPlan(registry) {
         });
 }
 
-function removeReconciledWorktree(item) {
-    if (existsSync(item.cwd)) {
-        if (existsSync(path.join(item.cwd, '.git'))) {
-            const removeResult = runGit(['worktree', 'remove', item.cwd], process.cwd());
-            if ((removeResult.status ?? 1) !== 0) {
-                throw new Error(`Unable to remove merged worktree ${item.cwd}. Resolve its Git worktree state and retry.`);
-            }
-        } else {
-            const normalizedPath = normalizePathForKey(path.resolve(item.cwd));
-            const isRecognizedTaskPath = /(?:^|\/)(?:\.worktrees|worktrees)\//u.test(normalizedPath);
-            if (!isRecognizedTaskPath) {
-                throw new Error(`Refusing to remove unrecognized residual task directory: ${item.cwd}`);
-            }
-            rmSync(item.cwd, { recursive: true, force: true });
+export function buildAuditReport(registry, options = {}) {
+    const entries = normalizeRegistry(registry).entries.filter((entry) => matchesEntryFilters(entry, options));
+    const counts = Object.groupBy(entries, (entry) => entry.status);
+    const issues = entries.flatMap((entry) => {
+        const problems = [];
+        if (!isClosedStatus(entry.status) && entry.dirty) {problems.push(['dirty active task', 'Commit, stash, or discard its task-owned changes before publishing or cleanup.']);}
+        if (entry.status === 'blocked') {problems.push(['blocked task', entry.note || 'Read the task note, resolve the stated blocker, then update the task status.']);}
+        if (entry.status === 'cleanup-pending') {problems.push(['cleanup pending', 'Run task:reconcile -- --apply after confirming containment.']);}
+        if (entry.missing) {problems.push(['missing worktree', 'Inspect Git worktree state and reconcile only after containment is proven.']);}
+        if (entry.residualPathExists === true && entry.status === 'merged') {problems.push(['merged residue', 'Run task:reconcile -- --apply to remove the clean proven-integrated residue.']);}
+        if (entry.includedInMain && !isClosedStatus(entry.status) && entry.status !== 'merge-queued') {problems.push(['stale integrated task', 'Run task:reconcile -- --apply to close and clean the integrated task.']);}
+        if ((entry.status === 'published' || entry.status === 'merge-queued') && (!entry.prNumber || !entry.publishedHead || !entry.baseSha || !entry.publishedAt)) {problems.push(['invalid publication metadata', 'Republish the task after verifying its PR and remote branch.']);}
+        return problems.map(([issue, action]) => ({ task: entry.task, branch: entry.branch, issue, action }));
+    });
+    return { counts, issues, entries };
+}
+
+export function renderAuditReport(report, options = {}) {
+    if (options.json === true) {return JSON.stringify(report, null, 2);}
+    const summary = Object.entries(report.counts).sort(([left], [right]) => left.localeCompare(right))
+        .map(([status, entries]) => `${status}:${entries.length}`).join(', ') || 'none';
+    if (report.issues.length === 0 && options.all !== true) {return `Task audit clean. Statuses: ${summary}.`;}
+    const lines = [`Task audit. Statuses: ${summary}.`];
+    if (report.issues.length > 0) {lines.push(formatTable(report.issues.map((issue) => [issue.task, issue.branch, issue.issue, issue.action]), ['TASK', 'BRANCH', 'ISSUE', 'NEXT ACTION']));}
+    if (options.all === true) {lines.push(renderThreadList({ version: 1, entries: report.entries }, { ...options, all: true }));}
+    return lines.join('\n');
+}
+
+function handleAudit(args, registryPath) {
+    const storedRegistry = readThreadRegistry(registryPath);
+    const registry = refreshThreadRegistry(storedRegistry);
+    const options = getListOptions(args);
+    const report = buildAuditReport(registry, options);
+    const unregistered = findUnregisteredAttachedWorktrees(registry)
+        .filter((worktreePath) => matchesEntryFilters({ task: 'unregistered', branch: '', status: 'active', cwd: worktreePath }, options));
+    for (const worktreePath of unregistered) {
+        report.issues.push({
+            task: 'unregistered',
+            branch: '-',
+            issue: 'unregistered attached worktree',
+            action: `Register it or inspect ${worktreePath} before publication.`,
+        });
+    }
+    for (const storedEntry of storedRegistry.entries) {
+        const currentEntry = findThreadEntry(registry, { cwd: storedEntry.cwd });
+        if (currentEntry && storedEntry.branch && currentEntry.branch && storedEntry.branch !== currentEntry.branch) {
+            report.issues.push({ task: storedEntry.task, branch: currentEntry.branch, issue: 'branch/worktree mismatch', action: 'Inspect the checkout and re-register the task only after confirming ownership.' });
         }
     }
+    console.log(renderAuditReport(report, options));
+    if (report.issues.some((issue) => ['dirty active task', 'blocked task', 'missing worktree', 'invalid publication metadata', 'unregistered attached worktree', 'branch/worktree mismatch'].includes(issue.issue))) {
+        process.exitCode = 1;
+    }
+}
+
+function stopTaskRuntimeForCleanup(cwd) {
+    if (collectThreadSnapshot(cwd).running === 'none') {return;}
+    const result = runCommandSync({ command: process.execPath, args: [path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'thread-dev-session.js'), 'stop'], cwd, encoding: 'utf8' });
+    if ((result.status ?? 1) !== 0) {throw new Error(`Unable to stop task-owned runtime in ${cwd}.`);}
+}
+
+function removeGitWorktree(cwd) {
+    stopTaskRuntimeForCleanup(cwd);
+    const result = runGit(['worktree', 'remove', cwd], process.cwd());
+    if ((result.status ?? 1) !== 0) {throw new Error(`Unable to remove merged worktree ${cwd}. Resolve its Git worktree state and retry.`);}
+}
+
+function removeResidualTaskDirectory(cwd) {
+    if (!/(?:^|\/)(?:\.worktrees|worktrees)\//u.test(normalizePathForKey(path.resolve(cwd)))) {
+        throw new Error(`Refusing to remove unrecognized residual task directory: ${cwd}`);
+    }
+    rmSync(cwd, { recursive: true, force: true });
+}
+
+function removeReconciledWorktree(item) {
+    if (!existsSync(item.cwd)) {return;}
+    if (existsSync(path.join(item.cwd, '.git'))) {removeGitWorktree(item.cwd);}
+    else {removeResidualTaskDirectory(item.cwd);}
 }
 
 function removeReconciledBranch(item) {
@@ -647,31 +741,101 @@ function applyReconciliationItem(registry, item) {
     if (normalizePathForKey(item.cwd) === normalizePathForKey(currentPath)) {
         throw new Error(`Refusing to remove the current worktree (${item.cwd}). Run reconciliation from main.`);
     }
-    removeReconciledWorktree(item);
-    removeReconciledBranch(item);
-    closeThreadEntry(registry, item.cwd, 'merged');
+    const entry = findThreadEntry(registry, { cwd: item.cwd });
+    try {
+        removeReconciledWorktree(item);
+        removeReconciledBranch(item);
+        closeThreadEntry(registry, item.cwd, 'merged');
+        return { item, result: 'merged' };
+    } catch (error) {
+        if (entry) {
+            upsertThreadEntry(registry, {
+                ...entry,
+                status: 'cleanup-pending',
+                note: normalizeThreadNote(`${entry.note} | ${error instanceof Error ? error.message : String(error)}`),
+                updatedAt: new Date().toISOString(),
+            });
+        }
+        return { item, result: 'cleanup-pending', error: error instanceof Error ? error.message : String(error) };
+    }
+}
+
+function refreshQueuedPublicationState(registry) {
+    const hasOrigin = runGit(['remote', 'get-url', 'origin'], process.cwd());
+    if ((hasOrigin.status ?? 1) !== 0) {return;}
+    const fetchResult = runGit(['fetch', 'origin', 'main'], process.cwd());
+    if ((fetchResult.status ?? 1) !== 0) {
+        throw new Error('Unable to fetch origin/main; reconciliation cannot prove remote containment.');
+    }
+    for (const entry of registry.entries.filter((candidate) => candidate.status === 'merge-queued' || candidate.status === 'published')) {
+        if (!entry.prNumber) {continue;}
+        const result = runCommandSync({
+            command: ghExecutable,
+            args: ['pr', 'view', String(entry.prNumber), '--json', 'state'],
+            cwd: process.cwd(),
+            encoding: 'utf8',
+        });
+        if ((result.status ?? 1) !== 0) {continue;}
+        const state = JSON.parse(result.stdout).state;
+        if (state !== 'MERGED') {continue;}
+        const contained = entry.publishedHead && isBranchMergedIntoTargets({
+            branch: entry.publishedHead,
+            cwd: process.cwd(),
+            targets: ['origin/main'],
+        });
+        upsertThreadEntry(registry, {
+            ...entry,
+            status: contained ? 'cleanup-pending' : 'blocked',
+            includedInMain: contained,
+            note: contained
+                ? normalizeThreadNote(`${entry.note} | PR #${entry.prNumber} merged; cleanup pending.`)
+                : normalizeThreadNote(`${entry.note} | PR #${entry.prNumber} reports merged but ${entry.publishedHead} is not contained in origin/main.`),
+            updatedAt: new Date().toISOString(),
+        });
+    }
 }
 
 function handleReconcile(args, registryPath) {
-    const registry = refreshThreadRegistry(readThreadRegistry(registryPath));
-    const plan = buildReconciliationPlan(registry);
+    const registry = readThreadRegistry(registryPath);
+    refreshQueuedPublicationState(registry);
+    const refreshedRegistry = refreshThreadRegistry(registry);
+    const filters = getListOptions(args);
+    const plan = buildReconciliationPlan(refreshedRegistry, filters);
     if (plan.length === 0) {
         console.log('No stale task records found.');
         return;
     }
 
-    for (const item of plan) {
-        console.log(`${item.action} | ${item.task} | ${item.cwd} | ${item.reason}`);
-        if (args.apply === true && item.action === 'cleanup-merged-residue') {
-            applyReconciliationItem(registry, item);
-        }
-    }
+    const results = plan.map((item) => reconcilePlanItem({ args, item, registry: refreshedRegistry, registryPath }));
     if (args.apply === true) {
-        writeThreadRegistry(registryPath, registry);
-        console.log('Applied verified cleanup of merged task residues. Unproven or dirty tasks were left intact.');
+        const failures = results.filter((result) => result.result === 'cleanup-pending');
+        console.log(getReconciliationSummary({ args, failures }));
+        if (failures.length > 0) {process.exitCode = 1;}
     } else {
         console.log('Dry run only. Re-run from main with --apply to remove only clean, proven-merged residues.');
     }
+}
+
+function reconcilePlanItem({ args, item, registry, registryPath }) {
+    console.log(`${item.action} | ${item.task} | ${item.cwd} | ${item.reason}`);
+    if (args.apply !== true) {return null;}
+    if (item.action === 'cleanup-merged-residue') {
+        const result = applyReconciliationItem(registry, item);
+        writeThreadRegistry(registryPath, registry);
+        return result;
+    }
+    const entry = findThreadEntry(registry, { cwd: item.cwd });
+    if (entry && entry.status !== 'blocked') {
+        upsertThreadEntry(registry, { ...entry, status: 'blocked', note: normalizeThreadNote(`${entry.note} | ${item.reason}`), updatedAt: new Date().toISOString() });
+        writeThreadRegistry(registryPath, registry);
+    }
+    return null;
+}
+
+function getReconciliationSummary({ args, failures }) {
+    if (failures.length === 0) {return 'Applied verified cleanup of merged task residues. Unproven or dirty tasks were left intact.';}
+    const taskFilter = typeof args.task === 'string' ? ` --task "${args.task}"` : '';
+    return `Failed cleanup paths remain cleanup-pending; retry: pnpm.cmd run task:reconcile -- --apply${taskFilter}.`;
 }
 
 function main() {
@@ -695,12 +859,17 @@ function main() {
     }
 
     if (command === 'status') {
-        handleStatus(registryPath);
+        handleStatus(registryPath, args);
         return;
     }
 
-    if (command === 'list' || command === 'audit') {
-        handleList(registryPath);
+    if (command === 'list') {
+        handleList(args, registryPath);
+        return;
+    }
+
+    if (command === 'audit') {
+        handleAudit(args, registryPath);
         return;
     }
 

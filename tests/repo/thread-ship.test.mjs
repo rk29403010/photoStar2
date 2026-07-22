@@ -5,24 +5,27 @@ import {
     getShipCommitMessage,
     getIntegrationStrategy,
     getGitHubMergeArgs,
-    hasRegisteredGitHubChecks,
     getShipIgnorePaths,
     getShipMode,
     isMainModule,
+    parsePullRequestMetadata,
     parseGitStatusLines,
     parseWorktreeList,
     resolveMainWorktreePath,
 } from '../../tooling/scripts/repo/thread-ship.js';
 
-test('GitHub merge avoids local checkout cleanup in a multi-worktree repository', () => {
-    assert.deepEqual(getGitHubMergeArgs('task/example'), ['pr', 'merge', 'task/example', '--merge']);
+test('GitHub auto-merge queues the PR without local checkout cleanup', () => {
+    assert.deepEqual(getGitHubMergeArgs('task/example'), ['pr', 'merge', 'task/example', '--auto', '--merge']);
     assert.equal(getGitHubMergeArgs('task/example').includes('--delete-branch'), false);
 });
 
-test('GitHub check registration distinguishes an empty propagation window', () => {
-    assert.equal(hasRegisteredGitHubChecks('[]'), false);
-    assert.equal(hasRegisteredGitHubChecks(''), false);
-    assert.equal(hasRegisteredGitHubChecks('[{"name":"quality-gate","state":"PENDING"}]'), true);
+test('PR metadata preserves the number and exact remote heads for task state', () => {
+    assert.deepEqual(parsePullRequestMetadata('{"number":7,"state":"OPEN","headRefOid":"head","baseRefOid":"base"}'), {
+        number: 7,
+        state: 'OPEN',
+        head: 'head',
+        base: 'base',
+    });
 });
 
 test('Windows launcher detection tolerates path casing differences', () => {

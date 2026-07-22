@@ -29,6 +29,13 @@ export function buildMainProtectionPolicy(requiredCheck = 'quality-gate') {
     };
 }
 
+export function buildRepositoryMergePolicy() {
+    return {
+        allow_auto_merge: true,
+        allow_update_branch: true,
+    };
+}
+
 function resolveRepository() {
     const result = runCommandSync({
         command: ghExecutable,
@@ -56,10 +63,24 @@ function applyProtection(repository) {
     }
 }
 
+function applyRepositoryMergePolicy(repository) {
+    const result = runCommandSync({
+        command: ghExecutable,
+        args: ['api', '--method', 'PATCH', `repos/${repository}`, '--input', '-'],
+        encoding: 'utf8',
+        input: JSON.stringify(buildRepositoryMergePolicy()),
+        stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    if (result.error || (result.status ?? 1) !== 0) {
+        throw new Error(result.stderr?.trim() || result.error?.message || 'Unable to enable repository merge settings.');
+    }
+}
+
 function main() {
     const repository = resolveRepository();
+    applyRepositoryMergePolicy(repository);
     applyProtection(repository);
-    console.log(`Protected ${repository}:main with PRs and required quality-gate checks.`);
+    console.log(`Configured ${repository}: auto-merge, branch updates, PR protection, strict quality-gate checks, conversation resolution, and force-push/deletion protection.`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
