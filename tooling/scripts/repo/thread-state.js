@@ -644,19 +644,47 @@ export function buildReconciliationPlan(registry, filters = {}) {
         });
 }
 
+function getMissingWorktreeProblems(entry) {
+    if (!entry.missing) {
+        return [];
+    }
+
+    if (isClosedStatus(entry.status)) {
+        return entry.residualPathExists === true
+            ? [['closed task residue', 'Inspect the residual task folder and reconcile only after confirming it is safe to remove.']]
+            : [];
+    }
+
+    return entry.includedInMain
+        ? [['stale integrated task', 'Run task:reconcile -- --apply to close and clean the integrated task.']]
+        : [['missing active worktree', 'Restore or locate the task worktree before continuing.']];
+}
+
+function getPresentWorktreeProblems(entry) {
+    const problems = [];
+    if (!isClosedStatus(entry.status) && entry.dirty) {problems.push(['dirty active task', 'Commit, stash, or discard its task-owned changes before publishing or cleanup.']);}
+    if (entry.status === 'blocked') {problems.push(['blocked task', entry.note || 'Read the task note, resolve the stated blocker, then update the task status.']);}
+    if (entry.status === 'cleanup-pending') {problems.push(['cleanup pending', 'Run task:reconcile -- --apply after confirming containment.']);}
+    if (entry.residualPathExists === true && entry.status === 'merged') {problems.push(['merged residue', 'Run task:reconcile -- --apply to remove the clean proven-integrated residue.']);}
+    if (entry.includedInMain && !isClosedStatus(entry.status)) {problems.push(['stale integrated task', 'Run task:reconcile -- --apply to close and clean the integrated task.']);}
+    return problems;
+}
+
+function getPublicationMetadataProblems(entry) {
+    const publicationIsIncomplete = (entry.status === 'published' || entry.status === 'merge-queued')
+        && (!entry.prNumber || !entry.publishedHead || !entry.baseSha || !entry.publishedAt);
+    return publicationIsIncomplete
+        ? [['invalid publication metadata', 'Republish the task after verifying its PR and remote branch.']]
+        : [];
+}
+
 export function buildAuditReport(registry, options = {}) {
     const entries = normalizeRegistry(registry).entries.filter((entry) => matchesEntryFilters(entry, options));
     const counts = Object.groupBy(entries, (entry) => entry.status);
     const issues = entries.flatMap((entry) => {
-        const problems = [];
-        if (!isClosedStatus(entry.status) && entry.dirty) {problems.push(['dirty active task', 'Commit, stash, or discard its task-owned changes before publishing or cleanup.']);}
-        if (entry.status === 'blocked') {problems.push(['blocked task', entry.note || 'Read the task note, resolve the stated blocker, then update the task status.']);}
-        if (entry.status === 'cleanup-pending') {problems.push(['cleanup pending', 'Run task:reconcile -- --apply after confirming containment.']);}
-        if (entry.missing) {problems.push(['missing worktree', 'Inspect Git worktree state and reconcile only after containment is proven.']);}
-        if (entry.residualPathExists === true && entry.status === 'merged') {problems.push(['merged residue', 'Run task:reconcile -- --apply to remove the clean proven-integrated residue.']);}
-        if (entry.includedInMain && !isClosedStatus(entry.status) && entry.status !== 'merge-queued') {problems.push(['stale integrated task', 'Run task:reconcile -- --apply to close and clean the integrated task.']);}
-        if ((entry.status === 'published' || entry.status === 'merge-queued') && (!entry.prNumber || !entry.publishedHead || !entry.baseSha || !entry.publishedAt)) {problems.push(['invalid publication metadata', 'Republish the task after verifying its PR and remote branch.']);}
-        return problems.map(([issue, action]) => ({ task: entry.task, branch: entry.branch, issue, action }));
+        const lifecycleProblems = entry.missing ? getMissingWorktreeProblems(entry) : getPresentWorktreeProblems(entry);
+        const problems = [...lifecycleProblems, ...getPublicationMetadataProblems(entry)];
+        return problems.map(([issue, action]) => ({ status: entry.status, task: entry.task, branch: entry.branch, issue, action }));
     });
     return { counts, issues, entries };
 }
@@ -667,7 +695,7 @@ export function renderAuditReport(report, options = {}) {
         .map(([status, entries]) => `${status}:${entries.length}`).join(', ') || 'none';
     if (report.issues.length === 0 && options.all !== true) {return `Task audit clean. Statuses: ${summary}.`;}
     const lines = [`Task audit. Statuses: ${summary}.`];
-    if (report.issues.length > 0) {lines.push(formatTable(report.issues.map((issue) => [issue.task, issue.branch, issue.issue, issue.action]), ['TASK', 'BRANCH', 'ISSUE', 'NEXT ACTION']));}
+    if (report.issues.length > 0) {lines.push(formatTable(report.issues.map((issue) => [issue.status, issue.task, issue.branch, issue.issue, issue.action]), ['STATUS', 'TASK', 'BRANCH', 'ISSUE', 'NEXT ACTION']));}
     if (options.all === true) {lines.push(renderThreadList({ version: 1, entries: report.entries }, { ...options, all: true }));}
     return lines.join('\n');
 }
@@ -681,6 +709,7 @@ function handleAudit(args, registryPath) {
         .filter((worktreePath) => matchesEntryFilters({ task: 'unregistered', branch: '', status: 'active', cwd: worktreePath }, options));
     for (const worktreePath of unregistered) {
         report.issues.push({
+            status: 'active',
             task: 'unregistered',
             branch: '-',
             issue: 'unregistered attached worktree',
@@ -690,11 +719,11 @@ function handleAudit(args, registryPath) {
     for (const storedEntry of storedRegistry.entries) {
         const currentEntry = findThreadEntry(registry, { cwd: storedEntry.cwd });
         if (currentEntry && storedEntry.branch && currentEntry.branch && storedEntry.branch !== currentEntry.branch) {
-            report.issues.push({ task: storedEntry.task, branch: currentEntry.branch, issue: 'branch/worktree mismatch', action: 'Inspect the checkout and re-register the task only after confirming ownership.' });
+            report.issues.push({ status: currentEntry.status, task: storedEntry.task, branch: currentEntry.branch, issue: 'branch/worktree mismatch', action: 'Inspect the checkout and re-register the task only after confirming ownership.' });
         }
     }
     console.log(renderAuditReport(report, options));
-    if (report.issues.some((issue) => ['dirty active task', 'blocked task', 'missing worktree', 'invalid publication metadata', 'unregistered attached worktree', 'branch/worktree mismatch'].includes(issue.issue))) {
+    if (report.issues.some((issue) => ['dirty active task', 'blocked task', 'missing active worktree', 'invalid publication metadata', 'unregistered attached worktree', 'branch/worktree mismatch'].includes(issue.issue))) {
         process.exitCode = 1;
     }
 }

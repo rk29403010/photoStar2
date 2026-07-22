@@ -15,6 +15,7 @@ import {
     getWorktreeNameFromPath,
     isBranchMergedIntoTargets,
     refreshThreadRegistry,
+    renderAuditReport,
     renderThreadList,
     readThreadRegistry,
     writeThreadRegistry,
@@ -400,6 +401,54 @@ test('audit reports only actionable unsafe task state', () => {
     const report = buildAuditReport(registry);
     assert.equal(report.issues.length, 1);
     assert.equal(report.issues[0].issue, 'dirty active task');
+});
+
+test('audit classifies missing worktrees by task lifecycle without duplicate issues', () => {
+    const registry = createEmptyThreadRegistry();
+    const entries = [
+        ['Merged', 'merged', true, true],
+        ['Discarded', 'discarded', true, false],
+        ['Parked', 'parked', true, false],
+        ['Uncontained', 'active', true, false],
+        ['Contained', 'active', true, true],
+    ];
+
+    for (const [task, status, missing, includedInMain] of entries) {
+        upsertThreadEntry(registry, {
+            cwd: `C:/${task.toLowerCase()}`,
+            task,
+            status,
+            branch: `task/${task.toLowerCase()}`,
+            missing,
+            residualPathExists: false,
+            includedInMain,
+            dirty: false,
+            running: 'none',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        });
+    }
+
+    const report = buildAuditReport(registry);
+    assert.deepEqual(report.issues.map((issue) => [issue.task, issue.issue]), [
+        ['Uncontained', 'missing active worktree'],
+        ['Contained', 'stale integrated task'],
+    ]);
+    assert.equal(report.issues.filter((issue) => issue.task === 'Contained').length, 1);
+    assert.equal(report.entries.length, 5);
+});
+
+test('audit renders issue status and keeps healthy closed history behind all or json output', () => {
+    const registry = createEmptyThreadRegistry();
+    upsertThreadEntry(registry, { cwd: 'C:/closed', task: 'Merged', status: 'merged', branch: 'task/merged', missing: true, residualPathExists: false, dirty: false, running: 'none', updatedAt: '2026-01-01T00:00:00.000Z' });
+    upsertThreadEntry(registry, { cwd: 'C:/missing', task: 'Missing', status: 'active', branch: 'task/missing', missing: true, includedInMain: false, dirty: false, running: 'none', updatedAt: '2026-01-01T00:00:00.000Z' });
+
+    const report = buildAuditReport(registry);
+    const compactOutput = renderAuditReport(report);
+    assert.match(compactOutput, /STATUS\s+TASK\s+BRANCH\s+ISSUE\s+NEXT ACTION/);
+    assert.match(compactOutput, /active\s+Missing/);
+    assert.doesNotMatch(compactOutput, /Merged/);
+    assert.match(renderAuditReport(report, { all: true }), /Merged/);
+    assert.equal(JSON.parse(renderAuditReport(report, { json: true })).entries.length, 2);
 });
 
 test('refreshThreadRegistry overlays live snapshots onto registered entries', () => {
