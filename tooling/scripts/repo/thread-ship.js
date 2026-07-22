@@ -140,24 +140,27 @@ function getPullRequest(cwd, branch) {
     return (result.status ?? 1) === 0 ? parsePullRequestMetadata(result.stdout) : null;
 }
 
-function publishPullRequest(cwd, branch) {
+function publishPullRequest(cwd, branch, baseBranch, queueForMain) {
     git(['push', '--set-upstream', 'origin', branch], cwd);
     let pullRequest = getPullRequest(cwd, branch);
-    if (!pullRequest) {runOrThrow({ command: ghExecutable, args: ['pr', 'create', '--fill', '--head', branch, '--base', 'main'], cwd, stdio: 'inherit' });}
+    if (!pullRequest) {runOrThrow({ command: ghExecutable, args: ['pr', 'create', '--fill', '--head', branch, '--base', baseBranch], cwd, stdio: 'inherit' });}
     pullRequest = getPullRequest(cwd, branch);
     if (!pullRequest || pullRequest.state !== 'OPEN') {throw new Error(`Unable to create or reuse an open pull request for ${branch}.`);}
-    runOrThrow({ command: ghExecutable, args: getGitHubMergeArgs(branch), cwd, stdio: 'inherit' });
+    if (queueForMain) {
+        runOrThrow({ command: ghExecutable, args: ['pr', 'edit', branch, '--add-label', 'repository-merge-queued'], cwd, stdio: 'inherit' });
+        runOrThrow({ command: ghExecutable, args: getGitHubMergeArgs(branch), cwd, stdio: 'inherit' });
+    }
     return pullRequest;
 }
 
-function recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha }) {
+function recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha, status }) {
     const registryPath = resolveThreadRegistryPath(cwd);
     const registry = readThreadRegistry(registryPath);
     const timestamp = new Date().toISOString();
     upsertThreadEntry(registry, {
         ...entry,
         ...collectThreadSnapshot(cwd),
-        status: 'merge-queued',
+        status,
         prNumber: pullRequest.number,
         publishedHead,
         baseSha,
@@ -176,14 +179,16 @@ function publishWorktree({ cwd, snapshot, message, ignorePaths }) {
         throw new Error('Publishing requires origin and an authenticated GitHub CLI; the task was left intact.');
     }
     commitCandidate({ cwd, entry, message, ignorePaths });
-    git(['fetch', 'origin', 'main'], cwd);
-    git(['merge', '--no-edit', 'origin/main'], cwd);
+    const publicationTarget = entry.publicationTarget || 'main';
+    git(['fetch', 'origin', publicationTarget], cwd);
+    git(['merge', '--no-edit', `origin/${publicationTarget}`], cwd);
     pnpm(['run', 'qa:merge'], cwd);
     const publishedHead = gitText(['rev-parse', 'HEAD'], cwd);
-    const baseSha = gitText(['rev-parse', 'origin/main'], cwd);
-    const pullRequest = publishPullRequest(cwd, snapshot.branch);
-    recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha });
-    console.log(`Published ${snapshot.branch} at ${publishedHead}; PR #${pullRequest.number} is merge-queued. No GitHub checks were polled and local cleanup was deferred.`);
+    const baseSha = gitText(['rev-parse', `origin/${publicationTarget}`], cwd);
+    const queueForMain = entry.kind === 'integration' || publicationTarget === 'main';
+    const pullRequest = publishPullRequest(cwd, snapshot.branch, publicationTarget, queueForMain);
+    recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha, status: queueForMain ? 'merge-queued' : 'published' });
+    console.log(`Published ${snapshot.branch} at ${publishedHead}; PR #${pullRequest.number} targets ${publicationTarget}. No GitHub checks were polled and local cleanup was deferred.`);
 }
 
 function main() {

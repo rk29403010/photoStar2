@@ -54,6 +54,8 @@ test('buildThreadBootstrapPlan derives branch and worktree path from the task sl
             task: 'Automatic Thread Worktrees',
             slug: 'automatic-thread-worktrees',
             branch: 'task/automatic-thread-worktrees',
+            baseBranch: 'main',
+            kind: 'leaf',
             worktreePath: path.join(workspaceRoot, '.worktrees', 'automatic-thread-worktrees'),
         },
     );

@@ -217,6 +217,8 @@ contract, generator, registry input, or other integration file. Its branch is
 the merge target for those leaves, and only the integration task publishes the
 combined result toward `main`.
 
+Create it with `thread:new-integration`; create leaves with `thread:new-leaf -- --integration "<integration task>"`. Task state stores kind, integration parent, intended base, and publication target, so leaves publish to the integration branch and only the integration task queues to `main`. `task:overlap` is read-only and reports diff-path overlap, architecture hotspots, generated-only overlap, common integration parent, and a continue/coordinate/block recommendation.
+
 ## Cleanup and stale-state recovery
 
 `git worktree list` and Git commit containment are authoritative. The task
@@ -255,6 +257,8 @@ event's before/after SHAs and must never degrade to an empty working-tree diff.
 auto-merge and branch updates, then applies required PRs, strict integration
 checks, conversation resolution, and force-push/deletion protection.
 Publication does not reapply policy.
+
+`advance-merge-queue.yml` runs once after each `main` push. It considers only PRs labelled by `thread:publish`, requires GitHub to report `MERGEABLE`, and updates the PR branch with its observed head SHA. It never resolves conflicts; conflicting PRs remain open with a `queue-advance=conflicting-source` machine-readable comment. Updating preserves auto-merge and reruns required checks. It cannot loop because it is triggered only by a `main` push or explicit dispatch.
 
 The final report for `ship this change` must distinguish local gate success,
 published/merge-queued status, proven merge containment, and cleanup state. A

@@ -44,7 +44,7 @@ function parseArgs(argv) {
 
 function requireTask(task) {
     if (typeof task !== 'string' || task.trim() === '') {
-        throw new Error('Usage: node tooling/scripts/repo/thread-bootstrap.js --task "<task>" [--owner "<owner>"] [--note "<note>"] [--branch-prefix "<prefix>"] [--share-dependencies] [--start-dev] [--script "<dev-script>"]');
+        throw new Error('Usage: node tooling/scripts/repo/thread-bootstrap.js --task "<task>" [--kind leaf|integration] [--integration "<task id>"] [--owner "<owner>"]');
     }
 
     return task.trim();
@@ -84,12 +84,16 @@ export function buildThreadBootstrapPlan({
     workspaceRoot: targetWorkspaceRoot,
     worktreeDirectory,
     branchPrefix = DEFAULT_BRANCH_PREFIX,
+    kind = 'leaf',
+    baseBranch = 'main',
 }) {
     const slug = normalizeThreadSlug(task);
     return {
         task,
         slug,
-        branch: `${branchPrefix}/${slug}`,
+        branch: `${kind === 'integration' ? 'integration' : branchPrefix}/${slug}`,
+        baseBranch,
+        kind,
         worktreePath: path.join(targetWorkspaceRoot, worktreeDirectory, slug),
     };
 }
@@ -181,8 +185,8 @@ function ensureWorktreePathAvailable(worktreePath) {
     }
 }
 
-function createWorktree({ branch, worktreePath, cwd }) {
-    runGitText(['worktree', 'add', worktreePath, '-b', branch], cwd);
+function createWorktree({ branch, baseBranch, worktreePath, cwd }) {
+    runGitText(['worktree', 'add', worktreePath, '-b', branch, baseBranch], cwd);
 }
 
 function ensureSharedNodeModulesLink({
@@ -210,7 +214,7 @@ function registerNewThread({
     task,
     owner,
     note,
-    worktreePath,
+    worktreePath, kind, integrationTaskId, publicationTarget,
 }) {
     const registryPath = resolveThreadRegistryPath(worktreePath);
     const registry = readThreadRegistry(registryPath);
@@ -220,6 +224,10 @@ function registerNewThread({
     upsertThreadEntry(registry, {
         ...snapshot,
         task,
+        kind,
+        integrationTaskId,
+        intendedBaseBranch: publicationTarget,
+        publicationTarget,
         status: 'active',
         owner,
         note,
@@ -285,6 +293,16 @@ export function buildThreadBootstrapSummary({
     return lines.join('\n');
 }
 
+function resolveTaskTopology(args, registry) {
+    const kind = typeof args.kind === 'string' ? args.kind.trim() : 'leaf';
+    if (!['leaf', 'integration'].includes(kind)) {throw new Error('Task kind must be leaf or integration.');}
+    const integrationTaskId = typeof args.integration === 'string' ? args.integration.trim() : '';
+    if (kind === 'integration' && integrationTaskId) {throw new Error('Integration tasks cannot have an integration parent.');}
+    const integrationEntry = integrationTaskId ? registry.entries.find((entry) => entry.task === integrationTaskId && entry.kind === 'integration') : null;
+    if (integrationTaskId && !integrationEntry) {throw new Error(`Integration task "${integrationTaskId}" is not registered.`);}
+    return { kind, integrationTaskId, publicationTarget: kind === 'integration' ? 'main' : integrationEntry?.branch ?? 'main' };
+}
+
 function main() {
     const args = parseArgs(process.argv.slice(2));
     const task = requireTask(args.task);
@@ -297,6 +315,9 @@ function main() {
         availableDirectories,
         ignoredDirectories,
     });
+    const registryPath = resolveThreadRegistryPath(process.cwd());
+    const registry = readThreadRegistry(registryPath);
+    const { kind, integrationTaskId, publicationTarget } = resolveTaskTopology(args, registry);
     const plan = buildThreadBootstrapPlan({
         task,
         workspaceRoot,
@@ -304,12 +325,15 @@ function main() {
         branchPrefix: typeof args['branch-prefix'] === 'string'
             ? args['branch-prefix'].trim()
             : DEFAULT_BRANCH_PREFIX,
+        kind,
+        baseBranch: publicationTarget,
     });
 
     ensureBranchDoesNotExist(plan.branch, workspaceRoot);
     ensureWorktreePathAvailable(plan.worktreePath);
     createWorktree({
         branch: plan.branch,
+        baseBranch: plan.baseBranch,
         worktreePath: plan.worktreePath,
         cwd: workspaceRoot,
     });
@@ -324,6 +348,9 @@ function main() {
         owner,
         note,
         worktreePath: plan.worktreePath,
+        kind,
+        integrationTaskId,
+        publicationTarget,
     });
 
     let devSessionOutput = '';
