@@ -1,5 +1,13 @@
 # TO DO List
 
+## 2026-07-22 - Migrate remaining workflow modules to the plug-in contract
+
+- `runtime.scan_folder` and `runtime.detect_frame` now use generated
+  `WorkflowModulePlugin` registration. Migrate each remaining legacy module
+  into its own plug-in directory, preserving its stable ID and replacing its
+  `registerLegacy` compatibility registration only after module-specific tests
+  prove parity.
+
 ## 2026-07-21 - Adopt TypeScript 6 API tooling and triage newly exposed typed-lint findings
 
 - A controlled clean-install comparison proved that switching the `typescript`

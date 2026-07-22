@@ -1,6 +1,9 @@
 export type {
     CapabilityClass,
     ModuleDefinition,
+    WorkflowModulePlugin,
+    WorkflowModulePluginContext,
+    WorkflowModulePluginManifest,
     RuntimeModuleContext,
     RuntimeModuleRunResult,
     SubjectLabelDefinition,
@@ -14,6 +17,7 @@ export type {
 } from './contracts';
 export {
     validateModuleDefinition,
+    validateWorkflowModulePlugin,
     validateSubjectType,
     validateWorkflowDefinition,
 } from './contracts';

@@ -144,6 +144,34 @@ export type ModuleDefinition = {
     estimate?: (context: RuntimeModuleContext) => Promise<RuntimeModuleRunResult & { cost?: number }> | (RuntimeModuleRunResult & { cost?: number });
 }
 
+export type WorkflowModuleErrorKind = 'configuration' | 'transient' | 'permanent' | 'cancelled';
+
+export type WorkflowModulePluginManifest = {
+    id: string;
+    contractVersion: number;
+    displayName: string;
+    description: string;
+    inputs: string[];
+    outputs: ModuleArtifactOutputDefinition[];
+    capabilities: CapabilityClass[];
+    milestones?: WorkflowMilestoneDefinition[];
+    errorKinds?: WorkflowModuleErrorKind[];
+    fixtures?: string[];
+};
+
+export type WorkflowModulePluginContext = {
+    dbManager?: unknown;
+    eventBus?: unknown;
+    runPreview?: (mediaIds: string[], context: RuntimeModuleContext) => Promise<void>;
+};
+
+export type WorkflowModulePlugin = {
+    manifest: WorkflowModulePluginManifest;
+    validateConfiguration?: (configuration: Record<string, unknown>) => void;
+    create: (context: WorkflowModulePluginContext) => ModuleDefinition;
+    migrateConfiguration?: (configuration: Record<string, unknown>, fromVersion: number) => Record<string, unknown>;
+};
+
 export type WorkflowDefinition = {
     id: string;
     version: number;
@@ -465,5 +493,58 @@ export function validateModuleDefinition(definition: ModuleDefinition): void {
     }
     if (typeof definition.run !== 'function') {
         throw new TypeError('module.run must be a function');
+    }
+}
+
+function validateWorkflowModulePluginManifest(manifest: WorkflowModulePluginManifest): void {
+    assertNonEmptyString(manifest?.id, 'workflowModulePlugin.manifest.id');
+    assertPositiveVersion(manifest.contractVersion, 'workflowModulePlugin.manifest.contractVersion');
+    assertNonEmptyString(manifest.displayName, 'workflowModulePlugin.manifest.displayName');
+    assertNonEmptyString(manifest.description, 'workflowModulePlugin.manifest.description');
+    assertStringArray(manifest.inputs, 'workflowModulePlugin.manifest.inputs');
+    validateWorkflowModulePluginOutputs(manifest.outputs);
+    validateWorkflowModulePluginCapabilities(manifest.capabilities);
+    validateWorkflowModulePluginMetadata(manifest);
+}
+
+function validateWorkflowModulePluginOutputs(outputs: ModuleArtifactOutputDefinition[]): void {
+    if (!Array.isArray(outputs)) {
+        throw new TypeError('workflowModulePlugin.manifest.outputs must be an array');
+    }
+    for (const output of outputs) {
+        assertModuleOutput(output);
+    }
+}
+
+function validateWorkflowModulePluginCapabilities(capabilities: CapabilityClass[]): void {
+    if (!Array.isArray(capabilities) || capabilities.length === 0 || capabilities.some((capability) => !MODULE_CAPABILITIES.has(capability))) {
+        throw new Error('workflowModulePlugin.manifest.capabilities is invalid');
+    }
+}
+
+function validateWorkflowModulePluginMetadata(manifest: WorkflowModulePluginManifest): void {
+    if (manifest.milestones !== undefined) {
+        for (const [index, milestone] of manifest.milestones.entries()) {
+            assertWorkflowMilestoneDefinition(milestone, `workflowModulePlugin.manifest.milestones[${index}]`);
+        }
+    }
+    if (manifest.errorKinds !== undefined && manifest.errorKinds.some((kind) => !['configuration', 'transient', 'permanent', 'cancelled'].includes(kind))) {
+        throw new Error('workflowModulePlugin.manifest.errorKinds is invalid');
+    }
+    if (manifest.fixtures !== undefined) {
+        assertStringArray(manifest.fixtures, 'workflowModulePlugin.manifest.fixtures');
+    }
+}
+
+export function validateWorkflowModulePlugin(plugin: WorkflowModulePlugin): void {
+    validateWorkflowModulePluginManifest(plugin.manifest);
+    if (typeof plugin.create !== 'function') {
+        throw new TypeError('workflowModulePlugin.create must be a function');
+    }
+    if (plugin.validateConfiguration !== undefined && typeof plugin.validateConfiguration !== 'function') {
+        throw new TypeError('workflowModulePlugin.validateConfiguration must be a function');
+    }
+    if (plugin.migrateConfiguration !== undefined && typeof plugin.migrateConfiguration !== 'function') {
+        throw new TypeError('workflowModulePlugin.migrateConfiguration must be a function');
     }
 }

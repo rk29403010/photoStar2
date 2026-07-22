@@ -39,6 +39,11 @@ integrated predictably without editor-specific workflow rules.
 - Existing central registries remain compatibility layers until each extension
   family has a deterministic replacement; this ADR does not change application
   behaviour by itself.
+- Workflow modules now use `WorkflowModulePlugin`: a versioned manifest plus
+  validation, execution, optional configuration migration, fixtures, and
+  diagnostics. `module:generate-registry` scans authoritative `manifest.ts`
+  inputs, writes a sorted machine-owned registry, and `module:check-registry`
+  rejects stale output. `module:new` creates a self-contained plug-in shell.
 
 ## Rejected alternatives
 
