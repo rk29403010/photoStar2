@@ -78,19 +78,19 @@ or lifecycle rules.
 
 Tell either editor:
 
-> **ship this change**
+> **finish this task**
 
 This is authorization to use the intended deterministic publication workflow.
 It does not require an agent to remain attached while GitHub checks run. The
 agent reports the resulting local and remote lifecycle state, then repository
 automation owns remote waiting, merge observation, and later reconciliation.
 
-Run `pnpm.cmd run thread:publish` for this sequence. It returns once auto-merge
-is armed. `thread:ship` is the compatibility alias. Later sessions should run
-`task:audit` and opportunistically run targeted
-`task:reconcile -- --apply --task "<task>"` for merged work. Report the local
-gate, PR/queue state, containment proof, and retained cleanup; never claim a
-merge before Git proves it.
+Run `pnpm.cmd run task:finish` for this sequence. It records validation and
+publication evidence durably, returns DONE, WAITING ON CI, FAILED, or ACTION
+NEEDED, and does not poll Actions. GitHub owns remote checks and sends the PR
+notification. After a restart, `task:status` performs one bounded refresh and
+`task:resume -- --task "<task>"` reconstructs the capsule. `thread:publish`
+and `thread:ship` remain compatibility commands.
 
 The agent should continue through ordinary, in-scope lint, type, test, merge,
 and cross-platform failures. It should not hand back a half-finished task merely

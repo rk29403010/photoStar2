@@ -224,6 +224,9 @@ function registerNewThread({
     upsertThreadEntry(registry, {
         ...snapshot,
         task,
+        taskId: `task-${normalizeThreadSlug(task)}`,
+        objective: '',
+        acceptanceCriteria: [],
         kind,
         integrationTaskId,
         intendedBaseBranch: publicationTarget,

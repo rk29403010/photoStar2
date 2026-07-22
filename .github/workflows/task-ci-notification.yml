@@ -1,0 +1,32 @@
+name: task-ci-notification
+
+on:
+  workflow_run:
+    workflows: [quality-gate]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  notify:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const pr = run.pull_requests[0];
+            if (!pr) return;
+            const marker = `<!-- photostar2-ci-head:${run.head_sha} -->`;
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, { owner: context.repo.owner, repo: context.repo.repo, run_id: run.id });
+            const failed = jobs.find(job => job.conclusion && job.conclusion !== 'success' && job.conclusion !== 'skipped');
+            const body = run.conclusion === 'success'
+              ? `${marker}\nCI PASSED for this PR head — waiting for or completed auto-merge.`
+              : `${marker}\nCI FAILED for this PR head — ${failed ? `${failed.name}: ${failed.steps?.find(step => step.conclusion === 'failure')?.name ?? 'failed step'}` : 'inspect the workflow run'}.`;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number });
+            const existing = comments.find(comment => comment.body.includes(marker));
+            if (existing) await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, body });

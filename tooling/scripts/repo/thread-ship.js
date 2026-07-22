@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runCommandSync } from './process-invocation.js';
+import { resolvePlatformTools } from './platform-tools.js';
 import {
     collectThreadSnapshot,
     readThreadRegistry,
@@ -13,10 +14,11 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
-const gitExecutable = process.platform === 'win32' ? 'git.exe' : 'git';
+const platformTools = resolvePlatformTools();
+const gitExecutable = platformTools.git;
 const nodeExecutable = process.execPath;
-const pnpmExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const ghExecutable = process.platform === 'win32' ? 'gh.exe' : 'gh';
+const pnpmExecutable = platformTools.pnpm;
+const ghExecutable = platformTools.gh;
 
 export function getShipIgnorePaths({ includeArtifacts = false } = {}) {
     return includeArtifacts ? ['.local'] : ['artifacts', '.local'];
@@ -102,7 +104,7 @@ function runOrThrow({ command, args, cwd, stdio = 'pipe' }) {
 
 function gitText(args, cwd) { return runOrThrow({ command: gitExecutable, args, cwd }).stdout.trim(); }
 function git(args, cwd) { runOrThrow({ command: gitExecutable, args, cwd, stdio: 'inherit' }); }
-function pnpm(args, cwd) { runOrThrow({ command: pnpmExecutable, args: ['pnpm', ...args], cwd, stdio: 'inherit' }); }
+function pnpm(args, cwd) { runOrThrow({ command: pnpmExecutable, args, cwd, stdio: 'inherit' }); }
 function node(args, cwd) { runOrThrow({ command: nodeExecutable, args, cwd, stdio: 'inherit' }); }
 function canRun(command, args, cwd) { return (runCommandSync({ command, args, cwd, encoding: 'utf8' }).status ?? 1) === 0; }
 
@@ -140,6 +142,14 @@ function getPullRequest(cwd, branch) {
     return (result.status ?? 1) === 0 ? parsePullRequestMetadata(result.stdout) : null;
 }
 
+function ensureQueueLabel(cwd) {
+    const existing = runCommandSync({ command: ghExecutable, args: ['label', 'list', '--limit', '100', '--json', 'name'], cwd, encoding: 'utf8' });
+    if ((existing.status ?? 1) !== 0) {throw new Error(existing.stderr?.trim() || 'Unable to verify the repository merge queue label.');}
+    if (JSON.parse(existing.stdout).some((label) => label.name === 'repository-merge-queued')) {return;}
+    const created = runCommandSync({ command: ghExecutable, args: ['label', 'create', 'repository-merge-queued', '--description', 'Published task awaiting merge', '--color', '1D76DB'], cwd, encoding: 'utf8' });
+    if ((created.status ?? 1) !== 0 && !/already exists/i.test(created.stderr ?? '')) {throw new Error(created.stderr?.trim() || 'Unable to create the repository merge queue label.');}
+}
+
 function publishPullRequest(cwd, branch, baseBranch, queueForMain) {
     git(['push', '--set-upstream', 'origin', branch], cwd);
     let pullRequest = getPullRequest(cwd, branch);
@@ -147,6 +157,7 @@ function publishPullRequest(cwd, branch, baseBranch, queueForMain) {
     pullRequest = getPullRequest(cwd, branch);
     if (!pullRequest || pullRequest.state !== 'OPEN') {throw new Error(`Unable to create or reuse an open pull request for ${branch}.`);}
     if (queueForMain) {
+        ensureQueueLabel(cwd);
         runOrThrow({ command: ghExecutable, args: ['pr', 'edit', branch, '--add-label', 'repository-merge-queued'], cwd, stdio: 'inherit' });
         runOrThrow({ command: ghExecutable, args: getGitHubMergeArgs(branch), cwd, stdio: 'inherit' });
     }
@@ -165,6 +176,10 @@ function recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha, st
         publishedHead,
         baseSha,
         publishedAt: timestamp,
+        remoteOwner: 'GitHub Actions',
+        autoMergeState: status === 'merge-queued' ? 'armed' : 'not-required',
+        expectedChecks: ['quality-gate'],
+        localProcessesRemaining: 'none',
         updatedAt: timestamp,
     });
     writeThreadRegistry(registryPath, registry);
@@ -186,7 +201,9 @@ function publishWorktree({ cwd, snapshot, message, ignorePaths }) {
     const publishedHead = gitText(['rev-parse', 'HEAD'], cwd);
     const baseSha = gitText(['rev-parse', `origin/${publicationTarget}`], cwd);
     const queueForMain = entry.kind === 'integration' || publicationTarget === 'main';
+    if (queueForMain) {ensureQueueLabel(cwd);}
     const pullRequest = publishPullRequest(cwd, snapshot.branch, publicationTarget, queueForMain);
+    if (pullRequest.head !== publishedHead) {throw new Error('The remote pull request head does not match the published local candidate.');}
     recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha, status: queueForMain ? 'merge-queued' : 'published' });
     console.log(`Published ${snapshot.branch} at ${publishedHead}; PR #${pullRequest.number} targets ${publicationTarget}. No GitHub checks were polled and local cleanup was deferred.`);
 }
