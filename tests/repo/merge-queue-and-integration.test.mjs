@@ -29,7 +29,8 @@ test('overlap reporting recognizes integration coordination', () => {
 test('disposable repository derives leaf base and publication target from integration state', () => {
     const fixture = mkdtempSync(path.join(os.tmpdir(), 'photostar-integration-fixture-'));
     const script = path.resolve('tooling/scripts/repo/thread-bootstrap.js');
-    const git = (args) => execFileSync('git.exe', args, { cwd: fixture, encoding: 'utf8' });
+    const gitExecutable = process.platform === 'win32' ? 'git.exe' : 'git';
+    const git = (args) => execFileSync(gitExecutable, args, { cwd: fixture, encoding: 'utf8' });
     const node = (args) => execFileSync(process.execPath, args, { cwd: fixture, encoding: 'utf8' });
     try {
         mkdirSync(path.join(fixture, '.worktrees'));
