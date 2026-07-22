@@ -1,5 +1,22 @@
 # Workflow Module Authoring
 
+## Plug-in modules
+
+New workflow modules are self-contained plug-ins under
+`src/services/workflowRuntime/modules/plugins/<module-name>/`. Each directory
+owns `plugin.ts`, a `manifest.ts` registration input, fixtures, and its module
+tests. The manifest declares the stable module ID, contract version, display
+metadata, inputs, outputs, capability flags, milestones, error classes, and
+fixture locations. A plug-in may validate configuration and migrate persisted
+configuration from an earlier version.
+
+Create a shell with `pnpm.cmd run module:new -- <kebab-case-name>`. Then run
+`pnpm.cmd run module:generate-registry`; the generated registry is
+machine-owned and must not be edited directly. `pnpm.cmd run
+module:check-registry` detects stale output. The runtime registers generated
+plug-ins before legacy factories, so a migrated stable ID takes precedence
+without changing persisted workflow definitions.
+
 ## Scope
 
 This guide describes how to add new workflow-runtime modules in PhotoStar.

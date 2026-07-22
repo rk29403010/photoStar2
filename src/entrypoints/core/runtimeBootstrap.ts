@@ -1,6 +1,5 @@
 import type { EventBus } from '../../services/events/bus';
 import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
-import { createDetectFramesModule } from '../../services/workflowRuntime/modules/detectFramesModule';
 import { createDetectSensitiveContentModule } from '../../services/workflowRuntime/modules/detectSensitiveContentModule';
 import { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } from '../../services/workflowRuntime/modules/generateAiMetadata';
 import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
@@ -11,7 +10,6 @@ import { createExtractEmbeddedMetadataModule } from '../../services/workflowRunt
 import { createEstimatePhotoDateModule } from '../../services/workflowRuntime/modules/estimatePhotoDateModule';
 import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
 import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
-import { createScanFolderModule } from '../../services/workflowRuntime/modules/scanFolderModule';
 import { createSimulatorModule } from '../../services/workflowRuntime/modules/simulatorModule';
 import { libraryAiMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryAiMetadataWorkflow';
 import { libraryFaceWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryFaceWorkflow';
@@ -32,6 +30,8 @@ import { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orch
 import { runAutoScanWorker, runPreviewWorker } from '../../services/runtimeWorkers';
 import type { DatabaseManager } from '../../data/db';
 import { createPreviewAdapterModule } from '../../services/workflowRuntime/modules/previewAdapterModule';
+import { generatedWorkflowModulePlugins } from '../../services/workflowRuntime/generatedModulePluginRegistry';
+import { registerWorkflowModulePlugins } from '../../services/workflowRuntime/modulePluginHost';
 
 type WorkflowRuntimeBundle = {
     store: ExecutionStore;
@@ -96,21 +96,20 @@ function registerSubjects(subjects: SubjectRegistry) {
 }
 
 function registerModules(modules: ModuleRegistry, dbManager: DatabaseManager, eventBus: EventBus) {
-    modules.register(createScanFolderModule({ dbManager }));
-    modules.register(createExpandSelectionModule());
-    modules.register(createExtractEmbeddedMetadataModule({ dbManager, eventBus }));
-    modules.register(createGeneratePreviewsModule({ dbManager, eventBus }));
-    modules.register(createDetectFacesModule({ dbManager, eventBus }));
-    modules.register(createDetectFramesModule({ dbManager, eventBus }));
-    modules.register(createGenerateFaceVectorsModule({ dbManager, eventBus }));
-    modules.register(createResolvePeopleModule({ dbManager, eventBus }));
-    modules.register(createGroupSimilarPhotosModule({ dbManager }));
-    modules.register(createDetectSensitiveContentModule({ dbManager, eventBus }));
-    modules.register(createGenerateAiMetadataScoutModule({ dbManager, eventBus }));
-    modules.register(createGenerateAiMetadataRefineModule({ dbManager, eventBus }));
-    modules.register(createEstimatePhotoDateModule({ dbManager, eventBus }));
-    modules.register(createSimulatorModule({}));
-    modules.register(createPreviewAdapterModule({
+    registerWorkflowModulePlugins(modules, generatedWorkflowModulePlugins, { dbManager, eventBus });
+    modules.registerLegacy(createExpandSelectionModule());
+    modules.registerLegacy(createExtractEmbeddedMetadataModule({ dbManager, eventBus }));
+    modules.registerLegacy(createGeneratePreviewsModule({ dbManager, eventBus }));
+    modules.registerLegacy(createDetectFacesModule({ dbManager, eventBus }));
+    modules.registerLegacy(createGenerateFaceVectorsModule({ dbManager, eventBus }));
+    modules.registerLegacy(createResolvePeopleModule({ dbManager, eventBus }));
+    modules.registerLegacy(createGroupSimilarPhotosModule({ dbManager }));
+    modules.registerLegacy(createDetectSensitiveContentModule({ dbManager, eventBus }));
+    modules.registerLegacy(createGenerateAiMetadataScoutModule({ dbManager, eventBus }));
+    modules.registerLegacy(createGenerateAiMetadataRefineModule({ dbManager, eventBus }));
+    modules.registerLegacy(createEstimatePhotoDateModule({ dbManager, eventBus }));
+    modules.registerLegacy(createSimulatorModule({}));
+    modules.registerLegacy(createPreviewAdapterModule({
         runPreview: async (mediaIds) => {
             await runPreviewWorker(mediaIds, { dbManager, eventBus });
         },
