@@ -40,6 +40,9 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   reconciliation.
 - Git refs and worktree state are authoritative. Editor, path, runtime, and port
   data are transferable task metadata, not separate editor-specific systems.
+- `thread:new-integration` and `thread:new-leaf` derive integration bases from
+  task state; `task:overlap` compares active branch diffs without mutation.
+  Main-push automation advances only clean, explicitly labelled queued PRs.
 
 ### TypeScript tooling
 

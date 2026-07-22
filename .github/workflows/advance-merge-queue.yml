@@ -1,0 +1,30 @@
+name: advance-merge-queue
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: advance-merge-queue
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Advance explicitly queued clean pull requests once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tooling/scripts/repo/advance-merge-queue.mjs

@@ -184,6 +184,37 @@ function getPublicationLabel(entry) {
     return entry.status === 'published' || entry.status === 'merge-queued' ? entry.status : '-';
 }
 
+export function classifyOverlap({ left, right, leftPaths, rightPaths }) {
+    const sharedPaths = [...new Set(leftPaths.filter((filePath) => rightPaths.includes(filePath)))].sort();
+    const generatedOnly = sharedPaths.length > 0 && sharedPaths.every((filePath) => /(?:^|\/)(?:dist|artifacts|generated|registry)\//u.test(filePath) || /\.generated\./u.test(filePath));
+    const sharedArchitectureHotspots = sharedPaths.filter((filePath) => /(?:registry|contract|host|index\.(?:ts|js)|package\.json|docs\/ai)/u.test(filePath));
+    const sameIntegrationParent = Boolean(left.integrationTaskId) && left.integrationTaskId === right.integrationTaskId;
+    let action = 'block';
+    if (sharedPaths.length === 0) {action = 'continue';}
+    else if (sameIntegrationParent) {action = 'coordinate through integration';}
+    return { left: left.task, right: right.task, sharedPaths, sharedArchitectureHotspots, generatedOnly, sameIntegrationParent, recommendedAction: action };
+}
+
+function changedPathsForEntry(entry) {
+    const base = entry.intendedBaseBranch || entry.baseRef || 'main';
+    const result = runGit(['diff', '--name-only', `${base}...${entry.branch}`], process.cwd());
+    return (result.status ?? 1) === 0 ? result.stdout.split(/\r?\n/).filter(Boolean) : [];
+}
+
+function handleOverlap(args, registryPath) {
+    const registry = refreshThreadRegistry(readThreadRegistry(registryPath));
+    const entries = registry.entries.filter((entry) => !isClosedStatus(entry.status) && entry.task !== 'unregistered');
+    const reports = [];
+    for (let index = 0; index < entries.length; index += 1) {
+        for (let nextIndex = index + 1; nextIndex < entries.length; nextIndex += 1) {
+            reports.push(classifyOverlap({ left: entries[index], right: entries[nextIndex], leftPaths: changedPathsForEntry(entries[index]), rightPaths: changedPathsForEntry(entries[nextIndex]) }));
+        }
+    }
+    if (args.json === true) {console.log(JSON.stringify(reports, null, 2)); return;}
+    if (reports.length === 0) {console.log('No active task pairs to compare.'); return;}
+    console.log(formatTable(reports.map((report) => [report.left, report.right, report.sharedPaths.join(', ') || '-', report.sharedArchitectureHotspots.join(', ') || '-', report.generatedOnly ? 'yes' : 'no', report.sameIntegrationParent ? 'yes' : 'no', report.recommendedAction]), ['LEFT', 'RIGHT', 'OVERLAPPING PATHS', 'HOTSPOTS', 'GENERATED ONLY', 'SAME INTEGRATION', 'ACTION']));
+}
+
 function formatTable(rows, columns) {
     const widths = columns.map((column, index) => Math.max(column.length, ...rows.map((row) => String(row[index] ?? '').length)));
     const formatRow = (row) => row.map((cell, index) => String(cell ?? '').padEnd(widths[index])).join('  ');
@@ -454,6 +485,10 @@ function handleRegister(args, registryPath) {
     upsertThreadEntry(registry, {
         ...snapshot,
         task,
+        kind: typeof args.kind === 'string' ? args.kind.trim() : 'leaf',
+        integrationTaskId: typeof args.integration === 'string' ? args.integration.trim() : '',
+        intendedBaseBranch: typeof args.base === 'string' ? args.base.trim() : snapshot.baseRef,
+        publicationTarget: typeof args.base === 'string' ? args.base.trim() : snapshot.baseRef,
         status,
         owner: typeof args.owner === 'string'
             ? args.owner.trim()
@@ -482,6 +517,10 @@ function handleUpdate(args, registryPath) {
         ...existingEntry,
         ...snapshot,
         task: typeof args.task === 'string' ? args.task.trim() : existingEntry.task,
+        kind: typeof args.kind === 'string' ? args.kind.trim() : existingEntry.kind ?? 'leaf',
+        integrationTaskId: typeof args.integration === 'string' ? args.integration.trim() : existingEntry.integrationTaskId ?? '',
+        intendedBaseBranch: typeof args.base === 'string' ? args.base.trim() : existingEntry.intendedBaseBranch ?? snapshot.baseRef,
+        publicationTarget: typeof args.base === 'string' ? args.base.trim() : existingEntry.publicationTarget ?? snapshot.baseRef,
         status,
         owner: typeof args.owner === 'string' ? args.owner.trim() : existingEntry.owner,
         note: typeof args.note === 'string' ? args.note.trim() : existingEntry.note,
@@ -702,6 +741,7 @@ export function renderAuditReport(report, options = {}) {
 
 function handleAudit(args, registryPath) {
     const storedRegistry = readThreadRegistry(registryPath);
+    refreshQueuedPublicationState(storedRegistry);
     const registry = refreshThreadRegistry(storedRegistry);
     const options = getListOptions(args);
     const report = buildAuditReport(registry, options);
@@ -789,30 +829,38 @@ function applyReconciliationItem(registry, item) {
     }
 }
 
-function refreshQueuedPublicationState(registry) {
-    const hasOrigin = runGit(['remote', 'get-url', 'origin'], process.cwd());
-    if ((hasOrigin.status ?? 1) !== 0) {return;}
-    const fetchResult = runGit(['fetch', 'origin', 'main'], process.cwd());
-    if ((fetchResult.status ?? 1) !== 0) {
-        throw new Error('Unable to fetch origin/main; reconciliation cannot prove remote containment.');
-    }
-    for (const entry of registry.entries.filter((candidate) => candidate.status === 'merge-queued' || candidate.status === 'published')) {
-        if (!entry.prNumber) {continue;}
-        const result = runCommandSync({
-            command: ghExecutable,
-            args: ['pr', 'view', String(entry.prNumber), '--json', 'state'],
-            cwd: process.cwd(),
-            encoding: 'utf8',
-        });
-        if ((result.status ?? 1) !== 0) {continue;}
-        const state = JSON.parse(result.stdout).state;
-        if (state !== 'MERGED') {continue;}
+function getPullRequestRemoteState(prNumber) {
+    const result = runCommandSync({ command: ghExecutable, args: ['pr', 'view', String(prNumber), '--json', 'state,comments'], cwd: process.cwd(), encoding: 'utf8' });
+    return (result.status ?? 1) === 0 ? JSON.parse(result.stdout) : null;
+}
+
+function getQueueReason(remote) {
+    return (remote.comments ?? []).toReversed()
+        .map((comment) => typeof comment.body === 'string' ? comment.body.match(/queue-advance=([^\s]+)/u)?.[1] : '')
+        .find(Boolean) ?? '';
+}
+
+function refreshQueuedEntry(registry, entry) {
+    if (!entry.prNumber) {return;}
+        const remote = getPullRequestRemoteState(entry.prNumber);
+        if (!remote) {return;}
+        const state = remote.state;
+        const queueReason = getQueueReason(remote);
+        if (queueReason) {
+            upsertThreadEntry(registry, {
+                ...entry,
+                queueReason,
+                note: normalizeThreadNote(`${entry.note} | queue-advance=${queueReason}`),
+                updatedAt: new Date().toISOString(),
+            });
+        }
+        if (state !== 'MERGED') {return;}
         const contained = entry.publishedHead && isBranchMergedIntoTargets({
             branch: entry.publishedHead,
             cwd: process.cwd(),
             targets: ['origin/main'],
         });
-        upsertThreadEntry(registry, {
+    upsertThreadEntry(registry, {
             ...entry,
             status: contained ? 'cleanup-pending' : 'blocked',
             includedInMain: contained,
@@ -820,7 +868,16 @@ function refreshQueuedPublicationState(registry) {
                 ? normalizeThreadNote(`${entry.note} | PR #${entry.prNumber} merged; cleanup pending.`)
                 : normalizeThreadNote(`${entry.note} | PR #${entry.prNumber} reports merged but ${entry.publishedHead} is not contained in origin/main.`),
             updatedAt: new Date().toISOString(),
-        });
+    });
+}
+
+function refreshQueuedPublicationState(registry) {
+    const hasOrigin = runGit(['remote', 'get-url', 'origin'], process.cwd());
+    if ((hasOrigin.status ?? 1) !== 0) {return;}
+    const fetchResult = runGit(['fetch', 'origin', 'main'], process.cwd());
+    if ((fetchResult.status ?? 1) !== 0) {throw new Error('Unable to fetch origin/main; reconciliation cannot prove remote containment.');}
+    for (const entry of registry.entries.filter((candidate) => candidate.status === 'merge-queued' || candidate.status === 'published')) {
+        refreshQueuedEntry(registry, entry);
     }
 }
 
@@ -908,7 +965,12 @@ function main() {
         return;
     }
 
-    console.error('Usage: node tooling/scripts/repo/thread-state.js <register|update|close|status|list|audit|reconcile> [--task "<task>"] [--status "<status>"] [--owner "<owner>"] [--note "<note>"] [--apply]');
+    if (command === 'overlap') {
+        handleOverlap(args, registryPath);
+        return;
+    }
+
+    console.error('Usage: node tooling/scripts/repo/thread-state.js <register|update|close|status|list|audit|reconcile|overlap> [--task "<task>"] [--status "<status>"] [--owner "<owner>"] [--note "<note>"] [--apply]');
     process.exit(1);
 }
 
