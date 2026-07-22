@@ -257,6 +257,7 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['thread:start-dev'], 'node tooling/scripts/repo/thread-dev-session.js');
     assert.equal(scripts['thread:stop-dev'], 'node tooling/scripts/repo/thread-dev-session.js stop');
     assert.equal(scripts['thread:doctor'], 'node tooling/scripts/repo/thread-doctor.js');
+    assert.equal(scripts['thread:publish'], 'node tooling/scripts/repo/thread-ship.js');
     assert.equal(scripts['thread:ship'], 'node tooling/scripts/repo/thread-ship.js');
     assert.equal(scripts.typecheck, 'pnpm run typecheck:native');
     assert.equal(scripts['typecheck:native'], 'node tooling/scripts/repo/quality-gate.js typecheck:native');

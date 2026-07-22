@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
     closeThreadEntry,
     buildReconciliationPlan,
+    buildAuditReport,
     createEmptyThreadRegistry,
     findThreadEntry,
     getManagedSessionState,
@@ -319,11 +320,11 @@ test('renderThreadList keeps active threads ahead of closed threads', () => {
         updatedAt: '2026-03-30T09:00:00.000Z',
     });
 
-    const output = renderThreadList(registry);
+    const output = renderThreadList(registry, { all: true, verbose: true });
 
-    assert.match(output, /active \| A task \| codex\/a/);
-    assert.match(output, /merged \| B task \| codex\/b/);
-    assert.ok(output.indexOf('active | A task') < output.indexOf('merged | B task'));
+    assert.match(output, /"task": "A task"/);
+    assert.match(output, /"task": "B task"/);
+    assert.ok(output.indexOf('"task": "A task"') < output.indexOf('"task": "B task"'));
 });
 
 test('renderThreadList surfaces worktree path and runtime ports', () => {
@@ -349,12 +350,12 @@ test('renderThreadList surfaces worktree path and runtime ports', () => {
         updatedAt: '2026-03-30T09:00:00.000Z',
     });
 
-    const output = renderThreadList(registry);
+    const output = renderThreadList(registry, { verbose: true });
 
-    assert.match(output, /running:dev:desktop-runtime/);
-    assert.match(output, /app:http:\/\/localhost:6231/);
-    assert.match(output, /backend:6232/);
-    assert.match(output, new RegExp(`path:${worktreePath.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(output, /"running": "dev:desktop-runtime"/);
+    assert.match(output, /"appUrl": "http:\/\/localhost:6231"/);
+    assert.match(output, /"backendPort": 6232/);
+    assert.equal(JSON.parse(output)[0].worktreePath, worktreePath);
 });
 
 test('renderThreadList collapses duplicate note segments for display', () => {
@@ -376,10 +377,29 @@ test('renderThreadList collapses duplicate note segments for display', () => {
         updatedAt: '2026-03-30T09:00:00.000Z',
     });
 
-    const output = renderThreadList(registry);
+    const output = renderThreadList(registry, { all: true, verbose: true });
 
-    assert.match(output, /note:dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\) \| Investigating/);
-    assert.doesNotMatch(output, /note:.*dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\).*dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\).*Investigating/);
+    assert.match(output, /"note": "dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\) \| Investigating"/);
+    assert.doesNotMatch(output, /"note":.*dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\).*dev:desktop-runtime @ http:\/\/localhost:6231 \(backend 6232\).*Investigating/);
+});
+
+test('compact list hides closed history while all and JSON retain it', () => {
+    const registry = createEmptyThreadRegistry();
+    upsertThreadEntry(registry, { cwd: 'C:/task-a', task: 'Active', status: 'active', branch: 'task/a', dirty: false, dirtyCount: 0, running: 'none', ahead: 1, behind: 0, updatedAt: '2026-01-01T00:00:00.000Z' });
+    upsertThreadEntry(registry, { cwd: 'C:/task-b', task: 'Merged', status: 'merged', branch: 'task/b', dirty: false, dirtyCount: 0, running: 'none', updatedAt: '2026-01-01T00:00:00.000Z' });
+    assert.match(renderThreadList(registry), /STATUS/);
+    assert.doesNotMatch(renderThreadList(registry), /Merged/);
+    assert.match(renderThreadList(registry, { all: true }), /Merged/);
+    assert.equal(JSON.parse(renderThreadList(registry, { all: true, json: true })).length, 2);
+});
+
+test('audit reports only actionable unsafe task state', () => {
+    const registry = createEmptyThreadRegistry();
+    upsertThreadEntry(registry, { cwd: 'C:/dirty', task: 'Dirty', status: 'active', branch: 'task/dirty', dirty: true, dirtyCount: 1, running: 'none', updatedAt: '2026-01-01T00:00:00.000Z' });
+    upsertThreadEntry(registry, { cwd: 'C:/merged', task: 'Merged', status: 'merged', branch: 'task/merged', dirty: false, running: 'none', updatedAt: '2026-01-01T00:00:00.000Z' });
+    const report = buildAuditReport(registry);
+    assert.equal(report.issues.length, 1);
+    assert.equal(report.issues[0].issue, 'dirty active task');
 });
 
 test('refreshThreadRegistry overlays live snapshots onto registered entries', () => {

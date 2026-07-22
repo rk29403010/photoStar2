@@ -7,6 +7,8 @@ import {
     collectThreadSnapshot,
     readThreadRegistry,
     resolveThreadRegistryPath,
+    upsertThreadEntry,
+    writeThreadRegistry,
 } from './thread-state.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,446 +27,179 @@ function normalizePath(value) {
 }
 
 export function isMainModule({ argvPath, moduleUrl, platform = process.platform }) {
-    if (!argvPath) {
-        return false;
-    }
-    const windows = platform === 'win32';
-    const pathApi = windows ? path.win32 : path.posix;
+    if (!argvPath) {return false;}
+    const pathApi = platform === 'win32' ? path.win32 : path.posix;
     const launchedPath = pathApi.resolve(argvPath);
-    const sourcePath = fileURLToPath(moduleUrl, { windows });
-    return platform === 'win32'
-        ? normalizePath(launchedPath) === normalizePath(sourcePath)
-        : launchedPath === sourcePath;
+    const sourcePath = fileURLToPath(moduleUrl, { windows: platform === 'win32' });
+    return platform === 'win32' ? normalizePath(launchedPath) === normalizePath(sourcePath) : launchedPath === sourcePath;
 }
 
 function isIgnoredShipPath(filePath, ignorePaths = getShipIgnorePaths()) {
     const normalizedPath = normalizePath(filePath);
-    return ignorePaths.some((ignorePath) => {
-        const normalizedIgnorePath = normalizePath(ignorePath);
-        return normalizedPath === normalizedIgnorePath || normalizedPath.startsWith(`${normalizedIgnorePath}/`);
-    });
+    return ignorePaths.some((ignorePath) => normalizedPath === normalizePath(ignorePath) || normalizedPath.startsWith(`${normalizePath(ignorePath)}/`));
 }
 
 export function parseGitStatusLines(statusText, ignorePaths = getShipIgnorePaths()) {
-    return String(statusText ?? '')
-        .split(/\r?\n/)
-        .map((line) => line.trimEnd())
-        .filter(Boolean)
+    return String(statusText ?? '').split(/\r?\n/).map((line) => line.trimEnd()).filter(Boolean)
         .map((line) => {
-            const code = line.slice(0, 2);
             const rawPath = line.slice(3).trim();
-            const resolvedPath = rawPath.includes(' -> ') ? rawPath.split(' -> ').at(-1) ?? rawPath : rawPath;
-            return { code, path: resolvedPath };
-        })
-        .filter((entry) => !isIgnoredShipPath(entry.path, ignorePaths));
-}
-
-function pushWorktreeRecord(records, record) {
-    if (record?.worktreePath) {
-        records.push(record);
-    }
+            return { code: line.slice(0, 2), path: rawPath.includes(' -> ') ? rawPath.split(' -> ').at(-1) ?? rawPath : rawPath };
+        }).filter((entry) => !isIgnoredShipPath(entry.path, ignorePaths));
 }
 
 export function parseWorktreeList(output) {
     const records = [];
-    let currentRecord = null;
-
+    let record = null;
     for (const line of String(output ?? '').split(/\r?\n/)) {
-        if (line === '') {
-            pushWorktreeRecord(records, currentRecord);
-            currentRecord = null;
-            continue;
-        }
-
-        if (line.startsWith('worktree ')) {
-            currentRecord = { worktreePath: line.slice('worktree '.length), branchRef: '' };
-            continue;
-        }
-
-        if (line.startsWith('branch ') && currentRecord) {
-            currentRecord.branchRef = line.slice('branch '.length);
-        }
+        if (line === '') { if (record) {records.push(record);} record = null; }
+        else if (line.startsWith('worktree ')) {record = { worktreePath: line.slice(9), branchRef: '' };}
+        else if (line.startsWith('branch ') && record) {record.branchRef = line.slice(7);}
     }
-
-    pushWorktreeRecord(records, currentRecord);
-
+    if (record) {records.push(record);}
     return records;
 }
 
 export function resolveMainWorktreePath(records) {
     const mainRecord = records.find((record) => record.branchRef === 'refs/heads/main');
-    if (!mainRecord?.worktreePath) {
-        throw new Error('Unable to locate the main worktree.');
-    }
-
+    if (!mainRecord?.worktreePath) {throw new Error('Unable to locate the main worktree.');}
     return mainRecord.worktreePath;
 }
 
 export function getShipCommitMessage({ task, branch }) {
-    return typeof task === 'string' && task.trim() !== ''
-        ? `Finish thread: ${task.trim()}`
-        : `Finish branch: ${branch}`;
-}
-
-function parseArgs(argv) {
-    const parsed = {};
-
-    for (let index = 0; index < argv.length; index += 1) {
-        const token = argv[index];
-        if (!token.startsWith('--')) {
-            continue;
-        }
-
-        const key = token.slice(2);
-        const nextToken = argv[index + 1];
-        if (!nextToken || nextToken.startsWith('--')) {
-            parsed[key] = true;
-            continue;
-        }
-
-        parsed[key] = nextToken;
-        index += 1;
-    }
-
-    return parsed;
-}
-
-function runCommandOrThrow({ command, args, cwd, encoding = 'utf8', stdio = 'pipe' }) {
-    const result = runCommandSync({
-        command,
-        args,
-        cwd,
-        encoding,
-        stdio,
-    });
-
-    if ((result.status ?? 1) !== 0) {
-        const stderr = result.stderr?.trim();
-        throw new Error(stderr || `${command} ${args.join(' ')} failed.`);
-    }
-
-    return result;
-}
-
-function runGitText(args, cwd) {
-    return runCommandOrThrow({
-        command: gitExecutable,
-        args,
-        cwd,
-        encoding: 'utf8',
-    }).stdout.trim();
-}
-
-function runGit(args, cwd) {
-    runCommandOrThrow({
-        command: gitExecutable,
-        args,
-        cwd,
-        stdio: 'inherit',
-    });
-}
-
-function runNode(args, cwd) {
-    runCommandOrThrow({
-        command: nodeExecutable,
-        args,
-        cwd,
-        stdio: 'inherit',
-    });
-}
-
-function runPnpm(args, cwd) {
-    runCommandOrThrow({
-        command: pnpmExecutable,
-        args: ['pnpm', ...args],
-        cwd,
-        stdio: 'inherit',
-    });
-}
-
-function canRun(command, args, cwd) {
-    const result = runCommandSync({ command, args, cwd, encoding: 'utf8' });
-    return (result.status ?? 1) === 0;
+    return typeof task === 'string' && task.trim() ? `Finish thread: ${task.trim()}` : `Finish branch: ${branch}`;
 }
 
 export function getIntegrationStrategy({ hasOrigin, githubAvailable }) {
-    if (hasOrigin && githubAvailable) {
-        return 'github-pr';
-    }
-    if (!hasOrigin) {
-        return 'local-only';
-    }
+    if (hasOrigin && githubAvailable) {return 'github-pr';}
+    if (!hasOrigin) {return 'local-only';}
     return 'blocked';
 }
 
 export function getGitHubMergeArgs(branch) {
-    return ['pr', 'merge', branch, '--merge'];
+    return ['pr', 'merge', branch, '--auto', '--merge'];
 }
 
-export function hasRegisteredGitHubChecks(stdout) {
-    try {
-        const checks = JSON.parse(String(stdout ?? ''));
-        return Array.isArray(checks) && checks.length > 0;
-    } catch {
-        return false;
-    }
+export function parsePullRequestMetadata(stdout) {
+    const value = JSON.parse(String(stdout));
+    return { number: value.number, state: value.state, head: value.headRefOid, base: value.baseRefOid };
 }
 
-function waitForGitHubCheckRegistration({ cwd, branch, attempts = 24, delayMs = 5_000 }) {
-    console.log('Waiting for GitHub to register checks for the pushed head.');
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
-        const probe = runCommandSync({
-            command: ghExecutable,
-            args: ['pr', 'checks', branch, '--json', 'name,state'],
-            cwd,
-            encoding: 'utf8',
-        });
-        if (hasRegisteredGitHubChecks(probe.stdout)) {
-            return;
-        }
-        if (attempt < attempts) {
-            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
-        }
+function parseArgs(argv) {
+    const result = {};
+    for (let index = 0; index < argv.length; index += 1) {
+        if (!argv[index].startsWith('--')) {continue;}
+        const key = argv[index].slice(2);
+        result[key] = argv[index + 1]?.startsWith('--') || !argv[index + 1] ? true : argv[++index];
     }
-    throw new Error(`GitHub did not register checks for ${branch} within ${Math.ceil((attempts * delayMs) / 1_000)} seconds. The pushed branch and worktree were left intact.`);
+    return result;
 }
+
+function runOrThrow({ command, args, cwd, stdio = 'pipe' }) {
+    const result = runCommandSync({ command, args, cwd, encoding: 'utf8', stdio });
+    if ((result.status ?? 1) !== 0) {throw new Error(result.stderr?.trim() || `${command} ${args.join(' ')} failed.`);}
+    return result;
+}
+
+function gitText(args, cwd) { return runOrThrow({ command: gitExecutable, args, cwd }).stdout.trim(); }
+function git(args, cwd) { runOrThrow({ command: gitExecutable, args, cwd, stdio: 'inherit' }); }
+function pnpm(args, cwd) { runOrThrow({ command: pnpmExecutable, args: ['pnpm', ...args], cwd, stdio: 'inherit' }); }
+function node(args, cwd) { runOrThrow({ command: nodeExecutable, args, cwd, stdio: 'inherit' }); }
+function canRun(command, args, cwd) { return (runCommandSync({ command, args, cwd, encoding: 'utf8' }).status ?? 1) === 0; }
 
 function getCurrentThreadEntry(cwd) {
-    const registryPath = resolveThreadRegistryPath(cwd);
-    const registry = readThreadRegistry(registryPath);
+    const registry = readThreadRegistry(resolveThreadRegistryPath(cwd));
     const snapshot = collectThreadSnapshot(cwd);
     return registry.entries.find((entry) => normalizePath(entry.cwd) === normalizePath(snapshot.cwd)) ?? null;
 }
 
-export function getShipMode(snapshot) {
-    return snapshot.worktreeName === 'main' || snapshot.branch === 'main' ? 'main' : 'worktree';
+export function getShipMode(snapshot) { return snapshot.worktreeName === 'main' || snapshot.branch === 'main' ? 'main' : 'worktree'; }
+
+function stageTaskChanges(cwd, ignorePaths) {
+    git(['add', '-A', '--', '.'], cwd);
+    const present = ignorePaths.filter((entry) => existsSync(path.join(cwd, entry)));
+    if (present.length > 0) {git(['reset', 'HEAD', '--', ...present], cwd);}
 }
 
-function unstageIgnoredPaths(cwd, ignorePaths) {
-    const presentPaths = ignorePaths.filter((ignorePath) => existsSync(path.join(cwd, ignorePath)));
-    if (presentPaths.length > 0) {
-        runGit(['reset', 'HEAD', '--', ...presentPaths], cwd);
-    }
+function stopTaskRuntime(cwd) {
+    node([path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'thread-dev-session.js'), 'stop'], cwd);
 }
 
-function stageThreadChanges(cwd, ignorePaths) {
-    runGit(['add', '-A', '--', '.'], cwd);
-    unstageIgnoredPaths(cwd, ignorePaths);
-}
-
-function getStagedFiles(cwd) {
-    return runGitText(['diff', '--cached', '--name-only', '--diff-filter=ACMRTUXB'], cwd)
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-}
-
-function ensureMainWorkspaceReady(mainWorktreePath) {
-    const statusLines = parseGitStatusLines(runGitText(['status', '--short'], mainWorktreePath));
-    if (statusLines.length > 0) {
-        const summary = statusLines.map((entry) => `${entry.code} ${entry.path}`).join(', ');
-        throw new Error(`Main worktree has local changes that block shipping: ${summary}`);
-    }
-}
-
-function stopManagedSession(cwd) {
-    runNode([path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'thread-dev-session.js'), 'stop'], cwd);
-}
-
-function mergeBranchIntoMain({ branch, mainWorktreePath }) {
-    runGit(['merge', '--no-ff', branch, '-m', `Merge branch '${branch}'`], mainWorktreePath);
-}
-
-function pushBranch(cwd, branch) {
-    runGit(['push', '--set-upstream', 'origin', branch], cwd);
-}
-
-function deleteRemoteBranchIfPresent(cwd, branch) {
-    const remoteBranch = runCommandSync({
-        command: gitExecutable,
-        args: ['ls-remote', '--exit-code', '--heads', 'origin', `refs/heads/${branch}`],
-        cwd,
-        encoding: 'utf8',
-    });
-    if ((remoteBranch.status ?? 1) === 0) {
-        runGit(['push', 'origin', '--delete', branch], cwd);
-    }
-}
-
-function integrateWithGitHub({ cwd, branch }) {
-    const existingPr = runCommandSync({
-        command: ghExecutable,
-        args: ['pr', 'view', branch, '--json', 'state', '--jq', '.state'],
-        cwd,
-        encoding: 'utf8',
-    });
-    const existingState = (existingPr.status ?? 1) === 0 ? existingPr.stdout.trim() : '';
-    if (existingState === 'MERGED') {
-        deleteRemoteBranchIfPresent(cwd, branch);
-        runGit(['fetch', 'origin', 'main'], cwd);
-        return;
-    }
-    pushBranch(cwd, branch);
-    if (existingState !== 'OPEN') {
-        runCommandOrThrow({
-            command: ghExecutable,
-            args: ['pr', 'create', '--fill', '--head', branch, '--base', 'main'],
-            cwd,
-            stdio: 'inherit',
-        });
-    }
-    waitForGitHubCheckRegistration({ cwd, branch });
-    runCommandOrThrow({
-        command: ghExecutable,
-        args: ['pr', 'checks', branch, '--watch', '--fail-fast'],
-        cwd,
-        stdio: 'inherit',
-    });
-    runCommandOrThrow({
-        command: ghExecutable,
-        args: getGitHubMergeArgs(branch),
-        cwd,
-        stdio: 'inherit',
-    });
-    deleteRemoteBranchIfPresent(cwd, branch);
-    runGit(['fetch', 'origin', 'main'], cwd);
-}
-
-function verifyIntegrated({ cwd, head, target = 'origin/main' }) {
-    const result = runCommandSync({
-        command: gitExecutable,
-        args: ['merge-base', '--is-ancestor', head, target],
-        cwd,
-        encoding: 'utf8',
-    });
-    if ((result.status ?? 1) !== 0) {
-        throw new Error(`Integration could not be proven: ${head} is not contained in ${target}. The task was left intact.`);
-    }
-}
-
-function configureMainProtection(mainWorktreePath) {
-    runNode([
-        path.join(mainWorktreePath, 'tooling', 'scripts', 'repo', 'configure-main-protection.js'),
-    ], mainWorktreePath);
-}
-
-function closeMergedThread(cwd, removedWorktreePath) {
-    runNode([
-        path.join(cwd, 'tooling', 'scripts', 'repo', 'thread-state.js'),
-        'close',
-        '--status',
-        'merged',
-        '--cwd',
-        removedWorktreePath,
-    ], cwd);
-}
-
-function updateThreadStatus(cwd, status) {
-    runNode([path.join(workspaceRoot, 'tooling', 'scripts', 'repo', 'thread-state.js'), 'update', '--status', status], cwd);
-}
-
-function cleanupMergedWorktree({ branch, worktreePath, mainWorktreePath }) {
-    process.chdir(mainWorktreePath);
-    runGit(['worktree', 'remove', worktreePath], mainWorktreePath);
-    runGit(['branch', '-d', branch], mainWorktreePath);
-}
-
-function stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths }) {
-    const entry = getCurrentThreadEntry(cwd);
-    stopManagedSession(cwd);
-    stageThreadChanges(cwd, ignorePaths);
-
-    const stagedFiles = getStagedFiles(cwd);
+function commitCandidate({ cwd, entry, message, ignorePaths }) {
+    stopTaskRuntime(cwd);
+    stageTaskChanges(cwd, ignorePaths);
+    const stagedFiles = gitText(['diff', '--cached', '--name-only', '--diff-filter=ACMRTUXB'], cwd).split(/\r?\n/).filter(Boolean);
     if (stagedFiles.length > 0) {
-        runPnpm(['run', 'quality:staged'], cwd);
-        runGit(['commit', '-m', commitMessage], cwd);
+        pnpm(['run', 'qa:ready'], cwd);
+        git(['commit', '-m', message], cwd);
     }
-
-    runPnpm(['run', 'qa:merge'], cwd);
-
-    return { entry, stagedFiles };
+    return entry;
 }
 
-function shipMain({ cwd, commitMessage, ignorePaths }) {
-    if (canRun(gitExecutable, ['remote', 'get-url', 'origin'], cwd)) {
-        throw new Error('Refusing to ship directly from main. Create or switch to a task branch/worktree so the protected GitHub PR gate can run.');
-    }
-    stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths });
-    console.log('Committed and verified main locally; no origin remote is configured.');
+function getPullRequest(cwd, branch) {
+    const result = runCommandSync({ command: ghExecutable, args: ['pr', 'view', branch, '--json', 'number,state,headRefOid,baseRefOid'], cwd, encoding: 'utf8' });
+    return (result.status ?? 1) === 0 ? parsePullRequestMetadata(result.stdout) : null;
 }
 
-function shipWorktree({ cwd, snapshot, commitMessage, ignorePaths }) {
-    if (snapshot.detached || !snapshot.branch) {
-        throw new Error('Cannot ship a detached checkout. Attach it to a task branch first; no merge or cleanup was attempted.');
-    }
-    const { entry } = stageAndCommitCurrentCheckout({ cwd, commitMessage, ignorePaths });
-    const head = runGitText(['rev-parse', 'HEAD'], cwd);
+function publishPullRequest(cwd, branch) {
+    git(['push', '--set-upstream', 'origin', branch], cwd);
+    let pullRequest = getPullRequest(cwd, branch);
+    if (!pullRequest) {runOrThrow({ command: ghExecutable, args: ['pr', 'create', '--fill', '--head', branch, '--base', 'main'], cwd, stdio: 'inherit' });}
+    pullRequest = getPullRequest(cwd, branch);
+    if (!pullRequest || pullRequest.state !== 'OPEN') {throw new Error(`Unable to create or reuse an open pull request for ${branch}.`);}
+    runOrThrow({ command: ghExecutable, args: getGitHubMergeArgs(branch), cwd, stdio: 'inherit' });
+    return pullRequest;
+}
 
-    const worktreeRecords = parseWorktreeList(runGitText(['worktree', 'list', '--porcelain'], cwd));
-    const mainWorktreePath = resolveMainWorktreePath(worktreeRecords);
-    ensureMainWorkspaceReady(mainWorktreePath);
-    const hasOrigin = canRun(gitExecutable, ['remote', 'get-url', 'origin'], cwd);
-    const githubAvailable = canRun(ghExecutable, ['auth', 'status'], cwd);
-    const strategy = getIntegrationStrategy({ hasOrigin, githubAvailable });
-    if (strategy === 'blocked') {
-        throw new Error('Shipping requires an authenticated GitHub CLI because origin is configured and main is protected. Run `gh auth login`, then retry; the committed task branch was left intact.');
-    }
-    if (strategy === 'github-pr') {
-        integrateWithGitHub({ cwd, branch: snapshot.branch });
-        verifyIntegrated({ cwd, head });
-        runGit(['merge', '--ff-only', 'origin/main'], mainWorktreePath);
-        configureMainProtection(mainWorktreePath);
-    } else {
-        mergeBranchIntoMain({ branch: snapshot.branch, mainWorktreePath });
-        verifyIntegrated({ cwd: mainWorktreePath, head, target: 'main' });
-        console.warn('No origin remote is configured; integration was completed locally and was not pushed.');
-    }
-    if (entry) {
-        updateThreadStatus(cwd, 'cleanup-pending');
-    }
-    try {
-        cleanupMergedWorktree({
-            branch: snapshot.branch,
-            worktreePath: snapshot.worktreePath,
-            mainWorktreePath,
-        });
-        if (entry) {
-            closeMergedThread(mainWorktreePath, snapshot.worktreePath);
-        }
-    } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        throw new Error(`The change is merged and verified, but local cleanup did not finish: ${detail} Run thread:reconcile from main, inspect the dry run, then retry with --apply.`);
-    }
+function recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha }) {
+    const registryPath = resolveThreadRegistryPath(cwd);
+    const registry = readThreadRegistry(registryPath);
+    const timestamp = new Date().toISOString();
+    upsertThreadEntry(registry, {
+        ...entry,
+        ...collectThreadSnapshot(cwd),
+        status: 'merge-queued',
+        prNumber: pullRequest.number,
+        publishedHead,
+        baseSha,
+        publishedAt: timestamp,
+        updatedAt: timestamp,
+    });
+    writeThreadRegistry(registryPath, registry);
+}
 
-    console.log(`Shipped ${snapshot.branch} through ${strategy}, verified integration, and removed its worktree and local branch.`);
+function publishWorktree({ cwd, snapshot, message, ignorePaths }) {
+    if (snapshot.detached || !snapshot.branch) {throw new Error('Cannot publish a detached checkout. Attach it to a task branch first.');}
+    const entry = getCurrentThreadEntry(cwd);
+    if (!entry) {throw new Error('Publishing requires a registered task worktree. Run thread:register first.');}
+    if (entry.status === 'merged' || entry.status === 'discarded') {throw new Error(`Cannot publish a ${entry.status} task.`);}
+    if (getIntegrationStrategy({ hasOrigin: canRun(gitExecutable, ['remote', 'get-url', 'origin'], cwd), githubAvailable: canRun(ghExecutable, ['auth', 'status'], cwd) }) !== 'github-pr') {
+        throw new Error('Publishing requires origin and an authenticated GitHub CLI; the task was left intact.');
+    }
+    commitCandidate({ cwd, entry, message, ignorePaths });
+    git(['fetch', 'origin', 'main'], cwd);
+    git(['merge', '--no-edit', 'origin/main'], cwd);
+    pnpm(['run', 'qa:merge'], cwd);
+    const publishedHead = gitText(['rev-parse', 'HEAD'], cwd);
+    const baseSha = gitText(['rev-parse', 'origin/main'], cwd);
+    const pullRequest = publishPullRequest(cwd, snapshot.branch);
+    recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha });
+    console.log(`Published ${snapshot.branch} at ${publishedHead}; PR #${pullRequest.number} is merge-queued. No GitHub checks were polled and local cleanup was deferred.`);
 }
 
 function main() {
     const cwd = process.cwd();
     const args = parseArgs(process.argv.slice(2));
-    const ignorePaths = getShipIgnorePaths({
-        includeArtifacts: args['include-artifacts'] === true,
-    });
     const snapshot = collectThreadSnapshot(cwd);
+    if (getShipMode(snapshot) === 'main') {throw new Error('Publishing from main is refused; use a registered non-main task worktree.');}
     const entry = getCurrentThreadEntry(cwd);
-    const commitMessage = typeof args.message === 'string' && args.message.trim() !== ''
-        ? args.message.trim()
-        : getShipCommitMessage({ task: entry?.task ?? '', branch: snapshot.branch });
-
-    if (getShipMode(snapshot) === 'main') {
-        shipMain({ cwd, commitMessage, ignorePaths });
-        return;
-    }
-
-    shipWorktree({ cwd, snapshot, commitMessage, ignorePaths });
+    publishWorktree({
+        cwd,
+        snapshot,
+        message: typeof args.message === 'string' && args.message.trim() ? args.message.trim() : getShipCommitMessage({ task: entry?.task ?? '', branch: snapshot.branch }),
+        ignorePaths: getShipIgnorePaths({ includeArtifacts: args['include-artifacts'] === true }),
+    });
 }
 
 if (isMainModule({ argvPath: process.argv[1], moduleUrl: import.meta.url })) {
-    try {
-        main();
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(message);
-        process.exit(1);
-    }
+    try { main(); } catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exit(1); }
 }

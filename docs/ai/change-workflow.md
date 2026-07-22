@@ -57,27 +57,22 @@ or lifecycle rules.
   inputs and generator, regenerate, and test the result. Do not edit generated
   registry files manually.
 
-## Intended lifecycle (commands not implemented yet)
+## Publication and reconciliation lifecycle
 
 1. Create/register a leaf or integration task capsule and assign its ownership
    scope. A runtime is optional and task-owned only when started through task
    tooling.
 2. Develop within that scope; run `qa:quick`, then `qa:ready` for handoff.
-3. A deterministic repository publish operation commits the candidate, runs the
-   required local gate, pushes it, and creates/updates its remote publication.
-   The state becomes **published**.
-4. A deterministic repository merge operation requests protected integration.
-   If the platform accepts it, the state becomes **merge-queued**. Automation,
-   not an attached agent, observes remote checks and completes the merge.
-5. Repository reconciliation later proves containment and records **merged**.
-   It separately stops only the task-owned runtime and removes only clean,
-   proven-integrated local state. Until then the state is **cleanup-pending**.
-
-The future commands will express these operations directly. Until then, the
-following current commands are compatibility layers with semantics that will
-change in later prompts: `thread:ship`, `thread:update`, `thread:close`,
-`task:audit`, and `task:reconcile`. Do not manually write future lifecycle
-states into the registry.
+3. `thread:publish` stops only the recorded task runtime, stages task-owned
+   changes excluding generated noise, runs `qa:ready`, commits if needed,
+   fetches and safely updates from `origin/main`, runs `qa:merge` at the pushed
+   head, creates or reuses a PR, and enables auto-merge. It stores the PR number,
+   published SHA, base SHA, and publication time as **merge-queued**, then exits.
+4. It never polls checks, waits for Actions, merges the PR itself, updates main,
+   reapplies policy, or removes local task state. `thread:ship` is an alias.
+5. `task:reconcile` fetches remote state, proves the published SHA is contained
+   in `origin/main`, then performs independent cleanup. A cleanup failure remains
+   **cleanup-pending**; ambiguity is **blocked**.
 
 ## The one finish phrase
 
@@ -90,23 +85,12 @@ It does not require an agent to remain attached while GitHub checks run. The
 agent reports the resulting local and remote lifecycle state, then repository
 automation owns remote waiting, merge observation, and later reconciliation.
 
-**Current compatibility note (will change in a later prompt):** the existing
-`thread:ship` implementation is synchronous: it waits for GitHub checks and
-attempts local cleanup. It remains the current implementation only; agents must
-not add polling around it or document that behaviour as the target contract.
-
-The future sequence is:
-
-1. Confirm the current worktree, branch, base, head, dirty state, ownership, and
-   task-owned runtime.
-2. Run the future repository publication command. It runs `qa:merge` at the
-   exact candidate head, commits, pushes, and records **published**.
-3. Request protected merge through the future deterministic merge command. It
-   records **merge-queued** when accepted and returns without waiting.
-4. Later repository automation proves **merged**, then independently records
-   **cleanup-pending** until safe local reconciliation finishes.
-5. Report the commit, publication/queue state, local checks, and any retained
-   cleanup; do not claim merge completion before containment is proven.
+Run `pnpm.cmd run thread:publish` for this sequence. It returns once auto-merge
+is armed. `thread:ship` is the compatibility alias. Later sessions should run
+`task:audit` and opportunistically run targeted
+`task:reconcile -- --apply --task "<task>"` for merged work. Report the local
+gate, PR/queue state, containment proof, and retained cleanup; never claim a
+merge before Git proves it.
 
 The agent should continue through ordinary, in-scope lint, type, test, merge,
 and cross-platform failures. It should not hand back a half-finished task merely
@@ -217,10 +201,9 @@ SHA, and stale reason.
 - Never assume a port belongs to the current task. Check its ownership lease and
   process identity before stopping it.
 - Never stop a runtime belonging to another task/editor to make a port free.
-- During current compatibility behaviour, `thread:ship` stops only the runtime
-  proven to belong to the shipped task. Under the intended lifecycle,
-  reconciliation performs that cleanup after merge proof. Unknown listeners are
-  always a blocker, not cleanup candidates.
+- `thread:publish` stops only the runtime proven to belong to its task before
+  publication. Reconciliation stops any remaining task-owned runtime after
+  merge proof. Unknown listeners are always a blocker, not cleanup candidates.
 
 ## Publication, integration, and cleanup
 
@@ -252,6 +235,9 @@ stale tasks. Audit is read-only. It should identify at least:
 
 Run `pnpm.cmd run task:reconcile` to inspect its dry-run plan, then
 `pnpm.cmd run task:reconcile -- --apply` to apply proven-safe registry cleanup.
+Use `--task`, `--branch`, or `--worktree` to target a capsule. Successful
+cleanup is saved incrementally; a locked Windows path remains cleanup-pending
+and reports its precise retry command without hiding unrelated cleanup.
 Reconciliation removes clean residual worktrees and local branches only when
 Git proves the work is integrated, then closes their metadata. Cleanup is
 separate from publication and merge confirmation: a proven merge with retained
@@ -265,12 +251,10 @@ should reject force-pushes and deletion. GitHub Actions must use repository-
 pinned Node and pnpm versions, a frozen lockfile, and the same quality policy as
 local commands. PR selection uses the merge base; push verification uses the
 event's before/after SHAs and must never degrade to an empty working-tree diff.
-**Current compatibility note (will change in a later prompt):** after a
-successful current `thread:ship` integration, it applies this protection
-idempotently through `repo:protect-main`. The future deterministic publication
-and merge operations retain this protection requirement without requiring an
-agent to wait for checks; failure is a blocked lifecycle state rather than a
-reason to silently weaken protection.
+`repo:protect-main` is an idempotent setup/policy command. It enables
+auto-merge and branch updates, then applies required PRs, strict integration
+checks, conversation resolution, and force-push/deletion protection.
+Publication does not reapply policy.
 
 The final report for `ship this change` must distinguish local gate success,
 published/merge-queued status, proven merge containment, and cleanup state. A

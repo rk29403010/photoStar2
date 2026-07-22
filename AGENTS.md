@@ -198,11 +198,10 @@ pnpm.cmd run thread:new -- --task "<task name>"
 
 - Follow-up requests stay in the same worktree unless the user asks to split.
 - Register existing worktrees with `pnpm.cmd run thread:register -- --task "<task name>"`.
-- **Current command compatibility (will change in a later prompt):**
-  `thread:update`, `thread:close`, `thread:ship`, `task:audit`, and
-  `task:reconcile` expose the pre-publication lifecycle today. Do not infer the
-  future `published` or `merge-queued` states from their current output, and do
-  not manually emulate them in registry files.
+- `thread:publish` publishes a registered non-main task, arms PR auto-merge,
+  records publication metadata, and returns without waiting for GitHub Actions.
+  `thread:ship` is its compatibility alias. Use `task:reconcile` later to prove
+  containment and clean only task-owned, clean, integrated local state.
 - Audit all live and stale task state with `pnpm.cmd run task:audit`. Use
   `pnpm.cmd run task:reconcile` only after reviewing its dry-run output.
 - Before handoff, run `pnpm.cmd run thread:status`; use `pnpm.cmd run thread:list`
@@ -299,9 +298,9 @@ Finish commands:
   automation validates, commits, publishes, and requests/enters deterministic
   integration without an agent waiting for GitHub checks. Publication or queue
   acceptance is distinct from later merge confirmation and local reconciliation.
-  **Current command compatibility (will change in a later prompt):** today's
-  `thread:ship` still waits for remote checks and attempts cleanup; do not add
-  agent-side polling or treat that behaviour as the future contract.
+- `thread:ship` is currently a compatibility alias for `thread:publish`: it
+  arms auto-merge and returns immediately. It never polls checks, merges the
+  PR itself, updates main, or removes a worktree.
 - `ship it` and `finish this thread and merge it back` are aliases for
   `ship this change`.
 - `finish this thread, commit it, and keep the branch`: commit, mark ready.
