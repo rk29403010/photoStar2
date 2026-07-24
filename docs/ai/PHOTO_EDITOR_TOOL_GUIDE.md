@@ -4,8 +4,8 @@ Use this guide when adding or changing a non-destructive photo-editor tool. The 
 
 ## Fast path
 
-1. Define the persisted operation values and defaults.
-2. Add the tool to the shared catalogue and edit-operation contract.
+1. Run `pnpm.cmd run photo-tool:new -- <kebab-case-name>` to create the isolated tool directory.
+2. Define the persisted operation values and defaults in that plug-in.
 3. Build the exact renderer and a matching interactive preview where practical.
 4. Add settings, canvas controls, reset behaviour, and safe automatic assistance.
 5. Wire the sidebar, preview, renderer, tests, and error boundary.
@@ -18,7 +18,8 @@ Use the existing tool shape. Add only the files that the tool needs.
 | Concern | Location | Purpose |
 | --- | --- | --- |
 | Persisted operation contract | `src/boundary/contracts/photoEditor.ts` | Add the `PhotoEditTool` value and typed recipe fields where needed. Recipes must remain serializable numbers and booleans. |
-| Tool catalogue and defaults | `src/ui/components/photo-editor/photoEditorTools.ts` | Add the label, icon, safe defaults, and generic controls if the tool uses them. |
+| Plug-in manifest and defaults | `src/services/photoEditing/tools/plugins/<tool>/` | The one authoritative tool directory: typed plug-in, defaults, implementation, fixtures and tests. |
+| Generated registry | `src/services/photoEditing/generatedPhotoEditToolPluginRegistry.ts` | Machine-owned output. Run `photo-tool:generate-registry`; never edit it. |
 | Exact pixel or image algorithm | `src/shared/photoEditing/<tool>.ts` | Keep deterministic, testable algorithms here. This is the source of truth for full-resolution rendering. |
 | Renderer integration | `src/services/photoEditing/editRenderer.ts` | Apply the operation in edit-stack order for both preview and final render. |
 | Settings UI | `src/ui/components/photo-editor/Photo<Tool>Options.tsx` | Tool-specific controls, presets, reset, and per-tool auto action. |
@@ -29,7 +30,7 @@ Use the existing tool shape. Add only the files that the tool needs.
 | Automatic suggestions | `src/shared/photoEditing/automatic.ts`, `src/ui/components/photo-editor/photoAutomatic.ts` | Add conservative photo-level suggestions only when the tool has a safe, useful recommendation. |
 | Tests | `tests/core/photo-edit-*.test.cjs`, `tests/ui/photo-editor-*.test.cjs`, `tests/repo/photo-editor-wiring.test.mjs` | Cover pixels/recipes, UI wiring, and required registration points. |
 
-Do not create a separate side channel for a tool. Its persisted recipe belongs in the normal `PhotoEditOperation` stack, so it appears in Layers & changes, works with styles and masks where applicable, and can be disabled, reordered, or deleted like every other edit.
+Do not create a separate side channel for a tool. Its persisted recipe belongs in the normal `PhotoEditOperation` stack, so it appears in Layers & changes, works with styles and masks where applicable, and can be disabled, reordered, or deleted like every other edit. The host owns transport, sequencing, masks and local error containment; a plug-in owns identity, defaults, validation, controls, overlays, preview, rendering and help. `grayscale` is migrated; the other eleven tools remain on the compatibility adapter until Prompt 10.
 
 ## Main entry points and data flow
 

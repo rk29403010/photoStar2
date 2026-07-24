@@ -5,12 +5,15 @@ import { applyPhotoEffectPixels } from '../../shared/photoEditing/effects.ts';
 import { applyFocusPixels } from '../../shared/photoEditing/focus.ts';
 import { applyRedEyePixels } from '../../shared/photoEditing/redEye.ts';
 import { applyTuneImagePixels } from '../../shared/photoEditing/tune.ts';
+import { generatedPhotoEditToolPlugins } from './generatedPhotoEditToolPluginRegistry.ts';
+import { PhotoEditToolRegistry } from './photoEditToolRegistry.ts';
+import type { PhotoEditToolRenderPipeline } from './photoEditToolPlugin.ts';
 
 type RenderOptions = {
     maxWidth?: number;
 };
 
-type FilterTool = Exclude<PhotoEditOperation['tool'], 'adjust' | 'colour_pop' | 'crop' | 'dehaze' | 'effects' | 'focus' | 'red_eye' | 'rotate'>;
+type FilterTool = 'blur' | 'grayscale' | 'restore' | 'sharpen';
 type FilterPipeline = ReturnType<typeof sharp>;
 type FilterHandler = (pipeline: FilterPipeline, operation: PhotoEditOperation) => FilterPipeline;
 type RawImage = { data: Buffer; width: number; height: number };
@@ -348,6 +351,15 @@ const FILTER_HANDLERS: Record<FilterTool, FilterHandler> = {
 };
 
 async function applyOperation(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+    const plugin = photoEditToolRegistry.get(operation.tool);
+    if (plugin?.renderExact) {
+        plugin.validateOperation?.(operation);
+        return plugin.renderExact(input, operation, (value) => sharp(value) as unknown as PhotoEditToolRenderPipeline);
+    }
+    return applyLegacyOperation(input, operation);
+}
+
+async function applyLegacyOperation(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     if (operation.tool === 'adjust') {return applyAdjust(input, operation);}
     if (operation.tool === 'crop') {return applyCrop(input, operation);}
     if (operation.tool === 'rotate') {
@@ -359,8 +371,13 @@ async function applyOperation(input: Buffer, operation: PhotoEditOperation): Pro
     if (operation.tool === 'focus') {return applyFocus(input, operation);}
     if (operation.tool === 'red_eye') {return applyRedEye(input, operation);}
 
-    return FILTER_HANDLERS[operation.tool](sharp(input), operation).png().toBuffer();
+    const handler = FILTER_HANDLERS[operation.tool as FilterTool];
+    // Persisted recipes can contain a tool whose plug-in is absent. Preserve and skip it.
+    return handler ? handler(sharp(input), operation).png().toBuffer() : input;
 }
+
+const photoEditToolRegistry = new PhotoEditToolRegistry();
+for (const plugin of generatedPhotoEditToolPlugins) { photoEditToolRegistry.registerPlugin(plugin); }
 
 function shapeMarkup(mask: PhotoEditMask, width: number, height: number, fill: string): string {
     const box = mask.box ?? { x: 0.2, y: 0.15, width: 0.6, height: 0.7 };
@@ -415,7 +432,8 @@ export async function renderPhotoEdit(
     for (const operation of operations) {
         if (!operation.enabled) {continue;}
         const mask = operation.maskId ? masksById.get(operation.maskId) : undefined;
-        current = mask && operation.tool !== 'crop' && operation.tool !== 'rotate'
+        const plugin = photoEditToolRegistry.get(operation.tool);
+        current = mask && (plugin?.capabilities?.maskCompatible ?? (operation.tool !== 'crop' && operation.tool !== 'rotate'))
             ? await applyMaskedOperation(current, operation, mask)
             : await applyOperation(current, operation);
     }

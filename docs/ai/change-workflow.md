@@ -56,6 +56,7 @@ or lifecycle rules.
 - Generated registries are machine-owned and reproducible: update their source
   inputs and generator, regenerate, and test the result. Do not edit generated
   registry files manually.
+- Photo-editing tool tasks own exactly one directory under `src/services/photoEditing/tools/plugins/<tool>/`; host, registry, and legacy-adapter changes require an assigned integration task. Use `photo-tool:new`, then generate and check the registry.
 
 ## Publication and reconciliation lifecycle
 

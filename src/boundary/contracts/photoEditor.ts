@@ -1,4 +1,4 @@
-export type PhotoEditTool =
+export type KnownPhotoEditTool =
     | 'adjust'
     | 'blur'
     | 'colour_pop'
@@ -11,6 +11,9 @@ export type PhotoEditTool =
     | 'restore'
     | 'rotate'
     | 'sharpen';
+
+/** A recipe may outlive the plug-in that created it. Keep unknown IDs intact. */
+export type PhotoEditTool = KnownPhotoEditTool | (string & {});
 
 export type NormalizedPoint = { x: number; y: number };
 export type NormalizedBox = NormalizedPoint & { width: number; height: number };

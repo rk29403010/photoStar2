@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { PhotoEditOperation } from '@contracts/core';
+import { generatedPhotoEditToolPlugins } from '../../../services/photoEditing/generatedPhotoEditToolPluginRegistry.ts';
 
 function numericValue(operation: PhotoEditOperation, key: string, fallback: number): number {
     const value = operation.values[key];
@@ -58,5 +59,6 @@ const LIVE_STYLE_HANDLERS: Partial<Record<PhotoEditOperation['tool'], LiveStyleH
 
 export function getLivePreviewStyle(current: PhotoEditOperation, baseline: PhotoEditOperation): CSSProperties | undefined {
     if (current.id !== baseline.id || current.tool !== baseline.tool || current.maskId) {return undefined;}
-    return LIVE_STYLE_HANDLERS[current.tool]?.(current, baseline);
+    const plugin = generatedPhotoEditToolPlugins.find((candidate) => candidate.id === current.tool);
+    return plugin?.browserPreview?.(current, baseline) ?? LIVE_STYLE_HANDLERS[current.tool]?.(current, baseline);
 }
