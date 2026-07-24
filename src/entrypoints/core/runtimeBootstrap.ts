@@ -1,16 +1,5 @@
 import type { EventBus } from '../../services/events/bus';
-import { createDetectFacesModule } from '../../services/workflowRuntime/modules/detectFacesModule';
-import { createDetectSensitiveContentModule } from '../../services/workflowRuntime/modules/detectSensitiveContentModule';
-import { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } from '../../services/workflowRuntime/modules/generateAiMetadata';
-import { createGenerateFaceVectorsModule } from '../../services/workflowRuntime/modules/generateFaceVectorsModule';
-import { createGeneratePreviewsModule } from '../../services/workflowRuntime/modules/generatePreviewsModule';
-import { createGroupSimilarPhotosModule } from '../../services/workflowRuntime/modules/groupSimilarPhotosModule';
-import { createExpandSelectionModule } from '../../services/workflowRuntime/modules/expandSelectionModule';
-import { createExtractEmbeddedMetadataModule } from '../../services/workflowRuntime/modules/extractEmbeddedMetadataModule';
-import { createEstimatePhotoDateModule } from '../../services/workflowRuntime/modules/estimatePhotoDateModule';
 import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
-import { createResolvePeopleModule } from '../../services/workflowRuntime/modules/resolvePeopleModule';
-import { createSimulatorModule } from '../../services/workflowRuntime/modules/simulatorModule';
 import { libraryAiMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryAiMetadataWorkflow';
 import { libraryFaceWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryFaceWorkflow';
 import { libraryPhotoDateWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPhotoDateWorkflow';
@@ -29,7 +18,6 @@ import { WorkflowRegistry } from '../../services/workflowRuntime/workflowRegistr
 import { WorkflowRuntimeOrchestrator } from '../../services/workflowRuntime/orchestrator';
 import { runAutoScanWorker, runPreviewWorker } from '../../services/runtimeWorkers';
 import type { DatabaseManager } from '../../data/db';
-import { createPreviewAdapterModule } from '../../services/workflowRuntime/modules/previewAdapterModule';
 import { generatedWorkflowModulePlugins } from '../../services/workflowRuntime/generatedModulePluginRegistry';
 import { registerWorkflowModulePlugins } from '../../services/workflowRuntime/modulePluginHost';
 
@@ -96,24 +84,13 @@ function registerSubjects(subjects: SubjectRegistry) {
 }
 
 function registerModules(modules: ModuleRegistry, dbManager: DatabaseManager, eventBus: EventBus) {
-    registerWorkflowModulePlugins(modules, generatedWorkflowModulePlugins, { dbManager, eventBus });
-    modules.registerLegacy(createExpandSelectionModule());
-    modules.registerLegacy(createExtractEmbeddedMetadataModule({ dbManager, eventBus }));
-    modules.registerLegacy(createGeneratePreviewsModule({ dbManager, eventBus }));
-    modules.registerLegacy(createDetectFacesModule({ dbManager, eventBus }));
-    modules.registerLegacy(createGenerateFaceVectorsModule({ dbManager, eventBus }));
-    modules.registerLegacy(createResolvePeopleModule({ dbManager, eventBus }));
-    modules.registerLegacy(createGroupSimilarPhotosModule({ dbManager }));
-    modules.registerLegacy(createDetectSensitiveContentModule({ dbManager, eventBus }));
-    modules.registerLegacy(createGenerateAiMetadataScoutModule({ dbManager, eventBus }));
-    modules.registerLegacy(createGenerateAiMetadataRefineModule({ dbManager, eventBus }));
-    modules.registerLegacy(createEstimatePhotoDateModule({ dbManager, eventBus }));
-    modules.registerLegacy(createSimulatorModule({}));
-    modules.registerLegacy(createPreviewAdapterModule({
+    registerWorkflowModulePlugins(modules, generatedWorkflowModulePlugins, {
+        dbManager,
+        eventBus,
         runPreview: async (mediaIds) => {
             await runPreviewWorker(mediaIds, { dbManager, eventBus });
         },
-    }));
+    });
 }
 
 function registerWorkflows(workflows: WorkflowRegistry) {

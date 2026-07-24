@@ -143,13 +143,13 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts`).
 
 The `workflowRuntime` acts as the single orchestration path. It executes defined **Workflows**, which consist of configurable **Modules**.
 
-Workflow modules are migrating to `WorkflowModulePlugin` directories under
+Workflow modules are registered through `WorkflowModulePlugin` directories under
 `src/services/workflowRuntime/modules/plugins/`. Their `manifest.ts` files are
 the authoritative registration inputs; run `pnpm.cmd run module:generate-registry`
 after adding a plug-in and `pnpm.cmd run module:check-registry` in verification.
-The generated registry is machine-owned. `scan-folder` and `detect-frames` are
-the representative migrated plug-ins; legacy module factories remain compatible
-until their modules are migrated.
+The generated registry is machine-owned. Every active workflow module is
+registered through this registry; the generic legacy registration adapter remains
+only as unused compatibility infrastructure.
 
 ### Defined Workflows (`src/services/workflowRuntime/workflows/`)
 
