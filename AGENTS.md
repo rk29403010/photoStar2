@@ -260,6 +260,12 @@ pnpm.cmd run dev:desktop-runtime
   output whose source inputs and generator fully determine its content. Never
   hand-edit it; regenerate and verify it instead.
 - Reduce existing shared edit hotspots rather than accepting them as normal.
+
+### Photo editing tool plug-ins
+
+- A normal tool task owns `src/services/photoEditing/tools/plugins/<tool>/` only. It declares defaults, validation, controls/overlay when needed, browser preview, renderer, help, and tests there.
+- Run `pnpm.cmd run photo-tool:generate-registry` and `pnpm.cmd run photo-tool:check-registry`; never hand-edit `generatedPhotoEditToolPluginRegistry.ts`.
+- The host owns image transport, operation sequencing, masks, unavailable-recipe presentation and error containment. Legacy tools remain adapter-backed until Prompt 10.
   New extensions must avoid central switch statements and hand-maintained
   catalogues; move the relevant decision into the plug-in or a generated
   registry contract.

@@ -17,6 +17,9 @@ import type { PhotoEditOperation, PhotoEditTool } from "@contracts/core";
 import { PHOTO_EFFECT_DEFAULTS, PHOTO_EFFECT_KIND } from "@shared/photoEditing/effects";
 import { FOCUS_DEFAULTS } from "@shared/photoEditing/focus";
 import { RED_EYE_DEFAULTS } from "@shared/photoEditing/redEye";
+import { generatedPhotoEditToolPlugins } from "../../../services/photoEditing/generatedPhotoEditToolPluginRegistry.ts";
+import { PhotoEditToolRegistry } from "../../../services/photoEditing/photoEditToolRegistry.ts";
+import type { PhotoEditToolPlugin } from "../../../services/photoEditing/photoEditToolPlugin.ts";
 
 export type ToolDefinition = {
   id: PhotoEditTool;
@@ -32,7 +35,7 @@ export type ToolDefinition = {
   }>;
 };
 
-export const PHOTO_EDITOR_TOOLS: ToolDefinition[] = [
+const LEGACY_PHOTO_EDITOR_TOOLS: ToolDefinition[] = [
   {
     id: "adjust",
     label: "Tune image",
@@ -194,6 +197,27 @@ export const PHOTO_EDITOR_TOOLS: ToolDefinition[] = [
     ],
   },
 ];
+
+const ICONS: Record<string, LucideIcon> = { Aperture, Blend, CloudSun, Contrast, Crop, Focus, ImageUp, Palette, ScanEye, RotateCw, SlidersHorizontal, Sparkles };
+
+const LEGACY_ICON_NAMES: Record<string, string> = { adjust: 'SlidersHorizontal', blur: 'Blend', colour_pop: 'Palette', crop: 'Crop', dehaze: 'CloudSun', effects: 'Sparkles', focus: 'Aperture', grayscale: 'Contrast', red_eye: 'ScanEye', restore: 'ImageUp', rotate: 'RotateCw', sharpen: 'Focus' };
+function legacyPlugin(definition: ToolDefinition): PhotoEditToolPlugin {
+  return { id: definition.id, recipeVersion: 1, label: definition.label, icon: LEGACY_ICON_NAMES[definition.id] ?? 'ImageUp', group: 'legacy', defaults: definition.defaults, controls: definition.controls };
+}
+
+const registry = new PhotoEditToolRegistry();
+for (const plugin of generatedPhotoEditToolPlugins) { registry.registerPlugin(plugin); }
+for (const definition of LEGACY_PHOTO_EDITOR_TOOLS) { registry.registerLegacy(legacyPlugin(definition)); }
+
+function definitionFromPlugin(plugin: PhotoEditToolPlugin): ToolDefinition {
+  const icon = ICONS[plugin.icon];
+  if (!icon) { throw new Error(`photo edit tool '${plugin.id}' references unknown icon '${plugin.icon}'`); }
+  return { id: plugin.id, label: plugin.label, icon, defaults: plugin.defaults, controls: [...(plugin.controls ?? [])] };
+}
+
+/** The editor grid is registry-backed; migrated plug-ins win over legacy entries. */
+export const PHOTO_EDITOR_TOOLS: ToolDefinition[] = registry.list().map(definitionFromPlugin);
+export function getPhotoEditToolPlugin(toolId: string): PhotoEditToolPlugin | undefined { return registry.get(toolId); }
 
 export function createPhotoEditOperation(
   tool: ToolDefinition,

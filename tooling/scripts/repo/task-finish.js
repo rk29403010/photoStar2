@@ -30,10 +30,14 @@ async function main() {
         human('WAITING ON CI', `The code passed local checks and was handed to GitHub as PR #${refreshed.prNumber}.\nNo local processes remain. GitHub now owns the checks and will notify you. You do not need to do anything.\nLater status can be reconstructed after a restart.`, args.json);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const current = findThreadEntry(registry, { cwd });
-        current.latestFailure = { message, at: new Date().toISOString(), candidateCommit: current.lastCommit }; save(current);
+        // The registry may have been rewritten by an interrupted command. Retain
+        // the original error even when no refreshed entry can be found.
+        const current = findThreadEntry(registry, { cwd }) ?? entry;
+        current.latestFailure = { message, at: new Date().toISOString(), candidateCommit: current.lastCommit ?? snapshot.lastCommit };
+        save(current);
         human(isAuthError(message) ? 'ACTION NEEDED' : 'FAILED', isAuthError(message) ? 'GitHub authentication has expired. Sign in to GitHub, then ask Codex to finish the task again.' : `Local validation or publication failed: ${message}\nThe task remains safe and no background process remains. Codex can continue fixing it in this task.`, args.json);
         process.exitCode = 1;
     }
 }
-main().catch((error) => { human('ACTION NEEDED', error instanceof Error ? error.message : String(error), args.json); process.exitCode = 1; });
+if (process.argv[1]?.endsWith('task-finish.js')) { main().catch((error) => { human('FAILED', `Lifecycle finish failed: ${error instanceof Error ? error.message : String(error)}`, args.json); process.exitCode = 1; }); }
+export { human };

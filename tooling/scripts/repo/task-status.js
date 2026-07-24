@@ -22,13 +22,15 @@ const args = parseArgs(argv);
 function remote(prNumber, cwd) {
     if (!prNumber) {return null;}
     const result = runCommandSync({ command: tools.gh, args: ['pr', 'view', String(prNumber), '--json', 'state,headRefOid,baseRefOid,autoMergeRequest,statusCheckRollup'], cwd, encoding: 'utf8' });
-    return (result.status ?? 1) === 0 ? JSON.parse(result.stdout) : null;
+    if ((result.status ?? 1) !== 0) {return null;}
+    try {return JSON.parse(result.stdout || 'null');} catch {return null;}
 }
+function failedCheck(check) { return check && typeof check === 'object' && ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT'].includes(check.conclusion); }
 function classify(entry, remoteState) {
     if ((entry.publishedHead && entry.includedInMain) || remoteState?.state === 'MERGED') {return 'DONE';}
     if (entry.latestFailure?.candidateCommit === entry.publishedHead) {return 'FAILED';}
     const checks = remoteState?.statusCheckRollup ?? [];
-    const failed = checks.find((check) => ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT'].includes(check.conclusion));
+    const failed = checks.find(failedCheck);
     if (failed && remoteState?.headRefOid === entry.publishedHead) {return 'FAILED';}
     if (entry.publishedHead && remoteState?.state === 'OPEN' && remoteState.headRefOid === entry.publishedHead && remoteState.autoMergeRequest) {return 'WAITING ON CI';}
     return 'ACTION NEEDED';
@@ -42,8 +44,8 @@ function render(result, entry, remoteState) {
     console.log(`${result}\n${detail}\nDo you need to do anything: ${needsAction}`);
 }
 function getFailure(entry, remoteState) {
-    if (entry.latestFailure?.candidateCommit === entry.publishedHead) {return entry.latestFailure.message;}
-    return (remoteState?.statusCheckRollup ?? []).find((check) => ['FAILURE', 'ERROR'].includes(check.conclusion))?.name;
+    if (entry.latestFailure?.candidateCommit === entry.publishedHead) {return typeof entry.latestFailure.message === 'string' ? entry.latestFailure.message : undefined;}
+    return (remoteState?.statusCheckRollup ?? []).find((check) => failedCheck(check))?.name;
 }
 function getDetail(result, entry, failure) {
     if (result === 'DONE') {return 'The code passed all checks and has merged into main. Nothing else is required.';}
@@ -75,4 +77,5 @@ function getRecommendedAction(result) {
     if (result === 'DONE') {return 'No action required.';}
     return 'Resolve the stored task blocker, then finish this task again.';
 }
-try {main();} catch (error) {console.log(`ACTION NEEDED\n${error instanceof Error ? error.message : String(error)}\nDo you need to do anything: Yes`); process.exitCode = 1;}
+if (process.argv[1]?.endsWith('task-status.js')) { try {main();} catch (error) {console.log(`FAILED\nLifecycle status failed: ${error instanceof Error ? error.message : String(error)}\nDo you need to do anything: No`); process.exitCode = 1;} }
+export { classify, getDetail, getFailure, render };

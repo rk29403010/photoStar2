@@ -21,6 +21,7 @@ import { buildPhotoAutomaticSuggestions } from "./photoAutomatic";
 import type { PhotoAutomaticSuggestion } from "./photoAutomatic";
 import {
   PHOTO_EDITOR_TOOLS,
+  getPhotoEditToolPlugin,
   type ToolDefinition,
 } from "./photoEditorTools";
 import type { EditorViewProps } from "./PhotoEditorWorkspace";
@@ -307,7 +308,11 @@ function OperationControls(props: OperationControlsProps) {
     (tool) => tool.id === props.operation.tool,
   );
   if (!definition) {
-    return null;
+    return <p className="text-sm text-content-secondary">{props.operation.name} is unavailable. Its recipe data is preserved until its tool plug-in is installed.</p>;
+  }
+  const plugin = getPhotoEditToolPlugin(props.operation.tool);
+  if (plugin?.Controls) {
+    return <plugin.Controls asset={props.asset} operation={props.operation} sourceUrl={props.sourceUrl} onCommit={props.onCommit} onPreviewChange={props.onPreviewChange} />;
   }
   if (props.operation.tool === "crop") {
     const update = (operation: PhotoEditOperation) => {
@@ -325,7 +330,7 @@ function OperationControls(props: OperationControlsProps) {
     <div className="space-y-3">
       <ToolAutomaticAction {...automaticProps} />
       <ToolSpecificOptions {...automaticProps} definition={definition} />
-      {props.operation.tool !== "rotate" && <MaskTargetControl {...props} />}
+      {(plugin?.capabilities?.maskCompatible ?? props.operation.tool !== "rotate") && <MaskTargetControl {...props} />}
     </div>
   );
 }
