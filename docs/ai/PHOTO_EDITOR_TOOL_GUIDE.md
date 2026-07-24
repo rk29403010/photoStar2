@@ -30,7 +30,7 @@ Use the existing tool shape. Add only the files that the tool needs.
 | Automatic suggestions | `src/shared/photoEditing/automatic.ts`, `src/ui/components/photo-editor/photoAutomatic.ts` | Add conservative photo-level suggestions only when the tool has a safe, useful recommendation. |
 | Tests | `tests/core/photo-edit-*.test.cjs`, `tests/ui/photo-editor-*.test.cjs`, `tests/repo/photo-editor-wiring.test.mjs` | Cover pixels/recipes, UI wiring, and required registration points. |
 
-Do not create a separate side channel for a tool. Its persisted recipe belongs in the normal `PhotoEditOperation` stack, so it appears in Layers & changes, works with styles and masks where applicable, and can be disabled, reordered, or deleted like every other edit. The host owns transport, sequencing, masks and local error containment; a plug-in owns identity, defaults, validation, controls, overlays, preview, rendering and help. `grayscale` is migrated; the other eleven tools remain on the compatibility adapter until Prompt 10.
+Do not create a separate side channel for a tool. Its persisted recipe belongs in the normal `PhotoEditOperation` stack, so it appears in Layers & changes, works with styles and masks where applicable, and can be disabled, reordered, or deleted like every other edit. The host owns transport, sequencing, masks and local error containment; a plug-in owns identity, defaults, validation, controls, overlays, preview, rendering and help. All known tools are registered through the generated plug-in registry; only unused compatibility infrastructure remains for Prompt 10.
 
 ## Main entry points and data flow
 

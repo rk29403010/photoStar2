@@ -7,16 +7,11 @@ import type {
   PhotoEditStyle,
 } from "@contracts/core";
 import { Button, Checkbox, IconButton, Input, Select } from "../Primitives";
-import { PhotoColourPopOptions } from "./PhotoColourPopOptions";
 import { PhotoAutomaticPanel } from "./PhotoAutomaticPanel";
 import { PhotoCropOptions } from "./PhotoCropOptions";
 import { PhotoEditorToolBoundary } from "./PhotoEditorToolBoundary";
-import { PhotoEffectsOptions } from "./PhotoEffectsOptions";
-import { PhotoFocusOptions } from "./PhotoFocusOptions";
-import { PhotoRedEyeOptions } from "./PhotoRedEyeOptions";
 import { PhotoMaskPanel } from "./PhotoMaskPanel";
-import { PhotoRotateOptions } from "./PhotoRotateOptions";
-import { PhotoTuneOptions } from "./PhotoTuneOptions";
+import { renderPhotoEditToolControls } from "./photoEditToolUi";
 import { buildPhotoAutomaticSuggestions } from "./photoAutomatic";
 import type { PhotoAutomaticSuggestion } from "./photoAutomatic";
 import {
@@ -199,63 +194,6 @@ function MaskTargetControl(props: OperationControlsProps) {
 function ToolSpecificOptions(
   props: AutomaticOperationControlsProps & { readonly definition: ToolDefinition },
 ): ReactNode {
-  if (props.operation.tool === "rotate") {
-    return (
-      <PhotoRotateOptions
-        operation={props.operation}
-        onCommit={props.onCommit}
-        onPreviewChange={props.onPreviewChange}
-      />
-    );
-  }
-  if (props.operation.tool === "adjust") {
-    return (
-      <PhotoTuneOptions
-        operation={props.operation}
-        onCommit={props.onCommit}
-        onPreviewChange={props.onPreviewChange}
-      />
-    );
-  }
-  if (props.operation.tool === "colour_pop") {
-    return (
-      <PhotoColourPopOptions
-        operation={props.operation}
-        sourceUrl={props.sourceUrl}
-        onCommit={props.onCommit}
-        onPreviewChange={props.onPreviewChange}
-      />
-    );
-  }
-  if (props.operation.tool === "effects") {
-    return (
-      <PhotoEffectsOptions
-        operation={props.operation}
-        onCommit={props.onCommit}
-        onPreviewChange={props.onPreviewChange}
-      />
-    );
-  }
-  if (props.operation.tool === "focus") {
-    return (
-      <PhotoFocusOptions
-        operation={props.operation}
-        onCommit={props.onCommit}
-        onPreviewChange={props.onPreviewChange}
-      />
-    );
-  }
-  if (props.operation.tool === "red_eye") {
-    return (
-      <PhotoRedEyeOptions
-        asset={props.asset}
-        operation={props.operation}
-        sourceUrl={props.sourceUrl}
-        onCommit={props.onCommit}
-        onPreviewChange={props.onPreviewChange}
-      />
-    );
-  }
   return <GenericOperationControls {...props} />;
 }
 
@@ -313,6 +251,10 @@ function OperationControls(props: OperationControlsProps) {
   const plugin = getPhotoEditToolPlugin(props.operation.tool);
   if (plugin?.Controls) {
     return <plugin.Controls asset={props.asset} operation={props.operation} sourceUrl={props.sourceUrl} onCommit={props.onCommit} onPreviewChange={props.onPreviewChange} />;
+  }
+  const customControls = renderPhotoEditToolControls({ asset: props.asset, operation: props.operation, sourceUrl: props.sourceUrl, onCommit: props.onCommit, onPreviewChange: props.onPreviewChange });
+  if (customControls) {
+    return <div className="space-y-3"><ToolAutomaticAction {...automaticProps} />{customControls}{plugin?.capabilities?.maskCompatible && <MaskTargetControl {...props} />}</div>;
   }
   if (props.operation.tool === "crop") {
     const update = (operation: PhotoEditOperation) => {

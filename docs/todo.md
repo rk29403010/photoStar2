@@ -2,8 +2,8 @@
 
 ## 2026-07-24 - Migrate remaining photo-editing tools
 
-- `grayscale` is registered through the generated photo-edit tool plug-in host.
-  Migrate the remaining eleven legacy adapter tools one per task before Prompt
+- All known photo-editing tools are registered through the generated plug-in host.
+  Prompt 10 may remove the unused compatibility adapter after its migration
   10 removes the compatibility layer.
 
 ## 2026-07-22 - Migrate remaining workflow modules to the plug-in contract

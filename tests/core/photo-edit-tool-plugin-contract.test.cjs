@@ -7,6 +7,7 @@ test('photo edit registry validates generated plug-ins and gives them legacy pre
     const { generatedPhotoEditToolPlugins } = await import('../../dist/core/src/services/photoEditing/generatedPhotoEditToolPluginRegistry.js');
     const registry = new PhotoEditToolRegistry();
     for (const plugin of generatedPhotoEditToolPlugins) { registry.registerPlugin(plugin); }
+    assert.deepEqual(generatedPhotoEditToolPlugins.map((plugin) => plugin.id).sort(), ['adjust', 'blur', 'colour_pop', 'crop', 'dehaze', 'effects', 'focus', 'grayscale', 'red_eye', 'restore', 'rotate', 'sharpen']);
     assert.equal(registry.get('grayscale').label, 'Black & white');
     assert.equal(registry.registerLegacy({ id: 'grayscale', recipeVersion: 1, label: 'Old', icon: 'Contrast', group: 'legacy', defaults: {} }), false);
     assert.throws(() => registry.registerPlugin({ id: '', recipeVersion: 0, label: '', icon: '', group: '', defaults: {} }), /photoEditToolPlugin.id/);
