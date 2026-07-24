@@ -43,6 +43,10 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 - `thread:new-integration` and `thread:new-leaf` derive integration bases from
   task state; `task:overlap` compares active branch diffs without mutation.
   Main-push automation advances only clean, explicitly labelled queued PRs.
+- `task:start` creates or resumes an editor-neutral registered worktree, and
+  `task:register` records a suitable editor-created worktree. Git and the task
+  registry, rather than an editor capability claim or directory convention,
+  discover the active workspace.
 
 ### TypeScript tooling
 
