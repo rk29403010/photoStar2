@@ -5,7 +5,6 @@ import { applyPhotoEffectPixels } from '../../shared/photoEditing/effects.ts';
 import { applyFocusPixels } from '../../shared/photoEditing/focus.ts';
 import { applyRedEyePixels } from '../../shared/photoEditing/redEye.ts';
 import { applyTuneImagePixels } from '../../shared/photoEditing/tune.ts';
-import { generatedPhotoEditToolPlugins } from './generatedPhotoEditToolPluginRegistry.ts';
 import { PhotoEditToolRegistry } from './photoEditToolRegistry.ts';
 import type { PhotoEditToolRenderPipeline } from './photoEditToolPlugin.ts';
 
@@ -13,9 +12,7 @@ type RenderOptions = {
     maxWidth?: number;
 };
 
-type FilterTool = 'blur' | 'grayscale' | 'restore' | 'sharpen';
 type FilterPipeline = ReturnType<typeof sharp>;
-type FilterHandler = (pipeline: FilterPipeline, operation: PhotoEditOperation) => FilterPipeline;
 type RawImage = { data: Buffer; width: number; height: number };
 const ROTATION_FILL = { transparent: 0, black: 1, white: 2 } as const;
 
@@ -101,7 +98,7 @@ async function clippedRotationOverlay(params: {
     return { data, left, top };
 }
 
-async function applyRotation(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyRotation(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const angle = numberValue(operation, 'angle', 0);
     const flipHorizontal = booleanValue(operation, 'flipHorizontal', false);
     const flipVertical = booleanValue(operation, 'flipVertical', false);
@@ -277,7 +274,7 @@ function recoverDehazedPixels(image: RawImage, atmosphere: readonly number[], tr
     return output;
 }
 
-async function applyDehaze(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyDehaze(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const strength = clamp(numberValue(operation, 'strength', 0.45), 0, 1);
     if (strength === 0) {return input;}
     const radiusPercent = clamp(numberValue(operation, 'radiusPercent', 1.5), 0.5, 3);
@@ -290,30 +287,30 @@ async function applyDehaze(input: Buffer, operation: PhotoEditOperation): Promis
     return encodeRgba({ ...image, data: recoverDehazedPixels(image, atmosphere, transmission, strength) });
 }
 
-async function applyColourPop(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyColourPop(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const image = await decodeRgba(input);
     return encodeRgba({ ...image, data: Buffer.from(applyColourPopPixels(image.data, operation.values)) });
 }
 
-async function applyEffects(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyEffects(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const image = await decodeRgba(input);
     const data = Buffer.from(applyPhotoEffectPixels(image.data, image.width, image.height, operation.values));
     return encodeRgba({ ...image, data });
 }
 
-async function applyFocus(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyFocus(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const image = await decodeRgba(input);
     const data = Buffer.from(applyFocusPixels(image.data, image.width, image.height, operation.values));
     return encodeRgba({ ...image, data });
 }
 
-async function applyRedEye(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyRedEye(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const image = await decodeRgba(input);
     const data = Buffer.from(applyRedEyePixels(image.data, image.width, image.height, operation.values));
     return encodeRgba({ ...image, data });
 }
 
-async function applyCrop(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyCrop(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const metadata = await sharp(input).metadata();
     if (!metadata.width || !metadata.height) {return input;}
     const x = clamp(numberValue(operation, 'x', 0), 0, 0.99);
@@ -325,7 +322,7 @@ async function applyCrop(input: Buffer, operation: PhotoEditOperation): Promise<
     return sharp(input).extract({ left, top, width, height }).png().toBuffer();
 }
 
-async function applyAdjust(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+export async function applyAdjust(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
     const image = await decodeRgba(input);
     return encodeRgba({ ...image, data: Buffer.from(applyTuneImagePixels(image.data, operation.values)) });
 }
@@ -343,41 +340,29 @@ function applyRestore(pipeline: FilterPipeline, operation: PhotoEditOperation): 
         .sharpen({ sigma: clamp(numberValue(operation, 'detail', 0.8), 0.01, 5) });
 }
 
-const FILTER_HANDLERS: Record<FilterTool, FilterHandler> = {
-    blur: (pipeline, operation) => pipeline.blur(clamp(numberValue(operation, 'sigma', 2), 0.3, 100)),
-    grayscale: (pipeline) => pipeline.greyscale(),
-    restore: applyRestore,
-    sharpen: (pipeline, operation) => pipeline.sharpen({ sigma: clamp(numberValue(operation, 'sigma', 1), 0.01, 10) }),
-};
+export async function applyBlur(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> { return sharp(input).blur(clamp(numberValue(operation, 'sigma', 2), 0.3, 100)).png().toBuffer(); }
+export async function applyRestoreExact(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> { return applyRestore(sharp(input), operation).png().toBuffer(); }
+export async function applySharpen(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> { return sharp(input).sharpen({ sigma: clamp(numberValue(operation, 'sigma', 1), 0.01, 10) }).png().toBuffer(); }
 
 async function applyOperation(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
-    const plugin = photoEditToolRegistry.get(operation.tool);
+    const plugin = (await getPhotoEditToolRegistry()).get(operation.tool);
     if (plugin?.renderExact) {
         plugin.validateOperation?.(operation);
         return plugin.renderExact(input, operation, (value) => sharp(value) as unknown as PhotoEditToolRenderPipeline);
     }
-    return applyLegacyOperation(input, operation);
-}
-
-async function applyLegacyOperation(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
-    if (operation.tool === 'adjust') {return applyAdjust(input, operation);}
-    if (operation.tool === 'crop') {return applyCrop(input, operation);}
-    if (operation.tool === 'rotate') {
-        return applyRotation(input, operation);
-    }
-    if (operation.tool === 'dehaze') {return applyDehaze(input, operation);}
-    if (operation.tool === 'colour_pop') {return applyColourPop(input, operation);}
-    if (operation.tool === 'effects') {return applyEffects(input, operation);}
-    if (operation.tool === 'focus') {return applyFocus(input, operation);}
-    if (operation.tool === 'red_eye') {return applyRedEye(input, operation);}
-
-    const handler = FILTER_HANDLERS[operation.tool as FilterTool];
     // Persisted recipes can contain a tool whose plug-in is absent. Preserve and skip it.
-    return handler ? handler(sharp(input), operation).png().toBuffer() : input;
+    return input;
 }
 
-const photoEditToolRegistry = new PhotoEditToolRegistry();
-for (const plugin of generatedPhotoEditToolPlugins) { photoEditToolRegistry.registerPlugin(plugin); }
+let photoEditToolRegistry: PhotoEditToolRegistry | undefined;
+async function getPhotoEditToolRegistry(): Promise<PhotoEditToolRegistry> {
+    if (!photoEditToolRegistry) {
+        photoEditToolRegistry = new PhotoEditToolRegistry();
+        const { generatedPhotoEditToolPlugins } = await import('./generatedPhotoEditToolPluginRegistry.ts');
+        for (const plugin of generatedPhotoEditToolPlugins) { photoEditToolRegistry.registerPlugin(plugin); }
+    }
+    return photoEditToolRegistry;
+}
 
 function shapeMarkup(mask: PhotoEditMask, width: number, height: number, fill: string): string {
     const box = mask.box ?? { x: 0.2, y: 0.15, width: 0.6, height: 0.7 };
@@ -432,8 +417,8 @@ export async function renderPhotoEdit(
     for (const operation of operations) {
         if (!operation.enabled) {continue;}
         const mask = operation.maskId ? masksById.get(operation.maskId) : undefined;
-        const plugin = photoEditToolRegistry.get(operation.tool);
-        current = mask && (plugin?.capabilities?.maskCompatible ?? (operation.tool !== 'crop' && operation.tool !== 'rotate'))
+        const plugin = (await getPhotoEditToolRegistry()).get(operation.tool);
+        current = mask && plugin?.capabilities?.maskCompatible
             ? await applyMaskedOperation(current, operation, mask)
             : await applyOperation(current, operation);
     }
