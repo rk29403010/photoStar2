@@ -64,6 +64,45 @@ function clearSessionPid() {
     writeSession(nextSession);
 }
 
+export function isMatchingManagedSession(session, pid) {
+    return Number.isInteger(pid) && pid > 0 && session?.pid === pid;
+}
+
+export function attachManagedSessionLifecycle({
+    child,
+    scriptName,
+    updateSessionRecord,
+    readSessionRecord,
+    clearSessionRecord,
+    onRegistered = () => {},
+}) {
+    let registered = false;
+
+    const register = () => {
+        if (registered || !Number.isInteger(child.pid)) {
+            return;
+        }
+
+        registered = true;
+        updateSessionRecord({
+            lastScript: scriptName,
+            command: scriptName,
+            pid: child.pid,
+            startedAt: new Date().toISOString(),
+        });
+        onRegistered();
+    };
+    const clearIfCurrent = () => {
+        if (isMatchingManagedSession(readSessionRecord(), child.pid)) {
+            clearSessionRecord();
+        }
+    };
+
+    child.once('spawn', register);
+    child.once('error', clearIfCurrent);
+    child.once('exit', clearIfCurrent);
+}
+
 function isManagedScript(scriptName) {
     return Object.hasOwn(MANAGED_DEV_SCRIPTS, scriptName);
 }
@@ -209,17 +248,12 @@ function spawnManagedScript(scriptName) {
 
 function runManagedScript(scriptName) {
     const child = spawnManagedScript(scriptName);
-    updateSession({
-        lastScript: scriptName,
-        pid: child.pid,
-        startedAt: new Date().toISOString(),
-    });
-
-    child.on('exit', () => {
-        const session = readSession();
-        if (session?.pid === child.pid) {
-            clearSessionPid();
-        }
+    attachManagedSessionLifecycle({
+        child,
+        scriptName,
+        updateSessionRecord: updateSession,
+        readSessionRecord: readSession,
+        clearSessionRecord: clearSessionPid,
     });
 
     child.on('error', (error) => {
@@ -285,13 +319,14 @@ function resumeManagedSession(requestedScript) {
         env: managedEnv,
     });
     const child = spawn(invocation.command, invocation.args, invocation.options);
-
-    updateSession({
-        lastScript: scriptToRun,
-        pid: child.pid,
-        startedAt: new Date().toISOString(),
+    attachManagedSessionLifecycle({
+        child,
+        scriptName: scriptToRun,
+        updateSessionRecord: updateSession,
+        readSessionRecord: readSession,
+        clearSessionRecord: clearSessionPid,
+        onRegistered: () => child.unref(),
     });
-    child.unref();
     console.log(`[dev-session] Resumed ${scriptToRun} in the background.`);
 }
 

@@ -19,8 +19,9 @@ worktrees, runtimes, ports, generated files, or state records.
 ## Decision
 
 1. An independent task uses one registered task capsule: repository-neutral
-   task metadata, one Git worktree, one branch, and an optional task-owned
-   runtime. Editor/agent identity is a transferable ownership lease.
+   task metadata, one neutral branch, one active Git worktree, and an optional
+   task-owned runtime. Editor/agent identity is a transferable ownership lease;
+   workspace capability is not encoded as editor policy.
 2. Git's worktree list, refs, and commit containment are authoritative. The task
    registry is recoverable metadata and must be auditable and reconcilable.
 3. Repository tooling must accept both repository-local and externally managed

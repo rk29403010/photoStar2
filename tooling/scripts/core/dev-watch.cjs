@@ -3,6 +3,7 @@ const { existsSync, watch } = require('node:fs');
 const { extname, relative, resolve } = require('node:path');
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
+const CORE_DEV_TSCONFIG = 'tooling/config/tsconfig.core.dev.json';
 const LOG_PREFIX = '\x1b[35m[core-watch]\x1b[0m';
 const CLEAN_BUILD_MESSAGE = 'Found 0 errors. Watching for file changes.';
 const ANSI_ESCAPE_PATTERN = new RegExp(String.raw`\u001b\[[0-9;]*m`, 'g');
@@ -16,7 +17,7 @@ const WATCH_ROOTS = [
 ];
 const WATCH_FILES = [
     resolve(REPO_ROOT, 'package.json'),
-    resolve(REPO_ROOT, 'tooling', 'config', 'tsconfig.core.json'),
+    resolve(REPO_ROOT, CORE_DEV_TSCONFIG),
 ];
 const watchers = [];
 let runtimeProcess = null;
@@ -322,7 +323,7 @@ function spawnCompiler() {
         [
             getTscWatchEntry(),
             '-p',
-            'tooling/config/tsconfig.core.json',
+            CORE_DEV_TSCONFIG,
             '--noClear',
         ],
         {

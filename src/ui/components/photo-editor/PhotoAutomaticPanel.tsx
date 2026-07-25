@@ -10,6 +10,7 @@ import {
 } from "./photoAutomatic";
 import type { PhotoAutomaticSuggestion } from "./photoAutomatic";
 import { usePhotoAutomaticAnalysis } from "./usePhotoAutomaticAnalysis";
+import { getPhotoEditToolPlugin } from "./photoEditorTools";
 
 type PhotoAutomaticPanelProps = {
   readonly asset: Asset;
@@ -92,8 +93,8 @@ function ReadyAutomaticPanel(props: {
 }
 
 export function PhotoAutomaticPanel(props: PhotoAutomaticPanelProps) {
-  const semanticGeometrySafe = !props.operations.some(
-    (operation) => operation.enabled && (operation.tool === "crop" || operation.tool === "rotate"),
+  const semanticGeometrySafe = !props.operations.some((operation) =>
+    operation.enabled && getPhotoEditToolPlugin(operation.tool)?.capabilities?.geometryChanges,
   );
   const automatic = usePhotoAutomaticAnalysis(props.sourceUrl, props.asset, semanticGeometrySafe);
   const suggestions = useMemo(

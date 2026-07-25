@@ -200,7 +200,7 @@ function ToolSpecificOptions(
 function toolAutomaticSuggestion(
   props: AutomaticOperationControlsProps,
 ): PhotoAutomaticSuggestion | null {
-  if (!props.automatic.analysis || props.operation.tool === "adjust") {
+  if (!props.automatic.analysis) {
     return null;
   }
   return buildPhotoAutomaticSuggestions(
@@ -342,7 +342,7 @@ function ToolControlsRegion(
   );
   const semanticGeometrySafe = !props.history.present.operations
     .slice(0, Math.max(0, selectedIndex))
-    .some((operation) => operation.enabled && (operation.tool === "crop" || operation.tool === "rotate"));
+    .some((operation) => operation.enabled && getPhotoEditToolPlugin(operation.tool)?.capabilities?.geometryChanges);
   return (
     <PhotoEditorToolBoundary
       key={`${props.selected.id}-controls`}
@@ -554,13 +554,10 @@ function StylesAccordion(props: {
         </IconButton>
       </div>
       {editor.styles.map((style) => (
-        <Button
-          key={style.id}
-          variant="secondary"
-          onClick={() => editor.history.replace(instantiatePhotoEditStyle(style))}
-        >
-          {style.name}
-        </Button>
+        <div key={style.id} className="flex flex-col gap-1">
+          <Button variant="secondary" onClick={() => editor.history.replace(instantiatePhotoEditStyle(style))}>{style.name}</Button>
+          {style.unavailableOperationIds?.length ? <p className="text-xs text-content-secondary">{style.unavailableOperationIds.length} unavailable operation{style.unavailableOperationIds.length === 1 ? "" : "s"} retained</p> : null}
+        </div>
       ))}
     </AccordionSection>
   );

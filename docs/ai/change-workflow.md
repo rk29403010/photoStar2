@@ -2,13 +2,14 @@
 
 This is the editor-neutral operating guide for making and shipping changes to
 PhotoStar2. Codex and Antigravity use the same Git worktrees, task registry,
-quality policy, runtime ownership rules, and completion language.
+quality policy, runtime ownership rules, and completion language. Repository
+policy does not encode editor capability claims because they can change.
 
 ## Authoritative vocabulary
 
 - **Task capsule:** the registered unit for one independent task: exactly one
-  worktree, one neutral branch, one task record, and an optional task-owned
-  runtime.
+  neutral branch, one task record, one active Git worktree, and an optional
+  task-owned runtime.
 - **Host:** the stable shell that discovers and orchestrates plug-ins solely
   through their extension contract.
 - **Plug-in:** a self-contained feature contribution (including a workflow
@@ -57,6 +58,7 @@ or lifecycle rules.
   inputs and generator, regenerate, and test the result. Do not edit generated
   registry files manually.
 - Photo-editing tool tasks own exactly one directory under `src/services/photoEditing/tools/plugins/<tool>/`; host, registry, and legacy-adapter changes require an assigned integration task. Use `photo-tool:new`, then generate and check the registry.
+- Automatic photo analysis remains host-owned and neutral; each photo-tool plug-in may independently provide reviewable suggestions with its own defaults, migration, validation, ordering, and geometry-safety rules. Saved styles resolve those operations through the same registry, retaining unavailable operations visibly instead of deleting or reinterpreting them.
 
 ## Publication and reconciliation lifecycle
 
@@ -163,17 +165,46 @@ references a file which exists only on the installing branch.
 
 ## Starting and moving a task between editors
 
-- Use one registered task capsule per independent task: one branch, one
-  worktree, one task record, and an optional runtime.
+Task identity is its neutral branch plus its registered task record—not the
+editor, chat, directory, worktree, clone, or process. One task is bound to one
+active workspace at a time. Never actively edit the same task branch in two
+workspaces. Follow-up work remains in that task unless the user explicitly
+asks to split it. Branch names, task IDs, quality gates, publication, and
+status semantics are editor-neutral; an editor-specific branch prefix is never
+required.
+
+Create or resume a task worktree through repository tooling:
+
+```powershell
+pnpm.cmd run task:start -- --task "<task>" --workspace worktree
+```
+
+It safely fast-forwards the primary checkout's `main`, creates or resumes the
+neutral task branch, creates/registers an isolated worktree, and prints its
+actual path. It supports multiple independent task worktrees. To choose a
+non-default location, pass `--path "<actual worktree path>"`; no editor or
+directory naming convention is required.
+
+An editor may also create or open a suitable worktree itself, then register it
+from that worktree:
+
+```powershell
+pnpm.cmd run task:register -- --task "<task>" --workspace worktree
+```
+
+Registration and startup refuse dirty workspace transitions, duplicate active
+task/branch bindings, and a workspace already bound to another task. `--json`
+provides task ID, branch, actual workspace path, and status for agents. An
+editor handoff simply resumes the same registered worktree; task ID, branch,
+and lifecycle do not change.
+
 - Register the task once. Record the current editor/agent as mutable ownership
   metadata; do not encode it in the task identity.
-- An editor taking over an existing task must inspect task status and the Git
-  worktree before editing. It updates the owner/lease rather than creating a
-  duplicate task.
+- An editor taking over an existing task must inspect task status and Git before
+  editing. It resumes the registered worktree rather than creating a duplicate
+  task.
 - Worktree paths may be repository-local or editor-managed. All commands must
   use the actual path reported by Git/task status.
-- Branch names should describe the change. An editor prefix is optional local
-  information, never a lifecycle requirement.
 - Generated content belongs inside the task worktree or a configured disposable
   directory and must stay ignored. Do not share writable generated output
   between concurrent tasks.
