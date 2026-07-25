@@ -45,6 +45,8 @@ export type PhotoEditOperation = {
     enabled: boolean;
     maskId?: string | null;
     values: Record<string, number | boolean>;
+    /** Version of the owning plug-in recipe. Absent values are legacy v1 recipes. */
+    recipeVersion?: number;
 };
 
 export type PhotoEditDocument = {
@@ -65,6 +67,8 @@ export type PhotoEditStyle = {
     name: string;
     operations: PhotoEditOperation[];
     masks: PhotoEditMask[];
+    /** Operations retained verbatim because their plug-in is not installed. */
+    unavailableOperationIds?: string[];
     createdAt: string;
     updatedAt: string;
 };

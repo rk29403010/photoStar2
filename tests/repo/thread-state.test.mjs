@@ -152,6 +152,12 @@ test('getManagedSessionState ignores stale session pids', () => {
     );
 });
 
+test('getManagedSessionState safely ignores incomplete or malformed session records', () => {
+    assert.equal(getManagedSessionState(null), 'none');
+    assert.equal(getManagedSessionState({ lastScript: 'dev:desktop-runtime' }), 'none');
+    assert.equal(getManagedSessionState({ pid: 'not-a-pid', lastScript: 'dev:desktop-runtime' }, () => true), 'none');
+});
+
 test('upsertThreadEntry inserts a new entry and updates by cwd', () => {
     const registry = createEmptyThreadRegistry();
 

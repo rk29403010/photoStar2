@@ -11,7 +11,8 @@ transport, unavailable-recipe handling and error containment.
 
 ## Compatibility
 
-Generated plug-ins register before legacy adapters. `grayscale` is migrated in
-this change; eleven existing tools remain legacy-compatible until Prompt 10.
+All known tools now register through the generated plug-in registry. The
+remaining compatibility infrastructure is unused and its deletion belongs to a
+dedicated architecture-cleanup task after a final audit.
 Unknown recipe IDs are retained and rendered as unavailable rather than removed
 or reinterpreted.

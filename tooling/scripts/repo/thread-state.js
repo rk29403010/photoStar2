@@ -367,7 +367,7 @@ function isPidAlive(pid) {
 }
 
 export function getManagedSessionState(session, isAlive = isPidAlive) {
-    if (!session?.pid || !isAlive(session.pid)) {
+    if (!Number.isInteger(session?.pid) || session.pid <= 0 || !isAlive(session.pid)) {
         return 'none';
     }
 

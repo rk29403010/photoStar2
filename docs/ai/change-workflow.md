@@ -58,6 +58,7 @@ or lifecycle rules.
   inputs and generator, regenerate, and test the result. Do not edit generated
   registry files manually.
 - Photo-editing tool tasks own exactly one directory under `src/services/photoEditing/tools/plugins/<tool>/`; host, registry, and legacy-adapter changes require an assigned integration task. Use `photo-tool:new`, then generate and check the registry.
+- Automatic photo analysis remains host-owned and neutral; each photo-tool plug-in may independently provide reviewable suggestions with its own defaults, migration, validation, ordering, and geometry-safety rules. Saved styles resolve those operations through the same registry, retaining unavailable operations visibly instead of deleting or reinterpreting them.
 
 ## Publication and reconciliation lifecycle
 

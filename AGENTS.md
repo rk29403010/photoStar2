@@ -264,6 +264,8 @@ pnpm.cmd run dev:desktop-runtime
 ### Photo editing tool plug-ins
 
 - A normal tool task owns `src/services/photoEditing/tools/plugins/<tool>/` only. It declares defaults, validation, controls/overlay when needed, browser preview, renderer, help, and tests there.
+- Automatic suggestion behaviour, recipe migration, validation, geometry safety, and composition policy belong to the owning tool plug-in. Hosts aggregate registry declarations and must not add tool-ID branches.
+- Saved styles are ordinary database data. Resolve persisted operations through the registry, retain unavailable operations visibly and verbatim, and never generate source plug-ins for user styles.
 - Run `pnpm.cmd run photo-tool:generate-registry` and `pnpm.cmd run photo-tool:check-registry`; never hand-edit `generatedPhotoEditToolPluginRegistry.ts`.
 - The host owns image transport, operation sequencing, masks, unavailable-recipe presentation and error containment. Legacy tools remain adapter-backed until Prompt 10.
   New extensions must avoid central switch statements and hand-maintained

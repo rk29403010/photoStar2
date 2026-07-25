@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { countSubstantiveLines } from '../../tooling/scripts/repo/complexity-report.js';
 import { makeWatchlistRow } from '../../tooling/scripts/repo/boundary-watchlist.js';
 import {
+    attachManagedSessionLifecycle,
     buildLegacyManagedProcessCleanupInvocation,
     buildManagedPortCleanupInvocation,
     buildManagedResumeInvocation,
@@ -14,7 +15,9 @@ import {
     getManagedScriptConfig,
     getManagedSpawnOptions,
     getResumeScript,
+    isMatchingManagedSession,
 } from '../../tooling/scripts/repo/dev-session.js';
+import { EventEmitter } from 'node:events';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');
@@ -62,6 +65,47 @@ test('makeWatchlistRow summarizes near-boundary file risk from file and function
 test('getResumeScript prefers persisted script and falls back to desktop runtime', () => {
     assert.equal(getResumeScript({ lastScript: 'dev:desktop-runtime:debug' }), 'dev:desktop-runtime:debug');
     assert.equal(getResumeScript(null), 'dev:desktop-runtime');
+});
+
+test('managed runtime session records a spawned PID and command, then clears only its own completed session', () => {
+    const child = new EventEmitter();
+    child.pid = 4812;
+    let session = null;
+    let clears = 0;
+
+    attachManagedSessionLifecycle({
+        child,
+        scriptName: 'dev:desktop-runtime',
+        updateSessionRecord: (patch) => { session = patch; },
+        readSessionRecord: () => session,
+        clearSessionRecord: () => { clears += 1; },
+    });
+    child.emit('spawn');
+
+    assert.equal(session.pid, 4812);
+    assert.equal(session.command, 'dev:desktop-runtime');
+    assert.equal(isMatchingManagedSession(session, 4812), true);
+    child.emit('exit', 0, null);
+    assert.equal(clears, 1);
+});
+
+test('managed runtime session does not leave an incomplete record when startup fails', () => {
+    const child = new EventEmitter();
+    child.pid = undefined;
+    let writes = 0;
+    let clears = 0;
+
+    attachManagedSessionLifecycle({
+        child,
+        scriptName: 'dev:desktop-runtime',
+        updateSessionRecord: () => { writes += 1; },
+        readSessionRecord: () => null,
+        clearSessionRecord: () => { clears += 1; },
+    });
+    child.emit('error', new Error('spawn failed'));
+
+    assert.equal(writes, 0);
+    assert.equal(clears, 0);
 });
 
 test('managed dev session spawn options keep shell disabled by default', () => {

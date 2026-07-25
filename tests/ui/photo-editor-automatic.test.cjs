@@ -108,3 +108,55 @@ test('applying automatic suggestions updates matching tools and preserves unrela
         globalThis.crypto.randomUUID = originalRandomUUID;
     }
 });
+
+test('automatic host collects registered providers deterministically and contains one failing provider', async () => {
+    const { buildPhotoAutomaticSuggestions } = await import('../../src/ui/components/photo-editor/photoAutomatic.ts');
+    const providers = [
+        { id: 'no_suggestion', recipeVersion: 1, label: 'None', icon: 'None', group: 'test', defaults: {} },
+        { id: 'broken', recipeVersion: 1, label: 'Broken', icon: 'Broken', group: 'test', defaults: {}, suggest: () => { throw new Error('isolated'); } },
+        { id: 'later', recipeVersion: 1, label: 'Later', icon: 'Later', group: 'test', defaults: {}, suggest: () => ({ id: 'later', label: 'Later', name: 'Later', rationale: '', confidence: 0.8, values: {}, order: 2 }) },
+        { id: 'first', recipeVersion: 1, label: 'First', icon: 'First', group: 'test', defaults: {}, suggest: () => ({ id: 'first', label: 'First', name: 'First', rationale: '', confidence: 0.8, values: {}, order: 1 }) },
+        { id: 'second-first', recipeVersion: 1, label: 'Second', icon: 'Second', group: 'test', defaults: {}, suggest: () => ({ id: 'second-first', label: 'Second', name: 'Second', rationale: '', confidence: 0.8, values: {}, order: 1 }) },
+    ];
+    const suggestions = buildPhotoAutomaticSuggestions(
+        { id: 'asset-1', original_path: '/photo.jpg' },
+        analysis(),
+        true,
+        providers,
+    );
+
+    assert.deepEqual(suggestions.map((suggestion) => suggestion.provider), ['first', 'second-first', 'later']);
+});
+
+test('automatic operations use provider defaults, migration, validation, and declared add/update policy', async () => {
+    const { mergeAutomaticSuggestions } = await import('../../src/ui/components/photo-editor/photoAutomatic.ts');
+    const provider = {
+        id: 'provider-tool', recipeVersion: 3, label: 'Provider', icon: 'Provider', group: 'test',
+        defaults: { baseline: 1, enabledByDefault: true },
+        migrateOperation: (operation, fromVersion) => ({ ...operation, values: { ...operation.values, migratedFrom: fromVersion } }),
+        validateOperation: (operation) => assert.equal(operation.values.baseline, 1),
+    };
+    const suggestions = [
+        { id: 'update', provider: 'provider-tool', tool: 'provider-tool', name: 'Updated', label: 'Updated', rationale: '', confidence: 1, recipeVersion: 2, values: { strength: 4 } },
+        { id: 'append', provider: 'provider-tool', tool: 'provider-tool', name: 'Appended', label: 'Appended', rationale: '', confidence: 1, operationPolicy: 'append', values: { strength: 6 } },
+    ];
+    const originalRandomUUID = globalThis.crypto.randomUUID;
+    globalThis.crypto.randomUUID = () => 'automatic-id';
+    try {
+        const result = mergeAutomaticSuggestions([
+            { id: 'existing', tool: 'provider-tool', name: 'Existing', enabled: true, maskId: null, values: { existing: 1 } },
+        ], suggestions, [provider]);
+        assert.equal(result.length, 2);
+        assert.deepEqual(result[0].values, { existing: 1, baseline: 1, enabledByDefault: true, strength: 4, migratedFrom: 2 });
+        assert.equal(result[1].id, 'automatic-id');
+        assert.equal(result[1].values.baseline, 1);
+    } finally {
+        globalThis.crypto.randomUUID = originalRandomUUID;
+    }
+});
+
+test('automatic suggestion host has no individual photo-tool branches', () => {
+    const fs = require('node:fs');
+    const source = fs.readFileSync('src/ui/components/photo-editor/photoAutomatic.ts', 'utf8');
+    assert.doesNotMatch(source, /['"](?:crop|rotate|focus)['"]/);
+});

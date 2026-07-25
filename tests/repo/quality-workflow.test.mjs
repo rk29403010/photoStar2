@@ -35,3 +35,12 @@ test('native core configuration retains CommonJS output without removed resoluti
     assert.equal('baseUrl' in config.compilerOptions, false);
     assert.deepEqual(config.compilerOptions.paths['@shared/*'], ['../../src/shared/*']);
 });
+
+test('core development watch uses a TypeScript 5-compatible configuration', async () => {
+    const configPath = path.join(workspaceRoot, 'tooling', 'config', 'tsconfig.core.dev.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+
+    assert.equal(config.extends, './tsconfig.core.json');
+    assert.equal(config.compilerOptions.module, 'commonjs');
+    assert.equal(config.compilerOptions.moduleResolution, 'node');
+});

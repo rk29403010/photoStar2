@@ -27,7 +27,7 @@ Use the existing tool shape. Add only the files that the tool needs.
 | Geometry and value helpers | `src/ui/components/photo-editor/<tool>Geometry.ts` or `src/shared/photoEditing/<tool>.ts` | Keep coordinate conversion, clamping, and value derivation pure and separately tested. |
 | Preview dispatch | `src/ui/components/photo-editor/PhotoEditorPreview.tsx` | Mount the overlay inside the selected-tool preview region. |
 | Settings dispatch | `src/ui/components/photo-editor/PhotoEditorSidebar.tsx` | Route the selected operation to the settings component and use the shared automatic-analysis hook where appropriate. |
-| Automatic suggestions | `src/shared/photoEditing/automatic.ts`, `src/ui/components/photo-editor/photoAutomatic.ts` | Add conservative photo-level suggestions only when the tool has a safe, useful recommendation. |
+| Automatic suggestions | `src/shared/photoEditing/automatic.ts`, tool plug-in `suggest` declaration, `src/ui/components/photo-editor/photoAutomatic.ts` | The host collects neutral observations; a plug-in owns its safe, reviewable suggestion values, rationale, confidence, placement, and geometry requirements. |
 | Tests | `tests/core/photo-edit-*.test.cjs`, `tests/ui/photo-editor-*.test.cjs`, `tests/repo/photo-editor-wiring.test.mjs` | Cover pixels/recipes, UI wiring, and required registration points. |
 
 Do not create a separate side channel for a tool. Its persisted recipe belongs in the normal `PhotoEditOperation` stack, so it appears in Layers & changes, works with styles and masks where applicable, and can be disabled, reordered, or deleted like every other edit. The host owns transport, sequencing, masks and local error containment; a plug-in owns identity, defaults, validation, controls, overlays, preview, rendering and help. All known tools are registered through the generated plug-in registry; only unused compatibility infrastructure remains for Prompt 10.
@@ -66,7 +66,8 @@ Tool tile → operation defaults → selected operation
 - Provide a visible `Reset tool` action that restores all tool defaults and clears transient canvas state such as picked points or guides. It must not affect other operations.
 - Add an `Auto` action only when there is a deterministic, explainable, useful result. Examples: Rotate can straighten confident near-horizontal or near-vertical lines; Focus can place points on persisted face boxes; Crop can use persisted frame or subject/region metadata.
 - Auto must be safe to revise: show the result in the normal controls/canvas, use non-destructive operation values, and leave the user able to reset or adjust it.
-- If a tool has a conservative whole-photo recommendation, add it through `automatic.ts` and `photoAutomatic.ts`. It should be reviewable in the `Automatic` tool, selected by default only because every offered suggestion is considered applicable, and represented as normal items in Layers & changes.
+- If a tool has a conservative whole-photo recommendation, declare `suggest` in its plug-in. It should be reviewable in the `Automatic` tool, selected by default only because every offered suggestion is considered applicable, and represented as normal items in Layers & changes. Do not add tool-ID orchestration to a host.
+- Persisted style operations carry the owning tool's recipe version. Migrate and validate available operations through the registry; preserve unavailable operations rather than deleting or reinterpreting them.
 - Do not force a suggestion merely to make a tool participate in Automatic. Omit it when the evidence is weak or the effect is creative rather than corrective.
 
 ## Reliability, feedback, and AI
