@@ -74,18 +74,19 @@ function createFixtureFolder(rootDir) {
 
 async function createCommandHarness(tempDir, options = {}) {
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
-    const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
-    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
-    const { createDetectFacesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFacesModule.js');
-    const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFramesModule.js');
-    const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateFaceVectorsModule.js');
-    const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
-    const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
-    const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
-    const { createGenerateAiMetadataScoutModule, createGenerateAiMetadataRefineModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/index.js');
-    const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
-    const { createExpandSelectionModule } = await import('../../dist/core/src/services/workflowRuntime/modules/expandSelectionModule.js');
+    const { scanFolderPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/scan-folder/plugin.js');
+    const { generatePreviewsPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-previews/plugin.js');
+    const { extractEmbeddedMetadataPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/extract-embedded-metadata/plugin.js');
+    const { detectFacesPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-faces/plugin.js');
+    const { detectFramesPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-frames/plugin.js');
+    const { generateFaceVectorsPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-face-vectors/plugin.js');
+    const { resolvePeoplePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/resolve-people/plugin.js');
+    const { groupSimilarPhotosPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/group-similar-photos/plugin.js');
+    const { detectSensitiveContentPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-sensitive-content/plugin.js');
+    const { createGenerateAiMetadataScoutPluginModule: createGenerateAiMetadataScoutModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
+    const { createGenerateAiMetadataRefinePluginModule: createGenerateAiMetadataRefineModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-refine/plugin.js');
+    const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
+    const { createExpandSelectionModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/expand-selection/implementation.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
     const { selectedSubjectMetadataWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow.js');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -133,18 +134,18 @@ async function createCommandHarness(tempDir, options = {}) {
         labels: { singular: 'selection', plural: 'selections' },
     });
 
-    modules.register(createScanFolderModule({ dbManager }));
-    modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
-    modules.register(createGeneratePreviewsModule({ dbManager }));
-    modules.register(createDetectFacesModule({ dbManager }));
-    modules.register(createDetectFramesModule({ dbManager }));
-    modules.register(createGenerateFaceVectorsModule({ dbManager }));
-    modules.register(createResolvePeopleModule({ dbManager }));
-    modules.register(createGroupSimilarPhotosModule({ dbManager }));
-    modules.register(createDetectSensitiveContentModule({ dbManager }));
+    modules.registerPlugin(scanFolderPlugin, { dbManager });
+    modules.registerPlugin(extractEmbeddedMetadataPlugin, { dbManager });
+    modules.registerPlugin(generatePreviewsPlugin, { dbManager });
+    modules.registerPlugin(detectFacesPlugin, { dbManager });
+    modules.registerPlugin(detectFramesPlugin, { dbManager });
+    modules.registerPlugin(generateFaceVectorsPlugin, { dbManager });
+    modules.registerPlugin(resolvePeoplePlugin, { dbManager });
+    modules.registerPlugin(groupSimilarPhotosPlugin, { dbManager });
+    modules.registerPlugin(detectSensitiveContentPlugin, { dbManager });
     modules.register(createGenerateAiMetadataScoutModule({ dbManager, aiRuntime: options.aiRuntime }));
     modules.register(createGenerateAiMetadataRefineModule({ dbManager, aiRuntime: options.aiRuntime }));
-    modules.register(createEstimatePhotoDateModule({ dbManager }));
+    modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
     modules.register(createExpandSelectionModule());
     workflows.register(folderIngestWorkflowDefinition);
     workflows.register(selectedSubjectMetadataWorkflowDefinition);

@@ -1,7 +1,7 @@
-import type { DatabaseManager } from '../../../data/db';
-import type { DomainEvent } from '../../events/types';
-import { resolvePeopleAssignments } from '../../faces/peopleResolution';
-import type { ModuleDefinition } from '../contracts';
+import type { DatabaseManager } from '../../../../../data/db';
+import type { DomainEvent } from '../../../../events/types';
+import { resolvePeopleAssignments } from '../../../../faces/peopleResolution';
+import type { ModuleDefinition } from '../../../contracts';
 
 export type ResolvePeopleModuleOptions = {
     dbManager: DatabaseManager;

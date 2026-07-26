@@ -23,6 +23,7 @@ test('quality base compares task branches with origin main', () => {
 test('quick gate contains changed fast checks and native app/core typechecks', () => {
     const steps = buildQualitySteps('quick');
     assert.deepEqual(steps.map((step) => step.label), [
+        'plug-in registry and boundary policy',
         'changed Oxlint',
         'changed complexity',
         'native application typecheck',
@@ -48,6 +49,7 @@ test('native and compatibility typecheck commands keep compiler selection in the
 test('ready gate checks the complete branch with native types and affected test layers', () => {
     const labels = buildQualitySteps('ready').map((step) => step.label);
     assert.deepEqual(labels, [
+        'plug-in registry and boundary policy',
         'full Oxlint',
         'changed type-aware ESLint',
         'changed complexity',
@@ -61,6 +63,7 @@ test('ready gate checks the complete branch with native types and affected test 
 test('merge gate includes full typed lint, all typechecks, and all test layers', () => {
     const labels = buildQualitySteps('merge').map((step) => step.label);
     assert.ok(labels.includes('full Oxlint'));
+    assert.equal(labels.filter((label) => label === 'plug-in registry and boundary policy').length, 1);
     assert.ok(labels.includes('changed application type-aware Oxlint'));
     assert.ok(labels.includes('full type-aware ESLint'));
     assert.ok(labels.includes('native application typecheck'));

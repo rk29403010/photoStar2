@@ -21,7 +21,7 @@ function createFixtureImage(rootDir, fileName = 'one.png') {
 }
 
 function loadModuleWithStubs(stubs) {
-    const modulePath = require.resolve('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
+    const modulePath = require.resolve('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/implementation.js');
     delete require.cache[modulePath];
 
     const originalLoad = Module._load;
@@ -55,7 +55,7 @@ function createResolvedEstimate() {
 
 function createDateResolverStubs(dateResolverCalls, estimatePhotoDateCalls) {
     return {
-        '../../photoMetadata/dateResolver': {
+        '../../../../photoMetadata/dateResolver': {
             resolvePhotoDateEvidence: (params) => {
                 dateResolverCalls.push(params);
                 return {
@@ -80,7 +80,7 @@ function createDateResolverStubs(dateResolverCalls, estimatePhotoDateCalls) {
                 };
             },
         },
-        '../../photoDateEstimate': {
+        '../../../../photoDateEstimate': {
             estimatePhotoDate: (params) => {
                 estimatePhotoDateCalls.push(params);
                 return createResolvedEstimate();
@@ -208,7 +208,7 @@ test('runtime.estimate_photo_date persists the resolved date back onto the asset
     const imagePath = createFixtureImage(tempDir, 'family-1972-scan.png');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const { createEstimatePhotoDateModule } = loadModuleWithStubs({
-        '../../photoMetadata/dateResolver': {
+        '../../../../photoMetadata/dateResolver': {
             resolvePhotoDateEvidence: (params) => ({
                 originalPath: params.originalPath,
                 fileBirthtime: '2002-02-03T04:05:06.000Z',
@@ -224,7 +224,7 @@ test('runtime.estimate_photo_date persists the resolved date back onto the asset
                 },
             }),
         },
-        '../../photoDateEstimate': {
+        '../../../../photoDateEstimate': {
             estimatePhotoDate: () => createResolvedEstimate(),
         },
     });
@@ -278,7 +278,7 @@ test('runtime.estimate_photo_date only emits AssetUpdated when the resolved crea
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const emittedEvents = [];
     const { createEstimatePhotoDateModule } = loadModuleWithStubs({
-        '../../photoMetadata/dateResolver': {
+        '../../../../photoMetadata/dateResolver': {
             resolvePhotoDateEvidence: (params) => ({
                 originalPath: params.originalPath,
                 fileBirthtime: '2002-02-03T04:05:06.000Z',
@@ -294,7 +294,7 @@ test('runtime.estimate_photo_date only emits AssetUpdated when the resolved crea
                 },
             }),
         },
-        '../../photoDateEstimate': {
+        '../../../../photoDateEstimate': {
             estimatePhotoDate: () => createResolvedEstimate(),
         },
     });

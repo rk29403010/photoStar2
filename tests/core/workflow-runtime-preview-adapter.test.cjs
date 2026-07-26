@@ -12,7 +12,7 @@ test('asset preview workflow wraps a preview adapter module and completes', asyn
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createPreviewAdapterModule } = await import('../../dist/core/src/services/workflowRuntime/modules/previewAdapterModule.js');
+    const { previewAdapterPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/preview-adapter/plugin.js');
     const { assetPreviewWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/assetPreviewWorkflow.js');
     let dbManager;
 
@@ -34,11 +34,11 @@ test('asset preview workflow wraps a preview adapter module and completes', asyn
             ui: { detailSections: ['overview'] },
         });
 
-        modules.register(createPreviewAdapterModule({
+        modules.registerPlugin(previewAdapterPlugin, {
             runPreview: async (mediaIds) => {
                 previewCalls.push([...mediaIds]);
             },
-        }));
+        });
         workflows.register(assetPreviewWorkflowDefinition);
 
         const orchestrator = new runtime.WorkflowRuntimeOrchestrator({

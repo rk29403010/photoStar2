@@ -1,4 +1,4 @@
-import { createGenerateFaceVectorsModule } from '../../generateFaceVectorsModule';
+import { createGenerateFaceVectorsModule } from './implementation';
 import type { DatabaseManager } from '../../../../../data/db';
 import type { DomainEvent } from '../../../../events/types';
 import type { WorkflowModulePlugin } from '../../../contracts';

@@ -1,18 +1,10 @@
 # TO DO List
 
-## 2026-07-24 - Migrate remaining photo-editing tools
+## 2026-07-25 - Plug-in compatibility layers
 
-- All known photo-editing tools are registered through the generated plug-in host.
-  Prompt 10 may remove the unused compatibility adapter after its migration
-  10 removes the compatibility layer.
-
-## 2026-07-22 - Migrate remaining workflow modules to the plug-in contract
-
-- `runtime.scan_folder` and `runtime.detect_frame` now use generated
-  `WorkflowModulePlugin` registration. Migrate each remaining legacy module
-  into its own plug-in directory, preserving its stable ID and replacing its
-  `registerLegacy` compatibility registration only after module-specific tests
-  prove parity.
+- Registration adapters are removed and generated registries are checked by the
+  quality gate. Complete the remaining implementation/UI isolation work before
+  treating the architecture policy as exhaustive.
 
 ## 2026-07-21 - Adopt TypeScript 6 API tooling and triage newly exposed typed-lint findings
 

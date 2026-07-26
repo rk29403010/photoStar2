@@ -1,4 +1,4 @@
-import { createExpandSelectionModule } from '../../expandSelectionModule';
+import { createExpandSelectionModule } from './implementation';
 import type { WorkflowModulePlugin } from '../../../contracts';
 
 export const expandSelectionPlugin: WorkflowModulePlugin = {

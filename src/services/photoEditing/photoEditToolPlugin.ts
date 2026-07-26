@@ -1,4 +1,4 @@
-import type { CSSProperties, ComponentType } from 'react';
+import type { CSSProperties } from 'react';
 import type { Asset, PhotoEditOperation } from '../../boundary/contracts/core';
 import type { AutomaticPhotoAnalysis, AutomaticPhotoContext } from '../../shared/photoEditing/automatic.ts';
 
@@ -9,11 +9,6 @@ export type PhotoEditToolCapabilities = {
     requiresSourceImage?: boolean;
     requiresAssetMetadata?: boolean;
 };
-export type PhotoEditToolControlProps = {
-    asset?: Asset; operation: PhotoEditOperation; sourceUrl: string | null;
-    onCommit: (operation: PhotoEditOperation) => void; onPreviewChange: (operation: PhotoEditOperation) => void;
-};
-export type PhotoEditToolPreviewProps = PhotoEditToolControlProps & { previewUrl: string | null; showWithoutChange: boolean };
 export type PhotoEditToolRenderPipeline = { greyscale: () => PhotoEditToolRenderPipeline; png: () => { toBuffer: () => Promise<Buffer> } };
 export type PhotoEditAutomaticSuggestion = {
     id: string;
@@ -40,8 +35,6 @@ export type PhotoEditToolPlugin = {
     id: string; recipeVersion: number; label: string; icon: string; group: string;
     defaults: Record<string, number | boolean>; controls?: readonly PhotoEditToolControl[];
     validateOperation?: (operation: PhotoEditOperation) => void;
-    Controls?: ComponentType<PhotoEditToolControlProps>;
-    Overlay?: ComponentType<PhotoEditToolPreviewProps>;
     browserPreview?: (current: PhotoEditOperation, baseline: PhotoEditOperation) => CSSProperties | undefined;
     renderExact?: (input: Buffer, operation: PhotoEditOperation, pipeline: (input: Buffer) => PhotoEditToolRenderPipeline) => Promise<Buffer>;
     capabilities?: PhotoEditToolCapabilities;

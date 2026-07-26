@@ -37,7 +37,7 @@ test('runtime.generate_face_vectors stores ArcFace embeddings and emits face eve
     const imagePath = createFixtureImage(tempDir);
     const emittedEvents = [];
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateFaceVectorsModule.js');
+    const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-face-vectors/implementation.js');
     let dbManager;
 
     try {
@@ -110,7 +110,7 @@ test('runtime.generate_face_vectors keeps existing embeddings when ArcFace model
     const tempDir = createTempDir();
     const imagePath = createFixtureImage(tempDir);
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateFaceVectorsModule.js');
+    const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-face-vectors/implementation.js');
     let dbManager;
 
     try {

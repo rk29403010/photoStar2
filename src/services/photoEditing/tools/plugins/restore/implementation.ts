@@ -1,0 +1,5 @@
+import sharp from 'sharp';
+import type { PhotoEditOperation } from '../../../../../boundary/contracts/photoEditor.ts';
+function clamp(value: number, minimum: number, maximum: number): number { return Math.min(maximum, Math.max(minimum, value)); }
+function readNumber(operation: PhotoEditOperation, key: string, fallback: number): number { const current = operation.values[key]; return typeof current === 'number' && Number.isFinite(current) ? current : fallback; }
+export function renderRestore(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> { const contrast = clamp(readNumber(operation, 'contrast', 0.12), -0.5, 1); const multiplier = 1 + contrast; return sharp(input).median(Math.round(clamp(readNumber(operation, 'denoise', 1), 1, 5))).linear(multiplier, 128 * (1 - multiplier)).modulate({ brightness: clamp(readNumber(operation, 'fadeRecovery', 1.08), 0.5, 2), saturation: clamp(readNumber(operation, 'saturation', 1.08), 0, 2) }).sharpen({ sigma: clamp(readNumber(operation, 'detail', 0.8), 0.01, 5) }).png().toBuffer(); }

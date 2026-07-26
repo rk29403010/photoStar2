@@ -103,6 +103,7 @@ function nativeCoreBuildStep() {
 
 export function buildQualitySteps(mode) {
     const quick = [
+        { label: 'plug-in registry and boundary policy', command: nodeExecutable, args: [path.join(scriptDirectory, 'extension-architecture-policy.mjs')] },
         changedStep('changed Oxlint', 'lint-changed-files.mjs', ['--tool=oxlint']),
         changedStep('changed complexity', 'complexity-changed-files.mjs'),
         nativeAppTypecheckStep(),
@@ -133,6 +134,7 @@ export function buildQualitySteps(mode) {
     }
 
     const ready = [
+        { label: 'plug-in registry and boundary policy', command: nodeExecutable, args: [path.join(scriptDirectory, 'extension-architecture-policy.mjs')] },
         { label: 'full Oxlint', command: packageBinary('oxlint'), args: ['-c', '.oxlintrc.json', '.'] },
         changedStep('changed type-aware ESLint', 'lint-changed-files.mjs'),
         changedStep('changed complexity', 'complexity-changed-files.mjs'),
@@ -149,6 +151,7 @@ export function buildQualitySteps(mode) {
     }
 
     return [
+        { label: 'plug-in registry and boundary policy', command: nodeExecutable, args: [path.join(scriptDirectory, 'extension-architecture-policy.mjs')] },
         { label: 'full Oxlint', command: packageBinary('oxlint'), args: ['-c', '.oxlintrc.json', '.'] },
         changedStep('changed application type-aware Oxlint', 'lint-changed-files.mjs', [
             '--tool=oxlint',

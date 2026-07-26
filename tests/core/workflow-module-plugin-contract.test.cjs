@@ -54,7 +54,7 @@ test('runtime bootstrap creates every generated plug-in without legacy registrat
     }
 });
 
-test('module registry diagnoses invalid plug-ins and gives plug-ins precedence over legacy registration', async () => {
+test('module registry diagnoses invalid and duplicate plug-ins', async () => {
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const registry = new runtime.ModuleRegistry();
     assert.throws(() => registry.registerPlugin({ manifest: {}, create: () => ({}) }), /manifest.id/);
@@ -63,5 +63,5 @@ test('module registry diagnoses invalid plug-ins and gives plug-ins precedence o
         create: () => ({ id: 'runtime.plugin', version: 1, capability: 'derive', accepts: ['asset'], produces: [], run: async () => ({ outputs: [] }) }),
     };
     registry.registerPlugin(plugin);
-    assert.equal(registry.registerLegacy({ id: 'runtime.plugin', version: 1, capability: 'derive', accepts: ['asset'], produces: [], run: async () => ({ outputs: [] }) }), false);
+    assert.throws(() => registry.registerPlugin(plugin), /duplicate module/);
 });

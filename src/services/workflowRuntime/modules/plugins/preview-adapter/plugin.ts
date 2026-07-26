@@ -1,4 +1,4 @@
-import { createPreviewAdapterModule } from '../../previewAdapterModule';
+import { createPreviewAdapterModule } from './implementation';
 import type { WorkflowModulePlugin } from '../../../contracts';
 
 export const previewAdapterPlugin: WorkflowModulePlugin = {

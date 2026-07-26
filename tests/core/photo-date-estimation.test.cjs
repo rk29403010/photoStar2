@@ -337,7 +337,8 @@ test('runtime.estimate_photo_date preserves import time and stores photo_created
     const tempDir = createTempDir();
     const imagePath = createFixtureImage(tempDir, 'family-1967-scan.png');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
+    const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
+    const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
     let dbManager;
 
     try {
@@ -352,7 +353,9 @@ test('runtime.estimate_photo_date preserves import time and stores photo_created
             VALUES ('ai-1', 'asset-1', 'ai_metadata', 'runtime_stub', '1.0', ?)
         `).run(JSON.stringify({ estimated_date: '1960s' }));
 
-        const moduleDefinition = createEstimatePhotoDateModule({ dbManager });
+        const modules = new runtime.ModuleRegistry();
+        modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
+        const moduleDefinition = modules.get(estimatePhotoDatePlugin.manifest.id);
         const result = await moduleDefinition.run({
             runId: 'run-1',
             subject: { subjectType: 'asset', subjectId: 'asset-1' },

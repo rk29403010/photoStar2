@@ -8,15 +8,14 @@ import type {
 } from "@contracts/core";
 import { Button, Checkbox, IconButton, Input, Select } from "../Primitives";
 import { PhotoAutomaticPanel } from "./PhotoAutomaticPanel";
-import { PhotoCropOptions } from "./PhotoCropOptions";
 import { PhotoEditorToolBoundary } from "./PhotoEditorToolBoundary";
 import { PhotoMaskPanel } from "./PhotoMaskPanel";
-import { renderPhotoEditToolControls } from "./photoEditToolUi";
 import { buildPhotoAutomaticSuggestions } from "./photoAutomatic";
 import type { PhotoAutomaticSuggestion } from "./photoAutomatic";
 import {
   PHOTO_EDITOR_TOOLS,
   getPhotoEditToolPlugin,
+  getPhotoEditToolUiPlugin,
   type ToolDefinition,
 } from "./photoEditorTools";
 import type { EditorViewProps } from "./PhotoEditorWorkspace";
@@ -249,30 +248,16 @@ function OperationControls(props: OperationControlsProps) {
     return <p className="text-sm text-content-secondary">{props.operation.name} is unavailable. Its recipe data is preserved until its tool plug-in is installed.</p>;
   }
   const plugin = getPhotoEditToolPlugin(props.operation.tool);
-  if (plugin?.Controls) {
-    return <plugin.Controls asset={props.asset} operation={props.operation} sourceUrl={props.sourceUrl} onCommit={props.onCommit} onPreviewChange={props.onPreviewChange} />;
-  }
-  const customControls = renderPhotoEditToolControls({ asset: props.asset, operation: props.operation, sourceUrl: props.sourceUrl, onCommit: props.onCommit, onPreviewChange: props.onPreviewChange });
-  if (customControls) {
-    return <div className="space-y-3"><ToolAutomaticAction {...automaticProps} />{customControls}{plugin?.capabilities?.maskCompatible && <MaskTargetControl {...props} />}</div>;
-  }
-  if (props.operation.tool === "crop") {
-    const update = (operation: PhotoEditOperation) => {
-      props.onPreviewChange(operation);
-      props.onCommit(operation);
-    };
-    return (
-      <div className="space-y-3">
-        <ToolAutomaticAction {...automaticProps} />
-        <PhotoCropOptions operation={props.operation} onChange={update} />
-      </div>
-    );
+  const uiPlugin = getPhotoEditToolUiPlugin(props.operation.tool);
+  const Controls = uiPlugin?.Controls;
+  if (Controls) {
+    return <Controls asset={props.asset} operation={props.operation} sourceUrl={props.sourceUrl} onCommit={props.onCommit} onPreviewChange={props.onPreviewChange} />;
   }
   return (
     <div className="space-y-3">
       <ToolAutomaticAction {...automaticProps} />
       <ToolSpecificOptions {...automaticProps} definition={definition} />
-      {(plugin?.capabilities?.maskCompatible ?? props.operation.tool !== "rotate") && <MaskTargetControl {...props} />}
+      {plugin?.capabilities?.maskCompatible && <MaskTargetControl {...props} />}
     </div>
   );
 }

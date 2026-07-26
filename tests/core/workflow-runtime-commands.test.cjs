@@ -46,7 +46,7 @@ test('workflow runtime commands start a run and return drill-down summaries', as
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createPreviewAdapterModule } = await import('../../dist/core/src/services/workflowRuntime/modules/previewAdapterModule.js');
+    const { previewAdapterPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/preview-adapter/plugin.js');
     const { assetPreviewWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/assetPreviewWorkflow.js');
     let dbManager;
 
@@ -72,9 +72,9 @@ test('workflow runtime commands start a run and return drill-down summaries', as
             relations: [],
             ui: { detailSections: ['overview'] },
         });
-        modules.register(createPreviewAdapterModule({
+        modules.registerPlugin(previewAdapterPlugin, {
             runPreview: async () => undefined,
-        }));
+        });
         workflows.register(assetPreviewWorkflowDefinition);
 
         handleSystemCommand({

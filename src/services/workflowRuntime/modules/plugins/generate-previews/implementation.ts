@@ -1,10 +1,10 @@
 import { dirname, join } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import sharp from 'sharp';
-import type { DatabaseManager } from '../../../data/db';
+import type { DatabaseManager } from '../../../../../data/db';
 import type { WorkflowPreviewGenerated } from '@contracts/events';
-import type { ModuleDefinition } from '../contracts';
-import { getFrameInteriorBox } from '../../photoMetadata/frameUtils';
+import type { ModuleDefinition } from '../../../contracts';
+import { getFrameInteriorBox } from '../../../../photoMetadata/frameUtils';
 
 const PREVIEW_SIZES = {
     thumbnail: 256,
@@ -45,7 +45,7 @@ async function writePreviewVariants(
             .resize(width, null, {
                 withoutEnlargement: true,
                 fit: 'inside',
-                background: { r: 0, g: 0, b: 0, alpha: 0 }
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
             })
             .webp({ effort: 4, quality: 80 })
             .toFile(outputPath);
@@ -93,8 +93,8 @@ export function createGeneratePreviewsModule(options: GeneratePreviewsModuleOpti
                 try {
                     const boundaryData = JSON.parse(frameDetectionRow.data);
                     interiorBox = getFrameInteriorBox(boundaryData);
-                } catch (e) {
-                    console.error('Error parsing frame detection data:', e);
+                } catch (error) {
+                    console.error('Error parsing frame detection data:', error);
                 }
             }
 

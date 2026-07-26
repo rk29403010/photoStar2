@@ -83,8 +83,8 @@ function seedAssetFeatures(dbManager, params) {
 
 async function runGroupingWorkflow({ dbManager, inputSubjects }) {
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createGroupSimilarPhotosModule } = await import(
-        '../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js'
+    const { groupSimilarPhotosPlugin } = await import(
+        '../../dist/core/src/services/workflowRuntime/modules/plugins/group-similar-photos/plugin.js'
     );
 
     const subjects = new runtime.SubjectRegistry();
@@ -103,7 +103,7 @@ async function runGroupingWorkflow({ dbManager, inputSubjects }) {
         labels: { singular: 'photo', plural: 'photos' },
     });
 
-    modules.register(createGroupSimilarPhotosModule({ dbManager }));
+    modules.registerPlugin(groupSimilarPhotosPlugin, { dbManager });
     workflows.register({
         id: 'runtime-grouping-test',
         version: 1,

@@ -33,16 +33,6 @@ export class ModuleRegistry {
         });
     }
 
-    /** Registers an unmigrated factory result without overriding a plug-in. */
-    public registerLegacy(definition: ModuleDefinition): boolean {
-        validateModuleDefinition(definition);
-        if (this.modules.has(definition.id)) {
-            return false;
-        }
-        this.modules.set(definition.id, definition);
-        return true;
-    }
-
     public has(moduleId: string): boolean {
         return this.modules.has(moduleId);
     }

@@ -8,6 +8,21 @@ function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-folder-enrichment-'));
 }
 
+async function removeDirWithRetry(targetPath) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        try {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+            return;
+        } catch (error) {
+            if (attempt === 9) {
+                console.warn(`[Test Cleanup] Could not delete temp dir ${targetPath}: ${error.message}`);
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        }
+    }
+}
+
 function createFixtureFolder(rootDir) {
     const folderPath = path.join(rootDir, 'fixtures');
     fs.mkdirSync(folderPath, { recursive: true });
@@ -23,17 +38,18 @@ function createFixtureFolder(rootDir) {
 async function createFolderIngestHarness(tempDir) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
-    const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
-    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
-    const { createDetectFacesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFacesModule.js');
-    const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFramesModule.js');
-    const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateFaceVectorsModule.js');
-    const { createResolvePeopleModule } = await import('../../dist/core/src/services/workflowRuntime/modules/resolvePeopleModule.js');
-    const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
-    const { createDetectSensitiveContentModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectSensitiveContentModule.js');
-    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/index.js');
-    const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
+    const { scanFolderPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/scan-folder/plugin.js');
+    const { generatePreviewsPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-previews/plugin.js');
+    const { extractEmbeddedMetadataPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/extract-embedded-metadata/plugin.js');
+    const { detectFacesPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-faces/plugin.js');
+    const { detectFramesPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-frames/plugin.js');
+    const { generateFaceVectorsPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-face-vectors/plugin.js');
+    const { resolvePeoplePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/resolve-people/plugin.js');
+    const { groupSimilarPhotosPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/group-similar-photos/plugin.js');
+    const { detectSensitiveContentPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-sensitive-content/plugin.js');
+    const { createGenerateAiMetadataScoutPluginModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
+    const { createGenerateAiMetadataRefinePluginModule: createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-refine/plugin.js');
+    const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
@@ -67,17 +83,18 @@ async function createFolderIngestHarness(tempDir) {
         subjects.register(subject);
     }
 
-    modules.register(createScanFolderModule({ dbManager }));
-    modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
-    modules.register(createGeneratePreviewsModule({ dbManager }));
-    modules.register(createDetectFacesModule({ dbManager }));
-    modules.register(createDetectFramesModule({ dbManager }));
-    modules.register(createGenerateFaceVectorsModule({ dbManager }));
-    modules.register(createResolvePeopleModule({ dbManager }));
-    modules.register(createGroupSimilarPhotosModule({ dbManager }));
-    modules.register(createDetectSensitiveContentModule({ dbManager }));
+    modules.registerPlugin(scanFolderPlugin, { dbManager });
+    modules.registerPlugin(extractEmbeddedMetadataPlugin, { dbManager });
+    modules.registerPlugin(generatePreviewsPlugin, { dbManager });
+    modules.registerPlugin(detectFacesPlugin, { dbManager });
+    modules.registerPlugin(detectFramesPlugin, { dbManager });
+    modules.registerPlugin(generateFaceVectorsPlugin, { dbManager });
+    modules.registerPlugin(resolvePeoplePlugin, { dbManager });
+    modules.registerPlugin(groupSimilarPhotosPlugin, { dbManager });
+    modules.registerPlugin(detectSensitiveContentPlugin, { dbManager });
+    modules.register(createGenerateAiMetadataScoutPluginModule({ dbManager }));
     modules.register(createGenerateAiMetadataModule({ dbManager }));
-    modules.register(createEstimatePhotoDateModule({ dbManager }));
+    modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
     workflows.register(folderIngestWorkflowDefinition);
 
     return {
@@ -127,6 +144,6 @@ test('folder_ingest_v1 completes enrichment branches after Library ready', async
         assert.equal(estimateCount.count, 2);
     } finally {
         harness?.dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await removeDirWithRetry(tempDir);
     }
 });
