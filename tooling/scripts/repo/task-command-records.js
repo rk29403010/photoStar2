@@ -9,6 +9,7 @@ export function taskLogPaths(cwd, commandId) {
 }
 
 export async function runTrackedCommand({ command, args, cwd, candidateCommit, entry, save }) {
+    recoverInterruptedRuns(entry);
     const live = (entry.commandRuns ?? []).find((run) => run.state === 'running' && run.pid && (() => { try { process.kill(run.pid, 0); return true; } catch { return false; } })());
     if (live) {throw new Error(`A recorded task command is still running (${live.commandId}).`);}
     const commandId = `${Date.now()}-${process.pid}-${(entry.commandRuns ?? []).length}`;
