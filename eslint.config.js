@@ -150,6 +150,7 @@ export default defineConfig([
     files: ['src/services/photoEditing/tools/plugins/**/*.tsx'],
     languageOptions: {
       parserOptions: {
+        projectService: false,
         project: ['./tsconfig.app.json'],
         tsconfigRootDir: rootDir,
       },
