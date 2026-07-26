@@ -181,7 +181,7 @@ generic resilience boundaries.
 - `detectSensitiveContentModule`: Evaluates assets against NSFW classifiers.
 - `estimatePhotoDateModule`: Combines EXIF, file dates, and AI analysis to find best-guess photo dates.
 - `generateAiMetadataModule`: Generates captions and tags using a VLM/LLM.
-- `expandSelectionModule`: Helper to fetch nested subjects or expand grouping relationships.
+- `plugins/expand-selection`: Plug-in-owned helper to fetch nested subjects or expand grouping relationships.
 - `previewAdapterModule`: Bridges generic items into the preview generation format.
 
 ## Cross-cutting rules and invariants
