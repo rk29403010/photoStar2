@@ -46,6 +46,8 @@
     "task:audit": "node tooling/scripts/repo/thread-state.js audit",
     "task:reconcile": "node tooling/scripts/repo/thread-state.js reconcile",
     "task:overlap": "node tooling/scripts/repo/thread-state.js overlap",
+    "task:start": "node tooling/scripts/repo/task-workspace.js start",
+    "task:register": "node tooling/scripts/repo/task-workspace.js register",
     "module:generate-registry": "node tooling/scripts/repo/generate-workflow-module-registry.mjs",
     "module:check-registry": "node tooling/scripts/repo/generate-workflow-module-registry.mjs --check",
     "module:new": "node tooling/scripts/repo/new-workflow-module.mjs",

@@ -294,3 +294,7 @@ UI Improvements
   `cleanup-pending` task lifecycle commands. Replace the synchronous
   `thread:ship` compatibility behaviour with repository-owned remote
   observation and separate reconciliation; preserve protected merge gates.
+
+## Photo editor architecture follow-up
+
+- Audit and remove unused photo-editing compatibility infrastructure after all persisted recipes have completed their plug-in migration window.

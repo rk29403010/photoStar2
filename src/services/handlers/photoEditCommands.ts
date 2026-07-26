@@ -11,6 +11,7 @@ import type {
     SavePhotoEditInput,
 } from '../../boundary/contracts/photoEditor';
 import { renderPhotoEdit } from '../photoEditing/editRenderer';
+import { resolvePhotoEditStyle, versionPhotoEditStyleOperations } from '../photoEditing/photoEditStyleRecipes';
 import type { CommandContext, CommandHandlerMap } from './types';
 
 type EditRow = {
@@ -180,7 +181,7 @@ export const photoEditCommandHandlers: CommandHandlerMap = {
             const document = row ? toDocument(row) : null;
             const styles = db.prepare('SELECT * FROM photo_edit_styles ORDER BY name').all().map((style) => {
                 const value = style as { id: string; name: string; operations_json: string; masks_json: string; created_at: string; updated_at: string };
-                return { id: value.id, name: value.name, operations: parseList<PhotoEditOperation>(value.operations_json), masks: parseList<PhotoEditMask>(value.masks_json), createdAt: value.created_at, updatedAt: value.updated_at };
+                return resolvePhotoEditStyle({ id: value.id, name: value.name, operations: parseList<PhotoEditOperation>(value.operations_json), masks: parseList<PhotoEditMask>(value.masks_json), createdAt: value.created_at, updatedAt: value.updated_at });
             });
             ctx.respond(ctx.id, 'ok', { document, styles }, null, ctx.originWs);
         } catch (error) {respondWithError(ctx, error);}
@@ -213,7 +214,7 @@ export const photoEditCommandHandlers: CommandHandlerMap = {
                 INSERT INTO photo_edit_styles (id, name, operations_json, masks_json) VALUES (?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET name = excluded.name, operations_json = excluded.operations_json,
                     masks_json = excluded.masks_json, updated_at = CURRENT_TIMESTAMP
-            `).run(id, name.trim(), JSON.stringify(operations), JSON.stringify(masks));
+            `).run(id, name.trim(), JSON.stringify(versionPhotoEditStyleOperations(operations)), JSON.stringify(masks));
             ctx.respond(ctx.id, 'ok', { id }, null, ctx.originWs);
         } catch (error) {respondWithError(ctx, error);}
     },

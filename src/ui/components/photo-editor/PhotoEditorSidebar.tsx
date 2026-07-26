@@ -539,13 +539,10 @@ function StylesAccordion(props: {
         </IconButton>
       </div>
       {editor.styles.map((style) => (
-        <Button
-          key={style.id}
-          variant="secondary"
-          onClick={() => editor.history.replace(instantiatePhotoEditStyle(style))}
-        >
-          {style.name}
-        </Button>
+        <div key={style.id} className="flex flex-col gap-1">
+          <Button variant="secondary" onClick={() => editor.history.replace(instantiatePhotoEditStyle(style))}>{style.name}</Button>
+          {style.unavailableOperationIds?.length ? <p className="text-xs text-content-secondary">{style.unavailableOperationIds.length} unavailable operation{style.unavailableOperationIds.length === 1 ? "" : "s"} retained</p> : null}
+        </div>
       ))}
     </AccordionSection>
   );
