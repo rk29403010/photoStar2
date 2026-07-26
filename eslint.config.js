@@ -145,6 +145,17 @@ export default defineConfig([
     },
   },
   {
+    // Client-only tool contributions live beside their service plug-ins but
+    // must be analysed with the web project, never the Node core project.
+    files: ['src/services/photoEditing/tools/plugins/**/*.tsx'],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.app.json'],
+        tsconfigRootDir: rootDir,
+      },
+    },
+  },
+  {
     files: ['src/**/*.{ts,tsx,js,jsx}'],
     rules: {
       'max-lines': applicationFileSizeRule,
