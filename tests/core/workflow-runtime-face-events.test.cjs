@@ -69,10 +69,10 @@ function registerFaceEventWorkflow({ workflows, definition }) {
 async function createRuntimeHarness(tempDir, emittedEvents) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createScanFolderModule } = await import('../../dist/core/src/services/workflowRuntime/modules/scanFolderModule.js');
-    const { createGeneratePreviewsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generatePreviewsModule.js');
-    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
-    const { createDetectFacesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFacesModule.js');
+    const { scanFolderPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/scan-folder/plugin.js');
+    const { generatePreviewsPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-previews/plugin.js');
+    const { extractEmbeddedMetadataPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/extract-embedded-metadata/plugin.js');
+    const { detectFacesPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-faces/plugin.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
@@ -82,17 +82,17 @@ async function createRuntimeHarness(tempDir, emittedEvents) {
     const store = new runtime.ExecutionStore(dbManager);
 
     registerTestSubjects(subjects);
-    modules.register(createScanFolderModule({ dbManager }));
-    modules.register(createGeneratePreviewsModule({ dbManager }));
-    modules.register(createExtractEmbeddedMetadataModule({ dbManager }));
-    modules.register(createDetectFacesModule({
+    modules.registerPlugin(scanFolderPlugin, { dbManager });
+    modules.registerPlugin(generatePreviewsPlugin, { dbManager });
+    modules.registerPlugin(extractEmbeddedMetadataPlugin, { dbManager });
+    modules.registerPlugin(detectFacesPlugin, {
         dbManager,
         eventBus: {
             emit(event) {
                 emittedEvents.push(event);
             },
         },
-    }));
+    });
     registerFaceEventWorkflow({ workflows, definition: folderIngestWorkflowDefinition });
 
     return {

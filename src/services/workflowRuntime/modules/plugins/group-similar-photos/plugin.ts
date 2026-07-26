@@ -1,4 +1,4 @@
-import { createGroupSimilarPhotosModule } from '../../groupSimilarPhotosModule';
+import { createGroupSimilarPhotosModule } from './implementation';
 import type { DatabaseManager } from '../../../../../data/db';
 import type { WorkflowModulePlugin } from '../../../contracts';
 

@@ -52,7 +52,7 @@ test('detectFramesModule run - Fast Path (rectangular border)', async () => {
     const imagePath = await createBorderedImage(tempDir);
     const emittedEvents = [];
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFramesModule.js');
+    const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-frames/implementation.js');
     let dbManager;
 
     try {
@@ -102,7 +102,7 @@ test('detectFramesModule run - Deep Path (segmentation fallback)', async () => {
     const imagePath = await createSolidImage(tempDir);
     const emittedEvents = [];
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/detectFramesModule.js');
+    const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-frames/implementation.js');
     let dbManager;
 
     // Mock InferenceSession.create

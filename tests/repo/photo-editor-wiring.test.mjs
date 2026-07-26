@@ -1,2 +1,17 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs';
-test('photo editor uses generated plug-ins without a legacy tool catalogue', () => { const tools = readFileSync('src/ui/components/photo-editor/photoEditorTools.ts', 'utf8'); const preview = readFileSync('src/ui/components/photo-editor/PhotoEditorPreview.tsx', 'utf8'); const ui = readFileSync('src/ui/components/photo-editor/photoEditToolUi.tsx', 'utf8'); const registry = readFileSync('src/services/photoEditing/generatedPhotoEditToolPluginRegistry.ts', 'utf8'); assert.match(tools, /generatedPhotoEditToolPlugins/); assert.doesNotMatch(tools, /LEGACY_PHOTO_EDITOR_TOOLS/); assert.match(preview, /renderPhotoEditToolOverlay/); assert.match(ui, /renderPhotoEditToolControls/); assert.match(registry, /plugins\/adjust\/manifest/); assert.match(registry, /plugins\/sharpen\/manifest/); });
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+
+test('photo editor resolves tool UI contributions through the generated client registry', () => {
+  const tools = readFileSync('src/ui/components/photo-editor/photoEditorTools.ts', 'utf8');
+  const preview = readFileSync('src/ui/components/photo-editor/PhotoEditorPreview.tsx', 'utf8');
+  const generatedUi = readFileSync('src/ui/components/photo-editor/generatedPhotoEditToolUiRegistry.ts', 'utf8');
+  const generatedSuggestions = readFileSync('src/ui/components/photo-editor/generatedPhotoEditToolSuggestionRegistry.ts', 'utf8');
+  assert.equal(existsSync('src/ui/components/photo-editor/photoEditToolUi.tsx'), false);
+  assert.match(tools, /generatedPhotoEditToolUiPlugins/);
+  assert.match(preview, /getPhotoEditToolUiPlugin/);
+  assert.match(generatedUi, /plugins\/adjust\/ui/);
+  assert.match(generatedUi, /plugins\/red-eye\/ui/);
+  assert.match(generatedSuggestions, /plugins\/crop\/automatic/);
+  assert.match(generatedSuggestions, /plugins\/focus\/automatic/);
+});

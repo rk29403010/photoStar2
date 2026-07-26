@@ -1,8 +1,8 @@
-import type { DatabaseManager } from '../../../data/db';
-import type { AssetUpdated } from '../../events/types';
-import { getFileStats } from '../../file-utils';
-import { persistAssetEmbeddedMetadata } from '../../embeddedMetadata';
-import type { ModuleDefinition } from '../contracts';
+import type { DatabaseManager } from '../../../../../data/db';
+import type { AssetUpdated } from '../../../../events/types';
+import { getFileStats } from '../../../../file-utils';
+import { persistAssetEmbeddedMetadata } from '../../../../embeddedMetadata';
+import type { ModuleDefinition } from '../../../contracts';
 
 export type ExtractEmbeddedMetadataModuleOptions = {
     dbManager: DatabaseManager;

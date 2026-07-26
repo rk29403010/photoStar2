@@ -1,4 +1,4 @@
-import { createSimulatorModule } from '../../simulatorModule';
+import { createSimulatorModule } from './implementation';
 import type { WorkflowModulePlugin } from '../../../contracts';
 
 export const simulatorPlugin: WorkflowModulePlugin = {

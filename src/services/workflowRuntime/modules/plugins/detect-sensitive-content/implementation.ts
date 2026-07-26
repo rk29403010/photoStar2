@@ -1,8 +1,8 @@
 import sharp from 'sharp';
-import type { DatabaseManager } from '../../../data/db';
-import type { AssetUpdated } from '../../events/types';
-import type { ModuleDefinition } from '../contracts';
-import { getFrameInteriorBox } from '../../photoMetadata/frameUtils';
+import type { DatabaseManager } from '../../../../../data/db';
+import type { AssetUpdated } from '../../../../events/types';
+import type { ModuleDefinition } from '../../../contracts';
+import { getFrameInteriorBox } from '../../../../photoMetadata/frameUtils';
 
 export type DetectSensitiveContentModuleOptions = {
     dbManager: DatabaseManager;
@@ -10,8 +10,6 @@ export type DetectSensitiveContentModuleOptions = {
         emit: (event: AssetUpdated) => void;
     };
 }
-
-// TODO: Implement actual sensitive content detection.
 
 export function createDetectSensitiveContentModule(options: DetectSensitiveContentModuleOptions): ModuleDefinition {
     return {
@@ -34,8 +32,8 @@ export function createDetectSensitiveContentModule(options: DetectSensitiveConte
                     try {
                         const boundaryData = JSON.parse(frameDetectionRow.data);
                         interiorBox = getFrameInteriorBox(boundaryData);
-                    } catch (e) {
-                        console.error('Error parsing frame detection data:', e);
+                    } catch (error) {
+                        console.error('Error parsing frame detection data:', error);
                     }
                 }
 
@@ -50,7 +48,6 @@ export function createDetectSensitiveContentModule(options: DetectSensitiveConte
                         pipeline = pipeline.extract({ left, top, width: cropWidth, height: cropHeight });
                     }
                 }
-                // Simulate processing/checking of the cropped buffer
                 await pipeline.toBuffer();
             }
 

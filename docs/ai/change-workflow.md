@@ -56,7 +56,8 @@ or lifecycle rules.
 - Generated registries are machine-owned and reproducible: update their source
   inputs and generator, regenerate, and test the result. Do not edit generated
   registry files manually.
-- Photo-editing tool tasks own exactly one directory under `src/services/photoEditing/tools/plugins/<tool>/`; host, registry, and legacy-adapter changes require an assigned integration task. Use `photo-tool:new`, then generate and check the registry.
+- A normal workflow-module task owns exactly one directory under `src/services/workflowRuntime/modules/plugins/<module>/`; a normal photo-editing tool task owns exactly one directory under `src/services/photoEditing/tools/plugins/<tool>/`. Both own only their tests, fixtures, and module-specific documentation. Host, contract, generator, registry, and architecture-policy changes require an assigned integration task. Use the relevant scaffold, then generate and check the registry.
+- Compatibility registration adapters and flat catalogues are removed. Generic unknown-extension presentation and version-migration dispatch are permanent host responsibilities, not compatibility paths.
 
 ## Publication and reconciliation lifecycle
 

@@ -43,7 +43,7 @@ test('start_library_grouping launches the runtime grouping workflow across the f
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createGroupSimilarPhotosModule } = await import('../../dist/core/src/services/workflowRuntime/modules/groupSimilarPhotosModule.js');
+    const { groupSimilarPhotosPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/group-similar-photos/plugin.js');
     const { libraryGroupingWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/libraryGroupingWorkflow.js');
     let dbManager;
 
@@ -78,7 +78,7 @@ test('start_library_grouping launches the runtime grouping workflow across the f
             ui: { detailSections: ['overview'] },
             labels: { singular: 'file', plural: 'files' },
         });
-        modules.register(createGroupSimilarPhotosModule({ dbManager }));
+        modules.registerPlugin(groupSimilarPhotosPlugin, { dbManager });
         workflows.register(libraryGroupingWorkflowDefinition);
 
         handleSystemCommand({

@@ -1,17 +1,17 @@
-import type { DatabaseManager } from '../../../data/db';
-import type { ModuleDefinition } from '../contracts';
-import { ensureGroupingPrerequisites } from './grouping/groupingAssetPrep';
+import type { DatabaseManager } from '../../../../../data/db';
+import type { ModuleDefinition } from '../../../contracts';
+import { ensureGroupingPrerequisites } from '../../grouping/groupingAssetPrep';
 import {
     rebuildImpactedBurstGroups,
     rebuildImpactedDuplicateGroups,
     rebuildImpactedNearDuplicateGroups,
     rebuildImpactedVariantGroups,
-} from './grouping/groupingPersistence';
+} from '../../grouping/groupingPersistence';
 import {
     buildBurstGroupingGraph,
     buildNearDuplicateGroupingGraph,
     buildVariantGroupingGraph,
-} from './grouping/groupingQueries';
+} from '../../grouping/groupingQueries';
 
 export type GroupSimilarPhotosModuleOptions = {
     dbManager: DatabaseManager;

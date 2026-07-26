@@ -1,11 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { existsSync } from 'node:fs';
-import type { DatabaseManager } from '../../../data/db';
+import type { DatabaseManager } from '../../../../../data/db';
 import type { FacesDetected } from '@contracts/events';
-import { RetinaFaceDetector } from '../../faces/retinaFaceDetector';
-import { normalizeStoredPhotoBox } from '../../faces/faceImageGeometry';
-import type { ModuleDefinition } from '../contracts';
-import { getFrameInteriorBox } from '../../photoMetadata/frameUtils';
+import { RetinaFaceDetector } from '../../../../faces/retinaFaceDetector';
+import { normalizeStoredPhotoBox } from '../../../../faces/faceImageGeometry';
+import type { ModuleDefinition } from '../../../contracts';
+import { getFrameInteriorBox } from '../../../../photoMetadata/frameUtils';
 
 export type DetectFacesModuleOptions = {
     dbManager: DatabaseManager;

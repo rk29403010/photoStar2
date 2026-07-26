@@ -23,7 +23,8 @@ test('runtime.extract_embedded_metadata stores derived metadata and emits asset 
     const imagePath = createFixtureImage(tempDir);
     const emittedEvents = [];
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createExtractEmbeddedMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/extractEmbeddedMetadataModule.js');
+    const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
+    const { extractEmbeddedMetadataPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/extract-embedded-metadata/plugin.js');
     let dbManager;
 
     try {
@@ -34,7 +35,8 @@ test('runtime.extract_embedded_metadata stores derived metadata and emits asset 
             VALUES ('asset-1', ?, NULL, 67, 0, 0, NULL, NULL, '2026-03-20T00:00:00.000Z')
         `).run(imagePath);
 
-        const moduleDefinition = createExtractEmbeddedMetadataModule({
+        const modules = new runtime.ModuleRegistry();
+        modules.registerPlugin(extractEmbeddedMetadataPlugin, {
             dbManager,
             eventBus: {
                 emit(event) {
@@ -42,6 +44,7 @@ test('runtime.extract_embedded_metadata stores derived metadata and emits asset 
                 },
             },
         });
+        const moduleDefinition = modules.get(extractEmbeddedMetadataPlugin.manifest.id);
 
         const result = await moduleDefinition.run({
             runId: 'run-1',

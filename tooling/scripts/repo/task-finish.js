@@ -10,10 +10,17 @@ function saveFactory(registry, registryPath) {
     return (entry) => {
         const latest = readThreadRegistry(registryPath);
         const existing = findThreadEntry(latest, { cwd: entry.cwd });
-        upsertThreadEntry(latest, { ...entry, ...existing, commandRuns: entry.commandRuns, updatedAt: new Date().toISOString() });
+        upsertThreadEntry(latest, mergeEntryForSave(entry, existing));
         registry.entries = latest.entries;
         writeThreadRegistry(registryPath, latest);
     };
+}
+function mergeEntryForSave(entry, existing) {
+    return { ...existing, ...entry, commandRuns: entry.commandRuns, updatedAt: new Date().toISOString() };
+}
+function refreshedEntryOrFallback(registryPath, cwd, fallback) {
+    const latest = readThreadRegistry(registryPath);
+    return findThreadEntry(latest, { cwd }) ?? fallback;
 }
 function human(result, detail, json) { const payload = { result, detail, doYouNeedToDoAnything: result === 'ACTION NEEDED', reconstructed: true }; if (json) {console.log(JSON.stringify(payload, null, 2));} else {console.log(`${result}\n${detail}\nDo you need to do anything: ${payload.doYouNeedToDoAnything ? 'Yes' : 'No'}`);} }
 function isAuthError(error) { return /auth|login|credential/i.test(String(error)); }
@@ -25,8 +32,8 @@ async function main() {
     const shipScript = path.join(root, 'tooling', 'scripts', 'repo', 'thread-ship.js');
     try {
         await runTrackedCommand({ command: process.execPath, args: [shipScript], cwd, candidateCommit: snapshot.lastCommit, entry, save });
-        const refreshed = findThreadEntry(registry, { cwd });
-        if (refreshed?.running !== 'none') {throw new Error('A task-owned local process remains.');}
+        const refreshed = refreshedEntryOrFallback(registryPath, cwd, entry);
+        if (refreshed.running && refreshed.running !== 'none') {throw new Error('A task-owned local process remains.');}
         human('WAITING ON CI', `The code passed local checks and was handed to GitHub as PR #${refreshed.prNumber}.\nNo local processes remain. GitHub now owns the checks and will notify you. You do not need to do anything.\nLater status can be reconstructed after a restart.`, args.json);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -40,4 +47,4 @@ async function main() {
     }
 }
 if (process.argv[1]?.endsWith('task-finish.js')) { main().catch((error) => { human('FAILED', `Lifecycle finish failed: ${error instanceof Error ? error.message : String(error)}`, args.json); process.exitCode = 1; }); }
-export { human };
+export { human, mergeEntryForSave, refreshedEntryOrFallback };

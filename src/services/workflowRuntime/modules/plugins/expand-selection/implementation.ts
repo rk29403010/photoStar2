@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '../contracts';
+import type { ModuleDefinition } from '../../../contracts';
 
 type SelectedSubject = {
     subjectType: string;

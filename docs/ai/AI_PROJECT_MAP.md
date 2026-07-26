@@ -121,7 +121,7 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts`).
 - Start future tool work with [PHOTO_EDITOR_TOOL_GUIDE.md](./PHOTO_EDITOR_TOOL_GUIDE.md). It documents the required file shape, editor entry points, settings and canvas-interaction standards, automatic-suggestion rules, error containment, workflow feedback, and external-AI disclosure requirements.
 - Edit stacks are ordered `PhotoEditOperation` recipes; source files are never modified.
 - Photo tools are registered from manifests under `src/services/photoEditing/tools/plugins/`; run `pnpm.cmd run photo-tool:generate-registry` then `photo-tool:check-registry`. The generated registry is machine-owned. All twelve known tools are supplied by this registry; unknown persisted tool IDs remain visible as unavailable and their data is preserved. The generic legacy adapter remains unused compatibility infrastructure for Prompt 10.
-- `PhotoEditorWorkspace.tsx` owns document loading, history, draft state, masks, preview requests, save, and render orchestration. Presentation routes through `PhotoEditorPreview.tsx` for fitted canvas/tool previews, `PhotoEditorSidebar.tsx` for tool settings and concertina panels, and `photoEditorTools.ts` for the shared tool catalogue and operation defaults.
+- `PhotoEditorWorkspace.tsx` owns document loading, history, draft state, masks, preview requests, save, and render orchestration. Presentation routes through `PhotoEditorPreview.tsx` for fitted canvas/tool previews and `PhotoEditorSidebar.tsx` for settings and concertina panels; tool metadata and defaults resolve from the generated registry.
 - Preview and final render share `src/services/photoEditing/editRenderer.ts`. The renderer materializes every step so Sharp's internal operation ordering cannot change user stack order.
 - Editor previews use a latest-only serial queue: slider gestures receive an immediate browser-side approximation, then one exact 900px render replaces it without concurrent backend preview work. Colour pop uses its shared pixel algorithm directly on a fitted client canvas for exact interactive feedback.
 - The editor toolbar's `PhotoBeforeChangeButton.tsx` provides a momentary before-current-change comparison. It renders the selected operation's stack prefix while pointer or keyboard activation is held; ordinary tools, colour pop, and rotation retain the active canvas geometry to prevent comparison jumps, while crop intentionally uses an independently fitted source view.
@@ -149,8 +149,9 @@ Workflow modules are registered through `WorkflowModulePlugin` directories under
 the authoritative registration inputs; run `pnpm.cmd run module:generate-registry`
 after adding a plug-in and `pnpm.cmd run module:check-registry` in verification.
 The generated registry is machine-owned. Every active workflow module is
-registered through this registry; the generic legacy registration adapter remains
-only as unused compatibility infrastructure.
+registered through this registry; obsolete compatibility registration is not a
+supported extension path. Unknown persisted IDs and version migrations remain
+generic resilience boundaries.
 
 ### Defined Workflows (`src/services/workflowRuntime/workflows/`)
 

@@ -2,14 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-test('photo edit registry validates generated plug-ins and gives them legacy precedence', async () => {
+test('photo edit registry validates generated plug-ins and rejects duplicates', async () => {
     const { PhotoEditToolRegistry } = await import('../../dist/core/src/services/photoEditing/photoEditToolRegistry.js');
     const { generatedPhotoEditToolPlugins } = await import('../../dist/core/src/services/photoEditing/generatedPhotoEditToolPluginRegistry.js');
     const registry = new PhotoEditToolRegistry();
     for (const plugin of generatedPhotoEditToolPlugins) { registry.registerPlugin(plugin); }
     assert.deepEqual(generatedPhotoEditToolPlugins.map((plugin) => plugin.id).sort(), ['adjust', 'blur', 'colour_pop', 'crop', 'dehaze', 'effects', 'focus', 'grayscale', 'red_eye', 'restore', 'rotate', 'sharpen']);
     assert.equal(registry.get('grayscale').label, 'Black & white');
-    assert.equal(registry.registerLegacy({ id: 'grayscale', recipeVersion: 1, label: 'Old', icon: 'Contrast', group: 'legacy', defaults: {} }), false);
     assert.throws(() => registry.registerPlugin({ id: '', recipeVersion: 0, label: '', icon: '', group: '', defaults: {} }), /photoEditToolPlugin.id/);
     assert.throws(() => registry.registerPlugin(generatedPhotoEditToolPlugins[0]), /duplicate photo edit tool/);
 });

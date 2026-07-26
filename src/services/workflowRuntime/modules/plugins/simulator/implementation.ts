@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { ModuleDefinition, RuntimeModuleContext, SubjectRef } from '../contracts';
+import type { ModuleDefinition, RuntimeModuleContext, SubjectRef } from '../../../contracts';
 
 export type SimulatorModuleMode = 'enumerator' | 'task';
 export type SimulatorModuleSpeed = 'fast' | 'medium' | 'slow';
@@ -18,16 +18,12 @@ async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     });
 }
 
-/**
- * Busy-wait to simulate CPU load
- */
 function simulateCpuSpike(durationMs: number, signal?: AbortSignal) {
     const start = Date.now();
     while (Date.now() - start < durationMs) {
         if (signal?.aborted) {
             throw new Error('Operation cancelled');
         }
-        // Busy loop
     }
 }
 
@@ -35,7 +31,6 @@ function simulateResourceLoad(mode: SimulatorModuleResourceLoadMode, signal?: Ab
     if (mode === 'cpuSpike') {
         simulateCpuSpike(1000, signal);
     } else if (mode === 'memorySpike') {
-        // Allocate ~100MB
         const dummy = new Float64Array(12.5 * 1024 * 1024);
         console.log(`[Simulator] Allocated memory spike: ${dummy.length} elements`);
     }
@@ -80,7 +75,6 @@ async function handleTaskMode(parameters: Record<string, unknown>, signal?: Abor
     const duration = calculateDuration(speed);
 
     console.log(`[Simulator] Task mode starting, speed: ${speed}, duration: ${Math.round(duration / 1000)}s`);
-    
     await sleep(duration, signal);
 
     const mockPayloadTemplate = parameters.mockPayloadTemplate as string | undefined;

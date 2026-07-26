@@ -288,14 +288,16 @@ async function runGenerateAiMetadata(
     return { outputs: [{ kind: 'artifact', artifactType: 'ai_metadata', subjectType: 'asset' }] };
 }
 
-function createBaseGenerateAiMetadataModule(
+export type GenerateAiMetadataModuleSpec = {
+    id: string;
+    estimatedCostPerCall: number;
+    imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+    metadataPass?: 'scout' | 'refine';
+};
+
+export function createGenerateAiMetadataPluginModule(
     options: GenerateAiMetadataModuleOptions,
-    params: {
-        id: string;
-        estimatedCostPerCall: number;
-        imageStrategy?: 'overview_only' | 'overview_plus_tiles';
-        metadataPass?: 'scout' | 'refine';
-    }
+    params: GenerateAiMetadataModuleSpec,
 ): ModuleDefinition {
     const liveRuntime = options.aiRuntime ?? {
         generateLiveMetadata: generateLiveAiMetadata,
@@ -320,29 +322,4 @@ function createBaseGenerateAiMetadataModule(
             };
         },
     };
-}
-
-export function createGenerateAiMetadataScoutModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
-    return createBaseGenerateAiMetadataModule(options, {
-        id: 'runtime.generate_ai_metadata_scout',
-        estimatedCostPerCall: 0.0008,
-        imageStrategy: 'overview_only',
-        metadataPass: 'scout',
-    });
-}
-
-export function createGenerateAiMetadataRefineModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
-    return createBaseGenerateAiMetadataModule(options, {
-        id: 'runtime.generate_ai_metadata_refine',
-        estimatedCostPerCall: 0.0022,
-        imageStrategy: 'overview_plus_tiles',
-        metadataPass: 'refine',
-    });
-}
-
-export function createGenerateAiMetadataModule(options: GenerateAiMetadataModuleOptions): ModuleDefinition {
-    return createBaseGenerateAiMetadataModule(options, {
-        id: 'runtime.generate_ai_metadata_scout',
-        estimatedCostPerCall: 0.0008,
-    });
 }

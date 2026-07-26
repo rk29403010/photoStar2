@@ -1,4 +1,4 @@
-import { createDetectSensitiveContentModule } from '../../detectSensitiveContentModule';
+import { createDetectSensitiveContentModule } from './implementation';
 import type { DatabaseManager } from '../../../../../data/db';
 import type { DomainEvent } from '../../../../events/types';
 import type { WorkflowModulePlugin } from '../../../contracts';

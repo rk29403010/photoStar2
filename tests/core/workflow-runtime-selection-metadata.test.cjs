@@ -38,9 +38,9 @@ async function removeDirWithRetry(targetPath) {
 async function createHarness(tempDir, options = {}) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
-    const { createExpandSelectionModule } = await import('../../dist/core/src/services/workflowRuntime/modules/expandSelectionModule.js');
-    const { createGenerateAiMetadataScoutModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/index.js');
-    const { createEstimatePhotoDateModule } = await import('../../dist/core/src/services/workflowRuntime/modules/estimatePhotoDateModule.js');
+    const { expandSelectionPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/expand-selection/plugin.js');
+    const { createGenerateAiMetadataScoutPluginModule: createGenerateAiMetadataScoutModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
+    const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
     const { selectedSubjectMetadataWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
@@ -81,12 +81,12 @@ async function createHarness(tempDir, options = {}) {
         labels: { singular: 'file', plural: 'files' },
     });
 
-    modules.register(createExpandSelectionModule());
+    modules.registerPlugin(expandSelectionPlugin);
     modules.register(createGenerateAiMetadataScoutModule({
         dbManager,
         aiRuntime: options.aiRuntime,
     }));
-    modules.register(createEstimatePhotoDateModule({ dbManager }));
+    modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
     workflows.register(selectedSubjectMetadataWorkflowDefinition);
 
     const orchestrator = new runtime.WorkflowRuntimeOrchestrator({

@@ -1,11 +1,11 @@
 import { statSync } from 'node:fs';
-import type { DatabaseManager } from '../../../data/db';
-import { buildLatestDerivedResultJoin } from '../../../shared/sql/derivedResults';
-import { estimatePhotoDate } from '../../photoDateEstimate';
-import { createPhotoMetadataRepository } from '../../photoMetadata/repository';
-import { resolvePhotoDateEvidence } from '../../photoMetadata/dateResolver';
-import { generateDateTagLabels } from '../../tags/dateTagGenerator';
-import type { ModuleDefinition } from '../contracts';
+import type { DatabaseManager } from '../../../../../data/db';
+import { buildLatestDerivedResultJoin } from '../../../../../shared/sql/derivedResults';
+import { estimatePhotoDate } from '../../../../photoDateEstimate';
+import { createPhotoMetadataRepository } from '../../../../photoMetadata/repository';
+import { resolvePhotoDateEvidence } from '../../../../photoMetadata/dateResolver';
+import { generateDateTagLabels } from '../../../../tags/dateTagGenerator';
+import type { ModuleDefinition } from '../../../contracts';
 
 type EstimatePhotoDateRow = {
     id: string;

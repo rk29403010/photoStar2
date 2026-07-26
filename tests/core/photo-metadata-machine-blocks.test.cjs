@@ -197,7 +197,7 @@ function buildBlockPersistedAssertion(checks, row, expectedSourceKind) {
 
 async function createHarness(tempDir, options = {}) {
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const { createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/generateAiMetadata/index.js');
+    const { createGenerateAiMetadataRefinePluginModule: createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-refine/plugin.js');
 
     const dbManager = new DatabaseManager(tempDir);
     dbManager.setSetting('ai_metadata_v2_api_key', options.apiKey || 'AIzaSyDUMMYKEY12345678901234567890');
