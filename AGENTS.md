@@ -267,7 +267,7 @@ pnpm.cmd run dev:desktop-runtime
 - Automatic suggestion behaviour, recipe migration, validation, geometry safety, and composition policy belong to the owning tool plug-in. Hosts aggregate registry declarations and must not add tool-ID branches.
 - Saved styles are ordinary database data. Resolve persisted operations through the registry, retain unavailable operations visibly and verbatim, and never generate source plug-ins for user styles.
 - Run `pnpm.cmd run photo-tool:generate-registry` and `pnpm.cmd run photo-tool:check-registry`; never hand-edit `generatedPhotoEditToolPluginRegistry.ts`.
-- The host owns image transport, operation sequencing, masks, unavailable-recipe presentation and error containment. Legacy tools remain adapter-backed until Prompt 10.
+- The host owns image transport, operation sequencing, masks, unavailable-recipe presentation and error containment. All known tools are plug-in-owned; unknown persisted operations remain visible as unavailable.
   New extensions must avoid central switch statements and hand-maintained
   catalogues; move the relevant decision into the plug-in or a generated
   registry contract.

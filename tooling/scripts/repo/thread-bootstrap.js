@@ -85,7 +85,7 @@ export function buildThreadBootstrapPlan({
     worktreeDirectory,
     branchPrefix = DEFAULT_BRANCH_PREFIX,
     kind = 'leaf',
-    baseBranch = 'main',
+    baseBranch = 'origin/main',
 }) {
     const slug = normalizeThreadSlug(task);
     return {
@@ -321,6 +321,10 @@ function main() {
     const registryPath = resolveThreadRegistryPath(process.cwd());
     const registry = readThreadRegistry(registryPath);
     const { kind, integrationTaskId, publicationTarget } = resolveTaskTopology(args, registry);
+    const originCheck = runCommandSync({ command: gitExecutable, args: ['remote', 'get-url', 'origin'], cwd: workspaceRoot, encoding: 'utf8' });
+    if (publicationTarget === 'main' && (originCheck.status ?? 1) === 0) {
+        runGitText(['fetch', 'origin', 'main'], workspaceRoot);
+    }
     const plan = buildThreadBootstrapPlan({
         task,
         workspaceRoot,
@@ -329,7 +333,7 @@ function main() {
             ? args['branch-prefix'].trim()
             : DEFAULT_BRANCH_PREFIX,
         kind,
-        baseBranch: publicationTarget,
+        baseBranch: publicationTarget === 'main' && (originCheck.status ?? 1) === 0 ? 'origin/main' : publicationTarget,
     });
 
     ensureBranchDoesNotExist(plan.branch, workspaceRoot);

@@ -32,7 +32,7 @@ function checksFrom(remoteState) {
 function failedCheck(check) { return check && typeof check === 'object' && ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT'].includes(check.conclusion); }
 function classify(entry, remoteState) {
     if ((entry.publishedHead && entry.includedInMain) || remoteState?.state === 'MERGED') {return 'DONE';}
-    if (entry.latestFailure && entry.publishedHead && entry.latestFailure.candidateCommit === entry.publishedHead) {return 'FAILED';}
+    if (entry.latestFailure) {return 'FAILED';}
     const checks = checksFrom(remoteState);
     const failed = checks.find(failedCheck);
     if (failed && remoteState?.headRefOid === entry.publishedHead) {return 'FAILED';}
