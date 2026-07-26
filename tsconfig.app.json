@@ -42,6 +42,6 @@
     "src/boundary/transport/usePhotoLibrary.transport.ts",
     "src/shared",
     "src/entrypoints/web",
-    "src/services/photoEditing/tools/plugins/**/*.tsx"
+    "src/services/photoEditing/tools/plugins"
   ]
 }
