@@ -35,11 +35,15 @@ function refreshedEntryOrFallback(registryPath, cwd, fallback) {
     const latest = readThreadRegistry(registryPath);
     return findThreadEntry(latest, { cwd }) ?? fallback;
 }
+function withCurrentSnapshot(entry, snapshot) {
+    return entry ? { ...entry, ...snapshot } : null;
+}
 function human(result, detail, json) { const payload = { result, detail, doYouNeedToDoAnything: result === 'ACTION NEEDED', reconstructed: true }; if (json) {console.log(JSON.stringify(payload, null, 2));} else {console.log(`${result}\n${detail}\nDo you need to do anything: ${payload.doYouNeedToDoAnything ? 'Yes' : 'No'}`);} }
 function isAuthError(error) { return /auth|login|credential/i.test(String(error)); }
 async function main() {
     const cwd = process.cwd(); const registryPath = resolveThreadRegistryPath(cwd); const registry = readThreadRegistry(registryPath); const snapshot = collectThreadSnapshot(cwd);
-    const entry = findThreadEntry(registry, { cwd });
+    const registeredEntry = findThreadEntry(registry, { cwd });
+    const entry = withCurrentSnapshot(registeredEntry, snapshot);
     if (!entry || snapshot.branch === 'main') {throw new Error('task:finish must run from a registered non-main task worktree.');}
     recoverInterruptedRuns(entry); const save = saveFactory(registry, registryPath); save(entry);
     const shipScript = path.join(root, 'tooling', 'scripts', 'repo', 'thread-ship.js');
@@ -60,4 +64,4 @@ async function main() {
     }
 }
 if (process.argv[1]?.endsWith('task-finish.js')) { main().catch((error) => { human('FAILED', `Lifecycle finish failed: ${error instanceof Error ? error.message : String(error)}`, args.json); process.exitCode = 1; }); }
-export { human, mergeEntryForSave, refreshedEntryOrFallback };
+export { human, mergeEntryForSave, refreshedEntryOrFallback, withCurrentSnapshot };

@@ -49,6 +49,15 @@ test('task finish preserves a successful publication written during the tracked 
     assert.equal(merged.latestFailure, null);
 });
 
+test('task finish starts from the current checkout snapshot', async () => {
+    const { withCurrentSnapshot } = await import('../../tooling/scripts/repo/task-finish.js');
+    assert.deepEqual(withCurrentSnapshot({ head: 'old-head', task: 'task' }, { head: 'new-head', branch: 'task-branch' }), {
+        head: 'new-head',
+        task: 'task',
+        branch: 'task-branch',
+    });
+});
+
 test('lifecycle status vocabulary stays total for incomplete data', async () => {
     const lifecycle = await import('../../tooling/scripts/repo/task-status.js');
     for (const result of ['DONE', 'WAITING ON CI', 'FAILED', 'ACTION NEEDED']) {
