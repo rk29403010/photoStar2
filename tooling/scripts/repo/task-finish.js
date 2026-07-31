@@ -16,7 +16,20 @@ function saveFactory(registry, registryPath) {
     };
 }
 function mergeEntryForSave(entry, existing) {
-    return { ...existing, ...entry, commandRuns: entry.commandRuns, updatedAt: new Date().toISOString() };
+    const merged = { ...existing, ...entry, commandRuns: entry.commandRuns, updatedAt: new Date().toISOString() };
+    if (existing?.publishedHead && existing.publishedHead === entry.head) {
+        merged.publishedHead = existing.publishedHead;
+        merged.prNumber = existing.prNumber;
+        merged.baseSha = existing.baseSha;
+        merged.publishedAt = existing.publishedAt;
+        merged.remoteOwner = existing.remoteOwner;
+        merged.autoMergeState = existing.autoMergeState;
+        merged.expectedChecks = existing.expectedChecks;
+        merged.localProcessesRemaining = existing.localProcessesRemaining;
+        merged.latestFailure = existing.latestFailure ?? null;
+        merged.latestCiResult = existing.latestCiResult ?? null;
+    }
+    return merged;
 }
 function refreshedEntryOrFallback(registryPath, cwd, fallback) {
     const latest = readThreadRegistry(registryPath);

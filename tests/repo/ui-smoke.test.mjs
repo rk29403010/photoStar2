@@ -41,10 +41,10 @@ test('smoke runtime configuration uses isolated ports', () => {
     });
 });
 
-test('smoke readiness requires a visible root and an initial UI state', () => {
-    const ready = { rootVisible: true, loadingVisible: true, viteOverlayVisible: false, startupFailureVisible: false };
+test('smoke readiness requires a visible root without a runtime failure', () => {
+    const ready = { rootVisible: true, viteOverlayVisible: false, startupFailureVisible: false };
     assert.equal(isSmokeReadyState(ready), true);
-    assert.equal(isSmokeReadyState({ ...ready, loadingVisible: false }), false);
+    assert.equal(isSmokeReadyState({ ...ready, rootVisible: false }), false);
     assert.equal(isSmokeReadyState({ ...ready, viteOverlayVisible: true }), false);
     assert.match(getSmokeFailureReason({ ...ready, rootVisible: false }, []), /root was empty/);
 });

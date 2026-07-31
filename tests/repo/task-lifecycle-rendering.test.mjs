@@ -39,6 +39,16 @@ test('task finish preserves a new failure packet when registry state is refreshe
     }
 });
 
+test('task finish preserves a successful publication written during the tracked command', async () => {
+    const { mergeEntryForSave } = await import('../../tooling/scripts/repo/task-finish.js');
+    const entry = { cwd: 'C:/task', head: 'new-head', publishedHead: 'old-head', latestFailure: { message: 'old failure' }, commandRuns: [{ state: 'passed' }] };
+    const published = { cwd: 'C:/task', publishedHead: 'new-head', prNumber: 21, latestFailure: null, latestCiResult: null, commandRuns: [] };
+    const merged = mergeEntryForSave(entry, published);
+    assert.equal(merged.publishedHead, 'new-head');
+    assert.equal(merged.prNumber, 21);
+    assert.equal(merged.latestFailure, null);
+});
+
 test('lifecycle status vocabulary stays total for incomplete data', async () => {
     const lifecycle = await import('../../tooling/scripts/repo/task-status.js');
     for (const result of ['DONE', 'WAITING ON CI', 'FAILED', 'ACTION NEEDED']) {

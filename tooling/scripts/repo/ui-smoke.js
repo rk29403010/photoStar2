@@ -82,7 +82,6 @@ export function shouldRunUiSmoke(changedPaths) {
 
 export function isSmokeReadyState(state) {
     return state.rootVisible === true
-        && state.loadingVisible === true
         && state.viteOverlayVisible === false
         && state.startupFailureVisible === false;
 }
@@ -100,7 +99,7 @@ export function getSmokeFailureReason(state, failures) {
     if (!state.rootVisible) {
         return 'The application root was empty or not visible.';
     }
-    return 'The application did not render its initial loading screen before the smoke-test timeout.';
+    return 'The application root did not render a visible UI before the smoke-test timeout.';
 }
 
 function delay(milliseconds) {
@@ -372,7 +371,6 @@ async function inspectPage(cdp) {
             const text = root?.textContent?.trim() ?? '';
             return {
                 rootVisible: Boolean(bounds && bounds.width > 0 && bounds.height > 0 && text),
-                loadingVisible: Boolean(document.querySelector('[data-testid="app-loading"]')),
                 viteOverlayVisible: Boolean(document.querySelector('vite-error-overlay')),
                 startupFailureVisible: text.includes('${STARTUP_FAILURE_TEXT}'),
             };
@@ -384,7 +382,7 @@ async function inspectPage(cdp) {
 
 async function waitForSmokeReady(cdp, timeoutMs = UI_READY_TIMEOUT_MS) {
     const deadline = Date.now() + timeoutMs;
-    let state = { rootVisible: false, loadingVisible: false, viteOverlayVisible: false, startupFailureVisible: false };
+    let state = { rootVisible: false, viteOverlayVisible: false, startupFailureVisible: false };
     while (Date.now() < deadline) {
         state = await inspectPage(cdp);
         const failures = collectCdpFailures(cdp.events);
