@@ -180,6 +180,8 @@ function recordPublication({ cwd, entry, pullRequest, publishedHead, baseSha, st
         autoMergeState: status === 'merge-queued' ? 'armed' : 'not-required',
         expectedChecks: ['quality-gate'],
         localProcessesRemaining: 'none',
+        latestFailure: null,
+        latestCiResult: null,
         updatedAt: timestamp,
     });
     writeThreadRegistry(registryPath, registry);

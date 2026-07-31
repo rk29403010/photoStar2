@@ -281,6 +281,7 @@ test('package scripts expose faster quality, benchmarking, and dev pause control
     assert.equal(scripts['qa:quick'], 'node tooling/scripts/repo/quality-gate.js quick');
     assert.equal(scripts['qa:ready'], 'node tooling/scripts/repo/quality-gate.js ready');
     assert.equal(scripts['qa:merge'], 'node tooling/scripts/repo/quality-gate.js merge');
+    assert.equal(scripts['ui:smoke'], 'node tooling/scripts/repo/ui-smoke.js');
     assert.equal(scripts['quality:changed'], 'pnpm run lint:fast:changed && pnpm run complexity:changed');
     assert.equal(scripts['quality:changed:full'], 'pnpm run lint:fast:changed && pnpm run lint:changed && pnpm run complexity:changed');
     assert.equal(scripts.quality, 'pnpm run qa:merge');

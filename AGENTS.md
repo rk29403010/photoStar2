@@ -282,6 +282,20 @@ pnpm.cmd run dev:desktop-runtime
 - Prefer targeted verification plus `pnpm.cmd run quality:staged` while iterating.
 - Use `pnpm.cmd run dev:impact` before recommending a runtime restart.
 
+## Progressive Feature Delivery
+
+- Use `docs/ai/feature-delivery-playbook.md` for conversational feature work.
+  A task capsule records the short objective, acceptance criteria, and
+  `explore`, `build`, or `harden` phase; it is the durable task card.
+- During exploration, prototypes and explicit mock boundaries are allowed.
+  The coordinator creates detailed leaf briefs only after it has evidence,
+  ownership boundaries, and a hardening condition.
+- Assign low-reasoning agents only narrow, fully-guided mechanical leaves. They
+  must not infer product decisions, redesign shared contracts, or expand scope.
+- `ui:smoke` is the fast browser boot check. It runs on demand and for affected
+  UI/runtime changes at readiness and integration; never add browser startup to
+  `qa:quick`.
+
 ## Git Ownership
 
 The AI owns git hygiene for files it creates, edits, deletes, stages, or commits.

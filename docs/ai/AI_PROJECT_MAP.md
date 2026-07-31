@@ -21,6 +21,10 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   editor handoff, QA, runtime ownership, shipping, and cleanup.
 - `docs/architecture/adr-002-agent-neutral-change-lifecycle.md` records the
   editor-neutral lifecycle decision.
+- `docs/architecture/adr-005-progressive-feature-delivery-and-ui-smoke.md`
+  records the conversational feature-delivery and targeted browser-boot policy.
+- `docs/ai/feature-delivery-playbook.md` is the task-card and coordinator guide
+  for `explore`, `build`, and `harden` delivery phases.
 - `qa:quick` is the fast edit loop, `qa:ready` evaluates the complete branch
   diff, and `qa:merge` is the canonical local and GitHub integration gate.
   `qa:quick` includes native TypeScript 7 app and core checks so type failures
@@ -47,6 +51,10 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   `task:register` records a suitable editor-created worktree. Git and the task
   registry, rather than an editor capability claim or directory convention,
   discover the active workspace.
+- `ui:smoke` launches an isolated desktop runtime and headless browser only for
+  affected UI/runtime changes at readiness and integration. It detects browser
+  errors, blank roots, startup failures, and missing app-shell markers without
+  slowing `qa:quick`.
 
 ### TypeScript tooling
 
