@@ -27,7 +27,7 @@ function createFixtureFolder(rootDir) {
     const folderPath = path.join(rootDir, 'fixtures');
     fs.mkdirSync(folderPath, { recursive: true });
     const pngBytes = Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6lrn8AAAAASUVORK5CYII=',
+        'iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADklEQVQImWP4jwQYcHIAu4cj3WS55GoAAAAASUVORK5CYII=',
         'base64'
     );
     fs.writeFileSync(path.join(folderPath, 'one.png'), pngBytes);
@@ -126,7 +126,7 @@ function assertFolderIngestResults(dbManager, run, expectedAssetCount) {
     ).all();
     assert.equal(assetRows.length, expectedAssetCount);
     assert.ok(assetRows.every((row) => typeof row.file_hash === 'string' && row.file_hash.length > 0));
-    assert.deepEqual(assetRows.map((row) => [row.width, row.height]), Array.from({ length: expectedAssetCount }, () => [1, 1]));
+    assert.deepEqual(assetRows.map((row) => [row.width, row.height]), Array.from({ length: expectedAssetCount }, () => [3, 3]));
     assert.deepEqual(assetRows.map((row) => row.metadata_timestamp_source), Array(expectedAssetCount).fill(null));
 }
 

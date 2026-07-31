@@ -11,7 +11,7 @@ function createTempDir() {
 function createFixtureImage(rootDir) {
     const imagePath = path.join(rootDir, 'one.png');
     const pngBytes = Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6lrn8AAAAASUVORK5CYII=',
+        'iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADklEQVQImWP4jwQYcHIAu4cj3WS55GoAAAAASUVORK5CYII=',
         'base64'
     );
     fs.writeFileSync(imagePath, pngBytes);
@@ -60,8 +60,8 @@ test('runtime.extract_embedded_metadata stores derived metadata and emits asset 
             FROM assets
             WHERE id = 'asset-1'
         `).get();
-        assert.equal(assetRow.width, 1);
-        assert.equal(assetRow.height, 1);
+        assert.equal(assetRow.width, 3);
+        assert.equal(assetRow.height, 3);
         assert.equal(assetRow.metadata_timestamp_source, null);
         assert.equal(assetRow.exif_datetime, null);
 
@@ -72,7 +72,7 @@ test('runtime.extract_embedded_metadata stores derived metadata and emits asset 
         `).get();
         assert.ok(metadataRow);
         const stored = JSON.parse(metadataRow.data);
-        assert.equal(stored.file.width, 1);
+        assert.equal(stored.file.width, 3);
         assert.equal(stored.derived.timestamp_source, null);
         assert.ok(emittedEvents.some((event) => event.type === 'AssetUpdated' && event.assetId === 'asset-1'));
     } finally {
