@@ -30,6 +30,7 @@ const VALID_STATUSES = new Set([
     'discarded',
 ]);
 const CLOSED_STATUSES = new Set(['parked', 'merged', 'discarded']);
+const VALID_DELIVERY_PHASES = new Set(['explore', 'build', 'harden']);
 
 export function createEmptyThreadRegistry() {
     return {
@@ -65,6 +66,22 @@ function normalizeThreadNote(note) {
         .filter(Boolean);
 
     return [...new Set(segments)].join(' | ');
+}
+
+export function parseAcceptanceCriteria(value) {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item).trim()).filter(Boolean);
+    }
+    const values = typeof value === 'string' ? value.split('|') : [];
+    return values.map((item) => String(item).trim()).filter(Boolean);
+}
+
+export function normalizeDeliveryPhase(value, fallback = 'explore') {
+    const phase = typeof value === 'string' && value.trim() !== '' ? value.trim().toLowerCase() : fallback;
+    if (!VALID_DELIVERY_PHASES.has(phase)) {
+        throw new Error(`Unsupported delivery phase: ${phase}`);
+    }
+    return phase;
 }
 
 export function getWorktreeNameFromPath(targetPath) {
@@ -106,6 +123,8 @@ export function upsertThreadEntry(registry, entry) {
         ...existingEntry,
         ...entry,
         note: normalizeThreadNote(entry.note ?? existingEntry?.note ?? ''),
+        deliveryPhase: normalizeDeliveryPhase(entry.deliveryPhase ?? existingEntry?.deliveryPhase),
+        acceptanceCriteria: parseAcceptanceCriteria(entry.acceptanceCriteria ?? existingEntry?.acceptanceCriteria),
         createdAt: existingEntry?.createdAt ?? entry.updatedAt,
     };
 
@@ -487,7 +506,8 @@ function handleRegister(args, registryPath) {
         task,
         taskId: `task-${task.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-').replaceAll(/(^-|-$)/g, '')}`,
         objective: typeof args.objective === 'string' ? args.objective.trim() : '',
-        acceptanceCriteria: typeof args.acceptance === 'string' ? args.acceptance.split('|').map((item) => item.trim()).filter(Boolean) : [],
+        acceptanceCriteria: parseAcceptanceCriteria(args.acceptance),
+        deliveryPhase: normalizeDeliveryPhase(args.phase),
         kind: typeof args.kind === 'string' ? args.kind.trim() : 'leaf',
         integrationTaskId: typeof args.integration === 'string' ? args.integration.trim() : '',
         intendedBaseBranch: typeof args.base === 'string' ? args.base.trim() : snapshot.baseRef,
@@ -521,7 +541,8 @@ function handleUpdate(args, registryPath) {
         ...snapshot,
         task: typeof args.task === 'string' ? args.task.trim() : existingEntry.task,
         objective: typeof args.objective === 'string' ? args.objective.trim() : existingEntry.objective ?? '',
-        acceptanceCriteria: typeof args.acceptance === 'string' ? args.acceptance.split('|').map((item) => item.trim()).filter(Boolean) : existingEntry.acceptanceCriteria ?? [],
+        acceptanceCriteria: typeof args.acceptance === 'string' ? parseAcceptanceCriteria(args.acceptance) : existingEntry.acceptanceCriteria ?? [],
+        deliveryPhase: normalizeDeliveryPhase(args.phase, existingEntry.deliveryPhase ?? 'explore'),
         kind: typeof args.kind === 'string' ? args.kind.trim() : existingEntry.kind ?? 'leaf',
         integrationTaskId: typeof args.integration === 'string' ? args.integration.trim() : existingEntry.integrationTaskId ?? '',
         intendedBaseBranch: typeof args.base === 'string' ? args.base.trim() : existingEntry.intendedBaseBranch ?? snapshot.baseRef,

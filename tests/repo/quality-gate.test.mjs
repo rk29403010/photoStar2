@@ -57,6 +57,7 @@ test('ready gate checks the complete branch with native types and affected test 
         'native core typecheck',
         'repository tests',
         'UI tests',
+        'affected UI boot smoke',
     ]);
 });
 
@@ -73,7 +74,13 @@ test('merge gate includes full typed lint, all typechecks, and all test layers',
     assert.equal(labels.filter((label) => label === 'native core typecheck').length, 0);
     assert.ok(labels.includes('repository tests'));
     assert.ok(labels.includes('UI tests'));
+    assert.ok(labels.includes('affected UI boot smoke'));
     assert.ok(labels.includes('core tests'));
+});
+
+test('affected UI smoke receives the resolved diff base', () => {
+    const smokeStep = buildQualitySteps('ready', 'origin/main').find((step) => step.label === 'affected UI boot smoke');
+    assert.deepEqual(smokeStep?.args.slice(-2), ['--base', 'origin/main']);
 });
 
 test('unknown quality mode fails clearly', () => {

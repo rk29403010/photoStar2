@@ -6,6 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runCommandSync } from './process-invocation.js';
 import {
     collectThreadSnapshot,
+    normalizeDeliveryPhase,
+    parseAcceptanceCriteria,
     readThreadRegistry,
     resolveThreadRegistryPath,
     upsertThreadEntry,
@@ -44,10 +46,18 @@ function parseArgs(argv) {
 
 function requireTask(task) {
     if (typeof task !== 'string' || task.trim() === '') {
-        throw new Error('Usage: node tooling/scripts/repo/thread-bootstrap.js --task "<task>" [--kind leaf|integration] [--integration "<task id>"] [--owner "<owner>"]');
+        throw new Error('Usage: node tooling/scripts/repo/thread-bootstrap.js --task "<task>" [--kind leaf|integration] [--integration "<task id>"] [--owner "<owner>"] [--objective "<outcome>"] [--acceptance "criterion | criterion"] [--phase explore|build|harden]');
     }
 
     return task.trim();
+}
+
+export function buildThreadTaskCard({ objective = '', acceptance = '', phase = 'explore' } = {}) {
+    return {
+        objective: typeof objective === 'string' ? objective.trim() : '',
+        acceptanceCriteria: parseAcceptanceCriteria(acceptance),
+        deliveryPhase: normalizeDeliveryPhase(phase),
+    };
 }
 
 export function normalizeThreadSlug(task) {
@@ -212,6 +222,7 @@ function ensureSharedNodeModulesLink({
 
 function registerNewThread({
     task,
+    taskCard,
     owner,
     note,
     worktreePath, kind, integrationTaskId, publicationTarget,
@@ -225,8 +236,7 @@ function registerNewThread({
         ...snapshot,
         task,
         taskId: `task-${normalizeThreadSlug(task)}`,
-        objective: '',
-        acceptanceCriteria: [],
+        ...taskCard,
         kind,
         integrationTaskId,
         intendedBaseBranch: publicationTarget,
@@ -311,6 +321,11 @@ function main() {
     const task = requireTask(args.task);
     const owner = typeof args.owner === 'string' ? args.owner.trim() : '';
     const note = typeof args.note === 'string' ? args.note.trim() : '';
+    const taskCard = buildThreadTaskCard({
+        objective: args.objective,
+        acceptance: args.acceptance,
+        phase: args.phase,
+    });
     const workspaceRoot = resolveWorkspaceRoot(process.cwd());
     const availableDirectories = collectAvailableDirectories(workspaceRoot);
     const ignoredDirectories = getIgnoredDirectories(workspaceRoot);
@@ -352,6 +367,7 @@ function main() {
         : false;
     registerNewThread({
         task: plan.task,
+        taskCard,
         owner,
         note,
         worktreePath: plan.worktreePath,

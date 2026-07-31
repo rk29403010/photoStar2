@@ -6,11 +6,27 @@ import { fileURLToPath } from 'node:url';
 import {
     buildThreadBootstrapSummary,
     buildThreadBootstrapPlan,
+    buildThreadTaskCard,
     buildSharedNodeModulesPlan,
     normalizeThreadSlug,
     resolveRepositoryRootFromCommonDir,
     resolvePreferredWorktreeDirectory,
 } from '../../tooling/scripts/repo/thread-bootstrap.js';
+
+test('buildThreadTaskCard preserves a high-level objective and criteria', () => {
+    assert.deepEqual(
+        buildThreadTaskCard({
+            objective: 'Make startup failures visible before merging.',
+            acceptance: 'Browser boot is checked | Quick loop stays fast',
+            phase: 'build',
+        }),
+        {
+            objective: 'Make startup failures visible before merging.',
+            acceptanceCriteria: ['Browser boot is checked', 'Quick loop stays fast'],
+            deliveryPhase: 'build',
+        },
+    );
+});
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');

@@ -10,6 +10,9 @@ export type PhotoEditToolCapabilities = {
     requiresAssetMetadata?: boolean;
 };
 export type PhotoEditToolRenderPipeline = { greyscale: () => PhotoEditToolRenderPipeline; png: () => { toBuffer: () => Promise<Buffer> } };
+export type PhotoEditToolBrowserPreviewPlugin = Pick<PhotoEditToolPlugin, 'id' | 'browserPreview'> & {
+    browserPreview: NonNullable<PhotoEditToolPlugin['browserPreview']>;
+};
 export type PhotoEditAutomaticSuggestion = {
     id: string;
     label: string;

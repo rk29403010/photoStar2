@@ -58,6 +58,7 @@
     "qa:quick": "node tooling/scripts/repo/quality-gate.js quick",
     "qa:ready": "node tooling/scripts/repo/quality-gate.js ready",
     "qa:merge": "node tooling/scripts/repo/quality-gate.js merge",
+    "ui:smoke": "node tooling/scripts/repo/ui-smoke.js",
     "ai-metadata:debug": "node tooling/scripts/repo/ai-metadata-debug.mjs",
     "ai-metadata:bundle": "node tooling/scripts/repo/ai-metadata-bundle.mjs",
     "ai-metadata:studio-pack": "node tooling/scripts/repo/ai-metadata-studio-pack.mjs",

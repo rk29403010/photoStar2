@@ -14,6 +14,8 @@ import {
     getManagedSessionState,
     getWorktreeNameFromPath,
     isBranchMergedIntoTargets,
+    normalizeDeliveryPhase,
+    parseAcceptanceCriteria,
     refreshThreadRegistry,
     renderAuditReport,
     renderThreadList,
@@ -21,6 +23,13 @@ import {
     writeThreadRegistry,
     upsertThreadEntry,
 } from '../../tooling/scripts/repo/thread-state.js';
+
+test('task card helpers normalize phases and acceptance criteria', () => {
+    assert.deepEqual(parseAcceptanceCriteria('first outcome | second outcome | '), ['first outcome', 'second outcome']);
+    assert.equal(normalizeDeliveryPhase(undefined), 'explore');
+    assert.equal(normalizeDeliveryPhase('HARDEN'), 'harden');
+    assert.throws(() => normalizeDeliveryPhase('ship'), /Unsupported delivery phase/);
+});
 
 test('registry writes are atomic and corrupt registries fail closed', () => {
     const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), 'photo-star-task-state-'));
@@ -198,6 +207,8 @@ test('upsertThreadEntry inserts a new entry and updates by cwd', () => {
     assert.equal(registry.entries[0].lastCommit, 'def5678');
     assert.equal(registry.entries[0].dirty, false);
     assert.equal(registry.entries[0].createdAt, '2026-03-30T10:00:00.000Z');
+    assert.equal(registry.entries[0].deliveryPhase, 'explore');
+    assert.deepEqual(registry.entries[0].acceptanceCriteria, []);
 });
 
 test('closeThreadEntry records a closed state and closedAt timestamp', () => {

@@ -12,11 +12,13 @@ async function readRepositoryFile(relativePath) {
 }
 
 test('authoritative agent documentation retains the task lifecycle vocabulary', async () => {
-    const [agents, workflow, projectMap, adr] = await Promise.all([
+    const [agents, workflow, projectMap, adr, playbook, progressiveDeliveryAdr] = await Promise.all([
         readRepositoryFile('AGENTS.md'),
         readRepositoryFile('docs/ai/change-workflow.md'),
         readRepositoryFile('docs/ai/AI_PROJECT_MAP.md'),
         readRepositoryFile('docs/architecture/adr-003-deterministic-plugin-registration.md'),
+        readRepositoryFile('docs/ai/feature-delivery-playbook.md'),
+        readRepositoryFile('docs/architecture/adr-005-progressive-feature-delivery-and-ui-smoke.md'),
     ]);
 
     for (const term of [
@@ -41,4 +43,8 @@ test('authoritative agent documentation retains the task lifecycle vocabulary', 
     assert.match(projectMap, /merge-queued/i);
     assert.match(projectMap, /plug-ins/i);
     assert.match(adr, /deterministic plug-in registration/i);
+    assert.match(agents, /Progressive Feature Delivery/i);
+    assert.match(workflow, /Progressive feature delivery/i);
+    assert.match(playbook, /Low-reasoning agents/i);
+    assert.match(progressiveDeliveryAdr, /browser boot smoke/i);
 });

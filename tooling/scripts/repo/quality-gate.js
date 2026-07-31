@@ -101,7 +101,15 @@ function nativeCoreBuildStep() {
     return nativeTypecheckStep('native core build', 'tooling/config/tsconfig.core.json', { emit: true });
 }
 
-export function buildQualitySteps(mode) {
+function uiSmokeStep(base) {
+    return {
+        label: 'affected UI boot smoke',
+        command: nodeExecutable,
+        args: [path.join(scriptDirectory, 'ui-smoke.js'), '--if-affected', ...(base ? ['--base', base] : [])],
+    };
+}
+
+export function buildQualitySteps(mode, base = '') {
     const quick = [
         { label: 'plug-in registry and boundary policy', command: nodeExecutable, args: [path.join(scriptDirectory, 'extension-architecture-policy.mjs')] },
         changedStep('changed Oxlint', 'lint-changed-files.mjs', ['--tool=oxlint']),
@@ -142,6 +150,7 @@ export function buildQualitySteps(mode) {
         nativeCoreTypecheckStep(),
         { label: 'repository tests', command: nodeExecutable, args: ['--test', 'tests/repo/*.test.mjs'] },
         { label: 'UI tests', command: nodeExecutable, args: ['--test', 'tests/ui/*.test.cjs'] },
+        uiSmokeStep(base),
     ];
     if (mode === 'ready') {
         return ready;
@@ -180,6 +189,7 @@ export function buildQualitySteps(mode) {
             args: ['tooling/scripts/core/post-compile.cjs'],
         },
         { label: 'core tests', command: nodeExecutable, args: ['--test', 'tests/core/*.test.cjs'] },
+        uiSmokeStep(base),
     ];
 }
 
@@ -207,7 +217,7 @@ export function runQualityGate({ mode, base, env = process.env }) {
         : resolveQualityBase({ explicitBase: base, env });
     const gateEnv = resolvedBase ? { ...env, LINT_DIFF_BASE: resolvedBase } : env;
     console.log(`[qa] Mode: ${mode}; base: ${resolvedBase || 'working tree'}`);
-    for (const step of buildQualitySteps(mode)) {
+    for (const step of buildQualitySteps(mode, resolvedBase)) {
         runStep(step, gateEnv);
     }
     console.log(`[qa] ${mode} gate passed.`);
