@@ -56,7 +56,7 @@ function createFixtureFolder(rootDir) {
     const folderPath = path.join(rootDir, 'fixtures');
     fs.mkdirSync(folderPath, { recursive: true });
     const pngBytes = Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6lrn8AAAAASUVORK5CYII=',
+        'iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADklEQVQImWP4jwQYcHIAu4cj3WS55GoAAAAASUVORK5CYII=',
         'base64',
     );
     fs.writeFileSync(path.join(folderPath, 'one.png'), pngBytes);

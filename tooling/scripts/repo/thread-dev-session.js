@@ -21,7 +21,7 @@ const SUPPORTED_MANAGED_SCRIPTS = new Set([
     'dev:desktop-runtime',
     'dev:desktop-runtime:debug',
 ]);
-const RUNTIME_READY_TIMEOUT_MS = 30_000;
+const RUNTIME_READY_TIMEOUT_MS = 90_000;
 const RUNTIME_READY_POLL_MS = 250;
 
 export function shouldStartManagedDevSessionInForeground({
