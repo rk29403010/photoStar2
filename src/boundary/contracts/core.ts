@@ -1,3 +1,5 @@
+import type { PhotoMaskMetadata } from './photoEditor';
+
 export type {
     TimelineGroupId,
     TimelineGroupSummary,
@@ -12,9 +14,12 @@ export type {
     NormalizedPoint,
     PhotoEditDocument,
     PhotoEditMask,
+    PhotoMaskMetadata,
+    PhotoMaskMetadataItem,
     PhotoEditOperation,
     PhotoEditStyle,
     PhotoEditTool,
+    PhotoMaskRaster,
     PhotoEditWorkspace,
     PhotoRotationFillMode,
     RenderPhotoEditInput,
@@ -254,6 +259,8 @@ export type Asset = {
     tags?: AssetTag[];
     pending_review_items?: ReviewItemSummary[];
     frame_detection?: FrameDetectionData | null;
+    /** Normalized, labelled mask candidates assembled from analysis modules. */
+    mask_metadata?: PhotoMaskMetadata;
 
     // Scoring & Analysis (Future proofing A5)
     aesthetic_score?: number;

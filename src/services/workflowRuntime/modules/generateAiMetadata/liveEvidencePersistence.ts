@@ -8,6 +8,8 @@ import {
     normalizePhotoMetadataBlockBoxes,
     type PhotoMetadataCoordinateSpace,
 } from '../../../photoMetadata/coordinateNormalization';
+import { saveAssetMaskMetadata } from '../../../photoEditing/assetMaskMetadata';
+import type { PhotoMaskMetadataItem } from '../../../../boundary/contracts/photoEditor';
 
 type MetadataSourceKind = 'gemini_flash_scout' | 'gemini_pro_refined';
 type MetadataSourceRank = 0 | 1 | 2;
@@ -91,6 +93,26 @@ function buildProjectionInput(params: {
             regionsOfInterest: source,
         },
     };
+}
+
+function toMetadataMasks(metadataBlock: PhotoMetadataBlock): PhotoMaskMetadataItem[] {
+    const subjects = metadataBlock.subjects.map((subject, index) => ({
+        id: `subject-${index}`,
+        label: subject.label,
+        description: 'AI-analysed photo subject',
+        kind: 'subject' as const,
+        box: subject.bounding_box,
+        source: { moduleId: 'runtime.generate_ai_metadata', referenceId: `subject-${index}` },
+    }));
+    const regions = metadataBlock.regions_of_interest.map((region, index) => ({
+        id: `region-${index}`,
+        label: region.label,
+        description: region.significance ? `AI region of interest: ${region.significance}` : 'AI-analysed region of interest',
+        kind: 'element' as const,
+        box: region.bounding_box,
+        source: { moduleId: 'runtime.generate_ai_metadata', referenceId: `region-${index}` },
+    }));
+    return [...subjects, ...regions];
 }
 
 function replaceAiTagAssignments(params: {
@@ -183,6 +205,11 @@ export function persistPhotoMetadataEvidence(params: {
             metadataSourceKind: params.sourceKind,
             sourceId: blockId,
         }));
+        saveAssetMaskMetadata(params.dbManager.getDb(), {
+            assetId: params.assetId,
+            sourceId: 'runtime.generate_ai_metadata',
+            masks: toMetadataMasks(normalizedMetadataBlock),
+        });
     }
     replaceAiTagAssignments({
         dbManager: params.dbManager,

@@ -6,6 +6,8 @@ import type { AssetUpdated } from '../../../../events/types';
 import type { ModuleDefinition } from '../../../contracts';
 import { detectSimpleBorder } from '../../../../photoMetadata/borderDetection';
 import { initImageSegmentation, segmentPhotoFromFrame } from '../../../../faces/imageSegmentation';
+import { encodeMaskRaster, saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
+import type { PhotoMaskMetadataItem } from '../../../../../boundary/contracts/photoEditor';
 
 export type DetectFramesModuleOptions = {
     dbManager: DatabaseManager;
@@ -30,7 +32,7 @@ function findContourPoints(mask: Uint8Array, width: number, height: number): Arr
     return points.filter((_, index) => index % step === 0);
 }
 
-async function detectDeepFrame(originalPath: string): Promise<Array<{ x: number; y: number }>> {
+async function detectDeepFrame(originalPath: string): Promise<{ points: Array<{ x: number; y: number }>; raster: PhotoMaskMetadataItem['raster'] }> {
     await initImageSegmentation();
     const size = 1024;
     const image = await sharp(originalPath).rotate().resize(size, size, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -40,7 +42,39 @@ async function detectDeepFrame(originalPath: string): Promise<Array<{ x: number;
         pixels[index + size * size] = image.data[index * 3 + 1] / 255;
         pixels[index + (2 * size * size)] = image.data[index * 3 + 2] / 255;
     }
-    return findContourPoints(await segmentPhotoFromFrame(pixels, size, size), size, size);
+    const mask = await segmentPhotoFromFrame(pixels, size, size);
+    return { points: findContourPoints(mask, size, size), raster: await encodeMaskRaster(mask, size, size) };
+}
+
+function frameMaskGeometry(boundary: { type?: string; box?: PhotoMaskMetadataItem['box']; points?: PhotoMaskMetadataItem['points']; raster?: PhotoMaskMetadataItem['raster'] }) {
+    if (boundary.raster) {return { kind: 'raster' as const, box: boundary.box, points: boundary.points, raster: boundary.raster };}
+    if (boundary.type === 'polygon' && boundary.points && boundary.points.length >= 3) {return { kind: 'polygon' as const, points: boundary.points };}
+    if (boundary.type === 'rectangle' && boundary.box) {return { kind: 'rectangle' as const, box: boundary.box };}
+    return null;
+}
+
+function toFrameMasks(boundaryData: unknown): PhotoMaskMetadataItem[] {
+    if (!boundaryData || typeof boundaryData !== 'object') {return [];}
+    const boundary = boundaryData as { type?: string; box?: PhotoMaskMetadataItem['box']; points?: PhotoMaskMetadataItem['points']; raster?: PhotoMaskMetadataItem['raster'] };
+    const geometry = frameMaskGeometry(boundary);
+    if (!geometry) {return [];}
+    return [
+        {
+            id: 'photo-content',
+            label: 'Detected photo area',
+            description: 'Detected photo area from frame segmentation',
+            ...geometry,
+            source: { moduleId: 'runtime.detect_frame', referenceId: 'photo-content' },
+        },
+        {
+            id: 'outside-photo-content',
+            label: 'Outside detected photo',
+            description: 'Area outside the detected photo boundary',
+            ...geometry,
+            inverted: true,
+            source: { moduleId: 'runtime.detect_frame', referenceId: 'outside-photo-content' },
+        },
+    ];
 }
 
 export function createDetectFramesModule(options: DetectFramesModuleOptions): ModuleDefinition {
@@ -55,7 +89,12 @@ export function createDetectFramesModule(options: DetectFramesModuleOptions): Mo
             if (asset?.original_path && existsSync(asset.original_path)) {
                 try {
                     const simpleBorder = await detectSimpleBorder(asset.original_path);
-                    boundaryData = simpleBorder ? { type: 'rectangle', box: simpleBorder } : { type: 'polygon', points: await detectDeepFrame(asset.original_path) };
+                    if (simpleBorder) {
+                        boundaryData = { type: 'rectangle', box: simpleBorder };
+                    } else {
+                        const deepFrame = await detectDeepFrame(asset.original_path);
+                        boundaryData = { type: 'polygon', ...deepFrame };
+                    }
                     pathType = simpleBorder ? 'fast' : 'deep';
                 } catch (error) {
                     db.prepare("INSERT INTO processing_issues (id, asset_id, task, severity, message) VALUES (?, ?, 'frame_detection', 'warning', ?)")
@@ -67,6 +106,11 @@ export function createDetectFramesModule(options: DetectFramesModuleOptions): Mo
                 db.prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data) VALUES (?, ?, 'frame_detection', 'border_detection_pipeline', '1.0', ?)")
                     .run(uuidv4(), context.subject.subjectId, JSON.stringify(boundaryData));
             }
+            saveAssetMaskMetadata(db, {
+                assetId: context.subject.subjectId,
+                sourceId: 'runtime.detect_frame',
+                masks: toFrameMasks(boundaryData),
+            });
             console.log(`[Telemetry] detect_frames executed on asset ${context.subject.subjectId} using ${pathType} path`);
             options.eventBus?.emit({ type: 'AssetUpdated', assetId: context.subject.subjectId });
             return { outputs: [{ kind: 'artifact', artifactType: 'frame_detection', subjectType: 'asset' }] };

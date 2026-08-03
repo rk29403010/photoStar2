@@ -77,6 +77,29 @@ test('photo edit renderer restricts an adjustment to an elliptical mask', async 
     assert.ok(pixel(40, 40) > pixel(2, 2) + 50);
 });
 
+test('photo edit renderer preserves a precise raster alpha mask', async () => {
+    const { renderPhotoEdit } = await import('../../src/services/photoEditing/editRenderer.ts');
+    const source = await sharp({ create: { width: 4, height: 1, channels: 3, background: '#808080' } }).png().toBuffer();
+    const alpha = Buffer.from([
+        255, 255, 255, 255,
+        255, 255, 255, 0,
+        255, 255, 255, 255,
+        255, 255, 255, 0,
+    ]);
+    const raster = await sharp(alpha, { raw: { width: 4, height: 1, channels: 4 } }).png().toBuffer();
+    const output = await renderPhotoEdit(source, [operation('adjust', { brightness: 100, contrast: 0, saturation: 0, hue: 0 }, { maskId: 'person' })], [{
+        id: 'person',
+        name: 'Person silhouette',
+        kind: 'raster',
+        raster: { width: 4, height: 1, pngBase64: raster.toString('base64') },
+        feather: 0,
+        source: 'automatic',
+    }]);
+    const pixels = await sharp(output).removeAlpha().raw().toBuffer();
+    assert.ok(pixels[0] > pixels[3] + 50);
+    assert.ok(pixels[6] > pixels[9] + 50);
+});
+
 test('photo edit renderer applies automatic levels, shadow recovery, and colour balance', async () => {
     const { renderPhotoEdit } = await import('../../src/services/photoEditing/editRenderer.ts');
     const pixels = Buffer.from([30, 35, 70, 220, 220, 245]);

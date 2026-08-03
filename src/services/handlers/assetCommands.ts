@@ -28,6 +28,7 @@ type AssetRow = {
     preview_path: string | null;
     faces_data: string | null;
     frame_detection_data: string | null;
+    mask_metadata_data: string | null;
     rec_data: string | null;
     ai_metadata_data: string | null;
     photo_date_estimate_data: string | null;
@@ -151,6 +152,7 @@ function buildFilteredAssetsQuery(options: {
                 a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 am.sensitivity_status,
                 (SELECT data FROM derived_results WHERE asset_id = a.id AND task = 'frame_detection' LIMIT 1) as frame_detection_data,
+                (SELECT json_group_array(data) FROM asset_mask_metadata WHERE asset_id = a.id) as mask_metadata_data,
                 p.path as preview_path,
                 COALESCE(dr_new.data, dr_legacy.data) as faces_data,
                 ${detail.recSelect}
@@ -220,6 +222,7 @@ function buildGroupedAssetsQuery(
                 a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 (SELECT data FROM derived_results WHERE asset_id = a.id AND task = 'frame_detection' LIMIT 1) as frame_detection_data,
+                (SELECT json_group_array(data) FROM asset_mask_metadata WHERE asset_id = a.id) as mask_metadata_data,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
@@ -285,6 +288,7 @@ function buildUngroupedAssetsQuery(
                 a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
                 null as sensitivity_status,
                 (SELECT data FROM derived_results WHERE asset_id = a.id AND task = 'frame_detection' LIMIT 1) as frame_detection_data,
+                (SELECT json_group_array(data) FROM asset_mask_metadata WHERE asset_id = a.id) as mask_metadata_data,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}
@@ -341,6 +345,7 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
                 a.sensitivity_score,
                 am.sensitivity_status,
                 (SELECT data FROM derived_results WHERE asset_id = a.id AND task = 'frame_detection' LIMIT 1) as frame_detection_data,
+                (SELECT json_group_array(data) FROM asset_mask_metadata WHERE asset_id = a.id) as mask_metadata_data,
                 p.path as preview_path,
                 COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
                 ${detail.recSelect}

@@ -90,6 +90,15 @@ test('detectFramesModule run - Fast Path (rectangular border)', async () => {
         const stored = JSON.parse(derivedRow.data);
         assert.equal(stored.type, 'rectangle');
         assert.ok(stored.box);
+        const maskMetadataRow = db.prepare(`
+            SELECT data FROM asset_mask_metadata
+            WHERE asset_id = 'asset-1' AND source_id = 'runtime.detect_frame'
+        `).get();
+        assert.ok(maskMetadataRow);
+        const maskMetadata = JSON.parse(maskMetadataRow.data);
+        assert.equal(maskMetadata.schemaVersion, 1);
+        assert.equal(maskMetadata.masks[0].label, 'Detected photo area');
+        assert.equal(maskMetadata.masks[1].inverted, true);
         assert.ok(emittedEvents.some((event) => event.type === 'AssetUpdated' && event.assetId === 'asset-1'));
     } finally {
         dbManager?.close();
@@ -163,6 +172,13 @@ test('detectFramesModule run - Deep Path (segmentation fallback)', async () => {
         const stored = JSON.parse(derivedRow.data);
         assert.equal(stored.type, 'polygon');
         assert.ok(stored.points.length > 0);
+        const maskMetadataRow = db.prepare(`
+            SELECT data FROM asset_mask_metadata
+            WHERE asset_id = 'asset-2' AND source_id = 'runtime.detect_frame'
+        `).get();
+        const maskMetadata = JSON.parse(maskMetadataRow.data);
+        assert.equal(maskMetadata.masks[0].kind, 'raster');
+        assert.ok(maskMetadata.masks[0].raster.pngBase64.length > 0);
         assert.ok(emittedEvents.some((event) => event.type === 'AssetUpdated' && event.assetId === 'asset-2'));
     } finally {
         ort.InferenceSession.create = originalCreate;

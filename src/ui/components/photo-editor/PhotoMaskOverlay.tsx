@@ -1,8 +1,9 @@
 import { Check, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import type { NormalizedBox, NormalizedPoint, PhotoEditMask } from '@contracts/core';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import type { Asset, NormalizedBox, NormalizedPoint, PhotoEditMask } from '@contracts/core';
 import { Button, IconButton } from '../Primitives';
+import { buildPhotoMaskCandidates, instantiateMaskCandidate, type PhotoMaskCandidate } from './maskCandidates';
 
 export type DrawMaskKind = 'ellipse' | 'polygon' | 'rectangle';
 
@@ -10,6 +11,7 @@ type Size = { height: number; width: number };
 type BoxDrag = { start: NormalizedPoint };
 
 type PhotoMaskOverlayProps = {
+    readonly asset: Asset;
     readonly drawKind: DrawMaskKind | null;
     readonly masks: PhotoEditMask[];
     readonly previewUrl: string | null;
@@ -56,25 +58,17 @@ function boxBetween(start: NormalizedPoint, end: NormalizedPoint): NormalizedBox
     };
 }
 
-function pointsBox(points: NormalizedPoint[]): NormalizedBox | null {
-    if (points.length === 0) {return null;}
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-    const x = Math.min(...xs);
-    const y = Math.min(...ys);
-    return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
-}
-
-function maskBox(mask: PhotoEditMask): NormalizedBox | null {
-    return mask.points && mask.points.length >= 3 ? pointsBox(mask.points) : mask.box ?? null;
-}
-
 function shapeClass(selected: boolean, inverted: boolean | undefined): string {
     if (selected) {return inverted ? 'fill-brand-accent/10 stroke-brand-accent' : 'fill-brand-accent/30 stroke-brand-accent';}
     return 'fill-brand-accent/10 stroke-white/70';
 }
 
-function MaskShape({ mask, selected }: { readonly mask: PhotoEditMask; readonly selected: boolean }) {
+function RasterMaskShape(props: { readonly mask: PhotoEditMask; readonly selected: boolean }) {
+    const source = `data:image/png;base64,${props.mask.raster!.pngBase64}`;
+    return <><foreignObject x="0" y="0" width="100" height="100"><img src={source} alt="Precise mask highlight" className={`h-full w-full ${props.selected ? 'opacity-50' : 'opacity-25'}`} /></foreignObject>{props.selected && <rect x="0" y="0" width="100" height="100" className="fill-none stroke-brand-accent" strokeWidth="0.7" vectorEffect="non-scaling-stroke" />}</>;
+}
+
+function VectorMaskShape({ mask, selected }: { readonly mask: PhotoEditMask; readonly selected: boolean }) {
     const className = shapeClass(selected, mask.inverted);
     const dash = mask.inverted ? '8 5' : undefined;
     if (mask.points && mask.points.length >= 3) {
@@ -88,13 +82,76 @@ function MaskShape({ mask, selected }: { readonly mask: PhotoEditMask; readonly 
     return <rect x={box.x * 100} y={box.y * 100} width={box.width * 100} height={box.height * 100} className={className} strokeDasharray={dash} strokeWidth={selected ? 0.7 : 0.4} vectorEffect="non-scaling-stroke" />;
 }
 
-function MaskSelectionButtons(props: Pick<PhotoMaskOverlayProps, 'masks' | 'onSelect' | 'selectedMaskId'>) {
-    return <>{props.masks.map((mask) => {
-        const box = maskBox(mask);
-        if (!box) {return null;}
-        const style: CSSProperties = { height: `${box.height * 100}%`, left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%` };
-        return <button key={mask.id} type="button" aria-label={`Select ${mask.name} mask`} aria-pressed={props.selectedMaskId === mask.id} className="absolute rounded-none border-0 bg-transparent p-0 focus-visible:ring-2 focus-visible:ring-white" style={style} onClick={() => props.onSelect(mask.id)} />;
-    })}</>;
+function MaskShape({ mask, selected }: { readonly mask: PhotoEditMask; readonly selected: boolean }) {
+    return mask.raster ? <RasterMaskShape mask={mask} selected={selected} /> : <VectorMaskShape mask={mask} selected={selected} />;
+}
+
+function pointInPolygon(point: NormalizedPoint, points: NormalizedPoint[]): boolean { let inside = false; for (let current = 0, previous = points.length - 1; current < points.length; previous = current, current += 1) { const a = points[current]; const b = points[previous]; const intersects = (a.y > point.y) !== (b.y > point.y) && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x; if (intersects) {inside = !inside;} } return inside; }
+
+type MaskHitTarget = { id: string; mask: Omit<PhotoEditMask, 'id'> | PhotoEditMask };
+type RasterAlpha = { alpha: Uint8ClampedArray; height: number; width: number };
+
+function loadRasterAlpha(target: MaskHitTarget, onLoad: (targetId: string, raster: RasterAlpha) => void, isCancelled: () => boolean) {
+    const raster = target.mask.raster;
+    if (!raster) {return;}
+    const image = new Image();
+    image.onload = () => {
+        if (isCancelled()) {return;}
+        const canvas = document.createElement('canvas');
+        canvas.width = raster.width;
+        canvas.height = raster.height;
+        const context = canvas.getContext('2d');
+        if (!context) {return;}
+        context.drawImage(image, 0, 0);
+        onLoad(target.id, { alpha: context.getImageData(0, 0, canvas.width, canvas.height).data, height: canvas.height, width: canvas.width });
+    };
+    image.src = `data:image/png;base64,${raster.pngBase64}`;
+}
+
+function isRasterHit(point: NormalizedPoint, raster: RasterAlpha): boolean {
+    const x = Math.min(raster.width - 1, Math.floor(point.x * raster.width));
+    const y = Math.min(raster.height - 1, Math.floor(point.y * raster.height));
+    return raster.alpha[(y * raster.width + x) * 4 + 3] > 16;
+}
+
+function isVectorHit(point: NormalizedPoint, mask: MaskHitTarget['mask']): boolean {
+    if (mask.points && mask.points.length >= 3) {return pointInPolygon(point, mask.points);}
+    const box = mask.box;
+    return Boolean(box && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height);
+}
+
+function findHitTarget(targets: MaskHitTarget[], point: NormalizedPoint, rasterAlpha: Map<string, RasterAlpha>): string | null {
+    for (const target of targets) {
+        const raster = rasterAlpha.get(target.id);
+        if (raster ? isRasterHit(point, raster) : isVectorHit(point, target.mask)) {return target.id;}
+    }
+    return null;
+}
+
+function useMaskHitTest(targets: MaskHitTarget[]) {
+    const rasterAlpha = useRef(new Map<string, RasterAlpha>());
+    useEffect(() => {
+        let cancelled = false;
+        rasterAlpha.current.clear();
+        for (const target of targets) {loadRasterAlpha(target, (targetId, raster) => rasterAlpha.current.set(targetId, raster), () => cancelled);}
+        return () => {cancelled = true;};
+    }, [targets]);
+    return (point: NormalizedPoint): string | null => findHitTarget(targets, point, rasterAlpha.current);
+}
+
+function CanvasMaskSelection(props: Pick<PhotoMaskOverlayProps, 'masks' | 'onCreate' | 'onSelect'> & { readonly candidates: PhotoMaskCandidate[] }) {
+    const targets = useMemo(() => [
+        ...props.masks.map((mask) => ({ id: `saved-${mask.id}`, mask })),
+        ...props.candidates.map((candidate) => ({ id: `candidate-${candidate.id}`, mask: candidate.mask })),
+    ], [props.candidates, props.masks]);
+    const hitTest = useMaskHitTest(targets);
+    return <button type="button" aria-label="Select a detected or saved mask on the photo" className="absolute inset-0 cursor-pointer rounded-none border-0 bg-transparent p-0 focus-visible:ring-2 focus-visible:ring-white" onPointerUp={(event) => {
+        const hit = hitTest(localPoint(event));
+        if (!hit) {return;}
+        if (hit.startsWith('saved-')) {props.onSelect(hit.slice('saved-'.length)); return;}
+        const candidate = props.candidates.find((item) => `candidate-${item.id}` === hit);
+        if (candidate) {props.onCreate(instantiateMaskCandidate(candidate));}
+    }} />;
 }
 
 function makeBoxMask(kind: Exclude<DrawMaskKind, 'polygon'>, box: NormalizedBox): PhotoEditMask {
@@ -199,15 +256,17 @@ export function PhotoMaskOverlay(props: PhotoMaskOverlayProps) {
     const [imageSize, setImageSize] = useState<Size | null>(null);
     const container = useStageSize(rootRef);
     const stage = useMemo(() => fittedSize(container, imageSize), [container, imageSize]);
+    const candidates = useMemo(() => buildPhotoMaskCandidates(props.asset), [props.asset]);
     return <div ref={rootRef} className="relative flex h-full w-full items-center justify-center overflow-hidden p-8">
         {props.previewUrl && <img role="presentation" className="hidden" src={props.previewUrl} alt="" onLoad={(event) => setImageSize({ height: event.currentTarget.naturalHeight, width: event.currentTarget.naturalWidth })} />}
         {props.previewUrl && imageSize
             ? <div data-mask-canvas="true" className="relative overflow-hidden shadow-xl" style={{ height: stage.height, width: stage.width }}>
                 <img draggable={false} width={imageSize.width} height={imageSize.height} className="h-full w-full select-none object-fill" src={props.previewUrl} alt="Mask editing preview" />
                 <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
+                    {candidates.map((candidate) => <MaskShape key={`candidate-${candidate.id}`} mask={{ ...candidate.mask, id: candidate.id }} selected={false} />)}
                     {props.masks.map((mask) => <MaskShape key={mask.id} mask={mask} selected={mask.id === props.selectedMaskId} />)}
                 </svg>
-                {!props.drawKind && <MaskSelectionButtons masks={props.masks} selectedMaskId={props.selectedMaskId} onSelect={props.onSelect} />}
+                {!props.drawKind && <CanvasMaskSelection candidates={candidates} masks={props.masks} onCreate={props.onCreate} onSelect={props.onSelect} />}
                 {props.drawKind && <DrawingOverlay drawKind={props.drawKind} onCancelDraw={props.onCancelDraw} onCreate={props.onCreate} />}
             </div>
             : <span className="text-content-secondary">Preparing mask canvas…</span>}
