@@ -21,8 +21,10 @@
 ## Photo editor
 
 1. Move high-resolution rendering into a tracked, cancellable workflow and use disk-backed intermediate stages for very high-megapixel photos.
-2. Ship and validate a promptable local segmentation model for pixel-accurate subject, background, and picked-element masks; the current editor uses detected normalized face/subject/region boxes when available.
-3. Clarify and add the third requested non-AI editing tool; the original request left list item 3 blank.
+2. Extend the standardised mask metadata pipeline with promptable semantic segmentation for arbitrary picked elements, consistently labelled across every mask-capable analysis module.
+3. Let an edit select multiple masks and apply the union of their areas or the inverse of that union.
+4. Save portable semantic mask selectors (labels and the selected-mask operator) in reusable edit stacks instead of mask coordinates, then resolve them against the target photo when a stack is loaded.
+5. Clarify and add the third requested additional mask-editing item; the original request ended at item 3 without a description.
 
 ## Gallery
 
