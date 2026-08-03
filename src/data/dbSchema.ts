@@ -124,6 +124,17 @@ export const SCHEMA_SQL = `
     FOREIGN KEY(asset_id) REFERENCES assets(id)
   );
 
+  CREATE TABLE IF NOT EXISTS asset_mask_metadata (
+    asset_id TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    schema_version INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (asset_id, source_id),
+    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS photo_metadata_blocks (
     id TEXT PRIMARY KEY,
     asset_id TEXT NOT NULL,
@@ -502,6 +513,7 @@ export const MIGRATIONS = [
     "CREATE TABLE IF NOT EXISTS family_trees (id TEXT PRIMARY KEY, filename TEXT NOT NULL, file_hash TEXT NOT NULL UNIQUE, gedcom_content TEXT NOT NULL, tree_group_id TEXT NOT NULL, version_label TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS people_gedcom_links (person_id TEXT NOT NULL, gedcom_tree_id TEXT NOT NULL, gedcom_person_id TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (person_id, gedcom_tree_id, gedcom_person_id))",
     "ALTER TABLE face_assignments ADD COLUMN is_suggested INTEGER DEFAULT 0",
+    "CREATE TABLE IF NOT EXISTS asset_mask_metadata (asset_id TEXT NOT NULL, source_id TEXT NOT NULL, schema_version INTEGER NOT NULL, data TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (asset_id, source_id), FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE)",
 ];
 
 export const LEGACY_QUEUE_TABLE_NAME = joinLegacyName('task', 'queue');

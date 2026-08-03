@@ -42,3 +42,28 @@ test('mask candidates support rectangle frame results and canonical bounding box
     assert.deepEqual(readNormalizedBox({ bounding_box: { x: -0.2, y: 0.8, width: 0.5, height: 0.5 } }), { x: 0, y: 0.8, width: 0.5, height: 0.2 });
     assert.equal(readNormalizedBox({ bounding_box: { x: 0.2, y: 0.2, width: 0, height: 0.2 } }), null);
 });
+
+test('mask candidates prefer standardized metadata and retain a precise raster alpha mask', async () => {
+    const { buildPhotoMaskCandidates } = await import('../../src/ui/components/photo-editor/maskCandidates.ts');
+    const candidates = buildPhotoMaskCandidates({
+        id: 'asset-3',
+        original_path: 'photo.jpg',
+        faces: [{ box: { x: 0.2, y: 0.2, width: 0.2, height: 0.2 }, person_name: 'Legacy face' }],
+        mask_metadata: {
+            schemaVersion: 1,
+            masks: [{
+                id: 'face-0',
+                label: 'Caroline',
+                description: 'Locally segmented person',
+                kind: 'raster',
+                raster: { width: 2, height: 2, pngBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAADElEQVR42mP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC' },
+                source: { moduleId: 'runtime.detect_faces', referenceId: 'face-0' },
+            }],
+        },
+    });
+
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].mask.name, 'Caroline');
+    assert.equal(candidates[0].mask.kind, 'raster');
+    assert.equal(candidates[0].mask.raster.width, 2);
+});

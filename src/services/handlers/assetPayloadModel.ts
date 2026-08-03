@@ -1,4 +1,4 @@
-import type { PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
+import type { PhotoMaskMetadata, PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
 import {
     normalizePhotoMetadataRegionsOfInterest,
     normalizePhotoMetadataSubjects,
@@ -73,6 +73,7 @@ export type AssetPayloadRow = {
     sensitivity_score: number | null;
     sensitivity_status: string | null;
     frame_detection_data: string | null;
+    mask_metadata_data: string | null;
     member_group_id?: string | null;
     member_role?: string | null;
     member_rank?: number | null;
@@ -157,6 +158,31 @@ function parseFaceEmbeddings(row: AssetPayloadRow) {
         return JSON.parse(row.rec_data).embeddings || [];
     } catch {
         return [];
+    }
+}
+
+function readMaskMetadataEntry(entry: unknown): PhotoMaskMetadata['masks'] {
+    const value = typeof entry === 'string' ? JSON.parse(entry) as unknown : entry;
+    return value && typeof value === 'object' && Array.isArray((value as PhotoMaskMetadata).masks)
+        ? (value as PhotoMaskMetadata).masks
+        : [];
+}
+
+function applyPersonMaskLabel(mask: PhotoMaskMetadata['masks'][number], people: Array<{ face_index: number; name: string }>) {
+    const faceIndex = /^face-(\d+)$/.exec(mask.source?.referenceId ?? '')?.[1];
+    const person = faceIndex === undefined ? undefined : people.find((item) => item.face_index === Number(faceIndex));
+    return person ? { ...mask, label: person.name } : mask;
+}
+
+function parseMaskMetadata(row: AssetPayloadRow, people: Array<{ face_index: number; name: string }>): PhotoMaskMetadata | undefined {
+    if (!row.mask_metadata_data) {return undefined;}
+    try {
+        const entries = JSON.parse(row.mask_metadata_data) as unknown;
+        if (!Array.isArray(entries)) {return undefined;}
+        const masks = entries.flatMap(readMaskMetadataEntry).map((mask) => applyPersonMaskLabel(mask, people));
+        return masks.length > 0 ? { schemaVersion: 1, masks } : undefined;
+    } catch {
+        return undefined;
     }
 }
 
@@ -390,7 +416,8 @@ function toPhotoMetadataEvidence(row: AssetPayloadRow) {
 
 export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?: boolean } = {}) {
     const faces = parseFaces(row);
-    applyPeopleAssignments(faces, parsePeopleAssignments(row));
+    const people = parsePeopleAssignments(row);
+    applyPeopleAssignments(faces, people);
     const includeEvidence = options.includeEvidence === true;
     const photoMetadata = toPhotoMetadataBundle(row);
 
@@ -413,6 +440,7 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
         embedded_metadata: includeEvidence ? parseEmbeddedMetadata(row) : undefined,
         photo_date_estimate: includeEvidence ? parsePhotoDateEstimate(row) : undefined,
         frame_detection: frameDetection,
+        mask_metadata: parseMaskMetadata(row, people),
         ...buildGroupFields(row),
     };
 }

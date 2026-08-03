@@ -1,4 +1,4 @@
-import type { Asset, NormalizedBox, NormalizedPoint, PhotoEditMask } from '@contracts/core';
+import type { Asset, NormalizedBox, NormalizedPoint, PhotoEditMask, PhotoMaskMetadataItem } from '@contracts/core';
 
 export type PhotoMaskCandidate = {
     description: string;
@@ -46,8 +46,32 @@ function readNormalizedPoints(value: unknown): NormalizedPoint[] {
     });
 }
 
-function automaticMask(input: Pick<PhotoEditMask, 'box' | 'inverted' | 'kind' | 'name' | 'points'>): Omit<PhotoEditMask, 'id'> {
+function automaticMask(input: Pick<PhotoEditMask, 'box' | 'inverted' | 'kind' | 'name' | 'points' | 'raster'>): Omit<PhotoEditMask, 'id'> {
     return { ...input, feather: 0.02, source: 'automatic' };
+}
+
+function metadataGeometry(item: PhotoMaskMetadataItem): Pick<PhotoEditMask, 'box' | 'points' | 'raster'> | null {
+    if (item.raster) {return { raster: item.raster };}
+    if (item.points && item.points.length >= 3) {return { points: item.points };}
+    if (item.box) {return { box: item.box };}
+    return null;
+}
+
+function standardizedMetadataCandidates(asset: Asset): PhotoMaskCandidate[] {
+    return (asset.mask_metadata?.masks ?? []).flatMap((item: PhotoMaskMetadataItem) => {
+        const geometry = metadataGeometry(item);
+        if (!geometry) {return [];}
+        return [{
+            id: `metadata-${item.source.moduleId}-${item.source.referenceId}`,
+            description: item.description,
+            mask: automaticMask({
+                ...geometry,
+                kind: item.kind,
+                name: item.label,
+                inverted: item.inverted ?? false,
+            }),
+        }];
+    });
 }
 
 function frameGeometry(points: NormalizedPoint[], box: NormalizedBox | null): Pick<PhotoEditMask, 'box' | 'kind' | 'points'> | null {
@@ -111,6 +135,8 @@ function metadataCandidates(asset: Asset, field: 'regionsOfInterest' | 'subjects
 }
 
 export function buildPhotoMaskCandidates(asset: Asset): PhotoMaskCandidate[] {
+    const standardized = standardizedMetadataCandidates(asset);
+    if (standardized.length > 0) {return standardized;}
     return [
         ...frameCandidates(asset),
         ...faceCandidates(asset),

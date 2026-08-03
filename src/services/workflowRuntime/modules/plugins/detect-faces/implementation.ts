@@ -6,14 +6,52 @@ import { RetinaFaceDetector } from '../../../../faces/retinaFaceDetector';
 import { normalizeStoredPhotoBox } from '../../../../faces/faceImageGeometry';
 import type { ModuleDefinition } from '../../../contracts';
 import { getFrameInteriorBox } from '../../../../photoMetadata/frameUtils';
+import { encodeMaskRaster, saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
+import type { PhotoMaskMetadataItem } from '../../../../../boundary/contracts/photoEditor';
+import { initImageSegmentation, segmentPhotoFromFrame } from '../../../../faces/imageSegmentation';
+import sharp from 'sharp';
 
 export type DetectFacesModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: {
         emit: (event: FacesDetected) => void;
     };
-}
+};
 
+async function toFaceMasks(params: { faces: Array<{ box: { x: number; y: number; width: number; height: number } }>; originalPath: string | undefined }): Promise<PhotoMaskMetadataItem[]> {
+    const rasterByFace = new Map<number, PhotoMaskMetadataItem['raster']>();
+    if (params.originalPath) {
+        try {
+            const size = 1024;
+            const image = await sharp(params.originalPath).rotate().resize(size, size, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+            const pixels = new Float32Array(3 * size * size);
+            for (let index = 0; index < size * size; index += 1) {
+                pixels[index] = image.data[index * 3] / 255;
+                pixels[index + size * size] = image.data[index * 3 + 1] / 255;
+                pixels[index + (2 * size * size)] = image.data[index * 3 + 2] / 255;
+            }
+            await initImageSegmentation();
+            for (const [index, face] of params.faces.entries()) {
+                const mask = await segmentPhotoFromFrame(pixels, size, size, {
+                    x: face.box.x + face.box.width / 2,
+                    y: face.box.y + face.box.height / 2,
+                });
+                rasterByFace.set(index, await encodeMaskRaster(mask, size, size));
+            }
+        } catch {
+            // Face boxes remain valid fallback masks when local segmentation is unavailable.
+        }
+    }
+    return params.faces.map((face, index) => ({
+        id: `face-${index}`,
+        label: `Face ${index + 1}`,
+        description: rasterByFace.has(index) ? 'Locally segmented person' : 'Locally detected face',
+        kind: rasterByFace.has(index) ? 'raster' : 'ellipse',
+        box: face.box,
+        raster: rasterByFace.get(index),
+        source: { moduleId: 'runtime.detect_faces', referenceId: `face-${index}` },
+    }));
+}
 export function createDetectFacesModule(options: DetectFacesModuleOptions): ModuleDefinition {
     const detector = new RetinaFaceDetector();
 
@@ -76,6 +114,11 @@ export function createDetectFacesModule(options: DetectFacesModuleOptions): Modu
                 context.subject.subjectId,
                 JSON.stringify({ faces }),
             );
+            saveAssetMaskMetadata(db, {
+                assetId: context.subject.subjectId,
+                sourceId: 'runtime.detect_faces',
+                masks: await toFaceMasks({ faces, originalPath: asset?.original_path }),
+            });
             options.eventBus?.emit({
                 type: 'FacesDetected',
                 mediaId: context.subject.subjectId,

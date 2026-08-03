@@ -49,7 +49,8 @@ export async function initImageSegmentation(): Promise<void> {
 export async function segmentPhotoFromFrame(
     imageBuffer: Float32Array,
     width: number,
-    height: number
+    height: number,
+    prompt?: { x: number; y: number },
 ): Promise<MaskArray> {
     if (!session) {
         await initImageSegmentation();
@@ -60,8 +61,8 @@ export async function segmentPhotoFromFrame(
     }
 
     // Programmatically generate a 'positive point prompt' at the center of the photo
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const centerX = (prompt?.x ?? 0.5) * width;
+    const centerY = (prompt?.y ?? 0.5) * height;
 
     // FastSAM/SAM expects coordinates of prompt points in [batch, num_points, 2] shape
     const pointCoordsData = new Float32Array([centerX, centerY]);

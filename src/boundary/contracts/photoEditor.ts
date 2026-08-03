@@ -30,12 +30,41 @@ export type PhotoRotationFillMode = typeof PHOTO_ROTATION_FILL[keyof typeof PHOT
 export type PhotoEditMask = {
     id: string;
     name: string;
-    kind: 'rectangle' | 'ellipse' | 'polygon' | 'subject' | 'background' | 'element';
+    kind: 'rectangle' | 'ellipse' | 'polygon' | 'subject' | 'background' | 'element' | 'raster';
     box?: NormalizedBox;
     points?: NormalizedPoint[];
+    /** A normalized PNG alpha map preserves non-geometric analysis masks. */
+    raster?: PhotoMaskRaster;
     inverted?: boolean;
     feather: number;
     source?: 'user' | 'automatic';
+};
+
+export type PhotoMaskRaster = {
+    width: number;
+    height: number;
+    pngBase64: string;
+};
+
+/** Stable, analysis-owned geometry offered to the editor as a reusable mask. */
+export type PhotoMaskMetadataItem = {
+    id: string;
+    label: string;
+    description: string;
+    kind: PhotoEditMask['kind'];
+    box?: NormalizedBox;
+    points?: NormalizedPoint[];
+    raster?: PhotoMaskRaster;
+    inverted?: boolean;
+    source: {
+        moduleId: string;
+        referenceId: string;
+    };
+};
+
+export type PhotoMaskMetadata = {
+    schemaVersion: 1;
+    masks: PhotoMaskMetadataItem[];
 };
 
 export type PhotoEditOperation = {
