@@ -37,6 +37,10 @@ function selectedProviders(value: unknown, profile: unknown, provided?: Segmenta
 
 function sourceId(provider: SegmentationProvider): string { return `${MODULE_ID}:${provider.id}`; }
 
+function providerDisplayName(provider: SegmentationProvider): string {
+    return provider.id === 'fastsam' ? 'FastSAM' : 'EfficientSAM';
+}
+
 function recordProviderIssue(db: SqliteDatabase, assetId: string, provider: SegmentationProvider, error: unknown): void {
     const message = error instanceof Error ? error.message : String(error);
     db.prepare("INSERT INTO processing_issues (id, asset_id, task, severity, message, details) VALUES (?, ?, ?, 'warning', ?, ?)")
@@ -49,8 +53,8 @@ async function metadataForMasks(provider: SegmentationProvider, masks: Segmentat
         const raster = await encodeMaskRaster(mask.alpha, mask.width, mask.height);
         return {
             id: referenceId,
-            label: `Segment ${index + 1} (${provider.id})`,
-            description: `${provider.id} ${provider.modelVersion} segmentation`,
+            label: `Object ${index + 1} (${providerDisplayName(provider)})`,
+            description: `Editable object region found by ${providerDisplayName(provider)} ${provider.modelVersion}`,
             kind: 'raster' as const,
             box: mask.box,
             raster,
