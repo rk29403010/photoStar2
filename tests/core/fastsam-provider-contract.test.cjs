@@ -5,9 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 const ort = require('onnxruntime-node');
 
-function tensors() {
+function tensors(score = 0.9) {
     const detection = new Float32Array(37);
-    detection[0] = 512; detection[1] = 512; detection[2] = 800; detection[3] = 800; detection[4] = 0.9; detection[5] = 10;
+    detection[0] = 512; detection[1] = 512; detection[2] = 800; detection[3] = 800; detection[4] = score; detection[5] = 10;
     const prototype = new Float32Array(32 * 256 * 256);
     prototype.fill(1, 0, 256 * 256);
     return { output0: new ort.Tensor('float32', detection, [1, 37, 1]), '467': new ort.Tensor('float32', prototype, [1, 32, 256, 256]) };
@@ -42,5 +42,17 @@ test('FastSAM rejects a graph signature that looks like a SAM point decoder', as
         const provider = new FastSamSegmentationProvider({ modelPath: model, sessionFactory: async () => ({ inputNames: ['images', 'point_coords', 'point_labels'], run: async () => tensors() }), verifyChecksum: false });
         const prepared = await provider.prepare({ pixels: new Float32Array(3 * 1024 * 1024), width: 1024, height: 1024 });
         await assert.rejects(() => provider.automaticCandidates(prepared), /exactly one image tensor/);
+    } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+});
+
+test('FastSAM retains a useful model-native proposal above the local 0.25 threshold', async () => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-fastsam-'));
+    const model = path.join(temporary, 'fastsam-s-fp32.onnx');
+    fs.writeFileSync(model, 'fixture');
+    try {
+        const { FastSamSegmentationProvider } = await import('../../dist/core/src/services/segmentation/fastSamSegmentationProvider.js');
+        const provider = new FastSamSegmentationProvider({ modelPath: model, sessionFactory: async () => ({ inputNames: ['images'], run: async () => tensors(0.3) }), verifyChecksum: false });
+        const prepared = await provider.prepare({ pixels: new Float32Array(3 * 1024 * 1024), width: 1024, height: 1024, sourceWidth: 100, sourceHeight: 100, scale: 10, padX: 0, padY: 0 });
+        assert.equal((await provider.automaticCandidates(prepared)).length, 1);
     } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });

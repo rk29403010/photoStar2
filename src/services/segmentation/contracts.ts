@@ -31,6 +31,8 @@ export type SegmentationProvider = {
     readonly modelId: string;
     readonly modelVersion: string;
     readonly capabilities: SegmentationCapabilities;
+    /** Model-neutral, reproducible filtering settings; never raw tensor details. */
+    readonly inferenceProfile?: Readonly<Record<string, boolean | number | string>>;
     isAvailable(): boolean;
     prepare(image: SegmentationImage): Promise<PreparedSegmentationImage>;
     segment(prepared: PreparedSegmentationImage, prompt: SegmentationPrompt): Promise<SegmentationMask[]>;

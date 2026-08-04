@@ -144,7 +144,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             kind: 'module',
             moduleId: 'runtime.segment_objects',
             parameters: { provider: 'fastsam', profile: 'quick', maxResults: 6 },
-            presentation: { label: 'Quick object segmentation', countNoun: { singular: 'image', plural: 'images' } },
+            presentation: { label: 'Find objects', countNoun: { singular: 'image', plural: 'images' } },
         },
         {
             id: 'detect-faces',

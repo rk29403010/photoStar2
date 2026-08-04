@@ -489,8 +489,8 @@ function WorkflowSubMenu(props: {
                 >
                     🖼️ Detect Frames
                 </button>
-                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'fastsam', profile: 'quick' })} style={menuItemStyle('#38bdf8', false)}>Fast - Generate editor masks</button>
-                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'efficientsam', objectProvider: 'efficientsam', profile: 'balanced' })} style={menuItemStyle('#a78bfa', false)}>Detailed - Generate editor masks</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'fastsam', profile: 'quick' })} style={menuItemStyle('#38bdf8', false)}>Fast - Find objects</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'efficientsam', objectProvider: 'efficientsam', profile: 'balanced' })} style={menuItemStyle('#a78bfa', false)}>Detailed - Find objects</button>
                 <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'both', profile: 'balanced' })} style={menuItemStyle('#facc15', false)}>Compare object masks</button>
                 <button
                     onClick={(e) => {

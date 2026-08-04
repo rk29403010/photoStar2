@@ -75,6 +75,7 @@ function replaceSuccessfulResult(input: { db: SqliteDatabase; assetId: string; p
         rawMaskCount: input.rawMaskCount,
         retainedMaskCount: metadata.length,
         persistedRasterDimensions: rasterDimensions,
+        providerProfile: provider.inferenceProfile,
         executedAt: new Date().toISOString(),
     };
     const persist = db.transaction(() => {

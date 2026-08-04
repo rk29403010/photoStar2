@@ -68,7 +68,7 @@ function DrawMaskTools(props: Pick<PhotoMaskPanelProps, 'drawKind' | 'onDrawKind
 function DetectedMaskCandidates(props: Pick<PhotoMaskPanelProps, 'asset' | 'masks' | 'onChange' | 'onDrawKindChange' | 'onSelect'>) {
     const candidates = useMemo(() => buildPhotoMaskCandidates(props.asset), [props.asset]);
     if (candidates.length === 0) {
-        return <p className="text-xs text-content-secondary">No analysed regions are available yet. Run frame, face, or AI metadata analysis first.</p>;
+        return <p className="text-xs text-content-secondary">No analysed regions are available yet. Run Find objects, Detect frame, face, or AI metadata analysis first.</p>;
     }
     return <div className="space-y-1">
         <p className="text-xs font-medium text-content-secondary">Detected regions</p>

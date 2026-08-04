@@ -7,10 +7,10 @@ export const editorMasksWorkflowDefinition: WorkflowDefinition = {
         { id: 'objectProvider', valueType: 'enum', required: true, options: ['fastsam', 'efficientsam', 'both'] },
         { id: 'profile', valueType: 'enum', required: true, options: ['quick', 'balanced'] },
     ],
-    presentation: { defaultRunLabel: 'Generate editor masks', milestones: [{ id: 'masks_ready', label: 'Masks ready' }] },
+    presentation: { defaultRunLabel: 'Generate editable masks', milestones: [{ id: 'masks_ready', label: 'Masks ready' }] },
     nodes: [
-        { id: 'deep-frame', kind: 'module', moduleId: 'runtime.detect_frame', parameters: { mode: 'deep', onlyWhenNeeded: false }, outputsTo: ['segment-objects'], presentation: { label: 'Deep frame detection' } },
-        { id: 'segment-objects', kind: 'module', moduleId: 'runtime.segment_objects', parameters: {}, outputsTo: ['generate-previews'], presentation: { label: 'Generate editor masks' } },
+        { id: 'deep-frame', kind: 'module', moduleId: 'runtime.detect_frame', parameters: { mode: 'deep', onlyWhenNeeded: false }, outputsTo: ['segment-objects'], presentation: { label: 'Detect frame' } },
+        { id: 'segment-objects', kind: 'module', moduleId: 'runtime.segment_objects', parameters: {}, outputsTo: ['generate-previews'], presentation: { label: 'Find objects' } },
         { id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews', completesMilestones: ['masks_ready'], presentation: { label: 'Refresh previews' } },
     ],
 };

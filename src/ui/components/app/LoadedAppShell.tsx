@@ -38,7 +38,7 @@ type LoadedAppShellProps = {
     readonly onScanSensitiveAll: () => void;
     readonly onStartSimulationWorkflow: (params?: { speed?: string; iterations?: string; errorType?: string; errorRate?: string }) => void;
     readonly uiState: ReturnType<typeof useAppUiState>;
-    readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[]) => void;
+    readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void;
 }
 
 function getTrackedActivityMessage(activeOverlayJobs: BackgroundJob[]): string | null {

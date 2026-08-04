@@ -39,7 +39,7 @@ type ActionOverlaysProps = {
     readonly setAnalyzingJobId: (id: string | null) => void;
     readonly showInfoPanel: boolean;
     readonly setShowInfoPanel: (show: boolean) => void;
-    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void;
     readonly onEditPhoto?: () => void;
     readonly hasFrame: boolean;
     readonly showWithFrame: boolean;

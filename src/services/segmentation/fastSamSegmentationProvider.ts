@@ -11,7 +11,9 @@ import { resolveSegmentationModelState, segmentationModelManifests } from './mod
 const MODEL_FILENAME = 'fastsam-s-fp32.onnx';
 const modelPath = resolveOnnxModelPath({ modelFileName: MODEL_FILENAME, moduleDir: __dirname });
 const MAX_CANDIDATES = 100;
-const CONFIDENCE_THRESHOLD = 0.4;
+// FastSAM-s scores are model-native. This threshold retains useful local regions
+// without treating scores as calibrated confidence across providers.
+const CONFIDENCE_THRESHOLD = 0.25;
 const IOU_THRESHOLD = 0.9;
 
 type FastSamPrepared = PreparedSegmentationImage & { session: ort.InferenceSession; candidates?: SegmentationMask[] };
@@ -134,6 +136,7 @@ export class FastSamSegmentationProvider implements SegmentationProvider {
     readonly modelId = 'fastsam-s-fp32';
     readonly modelVersion = 'official-fastsam-s';
     readonly capabilities = { positivePoints: true, boxes: true, automaticCandidates: true };
+    readonly inferenceProfile = Object.freeze({ confidenceThreshold: CONFIDENCE_THRESHOLD, duplicateBoxIouThreshold: IOU_THRESHOLD, maximumCandidates: MAX_CANDIDATES });
     private session: ort.InferenceSession | undefined;
     private readonly configuredModelPath: string;
     private readonly sessionFactory: (path: string) => Promise<ort.InferenceSession>;
