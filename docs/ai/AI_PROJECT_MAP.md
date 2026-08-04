@@ -96,6 +96,7 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **database / schema / migrations** | `src/data/dbSchema.ts`, `src/data/db.ts` | `src/services/events/` | `tests/core/` |
 | **background jobs / workflows** | `src/services/workflowRuntime/`, `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `src/data/dbSchema.ts` (workflow_runs) | `tests/core/` |
 | **AI / local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
+| **Segmentation providers** | `src/services/segmentation/`, `docs/architecture/segmentation-providers.md` | `tooling/scripts/core/export_fastsam_s_model.py` | `tests/core/fastsam-provider-contract.test.cjs` |
 | **settings / configuration** | `src/ui/components/SettingsModal.tsx`, `src/services/handlers/systemCommands.ts` | `src/entrypoints/core/main.ts` | `tests/ui/` |
 | **family tree / GEDCOM** | `src/ui/components/family-tree/FamilyTreeView.tsx`, `src/ui/components/family-tree/familyTreeHooks.ts` | `src/ui/components/family-tree/familyTreeLayout.ts`, `src/services/gedcom/` | `tests/core/`, `tests/ui/` |
 
@@ -153,6 +154,10 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts`).
 - Dehaze uses a deterministic dark-channel-prior filter; Colour pop uses selective colour retention against a monochrome image. Neither invokes AI models, and both remain compatible with stack masks and reusable styles.
 
 ## Workflows and Modules
+
+## Segmentation providers
+
+Local segmentation providers live in `src/services/segmentation/`; functional use is through `runtime.detect_frame`, `runtime.segment_objects`, and `library_editor_masks_v1`. See `docs/architecture/segmentation-providers.md` for tiers, storage, provenance, and future-provider guidance.
 
 The `workflowRuntime` acts as the single orchestration path. It executes defined **Workflows**, which consist of configurable **Modules**.
 

@@ -43,6 +43,7 @@ async function createFolderIngestHarness(tempDir) {
     const { extractEmbeddedMetadataPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/extract-embedded-metadata/plugin.js');
     const { detectFacesPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-faces/plugin.js');
     const { detectFramesPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-frames/plugin.js');
+    const { segmentObjectsPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/segment-objects/plugin.js');
     const { generateFaceVectorsPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-face-vectors/plugin.js');
     const { resolvePeoplePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/resolve-people/plugin.js');
     const { groupSimilarPhotosPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/group-similar-photos/plugin.js');
@@ -88,6 +89,7 @@ async function createFolderIngestHarness(tempDir) {
     modules.registerPlugin(generatePreviewsPlugin, { dbManager });
     modules.registerPlugin(detectFacesPlugin, { dbManager });
     modules.registerPlugin(detectFramesPlugin, { dbManager });
+    modules.registerPlugin(segmentObjectsPlugin, { dbManager });
     modules.registerPlugin(generateFaceVectorsPlugin, { dbManager });
     modules.registerPlugin(resolvePeoplePlugin, { dbManager });
     modules.registerPlugin(groupSimilarPhotosPlugin, { dbManager });

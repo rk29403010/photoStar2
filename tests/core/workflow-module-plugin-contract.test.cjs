@@ -19,6 +19,7 @@ const EXPECTED_WORKFLOW_MODULE_IDS = [
     'runtime.group_similar_photos',
     'runtime.resolve_people',
     'runtime.scan_folder',
+    'runtime.segment_objects',
     'runtime.simulator',
 ];
 

@@ -14,7 +14,8 @@ import plugin10 from './modules/plugins/group-similar-photos/manifest';
 import plugin11 from './modules/plugins/preview-adapter/manifest';
 import plugin12 from './modules/plugins/resolve-people/manifest';
 import plugin13 from './modules/plugins/scan-folder/manifest';
-import plugin14 from './modules/plugins/simulator/manifest';
+import plugin14 from './modules/plugins/segment-objects/manifest';
+import plugin15 from './modules/plugins/simulator/manifest';
 
 export const generatedWorkflowModulePlugins: readonly WorkflowModulePlugin[] = [
     plugin0,
@@ -32,4 +33,5 @@ export const generatedWorkflowModulePlugins: readonly WorkflowModulePlugin[] = [
     plugin12,
     plugin13,
     plugin14,
+    plugin15,
 ];

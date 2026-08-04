@@ -37,6 +37,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
                     'enrichment-each',
                     'extract-embedded-metadata',
                     'detect-frame-deep',
+                    'segment-objects-quick',
                     'estimate-photo-date-from-embedded',
                     'detect-faces',
                     'generate-face-vectors',
@@ -77,6 +78,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'detect-frame-fast',
             kind: 'module',
             moduleId: 'runtime.detect_frame',
+            parameters: { mode: 'quick' },
             outputsTo: ['generate-previews'],
             presentation: {
                 label: 'Quick border scan',
@@ -109,7 +111,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'enrichment-each',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-frame-deep'],
+            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-frame-deep', 'segment-objects-quick'],
             presentation: {
                 label: 'Enrich each image',
                 countNoun: { singular: 'image', plural: 'images' },
@@ -130,11 +132,19 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'detect-frame-deep',
             kind: 'module',
             moduleId: 'runtime.detect_frame',
+            parameters: { mode: 'deep', provider: 'auto', onlyWhenNeeded: true },
             outputsTo: ['generate-ai-metadata'],
             presentation: {
-                label: 'AI frame segmentation',
+                label: 'Deeper frame segmentation',
                 countNoun: { singular: 'image', plural: 'images' },
             },
+        },
+        {
+            id: 'segment-objects-quick',
+            kind: 'module',
+            moduleId: 'runtime.segment_objects',
+            parameters: { provider: 'fastsam', profile: 'quick', maxResults: 6 },
+            presentation: { label: 'Quick object segmentation', countNoun: { singular: 'image', plural: 'images' } },
         },
         {
             id: 'detect-faces',
