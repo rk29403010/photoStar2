@@ -404,10 +404,12 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const activeGroupId = resolveActiveSinglePhotoGroupId(props.asset, requestedActiveGroupId);
     const actionAsset = applyActiveGroupContext(props.asset, activeGroupId);
     const alwaysShowForPanel = props.panelState.showInfoPanel && props.panelState.activeInfoTab === 'people';
-    const [showWithFrame, setShowWithFrame] = useState(false);
+    // Analysis may refresh frame_detection while a workflow is running. Keep
+    // the original image as the stable default rather than applying that crop.
+    const [showWithFrame, setShowWithFrame] = useState(true);
 
     useEffect(() => {
-        setShowWithFrame(false);
+        setShowWithFrame(true);
     }, [props.asset.id]);
 
     const hasFrame = Boolean(props.asset.frame_detection);

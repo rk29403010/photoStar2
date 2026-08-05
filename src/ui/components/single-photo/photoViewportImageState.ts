@@ -192,3 +192,102 @@ export function getViewportStageIdentity(params: {
 export function resolveViewportImageSrc(asset: Asset): string | null {
     return asset.original_path || asset.preview_path || null;
 }
+
+type NormalizedFrameBox = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+function isNormalizedFrameBox(box: NormalizedFrameBox): boolean {
+    return Number.isFinite(box.x)
+        && Number.isFinite(box.y)
+        && Number.isFinite(box.width)
+        && Number.isFinite(box.height)
+        && box.x >= 0
+        && box.y >= 0
+        && box.width > 0
+        && box.height > 0
+        && box.x + box.width <= 1
+        && box.y + box.height <= 1;
+}
+
+function readNormalizedFrameBox(value: unknown): NormalizedFrameBox | null {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    if (
+        typeof record.x !== 'number'
+        || typeof record.y !== 'number'
+        || typeof record.width !== 'number'
+        || typeof record.height !== 'number'
+    ) {
+        return null;
+    }
+
+    const box = {
+        x: record.x,
+        y: record.y,
+        width: record.width,
+        height: record.height,
+    };
+    return isNormalizedFrameBox(box) ? box : null;
+}
+
+function isNormalizedCoordinate(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function readNormalizedPoint(value: unknown): { x: number; y: number } | null {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const { x, y } = value as Record<string, unknown>;
+    return isNormalizedCoordinate(x) && isNormalizedCoordinate(y) ? { x, y } : null;
+}
+
+function getPolygonFrameBox(points: unknown): NormalizedFrameBox | null {
+    if (!Array.isArray(points) || points.length === 0) {
+        return null;
+    }
+
+    const coordinates = points.map(readNormalizedPoint);
+    if (coordinates.some((point) => point === null)) {
+        return null;
+    }
+
+    const validPoints = coordinates as Array<{ x: number; y: number }>;
+    const minX = Math.min(...validPoints.map((point) => point.x));
+    const maxX = Math.max(...validPoints.map((point) => point.x));
+    const minY = Math.min(...validPoints.map((point) => point.y));
+    const maxY = Math.max(...validPoints.map((point) => point.y));
+    return readNormalizedFrameBox({ x: minX, y: minY, width: maxX - minX, height: maxY - minY });
+}
+
+/**
+ * Frame analysis must never alter the default single-photo presentation. A
+ * detected frame is only used as an explicit, safely bounded display crop.
+ */
+export function getExplicitViewportFrameCrop(params: {
+    frameDetection: unknown;
+    showWithFrame: boolean | undefined;
+}): NormalizedFrameBox | null {
+    if (params.showWithFrame) {
+        return null;
+    }
+
+    if (!params.frameDetection || typeof params.frameDetection !== 'object') {
+        return null;
+    }
+
+    const frameDetection = params.frameDetection as Record<string, unknown>;
+    if (frameDetection.type === 'rectangle') {
+        return readNormalizedFrameBox(frameDetection.box);
+    }
+
+    return frameDetection.type === 'polygon' ? getPolygonFrameBox(frameDetection.points) : null;
+}
