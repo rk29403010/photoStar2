@@ -1,17 +1,19 @@
 import { existsSync } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
-import sharp from 'sharp';
 import type { DatabaseManager } from '../../../../../data/db';
 import type { AssetUpdated } from '../../../../events/types';
 import type { ModuleDefinition } from '../../../contracts';
 import { detectSimpleBorder } from '../../../../photoMetadata/borderDetection';
-import { initImageSegmentation, segmentPhotoFromFrame } from '../../../../faces/imageSegmentation';
+import { resolveSegmentationProvider } from '../../../../segmentation/segmentationService';
+import { prepareSegmentationImage } from '../../../../segmentation/imagePreparation';
+import type { SegmentationProvider } from '../../../../segmentation/contracts';
 import { encodeMaskRaster, saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
 import type { PhotoMaskMetadataItem } from '../../../../../boundary/contracts/photoEditor';
 
 export type DetectFramesModuleOptions = {
     dbManager: DatabaseManager;
     eventBus?: { emit: (event: AssetUpdated) => void };
+    providers?: SegmentationProvider[];
 };
 
 function isPixelOnBoundary(mask: Uint8Array, x: number, y: number, width: number, height: number): boolean {
@@ -32,18 +34,14 @@ function findContourPoints(mask: Uint8Array, width: number, height: number): Arr
     return points.filter((_, index) => index % step === 0);
 }
 
-async function detectDeepFrame(originalPath: string): Promise<{ points: Array<{ x: number; y: number }>; raster: PhotoMaskMetadataItem['raster'] }> {
-    await initImageSegmentation();
-    const size = 1024;
-    const image = await sharp(originalPath).rotate().resize(size, size, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-    const pixels = new Float32Array(3 * size * size);
-    for (let index = 0; index < size * size; index += 1) {
-        pixels[index] = image.data[index * 3] / 255;
-        pixels[index + size * size] = image.data[index * 3 + 1] / 255;
-        pixels[index + (2 * size * size)] = image.data[index * 3 + 2] / 255;
-    }
-    const mask = await segmentPhotoFromFrame(pixels, size, size);
-    return { points: findContourPoints(mask, size, size), raster: await encodeMaskRaster(mask, size, size) };
+async function detectDeepFrame(originalPath: string, provider: SegmentationProvider): Promise<{ points: Array<{ x: number; y: number }>; raster: PhotoMaskMetadataItem['raster']; box: NonNullable<PhotoMaskMetadataItem['box']> }> {
+    const prepared = await provider.prepare(await prepareSegmentationImage(originalPath));
+    try {
+        const result = (await provider.segment(prepared, { positivePoints: [{ x: 0.5, y: 0.5 }] }))[0];
+        if (!result || result.box.width < 0.1 || result.box.height < 0.1 || result.box.width * result.box.height > 0.98) { throw new Error('Segmentation result is implausible for a photo frame.'); }
+        const mask = Uint8Array.from(result.alpha, (value) => value > 0 ? 1 : 0);
+        return { points: findContourPoints(mask, result.width, result.height), box: result.box, raster: await encodeMaskRaster(mask, result.width, result.height) };
+    } finally { await prepared.dispose(); await provider.dispose(); }
 }
 
 function frameMaskGeometry(boundary: { type?: string; box?: PhotoMaskMetadataItem['box']; points?: PhotoMaskMetadataItem['points']; raster?: PhotoMaskMetadataItem['raster'] }) {
@@ -77,6 +75,26 @@ function toFrameMasks(boundaryData: unknown): PhotoMaskMetadataItem[] {
     ];
 }
 
+type FrameRun = { boundaryData: unknown; pathType: 'fast' | 'deep' | 'none'; providerId: string; modelVersion: string; elapsedMs: number };
+async function detectFrameForAsset(input: { originalPath: string; parameters: Record<string, unknown>; providers?: SegmentationProvider[] }): Promise<FrameRun> {
+    const startedAt = Date.now();
+    const mode = input.parameters.mode === 'deep' ? 'deep' : 'quick';
+    const simpleBorder = await detectSimpleBorder(input.originalPath);
+    if (mode === 'quick') { return { boundaryData: simpleBorder ? { type: 'rectangle', box: simpleBorder } : null, pathType: simpleBorder ? 'fast' : 'none', providerId: 'border_detection_pipeline', modelVersion: '1.0', elapsedMs: Date.now() - startedAt }; }
+    if (simpleBorder && input.parameters.onlyWhenNeeded === true) { return { boundaryData: { type: 'rectangle', box: simpleBorder }, pathType: 'fast', providerId: 'border_detection_pipeline', modelVersion: '1.0', elapsedMs: Date.now() - startedAt }; }
+    const resolution = resolveSegmentationProvider({ provider: (input.parameters.provider ?? input.parameters.frameProvider) as 'fastsam' | 'efficientsam' | 'auto' | undefined, profile: 'accurate', providers: input.providers });
+    const deepFrame = await detectDeepFrame(input.originalPath, resolution.used);
+    return { boundaryData: { type: 'polygon', provider: resolution.used.id, ...deepFrame }, pathType: 'deep', providerId: resolution.used.id, modelVersion: resolution.used.modelVersion, elapsedMs: Date.now() - startedAt };
+}
+function saveFrameResult(input: { db: ReturnType<DatabaseManager['getDb']>; assetId: string; result: FrameRun }): void {
+    input.db.prepare('DELETE FROM derived_results WHERE asset_id = ? AND task = ?').run(input.assetId, 'frame_detection');
+    if (input.result.boundaryData) {
+        const data = { ...(input.result.boundaryData as Record<string, unknown>), provenance: { functionalModuleId: 'runtime.detect_frame', providerRequested: input.result.providerId, providerResolved: input.result.providerId, providerId: input.result.providerId, modelVersion: input.result.modelVersion, processingProfile: input.result.pathType === 'deep' ? 'deep' : 'quick', totalElapsedMs: input.result.elapsedMs, executedAt: new Date().toISOString() } };
+        input.db.prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data) VALUES (?, ?, 'frame_detection', ?, ?, ?)").run(uuidv4(), input.assetId, input.result.providerId, input.result.modelVersion, JSON.stringify(data));
+    }
+    saveAssetMaskMetadata(input.db, { assetId: input.assetId, sourceId: 'runtime.detect_frame', masks: toFrameMasks(input.result.boundaryData) });
+}
+
 export function createDetectFramesModule(options: DetectFramesModuleOptions): ModuleDefinition {
     return {
         id: 'runtime.detect_frame', version: 1, capability: 'analyze', accepts: ['asset'],
@@ -84,34 +102,21 @@ export function createDetectFramesModule(options: DetectFramesModuleOptions): Mo
         run: async (context) => {
             const db = options.dbManager.getDb();
             const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(context.subject.subjectId) as { original_path: string } | undefined;
-            let boundaryData: unknown = null;
-            let pathType = 'none';
+            let result: FrameRun | undefined;
             if (asset?.original_path && existsSync(asset.original_path)) {
                 try {
-                    const simpleBorder = await detectSimpleBorder(asset.original_path);
-                    if (simpleBorder) {
-                        boundaryData = { type: 'rectangle', box: simpleBorder };
-                    } else {
-                        const deepFrame = await detectDeepFrame(asset.original_path);
-                        boundaryData = { type: 'polygon', ...deepFrame };
-                    }
-                    pathType = simpleBorder ? 'fast' : 'deep';
+                    result = await detectFrameForAsset({ originalPath: asset.original_path, parameters: context.parameters, providers: options.providers });
                 } catch (error) {
-                    db.prepare("INSERT INTO processing_issues (id, asset_id, task, severity, message) VALUES (?, ?, 'frame_detection', 'warning', ?)")
-                        .run(uuidv4(), context.subject.subjectId, error instanceof Error ? error.message : String(error));
+                    db.prepare("INSERT INTO processing_issues (id, asset_id, task, severity, message, details) VALUES (?, ?, 'frame_detection', 'warning', ?, ?)")
+                        .run(uuidv4(), context.subject.subjectId, error instanceof Error ? error.message : String(error), JSON.stringify({ functionalModuleId: 'runtime.detect_frame', parameters: context.parameters }));
                 }
             }
-            db.prepare('DELETE FROM derived_results WHERE asset_id = ? AND task = ?').run(context.subject.subjectId, 'frame_detection');
-            if (boundaryData) {
-                db.prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data) VALUES (?, ?, 'frame_detection', 'border_detection_pipeline', '1.0', ?)")
-                    .run(uuidv4(), context.subject.subjectId, JSON.stringify(boundaryData));
+            if (result) {
+                // A completed quick/deep run, including no frame found, owns its scoped replacement.
+                saveFrameResult({ db, assetId: context.subject.subjectId, result });
+                db.prepare("DELETE FROM processing_issues WHERE asset_id = ? AND task = 'frame_detection'").run(context.subject.subjectId);
+                console.log(`[Telemetry] detect_frames executed on asset ${context.subject.subjectId} using ${result.pathType} path`);
             }
-            saveAssetMaskMetadata(db, {
-                assetId: context.subject.subjectId,
-                sourceId: 'runtime.detect_frame',
-                masks: toFrameMasks(boundaryData),
-            });
-            console.log(`[Telemetry] detect_frames executed on asset ${context.subject.subjectId} using ${pathType} path`);
             options.eventBus?.emit({ type: 'AssetUpdated', assetId: context.subject.subjectId });
             return { outputs: [{ kind: 'artifact', artifactType: 'frame_detection', subjectType: 'asset' }] };
         },

@@ -8,8 +8,8 @@ import type { ModuleDefinition } from '../../../contracts';
 import { getFrameInteriorBox } from '../../../../photoMetadata/frameUtils';
 import { encodeMaskRaster, saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
 import type { PhotoMaskMetadataItem } from '../../../../../boundary/contracts/photoEditor';
-import { initImageSegmentation, segmentPhotoFromFrame } from '../../../../faces/imageSegmentation';
-import sharp from 'sharp';
+import { resolveSegmentationProvider } from '../../../../segmentation/segmentationService';
+import { prepareSegmentationImage } from '../../../../segmentation/imagePreparation';
 
 export type DetectFacesModuleOptions = {
     dbManager: DatabaseManager;
@@ -22,22 +22,9 @@ async function toFaceMasks(params: { faces: Array<{ box: { x: number; y: number;
     const rasterByFace = new Map<number, PhotoMaskMetadataItem['raster']>();
     if (params.originalPath) {
         try {
-            const size = 1024;
-            const image = await sharp(params.originalPath).rotate().resize(size, size, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-            const pixels = new Float32Array(3 * size * size);
-            for (let index = 0; index < size * size; index += 1) {
-                pixels[index] = image.data[index * 3] / 255;
-                pixels[index + size * size] = image.data[index * 3 + 1] / 255;
-                pixels[index + (2 * size * size)] = image.data[index * 3 + 2] / 255;
-            }
-            await initImageSegmentation();
-            for (const [index, face] of params.faces.entries()) {
-                const mask = await segmentPhotoFromFrame(pixels, size, size, {
-                    x: face.box.x + face.box.width / 2,
-                    y: face.box.y + face.box.height / 2,
-                });
-                rasterByFace.set(index, await encodeMaskRaster(mask, size, size));
-            }
+            const provider = resolveSegmentationProvider({ provider: 'fastsam', profile: 'fast' }).used;
+            const prepared = await provider.prepare(await prepareSegmentationImage(params.originalPath));
+            try { for (const [index, face] of params.faces.entries()) { const mask = (await provider.segment(prepared, { positivePoints: [{ x: face.box.x + face.box.width / 2, y: face.box.y + face.box.height / 2 }] }))[0]; if (mask) { rasterByFace.set(index, await encodeMaskRaster(mask.alpha, mask.width, mask.height)); } } } finally { await prepared.dispose(); await provider.dispose(); }
         } catch {
             // Face boxes remain valid fallback masks when local segmentation is unavailable.
         }

@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import sharp from 'sharp';
 import type { PhotoMaskMetadata, PhotoMaskMetadataItem } from '../../boundary/contracts/photoEditor';
+import { MAX_EDITOR_MASK_DIMENSION } from '../segmentation/maskPostProcessing';
 
 type AssetMaskMetadataInput = {
     assetId: string;
@@ -13,6 +14,9 @@ export function createPhotoMaskMetadata(masks: PhotoMaskMetadataItem[]): PhotoMa
 }
 
 export async function encodeMaskRaster(mask: Uint8Array, width: number, height: number): Promise<NonNullable<PhotoMaskMetadataItem['raster']>> {
+    const scale = Math.min(1, MAX_EDITOR_MASK_DIMENSION / Math.max(width, height));
+    const targetWidth = Math.max(1, Math.round(width * scale));
+    const targetHeight = Math.max(1, Math.round(height * scale));
     const pixels = Buffer.alloc(mask.length * 4);
     for (let index = 0; index < mask.length; index += 1) {
         const offset = index * 4;
@@ -21,8 +25,8 @@ export async function encodeMaskRaster(mask: Uint8Array, width: number, height: 
         pixels[offset + 2] = 255;
         pixels[offset + 3] = mask[index] === 0 ? 0 : 255;
     }
-    const png = await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer();
-    return { width, height, pngBase64: png.toString('base64') };
+    const png = await sharp(pixels, { raw: { width, height, channels: 4 } }).resize(targetWidth, targetHeight, { kernel: 'nearest' }).png({ compressionLevel: 9 }).toBuffer();
+    return { width: targetWidth, height: targetHeight, pngBase64: png.toString('base64') };
 }
 
 export function saveAssetMaskMetadata(db: Database.Database, input: AssetMaskMetadataInput): void {

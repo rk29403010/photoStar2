@@ -492,8 +492,8 @@ export default function App() {
                 totalPhotoCount={stats?.count ?? 0}
             activeOverlayJobs={activeOverlayJobs}
             handleOverlayStopJob={handleOverlayStopJob}
-            onRunWorkflowOnAssets={(workflowId, assetIds) => {
-                void actions.runWorkflowOnAssets(workflowId, assetIds);
+            onRunWorkflowOnAssets={(workflowId, assetIds, parameters) => {
+                void actions.runWorkflowOnAssets(workflowId, assetIds, parameters);
             }}
             connectionUiState={getConnectionUiState(status, error)}
             groupDiagnosticsReport={groupDiagnosticsReport}

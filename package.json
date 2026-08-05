@@ -72,6 +72,7 @@
     "build:desktop:prep": "pnpm run build:web && pnpm run build:core && pnpm run package:core",
     "build:desktop": "tauri build --config deployments/desktop/tauri/tauri.conf.json",
     "download:models": "node tooling/scripts/core/download_nsfw_model.cjs",
+    "download:efficientsam": "node tooling/scripts/core/download_efficientsam_models.cjs",
     "generate:grouping-fixtures": "node tooling/scripts/test-data/generate-grouping-fixtures.mjs",
     "start:core": "node dist/core/src/entrypoints/core/main.js",
     "lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint",

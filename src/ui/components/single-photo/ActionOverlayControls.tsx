@@ -40,7 +40,7 @@ type ControlsOverlayProps = {
     readonly showInfoPanel: boolean;
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly controlsVisible: boolean;
-    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void;
     readonly onEditPhoto?: () => void;
     readonly hasFrame: boolean;
     readonly showWithFrame: boolean;
@@ -63,7 +63,7 @@ type ActionMenuProps = {
     readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly onExplodeGroup?: (groupId: string) => Promise<void>;
     readonly setShowActionMenu: (show: boolean) => void;
-    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void;
     readonly onEditPhoto?: () => void;
 }
 
@@ -155,8 +155,7 @@ async function handleAnalyzeImage(
             setAnalyzingJobId(jobId);
         }
     } catch (error: unknown) {
-        const err = error as Error;
-        setAnalysisError(err.message);
+        setAnalysisError(error instanceof Error ? error.message : String(error));
         setAnalysisState('error');
         setAnalyzingJobId(null);
     }
@@ -245,7 +244,7 @@ function MenuItem({
     readonly onClick: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
 }) {
     return (
-        <button onClick={onClick} style={menuItemStyle(color, active)} onMouseOver={menuHover()} onMouseOut={menuOut} onFocus={menuHover()} onBlur={menuOut}>
+        <button onClick={(event) => { void onClick(event); }} style={menuItemStyle(color, active)} onMouseOver={menuHover()} onMouseOut={menuOut} onFocus={menuHover()} onBlur={menuOut}>
             <span style={{ fontSize: 15 }}>{icon}</span>
             {label}
         </button>
@@ -422,7 +421,7 @@ function renderAnalysisStatus({
 }
 
 function WorkflowSubMenu(props: {
-    readonly onSelect: (workflowId: string) => void;
+    readonly onSelect: (workflowId: string, parameters?: Record<string, unknown>) => void;
     readonly onCancel: () => void;
 }) {
     return (
@@ -490,6 +489,9 @@ function WorkflowSubMenu(props: {
                 >
                     🖼️ Detect Frames
                 </button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'fastsam', profile: 'quick' })} style={menuItemStyle('#38bdf8', false)}>Find objects - Fast</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'efficientsam', objectProvider: 'efficientsam', profile: 'balanced' })} style={menuItemStyle('#a78bfa', false)}>Find objects - Detailed</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'both', profile: 'balanced' })} style={menuItemStyle('#facc15', false)}>Find objects - Compare</button>
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -529,8 +531,8 @@ function RunWorkflowMenuItems(props: ActionMenuProps) {
         );
     }
 
-    const handleSelect = (workflowId: string) => {
-        props.onRunWorkflowOnAssets?.(workflowId, [props.asset.id]);
+    const handleSelect = (workflowId: string, parameters?: Record<string, unknown>) => {
+        props.onRunWorkflowOnAssets?.(workflowId, [props.asset.id], parameters);
         props.setShowActionMenu(false);
         setShowSelector(false);
     };

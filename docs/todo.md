@@ -298,3 +298,9 @@ UI Improvements
 ## Photo editor architecture follow-up
 
 - Audit and remove unused photo-editing compatibility infrastructure after all persisted recipes have completed their plug-in migration window.
+
+## Segmentation provider follow-up
+
+- Verify real EfficientSAM-Ti model execution against representative local photos before enabling it in any default ingest tier.
+- Build the optional Model Manager: installation UI, progress/cancellation/retry, disk-space checks, removal/update, trusted source manifests, version migration, and local-conversion guidance.
+- Obtain legal redistribution review and a legally cleared source or hosting route for the derived FastSAM-s FP32 ONNX file before any production download or bundle; consider FP16/INT8 only after calibrated FP32 comparison.
