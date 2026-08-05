@@ -65,6 +65,7 @@ function shapeClass(selected: boolean, highlighted: boolean, inverted: boolean |
 
 function svgSafeId(id: string): string { return id.replaceAll(/[^a-zA-Z0-9_-]/g, '-'); }
 
+/* eslint-disable deslint/image-alt-text -- SVG raster layers render non-semantic mask geometry; the parent mask control supplies the accessible name. */
 function RasterMaskShape(props: { readonly mask: PhotoEditMask; readonly selected: boolean; readonly highlighted: boolean }) {
     const source = `data:image/png;base64,${props.mask.raster!.pngBase64}`;
     const filterId = `mask-outline-${svgSafeId(props.mask.id)}`;
@@ -80,6 +81,7 @@ function RasterMaskShape(props: { readonly mask: PhotoEditMask; readonly selecte
         {props.selected && <image href={source} x="0" y="0" width="100" height="100" preserveAspectRatio="none" className="opacity-35" />}
     </>;
 }
+/* eslint-enable deslint/image-alt-text */
 
 function VectorMaskShape({ mask, selected, highlighted }: { readonly mask: PhotoEditMask; readonly selected: boolean; readonly highlighted: boolean }) {
     const className = shapeClass(selected, highlighted, mask.inverted);

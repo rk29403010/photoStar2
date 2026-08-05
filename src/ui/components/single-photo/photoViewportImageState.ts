@@ -200,6 +200,12 @@ type NormalizedFrameBox = {
     height: number;
 };
 
+type UnknownRecord = Record<string, unknown>;
+
+function isUnknownRecord(value: unknown): value is UnknownRecord {
+    return typeof value === 'object' && value !== null;
+}
+
 function isNormalizedFrameBox(box: NormalizedFrameBox): boolean {
     return Number.isFinite(box.x)
         && Number.isFinite(box.y)
@@ -214,25 +220,24 @@ function isNormalizedFrameBox(box: NormalizedFrameBox): boolean {
 }
 
 function readNormalizedFrameBox(value: unknown): NormalizedFrameBox | null {
-    if (!value || typeof value !== 'object') {
+    if (!isUnknownRecord(value)) {
         return null;
     }
 
-    const record = value as Record<string, unknown>;
     if (
-        typeof record.x !== 'number'
-        || typeof record.y !== 'number'
-        || typeof record.width !== 'number'
-        || typeof record.height !== 'number'
+        typeof value.x !== 'number'
+        || typeof value.y !== 'number'
+        || typeof value.width !== 'number'
+        || typeof value.height !== 'number'
     ) {
         return null;
     }
 
     const box = {
-        x: record.x,
-        y: record.y,
-        width: record.width,
-        height: record.height,
+        x: value.x,
+        y: value.y,
+        width: value.width,
+        height: value.height,
     };
     return isNormalizedFrameBox(box) ? box : null;
 }
@@ -242,11 +247,11 @@ function isNormalizedCoordinate(value: unknown): value is number {
 }
 
 function readNormalizedPoint(value: unknown): { x: number; y: number } | null {
-    if (!value || typeof value !== 'object') {
+    if (!isUnknownRecord(value)) {
         return null;
     }
 
-    const { x, y } = value as Record<string, unknown>;
+    const { x, y } = value;
     return isNormalizedCoordinate(x) && isNormalizedCoordinate(y) ? { x, y } : null;
 }
 
@@ -260,7 +265,7 @@ function getPolygonFrameBox(points: unknown): NormalizedFrameBox | null {
         return null;
     }
 
-    const validPoints = coordinates as Array<{ x: number; y: number }>;
+    const validPoints = coordinates.filter((point): point is { x: number; y: number } => point !== null);
     const minX = Math.min(...validPoints.map((point) => point.x));
     const maxX = Math.max(...validPoints.map((point) => point.x));
     const minY = Math.min(...validPoints.map((point) => point.y));
@@ -280,14 +285,13 @@ export function getExplicitViewportFrameCrop(params: {
         return null;
     }
 
-    if (!params.frameDetection || typeof params.frameDetection !== 'object') {
+    if (!isUnknownRecord(params.frameDetection)) {
         return null;
     }
 
-    const frameDetection = params.frameDetection as Record<string, unknown>;
-    if (frameDetection.type === 'rectangle') {
-        return readNormalizedFrameBox(frameDetection.box);
+    if (params.frameDetection.type === 'rectangle') {
+        return readNormalizedFrameBox(params.frameDetection.box);
     }
 
-    return frameDetection.type === 'polygon' ? getPolygonFrameBox(frameDetection.points) : null;
+    return params.frameDetection.type === 'polygon' ? getPolygonFrameBox(params.frameDetection.points) : null;
 }
