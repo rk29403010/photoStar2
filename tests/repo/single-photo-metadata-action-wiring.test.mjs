@@ -21,8 +21,8 @@ test('single-photo metadata action exposes tiled analysis and selected-subject w
     assert.match(handlerSource, /selected_subject_metadata_v1/);
     assert.match(handlerSource, /metadataPass: payload\?\.metadataPass \?\? 'scout'/);
     assert.match(actionMenuSource, /library_editor_masks_v1/);
-    assert.match(actionMenuSource, /Fast - Find objects/);
-    assert.match(actionMenuSource, /Compare object masks/);
+    assert.match(actionMenuSource, /Find objects - Fast/);
+    assert.match(actionMenuSource, /Find objects - Compare/);
     assert.match(commandsSource, /workflowParameters/);
     assert.match(appSource, /actions\.runWorkflowOnAssets\(workflowId, assetIds, parameters\)/);
 });

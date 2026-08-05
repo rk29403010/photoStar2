@@ -84,7 +84,7 @@ function DetectedMaskCandidates(props: Pick<PhotoMaskPanelProps, 'asset' | 'mask
 export function PhotoMaskPanel(props: PhotoMaskPanelProps) {
     const update = (id: string, partial: Partial<PhotoEditMask>) => props.onChange(props.masks.map((mask) => mask.id === id ? { ...mask, ...partial } : mask));
     return <div className="space-y-3">
-        <p className="text-xs text-content-secondary">Draw on the photo, or add a region found by existing analysis.</p>
+        <p className="text-xs text-content-secondary">Draw on the photo, or add a region found by analysis. Object masks are generic regions; face and AI analysis provide names such as a person or tie.</p>
         <DrawMaskTools drawKind={props.drawKind} onDrawKindChange={props.onDrawKindChange} />
         <DetectedMaskCandidates asset={props.asset} masks={props.masks} onChange={props.onChange} onDrawKindChange={props.onDrawKindChange} onSelect={props.onSelect} />
         {props.masks.length > 0 && <div className="divide-y divide-content/10">{props.masks.map((mask) => <MaskEditor

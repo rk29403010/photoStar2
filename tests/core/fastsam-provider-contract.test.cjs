@@ -45,7 +45,7 @@ test('FastSAM rejects a graph signature that looks like a SAM point decoder', as
     } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });
 
-test('FastSAM retains a useful model-native proposal above the local 0.25 threshold', async () => {
+test('FastSAM rejects a weak automatic proposal below the local 0.4 threshold', async () => {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-fastsam-'));
     const model = path.join(temporary, 'fastsam-s-fp32.onnx');
     fs.writeFileSync(model, 'fixture');
@@ -53,6 +53,6 @@ test('FastSAM retains a useful model-native proposal above the local 0.25 thresh
         const { FastSamSegmentationProvider } = await import('../../dist/core/src/services/segmentation/fastSamSegmentationProvider.js');
         const provider = new FastSamSegmentationProvider({ modelPath: model, sessionFactory: async () => ({ inputNames: ['images'], run: async () => tensors(0.3) }), verifyChecksum: false });
         const prepared = await provider.prepare({ pixels: new Float32Array(3 * 1024 * 1024), width: 1024, height: 1024, sourceWidth: 100, sourceHeight: 100, scale: 10, padX: 0, padY: 0 });
-        assert.equal((await provider.automaticCandidates(prepared)).length, 1);
+        assert.equal((await provider.automaticCandidates(prepared)).length, 0);
     } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });

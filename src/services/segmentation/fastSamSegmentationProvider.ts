@@ -11,9 +11,9 @@ import { resolveSegmentationModelState, segmentationModelManifests } from './mod
 const MODEL_FILENAME = 'fastsam-s-fp32.onnx';
 const modelPath = resolveOnnxModelPath({ modelFileName: MODEL_FILENAME, moduleDir: __dirname });
 const MAX_CANDIDATES = 100;
-// FastSAM-s scores are model-native. This threshold retains useful local regions
-// without treating scores as calibrated confidence across providers.
-const CONFIDENCE_THRESHOLD = 0.25;
+// FastSAM-s scores are model-native. Keep only confident automatic proposals:
+// a weak fragment is less useful than an honest empty result for a photo editor.
+const CONFIDENCE_THRESHOLD = 0.4;
 const IOU_THRESHOLD = 0.9;
 
 type FastSamPrepared = PreparedSegmentationImage & { session: ort.InferenceSession; candidates?: SegmentationMask[] };

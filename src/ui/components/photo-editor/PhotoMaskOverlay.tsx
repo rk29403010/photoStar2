@@ -58,18 +58,31 @@ function boxBetween(start: NormalizedPoint, end: NormalizedPoint): NormalizedBox
     };
 }
 
-function shapeClass(selected: boolean, inverted: boolean | undefined): string {
+function shapeClass(selected: boolean, highlighted: boolean, inverted: boolean | undefined): string {
     if (selected) {return inverted ? 'fill-brand-accent/10 stroke-brand-accent' : 'fill-brand-accent/30 stroke-brand-accent';}
-    return 'fill-brand-accent/10 stroke-white/70';
+    return highlighted ? 'fill-none stroke-brand-accent' : 'fill-none stroke-white/70';
 }
 
-function RasterMaskShape(props: { readonly mask: PhotoEditMask; readonly selected: boolean }) {
+function svgSafeId(id: string): string { return id.replaceAll(/[^a-zA-Z0-9_-]/g, '-'); }
+
+function RasterMaskShape(props: { readonly mask: PhotoEditMask; readonly selected: boolean; readonly highlighted: boolean }) {
     const source = `data:image/png;base64,${props.mask.raster!.pngBase64}`;
-    return <><foreignObject x="0" y="0" width="100" height="100"><img src={source} alt="Precise mask highlight" className={`h-full w-full ${props.selected ? 'opacity-50' : 'opacity-25'}`} /></foreignObject>{props.selected && <rect x="0" y="0" width="100" height="100" className="fill-none stroke-brand-accent" strokeWidth="0.7" vectorEffect="non-scaling-stroke" />}</>;
+    const filterId = `mask-outline-${svgSafeId(props.mask.id)}`;
+    const color = props.selected || props.highlighted ? 'var(--color-brand-accent)' : 'white';
+    return <>
+        <filter id={filterId} x="-5%" y="-5%" width="110%" height="110%">
+            <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="expanded" />
+            <feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline" />
+            <feFlood floodColor={color} result="outline-color" />
+            <feComposite in="outline-color" in2="outline" operator="in" />
+        </filter>
+        <image href={source} x="0" y="0" width="100" height="100" preserveAspectRatio="none" filter={`url(#${filterId})`} />
+        {props.selected && <image href={source} x="0" y="0" width="100" height="100" preserveAspectRatio="none" className="opacity-35" />}
+    </>;
 }
 
-function VectorMaskShape({ mask, selected }: { readonly mask: PhotoEditMask; readonly selected: boolean }) {
-    const className = shapeClass(selected, mask.inverted);
+function VectorMaskShape({ mask, selected, highlighted }: { readonly mask: PhotoEditMask; readonly selected: boolean; readonly highlighted: boolean }) {
+    const className = shapeClass(selected, highlighted, mask.inverted);
     const dash = mask.inverted ? '8 5' : undefined;
     if (mask.points && mask.points.length >= 3) {
         return <polygon points={mask.points.map((point) => `${point.x * 100},${point.y * 100}`).join(' ')} className={className} strokeDasharray={dash} strokeWidth={selected ? 0.7 : 0.4} vectorEffect="non-scaling-stroke" />;
@@ -82,8 +95,8 @@ function VectorMaskShape({ mask, selected }: { readonly mask: PhotoEditMask; rea
     return <rect x={box.x * 100} y={box.y * 100} width={box.width * 100} height={box.height * 100} className={className} strokeDasharray={dash} strokeWidth={selected ? 0.7 : 0.4} vectorEffect="non-scaling-stroke" />;
 }
 
-function MaskShape({ mask, selected }: { readonly mask: PhotoEditMask; readonly selected: boolean }) {
-    return mask.raster ? <RasterMaskShape mask={mask} selected={selected} /> : <VectorMaskShape mask={mask} selected={selected} />;
+function MaskShape({ mask, selected, highlighted = false }: { readonly mask: PhotoEditMask; readonly selected: boolean; readonly highlighted?: boolean }) {
+    return mask.raster ? <RasterMaskShape mask={mask} selected={selected} highlighted={highlighted} /> : <VectorMaskShape mask={mask} selected={selected} highlighted={highlighted} />;
 }
 
 function pointInPolygon(point: NormalizedPoint, points: NormalizedPoint[]): boolean { let inside = false; for (let current = 0, previous = points.length - 1; current < points.length; previous = current, current += 1) { const a = points[current]; const b = points[previous]; const intersects = (a.y > point.y) !== (b.y > point.y) && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x; if (intersects) {inside = !inside;} } return inside; }
@@ -139,14 +152,15 @@ function useMaskHitTest(targets: MaskHitTarget[]) {
     return (point: NormalizedPoint): string | null => findHitTarget(targets, point, rasterAlpha.current);
 }
 
-function CanvasMaskSelection(props: Pick<PhotoMaskOverlayProps, 'masks' | 'onCreate' | 'onSelect'> & { readonly candidates: PhotoMaskCandidate[] }) {
+function CanvasMaskSelection(props: Pick<PhotoMaskOverlayProps, 'masks' | 'onCreate' | 'onSelect'> & { readonly candidates: PhotoMaskCandidate[]; readonly onHoverTargetChange: (targetId: string | null) => void }) {
     const targets = useMemo(() => [
         ...props.masks.map((mask) => ({ id: `saved-${mask.id}`, mask })),
         ...props.candidates.map((candidate) => ({ id: `candidate-${candidate.id}`, mask: candidate.mask })),
     ], [props.candidates, props.masks]);
     const hitTest = useMaskHitTest(targets);
-    return <button type="button" aria-label="Select a detected or saved mask on the photo" className="absolute inset-0 cursor-pointer rounded-none border-0 bg-transparent p-0 focus-visible:ring-2 focus-visible:ring-white" onPointerUp={(event) => {
-        const hit = hitTest(localPoint(event));
+    const targetAtEvent = (event: ReactPointerEvent<HTMLButtonElement>) => hitTest(localPoint(event));
+    return <button type="button" aria-label="Select a detected or saved mask on the photo" className="absolute inset-0 cursor-pointer rounded-none border-0 bg-transparent p-0 focus-visible:ring-2 focus-visible:ring-white" onPointerMove={(event) => props.onHoverTargetChange(targetAtEvent(event))} onPointerLeave={() => props.onHoverTargetChange(null)} onPointerUp={(event) => {
+        const hit = targetAtEvent(event);
         if (!hit) {return;}
         if (hit.startsWith('saved-')) {props.onSelect(hit.slice('saved-'.length)); return;}
         const candidate = props.candidates.find((item) => `candidate-${item.id}` === hit);
@@ -257,16 +271,17 @@ export function PhotoMaskOverlay(props: PhotoMaskOverlayProps) {
     const container = useStageSize(rootRef);
     const stage = useMemo(() => fittedSize(container, imageSize), [container, imageSize]);
     const candidates = useMemo(() => buildPhotoMaskCandidates(props.asset), [props.asset]);
+    const [hoveredTargetId, setHoveredTargetId] = useState<string | null>(null);
     return <div ref={rootRef} className="relative flex h-full w-full items-center justify-center overflow-hidden p-8">
         {props.previewUrl && <img role="presentation" className="hidden" src={props.previewUrl} alt="" onLoad={(event) => setImageSize({ height: event.currentTarget.naturalHeight, width: event.currentTarget.naturalWidth })} />}
         {props.previewUrl && imageSize
             ? <div data-mask-canvas="true" className="relative overflow-hidden shadow-xl" style={{ height: stage.height, width: stage.width }}>
                 <img draggable={false} width={imageSize.width} height={imageSize.height} className="h-full w-full select-none object-fill" src={props.previewUrl} alt="Mask editing preview" />
                 <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
-                    {candidates.map((candidate) => <MaskShape key={`candidate-${candidate.id}`} mask={{ ...candidate.mask, id: candidate.id }} selected={false} />)}
-                    {props.masks.map((mask) => <MaskShape key={mask.id} mask={mask} selected={mask.id === props.selectedMaskId} />)}
+                    {candidates.map((candidate) => <MaskShape key={`candidate-${candidate.id}`} mask={{ ...candidate.mask, id: candidate.id }} selected={false} highlighted={hoveredTargetId === `candidate-${candidate.id}`} />)}
+                    {props.masks.map((mask) => <MaskShape key={mask.id} mask={mask} selected={mask.id === props.selectedMaskId} highlighted={hoveredTargetId === `saved-${mask.id}`} />)}
                 </svg>
-                {!props.drawKind && <CanvasMaskSelection candidates={candidates} masks={props.masks} onCreate={props.onCreate} onSelect={props.onSelect} />}
+                {!props.drawKind && <CanvasMaskSelection candidates={candidates} masks={props.masks} onCreate={props.onCreate} onSelect={props.onSelect} onHoverTargetChange={setHoveredTargetId} />}
                 {props.drawKind && <DrawingOverlay drawKind={props.drawKind} onCancelDraw={props.onCancelDraw} onCreate={props.onCreate} />}
             </div>
             : <span className="text-content-secondary">Preparing mask canvas…</span>}
