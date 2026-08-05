@@ -13,7 +13,7 @@ import { usePhotoViewportImageState } from './usePhotoViewportImageState';
 import { useViewportStageDimensions } from './useViewportStageDimensions';
 export type PanelState = { showInfoPanel: boolean; setShowInfoPanel: (v: boolean) => void; activeInfoTab: InfoTab; setActiveInfoTab: (tab: InfoTab) => void }
 export type AnalysisState = { analysisState: 'idle' | 'analyzing' | 'cancelling' | 'error'; setAnalysisState: Dispatch<SetStateAction<'idle' | 'analyzing' | 'cancelling' | 'error'>>; analysisError: string | null; setAnalysisError: Dispatch<SetStateAction<string | null>>; analyzingAssetId: string | null; setAnalyzingAssetId: Dispatch<SetStateAction<string | null>>; setAnalyzingJobId: Dispatch<SetStateAction<string | null>> }
-type PhotoViewportProps = { readonly asset: Asset; readonly assetsLength: number; readonly currentIndex: number; readonly showControls: boolean; readonly setShowControls: Dispatch<SetStateAction<boolean>>; readonly showFaces: boolean; readonly setShowFaces: Dispatch<SetStateAction<boolean>>; readonly showActionMenu: boolean; readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>; readonly hoveredFaceKey: string | null; readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; readonly panelState: PanelState; readonly onClose: () => void; readonly onFaceClick?: (personId: string, personName: string) => void; readonly onIsolateFace?: (assetId: string, faceIndex: number) => void; readonly onSetSensitivity?: (assetId: string, status: string | null) => void; readonly onMoveToBin?: (assetId: string) => Promise<void>; readonly onRestoreFromBin?: (assetId: string) => Promise<void>; readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>; readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>; readonly onOpenSettings?: () => void; readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; readonly onOrbitLoaded: (assets: Asset[]) => void; readonly onSelectAsset: (assetId: string) => void; readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; readonly onExplodeGroup?: (groupId: string) => Promise<void>; readonly onChangeIndex: (delta: -1 | 1) => void; readonly analysis: AnalysisState; readonly onRevealControls: () => void; readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void; readonly onEditPhoto?: () => void }
+type PhotoViewportProps = { readonly asset: Asset; readonly assetsLength: number; readonly currentIndex: number; readonly showControls: boolean; readonly setShowControls: Dispatch<SetStateAction<boolean>>; readonly showFaces: boolean; readonly setShowFaces: Dispatch<SetStateAction<boolean>>; readonly showActionMenu: boolean; readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>; readonly hoveredFaceKey: string | null; readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>; readonly selectedOverlayKey: string | null; readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>; readonly panelState: PanelState; readonly onClose: () => void; readonly onFaceClick?: (personId: string, personName: string) => void; readonly onIsolateFace?: (assetId: string, faceIndex: number) => void; readonly onSetSensitivity?: (assetId: string, status: string | null) => void; readonly onMoveToBin?: (assetId: string) => Promise<void>; readonly onRestoreFromBin?: (assetId: string) => Promise<void>; readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>; readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>; readonly onOpenSettings?: () => void; readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>; readonly onOrbitLoaded: (assets: Asset[]) => void; readonly onSelectAsset: (assetId: string) => void; readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>; readonly onExplodeGroup?: (groupId: string) => Promise<void>; readonly onChangeIndex: (delta: -1 | 1) => void; readonly analysis: AnalysisState; readonly onRevealControls: () => void; readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void; readonly onEditPhoto?: () => void }
 const ViewportActions: FC<{
     readonly asset: Asset;
     readonly assetsLength: number;
@@ -142,6 +142,8 @@ type PhotoViewportFrameProps = {
     readonly panelState: PanelState;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly selectedOverlayKey: string | null;
+    readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly assetsLength: number;
@@ -178,7 +180,7 @@ type PhotoViewportFrameProps = {
 
 const frameStyle = { flex: 1, height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', userSelect: 'none' } as const;
 
-const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'displayedAsset' | 'imgSrc' | 'pendingImageSrc' | 'stageSize' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'isImageTransitionPending' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls' | 'onActiveImageLoad' | 'onPendingImageLoad' | 'showWithFrame'>> = ({
+const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'showControls' | 'setShowControls' | 'setShowActionMenu' | 'displayedAsset' | 'imgSrc' | 'pendingImageSrc' | 'stageSize' | 'pan' | 'scale' | 'isDragging' | 'handleMouseDown' | 'showFaces' | 'showFaceOverlays' | 'isImageTransitionPending' | 'panelState' | 'hoveredFaceKey' | 'setHoveredFaceKey' | 'selectedOverlayKey' | 'setSelectedOverlayKey' | 'onFaceClick' | 'onIsolateFace' | 'onRevealControls' | 'onActiveImageLoad' | 'onPendingImageLoad' | 'showWithFrame'>> = ({
     containerRef,
     showControls,
     setShowControls,
@@ -197,6 +199,8 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
     panelState,
     hoveredFaceKey,
     setHoveredFaceKey,
+    selectedOverlayKey,
+    setSelectedOverlayKey,
     onFaceClick,
     onIsolateFace,
     onRevealControls,
@@ -204,7 +208,7 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
     onPendingImageLoad,
     showWithFrame,
 }) => {
-    const alwaysShowForPanel = panelState.showInfoPanel && panelState.activeInfoTab === 'people';
+    const alwaysShowForPanel = panelState.showInfoPanel && (panelState.activeInfoTab === 'people' || panelState.activeInfoTab === 'objects');
 
     return (
         <div
@@ -234,6 +238,8 @@ const ViewportStageFrame: FC<Pick<PhotoViewportFrameProps, 'containerRef' | 'sho
                 isImageTransitionPending={isImageTransitionPending}
                 hoveredFaceKey={hoveredFaceKey}
                 setHoveredFaceKey={setHoveredFaceKey}
+                selectedOverlayKey={selectedOverlayKey}
+                setSelectedOverlayKey={setSelectedOverlayKey}
                 onFaceClick={onFaceClick}
                 onIsolateFace={onIsolateFace}
                 onActiveImageLoad={onActiveImageLoad}
@@ -347,6 +353,8 @@ const PhotoViewportFrame: FC<PhotoViewportFrameProps> = (props) => {
                 panelState={props.panelState}
                 hoveredFaceKey={props.hoveredFaceKey}
                 setHoveredFaceKey={props.setHoveredFaceKey}
+                selectedOverlayKey={props.selectedOverlayKey}
+                setSelectedOverlayKey={props.setSelectedOverlayKey}
                 onFaceClick={props.onFaceClick}
                 onIsolateFace={props.onIsolateFace}
                 onRevealControls={props.onRevealControls}
@@ -403,7 +411,7 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const [requestedActiveGroupId, setRequestedActiveGroupId] = useState<string | null>(null);
     const activeGroupId = resolveActiveSinglePhotoGroupId(props.asset, requestedActiveGroupId);
     const actionAsset = applyActiveGroupContext(props.asset, activeGroupId);
-    const alwaysShowForPanel = props.panelState.showInfoPanel && props.panelState.activeInfoTab === 'people';
+    const alwaysShowForPanel = props.panelState.showInfoPanel && (props.panelState.activeInfoTab === 'people' || props.panelState.activeInfoTab === 'objects');
     // Analysis may refresh frame_detection while a workflow is running. Keep
     // the original image as the stable default rather than applying that crop.
     const [showWithFrame, setShowWithFrame] = useState(true);

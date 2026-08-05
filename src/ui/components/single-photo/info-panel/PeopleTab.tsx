@@ -15,6 +15,8 @@ type PeopleTabProps = {
   readonly asset: Asset;
   readonly hoveredFaceKey?: string | null;
   readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly selectedOverlayKey?: string | null;
+  readonly onSelectOverlayKey?: (key: string | null) => void;
 }
 
 const EmptyPeopleState: React.FC = () => (
@@ -132,15 +134,17 @@ const CardLinks: React.FC<{
   );
 };
 
-const OverlayCard: React.FC<{
+export const OverlayCard: React.FC<{
   readonly asset: Asset;
   readonly item: SinglePhotoPeopleItem;
   readonly hoveredFaceKey?: string | null;
   readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly selectedOverlayKey?: string | null;
+  readonly onSelectOverlayKey?: (key: string | null) => void;
   readonly trees: TreeInfo[];
   readonly links: LinkInfo[];
-}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, trees, links }) => {
-  const isHovered = hoveredFaceKey === item.key;
+}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, trees, links }) => {
+  const isHovered = hoveredFaceKey === item.key || selectedOverlayKey === item.key;
   const colors = getSinglePhotoPeopleColor(item.kind);
   const personLinks = getPersonLinks(item.raw, links);
   const imgUrl = getThumbnailUrl(asset);
@@ -150,6 +154,15 @@ const OverlayCard: React.FC<{
     <div
       onMouseEnter={() => onHoverFaceKey?.(item.key)}
       onMouseLeave={() => onHoverFaceKey?.(null)}
+      onClick={() => onSelectOverlayKey?.(item.key)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelectOverlayKey?.(item.key);
+        }
+      }}
+      role="button"
+      tabIndex={0}
       className="rounded-lg p-3 flex flex-col gap-1.5 motion-safe:transition-all duration-150"
       style={getCardStyle(isHovered, colors)}
     >
@@ -182,16 +195,18 @@ const OverlayCard: React.FC<{
   );
 };
 
-const OverlaySection: React.FC<{
+export const OverlaySection: React.FC<{
   readonly asset: Asset;
   readonly emoji: string;
   readonly title: string;
   readonly items: SinglePhotoPeopleItem[];
   readonly hoveredFaceKey?: string | null;
   readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly selectedOverlayKey?: string | null;
+  readonly onSelectOverlayKey?: (key: string | null) => void;
   readonly trees: TreeInfo[];
   readonly links: LinkInfo[];
-}> = ({ asset, emoji, title, items, hoveredFaceKey, onHoverFaceKey, trees, links }) => {
+}> = ({ asset, emoji, title, items, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, trees, links }) => {
   if (items.length === 0) {
     return null;
   }
@@ -200,14 +215,14 @@ const OverlaySection: React.FC<{
     <Section emoji={emoji} title={title} hideHeader={title === 'People'}>
       <div className="flex flex-col gap-2">
         {items.map((item) => (
-          <OverlayCard key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} trees={trees} links={links} />
+          <OverlayCard key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} trees={trees} links={links} />
         ))}
       </div>
     </Section>
   );
 };
 
-export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onHoverFaceKey }) => {
+export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey }) => {
   const model = buildSinglePhotoPeopleModel(asset);
   const resolvedPeople = model.peopleItems.filter((item) => item.kind === 'resolved-person');
   const localDetections = model.peopleItems.filter((item) => item.kind === 'local-face');
@@ -236,15 +251,14 @@ export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onH
     }).then(res => setLinks(res.links || [])).catch(console.error);
   }, []);
 
-  if (model.peopleItems.length === 0 && model.regionsOfInterest.length === 0) {
+  if (model.peopleItems.length === 0) {
     return <EmptyPeopleState />;
   }
 
   return (
     <div>
-      <OverlaySection emoji="🙂" title="People" items={mainPeople} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} asset={asset} trees={trees} links={links} />
-      <OverlaySection emoji="👤" title="Local Detections" items={localDetections} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} asset={asset} trees={trees} links={links} />
-      <OverlaySection emoji="🧭" title="Regions of Interest" items={model.regionsOfInterest} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} asset={asset} trees={trees} links={links} />
+      <OverlaySection emoji="🙂" title="People" items={mainPeople} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} asset={asset} trees={trees} links={links} />
+      <OverlaySection emoji="👤" title="Local Detections" items={localDetections} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} asset={asset} trees={trees} links={links} />
     </div>
   );
 };

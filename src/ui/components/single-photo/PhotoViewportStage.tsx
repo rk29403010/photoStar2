@@ -109,6 +109,8 @@ const FaceOverlays: FC<{
     readonly alwaysShowForPanel: boolean;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly selectedOverlayKey: string | null;
+    readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly showWithFrame?: boolean;
@@ -119,6 +121,8 @@ const FaceOverlays: FC<{
     alwaysShowForPanel,
     hoveredFaceKey,
     setHoveredFaceKey,
+    selectedOverlayKey,
+    setSelectedOverlayKey,
     onFaceClick,
     onIsolateFace,
     showWithFrame,
@@ -134,6 +138,8 @@ const FaceOverlays: FC<{
             alwaysShowForPanel={alwaysShowForPanel}
             hoveredFaceKey={hoveredFaceKey}
             onHoverFaceKey={setHoveredFaceKey}
+            selectedOverlayKey={selectedOverlayKey}
+            onSelectOverlayKey={setSelectedOverlayKey}
             onFaceClick={onFaceClick}
             onIsolateFace={onIsolateFace}
             showWithFrame={showWithFrame}
@@ -159,6 +165,8 @@ export const ZoomableStage: FC<{
     readonly isImageTransitionPending: boolean;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly selectedOverlayKey: string | null;
+    readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly onActiveImageLoad: () => void;
@@ -182,6 +190,8 @@ export const ZoomableStage: FC<{
     isImageTransitionPending,
     hoveredFaceKey,
     setHoveredFaceKey,
+    selectedOverlayKey,
+    setSelectedOverlayKey,
     onFaceClick,
     onIsolateFace,
     onActiveImageLoad,
@@ -240,6 +250,8 @@ export const ZoomableStage: FC<{
                 alwaysShowForPanel={alwaysShowForPanel}
                 hoveredFaceKey={hoveredFaceKey}
                 setHoveredFaceKey={setHoveredFaceKey}
+                selectedOverlayKey={selectedOverlayKey}
+                setSelectedOverlayKey={setSelectedOverlayKey}
                 onFaceClick={onFaceClick}
                 onIsolateFace={onIsolateFace}
                 showWithFrame={showWithFrame}

@@ -1,4 +1,4 @@
-import type { Asset, FaceBox, PhotoMetadataSourceSummary } from '../../../boundary/contracts/core.ts';
+import type { Asset, FaceBox, NormalizedPoint, PhotoMaskMetadataItem, PhotoMetadataSourceSummary } from '../../../boundary/contracts/core.ts';
 import { readCanonicalStoredPhotoBox } from '../../../services/faces/faceImageGeometry.ts';
 
 type SubjectRecord = Record<string, unknown>;
@@ -8,7 +8,8 @@ export type SinglePhotoPeopleKind =
     | 'local-face'
     | 'resolved-person'
     | 'remote-subject'
-    | 'region-of-interest';
+    | 'region-of-interest'
+    | 'segmented-object';
 
 export type SinglePhotoPeopleColor = {
     border: string;
@@ -38,6 +39,7 @@ export type SinglePhotoPeopleItem = {
     kind: SinglePhotoPeopleKind;
     label: string;
     box: SinglePhotoOverlayBox;
+    points?: NormalizedPoint[];
     sourceLabel?: string;
     detail?: string;
     tags: string[];
@@ -48,6 +50,7 @@ export type SinglePhotoPeopleItem = {
 export type SinglePhotoPeopleModel = {
     peopleItems: SinglePhotoPeopleItem[];
     regionsOfInterest: SinglePhotoPeopleItem[];
+    segmentedObjects: SinglePhotoPeopleItem[];
 }
 
 const SINGLE_PHOTO_PEOPLE_COLORS: Record<SinglePhotoPeopleKind, SinglePhotoPeopleColor> = {
@@ -111,6 +114,21 @@ const SINGLE_PHOTO_PEOPLE_COLORS: Record<SinglePhotoPeopleKind, SinglePhotoPeopl
         chipBackground: 'rgba(180,83,9,0.35)',
         chipText: '#fef3c7',
     },
+    'segmented-object': {
+        border: '#fb7185',
+        borderHover: '#ffe4e6',
+        glowRgb: '251,113,133',
+        labelBackground: 'rgba(136,19,55,0.9)',
+        labelText: '#fecdd3',
+        panelBackground: 'rgba(244,63,94,0.08)',
+        panelBackgroundHover: 'rgba(244,63,94,0.18)',
+        panelBorder: 'rgba(244,63,94,0.26)',
+        panelBorderHover: 'rgba(253,164,175,0.72)',
+        panelText: '#fda4af',
+        panelMutedText: '#94a3b8',
+        chipBackground: 'rgba(190,24,93,0.35)',
+        chipText: '#ffe4e6',
+    },
 };
 
 export function getSinglePhotoPeopleColor(kind: SinglePhotoPeopleKind): SinglePhotoPeopleColor {
@@ -133,6 +151,10 @@ function asStringArray(value: unknown): string[] {
 
 function hasVisibleArea(box: SinglePhotoOverlayBox): boolean {
     return box.w > 0 && box.h > 0;
+}
+
+function cleanFloat(value: number): number {
+    return Number.parseFloat(value.toFixed(6));
 }
 
 
@@ -300,6 +322,66 @@ function buildRegionOfInterestItems(asset: Asset): SinglePhotoPeopleItem[] {
     });
 }
 
+function polygonBox(points: NormalizedPoint[]): SinglePhotoOverlayBox | null {
+    if (points.length < 3) {
+        return null;
+    }
+
+    const xValues = points.map((point) => point.x);
+    const yValues = points.map((point) => point.y);
+    const x = cleanFloat(Math.min(...xValues));
+    const y = cleanFloat(Math.min(...yValues));
+    const w = cleanFloat(Math.max(...xValues) - x);
+    const h = cleanFloat(Math.max(...yValues) - y);
+    return hasVisibleArea({ x, y, w, h }) ? { x, y, w, h } : null;
+}
+
+function isObjectMask(mask: PhotoMaskMetadataItem): boolean {
+    return !mask.inverted
+        && mask.source.moduleId !== 'runtime.detect_frame'
+        && (mask.points?.length ?? 0) >= 3;
+}
+
+function sourceLabelForMask(mask: PhotoMaskMetadataItem): string {
+    switch (mask.source.moduleId) {
+        case 'runtime.detect_faces':
+            return 'Local segmentation';
+        case 'runtime.generate_ai_metadata':
+            return 'AI analysis';
+        default:
+            return mask.source.moduleId;
+    }
+}
+
+function buildSegmentedObjectItems(asset: Asset): SinglePhotoPeopleItem[] {
+    return (asset.mask_metadata?.masks ?? []).flatMap((mask) => {
+        if (!isObjectMask(mask)) {
+            return [];
+        }
+
+        const points = mask.points ?? [];
+        const box = mask.box
+            ? { x: mask.box.x, y: mask.box.y, w: mask.box.width, h: mask.box.height }
+            : polygonBox(points);
+        if (!box) {
+            return [];
+        }
+
+        return [{
+            key: `mask-${mask.source.moduleId}-${mask.source.referenceId}`,
+            kind: 'segmented-object' as const,
+            label: mask.label,
+            box,
+            points,
+            sourceLabel: sourceLabelForMask(mask),
+            detail: mask.description,
+            tags: [mask.kind],
+            icon: '◇',
+            raw: mask,
+        }];
+    });
+}
+
 function calculateOverlapCoefficient(boxA: SinglePhotoOverlayBox, boxB: SinglePhotoOverlayBox): number {
     const xA = Math.max(boxA.x, boxB.x);
     const yA = Math.max(boxA.y, boxB.y);
@@ -372,5 +454,6 @@ export function buildSinglePhotoPeopleModel(asset: Asset): SinglePhotoPeopleMode
     return {
         peopleItems: coalescePeopleItems(faceItems, subjectItems),
         regionsOfInterest: buildRegionOfInterestItems(asset),
+        segmentedObjects: buildSegmentedObjectItems(asset),
     };
 }

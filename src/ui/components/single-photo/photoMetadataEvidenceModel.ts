@@ -1,6 +1,6 @@
 import type { Asset } from '@contracts/core';
 
-type EvidenceTabId = 'profile' | 'people' | 'lineage' | 'group' | 'json';
+type EvidenceTabId = 'profile' | 'people' | 'objects' | 'lineage' | 'group' | 'json';
 
 export function shouldRequestPhotoMetadataEvidence(params: {
     activeTab: EvidenceTabId;

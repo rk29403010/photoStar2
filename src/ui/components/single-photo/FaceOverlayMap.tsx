@@ -13,6 +13,8 @@ type FaceOverlayMapProps = {
     readonly alwaysShowForPanel?: boolean;
     readonly hoveredFaceKey?: string | null;
     readonly onHoverFaceKey?: (key: string | null) => void;
+    readonly selectedOverlayKey?: string | null;
+    readonly onSelectOverlayKey?: (key: string | null) => void;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly showWithFrame?: boolean;
@@ -53,6 +55,33 @@ function handleResolvedFaceClick(
 
     event.stopPropagation();
     onFaceClick(face.person_id, face.person_name || 'Unknown Person');
+}
+
+function handleOverlayClick(params: {
+    event: React.MouseEvent<SVGPolygonElement | HTMLDivElement>;
+    item: SinglePhotoPeopleItem;
+    onFaceClick?: (id: string, name: string) => void;
+    onSelectOverlayKey?: (key: string | null) => void;
+}) {
+    params.event.stopPropagation();
+    params.onSelectOverlayKey?.(params.item.key);
+    handleResolvedFaceClick(params.event as React.MouseEvent<HTMLDivElement>, params.item, params.onFaceClick);
+}
+
+function isOverlaySelectionKey(event: React.KeyboardEvent<HTMLElement | SVGPolygonElement>): boolean {
+    return event.key === 'Enter' || event.key === ' ';
+}
+
+function handleOverlayKeyDown(params: {
+    event: React.KeyboardEvent<HTMLElement | SVGPolygonElement>;
+    itemKey: string;
+    onSelectOverlayKey?: (key: string | null) => void;
+}) {
+    if (!isOverlaySelectionKey(params.event)) {
+        return;
+    }
+    params.event.preventDefault();
+    params.onSelectOverlayKey?.(params.itemKey);
 }
 
 const IsolateFaceButton: React.FC<{
@@ -116,21 +145,27 @@ function getFaceBoxCoordinates(
     };
 }
 
+function getOverlayBorderStyle(kind: SinglePhotoPeopleItem['kind']): 'dashed' | 'solid' {
+    return kind === 'remote-subject' || kind === 'region-of-interest' ? 'dashed' : 'solid';
+}
+
 const OverlayBox: React.FC<{
     readonly asset: Asset;
     readonly item: SinglePhotoPeopleItem;
     readonly hoveredFaceKey?: string | null;
     readonly onHoverFaceKey?: (key: string | null) => void;
+    readonly selectedOverlayKey?: string | null;
+    readonly onSelectOverlayKey?: (key: string | null) => void;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly showFaces: boolean;
     readonly showWithFrame?: boolean;
-}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, onFaceClick, onIsolateFace, showFaces, showWithFrame }) => {
+}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, onFaceClick, onIsolateFace, showFaces, showWithFrame }) => {
     const isHovered = hoveredFaceKey === item.key;
+    const isSelected = selectedOverlayKey === item.key;
+    const isHighlighted = isHovered || isSelected;
     const colors = getSinglePhotoPeopleColor(item.kind);
-    const face = getFaceRecord(item);
-    const canClick = Boolean(face?.person_id && onFaceClick);
-    const borderStyle = item.kind === 'remote-subject' || item.kind === 'region-of-interest' ? 'dashed' : 'solid';
+    const borderStyle = getOverlayBorderStyle(item.kind);
 
     const shouldCrop = Boolean(asset.frame_detection) && !showWithFrame;
     const interiorBox = shouldCrop ? getFrameInteriorBox(asset.frame_detection) : null;
@@ -141,7 +176,10 @@ const OverlayBox: React.FC<{
             key={item.key}
             className="group"
             title={item.label}
-            onClick={(event) => handleResolvedFaceClick(event, item, onFaceClick)}
+            role="button"
+            tabIndex={0}
+            onClick={(event) => handleOverlayClick({ event, item, onFaceClick, onSelectOverlayKey })}
+            onKeyDown={(event) => handleOverlayKeyDown({ event, itemKey: item.key, onSelectOverlayKey })}
             onMouseEnter={() => onHoverFaceKey?.(item.key)}
             onMouseLeave={() => onHoverFaceKey?.(null)}
             style={{
@@ -150,19 +188,20 @@ const OverlayBox: React.FC<{
                 top: `${coords.top * 100}%`,
                 width: `${coords.width * 100}%`,
                 height: `${coords.height * 100}%`,
-                border: `2px ${borderStyle} ${isHovered ? colors.borderHover : colors.border}`,
+                border: `2px ${borderStyle} ${isHighlighted ? colors.borderHover : colors.border}`,
                 borderRadius: '3px',
-                boxShadow: isHovered
+                backgroundColor: isSelected ? `rgba(${colors.glowRgb},0.24)` : 'transparent',
+                boxShadow: isHighlighted
                     ? `0 0 0 2px rgba(${colors.glowRgb},0.9), 0 0 18px rgba(${colors.glowRgb},0.7)`
-                    : '0 0 10px rgba(0,0,0,0.45), inset 0 0 10px rgba(0,0,0,0.25)',
-                transition: 'box-shadow 0.15s, border-color 0.15s',
+                    : '0 0 4px rgba(0,0,0,0.45)',
+                transition: 'background-color 0.15s, box-shadow 0.15s, border-color 0.15s',
                 pointerEvents: 'auto',
-                cursor: canClick ? 'pointer' : 'default',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'flex-end',
                 justifyContent: 'center',
                 overflow: 'visible',
-                zIndex: isHovered ? 12 : 9,
+                zIndex: isHighlighted ? 12 : 9,
             }}
         >
             <div
@@ -175,7 +214,7 @@ const OverlayBox: React.FC<{
                     whiteSpace: 'nowrap',
                     transform: 'translateY(100%)',
                     marginTop: '4px',
-                    opacity: getItemLabelOpacity(isHovered, showFaces),
+                    opacity: getItemLabelOpacity(isHighlighted, showFaces),
                     transition: 'opacity 0.2s',
                     pointerEvents: 'none',
                 }}
@@ -189,12 +228,77 @@ const OverlayBox: React.FC<{
     );
 };
 
+function getPolygonPoints(params: {
+    points: NonNullable<SinglePhotoPeopleItem['points']>;
+    interiorBox: { x: number; y: number; width: number; height: number } | null;
+    shouldCrop: boolean;
+}): string {
+    return params.points.map((point) => {
+        const x = params.shouldCrop && params.interiorBox
+            ? (point.x - params.interiorBox.x) / params.interiorBox.width
+            : point.x;
+        const y = params.shouldCrop && params.interiorBox
+            ? (point.y - params.interiorBox.y) / params.interiorBox.height
+            : point.y;
+        return `${x * 100},${y * 100}`;
+    }).join(' ');
+}
+
+const PolygonOverlay: React.FC<{
+    readonly asset: Asset;
+    readonly item: SinglePhotoPeopleItem;
+    readonly hoveredFaceKey?: string | null;
+    readonly onHoverFaceKey?: (key: string | null) => void;
+    readonly selectedOverlayKey?: string | null;
+    readonly onSelectOverlayKey?: (key: string | null) => void;
+    readonly onFaceClick?: (personId: string, personName: string) => void;
+    readonly showWithFrame?: boolean;
+}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, onFaceClick, showWithFrame }) => {
+    const isHovered = hoveredFaceKey === item.key;
+    const isSelected = selectedOverlayKey === item.key;
+    const isHighlighted = isHovered || isSelected;
+    const colors = getSinglePhotoPeopleColor(item.kind);
+    const shouldCrop = Boolean(asset.frame_detection) && !showWithFrame;
+    const interiorBox = shouldCrop ? getFrameInteriorBox(asset.frame_detection) : null;
+    const points = item.points ?? [];
+
+    return (
+        <svg
+            aria-label={item.label}
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{ position: 'absolute', inset: 0, overflow: 'visible', zIndex: isHighlighted ? 12 : 9, pointerEvents: 'none' }}
+        >
+            <polygon
+                points={getPolygonPoints({ points, interiorBox, shouldCrop })}
+                role="button"
+                tabIndex={0}
+                onClick={(event) => handleOverlayClick({ event, item, onFaceClick, onSelectOverlayKey })}
+                onKeyDown={(event) => handleOverlayKeyDown({ event, itemKey: item.key, onSelectOverlayKey })}
+                onMouseEnter={() => onHoverFaceKey?.(item.key)}
+                onMouseLeave={() => onHoverFaceKey?.(null)}
+                style={{
+                    fill: isSelected ? `rgba(${colors.glowRgb},0.24)` : 'transparent',
+                    stroke: isHighlighted ? colors.borderHover : colors.border,
+                    strokeWidth: isHighlighted ? 0.7 : 0.45,
+                    vectorEffect: 'non-scaling-stroke',
+                    filter: isHighlighted ? `drop-shadow(0 0 7px rgba(${colors.glowRgb},0.8))` : 'drop-shadow(0 0 4px rgba(0,0,0,0.45))',
+                    cursor: 'pointer',
+                    pointerEvents: 'auto',
+                }}
+            ><title>{item.label}</title></polygon>
+        </svg>
+    );
+};
+
 export const FaceOverlayMap: React.FC<FaceOverlayMapProps> = ({
     asset,
     showFaces,
     alwaysShowForPanel = false,
     hoveredFaceKey,
     onHoverFaceKey,
+    selectedOverlayKey,
+    onSelectOverlayKey,
     onFaceClick,
     onIsolateFace,
     showWithFrame,
@@ -205,22 +309,14 @@ export const FaceOverlayMap: React.FC<FaceOverlayMapProps> = ({
     }
 
     const model = buildSinglePhotoPeopleModel(asset);
-    const items = [...model.peopleItems, ...model.regionsOfInterest];
+    const items = [...model.peopleItems, ...model.regionsOfInterest, ...model.segmentedObjects];
 
     return (
         <>
-            {items.map((item) => (
-                <OverlayBox
-                    key={item.key}
-                    asset={asset}
-                    item={item}
-                    hoveredFaceKey={hoveredFaceKey}
-                    onHoverFaceKey={onHoverFaceKey}
-                    onFaceClick={onFaceClick}
-                    onIsolateFace={onIsolateFace}
-                    showFaces={showFaces}
-                    showWithFrame={showWithFrame}
-                />
+            {items.map((item) => item.points && item.points.length >= 3 ? (
+                <PolygonOverlay key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} onFaceClick={onFaceClick} showWithFrame={showWithFrame} />
+            ) : (
+                <OverlayBox key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} onFaceClick={onFaceClick} onIsolateFace={onIsolateFace} showFaces={showFaces} showWithFrame={showWithFrame} />
             ))}
             <style>{`
                 .group:hover .isolate-btn { opacity: 1 !important; }

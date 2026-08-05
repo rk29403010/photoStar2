@@ -91,6 +91,33 @@ const asset: Asset = {
             manualAssertions: [],
         },
     },
+    mask_metadata: {
+        schemaVersion: 1,
+        masks: [
+            {
+                id: 'lamp',
+                label: 'Table lamp',
+                description: 'Locally segmented object',
+                kind: 'polygon',
+                points: [
+                    { x: 0.12, y: 0.62 },
+                    { x: 0.2, y: 0.54 },
+                    { x: 0.28, y: 0.64 },
+                    { x: 0.24, y: 0.76 },
+                    { x: 0.14, y: 0.74 },
+                ],
+                source: { moduleId: 'runtime.segment_objects', referenceId: 'lamp' },
+            },
+            {
+                id: 'photo-content',
+                label: 'Detected photo area',
+                description: 'Frame mask',
+                kind: 'polygon',
+                points: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }],
+                source: { moduleId: 'runtime.detect_frame', referenceId: 'photo-content' },
+            },
+        ],
+    },
 };
 
 void test('buildSinglePhotoPeopleModel normalizes local faces, resolved people, AI subjects, and ROI regions', () => {
@@ -124,6 +151,17 @@ void test('buildSinglePhotoPeopleModel normalizes local faces, resolved people, 
         w: 0.18,
         h: 0.32,
     });
+
+    assert.deepEqual(
+        model.segmentedObjects.map((item) => ({ key: item.key, kind: item.kind, label: item.label, sourceLabel: item.sourceLabel })),
+        [{
+            key: 'mask-runtime.segment_objects-lamp',
+            kind: 'segmented-object',
+            label: 'Table lamp',
+            sourceLabel: 'runtime.segment_objects',
+        }],
+    );
+    assert.equal(model.segmentedObjects[0]?.points?.length, 5);
 });
 
 void test('buildSinglePhotoPeopleModel ignores legacy mixed-scale boxes instead of guessing their units', () => {
@@ -160,9 +198,11 @@ void test('getSinglePhotoPeopleColor returns distinct palettes for each overlay 
     const resolved = getSinglePhotoPeopleColor('resolved-person');
     const remote = getSinglePhotoPeopleColor('remote-subject');
     const roi = getSinglePhotoPeopleColor('region-of-interest');
+    const segmentedObject = getSinglePhotoPeopleColor('segmented-object');
 
     assert.notEqual(local.border, resolved.border);
     assert.notEqual(local.border, remote.border);
     assert.notEqual(resolved.border, remote.border);
     assert.notEqual(remote.border, roi.border);
+    assert.notEqual(roi.border, segmentedObject.border);
 });

@@ -21,6 +21,8 @@ export type SinglePhotoOverlayProps = {
     readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly selectedOverlayKey: string | null;
+    readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     readonly panelState: PanelState;
     readonly onClose: () => void;
     readonly onFaceClick?: (personId: string, personName: string) => void;
@@ -59,6 +61,8 @@ function PhotoInfoSidebar(props: {
     readonly panelState: PanelState;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly selectedOverlayKey: string | null;
+    readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
     readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
     readonly onSetReviewItemStatus?: (payload: {
@@ -93,6 +97,8 @@ function PhotoInfoSidebar(props: {
                 onClose={() => props.panelState.setShowInfoPanel(false)}
                 hoveredFaceKey={props.hoveredFaceKey}
                 onHoverFaceKey={props.setHoveredFaceKey}
+                selectedOverlayKey={props.selectedOverlayKey}
+                onSelectOverlayKey={props.setSelectedOverlayKey}
                 onAssignTag={assignAssetTag ? (tagLabel) => assignAssetTag(props.asset.id, tagLabel) : undefined}
                 onRemoveTag={removeAssetTag ? (tagDefinitionId) => removeAssetTag(props.asset.id, tagDefinitionId) : undefined}
                 onSetReviewItemStatus={props.onSetReviewItemStatus}
@@ -125,6 +131,8 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
             setShowActionMenu={props.setShowActionMenu}
             hoveredFaceKey={props.hoveredFaceKey}
             setHoveredFaceKey={props.setHoveredFaceKey}
+            selectedOverlayKey={props.selectedOverlayKey}
+            setSelectedOverlayKey={props.setSelectedOverlayKey}
             panelState={props.panelState}
             onClose={props.onClose}
             onFaceClick={props.onFaceClick}
@@ -151,6 +159,8 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
             panelState={props.panelState}
             hoveredFaceKey={props.hoveredFaceKey}
             setHoveredFaceKey={props.setHoveredFaceKey}
+            selectedOverlayKey={props.selectedOverlayKey}
+            setSelectedOverlayKey={props.setSelectedOverlayKey}
             onAssignAssetTag={props.onAssignAssetTag}
             onRemoveAssetTag={props.onRemoveAssetTag}
             onSetReviewItemStatus={props.onSetReviewItemStatus}

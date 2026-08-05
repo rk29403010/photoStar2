@@ -263,14 +263,14 @@ function AiActionMenuItem(props: ActionMenuProps) {
                     color="#c084fc"
                     active={false}
                     icon="✨"
-                    label="Quick Analysis"
+                    label="Find Objects - Fast"
                     onClick={(event) => handleAnalyzeImage(event, props, buildAnalysisOptions('overview_only', 'scout'))}
                 />
                 <MenuItem
                     color="#6366f1"
                     active={false}
                     icon="🧩"
-                    label="Detailed Analysis"
+                    label="Find Objects - Detailed"
                     onClick={(event) => handleAnalyzeImage(event, props, buildAnalysisOptions('overview_plus_tiles', 'refine'))}
                 />
             </>
