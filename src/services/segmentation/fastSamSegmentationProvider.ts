@@ -9,7 +9,6 @@ import type { NormalizedBox, NormalizedPoint, PreparedSegmentationImage, Segment
 import { resolveSegmentationModelState, segmentationModelManifests } from './modelManifest';
 
 const MODEL_FILENAME = 'fastsam-s-fp32.onnx';
-const modelPath = resolveOnnxModelPath({ modelFileName: MODEL_FILENAME, moduleDir: __dirname });
 const MAX_CANDIDATES = 100;
 // FastSAM-s scores are model-native. Keep only confident automatic proposals:
 // a weak fragment is less useful than an honest empty result for a photo editor.
@@ -138,16 +137,16 @@ export class FastSamSegmentationProvider implements SegmentationProvider {
     readonly capabilities = { positivePoints: true, boxes: true, automaticCandidates: true };
     readonly inferenceProfile = Object.freeze({ confidenceThreshold: CONFIDENCE_THRESHOLD, duplicateBoxIouThreshold: IOU_THRESHOLD, maximumCandidates: MAX_CANDIDATES });
     private session: ort.InferenceSession | undefined;
-    private readonly configuredModelPath: string;
+    private readonly configuredModelPath: string | undefined;
     private readonly sessionFactory: (path: string) => Promise<ort.InferenceSession>;
     private readonly verifyChecksum: boolean;
     constructor(options: FastSamProviderOptions = {}) {
-        this.configuredModelPath = options.modelPath ?? modelPath;
+        this.configuredModelPath = options.modelPath;
         this.sessionFactory = options.sessionFactory ?? ((path) => ort.InferenceSession.create(path, { logSeverityLevel: 3 }));
         this.verifyChecksum = options.verifyChecksum ?? true;
     }
-    getModelInstallationState() { return resolveSegmentationModelState(segmentationModelManifests[0], dirname(this.configuredModelPath)); }
-    isAvailable(): boolean { return this.verifyChecksum ? this.getModelInstallationState() === 'installed_and_verified' : existsSync(this.configuredModelPath); }
+    getModelInstallationState() { return resolveSegmentationModelState(segmentationModelManifests[0], dirname(this.modelPath)); }
+    isAvailable(): boolean { return this.verifyChecksum ? this.getModelInstallationState() === 'installed_and_verified' : existsSync(this.modelPath); }
     async prepare(image: SegmentationImage): Promise<FastSamPrepared> { return { providerId: this.id, image, session: await this.getSession(), dispose: async () => {} }; }
     async segment(prepared: PreparedSegmentationImage, prompt: SegmentationPrompt): Promise<SegmentationMask[]> { const state = prepared as FastSamPrepared; return selectPromptCandidates(await this.candidates(state), prompt); }
     async automaticCandidates(prepared: PreparedSegmentationImage): Promise<SegmentationMask[]> { return this.candidates(prepared as FastSamPrepared); }
@@ -165,11 +164,13 @@ export class FastSamSegmentationProvider implements SegmentationProvider {
         if (!this.isAvailable()) {
             const state = this.getModelInstallationState();
             const code = state === 'installed_but_corrupt' ? 'model_checksum_mismatch' : 'model_missing';
-            throw new SegmentationProviderError(this.id, code, `FastSAM-s FP32 is ${state.replaceAll('_', ' ')} at ${this.configuredModelPath}. Open Model Manager or follow the development manual-install instructions.`);
+            throw new SegmentationProviderError(this.id, code, `FastSAM-s FP32 is ${state.replaceAll('_', ' ')} at ${this.modelPath}. Open Model Manager or follow the development manual-install instructions.`);
         }
-        let usablePath = this.configuredModelPath;
-        if (this.configuredModelPath.includes('snapshot')) { usablePath = join(tmpdir(), MODEL_FILENAME); if (!existsSync(usablePath)) { mkdirSync(dirname(usablePath), { recursive: true }); copyFileSync(this.configuredModelPath, usablePath); } }
+        const modelPath = this.modelPath;
+        let usablePath = modelPath;
+        if (modelPath.includes('snapshot')) { usablePath = join(tmpdir(), MODEL_FILENAME); if (!existsSync(usablePath)) { mkdirSync(dirname(usablePath), { recursive: true }); copyFileSync(modelPath, usablePath); } }
         try { this.session = await this.sessionFactory(usablePath); return this.session; }
         catch (error) { throw new SegmentationProviderError(this.id, 'model_incompatible', error instanceof Error ? error.message : String(error)); }
     }
+    private get modelPath(): string { return this.configuredModelPath ?? resolveOnnxModelPath({ modelFileName: MODEL_FILENAME, moduleDir: __dirname }); }
 }

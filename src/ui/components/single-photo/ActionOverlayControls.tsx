@@ -489,9 +489,9 @@ function WorkflowSubMenu(props: {
                 >
                     🖼️ Detect Frames
                 </button>
-                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'fastsam', profile: 'quick' })} style={menuItemStyle('#38bdf8', false)}>Find objects - Fast</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'auto', objectProvider: 'auto', profile: 'quick' })} style={menuItemStyle('#38bdf8', false)}>Find objects - Fast</button>
                 <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'efficientsam', objectProvider: 'efficientsam', profile: 'balanced' })} style={menuItemStyle('#a78bfa', false)}>Find objects - Detailed</button>
-                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'both', profile: 'balanced' })} style={menuItemStyle('#facc15', false)}>Find objects - Compare</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'auto', objectProvider: 'both', profile: 'balanced' })} style={menuItemStyle('#facc15', false)}>Find objects - Compare</button>
                 <button
                     onClick={(e) => {
                         e.stopPropagation();

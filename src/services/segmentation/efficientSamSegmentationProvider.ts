@@ -5,10 +5,16 @@ import { maskBoundingBox, normalizedPointToPixels, SegmentationProviderError } f
 import type { PreparedSegmentationImage, SegmentationImage, SegmentationMask, SegmentationPrompt, SegmentationProvider } from './contracts';
 import { resolveSegmentationModelState, segmentationModelManifests } from './modelManifest';
 
-const encoderPath = resolveOnnxModelPath({ modelFileName: 'efficient_sam_vitt_encoder.onnx', moduleDir: __dirname });
-const decoderPath = resolveOnnxModelPath({ modelFileName: 'efficient_sam_vitt_decoder.onnx', moduleDir: __dirname });
 type EfficientPrepared = PreparedSegmentationImage & { embedding: ort.Tensor };
 type Sessions = { encoder: ort.InferenceSession; decoder: ort.InferenceSession };
+type SessionsPaths = { encoderPath: string; decoderPath: string };
+
+function resolveModelPaths(): SessionsPaths {
+    return {
+        encoderPath: resolveOnnxModelPath({ modelFileName: 'efficient_sam_vitt_encoder.onnx', moduleDir: __dirname }),
+        decoderPath: resolveOnnxModelPath({ modelFileName: 'efficient_sam_vitt_decoder.onnx', moduleDir: __dirname }),
+    };
+}
 
 /** EfficientSAM-Ti ONNX split model. Tensor names follow the official export wrapper. */
 export class EfficientSamSegmentationProvider implements SegmentationProvider {
@@ -17,7 +23,7 @@ export class EfficientSamSegmentationProvider implements SegmentationProvider {
     readonly modelVersion = '1.0';
     readonly capabilities = { positivePoints: true, boxes: true, automaticCandidates: false };
     private sessions: Sessions | undefined;
-    getModelInstallationState() { return resolveSegmentationModelState(segmentationModelManifests[1], dirname(encoderPath)); }
+    getModelInstallationState() { return resolveSegmentationModelState(segmentationModelManifests[1], dirname(resolveModelPaths().encoderPath)); }
     isAvailable(): boolean { return this.getModelInstallationState() === 'installed_and_verified'; }
     async prepare(image: SegmentationImage): Promise<EfficientPrepared> {
         const sessions = await this.getSessions();
@@ -47,5 +53,5 @@ export class EfficientSamSegmentationProvider implements SegmentationProvider {
         return candidates.flat();
     }
     async dispose(): Promise<void> { this.sessions = undefined; }
-    private async getSessions(): Promise<Sessions> { if (this.sessions) {return this.sessions;} if (!this.isAvailable()) { const state = this.getModelInstallationState(); throw new SegmentationProviderError(this.id, state === 'installed_but_corrupt' ? 'model_checksum_mismatch' : 'model_missing', `EfficientSAM-Ti is ${state.replaceAll('_', ' ')}. Open Model Manager or run the explicit verified installer.`); } try { this.sessions = { encoder: await ort.InferenceSession.create(encoderPath), decoder: await ort.InferenceSession.create(decoderPath) }; return this.sessions; } catch (error) { throw new SegmentationProviderError(this.id, 'model_incompatible', error instanceof Error ? error.message : String(error)); } }
+    private async getSessions(): Promise<Sessions> { if (this.sessions) {return this.sessions;} if (!this.isAvailable()) { const state = this.getModelInstallationState(); throw new SegmentationProviderError(this.id, state === 'installed_but_corrupt' ? 'model_checksum_mismatch' : 'model_missing', `EfficientSAM-Ti is ${state.replaceAll('_', ' ')}. Open Model Manager or run the explicit verified installer.`); } const paths = resolveModelPaths(); try { this.sessions = { encoder: await ort.InferenceSession.create(paths.encoderPath), decoder: await ort.InferenceSession.create(paths.decoderPath) }; return this.sessions; } catch (error) { throw new SegmentationProviderError(this.id, 'model_incompatible', error instanceof Error ? error.message : String(error)); } }
 }

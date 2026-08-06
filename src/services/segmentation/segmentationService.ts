@@ -17,7 +17,7 @@ export function createSegmentationProviders(selection: SegmentationProviderSelec
 
 function resolveAutoProvider(providers: SegmentationProvider[], profile: SegmentationProcessingProfile): SegmentationProvider | undefined {
     const preferredId = profile === 'accurate' ? 'efficientsam' : 'fastsam';
-    return providers.find((provider) => provider.id === preferredId && provider.isAvailable()) ?? providers.find((provider) => provider.id === 'fastsam' && provider.isAvailable());
+    return providers.find((provider) => provider.id === preferredId && provider.isAvailable()) ?? providers.find((provider) => provider.isAvailable());
 }
 
 function resolveRequestedProvider(providers: SegmentationProvider[], requested: SegmentationProviderSelection): SegmentationProvider | undefined {
