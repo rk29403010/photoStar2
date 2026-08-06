@@ -1,5 +1,6 @@
 import { FastSamSegmentationProvider } from './fastSamSegmentationProvider';
 import { EfficientSamSegmentationProvider } from './efficientSamSegmentationProvider';
+import { SegmentationProviderError } from './contracts';
 import type { SegmentationProcessingProfile, SegmentationProvider, SegmentationProviderSelection } from './contracts';
 
 export type SegmentationResolution = { requested: SegmentationProviderSelection; used: SegmentationProvider; };
@@ -29,6 +30,9 @@ export function resolveSegmentationProvider(input: { provider?: SegmentationProv
     const requested = input.provider ?? 'auto';
     const profile = input.profile ?? 'fast';
     const used = requested === 'auto' ? resolveAutoProvider(providers, profile) : resolveRequestedProvider(providers, requested);
-    if (!used) {throw new Error(`No verified segmentation provider is available for ${requested}. Open Model Manager or install the requested model.`);}
+    if (!used) {
+        const providerId = input.providers?.[0]?.id ?? 'fastsam';
+        throw new SegmentationProviderError(providerId, 'model_missing', `No verified segmentation provider is available for ${requested}. Open Model Manager or install the requested model.`);
+    }
     return { requested, used };
 }

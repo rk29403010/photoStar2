@@ -47,6 +47,11 @@ export class SegmentationProviderError extends Error {
     }
 }
 
+export function isCriticalSegmentationModelError(error: unknown): boolean {
+    return error instanceof SegmentationProviderError
+        && (error.code === 'model_missing' || error.code === 'model_checksum_mismatch');
+}
+
 export function normalizedPointToPixels(point: NormalizedPoint, image: SegmentationImage): [number, number] {
     return [Math.min(1, Math.max(0, point.x)) * image.width, Math.min(1, Math.max(0, point.y)) * image.height];
 }

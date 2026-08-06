@@ -6,6 +6,7 @@ import type { ModuleDefinition } from '../../../contracts';
 import { encodeMaskRaster, saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
 import { prepareSegmentationImage } from '../../../../segmentation/imagePreparation';
 import { MAX_PERSISTED_SEGMENT_MASKS, retainSegmentationMasks } from '../../../../segmentation/maskPostProcessing';
+import { isCriticalSegmentationModelError, SegmentationProviderError } from '../../../../segmentation/contracts';
 import type { SegmentationMask, SegmentationProvider } from '../../../../segmentation/contracts';
 import { createSegmentationProviders } from '../../../../segmentation/segmentationService';
 import type { PhotoMaskMetadataItem } from '../../../../../boundary/contracts/photoEditor';
@@ -41,10 +42,10 @@ function providerDisplayName(provider: SegmentationProvider): string {
     return provider.id === 'fastsam' ? 'FastSAM' : 'EfficientSAM';
 }
 
-function recordProviderIssue(db: SqliteDatabase, assetId: string, provider: SegmentationProvider, error: unknown): void {
+function recordProviderIssue(db: SqliteDatabase, assetId: string, provider: SegmentationProvider, error: unknown, severity: 'warning' | 'error' = 'warning'): void {
     const message = error instanceof Error ? error.message : String(error);
-    db.prepare("INSERT INTO processing_issues (id, asset_id, task, severity, message, details) VALUES (?, ?, ?, 'warning', ?, ?)")
-        .run(uuidv4(), assetId, RESULT_TASK, `${provider.id}: ${message}`, JSON.stringify({ functionalModuleId: MODULE_ID, providerId: provider.id, modelId: provider.modelId, modelVersion: provider.modelVersion }));
+    db.prepare('INSERT INTO processing_issues (id, asset_id, task, severity, message, details) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(uuidv4(), assetId, RESULT_TASK, severity, `${provider.id}: ${message}`, JSON.stringify({ functionalModuleId: MODULE_ID, providerId: provider.id, modelId: provider.modelId, modelVersion: provider.modelVersion }));
 }
 
 async function metadataForMasks(provider: SegmentationProvider, masks: SegmentationMask[]): Promise<PhotoMaskMetadataItem[]> {
@@ -96,8 +97,9 @@ function replaceSuccessfulResult(input: { db: SqliteDatabase; assetId: string; p
 async function runProvider(input: { provider: SegmentationProvider; originalPath: string; assetId: string; profile: unknown; maximum: number; db: SqliteDatabase }): Promise<void> {
     const { provider } = input;
     if (!provider.isAvailable()) {
-        recordProviderIssue(input.db, input.assetId, provider, 'The required model is not installed. Previous successful masks were kept.');
-        return;
+        const error = new SegmentationProviderError(provider.id, 'model_missing', 'The required model is not installed.');
+        recordProviderIssue(input.db, input.assetId, provider, error, 'error');
+        throw error;
     }
     const startedAt = Date.now();
     let prepared: Awaited<ReturnType<SegmentationProvider['prepare']>> | undefined;
@@ -109,7 +111,11 @@ async function runProvider(input: { provider: SegmentationProvider; originalPath
         replaceSuccessfulResult({ db: input.db, assetId: input.assetId, provider, metadata, profile: input.profile, rawMaskCount: rawMasks.length, elapsedMs: Date.now() - startedAt });
     } catch (error) {
         // A failure is not an empty successful result. The old scoped result and masks stay intact.
-        recordProviderIssue(input.db, input.assetId, provider, error);
+        const severity = isCriticalSegmentationModelError(error) ? 'error' : 'warning';
+        recordProviderIssue(input.db, input.assetId, provider, error, severity);
+        if (isCriticalSegmentationModelError(error)) {
+            throw error;
+        }
     } finally {
         await prepared?.dispose();
         await provider.dispose();
