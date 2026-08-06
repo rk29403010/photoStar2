@@ -131,6 +131,19 @@ const SINGLE_PHOTO_PEOPLE_COLORS: Record<SinglePhotoPeopleKind, SinglePhotoPeopl
     },
 };
 
+export type SinglePhotoOverlayMode = 'people' | 'objects' | null;
+
+export function getVisibleSinglePhotoOverlayItems(asset: Asset, overlayMode: SinglePhotoOverlayMode): SinglePhotoPeopleItem[] {
+    const model = buildSinglePhotoPeopleModel(asset);
+    if (overlayMode === 'people') {
+        return model.peopleItems;
+    }
+    if (overlayMode === 'objects') {
+        return [...model.regionsOfInterest, ...model.segmentedObjects];
+    }
+    return [];
+}
+
 export function getSinglePhotoPeopleColor(kind: SinglePhotoPeopleKind): SinglePhotoPeopleColor {
     return SINGLE_PHOTO_PEOPLE_COLORS[kind];
 }

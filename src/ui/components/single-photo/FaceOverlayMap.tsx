@@ -1,16 +1,16 @@
 import type React from 'react';
 import type { Asset, FaceBox } from '@contracts/core';
 import {
-    buildSinglePhotoPeopleModel,
+    getVisibleSinglePhotoOverlayItems,
     getSinglePhotoPeopleColor,
+    type SinglePhotoOverlayMode,
     type SinglePhotoPeopleItem,
 } from './singlePhotoPeopleModel';
 import { getFrameInteriorBox } from '../../../services/photoMetadata/frameUtils';
 
 type FaceOverlayMapProps = {
     readonly asset: Asset;
-    readonly showFaces: boolean;
-    readonly alwaysShowForPanel?: boolean;
+    readonly overlayMode: SinglePhotoOverlayMode;
     readonly hoveredFaceKey?: string | null;
     readonly onHoverFaceKey?: (key: string | null) => void;
     readonly selectedOverlayKey?: string | null;
@@ -18,14 +18,6 @@ type FaceOverlayMapProps = {
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly showWithFrame?: boolean;
-}
-
-function getItemLabelOpacity(isHovered: boolean, showFaces: boolean): number {
-    if (isHovered || showFaces) {
-        return 1;
-    }
-
-    return 0;
 }
 
 function getFaceIndex(item: SinglePhotoPeopleItem): number | null {
@@ -158,9 +150,8 @@ const OverlayBox: React.FC<{
     readonly onSelectOverlayKey?: (key: string | null) => void;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
-    readonly showFaces: boolean;
     readonly showWithFrame?: boolean;
-}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, onFaceClick, onIsolateFace, showFaces, showWithFrame }) => {
+}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, onFaceClick, onIsolateFace, showWithFrame }) => {
     const isHovered = hoveredFaceKey === item.key;
     const isSelected = selectedOverlayKey === item.key;
     const isHighlighted = isHovered || isSelected;
@@ -214,8 +205,7 @@ const OverlayBox: React.FC<{
                     whiteSpace: 'nowrap',
                     transform: 'translateY(100%)',
                     marginTop: '4px',
-                    opacity: getItemLabelOpacity(isHighlighted, showFaces),
-                    transition: 'opacity 0.2s',
+                    opacity: 1,
                     pointerEvents: 'none',
                 }}
                 className="face-label group-hover:opacity-100"
@@ -244,6 +234,38 @@ function getPolygonPoints(params: {
     }).join(' ');
 }
 
+function getPolygonLabelPoint(params: {
+    points: NonNullable<SinglePhotoPeopleItem['points']>;
+    interiorBox: { x: number; y: number; width: number; height: number } | null;
+    shouldCrop: boolean;
+}) {
+    const point = params.points[0];
+    if (!point) {
+        return null;
+    }
+
+    return {
+        x: (params.shouldCrop && params.interiorBox ? (point.x - params.interiorBox.x) / params.interiorBox.width : point.x) * 100,
+        y: (params.shouldCrop && params.interiorBox ? (point.y - params.interiorBox.y) / params.interiorBox.height : point.y) * 100,
+    };
+}
+
+const PolygonLabel: React.FC<{
+    readonly item: SinglePhotoPeopleItem;
+    readonly colors: ReturnType<typeof getSinglePhotoPeopleColor>;
+    readonly labelPoint: { x: number; y: number } | null;
+}> = ({ item, colors, labelPoint }) => {
+    if (!labelPoint) {
+        return null;
+    }
+
+    return (
+        <text x={labelPoint.x} y={labelPoint.y} dx="1" dy="-1" fill={colors.labelText} stroke={colors.labelBackground} strokeWidth="0.7" paintOrder="stroke" style={{ fontSize: '3px', fontWeight: 'bold', pointerEvents: 'none' }}>
+            {item.icon} {item.label}
+        </text>
+    );
+};
+
 const PolygonOverlay: React.FC<{
     readonly asset: Asset;
     readonly item: SinglePhotoPeopleItem;
@@ -261,6 +283,7 @@ const PolygonOverlay: React.FC<{
     const shouldCrop = Boolean(asset.frame_detection) && !showWithFrame;
     const interiorBox = shouldCrop ? getFrameInteriorBox(asset.frame_detection) : null;
     const points = item.points ?? [];
+    const labelPoint = getPolygonLabelPoint({ points, interiorBox, shouldCrop });
 
     return (
         <svg
@@ -287,14 +310,14 @@ const PolygonOverlay: React.FC<{
                     pointerEvents: 'auto',
                 }}
             ><title>{item.label}</title></polygon>
+            <PolygonLabel item={item} colors={colors} labelPoint={labelPoint} />
         </svg>
     );
 };
 
 export const FaceOverlayMap: React.FC<FaceOverlayMapProps> = ({
     asset,
-    showFaces,
-    alwaysShowForPanel = false,
+    overlayMode,
     hoveredFaceKey,
     onHoverFaceKey,
     selectedOverlayKey,
@@ -303,20 +326,18 @@ export const FaceOverlayMap: React.FC<FaceOverlayMapProps> = ({
     onIsolateFace,
     showWithFrame,
 }) => {
-    const visible = showFaces || alwaysShowForPanel;
-    if (!visible) {
+    if (!overlayMode) {
         return null;
     }
 
-    const model = buildSinglePhotoPeopleModel(asset);
-    const items = [...model.peopleItems, ...model.regionsOfInterest, ...model.segmentedObjects];
+    const items = getVisibleSinglePhotoOverlayItems(asset, overlayMode);
 
     return (
         <>
             {items.map((item) => item.points && item.points.length >= 3 ? (
                 <PolygonOverlay key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} onFaceClick={onFaceClick} showWithFrame={showWithFrame} />
             ) : (
-                <OverlayBox key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} onFaceClick={onFaceClick} onIsolateFace={onIsolateFace} showFaces={showFaces} showWithFrame={showWithFrame} />
+                <OverlayBox key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} onFaceClick={onFaceClick} onIsolateFace={onIsolateFace} showWithFrame={showWithFrame} />
             ))}
             <style>{`
                 .group:hover .isolate-btn { opacity: 1 !important; }

@@ -15,8 +15,6 @@ export type SinglePhotoOverlayProps = {
     readonly currentIndex: number;
     readonly showControls: boolean;
     readonly setShowControls: Dispatch<SetStateAction<boolean>>;
-    readonly showFaces: boolean;
-    readonly setShowFaces: Dispatch<SetStateAction<boolean>>;
     readonly showActionMenu: boolean;
     readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>;
     readonly hoveredFaceKey: string | null;
@@ -125,8 +123,6 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
             currentIndex={props.currentIndex}
             showControls={props.showControls}
             setShowControls={props.setShowControls}
-            showFaces={props.showFaces}
-            setShowFaces={props.setShowFaces}
             showActionMenu={props.showActionMenu}
             setShowActionMenu={props.setShowActionMenu}
             hoveredFaceKey={props.hoveredFaceKey}

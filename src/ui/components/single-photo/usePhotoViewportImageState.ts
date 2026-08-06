@@ -317,8 +317,7 @@ function getViewportDisplayState(params: {
     requestedImageSrc: string | null;
     pendingImageSrc: string | null;
     isActiveImageReady: boolean;
-    showFaces: boolean;
-    alwaysShowForPanel: boolean;
+    showOverlays: boolean;
 }) {
     const isAlreadyActiveState = params.activeAsset?.id === params.asset.id && params.activeImageSrc === params.requestedImageSrc;
     const stageAsset = resolveViewportStageAsset({
@@ -336,8 +335,7 @@ function getViewportDisplayState(params: {
             isDisplayedImageReady,
         }),
         showFaceOverlays: shouldShowViewportFaceOverlays({
-            showFaces: params.showFaces,
-            alwaysShowForPanel: params.alwaysShowForPanel,
+            showOverlays: params.showOverlays,
             committedAssetId: stageAsset.id,
             requestedAssetId: params.asset.id,
             isDisplayedImageReady,
@@ -347,10 +345,9 @@ function getViewportDisplayState(params: {
 
 export function usePhotoViewportImageState(params: {
     asset: Asset;
-    showFaces: boolean;
-    alwaysShowForPanel: boolean;
+    showOverlays: boolean;
 }) {
-    const { asset, showFaces, alwaysShowForPanel } = params;
+    const { asset, showOverlays } = params;
     const requestedImagePath = resolveViewportImageSrc(asset);
     const requestedImageSrc = useMemo(() => resolveImageUrl(requestedImagePath), [requestedImagePath]);
     const [activeAsset, setActiveAsset] = useState<Asset | null>(asset);
@@ -385,8 +382,7 @@ export function usePhotoViewportImageState(params: {
         requestedImageSrc,
         pendingImageSrc,
         isActiveImageReady,
-        showFaces,
-        alwaysShowForPanel,
+        showOverlays,
     });
 
     return {

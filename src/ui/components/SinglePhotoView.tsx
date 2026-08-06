@@ -83,8 +83,6 @@ type ControlsState = {
     setCurrentIndex: Dispatch<SetStateAction<number>>;
     showControls: boolean;
     setShowControls: Dispatch<SetStateAction<boolean>>;
-    showFaces: boolean;
-    setShowFaces: Dispatch<SetStateAction<boolean>>;
     showActionMenu: boolean;
     setShowActionMenu: Dispatch<SetStateAction<boolean>>;
     hoveredFaceKey: string | null;
@@ -129,7 +127,6 @@ function usePanelState({
 function useSinglePhotoControls(initialIndex: number, assetsLength: number): ControlsState {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [showControls, setShowControls] = useState(true);
-    const [showFaces, setShowFaces] = useState(false);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [hoveredFaceKey, setHoveredFaceKey] = useState<string | null>(null);
     const [selectedOverlayKey, setSelectedOverlayKey] = useState<string | null>(null);
@@ -192,8 +189,6 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
         setCurrentIndex,
         showControls,
         setShowControls,
-        showFaces,
-        setShowFaces,
         showActionMenu,
         setShowActionMenu,
         hoveredFaceKey,
@@ -330,8 +325,6 @@ function renderSinglePhotoOverlay(params: {
             currentIndex={params.controls.currentIndex}
             showControls={params.controls.showControls}
             setShowControls={params.controls.setShowControls}
-            showFaces={params.controls.showFaces}
-            setShowFaces={params.controls.setShowFaces}
             showActionMenu={params.controls.showActionMenu}
             setShowActionMenu={params.controls.setShowActionMenu}
             hoveredFaceKey={params.controls.hoveredFaceKey}

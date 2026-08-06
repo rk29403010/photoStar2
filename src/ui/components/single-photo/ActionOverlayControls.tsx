@@ -14,8 +14,6 @@ type ControlsOverlayProps = {
     readonly currentIndex: number;
     readonly showActionMenu: boolean;
     readonly setShowActionMenu: (show: boolean) => void;
-    readonly showFaces: boolean;
-    readonly setShowFaces: (show: boolean) => void;
     readonly isImageTransitionPending: boolean;
     readonly scale: number;
     readonly setScale: (s: number) => void;
@@ -596,7 +594,7 @@ function renderActionMenuTrigger(props: ActionMenuProps) {
 export const ControlsOverlay: React.FC<ControlsOverlayProps> = (props) => {
     const {
         asset, assetsLength, currentIndex, showActionMenu, setShowActionMenu,
-        showFaces, setShowFaces, isImageTransitionPending, scale, setScale,
+        isImageTransitionPending, scale, setScale,
         setPan, resetPanZoom, onClose, onPrevious, onNext, onSetSensitivity,
         onMoveToBin, onRestoreFromBin, onSetCanonical, onExplodeGroup,
         onExtractAiMetadata, onRerunFaceDetection, analysisState, setAnalysisState,
@@ -650,8 +648,6 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = (props) => {
             setScale={setScale}
             setPan={setPan}
             resetPanZoom={resetPanZoom}
-            showFaces={showFaces}
-            setShowFaces={setShowFaces}
             showInfoPanel={showInfoPanel}
             setShowInfoPanel={setShowInfoPanel}
             controlsVisible={controlsVisible}
