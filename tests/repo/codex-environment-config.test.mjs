@@ -27,7 +27,8 @@ test('Codex action scripts can target the current checkout when worktree context
     assert.match(debugScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);
     assert.match(debugScript, /set "TARGET_PATH=%CD%"/);
     assert.doesNotMatch(debugScript, /Auto-selected most recently modified worktree/);
-    assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-dev-session\.js --foreground --force-foreground --script dev:desktop-runtime/);
+    assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-dev-session\.js --script dev:desktop-runtime:debug/);
+    assert.doesNotMatch(debugScript, /--force-foreground/);
     assert.doesNotMatch(debugScript, /npm\.cmd run thread:start-dev/);
     assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-runtime-url\.js/);
     assert.match(debugScript, /echo Debug URL: %RUNTIME_URL%/);
