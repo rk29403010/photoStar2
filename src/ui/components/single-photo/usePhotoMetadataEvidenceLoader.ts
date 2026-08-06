@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Asset } from '@contracts/core';
 import { shouldRequestPhotoMetadataEvidence } from './photoMetadataEvidenceModel';
 
-type InfoTab = 'profile' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
+type InfoTab = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
 
 export function usePhotoMetadataEvidenceLoader(params: {
     activeTab: InfoTab;

@@ -95,7 +95,13 @@ type ControlsState = {
     onChangeIndex: (delta: -1 | 1) => void;
 };
 
-export type ActiveInfoTab = 'profile' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
+export type ActiveInfoTab = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
+
+const ACTIVE_INFO_TABS = new Set<ActiveInfoTab>(['profile', 'tags', 'people', 'objects', 'lineage', 'group', 'json', 'ailogs']);
+
+function isActiveInfoTab(value: string): value is ActiveInfoTab {
+    return ACTIVE_INFO_TABS.has(value as ActiveInfoTab);
+}
 
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
@@ -111,7 +117,7 @@ function usePanelState({
     }, [onShowInfoPanelChange]);
     const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<ActiveInfoTab>('profile');
     const rawActiveInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
-    const activeInfoTab = (rawActiveInfoTab === 'profile' || rawActiveInfoTab === 'people' || rawActiveInfoTab === 'objects' || rawActiveInfoTab === 'lineage' || rawActiveInfoTab === 'group' || rawActiveInfoTab === 'json' || rawActiveInfoTab === 'ailogs') ? rawActiveInfoTab : 'profile';
+    const activeInfoTab = isActiveInfoTab(rawActiveInfoTab) ? rawActiveInfoTab : 'profile';
     const setActiveInfoTab = useCallback((tab: ActiveInfoTab) => {
         setActiveInfoTabInternal(tab);
         onActiveInfoTabChange?.(tab);

@@ -2,6 +2,7 @@ import type React from 'react';
 import { useCallback, useState } from 'react';
 import type { Asset, ReviewItemSummary, TagDefinitionSummary, SimilarityOrbit } from '@contracts/core';
 import { ProfileTab } from './info-panel/ProfileTab';
+import { TagsTab } from './info-panel/TagsTab';
 import { LineageTab } from './info-panel/LineageTab';
 import { GroupTab } from './info-panel/GroupTab';
 import { JsonTab } from './info-panel/JsonTab';
@@ -40,7 +41,8 @@ type InfoPanelProps = {
 }
 
 const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
-  { id: 'profile', emoji: '🏷️', label: 'Profile' },
+  { id: 'profile', emoji: '▤', label: 'Profile' },
+  { id: 'tags', emoji: '🏷️', label: 'Tags' },
   { id: 'people', emoji: '👥', label: 'People' },
   { id: 'objects', emoji: '◇', label: 'Objects' },
   { id: 'lineage', emoji: '🔍', label: 'Lineage' },
@@ -78,20 +80,13 @@ const PanelTabs: React.FC<{ readonly activeTab: TabId; readonly setActiveTab: (t
         <button
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
-          className={`flex-1 pt-2.5 pb-2 px-1 bg-transparent border-b-2 cursor-pointer motion-safe:transition-all motion-safe:duration-150 flex flex-col items-center gap-0.5 relative ${
+          className={`flex-1 py-2 px-1 bg-transparent border-b-2 cursor-pointer motion-safe:transition-all motion-safe:duration-150 flex items-center justify-center relative hover:bg-content/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${
             isActive ? 'border-brand-accent' : 'border-transparent'
           }`}
+          title={tab.label}
+          aria-label={tab.label}
         >
-          <span className={tab.id === 'json' ? 'text-xs' : 'text-sm'}>{tab.emoji}</span>
-          <span
-            className={`text-xs uppercase tracking-wide ${
-              isActive
-                ? 'text-brand-accent font-bold'
-                : 'text-content-secondary font-normal'
-            }`}
-          >
-            {tab.label}
-          </span>
+          <span aria-hidden="true" className={tab.id === 'json' ? 'text-xs' : 'text-sm'}>{tab.emoji}</span>
         </button>
       );
     })}
@@ -125,10 +120,6 @@ const PanelContent: React.FC<{
     {activeTab === 'profile' && (
       <ProfileTab
         asset={asset}
-        availableTags={availableTags}
-        onAssignTag={onAssignTag}
-        onRemoveTag={onRemoveTag}
-        onSetReviewItemStatus={onSetReviewItemStatus}
         onRecordPhotoMetadataAssertion={
           onRecordPhotoMetadataAssertion
             ? (fieldPath, value, note) => onRecordPhotoMetadataAssertion(asset.id, fieldPath, value, note)
@@ -136,6 +127,7 @@ const PanelContent: React.FC<{
         }
       />
     )}
+    {activeTab === 'tags' && <TagsTab asset={asset} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} />}
     {activeTab === 'people' && <PeopleTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} />}
     {activeTab === 'objects' && <ObjectsTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} />}
     {activeTab === 'lineage' && <LineageTab asset={asset} />}

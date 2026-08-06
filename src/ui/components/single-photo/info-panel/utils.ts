@@ -1,4 +1,4 @@
-export type TabId = 'profile' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
+export type TabId = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
 
 export function shortPath(path: string) {
   const parts = path.split(/[/\\]/);

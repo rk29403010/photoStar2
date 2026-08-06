@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import type { Asset, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
+import type { Asset } from '@contracts/core';
 import { Section } from './shared';
 import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
-import { TagManagementSection } from './TagManagementSection';
 import { globalRequest } from '../../../hooks/usePhotoLibrary';
 
 function getModelLabel(asset: Asset): string | undefined {
@@ -350,21 +349,9 @@ function useProfileFieldSaver(
 
 export const ProfileTab: React.FC<{
   readonly asset: Asset;
-  readonly availableTags?: TagDefinitionSummary[];
-  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
-  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  readonly onSetReviewItemStatus?: (payload: {
-    reviewItemId: string;
-    status: ReviewItemSummary['status'];
-    tagLabel?: string;
-  }) => Promise<void>;
   readonly onRecordPhotoMetadataAssertion?: (fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
 }> = ({
   asset,
-  availableTags,
-  onAssignTag,
-  onRemoveTag,
-  onSetReviewItemStatus,
   onRecordPhotoMetadataAssertion,
 }) => {
   const summary = buildPhotoMetadataFileSummary(asset);
@@ -429,14 +416,6 @@ export const ProfileTab: React.FC<{
           )}
         </div>
       </Section>
-
-      <TagManagementSection
-        asset={asset}
-        availableTags={availableTags}
-        onAssignTag={onAssignTag}
-        onRemoveTag={onRemoveTag}
-        onSetReviewItemStatus={onSetReviewItemStatus}
-      />
     </div>
   );
 };
