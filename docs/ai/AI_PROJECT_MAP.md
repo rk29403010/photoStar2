@@ -51,6 +51,9 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   `task:register` records a suitable editor-created worktree. Git and the task
   registry, rather than an editor capability claim or directory convention,
   discover the active workspace.
+- Codex setup records the validated task worktree in the shared Git directory.
+  Debug actions use that handoff when the desktop terminal lacks worktree
+  context, and refuse to start the primary checkout when no safe target exists.
 - `ui:smoke` launches an isolated desktop runtime and headless browser only for
   affected UI/runtime changes at readiness and integration. It detects browser
   errors, blank roots, startup failures, and missing app-shell markers without

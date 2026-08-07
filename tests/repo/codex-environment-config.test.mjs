@@ -12,7 +12,7 @@ test('Codex environment setup and Debug action use repo-owned worktree scripts',
     assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Ship"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-ship\.cmd"/);
 });
 
-test('Codex action scripts can target the current checkout when worktree context is missing', () => {
+test('Codex action scripts retain the task-worktree handoff when terminal context is missing', () => {
     const setupScript = readFileSync('tooling/scripts/repo/codex-worktree-setup.cmd', 'utf8');
     const debugScript = readFileSync('tooling/scripts/repo/codex-worktree-debug.cmd', 'utf8');
     const stopDebugScript = readFileSync('tooling/scripts/repo/codex-worktree-stop-debug.cmd', 'utf8');
@@ -23,9 +23,8 @@ test('Codex action scripts can target the current checkout when worktree context
     assert.match(setupScript, /CODEX_WORKTREE_PATH/);
     assert.match(setupScript, /mklink \/J/);
 
-    assert.match(debugScript, /CODEX_WORKTREE_PATH/);
-    assert.match(debugScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);
-    assert.match(debugScript, /set "TARGET_PATH=%CD%"/);
+    assert.match(debugScript, /codex-worktree-target\.js/);
+    assert.doesNotMatch(debugScript, /set "TARGET_PATH=%CD%"/);
     assert.doesNotMatch(debugScript, /Auto-selected most recently modified worktree/);
     assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-dev-session\.js --script dev:desktop-runtime:debug/);
     assert.doesNotMatch(debugScript, /--force-foreground/);
@@ -48,4 +47,10 @@ test('Codex action scripts can target the current checkout when worktree context
     assert.match(shipScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);
     assert.doesNotMatch(shipScript, /Ship must be run from a dedicated worktree branch, not from main/);
     assert.match(shipScript, /node\.exe tooling\\scripts\\repo\\thread-ship\.js/);
+});
+
+test('Codex setup records the selected task worktree for later actions', () => {
+    const setupScript = readFileSync('tooling/scripts/repo/codex-worktree-setup.cmd', 'utf8');
+
+    assert.match(setupScript, /codex-worktree-target\.js --record/);
 });
