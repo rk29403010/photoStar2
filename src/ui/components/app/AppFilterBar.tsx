@@ -2,7 +2,7 @@ import { PERSON_COLORS } from '@contracts/core';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 
 type AppFilterBarProps = {
-  readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics';
   readonly filterStack: LibraryFilter[];
   readonly showRejected: boolean;
   readonly onToggleRejected: (personId: string) => void;

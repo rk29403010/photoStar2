@@ -8,6 +8,8 @@ if "%SOURCE_TREE_PATH%"=="" exit /b 0
 if "%WORKTREE_PATH%"=="" set "WORKTREE_PATH=%SOURCE_TREE_PATH%"
 if /I "%WORKTREE_PATH%"=="%SOURCE_TREE_PATH%" exit /b 0
 
+call node.exe tooling\scripts\repo\codex-worktree-target.js --record "%WORKTREE_PATH%" || exit /b 1
+
 if not exist "%SOURCE_TREE_PATH%\node_modules" exit /b 0
 if exist "%WORKTREE_PATH%\node_modules" exit /b 0
 

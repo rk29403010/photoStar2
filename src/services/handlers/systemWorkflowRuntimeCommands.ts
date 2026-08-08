@@ -1,5 +1,5 @@
 import type { CommandHandlerMap, CommandContext } from './types';
-import { getWorkflowVisualiserModel } from './systemWorkflowVisualiser';
+import { buildWorkflowModuleRepositoryModel, getWorkflowVisualiserModel } from './systemWorkflowVisualiser';
 import { buildPhotoMetadataBundle } from '../photoMetadata/bundle';
 import { createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
 import { createPhotoMetadataRepository } from '../photoMetadata/repository';
@@ -358,6 +358,14 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             getRunDetail: (runId) => workflowRuntime.store.getRunDetail(runId),
             requestedRunId: payload?.runId,
             getModuleDefinition: (moduleId) => workflowRuntime.modules.get(moduleId),
+        });
+        ctx.respond(ctx.id, 'ok', model, null, ctx.originWs);
+    },
+    get_workflow_module_repository: (ctx) => {
+        const workflowRuntime = getWorkflowRuntime(ctx);
+        const model = buildWorkflowModuleRepositoryModel({
+            pluginManifests: workflowRuntime.modules.listPluginManifests(),
+            workflows: workflowRuntime.workflows.list(),
         });
         ctx.respond(ctx.id, 'ok', model, null, ctx.originWs);
     },

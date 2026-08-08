@@ -6,6 +6,7 @@ import type { ModuleDefinition } from '../../../contracts';
 import { detectSimpleBorder } from '../../../../photoMetadata/borderDetection';
 import { resolveSegmentationProvider } from '../../../../segmentation/segmentationService';
 import { prepareSegmentationImage } from '../../../../segmentation/imagePreparation';
+import { isCriticalSegmentationModelError } from '../../../../segmentation/contracts';
 import type { SegmentationProvider } from '../../../../segmentation/contracts';
 import { encodeMaskRaster, saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
 import type { PhotoMaskMetadataItem } from '../../../../../boundary/contracts/photoEditor';
@@ -107,8 +108,12 @@ export function createDetectFramesModule(options: DetectFramesModuleOptions): Mo
                 try {
                     result = await detectFrameForAsset({ originalPath: asset.original_path, parameters: context.parameters, providers: options.providers });
                 } catch (error) {
-                    db.prepare("INSERT INTO processing_issues (id, asset_id, task, severity, message, details) VALUES (?, ?, 'frame_detection', 'warning', ?, ?)")
-                        .run(uuidv4(), context.subject.subjectId, error instanceof Error ? error.message : String(error), JSON.stringify({ functionalModuleId: 'runtime.detect_frame', parameters: context.parameters }));
+                    const severity = isCriticalSegmentationModelError(error) ? 'error' : 'warning';
+                    db.prepare('INSERT INTO processing_issues (id, asset_id, task, severity, message, details) VALUES (?, ?, ?, ?, ?, ?)')
+                        .run(uuidv4(), context.subject.subjectId, 'frame_detection', severity, error instanceof Error ? error.message : String(error), JSON.stringify({ functionalModuleId: 'runtime.detect_frame', parameters: context.parameters }));
+                    if (isCriticalSegmentationModelError(error)) {
+                        throw error;
+                    }
                 }
             }
             if (result) {

@@ -105,20 +105,22 @@ const PendingStageImage: FC<{
 const FaceOverlays: FC<{
     readonly overlaysReady: boolean;
     readonly asset: Asset;
-    readonly showFaces: boolean;
-    readonly alwaysShowForPanel: boolean;
+    readonly overlayMode: 'people' | 'objects' | null;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly selectedOverlayKey: string | null;
+    readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly showWithFrame?: boolean;
 }> = ({
     overlaysReady,
     asset,
-    showFaces,
-    alwaysShowForPanel,
+    overlayMode,
     hoveredFaceKey,
     setHoveredFaceKey,
+    selectedOverlayKey,
+    setSelectedOverlayKey,
     onFaceClick,
     onIsolateFace,
     showWithFrame,
@@ -130,10 +132,11 @@ const FaceOverlays: FC<{
     return (
         <FaceOverlayMap
             asset={asset}
-            showFaces={showFaces}
-            alwaysShowForPanel={alwaysShowForPanel}
+            overlayMode={overlayMode}
             hoveredFaceKey={hoveredFaceKey}
             onHoverFaceKey={setHoveredFaceKey}
+            selectedOverlayKey={selectedOverlayKey}
+            onSelectOverlayKey={setSelectedOverlayKey}
             onFaceClick={onFaceClick}
             onIsolateFace={onIsolateFace}
             showWithFrame={showWithFrame}
@@ -153,12 +156,13 @@ export const ZoomableStage: FC<{
     readonly setShowControls: Dispatch<SetStateAction<boolean>>;
     readonly setShowActionMenu: Dispatch<SetStateAction<boolean>>;
     readonly handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
-    readonly showFaces: boolean;
-    readonly alwaysShowForPanel: boolean;
+    readonly overlayMode: 'people' | 'objects' | null;
     readonly overlaysReady: boolean;
     readonly isImageTransitionPending: boolean;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    readonly selectedOverlayKey: string | null;
+    readonly setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     readonly onFaceClick?: (personId: string, personName: string) => void;
     readonly onIsolateFace?: (assetId: string, faceIndex: number) => void;
     readonly onActiveImageLoad: () => void;
@@ -176,12 +180,13 @@ export const ZoomableStage: FC<{
     setShowControls,
     setShowActionMenu,
     handleMouseDown,
-    showFaces,
-    alwaysShowForPanel,
+    overlayMode,
     overlaysReady,
     isImageTransitionPending,
     hoveredFaceKey,
     setHoveredFaceKey,
+    selectedOverlayKey,
+    setSelectedOverlayKey,
     onFaceClick,
     onIsolateFace,
     onActiveImageLoad,
@@ -236,10 +241,11 @@ export const ZoomableStage: FC<{
             <FaceOverlays
                 overlaysReady={overlaysReady}
                 asset={asset}
-                showFaces={showFaces}
-                alwaysShowForPanel={alwaysShowForPanel}
+                overlayMode={overlayMode}
                 hoveredFaceKey={hoveredFaceKey}
                 setHoveredFaceKey={setHoveredFaceKey}
+                selectedOverlayKey={selectedOverlayKey}
+                setSelectedOverlayKey={setSelectedOverlayKey}
                 onFaceClick={onFaceClick}
                 onIsolateFace={onIsolateFace}
                 showWithFrame={showWithFrame}

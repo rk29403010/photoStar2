@@ -28,6 +28,14 @@ function buildRuntimeDetailRows(detail: WorkflowVisualiserDetail): string[] {
     return rows;
 }
 
+function formatSettingValue(value: unknown): string {
+    if (typeof value === 'string') {
+        return value;
+    }
+    const serialized = JSON.stringify(value);
+    return serialized === undefined ? String(value) : serialized;
+}
+
 function InteractiveIdList({ ids, onSelect }: { readonly ids: string[], readonly onSelect: (id: string) => void }) {
     if (ids.length === 0) {return <span>none</span>;}
     return (
@@ -87,6 +95,19 @@ export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail
                         <span className="font-mono text-xs text-brand-accent">{detail.controlType}</span>
                     </div>
                 )}
+                {detail.settings && detail.settings.length > 0 && (
+                    <section className="border-t border-content/10 pt-3">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-content-secondary">Module settings</h4>
+                        <dl className="mt-2 space-y-2">
+                            {detail.settings.map((setting) => (
+                                <div key={setting.id} className="flex flex-col gap-1">
+                                    <dt className="font-mono text-xs text-content-secondary">{setting.id}</dt>
+                                    <dd className="break-words font-mono text-xs text-brand-accent">{formatSettingValue(setting.value)}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </section>
+                )}
                 <div className="flex items-baseline gap-2">
                     <span className="opacity-60">Upstream:</span>
                     <InteractiveIdList ids={detail.upstreamIds} onSelect={onSelectDetail} />
@@ -99,4 +120,3 @@ export const WorkflowDetailPanel: React.FC<WorkflowDetailPanelProps> = ({ detail
         </aside>
     );
 };
-

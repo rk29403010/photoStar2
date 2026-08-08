@@ -15,6 +15,8 @@ type PeopleTabProps = {
   readonly asset: Asset;
   readonly hoveredFaceKey?: string | null;
   readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly selectedOverlayKey?: string | null;
+  readonly onSelectOverlayKey?: (key: string | null) => void;
 }
 
 const EmptyPeopleState: React.FC = () => (
@@ -37,6 +39,41 @@ type TreeInfo = {
   version_label: string;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readStringField(value: Record<string, unknown>, key: string): string | null {
+  const field = value[key];
+  return typeof field === 'string' ? field : null;
+}
+
+function readTreeInfo(value: unknown): TreeInfo | null {
+  if (!isRecord(value)) { return null; }
+  const id = readStringField(value, 'id');
+  const filename = readStringField(value, 'filename');
+  const versionLabel = readStringField(value, 'version_label');
+  return id && filename && versionLabel ? { id, filename, version_label: versionLabel } : null;
+}
+
+function readLinkInfo(value: unknown): LinkInfo | null {
+  if (!isRecord(value)) { return null; }
+  const personId = readStringField(value, 'person_id');
+  const treeId = readStringField(value, 'gedcom_tree_id');
+  const gedcomPersonId = readStringField(value, 'gedcom_person_id');
+  return personId && treeId && gedcomPersonId
+    ? { person_id: personId, gedcom_tree_id: treeId, gedcom_person_id: gedcomPersonId }
+    : null;
+}
+
+function readResponseItems<T>(value: unknown, key: string, parseItem: (item: unknown) => T | null): T[] {
+  if (!isRecord(value) || !Array.isArray(value[key])) { return []; }
+  return value[key].flatMap((item) => {
+    const parsedItem = parseItem(item);
+    return parsedItem ? [parsedItem] : [];
+  });
+}
+
 function getCardStyle(isHovered: boolean, colors: ReturnType<typeof getSinglePhotoPeopleColor>) {
   return {
     background: isHovered ? colors.panelBackgroundHover : colors.panelBackground,
@@ -55,7 +92,7 @@ function shouldShowThumbnail(imgUrl: string | null, box: SinglePhotoOverlayBox |
 }
 
 function getPersonLinks(raw: unknown, links: LinkInfo[]): LinkInfo[] {
-  const personId = (raw as { person_id?: string })?.person_id;
+  const personId = isRecord(raw) ? readStringField(raw, 'person_id') : null;
   if (!personId) { return []; }
   return links.filter(l => l.person_id === personId);
 }
@@ -132,15 +169,17 @@ const CardLinks: React.FC<{
   );
 };
 
-const OverlayCard: React.FC<{
+export const OverlayCard: React.FC<{
   readonly asset: Asset;
   readonly item: SinglePhotoPeopleItem;
   readonly hoveredFaceKey?: string | null;
   readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly selectedOverlayKey?: string | null;
+  readonly onSelectOverlayKey?: (key: string | null) => void;
   readonly trees: TreeInfo[];
   readonly links: LinkInfo[];
-}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, trees, links }) => {
-  const isHovered = hoveredFaceKey === item.key;
+}> = ({ asset, item, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, trees, links }) => {
+  const isHovered = hoveredFaceKey === item.key || selectedOverlayKey === item.key;
   const colors = getSinglePhotoPeopleColor(item.kind);
   const personLinks = getPersonLinks(item.raw, links);
   const imgUrl = getThumbnailUrl(asset);
@@ -150,6 +189,15 @@ const OverlayCard: React.FC<{
     <div
       onMouseEnter={() => onHoverFaceKey?.(item.key)}
       onMouseLeave={() => onHoverFaceKey?.(null)}
+      onClick={() => onSelectOverlayKey?.(item.key)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelectOverlayKey?.(item.key);
+        }
+      }}
+      role="button"
+      tabIndex={0}
       className="rounded-lg p-3 flex flex-col gap-1.5 motion-safe:transition-all duration-150"
       style={getCardStyle(isHovered, colors)}
     >
@@ -182,16 +230,18 @@ const OverlayCard: React.FC<{
   );
 };
 
-const OverlaySection: React.FC<{
+export const OverlaySection: React.FC<{
   readonly asset: Asset;
   readonly emoji: string;
   readonly title: string;
   readonly items: SinglePhotoPeopleItem[];
   readonly hoveredFaceKey?: string | null;
   readonly onHoverFaceKey?: (key: string | null) => void;
+  readonly selectedOverlayKey?: string | null;
+  readonly onSelectOverlayKey?: (key: string | null) => void;
   readonly trees: TreeInfo[];
   readonly links: LinkInfo[];
-}> = ({ asset, emoji, title, items, hoveredFaceKey, onHoverFaceKey, trees, links }) => {
+}> = ({ asset, emoji, title, items, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, trees, links }) => {
   if (items.length === 0) {
     return null;
   }
@@ -200,14 +250,14 @@ const OverlaySection: React.FC<{
     <Section emoji={emoji} title={title} hideHeader={title === 'People'}>
       <div className="flex flex-col gap-2">
         {items.map((item) => (
-          <OverlayCard key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} trees={trees} links={links} />
+          <OverlayCard key={item.key} asset={asset} item={item} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} trees={trees} links={links} />
         ))}
       </div>
     </Section>
   );
 };
 
-export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onHoverFaceKey }) => {
+export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey }) => {
   const model = buildSinglePhotoPeopleModel(asset);
   const resolvedPeople = model.peopleItems.filter((item) => item.kind === 'resolved-person');
   const localDetections = model.peopleItems.filter((item) => item.kind === 'local-face');
@@ -221,30 +271,29 @@ export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onH
   useEffect(() => {
     if (!globalRequest) {return;}
 
-    globalRequest<{ trees: TreeInfo[] }>({
+    globalRequest<TreeInfo[]>({
       idPrefix: 'get_family_trees',
       command: 'get_family_trees',
       payload: {},
-      select: (d) => d as { trees: TreeInfo[] }
-    }).then(res => setTrees(res.trees || [])).catch(console.error);
+      select: (data) => readResponseItems(data, 'trees', readTreeInfo)
+    }).then(setTrees).catch(console.error);
 
-    globalRequest<{ links: LinkInfo[] }>({
+    globalRequest<LinkInfo[]>({
       idPrefix: 'get_people_gedcom_links',
       command: 'get_people_gedcom_links',
       payload: {},
-      select: (d) => d as { links: LinkInfo[] }
-    }).then(res => setLinks(res.links || [])).catch(console.error);
+      select: (data) => readResponseItems(data, 'links', readLinkInfo)
+    }).then(setLinks).catch(console.error);
   }, []);
 
-  if (model.peopleItems.length === 0 && model.regionsOfInterest.length === 0) {
+  if (model.peopleItems.length === 0) {
     return <EmptyPeopleState />;
   }
 
   return (
     <div>
-      <OverlaySection emoji="🙂" title="People" items={mainPeople} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} asset={asset} trees={trees} links={links} />
-      <OverlaySection emoji="👤" title="Local Detections" items={localDetections} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} asset={asset} trees={trees} links={links} />
-      <OverlaySection emoji="🧭" title="Regions of Interest" items={model.regionsOfInterest} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} asset={asset} trees={trees} links={links} />
+      <OverlaySection emoji="🙂" title="People" items={mainPeople} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} asset={asset} trees={trees} links={links} />
+      <OverlaySection emoji="👤" title="Local Detections" items={localDetections} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} asset={asset} trees={trees} links={links} />
     </div>
   );
 };

@@ -9,9 +9,20 @@ import type { StatusBanner } from '@ui/components/app/statusBannerModel';
 import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel';
 import { usePersistedState } from './usePersistedState';
 
-export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-export type InfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
+export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics';
+export type InfoTab = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
+
+const appViews = new Set<string>(['library', 'people', 'familyTree', 'dashboard', 'albums', 'reviews', 'vocabulary', 'workflows', 'moduleMaintenance', 'groupDiagnostics']);
+const infoTabs: readonly InfoTab[] = ['profile', 'tags', 'people', 'objects', 'lineage', 'group', 'json', 'ailogs'];
+
+function isAppView(value: unknown): value is AppView {
+  return typeof value === 'string' && appViews.has(value);
+}
+
+function resolveInfoTab(value: InfoTab): InfoTab {
+  return infoTabs.includes(value) ? value : 'profile';
+}
 
 function useDevRuntimeImpact(
   enabled: boolean,
@@ -20,7 +31,7 @@ function useDevRuntimeImpact(
   const [devRuntimeImpact, setDevRuntimeImpact] = useState<DevRuntimeImpact | null>(null);
   useEffect(() => {
     if (!enabled) {
-      return;
+      return undefined;
     }
 
     let cancelled = false;
@@ -75,10 +86,8 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
 
   useEffect(() => {
     const handleChangeView = (e: Event) => {
-      const customEvent = e as CustomEvent<AppView>;
-      if (customEvent.detail) {
-        setView(customEvent.detail);
-      }
+      if (!(e instanceof CustomEvent) || !isAppView(e.detail)) {return;}
+      setView(e.detail);
     };
     globalThis.addEventListener('change-view', handleChangeView);
     return () => globalThis.removeEventListener('change-view', handleChangeView);
@@ -87,7 +96,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
   const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);
   const [activeInfoTabRaw, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'profile');
-  const activeInfoTab = (activeInfoTabRaw === 'profile' || activeInfoTabRaw === 'people' || activeInfoTabRaw === 'lineage' || activeInfoTabRaw === 'group' || activeInfoTabRaw === 'json' || activeInfoTabRaw === 'ailogs') ? activeInfoTabRaw : 'profile';
+  const activeInfoTab = resolveInfoTab(activeInfoTabRaw);
   const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
   const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
   const [aiMode, setAiMode] = usePersistedState<AiMode>('ps_ai_mode', 'live');

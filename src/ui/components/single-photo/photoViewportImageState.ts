@@ -89,14 +89,13 @@ export function isViewportImageTransitionAlreadyPending(params: {
 }
 
 export function shouldShowViewportFaceOverlays(params: {
-    showFaces: boolean;
-    alwaysShowForPanel: boolean;
+    showOverlays: boolean;
     committedAssetId: string | null;
     requestedAssetId: string | null;
     isDisplayedImageReady: boolean;
 }): boolean {
-    const { showFaces, alwaysShowForPanel, committedAssetId, requestedAssetId, isDisplayedImageReady } = params;
-    if (!showFaces && !alwaysShowForPanel) {
+    const { showOverlays, committedAssetId, requestedAssetId, isDisplayedImageReady } = params;
+    if (!showOverlays) {
         return false;
     }
 

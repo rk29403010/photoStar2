@@ -3,8 +3,8 @@ import type { WorkflowDefinition } from '../contracts';
 export const editorMasksWorkflowDefinition: WorkflowDefinition = {
     id: 'library_editor_masks_v1', version: 1, inputs: ['asset'],
     parameters: [
-        { id: 'frameProvider', valueType: 'enum', required: true, options: ['fastsam', 'efficientsam'] },
-        { id: 'objectProvider', valueType: 'enum', required: true, options: ['fastsam', 'efficientsam', 'both'] },
+        { id: 'frameProvider', valueType: 'enum', required: true, options: ['auto', 'fastsam', 'efficientsam'] },
+        { id: 'objectProvider', valueType: 'enum', required: true, options: ['auto', 'fastsam', 'efficientsam', 'both'] },
         { id: 'profile', valueType: 'enum', required: true, options: ['quick', 'balanced'] },
     ],
     presentation: { defaultRunLabel: 'Generate editable masks', milestones: [{ id: 'masks_ready', label: 'Masks ready' }] },
