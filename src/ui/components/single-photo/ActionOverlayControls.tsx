@@ -14,8 +14,6 @@ type ControlsOverlayProps = {
     readonly currentIndex: number;
     readonly showActionMenu: boolean;
     readonly setShowActionMenu: (show: boolean) => void;
-    readonly showFaces: boolean;
-    readonly setShowFaces: (show: boolean) => void;
     readonly isImageTransitionPending: boolean;
     readonly scale: number;
     readonly setScale: (s: number) => void;
@@ -263,14 +261,14 @@ function AiActionMenuItem(props: ActionMenuProps) {
                     color="#c084fc"
                     active={false}
                     icon="✨"
-                    label="Quick Analysis"
+                    label="Find Objects - Fast"
                     onClick={(event) => handleAnalyzeImage(event, props, buildAnalysisOptions('overview_only', 'scout'))}
                 />
                 <MenuItem
                     color="#6366f1"
                     active={false}
                     icon="🧩"
-                    label="Detailed Analysis"
+                    label="Find Objects - Detailed"
                     onClick={(event) => handleAnalyzeImage(event, props, buildAnalysisOptions('overview_plus_tiles', 'refine'))}
                 />
             </>
@@ -489,9 +487,9 @@ function WorkflowSubMenu(props: {
                 >
                     🖼️ Detect Frames
                 </button>
-                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'fastsam', profile: 'quick' })} style={menuItemStyle('#38bdf8', false)}>Find objects - Fast</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'auto', objectProvider: 'auto', profile: 'quick' })} style={menuItemStyle('#38bdf8', false)}>Find objects - Fast</button>
                 <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'efficientsam', objectProvider: 'efficientsam', profile: 'balanced' })} style={menuItemStyle('#a78bfa', false)}>Find objects - Detailed</button>
-                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'fastsam', objectProvider: 'both', profile: 'balanced' })} style={menuItemStyle('#facc15', false)}>Find objects - Compare</button>
+                <button onClick={() => props.onSelect('library_editor_masks_v1', { frameProvider: 'auto', objectProvider: 'both', profile: 'balanced' })} style={menuItemStyle('#facc15', false)}>Find objects - Compare</button>
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -596,7 +594,7 @@ function renderActionMenuTrigger(props: ActionMenuProps) {
 export const ControlsOverlay: React.FC<ControlsOverlayProps> = (props) => {
     const {
         asset, assetsLength, currentIndex, showActionMenu, setShowActionMenu,
-        showFaces, setShowFaces, isImageTransitionPending, scale, setScale,
+        isImageTransitionPending, scale, setScale,
         setPan, resetPanZoom, onClose, onPrevious, onNext, onSetSensitivity,
         onMoveToBin, onRestoreFromBin, onSetCanonical, onExplodeGroup,
         onExtractAiMetadata, onRerunFaceDetection, analysisState, setAnalysisState,
@@ -650,8 +648,6 @@ export const ControlsOverlay: React.FC<ControlsOverlayProps> = (props) => {
             setScale={setScale}
             setPan={setPan}
             resetPanZoom={resetPanZoom}
-            showFaces={showFaces}
-            setShowFaces={setShowFaces}
             showInfoPanel={showInfoPanel}
             setShowInfoPanel={setShowInfoPanel}
             controlsVisible={controlsVisible}

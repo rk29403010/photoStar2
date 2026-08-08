@@ -109,8 +109,7 @@ test('shouldShowViewportFaceOverlays waits for the displayed image to finish loa
 
     assert.equal(
         shouldShowViewportFaceOverlays({
-            showFaces: true,
-            alwaysShowForPanel: false,
+            showOverlays: true,
             committedAssetId: 'asset-1',
             requestedAssetId: 'asset-2',
             isDisplayedImageReady: false,
@@ -120,8 +119,7 @@ test('shouldShowViewportFaceOverlays waits for the displayed image to finish loa
 
     assert.equal(
         shouldShowViewportFaceOverlays({
-            showFaces: false,
-            alwaysShowForPanel: true,
+            showOverlays: true,
             committedAssetId: 'asset-2',
             requestedAssetId: 'asset-2',
             isDisplayedImageReady: false,
@@ -131,8 +129,7 @@ test('shouldShowViewportFaceOverlays waits for the displayed image to finish loa
 
     assert.equal(
         shouldShowViewportFaceOverlays({
-            showFaces: true,
-            alwaysShowForPanel: false,
+            showOverlays: true,
             committedAssetId: 'asset-2',
             requestedAssetId: 'asset-2',
             isDisplayedImageReady: true,

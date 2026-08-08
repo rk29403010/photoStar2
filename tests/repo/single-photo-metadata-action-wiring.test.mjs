@@ -10,8 +10,8 @@ test('single-photo metadata action exposes tiled analysis and selected-subject w
     const commandsSource = fs.readFileSync('src/boundary/runtime/usePhotoLibrary.commands.ts', 'utf8');
     const handlerSource = fs.readFileSync('src/services/handlers/systemWorkflowRuntimeCommands.ts', 'utf8');
 
-    assert.match(actionMenuSource, /Quick Analysis/);
-    assert.match(actionMenuSource, /Detailed Analysis/);
+    assert.match(actionMenuSource, /Find Objects - Fast/);
+    assert.match(actionMenuSource, /Find Objects - Detailed/);
     assert.match(actionMenuSource, /metadataPass/);
     assert.match(singlePhotoViewSource, /useAnalysisWorkflowFailureTracking/);
     assert.match(singlePhotoViewSource, /onGetWorkflowRunDetail/);
@@ -21,6 +21,7 @@ test('single-photo metadata action exposes tiled analysis and selected-subject w
     assert.match(handlerSource, /selected_subject_metadata_v1/);
     assert.match(handlerSource, /metadataPass: payload\?\.metadataPass \?\? 'scout'/);
     assert.match(actionMenuSource, /library_editor_masks_v1/);
+    assert.match(actionMenuSource, /frameProvider: 'auto', objectProvider: 'auto', profile: 'quick'/);
     assert.match(actionMenuSource, /Find objects - Fast/);
     assert.match(actionMenuSource, /Find objects - Compare/);
     assert.match(commandsSource, /workflowParameters/);

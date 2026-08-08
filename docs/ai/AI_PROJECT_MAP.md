@@ -51,10 +51,17 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   `task:register` records a suitable editor-created worktree. Git and the task
   registry, rather than an editor capability claim or directory convention,
   discover the active workspace.
+- Codex setup records the validated task worktree in the shared Git directory.
+  Debug actions use that handoff when the desktop terminal lacks worktree
+  context, and refuse to start the primary checkout when no safe target exists.
 - `ui:smoke` launches an isolated desktop runtime and headless browser only for
   affected UI/runtime changes at readiness and integration. It detects browser
   errors, blank roots, startup failures, and missing app-shell markers without
   slowing `qa:quick`.
+- Folder ingest does not automatically run object segmentation or deep frame
+  segmentation. Explicit Find Objects and deep frame workflows require a
+  verified model and fail critically when it is unavailable, without making
+  ordinary ingestion model-dependent.
 
 ### TypeScript tooling
 
@@ -169,6 +176,12 @@ The generated registry is machine-owned. Every active workflow module is
 registered through this registry; obsolete compatibility registration is not a
 supported extension path. Unknown persisted IDs and version migrations remain
 generic resilience boundaries.
+
+The maintenance UI projects registered plug-in manifests through
+`get_workflow_module_repository`; `ModuleMaintenanceWorkspace.tsx` renders
+module properties and links each consuming workflow back to `WorkflowWorkspace`.
+Workflow-node `parameters` are projected as the selected module's current
+settings in `WorkflowDetailPanel.tsx`.
 
 ### Defined Workflows (`src/services/workflowRuntime/workflows/`)
 

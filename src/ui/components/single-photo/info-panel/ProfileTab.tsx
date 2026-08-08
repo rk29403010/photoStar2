@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import type { Asset, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
+import type { Asset } from '@contracts/core';
 import { Section } from './shared';
 import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
-import { TagManagementSection } from './TagManagementSection';
 import { globalRequest } from '../../../hooks/usePhotoLibrary';
+
+function readAssetTypes(value: unknown): string[] {
+  if (typeof value !== 'object' || value === null || !('types' in value) || !Array.isArray(value.types)) {
+    return [];
+  }
+
+  return value.types.filter((entry): entry is string => typeof entry === 'string');
+}
 
 function getModelLabel(asset: Asset): string | undefined {
   const captionSource = asset.photo_metadata?.provenance?.caption?.sourceKind;
@@ -314,7 +321,7 @@ function useProfileTabTypes(assetId: string) {
           command: 'get_available_asset_types',
           payload: {},
           timeoutMs: 10000,
-          select: (data) => (data?.types || []) as string[],
+          select: readAssetTypes,
         });
         if (active && result && result.length > 0) {
           setDbTypes(result);
@@ -350,21 +357,9 @@ function useProfileFieldSaver(
 
 export const ProfileTab: React.FC<{
   readonly asset: Asset;
-  readonly availableTags?: TagDefinitionSummary[];
-  readonly onAssignTag?: (tagLabel: string) => Promise<void>;
-  readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  readonly onSetReviewItemStatus?: (payload: {
-    reviewItemId: string;
-    status: ReviewItemSummary['status'];
-    tagLabel?: string;
-  }) => Promise<void>;
   readonly onRecordPhotoMetadataAssertion?: (fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
 }> = ({
   asset,
-  availableTags,
-  onAssignTag,
-  onRemoveTag,
-  onSetReviewItemStatus,
   onRecordPhotoMetadataAssertion,
 }) => {
   const summary = buildPhotoMetadataFileSummary(asset);
@@ -429,14 +424,6 @@ export const ProfileTab: React.FC<{
           )}
         </div>
       </Section>
-
-      <TagManagementSection
-        asset={asset}
-        availableTags={availableTags}
-        onAssignTag={onAssignTag}
-        onRemoveTag={onRemoveTag}
-        onSetReviewItemStatus={onSetReviewItemStatus}
-      />
     </div>
   );
 };

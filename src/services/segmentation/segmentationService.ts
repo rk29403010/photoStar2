@@ -1,5 +1,6 @@
 import { FastSamSegmentationProvider } from './fastSamSegmentationProvider';
 import { EfficientSamSegmentationProvider } from './efficientSamSegmentationProvider';
+import { SegmentationProviderError } from './contracts';
 import type { SegmentationProcessingProfile, SegmentationProvider, SegmentationProviderSelection } from './contracts';
 
 export type SegmentationResolution = { requested: SegmentationProviderSelection; used: SegmentationProvider; };
@@ -17,7 +18,7 @@ export function createSegmentationProviders(selection: SegmentationProviderSelec
 
 function resolveAutoProvider(providers: SegmentationProvider[], profile: SegmentationProcessingProfile): SegmentationProvider | undefined {
     const preferredId = profile === 'accurate' ? 'efficientsam' : 'fastsam';
-    return providers.find((provider) => provider.id === preferredId && provider.isAvailable()) ?? providers.find((provider) => provider.id === 'fastsam' && provider.isAvailable());
+    return providers.find((provider) => provider.id === preferredId && provider.isAvailable()) ?? providers.find((provider) => provider.isAvailable());
 }
 
 function resolveRequestedProvider(providers: SegmentationProvider[], requested: SegmentationProviderSelection): SegmentationProvider | undefined {
@@ -29,6 +30,9 @@ export function resolveSegmentationProvider(input: { provider?: SegmentationProv
     const requested = input.provider ?? 'auto';
     const profile = input.profile ?? 'fast';
     const used = requested === 'auto' ? resolveAutoProvider(providers, profile) : resolveRequestedProvider(providers, requested);
-    if (!used) {throw new Error(`No verified segmentation provider is available for ${requested}. Open Model Manager or install the requested model.`);}
+    if (!used) {
+        const providerId = input.providers?.[0]?.id ?? 'fastsam';
+        throw new SegmentationProviderError(providerId, 'model_missing', `No verified segmentation provider is available for ${requested}. Open Model Manager or install the requested model.`);
+    }
     return { requested, used };
 }

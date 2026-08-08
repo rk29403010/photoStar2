@@ -83,17 +83,23 @@ type ControlsState = {
     setCurrentIndex: Dispatch<SetStateAction<number>>;
     showControls: boolean;
     setShowControls: Dispatch<SetStateAction<boolean>>;
-    showFaces: boolean;
-    setShowFaces: Dispatch<SetStateAction<boolean>>;
     showActionMenu: boolean;
     setShowActionMenu: Dispatch<SetStateAction<boolean>>;
     hoveredFaceKey: string | null;
     setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
+    selectedOverlayKey: string | null;
+    setSelectedOverlayKey: Dispatch<SetStateAction<string | null>>;
     revealControls: () => void;
     onChangeIndex: (delta: -1 | 1) => void;
 };
 
-export type ActiveInfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
+export type ActiveInfoTab = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
+
+const ACTIVE_INFO_TABS = new Set<string>(['profile', 'tags', 'people', 'objects', 'lineage', 'group', 'json', 'ailogs']);
+
+function isActiveInfoTab(value: string): value is ActiveInfoTab {
+    return ACTIVE_INFO_TABS.has(value);
+}
 
 function usePanelState({
     showInfoPanel: showInfoPanelProp,
@@ -109,7 +115,7 @@ function usePanelState({
     }, [onShowInfoPanelChange]);
     const [activeInfoTabInternal, setActiveInfoTabInternal] = useState<ActiveInfoTab>('profile');
     const rawActiveInfoTab = activeInfoTabProp ?? activeInfoTabInternal;
-    const activeInfoTab = (rawActiveInfoTab === 'profile' || rawActiveInfoTab === 'people' || rawActiveInfoTab === 'lineage' || rawActiveInfoTab === 'group' || rawActiveInfoTab === 'json' || rawActiveInfoTab === 'ailogs') ? rawActiveInfoTab : 'profile';
+    const activeInfoTab = isActiveInfoTab(rawActiveInfoTab) ? rawActiveInfoTab : 'profile';
     const setActiveInfoTab = useCallback((tab: ActiveInfoTab) => {
         setActiveInfoTabInternal(tab);
         onActiveInfoTabChange?.(tab);
@@ -121,9 +127,9 @@ function usePanelState({
 function useSinglePhotoControls(initialIndex: number, assetsLength: number): ControlsState {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [showControls, setShowControls] = useState(true);
-    const [showFaces, setShowFaces] = useState(false);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [hoveredFaceKey, setHoveredFaceKey] = useState<string | null>(null);
+    const [selectedOverlayKey, setSelectedOverlayKey] = useState<string | null>(null);
     const controlsHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const clearControlsHideTimer = useCallback(() => {
         if (controlsHideTimerRef.current !== null) {
@@ -183,12 +189,12 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
         setCurrentIndex,
         showControls,
         setShowControls,
-        showFaces,
-        setShowFaces,
         showActionMenu,
         setShowActionMenu,
         hoveredFaceKey,
         setHoveredFaceKey,
+        selectedOverlayKey,
+        setSelectedOverlayKey,
         revealControls,
         onChangeIndex
     };
@@ -319,12 +325,12 @@ function renderSinglePhotoOverlay(params: {
             currentIndex={params.controls.currentIndex}
             showControls={params.controls.showControls}
             setShowControls={params.controls.setShowControls}
-            showFaces={params.controls.showFaces}
-            setShowFaces={params.controls.setShowFaces}
             showActionMenu={params.controls.showActionMenu}
             setShowActionMenu={params.controls.setShowActionMenu}
             hoveredFaceKey={params.controls.hoveredFaceKey}
             setHoveredFaceKey={params.controls.setHoveredFaceKey}
+            selectedOverlayKey={params.controls.selectedOverlayKey}
+            setSelectedOverlayKey={params.controls.setSelectedOverlayKey}
             panelState={params.panelState}
             onClose={params.props.onClose}
             onFaceClick={params.props.onFaceClick}
