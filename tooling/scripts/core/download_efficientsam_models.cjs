@@ -4,7 +4,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const target = path.join(__dirname, '..', '..', '..', 'deployments', 'common', 'models');
+const appDataDir = process.env.APPDATA || process.env.HOME || '.';
+const target = path.join(appDataDir, 'PhotoLibraryDesktop', 'models');
 const models = [
     { file: 'efficient_sam_vitt_encoder.onnx', url: 'https://huggingface.co/spaces/yunyangx/EfficientSAM/resolve/main/efficientsam_ti_encoder.onnx', sha256: '84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951' },
     { file: 'efficient_sam_vitt_decoder.onnx', url: 'https://huggingface.co/spaces/yunyangx/EfficientSAM/resolve/main/efficientsam_ti_decoder.onnx', sha256: 'a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11' },
