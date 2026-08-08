@@ -71,7 +71,7 @@ function readTaskWorktreeRecords(cwd) {
     }
 }
 
-export function isTaskWorktreeRecordStale({ targetPath, entries }) {
+export function isTaskWorktreeRecordStale({ targetPath, entries, isCurrentMainHead = () => false }) {
     const entry = entries.find((candidate) => (
         typeof candidate?.worktreePath === 'string'
         && pathsMatch(candidate.worktreePath, targetPath)
@@ -80,9 +80,17 @@ export function isTaskWorktreeRecordStale({ targetPath, entries }) {
         return false;
     }
 
-    return entry.includedInMain === true
+    return (entry.includedInMain === true && !isCurrentMainHead())
         || entry.missing === true
         || ['merged', 'discarded', 'parked'].includes(entry.status);
+}
+
+function isAtCurrentMainHead({ cwd, targetPath }) {
+    try {
+        return gitText(['rev-parse', 'HEAD'], cwd) === gitText(['rev-parse', 'HEAD'], targetPath);
+    } catch {
+        return false;
+    }
 }
 
 function isPrimaryWorktree(targetPath) {
@@ -106,6 +114,7 @@ export function resolveCodexActionWorktree({ cwd = process.cwd(), environment = 
     const recordedWorktreeIsStale = isGitWorktree(recordedWorktree) && isTaskWorktreeRecordStale({
         targetPath: recordedWorktree,
         entries: readTaskWorktreeRecords(cwd),
+        isCurrentMainHead: () => isAtCurrentMainHead({ cwd, targetPath: recordedWorktree }),
     });
     if (isGitWorktree(recordedWorktree) && !recordedWorktreeIsStale) {
         return normalizePath(recordedWorktree);

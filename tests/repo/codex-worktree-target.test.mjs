@@ -22,6 +22,16 @@ test('a merged recorded task worktree is stale even when its worktree remains on
     }), true);
 });
 
+test('a fresh task worktree at the current main commit remains a valid recorded target', () => {
+    const worktreePath = process.cwd();
+
+    assert.equal(isTaskWorktreeRecordStale({
+        targetPath: worktreePath,
+        entries: [{ worktreePath, status: 'active', includedInMain: true, missing: false }],
+        isCurrentMainHead: () => true,
+    }), false);
+});
+
 test('Codex Debug prints the chosen task runtime URL', () => {
     const worktreePath = process.cwd();
     const output = [];
