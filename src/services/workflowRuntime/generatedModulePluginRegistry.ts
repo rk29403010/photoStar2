@@ -2,20 +2,21 @@
 import type { WorkflowModulePlugin } from './contracts';
 import plugin0 from './modules/plugins/detect-faces/manifest';
 import plugin1 from './modules/plugins/detect-frames/manifest';
-import plugin2 from './modules/plugins/detect-sensitive-content/manifest';
-import plugin3 from './modules/plugins/estimate-photo-date/manifest';
-import plugin4 from './modules/plugins/expand-selection/manifest';
-import plugin5 from './modules/plugins/extract-embedded-metadata/manifest';
-import plugin6 from './modules/plugins/generate-ai-metadata-refine/manifest';
-import plugin7 from './modules/plugins/generate-ai-metadata-scout/manifest';
-import plugin8 from './modules/plugins/generate-face-vectors/manifest';
-import plugin9 from './modules/plugins/generate-previews/manifest';
-import plugin10 from './modules/plugins/group-similar-photos/manifest';
-import plugin11 from './modules/plugins/preview-adapter/manifest';
-import plugin12 from './modules/plugins/resolve-people/manifest';
-import plugin13 from './modules/plugins/scan-folder/manifest';
-import plugin14 from './modules/plugins/segment-objects/manifest';
-import plugin15 from './modules/plugins/simulator/manifest';
+import plugin2 from './modules/plugins/detect-print-texture/manifest';
+import plugin3 from './modules/plugins/detect-sensitive-content/manifest';
+import plugin4 from './modules/plugins/estimate-photo-date/manifest';
+import plugin5 from './modules/plugins/expand-selection/manifest';
+import plugin6 from './modules/plugins/extract-embedded-metadata/manifest';
+import plugin7 from './modules/plugins/generate-ai-metadata-refine/manifest';
+import plugin8 from './modules/plugins/generate-ai-metadata-scout/manifest';
+import plugin9 from './modules/plugins/generate-face-vectors/manifest';
+import plugin10 from './modules/plugins/generate-previews/manifest';
+import plugin11 from './modules/plugins/group-similar-photos/manifest';
+import plugin12 from './modules/plugins/preview-adapter/manifest';
+import plugin13 from './modules/plugins/resolve-people/manifest';
+import plugin14 from './modules/plugins/scan-folder/manifest';
+import plugin15 from './modules/plugins/segment-objects/manifest';
+import plugin16 from './modules/plugins/simulator/manifest';
 
 export const generatedWorkflowModulePlugins: readonly WorkflowModulePlugin[] = [
     plugin0,
@@ -34,4 +35,5 @@ export const generatedWorkflowModulePlugins: readonly WorkflowModulePlugin[] = [
     plugin13,
     plugin14,
     plugin15,
+    plugin16,
 ];
