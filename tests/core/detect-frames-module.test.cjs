@@ -164,3 +164,30 @@ test('detectFramesModule run - Deep Path (segmentation fallback)', async () => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('detectFramesModule fails the module when its requested model is unavailable', async () => {
+    const tempDir = createTempDir();
+    const imagePath = await createSolidImage(tempDir);
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-frames/implementation.js');
+    let dbManager;
+
+    try {
+        dbManager = new DatabaseManager(tempDir);
+        const db = dbManager.getDb();
+        db.prepare("INSERT INTO assets (id, original_path, created_at) VALUES ('asset-missing-model', ?, '2026-03-20T00:00:00.000Z')").run(imagePath);
+        const moduleDefinition = createDetectFramesModule({
+            dbManager,
+            providers: [{ id: 'fastsam', modelId: 'test', modelVersion: '1', capabilities: {}, isAvailable: () => false }],
+        });
+
+        await assert.rejects(
+            moduleDefinition.run({ runId: 'run-missing-model', subject: { subjectType: 'asset', subjectId: 'asset-missing-model' }, batchSubjects: [], parameters: { mode: 'deep', provider: 'fastsam' } }),
+            /No verified segmentation provider is available/,
+        );
+        assert.equal(db.prepare("SELECT severity FROM processing_issues WHERE asset_id = 'asset-missing-model' AND task = 'frame_detection'").get().severity, 'error');
+    } finally {
+        dbManager?.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});

@@ -10,20 +10,18 @@ import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel'
 import { usePersistedState } from './usePersistedState';
 
 export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics';
-export type InfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
+export type InfoTab = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
 
+const appViews = new Set<string>(['library', 'people', 'familyTree', 'dashboard', 'albums', 'reviews', 'vocabulary', 'workflows', 'moduleMaintenance', 'groupDiagnostics']);
+const infoTabs: readonly InfoTab[] = ['profile', 'tags', 'people', 'objects', 'lineage', 'group', 'json', 'ailogs'];
+
 function isAppView(value: unknown): value is AppView {
-  return value === 'library'
-    || value === 'people'
-    || value === 'familyTree'
-    || value === 'dashboard'
-    || value === 'albums'
-    || value === 'reviews'
-    || value === 'vocabulary'
-    || value === 'workflows'
-    || value === 'moduleMaintenance'
-    || value === 'groupDiagnostics';
+  return typeof value === 'string' && appViews.has(value);
+}
+
+function resolveInfoTab(value: InfoTab): InfoTab {
+  return infoTabs.includes(value) ? value : 'profile';
 }
 
 function useDevRuntimeImpact(
@@ -98,7 +96,7 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const [selectedAssetId, setSelectedAssetId] = usePersistedState<string | null>('ps_selected_asset', null);
   const [showInfoPanel, setShowInfoPanel] = usePersistedState<boolean>('ps_info_panel_open', false);
   const [activeInfoTabRaw, setActiveInfoTab] = usePersistedState<InfoTab>('ps_info_tab', 'profile');
-  const activeInfoTab = (activeInfoTabRaw === 'profile' || activeInfoTabRaw === 'people' || activeInfoTabRaw === 'lineage' || activeInfoTabRaw === 'group' || activeInfoTabRaw === 'json' || activeInfoTabRaw === 'ailogs') ? activeInfoTabRaw : 'profile';
+  const activeInfoTab = resolveInfoTab(activeInfoTabRaw);
   const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
   const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
   const [aiMode, setAiMode] = usePersistedState<AiMode>('ps_ai_mode', 'live');

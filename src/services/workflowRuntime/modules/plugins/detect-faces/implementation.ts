@@ -6,10 +6,8 @@ import { RetinaFaceDetector } from '../../../../faces/retinaFaceDetector';
 import { normalizeStoredPhotoBox } from '../../../../faces/faceImageGeometry';
 import type { ModuleDefinition } from '../../../contracts';
 import { getFrameInteriorBox } from '../../../../photoMetadata/frameUtils';
-import { encodeMaskRaster, saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
+import { saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
 import type { PhotoMaskMetadataItem } from '../../../../../boundary/contracts/photoEditor';
-import { resolveSegmentationProvider } from '../../../../segmentation/segmentationService';
-import { prepareSegmentationImage } from '../../../../segmentation/imagePreparation';
 
 export type DetectFacesModuleOptions = {
     dbManager: DatabaseManager;
@@ -18,24 +16,13 @@ export type DetectFacesModuleOptions = {
     };
 };
 
-async function toFaceMasks(params: { faces: Array<{ box: { x: number; y: number; width: number; height: number } }>; originalPath: string | undefined }): Promise<PhotoMaskMetadataItem[]> {
-    const rasterByFace = new Map<number, PhotoMaskMetadataItem['raster']>();
-    if (params.originalPath) {
-        try {
-            const provider = resolveSegmentationProvider({ provider: 'fastsam', profile: 'fast' }).used;
-            const prepared = await provider.prepare(await prepareSegmentationImage(params.originalPath));
-            try { for (const [index, face] of params.faces.entries()) { const mask = (await provider.segment(prepared, { positivePoints: [{ x: face.box.x + face.box.width / 2, y: face.box.y + face.box.height / 2 }] }))[0]; if (mask) { rasterByFace.set(index, await encodeMaskRaster(mask.alpha, mask.width, mask.height)); } } } finally { await prepared.dispose(); await provider.dispose(); }
-        } catch {
-            // Face boxes remain valid fallback masks when local segmentation is unavailable.
-        }
-    }
-    return params.faces.map((face, index) => ({
+function toFaceMasks(faces: Array<{ box: { x: number; y: number; width: number; height: number } }>): PhotoMaskMetadataItem[] {
+    return faces.map((face, index) => ({
         id: `face-${index}`,
         label: `Face ${index + 1}`,
-        description: rasterByFace.has(index) ? 'Locally segmented person' : 'Locally detected face',
-        kind: rasterByFace.has(index) ? 'raster' : 'ellipse',
+        description: 'Locally detected face',
+        kind: 'ellipse',
         box: face.box,
-        raster: rasterByFace.get(index),
         source: { moduleId: 'runtime.detect_faces', referenceId: `face-${index}` },
     }));
 }
@@ -104,7 +91,7 @@ export function createDetectFacesModule(options: DetectFacesModuleOptions): Modu
             saveAssetMaskMetadata(db, {
                 assetId: context.subject.subjectId,
                 sourceId: 'runtime.detect_faces',
-                masks: await toFaceMasks({ faces, originalPath: asset?.original_path }),
+                masks: toFaceMasks(faces),
             });
             options.eventBus?.emit({
                 type: 'FacesDetected',

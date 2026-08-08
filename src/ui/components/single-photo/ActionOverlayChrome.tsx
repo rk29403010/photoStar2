@@ -23,8 +23,6 @@ type ZoomBarProps = {
     readonly setScale: (scale: number) => void;
     readonly setPan: (pan: { x: number; y: number }) => void;
     readonly resetPanZoom: () => void;
-    readonly showFaces: boolean;
-    readonly setShowFaces: (show: boolean) => void;
     readonly showInfoPanel: boolean;
     readonly setShowInfoPanel: (show: boolean) => void;
     readonly controlsVisible: boolean;
@@ -95,8 +93,6 @@ export const ZoomBar: React.FC<ZoomBarProps> = ({
     setScale,
     setPan,
     resetPanZoom,
-    showFaces,
-    setShowFaces,
     showInfoPanel,
     setShowInfoPanel,
     controlsVisible,
@@ -133,11 +129,9 @@ export const ZoomBar: React.FC<ZoomBarProps> = ({
             <div className={dividerClass} />
             <button onClick={resetPanZoom} className="bg-transparent border-none text-white cursor-pointer text-xs flex items-center gap-1 hover:opacity-80 active:scale-95" title="Reset zoom"><span className="text-sm">⟲</span> Reset</button>
             <div className={dividerClass} />
-            <button onClick={() => setShowWithFrame(!showWithFrame)} disabled={!hasFrame} title={frameButtonTitle} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${frameButtonStateClass}`}><span className="text-sm">🖼️</span></button>
+            <button onClick={() => setShowWithFrame(!showWithFrame)} disabled={!hasFrame} title={frameButtonTitle} aria-label={frameButtonTitle} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${frameButtonStateClass}`}><span className="text-sm" aria-hidden="true">🖼️</span></button>
             <div className={dividerClass} />
-            <button onClick={() => setShowFaces(!showFaces)} title={showFaces ? 'Hide faces' : 'Show faces'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${showFaces ? 'bg-cyan-500/25 border border-cyan-500/50 text-cyan-400' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">👤</span></button>
-            <div className={dividerClass} />
-            <button onClick={() => setShowInfoPanel(!showInfoPanel)} title={showInfoPanel ? 'Hide info panel (I)' : 'Show info panel (I)'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${showInfoPanel ? 'bg-indigo-500/25 border border-indigo-500/50 text-indigo-300' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm">ℹ</span></button>
+            <button onClick={() => setShowInfoPanel(!showInfoPanel)} title={showInfoPanel ? 'Hide info panel (I)' : 'Show info panel (I)'} aria-label={showInfoPanel ? 'Hide info panel' : 'Show info panel'} className={`text-base cursor-pointer w-8 h-8 flex items-center justify-center rounded motion-safe:transition-all motion-safe:duration-200 active:scale-95 ${showInfoPanel ? 'bg-indigo-500/25 border border-indigo-500/50 text-indigo-300' : 'bg-transparent border border-transparent text-white'}`}><span className="text-sm" aria-hidden="true">ℹ</span></button>
         </div>
     );
     /* eslint-enable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events, deslint/prefer-semantic-html */

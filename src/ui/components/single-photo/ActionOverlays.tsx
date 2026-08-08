@@ -12,8 +12,6 @@ type ActionOverlaysProps = {
     readonly showControls: boolean;
     readonly showActionMenu: boolean;
     readonly setShowActionMenu: (show: boolean) => void;
-    readonly showFaces: boolean;
-    readonly setShowFaces: (show: boolean) => void;
     readonly isImageTransitionPending: boolean;
     readonly scale: number;
     readonly setScale: (s: number) => void;
@@ -53,8 +51,6 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
     showControls,
     showActionMenu,
     setShowActionMenu,
-    showFaces,
-    setShowFaces,
     isImageTransitionPending,
     scale,
     setScale,
@@ -93,8 +89,6 @@ export const ActionOverlays: React.FC<ActionOverlaysProps> = ({
             currentIndex={currentIndex}
             showActionMenu={showActionMenu}
             setShowActionMenu={setShowActionMenu}
-            showFaces={showFaces}
-            setShowFaces={setShowFaces}
             isImageTransitionPending={isImageTransitionPending}
             scale={scale}
             setScale={setScale}
