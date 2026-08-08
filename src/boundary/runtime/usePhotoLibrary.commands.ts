@@ -258,7 +258,7 @@ export function createScanActions(params: ScanActionParams) {
     };
 }
 
-function getWorkflowConfig(workflowId: string, assetIds: string[], workflowStatus: WorkflowStatusSnapshot | null) {
+function getWorkflowConfig(workflowId: string, assetIds: string[], workflowStatus: WorkflowStatusSnapshot | null, workflowParameters: Record<string, unknown> = {}) {
     const matched = workflowStatus?.workflows.find(w => w.workflowId === workflowId);
     const stage: string = matched?.stage || 'scan';
     const title = matched ? matched.displayName : 'Running Workflow';
@@ -270,6 +270,7 @@ function getWorkflowConfig(workflowId: string, assetIds: string[], workflowStatu
         parameters: {
             aiMode: 'live',
             metadataPass: 'scout',
+            ...workflowParameters,
         },
     };
 
@@ -333,8 +334,8 @@ export function createPipelineActions(params: PipelineActionParams) {
             'Workflow Simulation',
             inputParams
         ),
-        runWorkflowOnAssets: (workflowId: string, assetIds: string[]) => {
-            const { stage, title, command, payload } = getWorkflowConfig(workflowId, assetIds, params.workflowStatus);
+        runWorkflowOnAssets: (workflowId: string, assetIds: string[], workflowParameters?: Record<string, unknown>) => {
+            const { stage, title, command, payload } = getWorkflowConfig(workflowId, assetIds, params.workflowStatus, workflowParameters);
             return startWorkflow(`start_workflow_${workflowId}`, command, stage, title, payload);
         },
     };

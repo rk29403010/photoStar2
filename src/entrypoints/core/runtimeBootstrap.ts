@@ -9,6 +9,7 @@ import { libraryGroupingWorkflowDefinition } from '../../services/workflowRuntim
 import { libraryPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryPreviewWorkflow';
 import { librarySensitiveScanWorkflowDefinition } from '../../services/workflowRuntime/workflows/librarySensitiveScanWorkflow';
 import { selectedSubjectMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow';
+import { editorMasksWorkflowDefinition } from '../../services/workflowRuntime/workflows/editorMasksWorkflow';
 import { detectFramesWorkflowDefinition } from '../../services/workflowRuntime/workflows/detectFramesWorkflow';
 import { ExecutionStore } from '../../services/workflowRuntime/executionStore';
 import { ModuleRegistry } from '../../services/workflowRuntime/moduleRegistry';
@@ -104,6 +105,7 @@ function registerWorkflows(workflows: WorkflowRegistry) {
     workflows.register(libraryAiMetadataWorkflowDefinition);
     workflows.register(libraryPhotoDateWorkflowDefinition);
     workflows.register(selectedSubjectMetadataWorkflowDefinition);
+    workflows.register(editorMasksWorkflowDefinition);
     workflows.register(detectFramesWorkflowDefinition);
 }
 

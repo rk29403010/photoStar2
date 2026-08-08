@@ -32,7 +32,7 @@ type ActionPanelProps = {
     readonly onOpenSettings: () => void;
     readonly folderHistory?: { path: string; last_scanned_at: string }[];
     readonly selectedAssetIds?: string[];
-    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[]) => void;
+    readonly onRunWorkflowOnAssets?: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void;
 };
 
 type MenuItem = {

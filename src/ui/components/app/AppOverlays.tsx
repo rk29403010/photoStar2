@@ -93,7 +93,7 @@ type AppOverlaysProps = {
   readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
   readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
   readonly librarySelection: LibrarySelectionState;
-  readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[]) => void;
+  readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void;
   readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
   readonly onGetPhotoEditWorkspace?: (assetId: string) => Promise<{ document: PhotoEditDocument | null; styles: PhotoEditStyle[] }>;
   readonly onPreviewPhotoEdit?: (input: SavePhotoEditInput) => Promise<string>;

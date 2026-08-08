@@ -43,7 +43,7 @@ test('mask candidates support rectangle frame results and canonical bounding box
     assert.equal(readNormalizedBox({ bounding_box: { x: 0.2, y: 0.2, width: 0, height: 0.2 } }), null);
 });
 
-test('mask candidates prefer standardized metadata and retain a precise raster alpha mask', async () => {
+test('mask candidates retain standardized metadata alongside legacy candidates', async () => {
     const { buildPhotoMaskCandidates } = await import('../../src/ui/components/photo-editor/maskCandidates.ts');
     const candidates = buildPhotoMaskCandidates({
         id: 'asset-3',
@@ -62,8 +62,9 @@ test('mask candidates prefer standardized metadata and retain a precise raster a
         },
     });
 
-    assert.equal(candidates.length, 1);
+    assert.equal(candidates.length, 2);
     assert.equal(candidates[0].mask.name, 'Caroline');
     assert.equal(candidates[0].mask.kind, 'raster');
     assert.equal(candidates[0].mask.raster.width, 2);
+    assert.equal(candidates[1].mask.name, 'Legacy face');
 });

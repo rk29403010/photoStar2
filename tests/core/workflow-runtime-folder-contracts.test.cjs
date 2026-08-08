@@ -130,6 +130,9 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     const generateFaceVectors = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-face-vectors');
     const collectSimilar = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'collect-similar');
     const detectSensitiveContent = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-sensitive-content');
+    const quickFrame = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-frame-fast');
+    const deepFrame = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-frame-deep');
+    const quickSegments = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'segment-objects-quick');
     const generateAiMetadata = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-ai-metadata');
     const estimateFromEmbedded = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'estimate-photo-date-from-embedded');
     const estimateFromAi = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'estimate-photo-date-from-ai');
@@ -147,7 +150,10 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     assert.ok(enrichmentFanout);
     assert.equal(enrichmentFanout.kind, 'control');
     assert.equal(enrichmentFanout.controlType, 'for_each');
-    assert.deepEqual(enrichmentFanout.outputsTo, ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-frame-deep']);
+    assert.deepEqual(enrichmentFanout.outputsTo, ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-frame-deep', 'segment-objects-quick']);
+    assert.deepEqual(quickFrame.parameters, { mode: 'quick' });
+    assert.deepEqual(deepFrame.parameters, { mode: 'deep', provider: 'auto', onlyWhenNeeded: true });
+    assert.deepEqual(quickSegments.parameters, { provider: 'fastsam', profile: 'quick', maxResults: 6 });
     assert.ok(detectFaces);
     assert.deepEqual(generateFaceVectors.outputsTo, ['collect-people']);
     assert.deepEqual(collectSimilar.outputsTo, ['group-similar-photos']);

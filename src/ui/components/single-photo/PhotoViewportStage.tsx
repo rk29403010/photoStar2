@@ -1,9 +1,8 @@
 import type { Dispatch, FC, MouseEvent, SetStateAction } from 'react';
 import type { Asset } from '@contracts/core';
 import { FaceOverlayMap } from './FaceOverlayMap';
-import { getViewportStageIdentity, getViewportStageTransformTransition } from './photoViewportImageState';
+import { getExplicitViewportFrameCrop, getViewportStageIdentity, getViewportStageTransformTransition } from './photoViewportImageState';
 import { getLoadingBadgeStyle } from './singlePhotoOverlayLayout';
-import { getFrameInteriorBox } from '../../../services/photoMetadata/frameUtils';
 
 function getStageCursor(params: {
     isImageTransitionPending: boolean;
@@ -198,8 +197,11 @@ export const ZoomableStage: FC<{
         imageSrc: imgSrc,
     });
 
-    const shouldCrop = Boolean(asset.frame_detection) && !showWithFrame;
-    const interiorBox = shouldCrop ? getFrameInteriorBox(asset.frame_detection) : null;
+    const interiorBox = getExplicitViewportFrameCrop({
+        frameDetection: asset.frame_detection,
+        showWithFrame,
+    });
+    const shouldCrop = interiorBox !== null;
 
     const customImageStyle = shouldCrop && interiorBox
         ? {

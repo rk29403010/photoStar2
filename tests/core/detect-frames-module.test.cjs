@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const sharp = require('sharp');
-const ort = require('onnxruntime-node');
 
 function createTempDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-detect-frames-module-'));
@@ -76,7 +75,7 @@ test('detectFramesModule run - Fast Path (rectangular border)', async () => {
             runId: 'run-1',
             subject: { subjectType: 'asset', subjectId: 'asset-1' },
             batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
-            parameters: {},
+            parameters: { mode: 'quick' },
         });
 
         assert.deepEqual(result.outputs, [{ kind: 'artifact', artifactType: 'frame_detection', subjectType: 'asset' }]);
@@ -114,28 +113,7 @@ test('detectFramesModule run - Deep Path (segmentation fallback)', async () => {
     const { createDetectFramesModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-frames/implementation.js');
     let dbManager;
 
-    // Mock InferenceSession.create
-    const originalCreate = ort.InferenceSession.create;
-    ort.InferenceSession.create = async () => {
-        return {
-            run: async () => {
-                // Mock return value for a 1024x1024 mask output
-                const mockMaskData = new Float32Array(1024 * 1024);
-                // Set a small circle in the middle to 1
-                for (let y = 500; y < 520; y++) {
-                    for (let x = 500; x < 520; x++) {
-                        mockMaskData[y * 1024 + x] = 1.0;
-                    }
-                }
-                return {
-                    masks: {
-                        data: mockMaskData,
-                        dims: [1, 1, 1024, 1024]
-                    }
-                };
-            }
-        };
-    };
+    const provider = { id: 'fastsam', modelId: 'test', modelVersion: '1', capabilities: {}, isAvailable: () => true, prepare: async (image) => ({ providerId: 'fastsam', image, dispose: async () => {} }), segment: async () => { const alpha = new Uint8Array(1024 * 1024); for (let y = 300; y < 700; y += 1) { for (let x = 300; x < 700; x += 1) { alpha[y * 1024 + x] = 255; } } return [{ alpha, width: 1024, height: 1024, box: { x: 300 / 1024, y: 300 / 1024, width: 400 / 1024, height: 400 / 1024 } }]; }, automaticCandidates: async () => [], dispose: async () => {} };
 
     try {
         dbManager = new DatabaseManager(tempDir);
@@ -147,6 +125,7 @@ test('detectFramesModule run - Deep Path (segmentation fallback)', async () => {
 
         const moduleDefinition = createDetectFramesModule({
             dbManager,
+            providers: [provider],
             eventBus: {
                 emit(event) {
                     emittedEvents.push(event);
@@ -158,7 +137,7 @@ test('detectFramesModule run - Deep Path (segmentation fallback)', async () => {
             runId: 'run-2',
             subject: { subjectType: 'asset', subjectId: 'asset-2' },
             batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-2' }],
-            parameters: {},
+            parameters: { mode: 'deep' },
         });
 
         assert.deepEqual(result.outputs, [{ kind: 'artifact', artifactType: 'frame_detection', subjectType: 'asset' }]);
@@ -181,7 +160,6 @@ test('detectFramesModule run - Deep Path (segmentation fallback)', async () => {
         assert.ok(maskMetadata.masks[0].raster.pngBase64.length > 0);
         assert.ok(emittedEvents.some((event) => event.type === 'AssetUpdated' && event.assetId === 'asset-2'));
     } finally {
-        ort.InferenceSession.create = originalCreate;
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
     }

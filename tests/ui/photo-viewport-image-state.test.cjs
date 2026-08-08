@@ -277,3 +277,35 @@ test('getViewportStageIdentity changes when the committed image source changes',
         'asset-1::missing',
     );
 });
+
+test('a detected frame does not crop Single Photo View unless the user explicitly hides the frame', async () => {
+    const { getExplicitViewportFrameCrop } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
+    const frameDetection = {
+        type: 'rectangle',
+        box: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+    };
+
+    assert.equal(
+        getExplicitViewportFrameCrop({ frameDetection, showWithFrame: true }),
+        null,
+    );
+    assert.deepEqual(
+        getExplicitViewportFrameCrop({ frameDetection, showWithFrame: false }),
+        frameDetection.box,
+    );
+});
+
+test('an invalid frame result cannot distort Single Photo View', async () => {
+    const { getExplicitViewportFrameCrop } = await import('../../src/ui/components/single-photo/photoViewportImageState.ts');
+
+    assert.equal(
+        getExplicitViewportFrameCrop({
+            frameDetection: {
+                type: 'rectangle',
+                box: { x: 0.7, y: 0.1, width: 0.5, height: 0.8 },
+            },
+            showWithFrame: false,
+        }),
+        null,
+    );
+});

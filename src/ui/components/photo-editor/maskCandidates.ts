@@ -136,8 +136,8 @@ function metadataCandidates(asset: Asset, field: 'regionsOfInterest' | 'subjects
 
 export function buildPhotoMaskCandidates(asset: Asset): PhotoMaskCandidate[] {
     const standardized = standardizedMetadataCandidates(asset);
-    if (standardized.length > 0) {return standardized;}
     return [
+        ...standardized,
         ...frameCandidates(asset),
         ...faceCandidates(asset),
         ...metadataCandidates(asset, 'subjects'),
