@@ -164,7 +164,7 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts`).
 
 ## Segmentation providers
 
-Local segmentation providers live in `src/services/segmentation/`; functional use is through `runtime.detect_frame`, `runtime.segment_objects`, and `library_editor_masks_v1`. See `docs/architecture/segmentation-providers.md` for tiers, storage, provenance, and future-provider guidance.
+Local segmentation providers live in `src/services/segmentation/`; functional use is through `runtime.detect_frame`, `runtime.segment_objects`, and `library_editor_masks_v1`. Verified user-installed model files resolve from the shared `PhotoLibraryDesktop/models` application-data directory before worktree-local fallbacks, so Debug worktree changes preserve availability. See `docs/architecture/segmentation-providers.md` for tiers, storage, provenance, and future-provider guidance.
 
 The `workflowRuntime` acts as the single orchestration path. It executes defined **Workflows**, which consist of configurable **Modules**.
 
