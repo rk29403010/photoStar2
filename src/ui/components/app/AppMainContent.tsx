@@ -21,7 +21,7 @@ import type {
 } from '@contracts/jobs';
 import type { UiFeedEntry } from '@contracts/usePhotoLibrary.types';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
-import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import type { WorkflowModuleRepositoryModel, WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
 import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import { buildStablePreviewAssets } from '@shared/utils/stablePreviewAssets';
@@ -40,6 +40,7 @@ import { FamilyTreeView } from '../family-tree/FamilyTreeView';
 import { ReviewsView } from '../ReviewsView';
 import { TagVocabularyView } from '../TagVocabularyView';
 import { WorkflowWorkspace } from '../workflows/WorkflowWorkspace';
+import { ModuleMaintenanceWorkspace } from '../workflows/ModuleMaintenanceWorkspace';
 
 type TagDetailPayload = {
   tag: TagDefinitionSummary;
@@ -47,7 +48,7 @@ type TagDetailPayload = {
 };
 
 type AppMainContentProps = {
-  readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly view: AppView;
   readonly onViewChange?: (view: AppView) => void;
   readonly selectedWorkflowId: string;
   readonly onSelectWorkflowId: (workflowId: string) => void;
@@ -107,6 +108,7 @@ type AppMainContentProps = {
   readonly onGetEventPayloadRaw: (eventId: string) => Promise<string>;
   readonly onGetJobErrors: (payload: { moduleId?: string; page?: number; pageSize?: number }) => Promise<JobErrorSnapshot>;
   readonly onGetWorkflowVisualiser: (workflowId: string, runId?: string | null) => Promise<WorkflowVisualiserModel>;
+  readonly onGetWorkflowModuleRepository: () => Promise<WorkflowModuleRepositoryModel>;
   readonly onRerunMissingFolderAiMetadata: (runId: string) => Promise<{ runId: string | null; assetCount: number }>;
   readonly onGetAlbums: () => Promise<Album[]>;
   readonly onCreateAlbum: (title: string, description?: string) => Promise<{ albumId: string }>;
@@ -260,6 +262,21 @@ function GroupDiagnosticsContent(props: AppMainContentProps) {
   );
 }
 
+function ModuleMaintenanceContent(props: AppMainContentProps) {
+  if (props.view !== 'moduleMaintenance') {
+    return null;
+  }
+  return (
+    <ModuleMaintenanceWorkspace
+      onGetModuleRepository={props.onGetWorkflowModuleRepository}
+      onSelectWorkflow={(workflowId) => {
+        props.onSelectWorkflowId(workflowId);
+        props.onViewChange?.('workflows');
+      }}
+    />
+  );
+}
+
 export function AppMainContent(props: AppMainContentProps) {
   const activeFilter = props.filterStack.at(-1);
   const visibleLibraryAssets = useVisibleLibraryAssets(props.assets, props.ingestActive);
@@ -342,6 +359,7 @@ export function AppMainContent(props: AppMainContentProps) {
         />
       )}
 
+      <ModuleMaintenanceContent {...props} />
       <GroupDiagnosticsContent {...props} />
     </div>
   );
