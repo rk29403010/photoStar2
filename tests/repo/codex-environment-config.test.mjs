@@ -31,6 +31,10 @@ test('Codex action scripts retain the task-worktree handoff when terminal contex
     assert.doesNotMatch(debugScript, /npm\.cmd run thread:start-dev/);
     assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-runtime-url\.js/);
     assert.match(debugScript, /echo Debug URL: %RUNTIME_URL%/);
+    assert.match(debugScript, /TARGET_OUTPUT_FILE/);
+    assert.match(debugScript, /Failed to resolve a task worktree/);
+    assert.match(debugScript, /Target worktree: %TARGET_PATH%/);
+    assert.match(debugScript, /did not report a runtime URL/);
 
     assert.match(stopDebugScript, /CODEX_WORKTREE_PATH/);
     assert.match(stopDebugScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);

@@ -57,6 +57,34 @@ function readRecordedWorktree(cwd) {
     }
 }
 
+function readTaskWorktreeRecords(cwd) {
+    const registryPath = path.join(path.dirname(getMarkerPath(cwd)), 'codex-thread-state.json');
+    if (!existsSync(registryPath)) {
+        return [];
+    }
+
+    try {
+        const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+        return Array.isArray(registry.entries) ? registry.entries : [];
+    } catch {
+        return [];
+    }
+}
+
+export function isTaskWorktreeRecordStale({ targetPath, entries }) {
+    const entry = entries.find((candidate) => (
+        typeof candidate?.worktreePath === 'string'
+        && pathsMatch(candidate.worktreePath, targetPath)
+    ));
+    if (!entry) {
+        return false;
+    }
+
+    return entry.includedInMain === true
+        || entry.missing === true
+        || ['merged', 'discarded', 'parked'].includes(entry.status);
+}
+
 function isPrimaryWorktree(targetPath) {
     try {
         const mainWorktree = gitText(['worktree', 'list', '--porcelain'], targetPath)
@@ -75,12 +103,20 @@ export function resolveCodexActionWorktree({ cwd = process.cwd(), environment = 
     }
 
     const recordedWorktree = readRecordedWorktree(cwd);
-    if (isGitWorktree(recordedWorktree)) {
+    const recordedWorktreeIsStale = isGitWorktree(recordedWorktree) && isTaskWorktreeRecordStale({
+        targetPath: recordedWorktree,
+        entries: readTaskWorktreeRecords(cwd),
+    });
+    if (isGitWorktree(recordedWorktree) && !recordedWorktreeIsStale) {
         return normalizePath(recordedWorktree);
     }
 
     if (isGitWorktree(cwd) && !isPrimaryWorktree(cwd)) {
         return normalizePath(cwd);
+    }
+
+    if (recordedWorktreeIsStale) {
+        throw new Error('The recorded task worktree has already been merged or closed. Open the current task worktree, then retry Debug.');
     }
 
     throw new Error('No task worktree is available. Open this chat in its task worktree, then retry Debug.');
