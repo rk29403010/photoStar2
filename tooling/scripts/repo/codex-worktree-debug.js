@@ -18,7 +18,10 @@ export function runCodexDebugAction({
 
     const result = runCommand({
         command: process.execPath,
-        args: [path.join(__dirname, 'thread-dev-session.js'), '--script', 'dev:desktop-runtime:debug'],
+        // The action itself is launched from the primary checkout.  The runtime
+        // manager must come from the resolved task worktree, otherwise its
+        // module-relative workspace root silently starts the primary checkout.
+        args: [path.join(targetPath, 'tooling', 'scripts', 'repo', 'thread-dev-session.js'), '--script', 'dev:desktop-runtime:debug'],
         cwd: targetPath,
         stdio: 'inherit',
     });
