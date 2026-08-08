@@ -3,7 +3,7 @@ import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../../../data/db';
 import type { AssetUpdated } from '../../../../events/types';
-import { detectPeriodicTexture, type PeriodicTextureDetection } from '../../../../imageAnalysis/periodicTexture/detection.ts';
+import { detectPeriodicTextureInWorker, type PeriodicTextureDetection } from '../../../../imageAnalysis/periodicTexture/detection.ts';
 import { TagRepository } from '../../../../tags/tagRepository.ts';
 import type { ModuleDefinition } from '../../../contracts';
 
@@ -23,9 +23,10 @@ async function detectFromFile(path: string): Promise<PeriodicTextureDetection> {
         .rotate()
         .toColourspace('srgb')
         .ensureAlpha()
+        .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
         .raw()
         .toBuffer({ resolveWithObject: true });
-    return detectPeriodicTexture(
+    return detectPeriodicTextureInWorker(
         { data, width: info.width, height: info.height },
         { minPeriodPx: 6, maxPeriodPx: 80 },
     );

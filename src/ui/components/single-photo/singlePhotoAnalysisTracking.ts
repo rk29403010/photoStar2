@@ -49,6 +49,10 @@ export function getAnalysisWorkflowFailureMessage(detail: WorkflowRunDetailRespo
     return failedStep.errorMessage ?? `${formatNodeLabel(failedStep.nodeId)} failed.`;
 }
 
+export function isTransientWorkflowDetailError(error: unknown): boolean {
+    return error instanceof Error && error.message.includes('Timeout for get_workflow_run_detail');
+}
+
 export function isAnalysisWorkflowTerminal(detail: WorkflowRunDetailResponse | null | undefined): boolean {
     const status = detail?.summary?.status;
     return status === 'completed' || status === 'failed';
