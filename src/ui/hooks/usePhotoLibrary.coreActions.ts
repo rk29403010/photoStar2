@@ -112,21 +112,24 @@ function useDevActions(params: {
         command: 'get_workflow_visualiser',
         payload: runId === undefined ? { workflowId } : { workflowId, runId },
         timeoutMs: 10000,
-        select: (data) => data as unknown as WorkflowVisualiserModel,
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- command response is defined by the shared workflow visualiser contract.
+        select: (data) => data as WorkflowVisualiserModel,
     }), [request]);
 
     const getWorkflowModuleRepository = useCallback((): Promise<WorkflowModuleRepositoryModel> => request<WorkflowModuleRepositoryModel>({
         idPrefix: 'get_workflow_module_repository',
         command: 'get_workflow_module_repository',
         timeoutMs: 10000,
-        select: (data) => data as unknown as WorkflowModuleRepositoryModel,
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- command response is defined by the shared module repository contract.
+        select: (data) => data as WorkflowModuleRepositoryModel,
     }), [request]);
 
     const getDevRuntimeImpact = useCallback((): Promise<DevRuntimeImpact> => request<DevRuntimeImpact>({
         idPrefix: 'get_dev_runtime_impact',
         command: 'get_dev_runtime_impact',
         timeoutMs: 10000,
-        select: (data) => data as unknown as DevRuntimeImpact,
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- command response is defined by the shared dev runtime contract.
+        select: (data) => data as DevRuntimeImpact,
     }), [request]);
 
     return { getWorkflowVisualiser, getWorkflowModuleRepository, getDevRuntimeImpact };
