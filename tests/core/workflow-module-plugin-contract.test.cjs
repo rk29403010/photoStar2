@@ -8,6 +8,7 @@ const EXPECTED_WORKFLOW_MODULE_IDS = [
     'legacy.preview.generate',
     'runtime.detect_faces',
     'runtime.detect_frame',
+    'runtime.detect_print_texture',
     'runtime.detect_sensitive_content',
     'runtime.estimate_photo_date',
     'runtime.expand_selection',

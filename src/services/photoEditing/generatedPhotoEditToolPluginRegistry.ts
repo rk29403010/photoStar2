@@ -5,13 +5,14 @@ import plugin1 from './tools/plugins/blur/manifest.ts';
 import plugin2 from './tools/plugins/colour-pop/manifest.ts';
 import plugin3 from './tools/plugins/crop/manifest.ts';
 import plugin4 from './tools/plugins/dehaze/manifest.ts';
-import plugin5 from './tools/plugins/effects/manifest.ts';
-import plugin6 from './tools/plugins/focus/manifest.ts';
-import plugin7 from './tools/plugins/grayscale/manifest.ts';
-import plugin8 from './tools/plugins/red-eye/manifest.ts';
-import plugin9 from './tools/plugins/restore/manifest.ts';
-import plugin10 from './tools/plugins/rotate/manifest.ts';
-import plugin11 from './tools/plugins/sharpen/manifest.ts';
+import plugin5 from './tools/plugins/descreen/manifest.ts';
+import plugin6 from './tools/plugins/effects/manifest.ts';
+import plugin7 from './tools/plugins/focus/manifest.ts';
+import plugin8 from './tools/plugins/grayscale/manifest.ts';
+import plugin9 from './tools/plugins/red-eye/manifest.ts';
+import plugin10 from './tools/plugins/restore/manifest.ts';
+import plugin11 from './tools/plugins/rotate/manifest.ts';
+import plugin12 from './tools/plugins/sharpen/manifest.ts';
 
 export const generatedPhotoEditToolPlugins: readonly PhotoEditToolPlugin[] = [
     plugin0,
@@ -26,4 +27,5 @@ export const generatedPhotoEditToolPlugins: readonly PhotoEditToolPlugin[] = [
     plugin9,
     plugin10,
     plugin11,
+    plugin12,
 ];

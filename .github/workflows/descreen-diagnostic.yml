@@ -1,0 +1,42 @@
+name: descreen-diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      QA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      LINT_DIFF_BASE: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.3.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsecret-1-0
+      - run: pnpm install --frozen-lockfile
+      - name: Workflow registry
+        run: pnpm run module:check-registry
+      - name: Photo tool registry
+        run: pnpm run photo-tool:check-registry
+      - name: Extension architecture
+        run: node tooling/scripts/repo/extension-architecture-policy.mjs
+      - name: Oxlint changed
+        run: pnpm run lint:fast:changed
+      - name: Complexity changed
+        run: pnpm run complexity:changed
+      - name: Core typecheck
+        run: pnpm run typecheck:native:core
+      - name: App typecheck
+        run: pnpm run typecheck:native:app

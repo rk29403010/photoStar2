@@ -36,6 +36,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
                 nodeIds: [
                     'enrichment-each',
                     'extract-embedded-metadata',
+                    'detect-print-texture',
                     'estimate-photo-date-from-embedded',
                     'detect-faces',
                     'generate-face-vectors',
@@ -109,7 +110,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'enrichment-each',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content'],
+            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-print-texture'],
             presentation: {
                 label: 'Enrich each image',
                 countNoun: { singular: 'image', plural: 'images' },
@@ -124,6 +125,16 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
                 label: 'Extract embedded metadata',
                 countNoun: { singular: 'image', plural: 'images' },
                 artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
+            },
+        },
+        {
+            id: 'detect-print-texture',
+            kind: 'module',
+            moduleId: 'runtime.detect_print_texture',
+            presentation: {
+                label: 'Detect print texture',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'texture result', plural: 'texture results' },
             },
         },
         {

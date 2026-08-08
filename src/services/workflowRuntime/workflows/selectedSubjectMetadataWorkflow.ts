@@ -23,8 +23,8 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
             {
                 id: 'generation',
                 label: 'Generation',
-                description: 'Generate AI metadata and estimate photo dates.',
-                nodeIds: ['generate-ai-metadata', 'estimate-photo-date-from-ai'],
+                description: 'Generate AI metadata, detect print texture, and estimate photo dates.',
+                nodeIds: ['detect-print-texture', 'generate-ai-metadata', 'estimate-photo-date-from-ai'],
             },
         ],
     },
@@ -33,11 +33,21 @@ export const selectedSubjectMetadataWorkflowDefinition: WorkflowDefinition = {
             id: 'expand-selection',
             kind: 'module',
             moduleId: 'runtime.expand_selection',
-            outputsTo: ['generate-ai-metadata'],
+            outputsTo: ['detect-print-texture', 'generate-ai-metadata'],
             presentation: {
                 label: 'Expand selection',
                 countNoun: { singular: 'selection', plural: 'selections' },
                 artifactNoun: { singular: 'image', plural: 'images' },
+            },
+        },
+        {
+            id: 'detect-print-texture',
+            kind: 'module',
+            moduleId: 'runtime.detect_print_texture',
+            presentation: {
+                label: 'Detect print texture',
+                countNoun: { singular: 'image', plural: 'images' },
+                artifactNoun: { singular: 'texture result', plural: 'texture results' },
             },
         },
         {
