@@ -9,7 +9,7 @@ import type { StatusBanner } from '@ui/components/app/statusBannerModel';
 import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel';
 import { usePersistedState } from './usePersistedState';
 
-export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics';
 export type InfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
 

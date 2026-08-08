@@ -113,11 +113,41 @@ export type WorkflowVisualiserDetail = {
     failedSubjects: WorkflowVisualiserFailedSubject[];
     moduleId?: string;
     controlType?: string;
+    settings?: WorkflowVisualiserSetting[];
+}
+
+export type WorkflowVisualiserSetting = {
+    id: string;
+    value: unknown;
 }
 
 export type WorkflowVisualiserWorkflowSummary = {
     workflowId: string;
     displayName: string;
+}
+
+export type WorkflowModuleRepositoryOutput = {
+    kind: 'artifact';
+    artifactType: string;
+    subjectType: string;
+}
+
+export type WorkflowModuleRepositoryModule = {
+    id: string;
+    contractVersion: number;
+    displayName: string;
+    description: string;
+    inputs: string[];
+    outputs: WorkflowModuleRepositoryOutput[];
+    capabilities: string[];
+    milestones: Array<{ id: string; label: string }>;
+    errorKinds: string[];
+    fixtures: string[];
+    workflows: WorkflowVisualiserWorkflowSummary[];
+}
+
+export type WorkflowModuleRepositoryModel = {
+    modules: WorkflowModuleRepositoryModule[];
 }
 
 export type WorkflowVisualiserModel = {

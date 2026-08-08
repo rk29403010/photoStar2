@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('app runtime ui exposes a vocabulary view', () => {
+test('app runtime ui exposes vocabulary and module maintenance views', () => {
     const runtimeUiSource = readFileSync(new URL('../../src/ui/hooks/useAppRuntimeUi.ts', import.meta.url), 'utf8');
-    assert.match(runtimeUiSource, /export type AppView = 'library' \| 'people' \| 'familyTree' \| 'dashboard' \| 'albums' \| 'reviews' \| 'vocabulary' \| 'workflows' \| 'groupDiagnostics';/);
+    assert.match(runtimeUiSource, /export type AppView = 'library' \| 'people' \| 'familyTree' \| 'dashboard' \| 'albums' \| 'reviews' \| 'vocabulary' \| 'workflows' \| 'moduleMaintenance' \| 'groupDiagnostics';/);
 });
 
 test('Actions menu includes navigation for the vocabulary view', () => {
@@ -13,6 +13,7 @@ test('Actions menu includes navigation for the vocabulary view', () => {
 
     assert.doesNotMatch(topBarSource, /<ViewButton view="vocabulary" current=\{view\} setView=\{setView\} \/>/);
     assert.match(actionPanelSource, /\{ label: 'Vocabulary', onClick: navigateTo\('vocabulary'\) \}/);
+    assert.match(actionPanelSource, /\{ label: 'Module Maintenance', onClick: navigateTo\('moduleMaintenance'\) \}/);
 });
 
 test('app main content renders the vocabulary view and shell passes the required actions', () => {
@@ -26,4 +27,6 @@ test('app main content renders the vocabulary view and shell passes the required
     assert.match(shellSource, /onCreateTagAlias=\{actions\.createTagAlias\}/);
     assert.match(shellSource, /onDeleteTagAlias=\{actions\.deleteTagAlias\}/);
     assert.match(shellSource, /onMergeTagDefinitions=\{actions\.mergeTagDefinitions\}/);
+    assert.match(appMainContentSource, /ModuleMaintenanceWorkspace/);
+    assert.match(shellSource, /onGetWorkflowModuleRepository=\{actions\.getWorkflowModuleRepository\}/);
 });

@@ -333,6 +333,7 @@ function buildMenuEntries(
             label: 'Workflows',
             items: [
                 { label: 'Workflow Management', onClick: navigateTo('workflows') },
+                { label: 'Module Maintenance', onClick: navigateTo('moduleMaintenance') },
                 { label: 'Generate Library Previews', onClick: closeThen(props.onPreviews) },
                 { label: 'Run Face Workflow', onClick: closeThen(props.onDetect) },
                 { label: 'Run Grouping Workflow', onClick: closeThen(props.onCluster) },

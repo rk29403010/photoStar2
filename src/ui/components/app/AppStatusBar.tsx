@@ -7,7 +7,7 @@ type AppStatusBarProps = {
   readonly statusBanner: StatusBanner | null;
   readonly activityMessage?: string | null;
   readonly status: string;
-  readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+  readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics';
   readonly librarySelectionCount: number;
   readonly shownAssetsCount: number;
   readonly peopleSelectionCount: number;

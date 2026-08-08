@@ -13,8 +13,10 @@ import type {
     WorkflowVisualiserStatus,
     WorkflowVisualiserWorkflowSummary,
     WorkflowVisualiserTextSection,
+    WorkflowModuleRepositoryModel,
+    WorkflowModuleRepositoryModule,
 } from '@contracts/workflowVisualiser';
-import type { WorkflowDefinition, ModuleDefinition } from '../workflowRuntime/contracts';
+import type { WorkflowDefinition, ModuleDefinition, WorkflowModulePluginManifest } from '../workflowRuntime/contracts';
 import type { WorkflowFailedSubject, WorkflowRunDetail } from '../workflowRuntime/executionStore';
 import { getWorkflowRunsSnapshot } from './systemWorkflowRunSnapshot';
 
@@ -321,8 +323,16 @@ function buildDetails(
     graphNodes: WorkflowVisualiserGraphNode[],
     progressionStages: WorkflowVisualiserProgressionStage[],
     runDetail: WorkflowRunDetail | null,
+    workflowDefinition: WorkflowDefinition,
 ): WorkflowVisualiserDetail[] {
     const nodeDetails = graphNodes.map((node) => ({
+        ...(() => {
+            const sourceNode = workflowDefinition.nodes.find((candidate) => candidate.id === node.id);
+            const settings = sourceNode?.kind === 'module'
+                ? Object.entries(sourceNode.parameters ?? {}).map(([id, value]) => ({ id, value }))
+                : undefined;
+            return settings && settings.length > 0 ? { settings } : {};
+        })(),
         id: node.id,
         label: node.label,
         description: node.kind === 'module'
@@ -462,7 +472,39 @@ export function buildWorkflowVisualiserModel(params: BuildWorkflowVisualiserPara
             graph,
             text: buildText(params.workflowDefinition, params.runDetail),
         },
-        details: buildDetails(graph.nodes, progression.stages, params.runDetail),
+        details: buildDetails(graph.nodes, progression.stages, params.runDetail, params.workflowDefinition),
+    };
+}
+
+function buildModuleRepositoryModule(
+    manifest: WorkflowModulePluginManifest,
+    workflows: WorkflowDefinition[],
+): WorkflowModuleRepositoryModule {
+    return {
+        id: manifest.id,
+        contractVersion: manifest.contractVersion,
+        displayName: manifest.displayName,
+        description: manifest.description,
+        inputs: manifest.inputs,
+        outputs: manifest.outputs,
+        capabilities: manifest.capabilities,
+        milestones: manifest.milestones ?? [],
+        errorKinds: manifest.errorKinds ?? [],
+        fixtures: manifest.fixtures ?? [],
+        workflows: workflows
+            .filter((workflow) => workflow.nodes.some((node) => node.kind === 'module' && node.moduleId === manifest.id))
+            .map(buildWorkflowVisualiserWorkflowSummary),
+    };
+}
+
+export function buildWorkflowModuleRepositoryModel(params: {
+    pluginManifests: WorkflowModulePluginManifest[];
+    workflows: WorkflowDefinition[];
+}): WorkflowModuleRepositoryModel {
+    return {
+        modules: params.pluginManifests
+            .map((manifest) => buildModuleRepositoryModule(manifest, params.workflows))
+            .sort((left, right) => left.displayName.localeCompare(right.displayName)),
     };
 }
 
