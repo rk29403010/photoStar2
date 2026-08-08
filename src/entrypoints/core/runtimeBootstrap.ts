@@ -1,4 +1,5 @@
 import type { EventBus } from '../../services/events/bus';
+import { assetIngestWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetIngestWorkflow';
 import { assetPreviewWorkflowDefinition } from '../../services/workflowRuntime/workflows/assetPreviewWorkflow';
 import { libraryAiMetadataWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryAiMetadataWorkflow';
 import { libraryFaceWorkflowDefinition } from '../../services/workflowRuntime/workflows/libraryFaceWorkflow';
@@ -96,6 +97,7 @@ function registerModules(modules: ModuleRegistry, dbManager: DatabaseManager, ev
 
 function registerWorkflows(workflows: WorkflowRegistry) {
     workflows.register(folderIngestWorkflowDefinition);
+    workflows.register(assetIngestWorkflowDefinition);
     workflows.register(simulationWorkflowDefinition);
     workflows.register(libraryGroupingWorkflowDefinition);
     workflows.register(assetPreviewWorkflowDefinition);
