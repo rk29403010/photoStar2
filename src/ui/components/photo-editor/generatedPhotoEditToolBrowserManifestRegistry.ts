@@ -26,60 +26,234 @@ export const generatedPhotoEditToolBrowserManifests: readonly PhotoEditToolBrows
             "vibrance": 0
         },
         "controls": [
-            { "key": "brightness", "label": "Brightness", "min": -100, "max": 100, "step": 1 },
-            { "key": "contrast", "label": "Contrast", "min": -100, "max": 100, "step": 1 },
-            { "key": "shadows", "label": "Shadows", "min": -100, "max": 100, "step": 1 },
-            { "key": "midtones", "label": "Midtones", "min": -100, "max": 100, "step": 1 },
-            { "key": "highlights", "label": "Highlights", "min": -100, "max": 100, "step": 1 },
-            { "key": "blackPoint", "label": "Black point", "min": -100, "max": 100, "step": 1 },
-            { "key": "whitePoint", "label": "White point", "min": -100, "max": 100, "step": 1 },
-            { "key": "temperature", "label": "Temperature", "min": -100, "max": 100, "step": 1 },
-            { "key": "tint", "label": "Tint", "min": -100, "max": 100, "step": 1 },
-            { "key": "vibrance", "label": "Vibrance", "min": -100, "max": 100, "step": 1 },
-            { "key": "saturation", "label": "Saturation", "min": -100, "max": 100, "step": 1 },
-            { "key": "hue", "label": "Hue", "min": -180, "max": 180, "step": 1 }
+            {
+                "key": "brightness",
+                "label": "Brightness",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "contrast",
+                "label": "Contrast",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "shadows",
+                "label": "Shadows",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "midtones",
+                "label": "Midtones",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "highlights",
+                "label": "Highlights",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "blackPoint",
+                "label": "Black point",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "whitePoint",
+                "label": "White point",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "temperature",
+                "label": "Temperature",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "tint",
+                "label": "Tint",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "vibrance",
+                "label": "Vibrance",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "saturation",
+                "label": "Saturation",
+                "min": -100,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "hue",
+                "label": "Hue",
+                "min": -180,
+                "max": 180,
+                "step": 1
+            }
         ],
-        "capabilities": { "maskCompatible": true },
-        "help": { "description": "Tunes tone and colour.", "accessibilityLabel": "Add tune image" },
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Tunes tone and colour.",
+            "accessibilityLabel": "Add tune image"
+        },
         "errorBoundaryDisplayName": "Tune image"
     },
     {
-        "id": "blur", "recipeVersion": 1, "label": "Blur", "icon": "Blend", "group": "filter",
-        "defaults": { "sigma": 2 },
-        "controls": [{ "key": "sigma", "label": "Strength", "min": 0.3, "max": 30, "step": 0.1 }],
-        "capabilities": { "maskCompatible": true },
-        "help": { "description": "Softens detail.", "accessibilityLabel": "Add blur" },
+        "id": "blur",
+        "recipeVersion": 1,
+        "label": "Blur",
+        "icon": "Blend",
+        "group": "filter",
+        "defaults": {
+            "sigma": 2
+        },
+        "controls": [
+            {
+                "key": "sigma",
+                "label": "Strength",
+                "min": 0.3,
+                "max": 30,
+                "step": 0.1
+            }
+        ],
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Softens detail.",
+            "accessibilityLabel": "Add blur"
+        },
         "errorBoundaryDisplayName": "Blur"
     },
     {
-        "id": "colour_pop", "recipeVersion": 1, "label": "Colour pop", "icon": "Palette", "group": "effects",
-        "defaults": { "colourCount": 0, "colourRange": 28, "softness": 0.35 }, "controls": [],
-        "capabilities": { "maskCompatible": true, "requiresSourceImage": true },
-        "help": { "description": "Retains selected colours.", "accessibilityLabel": "Add colour pop" },
+        "id": "colour_pop",
+        "recipeVersion": 1,
+        "label": "Colour pop",
+        "icon": "Palette",
+        "group": "effects",
+        "defaults": {
+            "colourCount": 0,
+            "colourRange": 28,
+            "softness": 0.35
+        },
+        "controls": [],
+        "capabilities": {
+            "maskCompatible": true,
+            "requiresSourceImage": true
+        },
+        "help": {
+            "description": "Retains selected colours.",
+            "accessibilityLabel": "Add colour pop"
+        },
         "errorBoundaryDisplayName": "Colour pop"
     },
     {
-        "id": "crop", "recipeVersion": 1, "label": "Crop", "icon": "Crop", "group": "geometry",
-        "defaults": { "x": 0, "y": 0, "width": 1, "height": 1 },
+        "id": "crop",
+        "recipeVersion": 1,
+        "label": "Crop",
+        "icon": "Crop",
+        "group": "geometry",
+        "defaults": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+        },
         "controls": [
-            { "key": "x", "label": "Left", "min": 0, "max": 0.95, "step": 0.01 },
-            { "key": "y", "label": "Top", "min": 0, "max": 0.95, "step": 0.01 },
-            { "key": "width", "label": "Width", "min": 0.05, "max": 1, "step": 0.01 },
-            { "key": "height", "label": "Height", "min": 0.05, "max": 1, "step": 0.01 }
+            {
+                "key": "x",
+                "label": "Left",
+                "min": 0,
+                "max": 0.95,
+                "step": 0.01
+            },
+            {
+                "key": "y",
+                "label": "Top",
+                "min": 0,
+                "max": 0.95,
+                "step": 0.01
+            },
+            {
+                "key": "width",
+                "label": "Width",
+                "min": 0.05,
+                "max": 1,
+                "step": 0.01
+            },
+            {
+                "key": "height",
+                "label": "Height",
+                "min": 0.05,
+                "max": 1,
+                "step": 0.01
+            }
         ],
-        "capabilities": { "geometryChanges": true, "maskCompatible": false },
-        "help": { "description": "Changes image framing.", "accessibilityLabel": "Add crop" },
+        "capabilities": {
+            "geometryChanges": true,
+            "maskCompatible": false
+        },
+        "help": {
+            "description": "Changes image framing.",
+            "accessibilityLabel": "Add crop"
+        },
         "errorBoundaryDisplayName": "Crop"
     },
     {
-        "id": "dehaze", "recipeVersion": 1, "label": "Dehaze", "icon": "CloudSun", "group": "tone",
-        "defaults": { "strength": 0.45, "radiusPercent": 1.5 },
+        "id": "dehaze",
+        "recipeVersion": 1,
+        "label": "Dehaze",
+        "icon": "CloudSun",
+        "group": "tone",
+        "defaults": {
+            "strength": 0.45,
+            "radiusPercent": 1.5
+        },
         "controls": [
-            { "key": "strength", "label": "Fog removal", "min": 0, "max": 1, "step": 0.01 },
-            { "key": "radiusPercent", "label": "Detail radius", "min": 0.5, "max": 3, "step": 0.25 }
+            {
+                "key": "strength",
+                "label": "Fog removal",
+                "min": 0,
+                "max": 1,
+                "step": 0.01
+            },
+            {
+                "key": "radiusPercent",
+                "label": "Detail radius",
+                "min": 0.5,
+                "max": 3,
+                "step": 0.25
+            }
         ],
-        "capabilities": { "maskCompatible": true },
-        "help": { "description": "Recovers contrast through haze.", "accessibilityLabel": "Add dehaze" },
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Recovers contrast through haze.",
+            "accessibilityLabel": "Add dehaze"
+        },
         "errorBoundaryDisplayName": "Dehaze"
     },
     {
@@ -97,12 +271,39 @@ export const generatedPhotoEditToolBrowserManifests: readonly PhotoEditToolBrows
             "force": false
         },
         "controls": [
-            { "key": "strength", "label": "Texture removal", "min": 0, "max": 1, "step": 0.01 },
-            { "key": "minPeriodPx", "label": "Smallest pattern", "min": 2, "max": 40, "step": 1 },
-            { "key": "maxPeriodPx", "label": "Largest pattern", "min": 10, "max": 160, "step": 1 },
-            { "key": "sharpenAmount", "label": "Detail recovery", "min": 0, "max": 0.8, "step": 0.05 }
+            {
+                "key": "strength",
+                "label": "Texture removal",
+                "min": 0,
+                "max": 1,
+                "step": 0.01
+            },
+            {
+                "key": "minPeriodPx",
+                "label": "Smallest pattern",
+                "min": 2,
+                "max": 40,
+                "step": 1
+            },
+            {
+                "key": "maxPeriodPx",
+                "label": "Largest pattern",
+                "min": 10,
+                "max": 160,
+                "step": 1
+            },
+            {
+                "key": "sharpenAmount",
+                "label": "Detail recovery",
+                "min": 0,
+                "max": 0.8,
+                "step": 0.05
+            }
         ],
-        "capabilities": { "maskCompatible": true, "requiresSourceImage": true },
+        "capabilities": {
+            "maskCompatible": true,
+            "requiresSourceImage": true
+        },
         "help": {
             "description": "Detects and removes regular print-screen or photographic-paper texture using Fourier notch filtering.",
             "accessibilityLabel": "Remove regular print texture"
@@ -110,59 +311,210 @@ export const generatedPhotoEditToolBrowserManifests: readonly PhotoEditToolBrows
         "errorBoundaryDisplayName": "Descreen print texture"
     },
     {
-        "id": "effects", "recipeVersion": 1, "label": "Effects", "icon": "Sparkles", "group": "effects",
-        "defaults": { "effectType": 0, "centerX": 0.5, "centerY": 0.5, "size": 0.45, "intensity": 0.55, "wavelength": 0.08, "softness": 0.65 },
-        "controls": [], "capabilities": { "maskCompatible": true },
-        "help": { "description": "Adds deterministic visual effects.", "accessibilityLabel": "Add effects" },
+        "id": "effects",
+        "recipeVersion": 1,
+        "label": "Effects",
+        "icon": "Sparkles",
+        "group": "effects",
+        "defaults": {
+            "effectType": 0,
+            "centerX": 0.5,
+            "centerY": 0.5,
+            "size": 0.45,
+            "intensity": 0.55,
+            "wavelength": 0.08,
+            "softness": 0.65
+        },
+        "controls": [],
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Adds deterministic visual effects.",
+            "accessibilityLabel": "Add effects"
+        },
         "errorBoundaryDisplayName": "Effects"
     },
     {
-        "id": "focus", "recipeVersion": 1, "label": "Focus", "icon": "Aperture", "group": "effects",
-        "defaults": { "shape": 0, "style": 0, "pointCount": 1, "pointX0": 0.5, "pointY0": 0.45, "selectedPoint": 0, "size": 0.2, "falloff": 0.18, "angle": 0, "strength": 0.55, "inverted": false },
-        "controls": [], "capabilities": { "maskCompatible": true },
-        "help": { "description": "Creates focal blur zones.", "accessibilityLabel": "Add focus" },
+        "id": "focus",
+        "recipeVersion": 1,
+        "label": "Focus",
+        "icon": "Aperture",
+        "group": "effects",
+        "defaults": {
+            "shape": 0,
+            "style": 0,
+            "pointCount": 1,
+            "pointX0": 0.5,
+            "pointY0": 0.45,
+            "selectedPoint": 0,
+            "size": 0.2,
+            "falloff": 0.18,
+            "angle": 0,
+            "strength": 0.55,
+            "inverted": false
+        },
+        "controls": [],
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Creates focal blur zones.",
+            "accessibilityLabel": "Add focus"
+        },
         "errorBoundaryDisplayName": "Focus"
     },
     {
-        "id": "grayscale", "recipeVersion": 1, "label": "Black & white", "icon": "Contrast", "group": "colour",
-        "defaults": {}, "controls": [], "capabilities": { "maskCompatible": true },
-        "help": { "description": "Converts the image to black and white.", "accessibilityLabel": "Add black and white" },
+        "id": "grayscale",
+        "recipeVersion": 1,
+        "label": "Black & white",
+        "icon": "Contrast",
+        "group": "colour",
+        "defaults": {},
+        "controls": [],
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Converts the image to black and white.",
+            "accessibilityLabel": "Add black and white"
+        },
         "errorBoundaryDisplayName": "Black & white"
     },
     {
-        "id": "red_eye", "recipeVersion": 1, "label": "Red eye", "icon": "ScanEye", "group": "restore",
-        "defaults": { "mode": 0, "pointCount": 0, "strength": 1 }, "controls": [],
-        "capabilities": { "maskCompatible": true, "requiresSourceImage": true, "requiresAssetMetadata": true },
-        "help": { "description": "Corrects detected eye reflections.", "accessibilityLabel": "Add red eye correction" },
+        "id": "red_eye",
+        "recipeVersion": 1,
+        "label": "Red eye",
+        "icon": "ScanEye",
+        "group": "restore",
+        "defaults": {
+            "mode": 0,
+            "pointCount": 0,
+            "strength": 1
+        },
+        "controls": [],
+        "capabilities": {
+            "maskCompatible": true,
+            "requiresSourceImage": true,
+            "requiresAssetMetadata": true
+        },
+        "help": {
+            "description": "Corrects detected eye reflections.",
+            "accessibilityLabel": "Add red eye correction"
+        },
         "errorBoundaryDisplayName": "Red eye"
     },
     {
-        "id": "restore", "recipeVersion": 1, "label": "Restore old photo", "icon": "ImageUp", "group": "restore",
-        "defaults": { "fadeRecovery": 1.08, "contrast": 0.12, "saturation": 1.08, "denoise": 1, "detail": 0.8 },
+        "id": "restore",
+        "recipeVersion": 1,
+        "label": "Restore old photo",
+        "icon": "ImageUp",
+        "group": "restore",
+        "defaults": {
+            "fadeRecovery": 1.08,
+            "contrast": 0.12,
+            "saturation": 1.08,
+            "denoise": 1,
+            "detail": 0.8
+        },
         "controls": [
-            { "key": "fadeRecovery", "label": "Fade recovery", "min": 0.5, "max": 2, "step": 0.01 },
-            { "key": "contrast", "label": "Contrast", "min": -0.5, "max": 1, "step": 0.01 },
-            { "key": "saturation", "label": "Colour recovery", "min": 0, "max": 2, "step": 0.01 },
-            { "key": "denoise", "label": "Dust reduction", "min": 1, "max": 5, "step": 2 },
-            { "key": "detail", "label": "Detail recovery", "min": 0.1, "max": 5, "step": 0.1 }
+            {
+                "key": "fadeRecovery",
+                "label": "Fade recovery",
+                "min": 0.5,
+                "max": 2,
+                "step": 0.01
+            },
+            {
+                "key": "contrast",
+                "label": "Contrast",
+                "min": -0.5,
+                "max": 1,
+                "step": 0.01
+            },
+            {
+                "key": "saturation",
+                "label": "Colour recovery",
+                "min": 0,
+                "max": 2,
+                "step": 0.01
+            },
+            {
+                "key": "denoise",
+                "label": "Dust reduction",
+                "min": 1,
+                "max": 5,
+                "step": 2
+            },
+            {
+                "key": "detail",
+                "label": "Detail recovery",
+                "min": 0.1,
+                "max": 5,
+                "step": 0.1
+            }
         ],
-        "capabilities": { "maskCompatible": true, "requiresSourceImage": true },
-        "help": { "description": "Recovers aged images.", "accessibilityLabel": "Add restoration" },
+        "capabilities": {
+            "maskCompatible": true,
+            "requiresSourceImage": true
+        },
+        "help": {
+            "description": "Recovers aged images.",
+            "accessibilityLabel": "Add restoration"
+        },
         "errorBoundaryDisplayName": "Restore old photo"
     },
     {
-        "id": "rotate", "recipeVersion": 1, "label": "Rotate", "icon": "RotateCw", "group": "geometry",
-        "defaults": { "angle": 0, "pivotX": 0.5, "pivotY": 0.5, "expandCanvas": true, "fillMode": 0, "flipHorizontal": false, "flipVertical": false },
-        "controls": [], "capabilities": { "geometryChanges": true, "maskCompatible": false },
-        "help": { "description": "Rotates and flips the image.", "accessibilityLabel": "Add rotation" },
+        "id": "rotate",
+        "recipeVersion": 1,
+        "label": "Rotate",
+        "icon": "RotateCw",
+        "group": "geometry",
+        "defaults": {
+            "angle": 0,
+            "pivotX": 0.5,
+            "pivotY": 0.5,
+            "expandCanvas": true,
+            "fillMode": 0,
+            "flipHorizontal": false,
+            "flipVertical": false
+        },
+        "controls": [],
+        "capabilities": {
+            "geometryChanges": true,
+            "maskCompatible": false
+        },
+        "help": {
+            "description": "Rotates and flips the image.",
+            "accessibilityLabel": "Add rotation"
+        },
         "errorBoundaryDisplayName": "Rotate"
     },
     {
-        "id": "sharpen", "recipeVersion": 1, "label": "Details", "icon": "Focus", "group": "filter",
-        "defaults": { "sigma": 1 },
-        "controls": [{ "key": "sigma", "label": "Strength", "min": 0.1, "max": 5, "step": 0.1 }],
-        "capabilities": { "maskCompatible": true },
-        "help": { "description": "Enhances local detail.", "accessibilityLabel": "Add detail enhancement" },
+        "id": "sharpen",
+        "recipeVersion": 1,
+        "label": "Details",
+        "icon": "Focus",
+        "group": "filter",
+        "defaults": {
+            "sigma": 1
+        },
+        "controls": [
+            {
+                "key": "sigma",
+                "label": "Strength",
+                "min": 0.1,
+                "max": 5,
+                "step": 0.1
+            }
+        ],
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Enhances local detail.",
+            "accessibilityLabel": "Add detail enhancement"
+        },
         "errorBoundaryDisplayName": "Details"
     }
 ]
