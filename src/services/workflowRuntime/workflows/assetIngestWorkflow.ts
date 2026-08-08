@@ -27,8 +27,8 @@ export const assetIngestWorkflowDefinition: WorkflowDefinition = {
                 label: 'Enrichment',
                 description: 'Run the same downstream analysis and metadata branches as folder ingest.',
                 nodeIds: [
-                    'extract-embedded-metadata', 'detect-print-texture', 'detect-frame-deep',
-                    'segment-objects-quick', 'estimate-photo-date-from-embedded', 'detect-faces',
+                    'extract-embedded-metadata', 'detect-print-texture', 'estimate-photo-date-from-embedded',
+                    'detect-faces',
                     'generate-face-vectors', 'resolve-people', 'group-similar-photos',
                     'detect-sensitive-content', 'generate-ai-metadata', 'estimate-photo-date-from-ai',
                 ],
@@ -43,7 +43,7 @@ export const assetIngestWorkflowDefinition: WorkflowDefinition = {
         },
         {
             id: 'generate-previews', kind: 'module', moduleId: 'runtime.generate_previews',
-            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'group-similar-photos', 'detect-sensitive-content', 'detect-frame-deep', 'segment-objects-quick', 'detect-print-texture'],
+            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'group-similar-photos', 'detect-sensitive-content', 'detect-print-texture'],
             completesMilestones: ['library_ready'],
             presentation: { label: 'Generate previews', countNoun: { singular: 'image', plural: 'images' }, artifactNoun: { singular: 'preview', plural: 'previews' } },
         },
@@ -59,16 +59,6 @@ export const assetIngestWorkflowDefinition: WorkflowDefinition = {
         {
             id: 'estimate-photo-date-from-embedded', kind: 'module', moduleId: 'runtime.estimate_photo_date',
             presentation: { label: 'Estimate photo date from embedded metadata', countNoun: { singular: 'image', plural: 'images' } },
-        },
-        {
-            id: 'detect-frame-deep', kind: 'module', moduleId: 'runtime.detect_frame',
-            parameters: { mode: 'deep', provider: 'auto', onlyWhenNeeded: true }, outputsTo: ['generate-ai-metadata'],
-            presentation: { label: 'Deeper frame segmentation', countNoun: { singular: 'image', plural: 'images' } },
-        },
-        {
-            id: 'segment-objects-quick', kind: 'module', moduleId: 'runtime.segment_objects',
-            parameters: { provider: 'fastsam', profile: 'quick', maxResults: 6 },
-            presentation: { label: 'Find objects', countNoun: { singular: 'image', plural: 'images' } },
         },
         {
             id: 'detect-faces', kind: 'module', moduleId: 'runtime.detect_faces', outputsTo: ['generate-face-vectors'],

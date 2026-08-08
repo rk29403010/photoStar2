@@ -130,6 +130,7 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     const generateFaceVectors = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-face-vectors');
     const collectSimilar = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'collect-similar');
     const detectSensitiveContent = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-sensitive-content');
+    const detectPrintTexture = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-print-texture');
     const quickFrame = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'detect-frame-fast');
     const generateAiMetadata = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'generate-ai-metadata');
     const estimateFromEmbedded = folderIngestWorkflowDefinition.nodes.find((node) => node.id === 'estimate-photo-date-from-embedded');
@@ -148,12 +149,14 @@ test('folder ingest workflow gates enrichment behind preview batch completion', 
     assert.ok(enrichmentFanout);
     assert.equal(enrichmentFanout.kind, 'control');
     assert.equal(enrichmentFanout.controlType, 'for_each');
-    assert.deepEqual(enrichmentFanout.outputsTo, ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content']);
+    assert.deepEqual(enrichmentFanout.outputsTo, ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-print-texture']);
     assert.deepEqual(quickFrame.parameters, { mode: 'quick' });
     assert.ok(detectFaces);
     assert.deepEqual(generateFaceVectors.outputsTo, ['collect-people']);
     assert.deepEqual(collectSimilar.outputsTo, ['group-similar-photos']);
     assert.deepEqual(detectSensitiveContent.outputsTo, ['generate-ai-metadata']);
+    assert.ok(detectPrintTexture);
+    assert.equal(detectPrintTexture.moduleId, 'runtime.detect_print_texture');
     assert.ok(generateAiMetadata);
     assert.deepEqual(generateAiMetadata.outputsTo, ['estimate-photo-date-from-ai']);
     assert.ok(estimateFromEmbedded);

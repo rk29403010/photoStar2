@@ -51,6 +51,7 @@ async function createFolderIngestHarness(tempDir) {
     const { createGenerateAiMetadataScoutPluginModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
     const { createGenerateAiMetadataRefinePluginModule: createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-refine/plugin.js');
     const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
+    const { detectPrintTexturePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-print-texture/plugin.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
@@ -97,6 +98,7 @@ async function createFolderIngestHarness(tempDir) {
     modules.register(createGenerateAiMetadataScoutPluginModule({ dbManager }));
     modules.register(createGenerateAiMetadataModule({ dbManager }));
     modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
+    modules.registerPlugin(detectPrintTexturePlugin, { dbManager });
     workflows.register(folderIngestWorkflowDefinition);
 
     return {

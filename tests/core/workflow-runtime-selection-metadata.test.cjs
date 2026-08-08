@@ -41,6 +41,7 @@ async function createHarness(tempDir, options = {}) {
     const { expandSelectionPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/expand-selection/plugin.js');
     const { createGenerateAiMetadataScoutPluginModule: createGenerateAiMetadataScoutModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
     const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
+    const { detectPrintTexturePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-print-texture/plugin.js');
     const { selectedSubjectMetadataWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
@@ -87,6 +88,7 @@ async function createHarness(tempDir, options = {}) {
         aiRuntime: options.aiRuntime,
     }));
     modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
+    modules.registerPlugin(detectPrintTexturePlugin, { dbManager });
     workflows.register(selectedSubjectMetadataWorkflowDefinition);
 
     const orchestrator = new runtime.WorkflowRuntimeOrchestrator({
