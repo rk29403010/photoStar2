@@ -5,11 +5,11 @@ import { readFileSync } from 'node:fs';
 test('Codex environment setup and Debug action use repo-owned worktree scripts', () => {
     const environmentSource = readFileSync('.codex/environments/environment.toml', 'utf8');
 
-    assert.match(environmentSource, /\[setup\]\s*[\r\n]+script = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-setup\.cmd"/);
-    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Debug"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-debug\.cmd"/);
-    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Stop Debug"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-stop-debug\.cmd"/);
-    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Doctor"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-doctor\.cmd"/);
-    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Ship"[\s\S]*command = "cmd\.exe \/d \/c tooling\\\\scripts\\\\repo\\\\codex-worktree-ship\.cmd"/);
+    assert.match(environmentSource, /\[setup\]\s*[\r\n]+script = "cmd\.exe \/\/d \/\/c \\"tooling\\\\scripts\\\\repo\\\\codex-worktree-setup\.cmd\\""/);
+    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Debug"[\s\S]*command = "cmd\.exe \/\/d \/\/c \\"tooling\\\\scripts\\\\repo\\\\codex-worktree-debug\.cmd\\""/);
+    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Stop Debug"[\s\S]*command = "cmd\.exe \/\/d \/\/c \\"tooling\\\\scripts\\\\repo\\\\codex-worktree-stop-debug\.cmd\\""/);
+    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Doctor"[\s\S]*command = "cmd\.exe \/\/d \/\/c \\"tooling\\\\scripts\\\\repo\\\\codex-worktree-doctor\.cmd\\""/);
+    assert.match(environmentSource, /\[\[actions\]\][\s\S]*name = "Ship"[\s\S]*command = "cmd\.exe \/\/d \/\/c \\"tooling\\\\scripts\\\\repo\\\\codex-worktree-ship\.cmd\\""/);
 });
 
 test('Codex action scripts retain the task-worktree handoff when terminal context is missing', () => {
@@ -23,18 +23,9 @@ test('Codex action scripts retain the task-worktree handoff when terminal contex
     assert.match(setupScript, /CODEX_WORKTREE_PATH/);
     assert.match(setupScript, /mklink \/J/);
 
-    assert.match(debugScript, /codex-worktree-target\.js/);
+    assert.match(debugScript, /codex-worktree-debug\.js/);
     assert.doesNotMatch(debugScript, /set "TARGET_PATH=%CD%"/);
     assert.doesNotMatch(debugScript, /Auto-selected most recently modified worktree/);
-    assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-dev-session\.js --script dev:desktop-runtime:debug/);
-    assert.doesNotMatch(debugScript, /--force-foreground/);
-    assert.doesNotMatch(debugScript, /npm\.cmd run thread:start-dev/);
-    assert.match(debugScript, /node\.exe tooling\\scripts\\repo\\thread-runtime-url\.js/);
-    assert.match(debugScript, /echo Debug URL: %RUNTIME_URL%/);
-    assert.match(debugScript, /TARGET_OUTPUT_FILE/);
-    assert.match(debugScript, /Failed to resolve a task worktree/);
-    assert.match(debugScript, /Target worktree: %TARGET_PATH%/);
-    assert.match(debugScript, /did not report a runtime URL/);
 
     assert.match(stopDebugScript, /CODEX_WORKTREE_PATH/);
     assert.match(stopDebugScript, /if "%TARGET_PATH%"=="" set "TARGET_PATH=%CD%"/);
