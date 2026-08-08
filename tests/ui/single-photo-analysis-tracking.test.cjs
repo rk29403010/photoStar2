@@ -63,6 +63,14 @@ test('analysis workflow tracking retries a transient workflow-detail timeout', a
     assert.equal(isTransientWorkflowDetailError(new Error('Timeout for get_workflow_run_detail')), true);
 });
 
+test('object analysis actions remain available after an analysis error', async () => {
+    const { canStartObjectAnalysis } = await import('../../src/ui/components/single-photo/singlePhotoAnalysisTracking.ts');
+
+    assert.equal(canStartObjectAnalysis('error'), true);
+    assert.equal(canStartObjectAnalysis('analyzing'), false);
+    assert.equal(canStartObjectAnalysis('cancelling'), false);
+});
+
 test('analysis completion guard only resolves a successful run once per asset', async () => {
     const { shouldCompleteAnalysisRun } = await import('../../src/ui/components/single-photo/singlePhotoAnalysisTracking.ts');
     const firstResult = { summary: 'first' };

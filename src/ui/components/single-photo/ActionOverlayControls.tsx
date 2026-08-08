@@ -5,8 +5,9 @@ import { TopBar, ZoomBar } from './ActionOverlayChrome';
 import { NavButtons } from './ActionOverlayNavButtons';
 import { getAnalysisStatusBadgeStyle, isAnalysisStatusVisible } from './singlePhotoAnalysisStatus';
 import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getLibraryBinActionLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
+import { canStartObjectAnalysis, type AnalysisWorkflowUiState } from './singlePhotoAnalysisTracking';
 
-export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
+export type AnalysisUiState = AnalysisWorkflowUiState;
 
 type ControlsOverlayProps = {
     readonly asset: Asset;
@@ -254,7 +255,7 @@ function AiActionMenuItem(props: ActionMenuProps) {
         return null;
     }
 
-    if (props.analysisState === 'idle') {
+    if (canStartObjectAnalysis(props.analysisState)) {
         return (
             <>
                 <MenuItem
