@@ -25,6 +25,11 @@ function tilePositions(length: number, tile: number, overlap: number): number[] 
     for (let start = 0; start <= length - tile; start += step) { positions.push(start); }
     if (positions.at(-1) !== length - tile) { positions.push(length - tile); } return positions;
 }
+function limitedTilePositions(length: number, tile: number, overlap: number, maximum: number): number[] {
+    const positions = tilePositions(length, tile, overlap); if (positions.length <= maximum) { return positions; }
+    const selected = Array.from({ length: maximum }, (_, index) => positions[Math.round(index * (positions.length - 1) / (maximum - 1))]);
+    return [...new Set(selected)];
+}
 function lumaAt(image: RgbaImage, x: number, y: number): number {
     const offset = (y * image.width + x) * 4; return 0.2126 * (image.data[offset] ?? 0) + 0.7152 * (image.data[offset + 1] ?? 0) + 0.0722 * (image.data[offset + 2] ?? 0);
 }
@@ -75,7 +80,7 @@ export function detectPeriodicTexture(image: RgbaImage, options: PeriodicTexture
     const minPeriodPx = options.minPeriodPx ?? 6; const maxPeriodPx = options.maxPeriodPx ?? 40; const overlap = options.overlap ?? 0.5; const minPeakZ = options.minPeakZ ?? 10; const minTileSupport = options.minTileSupport ?? 0.55; const maxPeakPairs = options.maxPeakPairs ?? 12;
     const tileSize = powerOfTwoAtMost(Math.min(options.tileSize ?? 512, image.width, image.height));
     if (tileSize < 128) { return { likely: false, confidence: 0, fundamentalPeriodPx: null, strongestPeakZ: 0, meanTileSupport: 0, tileSize, tilesUsed: 0, peaks: [] }; }
-    const xs = tilePositions(image.width, tileSize, overlap); const ys = tilePositions(image.height, tileSize, overlap); const powers: Float32Array[] = [];
+    const xs = limitedTilePositions(image.width, tileSize, overlap, 7); const ys = limitedTilePositions(image.height, tileSize, overlap, 7); const powers: Float32Array[] = [];
     for (const top of ys) { for (const left of xs) { powers.push(tilePower(image, left, top, tileSize)); } }
     const whitened = radialBaseline(aggregate(powers), tileSize); const z = robustZ(whitened); const raw = candidates(z, whitened, tileSize, 1 / maxPeriodPx, 1 / minPeriodPx);
     const strongest = raw[0]?.z ?? 0; const adaptive = Math.max(minPeakZ, strongest * 0.2); const accepted: SpectralPeak[] = [];
