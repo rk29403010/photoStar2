@@ -53,3 +53,20 @@ test('periodic texture detector rejects a flat image', async () => {
     assert.equal(detection.likely, false);
     assert.equal(detection.peaks.length, 0);
 });
+
+test('periodic texture detection runs outside the backend event loop', async () => {
+    const { detectPeriodicTextureInWorker } = await import('../../dist/core/src/services/imageAnalysis/periodicTexture/detection.js');
+    const width = 512;
+    const height = 512;
+    let timerRan = false;
+    setTimeout(() => { timerRan = true; }, 0);
+
+    const detection = await detectPeriodicTextureInWorker({
+        data: syntheticPeriodicRgba(width, height, 16),
+        width,
+        height,
+    });
+
+    assert.equal(timerRan, true);
+    assert.equal(detection.likely, true);
+});

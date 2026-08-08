@@ -3,7 +3,11 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { Asset } from '@contracts/core';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
 import type { AnalysisState } from './PhotoViewport';
-import { getAnalysisWorkflowFailureMessage, shouldCompleteAnalysisRun } from './singlePhotoAnalysisTracking';
+import {
+    getAnalysisWorkflowFailureMessage,
+    isTransientWorkflowDetailError,
+    shouldCompleteAnalysisRun,
+} from './singlePhotoAnalysisTracking';
 
 export type AnalysisUiState = 'idle' | 'analyzing' | 'cancelling' | 'error';
 
@@ -33,7 +37,7 @@ function updateAssetProperty<K extends keyof AssetAnalysisState>(
     if (!assetId) {return;}
     setAnalyses(prev => {
         const current = prev[assetId] || { jobId: null, state: 'idle', error: null };
-        const nextValue = typeof value === 'function' ? (value as (prev: AssetAnalysisState[K]) => AssetAnalysisState[K])(current[key]) : value;
+        const nextValue = typeof value === 'function' ? (value)(current[key]) : value;
         return {
             ...prev,
             [assetId]: { ...current, [key]: nextValue }
@@ -84,7 +88,7 @@ export function useAnalysisUiState(currentAssetId: string | null): AnalysisUiBun
     const currentAnalysis = currentAssetId ? analyses[currentAssetId] : null;
     const analysisState = currentAnalysis?.state ?? 'idle';
     const analysisError = currentAnalysis?.error ?? null;
-    const analyzingAssetId = (currentAnalysis && currentAnalysis.state === 'analyzing') ? currentAssetId : null;
+    const analyzingAssetId = (currentAnalysis?.state === 'analyzing') ? currentAssetId : null;
     const analyzingJobId = currentAnalysis?.jobId ?? null;
 
     const setAnalysisState = useCallback((state: SetStateAction<AnalysisUiState>) => {
@@ -96,7 +100,7 @@ export function useAnalysisUiState(currentAssetId: string | null): AnalysisUiBun
     }, [currentAssetId]);
 
     const setAnalyzingAssetId = useCallback((id: SetStateAction<string | null>) => {
-        const targetId = typeof id === 'function' ? (id as (prev: string | null) => string | null)(currentAssetId) : id;
+        const targetId = typeof id === 'function' ? (id)(currentAssetId) : id;
         if (!targetId) {
             if (currentAssetId) {
                 clearAssetAnalysis(currentAssetId);
@@ -179,7 +183,7 @@ export function useAnalysisTracking(params: {
             runStartAiMetadata: runStartAiMetadataRef.current,
             completedAssetId: completedAssetIdRef.current,
         })) {
-            return;
+            return undefined;
         }
 
         completedAssetIdRef.current = analyzingAssetId;
@@ -246,6 +250,10 @@ function pollWorkflowRun(params: {
             onScheduleNext(poll);
         } catch (error: unknown) {
             if (isCancelled()) {return;}
+            if (isTransientWorkflowDetailError(error)) {
+                onScheduleNext(poll);
+                return;
+            }
             const message = error instanceof Error ? error.message : String(error);
             setAssetAnalysis(assetId, { state: 'error', error: message, jobId: null });
         }
@@ -265,7 +273,7 @@ export function useAnalysisWorkflowFailureTracking(params: {
 
     useEffect(() => {
         if (!onGetWorkflowRunDetail) {
-            return;
+            return undefined;
         }
 
         const activeJobs = Object.entries(analyses).filter(
@@ -273,7 +281,7 @@ export function useAnalysisWorkflowFailureTracking(params: {
         );
 
         if (activeJobs.length === 0) {
-            return;
+            return undefined;
         }
 
         let cancelled = false;

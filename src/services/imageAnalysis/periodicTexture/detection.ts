@@ -1,4 +1,6 @@
 import { fft2dInPlace } from './fft.ts';
+import { join } from 'node:path';
+import { Worker } from 'node:worker_threads';
 
 export type RgbaImage = { data: ArrayLike<number>; width: number; height: number };
 export type PeriodicTextureDetectionOptions = {
@@ -9,6 +11,10 @@ export type SpectralPeak = { fx: number; fy: number; z: number; tileSupport: num
 export type PeriodicTextureDetection = {
     likely: boolean; confidence: number; fundamentalPeriodPx: number | null; strongestPeakZ: number;
     meanTileSupport: number; tileSize: number; tilesUsed: number; peaks: SpectralPeak[];
+};
+export type PeriodicTextureWorkerRequest = {
+    image: { data: Uint8Array; width: number; height: number };
+    options: PeriodicTextureDetectionOptions;
 };
 
 type Candidate = { index: number; fx: number; fy: number; z: number; power: number };
@@ -124,4 +130,29 @@ export function detectPeriodicTexture(image: RgbaImage, options: PeriodicTexture
     const powers = collectTilePowers(image, tileSize, settings.overlap); const whitened = radialBaseline(aggregate(powers), tileSize); const z = robustZ(whitened);
     const raw = candidates(z, whitened, tileSize, 1 / settings.maxPeriodPx, 1 / settings.minPeriodPx); const peaks = acceptedPeaks(raw, powers, tileSize, settings);
     return buildDetection(peaks, raw[0]?.z ?? 0, tileSize, powers.length, settings.minPeakZ, settings.minTileSupport);
+}
+
+function workerImage(image: RgbaImage): PeriodicTextureWorkerRequest['image'] {
+    return { data: Uint8Array.from(image.data), width: image.width, height: image.height };
+}
+
+export function detectPeriodicTextureInWorker(image: RgbaImage, options: PeriodicTextureDetectionOptions = {}): Promise<PeriodicTextureDetection> {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const settle = (callback: () => void) => {
+            if (settled) { return; }
+            settled = true;
+            callback();
+        };
+        const worker = new Worker(join(__dirname, 'detectionWorker.js'), {
+            workerData: { image: workerImage(image), options } satisfies PeriodicTextureWorkerRequest,
+        });
+        worker.once('message', (result: PeriodicTextureDetection) => settle(() => resolve(result)));
+        worker.once('error', (error) => settle(() => reject(error)));
+        worker.once('exit', (code) => {
+            if (code !== 0) {
+                settle(() => reject(new Error(`Periodic texture worker exited with code ${code}.`)));
+            }
+        });
+    });
 }
