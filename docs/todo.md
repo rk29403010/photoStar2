@@ -23,7 +23,7 @@
 1. Move high-resolution rendering into a tracked, cancellable workflow and use disk-backed intermediate stages for very high-megapixel photos.
 2. Ship and validate a promptable local segmentation model for pixel-accurate subject, background, and picked-element masks; the current editor uses detected normalized face/subject/region boxes when available.
 3. Evaluate EfficientSAM only together with a semantic label provider (for example, detector or vision-language model): both FastSAM and EfficientSAM are promptable mask generators, not reliable sources of names such as `tie` or `face`.
-3. Clarify and add the third requested non-AI editing tool; the original request left list item 3 blank.
+4. Clarify and add the third requested non-AI editing tool; the original request left list item 3 blank.
 
 ## Gallery
 
