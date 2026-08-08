@@ -5,8 +5,8 @@ import {
     detectPeriodicTexture,
     type PeriodicTextureDetection,
     type PeriodicTextureDetectionOptions,
-} from '../../../imageAnalysis/periodicTexture/detection.ts';
-import { fft2dInPlace, nextPowerOfTwo } from '../../../imageAnalysis/periodicTexture/fft.ts';
+} from '../../../../imageAnalysis/periodicTexture/detection.ts';
+import { fft2dInPlace, nextPowerOfTwo } from '../../../../imageAnalysis/periodicTexture/fft.ts';
 
 type PeriodRange = { minPeriodPx: number; maxPeriodPx: number };
 type FilterOptions = { strength: number; notchWidthFraction: number };
