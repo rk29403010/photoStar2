@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveDevRuntimePorts } from './dev-runtime-config.js';
@@ -14,6 +15,19 @@ export function runCodexDebugAction({
 } = {}) {
     const targetPath = resolveCodexActionWorktree({ cwd, environment });
     console.log(`[codex-debug] Target worktree: ${targetPath}`);
+    const nodeModulesPath = path.join(targetPath, 'node_modules');
+    if (!existsSync(nodeModulesPath)) {
+        console.log('[codex-debug] Installing worktree dependencies...');
+        const installResult = runCommand({
+            command: 'pnpm.cmd',
+            args: ['install', '--frozen-lockfile'],
+            cwd: targetPath,
+            stdio: 'inherit',
+        });
+        if ((installResult.status ?? 1) !== 0) {
+            throw new Error(`Debug dependencies failed to install (exit ${installResult.status ?? 'unknown'}).`);
+        }
+    }
     console.log('[codex-debug] Starting managed desktop runtime...');
 
     const result = runCommand({
