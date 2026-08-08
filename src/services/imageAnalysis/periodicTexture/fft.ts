@@ -1,125 +1,128 @@
-import sharp from 'sharp';
-
-export type ComplexPlanes = { real: Float64Array; imag: Float64Array };
-
-type TransformDirection = 1 | -1;
-
-function reverseBits(value: number, bits: number): number {
-    let output = 0;
-    for (let bit = 0; bit < bits; bit += 1) {
-        output = output * 2 + (value % 2);
-        value = Math.floor(value / 2);
-    }
-    return output;
-}
-
-function validatePowerOfTwo(length: number): number {
-    const bits = Math.round(Math.log2(length));
-    if (2 ** bits !== length) {
-        throw new Error(`FFT length ${length} is not a power of two`);
-    }
-    return bits;
-}
-
-function bitReverse(real: Float64Array, imag: Float64Array, bits: number): void {
-    for (let index = 0; index < real.length; index += 1) {
-        const reversed = reverseBits(index, bits);
-        if (reversed <= index) { continue; }
-        const realValue = real[index];
-        real[index] = real[reversed];
-        real[reversed] = realValue;
-        const imagValue = imag[index];
-        imag[index] = imag[reversed];
-        imag[reversed] = imagValue;
+function assertPowerOfTwo(value: number, name: string): void {
+    if (!Number.isInteger(value) || value < 1 || (value & (value - 1)) !== 0) {
+        throw new Error(`${name} must be a positive power of two`);
     }
 }
 
-function butterfly(real: Float64Array, imag: Float64Array, size: number, direction: TransformDirection): void {
-    const half = size / 2;
-    const angleStep = direction * -2 * Math.PI / size;
-    for (let start = 0; start < real.length; start += size) {
-        for (let offset = 0; offset < half; offset += 1) {
-            const angle = angleStep * offset;
-            const cosine = Math.cos(angle);
-            const sine = Math.sin(angle);
-            const even = start + offset;
-            const odd = even + half;
-            const oddReal = real[odd] * cosine - imag[odd] * sine;
-            const oddImag = real[odd] * sine + imag[odd] * cosine;
-            real[odd] = real[even] - oddReal;
-            imag[odd] = imag[even] - oddImag;
-            real[even] += oddReal;
-            imag[even] += oddImag;
+function swap(values: Float32Array, left: number, right: number): void {
+    const temporary = values[left];
+    values[left] = values[right];
+    values[right] = temporary;
+}
+
+function bitReverse(real: Float32Array, imaginary: Float32Array, offset: number, stride: number, length: number): void {
+    for (let index = 1, reversed = 0; index < length; index += 1) {
+        let bit = length >> 1;
+        while ((reversed & bit) !== 0) {
+            reversed ^= bit;
+            bit >>= 1;
+        }
+        reversed ^= bit;
+        if (index < reversed) {
+            swap(real, offset + index * stride, offset + reversed * stride);
+            swap(imaginary, offset + index * stride, offset + reversed * stride);
         }
     }
 }
 
-function fft1dInPlace(real: Float64Array, imag: Float64Array, direction: TransformDirection): void {
-    const bits = validatePowerOfTwo(real.length);
-    bitReverse(real, imag, bits);
-    for (let size = 2; size <= real.length; size *= 2) {
-        butterfly(real, imag, size, direction);
-    }
-    if (direction === -1) {
-        for (let index = 0; index < real.length; index += 1) {
-            real[index] /= real.length;
-            imag[index] /= real.length;
+function butterflies(
+    real: Float32Array,
+    imaginary: Float32Array,
+    offset: number,
+    stride: number,
+    length: number,
+    inverse: boolean,
+): void {
+    const direction = inverse ? 1 : -1;
+    for (let blockSize = 2; blockSize <= length; blockSize <<= 1) {
+        const angle = direction * 2 * Math.PI / blockSize;
+        const stepReal = Math.cos(angle);
+        const stepImaginary = Math.sin(angle);
+        const half = blockSize >> 1;
+        for (let block = 0; block < length; block += blockSize) {
+            butterflyBlock(real, imaginary, offset, stride, block, half, stepReal, stepImaginary);
         }
     }
 }
 
-function transformRows(planes: ComplexPlanes, width: number, height: number, direction: TransformDirection): void {
-    const rowReal = new Float64Array(width);
-    const rowImag = new Float64Array(width);
+function butterflyBlock(
+    real: Float32Array,
+    imaginary: Float32Array,
+    offset: number,
+    stride: number,
+    block: number,
+    half: number,
+    stepReal: number,
+    stepImaginary: number,
+): void {
+    let twiddleReal = 1;
+    let twiddleImaginary = 0;
+    for (let item = 0; item < half; item += 1) {
+        const upper = offset + (block + item) * stride;
+        const lower = offset + (block + item + half) * stride;
+        const lowerReal = real[lower] * twiddleReal - imaginary[lower] * twiddleImaginary;
+        const lowerImaginary = real[lower] * twiddleImaginary + imaginary[lower] * twiddleReal;
+        const upperReal = real[upper];
+        const upperImaginary = imaginary[upper];
+        real[upper] = upperReal + lowerReal;
+        imaginary[upper] = upperImaginary + lowerImaginary;
+        real[lower] = upperReal - lowerReal;
+        imaginary[lower] = upperImaginary - lowerImaginary;
+        const nextReal = twiddleReal * stepReal - twiddleImaginary * stepImaginary;
+        twiddleImaginary = twiddleReal * stepImaginary + twiddleImaginary * stepReal;
+        twiddleReal = nextReal;
+    }
+}
+
+function normalise(values: Float32Array, offset: number, stride: number, length: number): void {
+    for (let index = 0; index < length; index += 1) {
+        values[offset + index * stride] /= length;
+    }
+}
+
+function fft1d(
+    real: Float32Array,
+    imaginary: Float32Array,
+    offset: number,
+    stride: number,
+    length: number,
+    inverse: boolean,
+): void {
+    bitReverse(real, imaginary, offset, stride, length);
+    butterflies(real, imaginary, offset, stride, length, inverse);
+    if (inverse) {
+        normalise(real, offset, stride, length);
+        normalise(imaginary, offset, stride, length);
+    }
+}
+
+export function fft2dInPlace(
+    real: Float32Array,
+    imaginary: Float32Array,
+    width: number,
+    height: number,
+    inverse = false,
+): void {
+    assertPowerOfTwo(width, 'FFT width');
+    assertPowerOfTwo(height, 'FFT height');
+    if (real.length !== width * height || imaginary.length !== real.length) {
+        throw new Error('FFT buffers do not match the requested dimensions');
+    }
     for (let y = 0; y < height; y += 1) {
-        const start = y * width;
-        rowReal.set(planes.real.subarray(start, start + width));
-        rowImag.set(planes.imag.subarray(start, start + width));
-        fft1dInPlace(rowReal, rowImag, direction);
-        planes.real.set(rowReal, start);
-        planes.imag.set(rowImag, start);
+        fft1d(real, imaginary, y * width, 1, width, inverse);
     }
-}
-
-function transformColumns(planes: ComplexPlanes, width: number, height: number, direction: TransformDirection): void {
-    const columnReal = new Float64Array(height);
-    const columnImag = new Float64Array(height);
     for (let x = 0; x < width; x += 1) {
-        for (let y = 0; y < height; y += 1) {
-            const index = y * width + x;
-            columnReal[y] = planes.real[index];
-            columnImag[y] = planes.imag[index];
-        }
-        fft1dInPlace(columnReal, columnImag, direction);
-        for (let y = 0; y < height; y += 1) {
-            const index = y * width + x;
-            planes.real[index] = columnReal[y];
-            planes.imag[index] = columnImag[y];
-        }
+        fft1d(real, imaginary, x, width, height, inverse);
     }
-}
-
-export function fft2dInPlace(planes: ComplexPlanes, width: number, height: number, inverse = false): void {
-    if (planes.real.length !== width * height || planes.imag.length !== width * height) {
-        throw new Error('FFT planes do not match dimensions');
-    }
-    const direction: TransformDirection = inverse ? -1 : 1;
-    transformRows(planes, width, height, direction);
-    transformColumns(planes, width, height, direction);
 }
 
 export function nextPowerOfTwo(value: number): number {
-    return 2 ** Math.ceil(Math.log2(Math.max(1, value)));
-}
-
-export async function gaussianBlurGray(data: Float32Array, width: number, height: number, sigma: number): Promise<Float32Array> {
-    const input = Buffer.allocUnsafe(data.length * 4);
-    for (let index = 0; index < data.length; index += 1) { input.writeFloatLE(data[index], index * 4); }
-    const blurred = await sharp(input, { raw: { width, height, channels: 1 } })
-        .blur(Math.max(0.3, sigma))
-        .raw()
-        .toBuffer();
-    const output = new Float32Array(data.length);
-    for (let index = 0; index < output.length; index += 1) { output[index] = blurred.readFloatLE(index * 4); }
-    return output;
+    if (!Number.isFinite(value) || value < 1) {
+        throw new Error('value must be positive');
+    }
+    let result = 1;
+    while (result < value) {
+        result *= 2;
+    }
+    return result;
 }
