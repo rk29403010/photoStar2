@@ -29,14 +29,50 @@ function getFaceIndex(item: SinglePhotoPeopleItem): number | null {
     return Number.isInteger(faceIndex) ? faceIndex : null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readNumber(value: Record<string, unknown>, key: string): number | null {
+    const field = value[key];
+    return typeof field === 'number' ? field : null;
+}
+
+function readFaceBox(value: unknown): FaceBox['box'] | null {
+    if (!isRecord(value)) {
+        return null;
+    }
+
+    const x = readNumber(value, 'x');
+    const y = readNumber(value, 'y');
+    const width = readNumber(value, 'width');
+    const height = readNumber(value, 'height');
+    if (x === null || y === null || width === null || height === null) {
+        return null;
+    }
+
+    return { x, y, width, height };
+}
+
 function getFaceRecord(item: SinglePhotoPeopleItem): FaceBox | null {
-    return typeof item.raw === 'object' && item.raw !== null
-        ? item.raw as FaceBox
-        : null;
+    if (!isRecord(item.raw)) {
+        return null;
+    }
+
+    const box = readFaceBox(item.raw.box);
+    if (!box) {
+        return null;
+    }
+
+    return {
+        box,
+        ...(typeof item.raw.person_id === 'string' ? { person_id: item.raw.person_id } : {}),
+        ...(typeof item.raw.person_name === 'string' ? { person_name: item.raw.person_name } : {}),
+    };
 }
 
 function handleResolvedFaceClick(
-    event: React.MouseEvent<HTMLDivElement>,
+    event: React.MouseEvent,
     item: SinglePhotoPeopleItem,
     onFaceClick?: (id: string, name: string) => void,
 ) {
@@ -57,7 +93,7 @@ function handleOverlayClick(params: {
 }) {
     params.event.stopPropagation();
     params.onSelectOverlayKey?.(params.item.key);
-    handleResolvedFaceClick(params.event as React.MouseEvent<HTMLDivElement>, params.item, params.onFaceClick);
+    handleResolvedFaceClick(params.event, params.item, params.onFaceClick);
 }
 
 function isOverlaySelectionKey(event: React.KeyboardEvent<HTMLElement | SVGPolygonElement>): boolean {

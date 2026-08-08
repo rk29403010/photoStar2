@@ -13,11 +13,11 @@ export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'album
 export type InfoTab = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
 
-const appViews: readonly AppView[] = ['library', 'people', 'familyTree', 'dashboard', 'albums', 'reviews', 'vocabulary', 'workflows', 'moduleMaintenance', 'groupDiagnostics'];
+const appViews = new Set<string>(['library', 'people', 'familyTree', 'dashboard', 'albums', 'reviews', 'vocabulary', 'workflows', 'moduleMaintenance', 'groupDiagnostics']);
 const infoTabs: readonly InfoTab[] = ['profile', 'tags', 'people', 'objects', 'lineage', 'group', 'json', 'ailogs'];
 
 function isAppView(value: unknown): value is AppView {
-  return typeof value === 'string' && appViews.includes(value as AppView);
+  return typeof value === 'string' && appViews.has(value);
 }
 
 function resolveInfoTab(value: InfoTab): InfoTab {

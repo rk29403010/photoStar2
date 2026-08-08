@@ -300,7 +300,7 @@ function buildSubjectItems(asset: Asset): SinglePhotoPeopleItem[] {
             detail: asString(subject.location_desc) ?? asString(subject.features),
             tags: [
                 ...asStringArray(subject.suggested_names),
-                ...[asString(subject.type), asString(subject.emotion), asString(subject.age_range)].filter(Boolean) as string[],
+                ...[asString(subject.type), asString(subject.emotion), asString(subject.age_range)].filter((value): value is string => Boolean(value)),
             ],
             icon: subject.type === 'pet' ? '🐾' : '🤖',
             raw: subject,

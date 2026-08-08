@@ -4,6 +4,14 @@ import { Section } from './shared';
 import { buildPhotoMetadataFileSummary } from './photoMetadataPanelModel';
 import { globalRequest } from '../../../hooks/usePhotoLibrary';
 
+function readAssetTypes(value: unknown): string[] {
+  if (typeof value !== 'object' || value === null || !('types' in value) || !Array.isArray(value.types)) {
+    return [];
+  }
+
+  return value.types.filter((entry): entry is string => typeof entry === 'string');
+}
+
 function getModelLabel(asset: Asset): string | undefined {
   const captionSource = asset.photo_metadata?.provenance?.caption?.sourceKind;
   if (captionSource === 'gemini_pro_refined') { return '✨ Pro refined'; }
@@ -313,7 +321,7 @@ function useProfileTabTypes(assetId: string) {
           command: 'get_available_asset_types',
           payload: {},
           timeoutMs: 10000,
-          select: (data) => (data?.types || []) as string[],
+          select: readAssetTypes,
         });
         if (active && result && result.length > 0) {
           setDbTypes(result);

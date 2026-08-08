@@ -95,10 +95,10 @@ type ControlsState = {
 
 export type ActiveInfoTab = 'profile' | 'tags' | 'people' | 'objects' | 'lineage' | 'group' | 'json' | 'ailogs';
 
-const ACTIVE_INFO_TABS = new Set<ActiveInfoTab>(['profile', 'tags', 'people', 'objects', 'lineage', 'group', 'json', 'ailogs']);
+const ACTIVE_INFO_TABS = new Set<string>(['profile', 'tags', 'people', 'objects', 'lineage', 'group', 'json', 'ailogs']);
 
 function isActiveInfoTab(value: string): value is ActiveInfoTab {
-    return ACTIVE_INFO_TABS.has(value as ActiveInfoTab);
+    return ACTIVE_INFO_TABS.has(value);
 }
 
 function usePanelState({

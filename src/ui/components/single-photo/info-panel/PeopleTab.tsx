@@ -39,6 +39,41 @@ type TreeInfo = {
   version_label: string;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readStringField(value: Record<string, unknown>, key: string): string | null {
+  const field = value[key];
+  return typeof field === 'string' ? field : null;
+}
+
+function readTreeInfo(value: unknown): TreeInfo | null {
+  if (!isRecord(value)) { return null; }
+  const id = readStringField(value, 'id');
+  const filename = readStringField(value, 'filename');
+  const versionLabel = readStringField(value, 'version_label');
+  return id && filename && versionLabel ? { id, filename, version_label: versionLabel } : null;
+}
+
+function readLinkInfo(value: unknown): LinkInfo | null {
+  if (!isRecord(value)) { return null; }
+  const personId = readStringField(value, 'person_id');
+  const treeId = readStringField(value, 'gedcom_tree_id');
+  const gedcomPersonId = readStringField(value, 'gedcom_person_id');
+  return personId && treeId && gedcomPersonId
+    ? { person_id: personId, gedcom_tree_id: treeId, gedcom_person_id: gedcomPersonId }
+    : null;
+}
+
+function readResponseItems<T>(value: unknown, key: string, parseItem: (item: unknown) => T | null): T[] {
+  if (!isRecord(value) || !Array.isArray(value[key])) { return []; }
+  return value[key].flatMap((item) => {
+    const parsedItem = parseItem(item);
+    return parsedItem ? [parsedItem] : [];
+  });
+}
+
 function getCardStyle(isHovered: boolean, colors: ReturnType<typeof getSinglePhotoPeopleColor>) {
   return {
     background: isHovered ? colors.panelBackgroundHover : colors.panelBackground,
@@ -57,7 +92,7 @@ function shouldShowThumbnail(imgUrl: string | null, box: SinglePhotoOverlayBox |
 }
 
 function getPersonLinks(raw: unknown, links: LinkInfo[]): LinkInfo[] {
-  const personId = (raw as { person_id?: string })?.person_id;
+  const personId = isRecord(raw) ? readStringField(raw, 'person_id') : null;
   if (!personId) { return []; }
   return links.filter(l => l.person_id === personId);
 }
@@ -236,19 +271,19 @@ export const PeopleTab: React.FC<PeopleTabProps> = ({ asset, hoveredFaceKey, onH
   useEffect(() => {
     if (!globalRequest) {return;}
 
-    globalRequest<{ trees: TreeInfo[] }>({
+    globalRequest<TreeInfo[]>({
       idPrefix: 'get_family_trees',
       command: 'get_family_trees',
       payload: {},
-      select: (d) => d as { trees: TreeInfo[] }
-    }).then(res => setTrees(res.trees || [])).catch(console.error);
+      select: (data) => readResponseItems(data, 'trees', readTreeInfo)
+    }).then(setTrees).catch(console.error);
 
-    globalRequest<{ links: LinkInfo[] }>({
+    globalRequest<LinkInfo[]>({
       idPrefix: 'get_people_gedcom_links',
       command: 'get_people_gedcom_links',
       payload: {},
-      select: (d) => d as { links: LinkInfo[] }
-    }).then(res => setLinks(res.links || [])).catch(console.error);
+      select: (data) => readResponseItems(data, 'links', readLinkInfo)
+    }).then(setLinks).catch(console.error);
   }, []);
 
   if (model.peopleItems.length === 0) {
