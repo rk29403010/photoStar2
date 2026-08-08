@@ -2,8 +2,8 @@ import type React from 'react';
 import { Button } from './Primitives';
 
 type TopBarProps = {
-    readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
-    readonly setView: (view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics') => void;
+    readonly view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics';
+    readonly setView: (view: 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics') => void;
     readonly onOpenActions: () => void;
     readonly onOpenSettings: () => void;
     readonly showSettings: boolean;
@@ -14,6 +14,7 @@ type ViewType = TopBarProps['view'];
 function formatViewLabel(view: ViewType) {
     if (view === 'groupDiagnostics') {return 'Diagnostics';}
     if (view === 'familyTree') {return 'Family Tree';}
+    if (view === 'moduleMaintenance') {return 'Module Maintenance';}
     return view[0].toUpperCase() + view.slice(1);
 }
 

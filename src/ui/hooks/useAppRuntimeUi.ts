@@ -9,9 +9,22 @@ import type { StatusBanner } from '@ui/components/app/statusBannerModel';
 import { createStatusMessageBanner } from '@ui/components/app/statusBannerModel';
 import { usePersistedState } from './usePersistedState';
 
-export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'groupDiagnostics';
+export type AppView = 'library' | 'people' | 'familyTree' | 'dashboard' | 'albums' | 'reviews' | 'vocabulary' | 'workflows' | 'moduleMaintenance' | 'groupDiagnostics';
 export type InfoTab = 'profile' | 'people' | 'lineage' | 'group' | 'json' | 'ailogs';
 export type AiMode = 'mock' | 'live' | 'off';
+
+function isAppView(value: unknown): value is AppView {
+  return value === 'library'
+    || value === 'people'
+    || value === 'familyTree'
+    || value === 'dashboard'
+    || value === 'albums'
+    || value === 'reviews'
+    || value === 'vocabulary'
+    || value === 'workflows'
+    || value === 'moduleMaintenance'
+    || value === 'groupDiagnostics';
+}
 
 function useDevRuntimeImpact(
   enabled: boolean,
@@ -20,7 +33,7 @@ function useDevRuntimeImpact(
   const [devRuntimeImpact, setDevRuntimeImpact] = useState<DevRuntimeImpact | null>(null);
   useEffect(() => {
     if (!enabled) {
-      return;
+      return undefined;
     }
 
     let cancelled = false;
@@ -75,10 +88,8 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
 
   useEffect(() => {
     const handleChangeView = (e: Event) => {
-      const customEvent = e as CustomEvent<AppView>;
-      if (customEvent.detail) {
-        setView(customEvent.detail);
-      }
+      if (!(e instanceof CustomEvent) || !isAppView(e.detail)) {return;}
+      setView(e.detail);
     };
     globalThis.addEventListener('change-view', handleChangeView);
     return () => globalThis.removeEventListener('change-view', handleChangeView);

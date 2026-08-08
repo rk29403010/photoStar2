@@ -3,6 +3,7 @@ import { validateModuleDefinition, validateWorkflowModulePlugin } from './contra
 
 export class ModuleRegistry {
     private readonly modules = new Map<string, ModuleDefinition>();
+    private readonly pluginManifests = new Map<string, WorkflowModulePlugin['manifest']>();
 
     public register(definition: ModuleDefinition): void {
         validateModuleDefinition(definition);
@@ -19,6 +20,7 @@ export class ModuleRegistry {
         if (definition.id !== plugin.manifest.id) {
             throw new Error(`workflow module plugin '${plugin.manifest.id}' created '${definition.id}'`);
         }
+        this.pluginManifests.set(plugin.manifest.id, plugin.manifest);
         const validateConfiguration = plugin.validateConfiguration;
         this.register({
             ...definition,
@@ -43,5 +45,9 @@ export class ModuleRegistry {
             throw new Error(`unknown module '${moduleId}'`);
         }
         return definition;
+    }
+
+    public listPluginManifests(): WorkflowModulePlugin['manifest'][] {
+        return [...this.pluginManifests.values()];
     }
 }

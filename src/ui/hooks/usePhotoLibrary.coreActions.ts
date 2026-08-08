@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { Asset, GalleryTimelineSeek } from '@contracts/core';
 import type { DevRuntimeImpact } from '@contracts/devRuntime';
-import type { WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import type { WorkflowModuleRepositoryModel, WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
@@ -112,17 +112,27 @@ function useDevActions(params: {
         command: 'get_workflow_visualiser',
         payload: runId === undefined ? { workflowId } : { workflowId, runId },
         timeoutMs: 10000,
-        select: (data) => data as unknown as WorkflowVisualiserModel,
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- command response is defined by the shared workflow visualiser contract.
+        select: (data) => data as WorkflowVisualiserModel,
+    }), [request]);
+
+    const getWorkflowModuleRepository = useCallback((): Promise<WorkflowModuleRepositoryModel> => request<WorkflowModuleRepositoryModel>({
+        idPrefix: 'get_workflow_module_repository',
+        command: 'get_workflow_module_repository',
+        timeoutMs: 10000,
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- command response is defined by the shared module repository contract.
+        select: (data) => data as WorkflowModuleRepositoryModel,
     }), [request]);
 
     const getDevRuntimeImpact = useCallback((): Promise<DevRuntimeImpact> => request<DevRuntimeImpact>({
         idPrefix: 'get_dev_runtime_impact',
         command: 'get_dev_runtime_impact',
         timeoutMs: 10000,
-        select: (data) => data as unknown as DevRuntimeImpact,
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- command response is defined by the shared dev runtime contract.
+        select: (data) => data as DevRuntimeImpact,
     }), [request]);
 
-    return { getWorkflowVisualiser, getDevRuntimeImpact };
+    return { getWorkflowVisualiser, getWorkflowModuleRepository, getDevRuntimeImpact };
 }
 
 export function useCoreActions(params: {

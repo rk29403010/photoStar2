@@ -170,6 +170,12 @@ registered through this registry; obsolete compatibility registration is not a
 supported extension path. Unknown persisted IDs and version migrations remain
 generic resilience boundaries.
 
+The maintenance UI projects registered plug-in manifests through
+`get_workflow_module_repository`; `ModuleMaintenanceWorkspace.tsx` renders
+module properties and links each consuming workflow back to `WorkflowWorkspace`.
+Workflow-node `parameters` are projected as the selected module's current
+settings in `WorkflowDetailPanel.tsx`.
+
 ### Defined Workflows (`src/services/workflowRuntime/workflows/`)
 
 - `folderIngestWorkflow`: Orchestrates importing files from a folder and scheduling subsequent analyses.

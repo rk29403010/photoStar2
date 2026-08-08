@@ -114,3 +114,52 @@ test('buildWorkflowVisualiserModel links recovery runs back to the failed folder
         failedItems: 0,
     }]);
 });
+
+test('workflow visualiser keeps module settings and the module repository maps workflow usage', async () => {
+    const {
+        buildWorkflowModuleRepositoryModel,
+        buildWorkflowVisualiserModel,
+    } = await import('../../dist/core/src/services/handlers/systemWorkflowVisualiser.js');
+    const workflow = {
+        id: 'test_workflow',
+        version: 1,
+        inputs: ['asset'],
+        nodes: [{
+            id: 'test-node',
+            kind: 'module',
+            moduleId: 'test-module',
+            parameters: { quality: 'high', retries: 2 },
+        }],
+    };
+    const manifest = {
+        id: 'test-module',
+        contractVersion: 1,
+        displayName: 'Test Module',
+        description: 'A module for projection testing.',
+        inputs: ['asset'],
+        outputs: [{ kind: 'artifact', artifactType: 'test_result', subjectType: 'asset' }],
+        capabilities: ['derive'],
+        errorKinds: ['configuration'],
+        fixtures: ['basic'],
+    };
+
+    const visualiser = buildWorkflowVisualiserModel({
+        workflowDefinition: workflow,
+        availableWorkflows: [{ workflowId: workflow.id, displayName: 'Test Workflow' }],
+        runDetail: null,
+        availableRuns: [],
+        allRuns: [],
+        getModuleDefinition: (moduleId) => ({ id: moduleId, version: 1, capability: 'derive', accepts: [], produces: [] }),
+    });
+    const repository = buildWorkflowModuleRepositoryModel({
+        pluginManifests: [manifest],
+        workflows: [workflow],
+    });
+
+    assert.deepEqual(visualiser.details.find((detail) => detail.id === 'test-node')?.settings, [
+        { id: 'quality', value: 'high' },
+        { id: 'retries', value: 2 },
+    ]);
+    assert.deepEqual(repository.modules[0].workflows, [{ workflowId: 'test_workflow', displayName: 'Test Workflow' }]);
+    assert.equal(repository.modules[0].outputs[0].artifactType, 'test_result');
+});
