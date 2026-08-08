@@ -58,9 +58,10 @@ PhotoStar2 is a local-first photo library management and analysis application bu
   affected UI/runtime changes at readiness and integration. It detects browser
   errors, blank roots, startup failures, and missing app-shell markers without
   slowing `qa:quick`.
-- Folder ingest does not automatically run object segmentation. Explicit Find
-  Objects workflows require a verified model and fail critically when it is
-  unavailable, without making ordinary ingestion model-dependent.
+- Folder ingest does not automatically run object segmentation or deep frame
+  segmentation. Explicit Find Objects and deep frame workflows require a
+  verified model and fail critically when it is unavailable, without making
+  ordinary ingestion model-dependent.
 
 ### TypeScript tooling
 

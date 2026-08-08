@@ -36,7 +36,6 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
                 nodeIds: [
                     'enrichment-each',
                     'extract-embedded-metadata',
-                    'detect-frame-deep',
                     'estimate-photo-date-from-embedded',
                     'detect-faces',
                     'generate-face-vectors',
@@ -110,7 +109,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             id: 'enrichment-each',
             kind: 'control',
             controlType: 'for_each',
-            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content', 'detect-frame-deep'],
+            outputsTo: ['extract-embedded-metadata', 'detect-faces', 'collect-similar', 'detect-sensitive-content'],
             presentation: {
                 label: 'Enrich each image',
                 countNoun: { singular: 'image', plural: 'images' },
@@ -125,17 +124,6 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
                 label: 'Extract embedded metadata',
                 countNoun: { singular: 'image', plural: 'images' },
                 artifactNoun: { singular: 'metadata result', plural: 'metadata results' },
-            },
-        },
-        {
-            id: 'detect-frame-deep',
-            kind: 'module',
-            moduleId: 'runtime.detect_frame',
-            parameters: { mode: 'deep', provider: 'auto', onlyWhenNeeded: true },
-            outputsTo: ['generate-ai-metadata'],
-            presentation: {
-                label: 'Deeper frame segmentation',
-                countNoun: { singular: 'image', plural: 'images' },
             },
         },
         {
