@@ -56,12 +56,14 @@ function useOverlayLayerEditor(props: PhotoEditToolControlProps) {
     const selected = selectedIndex >= 0 ? layers[selectedIndex] : undefined;
     const preview = (next: PhotoEditOperation) => { setDraft(next); props.onPreviewChange(next); };
     const commit = (next: PhotoEditOperation) => { setDraft(next); props.onPreviewChange(next); props.onCommit(next); };
-    const updateLayer = (patch: Partial<PhotoEditAssetLayer>) => {
-        if (selectedIndex < 0) {return;}
+    const withLayerPatch = (patch: Partial<PhotoEditAssetLayer>): PhotoEditOperation | null => {
+        if (selectedIndex < 0) {return null;}
         const nextLayers = [...layers];
         nextLayers[selectedIndex] = { ...nextLayers[selectedIndex], ...patch };
-        preview({ ...draft, assetLayers: nextLayers });
+        return { ...draft, assetLayers: nextLayers };
     };
+    const updateLayer = (patch: Partial<PhotoEditAssetLayer>) => { const next = withLayerPatch(patch); if (next) {preview(next);} };
+    const commitLayer = (patch: Partial<PhotoEditAssetLayer>) => { const next = withLayerPatch(patch); if (next) {commit(next);} };
     const commitDraft = () => props.onCommit(draft);
     const addLayer = (asset: Asset) => {
         if (asset.id === props.asset?.id || usedAssetIds.has(asset.id)) {return;}
@@ -82,8 +84,8 @@ function useOverlayLayerEditor(props: PhotoEditToolControlProps) {
         [nextLayers[selectedIndex], nextLayers[target]] = [nextLayers[target], nextLayers[selectedIndex]];
         commit({ ...draft, assetLayers: nextLayers });
     };
-    const resetSelected = () => updateLayer({ opacity: 0.5, scale: 1, offsetX: 0, offsetY: 0 });
-    return { draft, layers, usedAssetIds, selected, selectedIndex, selectedLayerId, setSelectedLayerId, addLayer, updateLayer, commitDraft, removeSelected, moveSelected, resetSelected };
+    const resetSelected = () => commitLayer({ opacity: 0.5, scale: 1, offsetX: 0, offsetY: 0 });
+    return { draft, layers, usedAssetIds, selected, selectedIndex, selectedLayerId, setSelectedLayerId, addLayer, updateLayer, commitLayer, commitDraft, removeSelected, moveSelected, resetSelected };
 }
 
 function useCandidateAssets(currentAssetId: string | undefined, query: string) {
@@ -156,6 +158,7 @@ function LayerSettings(props: {
     readonly layerCount: number;
     readonly onPatch: (patch: Partial<PhotoEditAssetLayer>) => void;
     readonly onCommit: () => void;
+    readonly onToggle: (enabled: boolean) => void;
     readonly onMove: (delta: -1 | 1) => void;
     readonly onRemove: () => void;
     readonly onReset: () => void;
@@ -167,12 +170,12 @@ function LayerSettings(props: {
             <button type="button" className="rounded-md border border-content/15 px-2 py-1 text-xs hover:bg-surface-secondary disabled:opacity-40" disabled={props.index === props.layerCount - 1} onClick={() => props.onMove(1)}>Bring forward</button>
             <button type="button" className="ml-auto rounded-md border border-content/15 px-2 py-1 text-xs hover:bg-surface-secondary" onClick={props.onRemove}>Remove</button>
         </div>
-        <label className="flex items-center gap-2 text-xs text-content"><input type="checkbox" checked={layer.enabled} onChange={(event) => props.onPatch({ enabled: event.currentTarget.checked })} />Show this photo</label>
+        <label className="flex items-center gap-2 text-xs text-content"><input type="checkbox" checked={layer.enabled} onChange={(event) => props.onToggle(event.currentTarget.checked)} />Show this photo</label>
         <RangeControl id={`${layer.id}-opacity`} label="Opacity" value={layer.opacity} display={`${Math.round(layer.opacity * 100)}%`} min={0} max={1} step={0.01} onChange={(value) => props.onPatch({ opacity: value })} onCommit={props.onCommit} />
         <RangeControl id={`${layer.id}-scale`} label="Scale" value={layer.scale} display={`${Math.round(layer.scale * 100)}%`} min={0.1} max={4} step={0.01} onChange={(value) => props.onPatch({ scale: value })} onCommit={props.onCommit} />
         <RangeControl id={`${layer.id}-x`} label="Horizontal" value={layer.offsetX} display={`${Math.round(layer.offsetX * 100)}%`} min={-1} max={1} step={0.01} onChange={(value) => props.onPatch({ offsetX: value })} onCommit={props.onCommit} />
         <RangeControl id={`${layer.id}-y`} label="Vertical" value={layer.offsetY} display={`${Math.round(layer.offsetY * 100)}%`} min={-1} max={1} step={0.01} onChange={(value) => props.onPatch({ offsetY: value })} onCommit={props.onCommit} />
-        <button type="button" className="w-full rounded-md border border-content/15 px-2 py-1.5 text-xs hover:bg-surface-secondary" onClick={() => { props.onReset(); props.onCommit(); }}>Reset layer</button>
+        <button type="button" className="w-full rounded-md border border-content/15 px-2 py-1.5 text-xs hover:bg-surface-secondary" onClick={props.onReset}>Reset layer</button>
     </div>;
 }
 
@@ -213,7 +216,7 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
             The current photo is the 100% base. Added photos start centred at 50% opacity. Edits later in the Changes stack affect the combined result; move Overlay photos earlier when you want later crop, black &amp; white or other edits applied to the whole composition.
         </div>
         <LayerList layers={editor.layers} assetById={candidates.assetById} selectedLayerId={editor.selectedLayerId} onSelect={editor.setSelectedLayerId} />
-        {editor.selected && <LayerSettings layer={editor.selected} index={editor.selectedIndex} layerCount={editor.layers.length} onPatch={editor.updateLayer} onCommit={editor.commitDraft} onMove={editor.moveSelected} onRemove={editor.removeSelected} onReset={editor.resetSelected} />}
+        {editor.selected && <LayerSettings layer={editor.selected} index={editor.selectedIndex} layerCount={editor.layers.length} onPatch={editor.updateLayer} onCommit={editor.commitDraft} onToggle={(enabled) => editor.commitLayer({ enabled })} onMove={editor.moveSelected} onRemove={editor.removeSelected} onReset={editor.resetSelected} />}
         <PhotoPicker operationId={editor.draft.id} assets={candidates.filtered} usedAssetIds={editor.usedAssetIds} query={query} onQuery={setQuery} onAdd={editor.addLayer} hasMore={candidates.hasMore} loading={candidates.loading} error={candidates.error} onLoadMore={() => void candidates.loadMore()} />
     </div>;
 }
