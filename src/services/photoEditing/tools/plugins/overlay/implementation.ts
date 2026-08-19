@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import type { PhotoEditAssetLayer, PhotoEditOperation } from '../../../../../boundary/contracts/photoEditor.ts';
-import type { PhotoEditToolRenderContext } from '../../../photoEditToolPlugin.ts';
+import type { PhotoEditToolRenderContext, PhotoEditToolRenderPipeline } from '../../../photoEditToolPlugin.ts';
 
 function clamp(value: number, minimum: number, maximum: number): number {
     return Math.min(maximum, Math.max(minimum, value));
@@ -42,14 +42,15 @@ async function prepareLayer(
     canvasWidth: number,
     canvasHeight: number,
 ): Promise<CompositeInput | null> {
-    const normalized = await sharp(source).rotate().png().toBuffer();
-    const metadata = await sharp(normalized).metadata();
-    if (!metadata.width || !metadata.height) {return null;}
-
     const scale = clamp(layer.scale, 0.05, 8);
-    const containScale = Math.min(canvasWidth / metadata.width, canvasHeight / metadata.height);
-    const targetWidth = Math.max(1, Math.round(metadata.width * containScale * scale));
-    const targetHeight = Math.max(1, Math.round(metadata.height * containScale * scale));
+    const resized = await sharp(source)
+        .rotate()
+        .resize(Math.max(1, Math.round(canvasWidth * scale)), Math.max(1, Math.round(canvasHeight * scale)), { fit: 'inside' })
+        .ensureAlpha()
+        .png()
+        .toBuffer({ resolveWithObject: true });
+    const targetWidth = resized.info.width;
+    const targetHeight = resized.info.height;
     const left = Math.round((canvasWidth - targetWidth) / 2 + layer.offsetX * canvasWidth);
     const top = Math.round((canvasHeight - targetHeight) / 2 + layer.offsetY * canvasHeight);
 
@@ -61,15 +62,13 @@ async function prepareLayer(
     const visibleHeight = Math.min(targetHeight - sourceTop, canvasHeight - destinationTop);
     if (visibleWidth <= 0 || visibleHeight <= 0) {return null;}
 
-    let pipeline = sharp(normalized).resize(targetWidth, targetHeight, { fit: 'fill' });
+    let pipeline = sharp(resized.data);
     if (sourceLeft > 0 || sourceTop > 0 || visibleWidth !== targetWidth || visibleHeight !== targetHeight) {
         pipeline = pipeline.extract({ left: sourceLeft, top: sourceTop, width: visibleWidth, height: visibleHeight });
     }
-    const visible = await pipeline.ensureAlpha().png().toBuffer();
     const opacity = clamp(layer.opacity, 0, 1);
-    const faded = opacity >= 0.999
-        ? visible
-        : await sharp(visible).composite([{
+    if (opacity < 0.999) {
+        pipeline = pipeline.composite([{
             input: {
                 create: {
                     width: visibleWidth,
@@ -79,15 +78,20 @@ async function prepareLayer(
                 },
             },
             blend: 'dest-in',
-        }]).png().toBuffer();
-
-    return { input: faded, left: destinationLeft, top: destinationTop, blend: 'over' };
+        }]);
+    }
+    return {
+        input: await pipeline.png().toBuffer(),
+        left: destinationLeft,
+        top: destinationTop,
+        blend: 'over',
+    };
 }
 
 export async function renderOverlay(
     input: Buffer,
     operation: PhotoEditOperation,
-    _pipeline: unknown,
+    _pipeline: (input: Buffer) => PhotoEditToolRenderPipeline,
     context: PhotoEditToolRenderContext,
 ): Promise<Buffer> {
     const layers = operation.assetLayers ?? [];
