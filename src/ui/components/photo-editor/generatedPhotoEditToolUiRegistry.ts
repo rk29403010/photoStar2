@@ -5,8 +5,9 @@ import plugin1 from '../../../services/photoEditing/tools/plugins/colour-pop/ui.
 import plugin2 from '../../../services/photoEditing/tools/plugins/crop/ui.tsx';
 import plugin3 from '../../../services/photoEditing/tools/plugins/effects/ui.tsx';
 import plugin4 from '../../../services/photoEditing/tools/plugins/focus/ui.tsx';
-import plugin5 from '../../../services/photoEditing/tools/plugins/red-eye/ui.tsx';
-import plugin6 from '../../../services/photoEditing/tools/plugins/rotate/ui.tsx';
+import plugin5 from '../../../services/photoEditing/tools/plugins/overlay/ui.tsx';
+import plugin6 from '../../../services/photoEditing/tools/plugins/red-eye/ui.tsx';
+import plugin7 from '../../../services/photoEditing/tools/plugins/rotate/ui.tsx';
 
 export const generatedPhotoEditToolUiPlugins: readonly PhotoEditToolUiPlugin[] = [
     plugin0,
@@ -16,4 +17,5 @@ export const generatedPhotoEditToolUiPlugins: readonly PhotoEditToolUiPlugin[] =
     plugin4,
     plugin5,
     plugin6,
+    plugin7,
 ];
