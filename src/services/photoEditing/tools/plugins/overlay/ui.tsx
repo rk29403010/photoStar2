@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Asset, PhotoEditAssetLayer, PhotoEditOperation } from '@contracts/core';
+import type { Asset, PhotoEditOperation } from '@contracts/core';
+import type { PhotoEditAssetLayer } from '../../../../../boundary/contracts/photoEditor.ts';
 import { globalRequest } from '@ui/hooks/usePhotoLibrary';
 import type { PhotoEditToolControlProps, PhotoEditToolUiPlugin } from '../../../../../ui/components/photo-editor/photoEditToolUiRegistry.ts';
 
 const PAGE_SIZE = 48;
-
 type CandidatePage = { assets: Asset[]; hasMore: boolean };
 
 function filename(path: string): string {
@@ -19,7 +19,7 @@ async function fetchCandidates(offset: number): Promise<CandidatePage> {
         payload: { offset, limit: PAGE_SIZE, withGroupCounts: false, detailLevel: 'gallery' },
         timeoutMs: 15000,
         select: (data) => ({
-            assets: ((data?.assets as Asset[] | undefined) ?? []),
+            assets: (data?.assets as Asset[] | undefined) ?? [],
             hasMore: Boolean(data?.hasMore),
         }),
     });
@@ -53,16 +53,14 @@ function RangeControl(props: {
                 onInput={(event) => props.onChange(Number(event.currentTarget.value))}
                 onPointerUp={props.onCommit}
                 onKeyUp={props.onCommit}
-                onBlur={props.onCommit}
             />
         </label>
     );
 }
 
-function LayerThumbnail(props: { readonly asset?: Asset; readonly name: string }) {
-    const src = props.asset?.preview_data_url;
-    return src
-        ? <img className="size-10 shrink-0 rounded-md object-cover" src={src} alt="" />
+function LayerThumbnail({ asset }: { readonly asset?: Asset }) {
+    return asset?.preview_data_url
+        ? <img className="size-10 shrink-0 rounded-md object-cover" src={asset.preview_data_url} alt="" />
         : <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface-secondary text-xs text-content-secondary">IMG</div>;
 }
 
@@ -107,7 +105,7 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
         return candidates.filter((asset) => asset.id !== props.asset?.id && (!needle || filename(asset.original_path).toLocaleLowerCase().includes(needle)));
     }, [candidates, props.asset?.id, query]);
 
-    const previewDraft = (next: PhotoEditOperation) => {
+    const preview = (next: PhotoEditOperation) => {
         setDraft(next);
         props.onPreviewChange(next);
     };
@@ -116,12 +114,11 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
         props.onPreviewChange(next);
         props.onCommit(next);
     };
-    const commitDraft = () => props.onCommit(draft);
-    const replaceLayer = (index: number, patch: Partial<PhotoEditAssetLayer>) => {
+    const updateLayer = (index: number, patch: Partial<PhotoEditAssetLayer>) => {
         if (index < 0) {return;}
         const nextLayers = [...layers];
         nextLayers[index] = { ...nextLayers[index], ...patch };
-        previewDraft({ ...draft, assetLayers: nextLayers });
+        preview({ ...draft, assetLayers: nextLayers });
     };
     const addLayer = (asset: Asset) => {
         if (asset.id === props.asset?.id || usedAssetIds.has(asset.id)) {return;}
@@ -134,9 +131,8 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
             offsetY: 0,
             scale: 1,
         };
-        const next = { ...draft, assetLayers: [...layers, layer] };
         setSelectedLayerId(layer.id);
-        commit(next);
+        commit({ ...draft, assetLayers: [...layers, layer] });
     };
     const removeLayer = (id: string) => {
         const nextLayers = layers.filter((layer) => layer.id !== id);
@@ -144,9 +140,8 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
         commit({ ...draft, assetLayers: nextLayers });
     };
     const moveSelected = (delta: -1 | 1) => {
-        if (selectedIndex < 0) {return;}
         const target = selectedIndex + delta;
-        if (target < 0 || target >= layers.length) {return;}
+        if (selectedIndex < 0 || target < 0 || target >= layers.length) {return;}
         const nextLayers = [...layers];
         [nextLayers[selectedIndex], nextLayers[target]] = [nextLayers[target], nextLayers[selectedIndex]];
         commit({ ...draft, assetLayers: nextLayers });
@@ -172,15 +167,12 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
     return (
         <div className="space-y-4">
             <div className="rounded-lg border border-content/10 bg-surface-secondary/60 p-3 text-xs leading-5 text-content-secondary">
-                The current photo is the 100% base. Added photos start centred at 50% opacity. Edits later in the Changes stack affect the combined result; move Overlay photos earlier in the stack when you want subsequent crop, black &amp; white or other edits applied to the whole composition.
+                The current photo is the 100% base. Added photos start centred at 50% opacity. Edits later in the Changes stack affect the combined result; move Overlay photos earlier when you want later crop, black &amp; white or other edits applied to the whole composition.
             </div>
 
             {layers.length > 0 && (
                 <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-content-secondary">
-                        <span>Layers</span>
-                        <span>back → front</span>
-                    </div>
+                    <div className="flex items-center justify-between text-xs text-content-secondary"><span>Layers</span><span>back → front</span></div>
                     <div className="space-y-1">
                         {layers.map((layer) => {
                             const asset = assetById.get(layer.assetId);
@@ -192,7 +184,7 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
                                     className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left ${selectedLayerId === layer.id ? 'border-brand-accent bg-brand-accent/10' : 'border-content/10 hover:bg-surface-secondary'}`}
                                     onClick={() => setSelectedLayerId(layer.id)}
                                 >
-                                    <LayerThumbnail asset={asset} name={name} />
+                                    <LayerThumbnail asset={asset} />
                                     <span className="min-w-0 flex-1 truncate text-xs text-content">{name}</span>
                                     <span className="text-xs tabular-nums text-content-secondary">{Math.round(layer.opacity * 100)}%</span>
                                 </button>
@@ -210,58 +202,34 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
                         <button type="button" className="ml-auto rounded-md border border-content/15 px-2 py-1 text-xs hover:bg-surface-secondary" onClick={() => removeLayer(selected.id)}>Remove</button>
                     </div>
                     <label className="flex items-center gap-2 text-xs text-content">
-                        <input
-                            type="checkbox"
-                            checked={selected.enabled}
-                            onChange={(event) => {
-                                const nextLayers = [...layers];
-                                nextLayers[selectedIndex] = { ...selected, enabled: event.currentTarget.checked };
-                                commit({ ...draft, assetLayers: nextLayers });
-                            }}
-                        />
+                        <input type="checkbox" checked={selected.enabled} onChange={(event) => {
+                            const nextLayers = [...layers];
+                            nextLayers[selectedIndex] = { ...selected, enabled: event.currentTarget.checked };
+                            commit({ ...draft, assetLayers: nextLayers });
+                        }} />
                         Show this photo
                     </label>
-                    <RangeControl id={`${selected.id}-opacity`} label="Opacity" value={selected.opacity} display={`${Math.round(selected.opacity * 100)}%`} min={0} max={1} step={0.01} onChange={(value) => replaceLayer(selectedIndex, { opacity: value })} onCommit={commitDraft} />
-                    <RangeControl id={`${selected.id}-scale`} label="Scale" value={selected.scale} display={`${Math.round(selected.scale * 100)}%`} min={0.1} max={4} step={0.01} onChange={(value) => replaceLayer(selectedIndex, { scale: value })} onCommit={commitDraft} />
-                    <RangeControl id={`${selected.id}-x`} label="Horizontal" value={selected.offsetX} display={`${Math.round(selected.offsetX * 100)}%`} min={-1} max={1} step={0.01} onChange={(value) => replaceLayer(selectedIndex, { offsetX: value })} onCommit={commitDraft} />
-                    <RangeControl id={`${selected.id}-y`} label="Vertical" value={selected.offsetY} display={`${Math.round(selected.offsetY * 100)}%`} min={-1} max={1} step={0.01} onChange={(value) => replaceLayer(selectedIndex, { offsetY: value })} onCommit={commitDraft} />
-                    <button
-                        type="button"
-                        className="w-full rounded-md border border-content/15 px-2 py-1.5 text-xs hover:bg-surface-secondary"
-                        onClick={() => {
-                            const nextLayers = [...layers];
-                            nextLayers[selectedIndex] = { ...selected, opacity: 0.5, scale: 1, offsetX: 0, offsetY: 0 };
-                            commit({ ...draft, assetLayers: nextLayers });
-                        }}
-                    >
-                        Reset layer
-                    </button>
+                    <RangeControl id={`${selected.id}-opacity`} label="Opacity" value={selected.opacity} display={`${Math.round(selected.opacity * 100)}%`} min={0} max={1} step={0.01} onChange={(value) => updateLayer(selectedIndex, { opacity: value })} onCommit={() => props.onCommit(draft)} />
+                    <RangeControl id={`${selected.id}-scale`} label="Scale" value={selected.scale} display={`${Math.round(selected.scale * 100)}%`} min={0.1} max={4} step={0.01} onChange={(value) => updateLayer(selectedIndex, { scale: value })} onCommit={() => props.onCommit(draft)} />
+                    <RangeControl id={`${selected.id}-x`} label="Horizontal" value={selected.offsetX} display={`${Math.round(selected.offsetX * 100)}%`} min={-1} max={1} step={0.01} onChange={(value) => updateLayer(selectedIndex, { offsetX: value })} onCommit={() => props.onCommit(draft)} />
+                    <RangeControl id={`${selected.id}-y`} label="Vertical" value={selected.offsetY} display={`${Math.round(selected.offsetY * 100)}%`} min={-1} max={1} step={0.01} onChange={(value) => updateLayer(selectedIndex, { offsetY: value })} onCommit={() => props.onCommit(draft)} />
+                    <button type="button" className="w-full rounded-md border border-content/15 px-2 py-1.5 text-xs hover:bg-surface-secondary" onClick={() => {
+                        const nextLayers = [...layers];
+                        nextLayers[selectedIndex] = { ...selected, opacity: 0.5, scale: 1, offsetX: 0, offsetY: 0 };
+                        commit({ ...draft, assetLayers: nextLayers });
+                    }}>Reset layer</button>
                 </div>
             )}
 
             <div className="space-y-2 border-t border-content/10 pt-3">
                 <label className="block text-xs text-content-secondary" htmlFor={`${draft.id}-photo-search`}>Add another photo</label>
-                <input
-                    id={`${draft.id}-photo-search`}
-                    type="search"
-                    className="w-full rounded-lg border border-content/15 bg-surface px-3 py-2 text-sm text-content"
-                    value={query}
-                    placeholder="Filter loaded photos by filename"
-                    onChange={(event) => setQuery(event.currentTarget.value)}
-                />
+                <input id={`${draft.id}-photo-search`} type="search" className="w-full rounded-lg border border-content/15 bg-surface px-3 py-2 text-sm text-content" value={query} placeholder="Filter loaded photos by filename" onChange={(event) => setQuery(event.currentTarget.value)} />
                 {error && <p className="text-xs text-red-500">{error}</p>}
                 <div className="grid grid-cols-3 gap-2">
                     {filteredCandidates.map((asset) => {
                         const used = usedAssetIds.has(asset.id);
                         return (
-                            <button
-                                key={asset.id}
-                                type="button"
-                                disabled={used}
-                                title={filename(asset.original_path)}
-                                className="overflow-hidden rounded-lg border border-content/10 text-left hover:border-brand-accent disabled:opacity-35"
-                                onClick={() => addLayer(asset)}
-                            >
+                            <button key={asset.id} type="button" disabled={used} title={filename(asset.original_path)} className="overflow-hidden rounded-lg border border-content/10 text-left hover:border-brand-accent disabled:opacity-35" onClick={() => addLayer(asset)}>
                                 {asset.preview_data_url
                                     ? <img className="aspect-square w-full object-cover" src={asset.preview_data_url} alt="" />
                                     : <div className="flex aspect-square w-full items-center justify-center bg-surface-secondary text-xs text-content-secondary">IMG</div>}
@@ -271,11 +239,7 @@ export function OverlayControls(props: PhotoEditToolControlProps) {
                     })}
                 </div>
                 {filteredCandidates.length === 0 && !loading && <p className="text-xs text-content-secondary">No matching photos in the loaded library page.</p>}
-                {hasMore && (
-                    <button type="button" className="w-full rounded-md border border-content/15 px-3 py-2 text-xs hover:bg-surface-secondary disabled:opacity-50" disabled={loading} onClick={() => void loadMore()}>
-                        {loading ? 'Loading…' : 'Load more photos'}
-                    </button>
-                )}
+                {hasMore && <button type="button" className="w-full rounded-md border border-content/15 px-3 py-2 text-xs hover:bg-surface-secondary disabled:opacity-50" disabled={loading} onClick={() => void loadMore()}>{loading ? 'Loading…' : 'Load more photos'}</button>}
             </div>
         </div>
     );
