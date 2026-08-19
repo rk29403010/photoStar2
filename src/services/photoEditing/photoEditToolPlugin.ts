@@ -10,6 +10,10 @@ export type PhotoEditToolCapabilities = {
     requiresAssetMetadata?: boolean;
 };
 export type PhotoEditToolRenderPipeline = { greyscale: () => PhotoEditToolRenderPipeline; png: () => { toBuffer: () => Promise<Buffer> } };
+export type PhotoEditToolRenderContext = {
+    /** Resolve another library asset without persisting filesystem paths in edit recipes. */
+    resolveAssetSource?: (assetId: string) => string | Buffer | Promise<string | Buffer>;
+};
 export type PhotoEditToolBrowserPreviewPlugin = Pick<PhotoEditToolPlugin, 'id' | 'browserPreview'> & {
     browserPreview: NonNullable<PhotoEditToolPlugin['browserPreview']>;
 };
@@ -39,7 +43,7 @@ export type PhotoEditToolPlugin = {
     defaults: Record<string, number | boolean>; controls?: readonly PhotoEditToolControl[];
     validateOperation?: (operation: PhotoEditOperation) => void;
     browserPreview?: (current: PhotoEditOperation, baseline: PhotoEditOperation) => CSSProperties | undefined;
-    renderExact?: (input: Buffer, operation: PhotoEditOperation, pipeline: (input: Buffer) => PhotoEditToolRenderPipeline) => Promise<Buffer>;
+    renderExact?: (input: Buffer, operation: PhotoEditOperation, pipeline: (input: Buffer) => PhotoEditToolRenderPipeline, context: PhotoEditToolRenderContext) => Promise<Buffer>;
     capabilities?: PhotoEditToolCapabilities;
     suggest?: (context: PhotoEditAutomaticSuggestionContext) => PhotoEditAutomaticSuggestion | null;
     migrateOperation?: (operation: PhotoEditOperation, fromVersion: number) => PhotoEditOperation;
