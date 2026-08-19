@@ -11,22 +11,31 @@ function finite(value: unknown, name: string): number {
     return value;
 }
 
+function assertRange(value: unknown, name: string, minimum: number, maximum: number, message: string): void {
+    const numeric = finite(value, name);
+    if (numeric < minimum || numeric > maximum) {throw new Error(message);}
+}
+
+function assertLayerIdentity(layer: PhotoEditAssetLayer, ids: Set<string>): void {
+    if (!layer.id || ids.has(layer.id)) {throw new Error('Each overlay layer must have a unique id');}
+    if (!layer.assetId) {throw new Error('Each overlay layer must reference a library asset');}
+    ids.add(layer.id);
+}
+
+function validateLayer(layer: PhotoEditAssetLayer, ids: Set<string>): void {
+    assertLayerIdentity(layer, ids);
+    assertRange(layer.opacity, 'Overlay opacity', 0, 1, 'Overlay opacity must be between 0 and 1');
+    assertRange(layer.scale, 'Overlay scale', 0.05, 8, 'Overlay scale must be between 5% and 800%');
+    const offsetX = finite(layer.offsetX, 'Overlay horizontal position');
+    const offsetY = finite(layer.offsetY, 'Overlay vertical position');
+    if (Math.abs(offsetX) > 4 || Math.abs(offsetY) > 4) {throw new Error('Overlay position is outside the supported canvas range');}
+}
+
 export function validateOverlayOperation(operation: PhotoEditOperation): void {
     if (operation.assetLayers === undefined) {return;}
     if (!Array.isArray(operation.assetLayers)) {throw new Error('Overlay photo layers must be an array');}
     const ids = new Set<string>();
-    for (const layer of operation.assetLayers) {
-        if (!layer.id || ids.has(layer.id)) {throw new Error('Each overlay layer must have a unique id');}
-        if (!layer.assetId) {throw new Error('Each overlay layer must reference a library asset');}
-        ids.add(layer.id);
-        const opacity = finite(layer.opacity, 'Overlay opacity');
-        const offsetX = finite(layer.offsetX, 'Overlay horizontal position');
-        const offsetY = finite(layer.offsetY, 'Overlay vertical position');
-        const scale = finite(layer.scale, 'Overlay scale');
-        if (opacity < 0 || opacity > 1) {throw new Error('Overlay opacity must be between 0 and 1');}
-        if (scale < 0.05 || scale > 8) {throw new Error('Overlay scale must be between 5% and 800%');}
-        if (Math.abs(offsetX) > 4 || Math.abs(offsetY) > 4) {throw new Error('Overlay position is outside the supported canvas range');}
-    }
+    operation.assetLayers.forEach((layer) => validateLayer(layer, ids));
 }
 
 type CompositeInput = {
@@ -80,12 +89,28 @@ async function prepareLayer(
             blend: 'dest-in',
         }]);
     }
-    return {
-        input: await pipeline.png().toBuffer(),
-        left: destinationLeft,
-        top: destinationTop,
-        blend: 'over',
-    };
+    return { input: await pipeline.png().toBuffer(), left: destinationLeft, top: destinationTop, blend: 'over' };
+}
+
+function activeLayers(layers: PhotoEditAssetLayer[]): PhotoEditAssetLayer[] {
+    return layers.filter((layer) => layer.enabled && layer.opacity > 0);
+}
+
+function isComposite(value: CompositeInput | null): value is CompositeInput {
+    return value !== null;
+}
+
+async function prepareComposites(
+    layers: PhotoEditAssetLayer[],
+    resolveAssetSource: NonNullable<PhotoEditToolRenderContext['resolveAssetSource']>,
+    width: number,
+    height: number,
+): Promise<CompositeInput[]> {
+    const prepared = await Promise.all(layers.map(async (layer) => {
+        const source = await resolveAssetSource(layer.assetId);
+        return prepareLayer(source, layer, width, height);
+    }));
+    return prepared.filter(isComposite);
 }
 
 export async function renderOverlay(
@@ -94,19 +119,13 @@ export async function renderOverlay(
     _pipeline: (input: Buffer) => PhotoEditToolRenderPipeline,
     context: PhotoEditToolRenderContext,
 ): Promise<Buffer> {
-    const layers = operation.assetLayers ?? [];
+    const layers = activeLayers(operation.assetLayers ?? []);
     if (layers.length === 0) {return input;}
-    if (!context.resolveAssetSource) {throw new Error('Overlay photos requires access to library source images');}
-
+    const resolveAssetSource = context.resolveAssetSource;
+    if (!resolveAssetSource) {throw new Error('Overlay photos requires access to library source images');}
     const metadata = await sharp(input).metadata();
     if (!metadata.width || !metadata.height) {return input;}
-    const composites: CompositeInput[] = [];
-    for (const layer of layers) {
-        if (!layer.enabled || layer.opacity <= 0) {continue;}
-        const source = await context.resolveAssetSource(layer.assetId);
-        const prepared = await prepareLayer(source, layer, metadata.width, metadata.height);
-        if (prepared) {composites.push(prepared);}
-    }
+    const composites = await prepareComposites(layers, resolveAssetSource, metadata.width, metadata.height);
     if (composites.length === 0) {return input;}
     return sharp(input).ensureAlpha().composite(composites).png().toBuffer();
 }
