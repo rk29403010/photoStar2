@@ -6,9 +6,14 @@ import type { PhotoEditToolControlProps, PhotoEditToolUiPlugin } from '../../../
 
 const PAGE_SIZE = 48;
 type CandidatePage = { assets: Asset[]; hasMore: boolean };
+type LayerSelection = { operation: PhotoEditOperation; selectedLayerId: string | null };
 
 function filename(path: string): string {
     return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+}
+
+function errorText(reason: unknown): string {
+    return reason instanceof Error ? reason.message : String(reason);
 }
 
 async function fetchCandidates(offset: number): Promise<CandidatePage> {
@@ -42,91 +47,135 @@ function RangeControl(props: {
     );
 }
 
-function useOverlayLayerEditor(props: PhotoEditToolControlProps) {
-    const [draft, setDraft] = useState<PhotoEditOperation>(props.operation);
-    const [selectedLayerId, setSelectedLayerId] = useState<string | null>(props.operation.assetLayers?.[0]?.id ?? null);
-    useEffect(() => {
-        setDraft(props.operation);
-        const incoming = props.operation.assetLayers ?? [];
-        setSelectedLayerId((current) => incoming.some((layer) => layer.id === current) ? current : (incoming[0]?.id ?? null));
-    }, [props.operation]);
-    const layers = useMemo(() => draft.assetLayers ?? [], [draft.assetLayers]);
-    const usedAssetIds = useMemo(() => new Set(layers.map((layer) => layer.assetId)), [layers]);
-    const selectedIndex = layers.findIndex((layer) => layer.id === selectedLayerId);
-    const selected = selectedIndex >= 0 ? layers[selectedIndex] : undefined;
-    const preview = (next: PhotoEditOperation) => { setDraft(next); props.onPreviewChange(next); };
-    const commit = (next: PhotoEditOperation) => { setDraft(next); props.onPreviewChange(next); props.onCommit(next); };
-    const withLayerPatch = (patch: Partial<PhotoEditAssetLayer>): PhotoEditOperation | null => {
-        if (selectedIndex < 0) {return null;}
-        const nextLayers = [...layers];
-        nextLayers[selectedIndex] = { ...nextLayers[selectedIndex], ...patch };
-        return { ...draft, assetLayers: nextLayers };
-    };
-    const updateLayer = (patch: Partial<PhotoEditAssetLayer>) => { const next = withLayerPatch(patch); if (next) {preview(next);} };
-    const commitLayer = (patch: Partial<PhotoEditAssetLayer>) => { const next = withLayerPatch(patch); if (next) {commit(next);} };
-    const commitDraft = () => props.onCommit(draft);
-    const addLayer = (asset: Asset) => {
-        if (asset.id === props.asset?.id || usedAssetIds.has(asset.id)) {return;}
-        const layer: PhotoEditAssetLayer = { id: crypto.randomUUID(), assetId: asset.id, enabled: true, opacity: 0.5, offsetX: 0, offsetY: 0, scale: 1 };
-        setSelectedLayerId(layer.id);
-        commit({ ...draft, assetLayers: [...layers, layer] });
-    };
-    const removeSelected = () => {
-        if (!selected) {return;}
-        const nextLayers = layers.filter((layer) => layer.id !== selected.id);
-        setSelectedLayerId(nextLayers[0]?.id ?? null);
-        commit({ ...draft, assetLayers: nextLayers });
-    };
-    const moveSelected = (delta: -1 | 1) => {
-        const target = selectedIndex + delta;
-        if (selectedIndex < 0 || target < 0 || target >= layers.length) {return;}
-        const nextLayers = [...layers];
-        [nextLayers[selectedIndex], nextLayers[target]] = [nextLayers[target], nextLayers[selectedIndex]];
-        commit({ ...draft, assetLayers: nextLayers });
-    };
-    const resetSelected = () => commitLayer({ opacity: 0.5, scale: 1, offsetX: 0, offsetY: 0 });
-    return { draft, layers, usedAssetIds, selected, selectedIndex, selectedLayerId, setSelectedLayerId, addLayer, updateLayer, commitLayer, commitDraft, removeSelected, moveSelected, resetSelected };
+function patchLayer(operation: PhotoEditOperation, index: number, patch: Partial<PhotoEditAssetLayer>): PhotoEditOperation {
+    const layers = operation.assetLayers ?? [];
+    if (index < 0 || index >= layers.length) {return operation;}
+    const nextLayers = [...layers];
+    nextLayers[index] = { ...nextLayers[index], ...patch };
+    return { ...operation, assetLayers: nextLayers };
 }
 
-function useCandidateAssets(currentAssetId: string | undefined, query: string) {
+function addAssetLayer(operation: PhotoEditOperation, assetId: string, currentAssetId: string | undefined, selectedLayerId: string | null): LayerSelection {
+    const layers = operation.assetLayers ?? [];
+    if (assetId === currentAssetId) {return { operation, selectedLayerId };}
+    const existing = layers.find((layer) => layer.assetId === assetId);
+    if (existing) {return { operation, selectedLayerId: existing.id };}
+    const layer: PhotoEditAssetLayer = { id: crypto.randomUUID(), assetId, enabled: true, opacity: 0.5, offsetX: 0, offsetY: 0, scale: 1 };
+    return { operation: { ...operation, assetLayers: [...layers, layer] }, selectedLayerId: layer.id };
+}
+
+function removeLayer(operation: PhotoEditOperation, selectedLayerId: string | null): LayerSelection {
+    const layers = operation.assetLayers ?? [];
+    const nextLayers = layers.filter((layer) => layer.id !== selectedLayerId);
+    return { operation: { ...operation, assetLayers: nextLayers }, selectedLayerId: nextLayers[0]?.id ?? null };
+}
+
+function moveLayer(operation: PhotoEditOperation, index: number, delta: -1 | 1): PhotoEditOperation {
+    const layers = operation.assetLayers ?? [];
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= layers.length) {return operation;}
+    const nextLayers = [...layers];
+    [nextLayers[index], nextLayers[target]] = [nextLayers[target], nextLayers[index]];
+    return { ...operation, assetLayers: nextLayers };
+}
+
+function selectedLayer(layers: PhotoEditAssetLayer[], selectedLayerId: string | null): { layer?: PhotoEditAssetLayer; index: number } {
+    const index = layers.findIndex((layer) => layer.id === selectedLayerId);
+    return { layer: index >= 0 ? layers[index] : undefined, index };
+}
+
+function useSyncedOverlayDraft(operation: PhotoEditOperation) {
+    const [draft, setDraft] = useState<PhotoEditOperation>(operation);
+    const [selectedLayerId, setSelectedLayerId] = useState<string | null>(operation.assetLayers?.[0]?.id ?? null);
+    useEffect(() => {
+        setDraft(operation);
+        const incoming = operation.assetLayers ?? [];
+        setSelectedLayerId((current) => incoming.some((layer) => layer.id === current) ? current : (incoming[0]?.id ?? null));
+    }, [operation]);
+    return { draft, setDraft, selectedLayerId, setSelectedLayerId };
+}
+
+function useOverlayLayerEditor(props: PhotoEditToolControlProps) {
+    const state = useSyncedOverlayDraft(props.operation);
+    const layers = useMemo(() => state.draft.assetLayers ?? [], [state.draft.assetLayers]);
+    const usedAssetIds = useMemo(() => new Set(layers.map((layer) => layer.assetId)), [layers]);
+    const selection = selectedLayer(layers, state.selectedLayerId);
+    const preview = (next: PhotoEditOperation) => { state.setDraft(next); props.onPreviewChange(next); };
+    const commit = (next: PhotoEditOperation) => { state.setDraft(next); props.onPreviewChange(next); props.onCommit(next); };
+    const updateLayer = (patch: Partial<PhotoEditAssetLayer>) => preview(patchLayer(state.draft, selection.index, patch));
+    const commitLayer = (patch: Partial<PhotoEditAssetLayer>) => commit(patchLayer(state.draft, selection.index, patch));
+    const addLayer = (asset: Asset) => {
+        const next = addAssetLayer(state.draft, asset.id, props.asset?.id, state.selectedLayerId);
+        state.setSelectedLayerId(next.selectedLayerId);
+        commit(next.operation);
+    };
+    const removeSelected = () => {
+        const next = removeLayer(state.draft, state.selectedLayerId);
+        state.setSelectedLayerId(next.selectedLayerId);
+        commit(next.operation);
+    };
+    const moveSelected = (delta: -1 | 1) => commit(moveLayer(state.draft, selection.index, delta));
+    const resetSelected = () => commitLayer({ opacity: 0.5, scale: 1, offsetX: 0, offsetY: 0 });
+    const commitDraft = () => props.onCommit(state.draft);
+    return { draft: state.draft, layers, usedAssetIds, selected: selection.layer, selectedIndex: selection.index, selectedLayerId: state.selectedLayerId, setSelectedLayerId: state.setSelectedLayerId, addLayer, updateLayer, commitLayer, commitDraft, removeSelected, moveSelected, resetSelected };
+}
+
+function mergeCandidatePages(current: Asset[], incoming: Asset[]): Asset[] {
+    const known = new Set(current.map((asset) => asset.id));
+    return [...current, ...incoming.filter((asset) => !known.has(asset.id))];
+}
+
+function useCandidatePage(currentAssetId: string | undefined) {
     const [candidates, setCandidates] = useState<Asset[]>([]);
     const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     useEffect(() => {
         let cancelled = false;
-        setLoading(true); setError(null);
+        setLoading(true);
+        setError(null);
         void fetchCandidates(0).then((page) => {
-            if (!cancelled) { setCandidates(page.assets); setHasMore(page.hasMore); }
+            if (!cancelled) {setCandidates(page.assets); setHasMore(page.hasMore);}
         }).catch((reason: unknown) => {
-            if (!cancelled) {setError(reason instanceof Error ? reason.message : String(reason));}
-        }).finally(() => { if (!cancelled) {setLoading(false);} });
+            if (!cancelled) {setError(errorText(reason));}
+        }).finally(() => {
+            if (!cancelled) {setLoading(false);}
+        });
         return () => {cancelled = true;};
     }, [currentAssetId]);
-    const assetById = useMemo(() => new Map(candidates.map((asset) => [asset.id, asset])), [candidates]);
-    const filtered = useMemo(() => {
-        const needle = query.trim().toLocaleLowerCase();
-        return candidates.filter((asset) => asset.id !== currentAssetId && (!needle || filename(asset.original_path).toLocaleLowerCase().includes(needle)));
-    }, [candidates, currentAssetId, query]);
-    const loadMore = async () => {
-        if (loading || !hasMore) {return;}
-        setLoading(true); setError(null);
-        try {
-            const page = await fetchCandidates(candidates.length);
-            setCandidates((current) => {
-                const known = new Set(current.map((asset) => asset.id));
-                return [...current, ...page.assets.filter((asset) => !known.has(asset.id))];
-            });
-            setHasMore(page.hasMore);
-        } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
-        finally { setLoading(false); }
-    };
-    return { assetById, filtered, hasMore, loading, error, loadMore };
+    return { candidates, setCandidates, hasMore, setHasMore, loading, setLoading, error, setError };
 }
 
-function LayerThumbnail({ asset }: { readonly asset?: Asset }) {
+function useCandidateLoadMore(page: ReturnType<typeof useCandidatePage>) {
+    return async () => {
+        if (page.loading || !page.hasMore) {return;}
+        page.setLoading(true);
+        page.setError(null);
+        try {
+            const next = await fetchCandidates(page.candidates.length);
+            page.setCandidates((current) => mergeCandidatePages(current, next.assets));
+            page.setHasMore(next.hasMore);
+        } catch (reason) {
+            page.setError(errorText(reason));
+        } finally {
+            page.setLoading(false);
+        }
+    };
+}
+
+function useCandidateAssets(currentAssetId: string | undefined, query: string) {
+    const page = useCandidatePage(currentAssetId);
+    const assetById = useMemo(() => new Map(page.candidates.map((asset) => [asset.id, asset])), [page.candidates]);
+    const filtered = useMemo(() => {
+        const needle = query.trim().toLocaleLowerCase();
+        return page.candidates.filter((asset) => asset.id !== currentAssetId && (!needle || filename(asset.original_path).toLocaleLowerCase().includes(needle)));
+    }, [page.candidates, currentAssetId, query]);
+    return { assetById, filtered, hasMore: page.hasMore, loading: page.loading, error: page.error, loadMore: useCandidateLoadMore(page) };
+}
+
+function LayerThumbnail({ asset, name }: { readonly asset?: Asset; readonly name: string }) {
     return asset?.preview_data_url
-        ? <img className="size-10 shrink-0 rounded-md object-cover" src={asset.preview_data_url} alt="" />
+        ? <img className="size-10 shrink-0 rounded-md object-cover" src={asset.preview_data_url} alt={name} />
         : <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface-secondary text-xs text-content-secondary">IMG</div>;
 }
 
@@ -144,7 +193,7 @@ function LayerList(props: {
             const name = asset ? filename(asset.original_path) : layer.assetId;
             const selected = props.selectedLayerId === layer.id;
             return <button key={layer.id} type="button" className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left ${selected ? 'border-brand-accent bg-brand-accent/10' : 'border-content/10 hover:bg-surface-secondary'}`} onClick={() => props.onSelect(layer.id)}>
-                <LayerThumbnail asset={asset} />
+                <LayerThumbnail asset={asset} name={name} />
                 <span className="min-w-0 flex-1 truncate text-xs text-content">{name}</span>
                 <span className="text-xs tabular-nums text-content-secondary">{Math.round(layer.opacity * 100)}%</span>
             </button>;
@@ -197,9 +246,10 @@ function PhotoPicker(props: {
         {props.error && <p className="text-xs text-red-500">{props.error}</p>}
         <div className="grid grid-cols-3 gap-2">{props.assets.map((asset) => {
             const used = props.usedAssetIds.has(asset.id);
-            return <button key={asset.id} type="button" disabled={used} title={filename(asset.original_path)} className="overflow-hidden rounded-lg border border-content/10 text-left hover:border-brand-accent disabled:opacity-35" onClick={() => props.onAdd(asset)}>
-                {asset.preview_data_url ? <img className="aspect-square w-full object-cover" src={asset.preview_data_url} alt="" /> : <div className="flex aspect-square w-full items-center justify-center bg-surface-secondary text-xs text-content-secondary">IMG</div>}
-                <span className="block truncate px-1.5 py-1 text-[11px] text-content">{used ? 'Added' : filename(asset.original_path)}</span>
+            const name = filename(asset.original_path);
+            return <button key={asset.id} type="button" disabled={used} title={name} className="overflow-hidden rounded-lg border border-content/10 text-left hover:border-brand-accent disabled:opacity-35" onClick={() => props.onAdd(asset)}>
+                {asset.preview_data_url ? <img className="aspect-square w-full object-cover" src={asset.preview_data_url} alt={name} /> : <div className="flex aspect-square w-full items-center justify-center bg-surface-secondary text-xs text-content-secondary">IMG</div>}
+                <span className="block truncate px-1.5 py-1 text-[11px] text-content">{used ? 'Added' : name}</span>
             </button>;
         })}</div>
         {props.assets.length === 0 && !props.loading && <p className="text-xs text-content-secondary">No matching photos in the loaded library page.</p>}
