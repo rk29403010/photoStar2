@@ -6,7 +6,7 @@ export const perceptionPlugin: PhotoEditToolPlugin = {
     id: 'perception',
     recipeVersion: 1,
     label: 'Perception',
-    icon: 'Eye',
+    icon: 'ScanEye',
     group: 'effects',
     defaults: PERCEPTION_DEFAULTS,
     controls: PERCEPTION_CONTROLS,
