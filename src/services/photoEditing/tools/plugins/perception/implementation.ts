@@ -3,16 +3,31 @@ import type { PhotoEditOperation } from '../../../../../boundary/contracts/photo
 import { decodeRgba, encodeRgba } from '../../imageBuffer.ts';
 import { PERCEPTION_DEFAULTS } from './defaults.ts';
 
+type PerceptionSettings = {
+    strength: number;
+    adaptation: number;
+    emphasis: number;
+    suppression: number;
+    colourConstancy: number;
+};
+
+type ChannelCorrections = {
+    red: number;
+    green: number;
+    blue: number;
+};
+
 function clamp(value: number, minimum: number, maximum: number): number {
     return Math.min(maximum, Math.max(minimum, value));
 }
 
-function value(operation: PhotoEditOperation, key: string): number {
+function operationValue(operation: PhotoEditOperation, key: string): number {
     const candidate = operation.values[key];
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        return candidate;
+    }
     const fallback = PERCEPTION_DEFAULTS[key];
-    return typeof candidate === 'number' && Number.isFinite(candidate)
-        ? candidate
-        : typeof fallback === 'number' ? fallback : 0;
+    return typeof fallback === 'number' ? fallback : 0;
 }
 
 function luma(red: number, green: number, blue: number): number {
@@ -87,52 +102,113 @@ function applyChroma(params: {
     return [clamp(red, 0, 255), clamp(green, 0, 255), clamp(blue, 0, 255)];
 }
 
-export async function renderPerception(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
-    const image = await decodeRgba(input);
-    const strength = clamp(value(operation, 'strength') / 100, 0, 1);
-    if (strength <= 0) {
-        return input;
-    }
-    const adaptation = clamp(value(operation, 'localAdaptation') / 100, 0, 1);
-    const emphasis = clamp(value(operation, 'emphasis') / 100, 0, 1);
-    const suppression = clamp(value(operation, 'suppression') / 100, 0, 1);
-    const colourConstancy = clamp(value(operation, 'colourConstancy') / 100, 0, 1) * strength;
-    const sigma = clamp(Math.min(image.width, image.height) * 0.02, 1, 24);
+function perceptionSettings(operation: PhotoEditOperation): PerceptionSettings {
+    const strength = clamp(operationValue(operation, 'strength') / 100, 0, 1);
+    return {
+        strength,
+        adaptation: clamp(operationValue(operation, 'localAdaptation') / 100, 0, 1),
+        emphasis: clamp(operationValue(operation, 'emphasis') / 100, 0, 1),
+        suppression: clamp(operationValue(operation, 'suppression') / 100, 0, 1),
+        colourConstancy: clamp(operationValue(operation, 'colourConstancy') / 100, 0, 1) * strength,
+    };
+}
+
+async function blurredLuminance(input: Buffer, width: number, height: number): Promise<{ data: Buffer; channels: number }> {
+    const sigma = clamp(Math.min(width, height) * 0.02, 1, 24);
     const local = await sharp(input)
         .removeAlpha()
         .greyscale()
         .blur(sigma)
         .raw()
         .toBuffer({ resolveWithObject: true });
-    const means = channelMeans(image.data);
+    return { data: local.data, channels: local.info.channels };
+}
+
+function channelCorrections(data: Buffer, colourConstancy: number): ChannelCorrections {
+    const means = channelMeans(data);
     const target = (means.red + means.green + means.blue) / 3;
-    const redCorrection = correction(means.red, target, colourConstancy);
-    const greenCorrection = correction(means.green, target, colourConstancy);
-    const blueCorrection = correction(means.blue, target, colourConstancy);
+    return {
+        red: correction(means.red, target, colourConstancy),
+        green: correction(means.green, target, colourConstancy),
+        blue: correction(means.blue, target, colourConstancy),
+    };
+}
+
+function copyTransparentPixel(source: Buffer, output: Buffer, offset: number, alpha: number): void {
+    output[offset] = source[offset] ?? 0;
+    output[offset + 1] = source[offset + 1] ?? 0;
+    output[offset + 2] = source[offset + 2] ?? 0;
+    output[offset + 3] = alpha;
+}
+
+function renderOpaquePixel(params: {
+    source: Buffer;
+    output: Buffer;
+    local: Buffer;
+    localChannels: number;
+    pixel: number;
+    offset: number;
+    alpha: number;
+    corrections: ChannelCorrections;
+    settings: PerceptionSettings;
+}): void {
+    const red = (params.source[params.offset] ?? 0) * params.corrections.red;
+    const green = (params.source[params.offset + 1] ?? 0) * params.corrections.green;
+    const blue = (params.source[params.offset + 2] ?? 0) * params.corrections.blue;
+    const originalLuma = luma(red, green, blue) / 255;
+    const localLuma = (params.local[params.pixel * params.localChannels] ?? 0) / 255;
+    const mappedLuma = mapLuminance({
+        y: originalLuma,
+        local: localLuma,
+        strength: params.settings.strength,
+        adaptation: params.settings.adaptation,
+        emphasis: params.settings.emphasis,
+        suppression: params.settings.suppression,
+    });
+    const [mappedRed, mappedGreen, mappedBlue] = applyChroma({
+        red,
+        green,
+        blue,
+        mappedLuma,
+        originalLuma,
+        strength: params.settings.strength,
+        emphasis: params.settings.emphasis,
+        suppression: params.settings.suppression,
+    });
+    params.output[params.offset] = Math.round(mappedRed);
+    params.output[params.offset + 1] = Math.round(mappedGreen);
+    params.output[params.offset + 2] = Math.round(mappedBlue);
+    params.output[params.offset + 3] = params.alpha;
+}
+
+export async function renderPerception(input: Buffer, operation: PhotoEditOperation): Promise<Buffer> {
+    const image = await decodeRgba(input);
+    const settings = perceptionSettings(operation);
+    if (settings.strength <= 0) {
+        return input;
+    }
+    const local = await blurredLuminance(input, image.width, image.height);
+    const corrections = channelCorrections(image.data, settings.colourConstancy);
     const output = Buffer.alloc(image.data.length);
-    const channels = local.info.channels;
 
     for (let pixel = 0; pixel < image.width * image.height; pixel += 1) {
         const offset = pixel * 4;
         const alpha = image.data[offset + 3] ?? 255;
         if (alpha === 0) {
-            output[offset] = image.data[offset] ?? 0;
-            output[offset + 1] = image.data[offset + 1] ?? 0;
-            output[offset + 2] = image.data[offset + 2] ?? 0;
-            output[offset + 3] = alpha;
+            copyTransparentPixel(image.data, output, offset, alpha);
             continue;
         }
-        const red = (image.data[offset] ?? 0) * redCorrection;
-        const green = (image.data[offset + 1] ?? 0) * greenCorrection;
-        const blue = (image.data[offset + 2] ?? 0) * blueCorrection;
-        const originalLuma = luma(red, green, blue) / 255;
-        const localLuma = (local.data[pixel * channels] ?? 0) / 255;
-        const mappedLuma = mapLuminance({ y: originalLuma, local: localLuma, strength, adaptation, emphasis, suppression });
-        const [mappedRed, mappedGreen, mappedBlue] = applyChroma({ red, green, blue, mappedLuma, originalLuma, strength, emphasis, suppression });
-        output[offset] = Math.round(mappedRed);
-        output[offset + 1] = Math.round(mappedGreen);
-        output[offset + 2] = Math.round(mappedBlue);
-        output[offset + 3] = alpha;
+        renderOpaquePixel({
+            source: image.data,
+            output,
+            local: local.data,
+            localChannels: local.channels,
+            pixel,
+            offset,
+            alpha,
+            corrections,
+            settings,
+        });
     }
 
     return encodeRgba({ ...image, data: output });
