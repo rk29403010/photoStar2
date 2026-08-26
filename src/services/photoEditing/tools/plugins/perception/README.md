@@ -13,4 +13,4 @@ A whole-image Perception operation should normally leave `Emphasis` and `Suppres
 
 `generative.ts` defines the prompt boundary for explicit `remove`/`simplify` actions. It is intentionally not called from normal recipe rendering. Generative reconstruction should be a separate user action with a supplied mask, then validated for changes outside that mask before the returned pixels are accepted.
 
-This prototype is registered explicitly rather than through the generated plug-in manifest registry so that the generated registries remain reproducible while the interaction is still experimental.
+Perception is registered through the standard photo-edit plug-in manifest and generated registries, like the other editor tools.
