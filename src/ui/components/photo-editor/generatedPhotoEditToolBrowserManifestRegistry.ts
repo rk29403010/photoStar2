@@ -382,6 +382,24 @@ export const generatedPhotoEditToolBrowserManifests: readonly PhotoEditToolBrows
         "errorBoundaryDisplayName": "Black & white"
     },
     {
+        "id": "overlay",
+        "recipeVersion": 1,
+        "label": "Overlay photos",
+        "icon": "Blend",
+        "group": "compose",
+        "defaults": {},
+        "controls": [],
+        "capabilities": {
+            "maskCompatible": false,
+            "requiresSourceImage": true
+        },
+        "help": {
+            "description": "Combines additional library photos with independent position, scale and opacity.",
+            "accessibilityLabel": "Add photo overlay"
+        },
+        "errorBoundaryDisplayName": "Overlay photos"
+    },
+    {
         "id": "red_eye",
         "recipeVersion": 1,
         "label": "Red eye",

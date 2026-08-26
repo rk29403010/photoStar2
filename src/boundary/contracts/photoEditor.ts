@@ -7,6 +7,7 @@ export type KnownPhotoEditTool =
     | 'effects'
     | 'focus'
     | 'grayscale'
+    | 'overlay'
     | 'red_eye'
     | 'restore'
     | 'rotate'
@@ -67,6 +68,20 @@ export type PhotoMaskMetadata = {
     masks: PhotoMaskMetadataItem[];
 };
 
+/** Additional library image composited into a multi-source edit operation. */
+export type PhotoEditAssetLayer = {
+    id: string;
+    assetId: string;
+    enabled: boolean;
+    /** 0 is transparent and 1 is fully opaque. */
+    opacity: number;
+    /** Offset from centred placement, expressed as a fraction of output width/height. */
+    offsetX: number;
+    offsetY: number;
+    /** 1 means contain the whole source image within the output canvas. */
+    scale: number;
+};
+
 export type PhotoEditOperation = {
     id: string;
     tool: PhotoEditTool;
@@ -74,6 +89,8 @@ export type PhotoEditOperation = {
     enabled: boolean;
     maskId?: string | null;
     values: Record<string, number | boolean>;
+    /** Optional external image inputs for compound tools such as Overlay photos. */
+    assetLayers?: PhotoEditAssetLayer[];
     /** Version of the owning plug-in recipe. Absent values are legacy v1 recipes. */
     recipeVersion?: number;
 };

@@ -87,8 +87,11 @@ function saveDocument(db: Database.Database, input: SavePhotoEditInput): PhotoEd
     return loadDocument(db, input.id)!;
 }
 
-async function writePreview(sourcePath: string, input: SavePhotoEditInput): Promise<string> {
-    const buffer = await renderPhotoEdit(sourcePath, input.operations, input.masks, { maxWidth: 900 });
+async function writePreview(db: Database.Database, sourcePath: string, input: SavePhotoEditInput): Promise<string> {
+    const buffer = await renderPhotoEdit(sourcePath, input.operations, input.masks, {
+        maxWidth: 900,
+        resolveAssetSource: (assetId) => requireAssetPath(db, assetId),
+    });
     return `data:image/webp;base64,${(await sharp(buffer).webp({ quality: 82 }).toBuffer()).toString('base64')}`;
 }
 
@@ -140,7 +143,9 @@ async function renderDocument(ctx: CommandContext, input: RenderPhotoEditInput):
     await mkdir(editsDir, { recursive: true });
     const outputPath = join(editsDir, `${assetId}.jpg`);
     const temporaryPath = `${outputPath}.tmp`;
-    const rendered = await renderPhotoEdit(sourcePath, input.operations, input.masks);
+    const rendered = await renderPhotoEdit(sourcePath, input.operations, input.masks, {
+        resolveAssetSource: (sourceAssetId) => requireAssetPath(db, sourceAssetId),
+    });
     await sharp(rendered).flatten({ background: '#ffffff' }).jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).withMetadata().toFile(temporaryPath);
     await rename(temporaryPath, outputPath);
     const metadata = await sharp(outputPath).metadata();
@@ -190,8 +195,9 @@ export const photoEditCommandHandlers: CommandHandlerMap = {
         try {
             const input = ctx.payload as SavePhotoEditInput;
             validateDocumentInput(input);
-            const sourcePath = requireAssetPath(ctx.dbManager.getDb(), input.sourceAssetId);
-            ctx.respond(ctx.id, 'ok', { previewDataUrl: await writePreview(sourcePath, input) }, null, ctx.originWs);
+            const db = ctx.dbManager.getDb();
+            const sourcePath = requireAssetPath(db, input.sourceAssetId);
+            ctx.respond(ctx.id, 'ok', { previewDataUrl: await writePreview(db, sourcePath, input) }, null, ctx.originWs);
         } catch (error) {respondWithError(ctx, error);}
     },
     save_photo_edit: (ctx) => {
