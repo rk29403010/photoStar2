@@ -45,9 +45,11 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Maker / Through Their Eyes** — model who took a photograph or which studio made it, including inference from sequence absence and studio imprints.
 - **Context Engine / Context Dial** — retrieve tightly relevant external historical maps/images/context around a family photo while keeping it distinct from the family archive.
 - **Lifetime Identity Anchors / Life Strip** — represent a person with several trusted visual anchors across their lifetime rather than one averaged face, and use those anchors for recognition, review and age-aware presentation.
+- **Memory Bundles / The Table** — connect the family's own photos, letters, tickets, reverse scans, audio and other surviving artefacts around an event/person/place without collapsing their provenance.
 
 ## Dated briefs
 
+- [2026-08-28 — Memory Bundles](./photostar-daily-inspiration/2026-08-28.md)
 - [2026-08-27 — A person changes through time](./photostar-daily-inspiration/2026-08-27.md)
 
 ## 2026-08-26 — Repository log established
