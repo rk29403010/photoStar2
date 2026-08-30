@@ -47,9 +47,11 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Lifetime Identity Anchors / Life Strip** — represent a person with several trusted visual anchors across their lifetime rather than one averaged face, and use those anchors for recognition, review and age-aware presentation.
 - **Memory Bundles / The Table** — connect the family's own photos, letters, tickets, reverse scans, audio and other surviving artefacts around an event/person/place without collapsing their provenance.
 - **Relightable Evidence / Read the Stone** — use multi-light/RTI capture and interactive virtual illumination to recover physical surface evidence from worn inscriptions, plaques, embossed paper and similar artefacts before attempting generative restoration.
+- **Preservation Health / Rescue Queue / Archive Survival Test** — combine fixity, copy count, source lineage, format health and scan adequacy to identify what is at genuine risk and keep the archive reconstructable without PhotoStar.
 
 ## Dated briefs
 
+- [2026-08-30 — Preservation Health](./photostar-daily-inspiration/2026-08-30.md)
 - [2026-08-29 — Relight the evidence](./photostar-daily-inspiration/2026-08-29.md)
 - [2026-08-28 — Memory Bundles](./photostar-daily-inspiration/2026-08-28.md)
 - [2026-08-27 — A person changes through time](./photostar-daily-inspiration/2026-08-27.md)
