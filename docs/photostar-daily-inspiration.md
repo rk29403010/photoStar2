@@ -44,7 +44,13 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Roll Reconstruction / Follow the Photographer** — recover likely original shooting sequences/contact sheets from disconnected scans.
 - **Maker / Through Their Eyes** — model who took a photograph or which studio made it, including inference from sequence absence and studio imprints.
 - **Context Engine / Context Dial** — retrieve tightly relevant external historical maps/images/context around a family photo while keeping it distinct from the family archive.
+- **Lifetime Identity Anchors / Life Strip** — represent a person with age-diverse trusted face prototypes and browse their real appearance through time rather than one averaged centroid.
+- **Memory Bundles / The Table** — connect photographs, letters, tickets, audio, documents and other family evidence around one event without flattening them into one media type.
+- **Relightable Evidence / Read the Stone** — use multi-light RTI and structured transcription evidence to reveal worn engraved or embossed surfaces without generative reconstruction.
+- **Preservation Health / Rescue Queue / Archive Survival Test** — identify originals at risk, weak scans, missing sources and non-portable knowledge before loss occurs.
+- **Capture Doctor / Capture Session / Reveal the Object** — distinguish source damage from capture defects and prefer recapturing better evidence over repairing avoidable digitisation errors.
+- **Home Movie Threads / VideoMoment / Still to Motion** — retrieve exact moments from home movies using stills, text, people and events; link genuine moving footage back to the photo archive before generating synthetic motion.
 
 ## 2026-08-26 — Repository log established
 
-The daily feed is now intended to keep the same full brief in three places: ChatGPT, email, and this repository file. New entries should begin with a conspicuous dated heading so each day is easy to find.
+The daily feed is now intended to keep the full brief in ChatGPT and this repository log. New entries should begin with a conspicuous dated heading so each day is easy to find.
