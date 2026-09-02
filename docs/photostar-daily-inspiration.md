@@ -49,9 +49,13 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Relightable Evidence / Read the Stone** — use multi-light/RTI capture and interactive virtual illumination to recover physical surface evidence from worn inscriptions, plaques, embossed paper and similar artefacts before attempting generative restoration.
 - **Preservation Health / Rescue Queue / Archive Survival Test** — combine fixity, copy count, source lineage, format health and scan adequacy to identify what is at genuine risk and keep the archive reconstructable without PhotoStar.
 - **Capture Doctor / Capture Session / Reveal the Object** — distinguish defects in the historical object from defects introduced during scanning/photography, prefer guided recapture over invented pixels, and preserve raw capture → corrected scan → restoration lineage.
+- **Home Movie Threads / VideoMoment / Still to Motion** — treat exact moments inside family videos as first-class searchable evidence, link still photos to genuine matching footage, and prefer real surviving motion over synthetic animation.
+- **Place Solver / Location Workbench / Stand Here** — solve unknown photo locations by combining same-place retrieval, OCR, family context and historical maps; represent uncertainty explicitly and turn solved viewpoints into provenance-aware rephotography tasks.
 
 ## Dated briefs
 
+- [2026-09-02 — Place Solver](./photostar-daily-inspiration/2026-09-02.md)
+- [2026-09-01 — Home Movie Threads](./photostar-daily-inspiration/2026-09-01.md)
 - [2026-08-31 — Capture Doctor](./photostar-daily-inspiration/2026-08-31.md)
 - [2026-08-30 — Preservation Health](./photostar-daily-inspiration/2026-08-30.md)
 - [2026-08-29 — Relight the evidence](./photostar-daily-inspiration/2026-08-29.md)
