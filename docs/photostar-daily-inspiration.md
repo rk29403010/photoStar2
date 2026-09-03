@@ -51,9 +51,11 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Capture Doctor / Capture Session / Reveal the Object** — distinguish defects in the historical object from defects introduced during scanning/photography, prefer guided recapture over invented pixels, and preserve raw capture → corrected scan → restoration lineage.
 - **Home Movie Threads / VideoMoment / Still to Motion** — treat exact moments inside family videos as first-class searchable evidence, link still photos to genuine matching footage, and prefer real surviving motion over synthetic animation.
 - **Place Solver / Location Workbench / Stand Here** — solve unknown photo locations by combining same-place retrieval, OCR, family context and historical maps; represent uncertainty explicitly and turn solved viewpoints into provenance-aware rephotography tasks.
+- **Identity Solver / Mystery Person Casefile / Family Branch Lens** — bridge face clusters to GEDCOM people and resolve unknown identities with date/age constraints, co-occurrence, family-tree context and visual similarity, exposing both supporting and contradictory evidence.
 
 ## Dated briefs
 
+- [2026-09-03 — Identity Solver](./photostar-daily-inspiration/2026-09-03.md)
 - [2026-09-02 — Place Solver](./photostar-daily-inspiration/2026-09-02.md)
 - [2026-09-01 — Home Movie Threads](./photostar-daily-inspiration/2026-09-01.md)
 - [2026-08-31 — Capture Doctor](./photostar-daily-inspiration/2026-08-31.md)
