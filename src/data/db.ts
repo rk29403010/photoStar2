@@ -7,6 +7,8 @@ import {
   MIGRATIONS,
   SCHEMA_SQL,
 } from './dbSchema';
+import { NUMBERED_MIGRATIONS } from './dbMigrations';
+import { applyNumberedMigrations } from './migrationLedger';
 
 
 function runMigration(db: Database.Database, sql: string): void {
@@ -127,6 +129,7 @@ export class DatabaseManager {
   private initSchema() {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
+    applyNumberedMigrations(this.db, NUMBERED_MIGRATIONS);
     this.removeLegacyWorkflowState();
     reconcileStaleWorkflowRuns(this.db);
 
