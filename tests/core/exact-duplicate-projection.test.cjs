@@ -94,7 +94,7 @@ test('exact duplicate projection is stable across asset insertion order', async 
     ];
 
     const projections = [];
-    for (const orderedAssets of [assets, [...assets].reverse()]) {
+    for (const orderedAssets of [assets, assets.toReversed()]) {
         const tempDir = createTempDir();
         const dbManager = new DatabaseManager(tempDir);
         try {
