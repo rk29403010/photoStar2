@@ -26,6 +26,14 @@ function seedReadyAsset(dbManager, params) {
     });
 }
 
+function poisonVisualObservationEvidence(db) {
+    db.prepare(`
+        UPDATE visual_similarity_observations
+        SET evidence_json = '{"measurement":"phash64+dhash64","routes":[{"policy":"bogus"}]}'
+        WHERE source_identity = 'runtime.group_similar_photos:visual_hash'
+    `).run();
+}
+
 async function loadLegacyGroupedAssets(dbManager, tempDir) {
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     let response;
@@ -74,6 +82,7 @@ test('near-duplicate presentation reproduces the legacy visible representative f
         });
 
         const db = dbManager.getDb();
+        poisonVisualObservationEvidence(db);
         const shadow = presentation.getVisualSimilarityPresentationPage(db, { limit: 20, offset: 0 });
         const legacy = await loadLegacyGroupedAssets(dbManager, tempDir);
 
@@ -131,6 +140,7 @@ test('variant presentation consumes a near-duplicate cluster as one unit and mat
         });
 
         const db = dbManager.getDb();
+        poisonVisualObservationEvidence(db);
         const shadow = presentation.getVisualSimilarityPresentationPage(db, { limit: 20, offset: 0 });
         const legacy = await loadLegacyGroupedAssets(dbManager, tempDir);
 
