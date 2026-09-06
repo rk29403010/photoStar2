@@ -125,6 +125,37 @@ function indexItems(items: readonly VisualSimilarityPresentationItem[]): Map<str
     return byAssetId;
 }
 
+function canonicalEdge(leftKey: string, rightKey: string): ClusterEdge {
+    return leftKey < rightKey
+        ? { leftKey, rightKey }
+        : { leftKey: rightKey, rightKey: leftKey };
+}
+
+function projectObservationEdge(
+    observation: ObservationRow,
+    byAssetId: ReadonlyMap<string, VisualSimilarityPresentationItem>,
+    stage: CollapseStage,
+): ClusterEdge | null {
+    const leftAssetId = observation.current_asset_id_a;
+    const rightAssetId = observation.current_asset_id_b;
+    if (!leftAssetId || !rightAssetId) {
+        return null;
+    }
+    if (observation.phash_distance > stage.threshold || observation.dhash_distance > stage.threshold) {
+        return null;
+    }
+    if (!evidenceHasPolicy(observation.evidence_json, stage.policy)) {
+        return null;
+    }
+
+    const left = byAssetId.get(leftAssetId);
+    const right = byAssetId.get(rightAssetId);
+    if (!left || !right || left.presentationKey === right.presentationKey) {
+        return null;
+    }
+    return canonicalEdge(left.presentationKey, right.presentationKey);
+}
+
 function buildPolicyEdges(
     items: readonly VisualSimilarityPresentationItem[],
     observations: readonly ObservationRow[],
@@ -133,29 +164,15 @@ function buildPolicyEdges(
     const byAssetId = indexItems(items);
     const uniqueEdges = new Map<string, ClusterEdge>();
     for (const observation of observations) {
-        if (!observation.current_asset_id_a || !observation.current_asset_id_b) {
-            continue;
+        const edge = projectObservationEdge(observation, byAssetId, stage);
+        if (edge) {
+            uniqueEdges.set(`${edge.leftKey}\n${edge.rightKey}`, edge);
         }
-        if (observation.phash_distance > stage.threshold || observation.dhash_distance > stage.threshold) {
-            continue;
-        }
-        if (!evidenceHasPolicy(observation.evidence_json, stage.policy)) {
-            continue;
-        }
-        const left = byAssetId.get(observation.current_asset_id_a);
-        const right = byAssetId.get(observation.current_asset_id_b);
-        if (!left || !right || left.presentationKey === right.presentationKey) {
-            continue;
-        }
-        const [leftKey, rightKey] = left.presentationKey < right.presentationKey
-            ? [left.presentationKey, right.presentationKey]
-            : [right.presentationKey, left.presentationKey];
-        uniqueEdges.set(`${leftKey}\n${rightKey}`, { leftKey, rightKey });
     }
     return [...uniqueEdges.values()];
 }
 
-function buildConnectedComponents(edges: readonly ClusterEdge[]): string[][] {
+function buildAdjacency(edges: readonly ClusterEdge[]): Map<string, Set<string>> {
     const adjacency = new Map<string, Set<string>>();
     for (const edge of edges) {
         const leftNeighbours = adjacency.get(edge.leftKey) ?? new Set<string>();
@@ -165,31 +182,45 @@ function buildConnectedComponents(edges: readonly ClusterEdge[]): string[][] {
         adjacency.set(edge.leftKey, leftNeighbours);
         adjacency.set(edge.rightKey, rightNeighbours);
     }
+    return adjacency;
+}
 
+function collectComponent(
+    start: string,
+    adjacency: ReadonlyMap<string, ReadonlySet<string>>,
+    visited: Set<string>,
+): string[] {
+    const stack = [start];
+    const component: string[] = [];
+    visited.add(start);
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current) {
+            continue;
+        }
+        component.push(current);
+        for (const neighbour of adjacency.get(current) ?? []) {
+            if (!visited.has(neighbour)) {
+                visited.add(neighbour);
+                stack.push(neighbour);
+            }
+        }
+    }
+    return component.sort((left, right) => left.localeCompare(right));
+}
+
+function buildConnectedComponents(edges: readonly ClusterEdge[]): string[][] {
+    const adjacency = buildAdjacency(edges);
     const visited = new Set<string>();
     const components: string[][] = [];
-    for (const start of [...adjacency.keys()].sort((left, right) => left.localeCompare(right))) {
+    const orderedNodes = [...adjacency.keys()].sort((left, right) => left.localeCompare(right));
+    for (const start of orderedNodes) {
         if (visited.has(start)) {
             continue;
         }
-        const stack = [start];
-        const component: string[] = [];
-        visited.add(start);
-        while (stack.length > 0) {
-            const current = stack.pop();
-            if (!current) {
-                continue;
-            }
-            component.push(current);
-            for (const neighbour of adjacency.get(current) ?? []) {
-                if (!visited.has(neighbour)) {
-                    visited.add(neighbour);
-                    stack.push(neighbour);
-                }
-            }
-        }
+        const component = collectComponent(start, adjacency, visited);
         if (component.length > 1) {
-            components.push(component.sort((left, right) => left.localeCompare(right)));
+            components.push(component);
         }
     }
     return components;
