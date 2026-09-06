@@ -21,9 +21,9 @@ type VisualPolicy = 'near_duplicate' | 'variant';
 type ObservationRow = {
     current_asset_id_a: string | null;
     current_asset_id_b: string | null;
+    policy: VisualPolicy;
     phash_distance: number;
     score: number;
-    evidence_json: string | null;
 };
 
 const VISUAL_SOURCE_IDENTITY = 'runtime.group_similar_photos:visual_hash';
@@ -47,25 +47,13 @@ function loadObservationRows(db: DbHandle): ObservationRow[] {
                 ORDER BY asset.created_at DESC, asset.id DESC
                 LIMIT 1
             ) AS current_asset_id_b,
+            observation.policy,
             observation.phash_distance,
-            observation.score,
-            observation.evidence_json
+            observation.score
         FROM visual_similarity_observations observation
         WHERE observation.source_identity = ?
-        ORDER BY observation.asset_identity_guid_a, observation.asset_identity_guid_b
+        ORDER BY observation.asset_identity_guid_a, observation.asset_identity_guid_b, observation.policy
     `).all(VISUAL_SOURCE_IDENTITY) as ObservationRow[];
-}
-
-function observationHasPolicy(evidenceJson: string | null, policy: VisualPolicy): boolean {
-    if (!evidenceJson) {
-        return false;
-    }
-    try {
-        const evidence = JSON.parse(evidenceJson) as { routes?: Array<{ policy?: string }> };
-        return evidence.routes?.some((route) => route.policy === policy) ?? false;
-    } catch {
-        return false;
-    }
 }
 
 function indexUnitsByAssetId(units: readonly SimilarityGroupingUnit[]): Map<string, SimilarityGroupingUnit> {
@@ -104,7 +92,7 @@ function buildStoredPolicyEdges(
         if (!row.current_asset_id_a || !row.current_asset_id_b) {
             continue;
         }
-        if (!observationHasPolicy(row.evidence_json, policy)) {
+        if (row.policy !== policy) {
             continue;
         }
         const left = byAssetId.get(row.current_asset_id_a);
