@@ -4,6 +4,7 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 export type SemanticEntityKind =
     | 'asset'
     | 'photograph'
+    | 'artefact'
     | 'person'
     | 'place'
     | 'event'

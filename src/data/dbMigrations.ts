@@ -99,4 +99,39 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 ON semantic_decisions(scope_key, created_at, id);
         `,
     },
+    {
+        id: '20260906_002_archive_representations',
+        sql: `
+            CREATE TABLE archive_representations (
+                id TEXT PRIMARY KEY,
+                asset_id TEXT NOT NULL,
+                subject_entity_id TEXT NOT NULL,
+                representation_kind TEXT NOT NULL CHECK (
+                    representation_kind IN ('original', 'scan', 'crop', 'derived_edit', 'extracted_frame', 'reference')
+                ),
+                facet TEXT,
+                source_kind TEXT NOT NULL CHECK (source_kind IN ('system', 'human', 'import')),
+                source_ref TEXT,
+                derived_from_representation_id TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+                FOREIGN KEY(subject_entity_id) REFERENCES semantic_entities(id),
+                FOREIGN KEY(derived_from_representation_id) REFERENCES archive_representations(id) ON DELETE SET NULL
+            );
+            CREATE UNIQUE INDEX idx_archive_representations_identity
+                ON archive_representations(
+                    asset_id,
+                    subject_entity_id,
+                    representation_kind,
+                    IFNULL(facet, '')
+                );
+            CREATE INDEX idx_archive_representations_asset
+                ON archive_representations(asset_id, created_at, id);
+            CREATE INDEX idx_archive_representations_subject
+                ON archive_representations(subject_entity_id, created_at, id);
+            CREATE INDEX idx_archive_representations_derived_from
+                ON archive_representations(derived_from_representation_id)
+                WHERE derived_from_representation_id IS NOT NULL;
+        `,
+    },
 ];
