@@ -3,6 +3,8 @@ import type { DatabaseManager } from '../../data/db';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
+export type VisualSimilarityPolicy = 'near_duplicate' | 'variant';
+
 export type VisualSimilarityObservationInput = {
     assetIdA: string;
     assetIdB: string;
@@ -12,8 +14,9 @@ export type VisualSimilarityObservationInput = {
     evidence?: Record<string, unknown> | null;
 };
 
-export type ReplaceVisualSimilarityObservationsInput = {
+export type ReplaceVisualSimilarityPolicyObservationsInput = {
     impactedAssetIds: string[];
+    policy: VisualSimilarityPolicy;
     sourceIdentity: string;
     sourceRef?: string | null;
     algorithmVersion?: string | null;
@@ -25,6 +28,7 @@ export type VisualSimilarityObservation = {
     assetIdentityGuidB: string;
     currentAssetIdA: string | null;
     currentAssetIdB: string | null;
+    policy: VisualSimilarityPolicy;
     sourceIdentity: string;
     sourceRef: string | null;
     algorithmVersion: string | null;
@@ -34,16 +38,13 @@ export type VisualSimilarityObservation = {
     evidenceJson: string | null;
 };
 
-type AssetIdentity = {
-    guid: string;
-    originalPath: string;
-};
-
+type AssetIdentity = { guid: string; originalPath: string };
 type ObservationRow = {
     asset_identity_guid_a: string;
     asset_identity_guid_b: string;
     current_asset_id_a: string | null;
     current_asset_id_b: string | null;
+    policy: VisualSimilarityPolicy;
     source_identity: string;
     source_ref: string | null;
     algorithm_version: string | null;
@@ -86,27 +87,22 @@ function ensureAssetIdentity(db: DbHandle, assetId: string): AssetIdentity {
         return { guid: existing.guid, originalPath: existing.original_path };
     }
     const guid = uuidv4();
-    db.prepare(`
-        INSERT INTO asset_identities (guid, original_path)
-        VALUES (?, ?)
-    `).run(guid, originalPath);
+    db.prepare('INSERT INTO asset_identities (guid, original_path) VALUES (?, ?)').run(guid, originalPath);
     return { guid, originalPath };
 }
 
-function canonicalizePair(
-    left: AssetIdentity,
-    right: AssetIdentity,
-): [AssetIdentity, AssetIdentity] {
+function canonicalizePair(left: AssetIdentity, right: AssetIdentity): [AssetIdentity, AssetIdentity] {
     if (left.guid === right.guid) {
         throw new Error('A visual similarity observation requires two different asset identities.');
     }
     return left.guid.localeCompare(right.guid) < 0 ? [left, right] : [right, left];
 }
 
-function deleteImpactedObservations(
+function deleteImpactedPolicyObservations(
     db: DbHandle,
     identityGuids: readonly string[],
     sourceIdentity: string,
+    policy: VisualSimilarityPolicy,
 ): void {
     if (identityGuids.length === 0) {
         return;
@@ -115,38 +111,33 @@ function deleteImpactedObservations(
     db.prepare(`
         DELETE FROM visual_similarity_observations
         WHERE source_identity = ?
+          AND policy = ?
           AND (
             asset_identity_guid_a IN (${placeholders})
             OR asset_identity_guid_b IN (${placeholders})
           )
-    `).run(sourceIdentity, ...identityGuids, ...identityGuids);
+    `).run(sourceIdentity, policy, ...identityGuids, ...identityGuids);
 }
 
 function insertObservation(
     db: DbHandle,
-    input: ReplaceVisualSimilarityObservationsInput,
+    input: ReplaceVisualSimilarityPolicyObservationsInput,
     observation: VisualSimilarityObservationInput,
 ): void {
     assertDistance(observation.phashDistance, 'pHash distance');
     assertDistance(observation.dhashDistance, 'dHash distance');
     assertScore(observation.score);
-    const left = ensureAssetIdentity(db, observation.assetIdA);
-    const right = ensureAssetIdentity(db, observation.assetIdB);
-    const [first, second] = canonicalizePair(left, right);
+    const [first, second] = canonicalizePair(
+        ensureAssetIdentity(db, observation.assetIdA),
+        ensureAssetIdentity(db, observation.assetIdB),
+    );
     db.prepare(`
         INSERT INTO visual_similarity_observations (
-            asset_identity_guid_a,
-            asset_identity_guid_b,
-            source_identity,
-            source_ref,
-            algorithm_version,
-            phash_distance,
-            dhash_distance,
-            score,
-            evidence_json
+            asset_identity_guid_a, asset_identity_guid_b, policy, source_identity,
+            source_ref, algorithm_version, phash_distance, dhash_distance, score, evidence_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(asset_identity_guid_a, asset_identity_guid_b, source_identity)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(asset_identity_guid_a, asset_identity_guid_b, policy, source_identity)
         DO UPDATE SET
             source_ref = excluded.source_ref,
             algorithm_version = excluded.algorithm_version,
@@ -158,6 +149,7 @@ function insertObservation(
     `).run(
         first.guid,
         second.guid,
+        input.policy,
         input.sourceIdentity,
         input.sourceRef ?? null,
         input.algorithmVersion ?? null,
@@ -168,9 +160,9 @@ function insertObservation(
     );
 }
 
-export function replaceVisualSimilarityObservations(
+export function replaceVisualSimilarityPolicyObservations(
     db: DbHandle,
-    input: ReplaceVisualSimilarityObservationsInput,
+    input: ReplaceVisualSimilarityPolicyObservationsInput,
 ): void {
     const sourceIdentity = input.sourceIdentity.trim();
     if (!sourceIdentity) {
@@ -178,10 +170,11 @@ export function replaceVisualSimilarityObservations(
     }
     const impactedGuids = [...new Set(input.impactedAssetIds)]
         .map((assetId) => ensureAssetIdentity(db, assetId).guid);
+    const normalizedInput = { ...input, sourceIdentity };
     db.transaction(() => {
-        deleteImpactedObservations(db, impactedGuids, sourceIdentity);
+        deleteImpactedPolicyObservations(db, impactedGuids, sourceIdentity, input.policy);
         for (const observation of input.observations) {
-            insertObservation(db, { ...input, sourceIdentity }, observation);
+            insertObservation(db, normalizedInput, observation);
         }
     })();
 }
@@ -192,6 +185,7 @@ function toObservation(row: ObservationRow): VisualSimilarityObservation {
         assetIdentityGuidB: row.asset_identity_guid_b,
         currentAssetIdA: row.current_asset_id_a,
         currentAssetIdB: row.current_asset_id_b,
+        policy: row.policy,
         sourceIdentity: row.source_identity,
         sourceRef: row.source_ref,
         algorithmVersion: row.algorithm_version,
@@ -206,30 +200,36 @@ export function getVisualSimilarityObservationsForAsset(
     db: DbHandle,
     assetId: string,
     sourceIdentity?: string,
+    policy?: VisualSimilarityPolicy,
 ): VisualSimilarityObservation[] {
     const identity = ensureAssetIdentity(db, assetId);
-    const sourceClause = sourceIdentity ? 'AND observation.source_identity = ?' : '';
-    const args = sourceIdentity ? [identity.guid, identity.guid, sourceIdentity] : [identity.guid, identity.guid];
+    const clauses = ['(observation.asset_identity_guid_a = ? OR observation.asset_identity_guid_b = ?)'];
+    const args: Array<string> = [identity.guid, identity.guid];
+    if (sourceIdentity) {
+        clauses.push('observation.source_identity = ?');
+        args.push(sourceIdentity);
+    }
+    if (policy) {
+        clauses.push('observation.policy = ?');
+        args.push(policy);
+    }
     const rows = db.prepare(`
         SELECT
             observation.asset_identity_guid_a,
             observation.asset_identity_guid_b,
             (
-                SELECT asset.id
-                FROM assets asset
+                SELECT asset.id FROM assets asset
                 JOIN asset_identities identity_a ON identity_a.original_path = asset.original_path
                 WHERE identity_a.guid = observation.asset_identity_guid_a
-                ORDER BY asset.created_at DESC, asset.id DESC
-                LIMIT 1
+                ORDER BY asset.created_at DESC, asset.id DESC LIMIT 1
             ) AS current_asset_id_a,
             (
-                SELECT asset.id
-                FROM assets asset
+                SELECT asset.id FROM assets asset
                 JOIN asset_identities identity_b ON identity_b.original_path = asset.original_path
                 WHERE identity_b.guid = observation.asset_identity_guid_b
-                ORDER BY asset.created_at DESC, asset.id DESC
-                LIMIT 1
+                ORDER BY asset.created_at DESC, asset.id DESC LIMIT 1
             ) AS current_asset_id_b,
+            observation.policy,
             observation.source_identity,
             observation.source_ref,
             observation.algorithm_version,
@@ -238,12 +238,9 @@ export function getVisualSimilarityObservationsForAsset(
             observation.score,
             observation.evidence_json
         FROM visual_similarity_observations observation
-        WHERE (
-            observation.asset_identity_guid_a = ?
-            OR observation.asset_identity_guid_b = ?
-        )
-        ${sourceClause}
-        ORDER BY observation.phash_distance ASC,
+        WHERE ${clauses.join(' AND ')}
+        ORDER BY observation.policy ASC,
+                 observation.phash_distance ASC,
                  observation.dhash_distance ASC,
                  observation.asset_identity_guid_a ASC,
                  observation.asset_identity_guid_b ASC
