@@ -27,9 +27,9 @@ function sourceKey(representation: ArchiveRepresentation): string {
 
 function choosePhotographSources(representations: readonly ArchiveRepresentation[]): ArchiveRepresentation[] {
     const selected = new Map<string, ArchiveRepresentation>();
-    const ordered = representations
+    const ordered = [...representations]
         .filter((representation) => representation.subjectKind === 'photograph')
-        .toSorted((left, right) => {
+        .sort((left, right) => {
             const kindDifference = SOURCE_KIND_PRIORITY[left.representationKind]
                 - SOURCE_KIND_PRIORITY[right.representationKind];
             return kindDifference || left.id.localeCompare(right.id);
@@ -40,7 +40,7 @@ function choosePhotographSources(representations: readonly ArchiveRepresentation
             selected.set(key, representation);
         }
     }
-    return [...selected.values()].toSorted((left, right) => sourceKey(left).localeCompare(sourceKey(right)));
+    return [...selected.values()].sort((left, right) => sourceKey(left).localeCompare(sourceKey(right)));
 }
 
 /**
