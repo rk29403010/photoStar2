@@ -76,6 +76,16 @@ function RepresentationBadges({ representation }: { readonly representation: Arc
   return null;
 }
 
+function parentRepresentationLabel(parent: ArchiveLineageRepresentation | null): string | null {
+  if (!parent) {
+    return null;
+  }
+  if (parent.isCurrentAsset) {
+    return 'this file';
+  }
+  return filenameFromPath(parent.originalPath);
+}
+
 function RelationshipDetails(props: {
   readonly parent: ArchiveLineageRepresentation | null;
   readonly source: string | null;
@@ -83,9 +93,7 @@ function RelationshipDetails(props: {
   if (!props.parent && !props.source) {
     return null;
   }
-  const parentLabel = props.parent
-    ? (props.parent.isCurrentAsset ? 'this file' : filenameFromPath(props.parent.originalPath))
-    : null;
+  const parentLabel = parentRepresentationLabel(props.parent);
   return (
     <div className="mt-2 pt-2 border-t border-content/5 grid gap-1 text-[10px] text-content-secondary">
       {parentLabel && (
