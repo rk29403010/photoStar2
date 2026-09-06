@@ -13,6 +13,7 @@ import {
     buildNearDuplicateGroupingGraph,
     buildVariantGroupingGraph,
 } from '../../grouping/groupingQueries';
+import { syncVisualSimilarityObservations } from '../../grouping/visualSimilarityProjection';
 
 export type GroupSimilarPhotosModuleOptions = {
     dbManager: DatabaseManager;
@@ -36,15 +37,16 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
                 db,
                 assetIds,
             });
+            const changedAssetIds = preparedAssets.map((asset) => asset.id);
 
             rebuildImpactedDuplicateGroups({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                changedAssetIds,
             });
             const nearDuplicateThreshold = 2;
             const nearDuplicateGraph = buildNearDuplicateGroupingGraph({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                changedAssetIds,
                 threshold: nearDuplicateThreshold,
             });
             rebuildImpactedNearDuplicateGroups({
@@ -57,7 +59,7 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
             const variantThreshold = 6;
             const variantGraph = buildVariantGroupingGraph({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                changedAssetIds,
                 threshold: variantThreshold,
             });
             rebuildImpactedVariantGroups({
@@ -67,17 +69,31 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
                 components: variantGraph.components,
                 threshold: variantThreshold,
             });
+            syncVisualSimilarityObservations({
+                db,
+                changedAssetIds,
+                nearDuplicateGraph: {
+                    units: nearDuplicateGraph.units,
+                    edges: nearDuplicateGraph.edges,
+                    threshold: nearDuplicateThreshold,
+                },
+                variantGraph: {
+                    units: variantGraph.units,
+                    edges: variantGraph.edges,
+                    threshold: variantThreshold,
+                },
+            });
             const burstMaxSeconds = 3;
             const burstMaxDistance = 12;
             const burstGraph = buildBurstGroupingGraph({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                changedAssetIds,
                 maxSeconds: burstMaxSeconds,
                 maxDistance: burstMaxDistance,
             });
             syncBurstCaptureSequenceProposals({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                changedAssetIds,
                 units: burstGraph.units,
                 edges: burstGraph.edges,
                 components: burstGraph.components,
