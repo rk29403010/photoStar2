@@ -114,6 +114,10 @@ function resetGroupingData(ctx: CommandContext) {
         db.prepare('DELETE FROM asset_groups').run();
         db.prepare("DELETE FROM asset_similarity_edges WHERE kind IN ('visual', 'time', 'metadata', 'hybrid')").run();
         db.prepare(`
+            DELETE FROM visual_similarity_observations
+            WHERE source_identity = 'runtime.group_similar_photos:visual_hash'
+        `).run();
+        db.prepare(`
             DELETE FROM capture_sequences
             WHERE status = 'proposed'
               AND source_kind = 'system'
