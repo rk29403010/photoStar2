@@ -206,4 +206,13 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 WHERE derived_from_representation_id IS NOT NULL;
         `,
     },
+    {
+        id: '20260906_004_attestation_source_identity',
+        sql: `
+            ALTER TABLE semantic_attestations
+                ADD COLUMN source_identity TEXT;
+            CREATE INDEX idx_semantic_attestations_source_identity
+                ON semantic_attestations(source_kind, source_identity, created_at, id);
+        `,
+    },
 ];
