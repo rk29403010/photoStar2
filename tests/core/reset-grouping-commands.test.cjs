@@ -41,6 +41,22 @@ function seedCaptureSequence(db, id, status, sourceKind, sourceIdentity) {
     `).run(id);
 }
 
+function seedVisualObservation(db, sourceIdentity) {
+    db.prepare(`
+        INSERT INTO visual_similarity_observations (
+            asset_identity_guid_a,
+            asset_identity_guid_b,
+            source_identity,
+            source_ref,
+            algorithm_version,
+            phash_distance,
+            dhash_distance,
+            score
+        )
+        VALUES ('identity-1', 'identity-2', ?, 'test', '1.0', 1, 2, 0.96875)
+    `).run(sourceIdentity);
+}
+
 test('reset_grouping_data clears detector state but preserves reviewed semantic sequences and assets', async () => {
     const tempDir = createTempDir();
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
@@ -58,7 +74,9 @@ test('reset_grouping_data clears detector state but preserves reviewed semantic 
         `).run();
         db.prepare(`
             INSERT INTO asset_identities (guid, original_path)
-            VALUES ('identity-1', 'C:/photos/one.jpg')
+            VALUES
+                ('identity-1', 'C:/photos/one.jpg'),
+                ('identity-2', 'C:/photos/two.jpg')
         `).run();
         db.prepare(`
             INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
@@ -77,6 +95,8 @@ test('reset_grouping_data clears detector state but preserves reviewed semantic 
             INSERT INTO asset_similarity_edges (asset_id_a, asset_id_b, kind, score, reason, algorithm_version)
             VALUES ('asset-1', 'asset-2', 'visual', 0.91, 'phash', '1.0')
         `).run();
+        seedVisualObservation(db, 'runtime.group_similar_photos:visual_hash');
+        seedVisualObservation(db, 'manual:comparison');
         seedCaptureSequence(
             db,
             'sequence-system-proposed',
@@ -116,6 +136,10 @@ test('reset_grouping_data clears detector state but preserves reviewed semantic 
         assert.equal(count(db, 'asset_groups'), 0);
         assert.equal(count(db, 'asset_group_members'), 0);
         assert.equal(count(db, 'asset_similarity_edges'), 0);
+        assert.deepEqual(
+            db.prepare('SELECT source_identity FROM visual_similarity_observations ORDER BY source_identity').all(),
+            [{ source_identity: 'manual:comparison' }],
+        );
         assert.deepEqual(
             db.prepare('SELECT id, status, source_kind FROM capture_sequences ORDER BY id').all(),
             [
