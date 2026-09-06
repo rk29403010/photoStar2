@@ -280,4 +280,35 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 ON visual_similarity_observations(source_identity, phash_distance, dhash_distance);
         `,
     },
+    {
+        id: '20260907_001_visual_similarity_policy',
+        sql: `
+            DROP TABLE visual_similarity_observations;
+
+            CREATE TABLE visual_similarity_observations (
+                asset_identity_guid_a TEXT NOT NULL,
+                asset_identity_guid_b TEXT NOT NULL,
+                policy TEXT NOT NULL CHECK (policy IN ('near_duplicate', 'variant')),
+                source_identity TEXT NOT NULL,
+                source_ref TEXT,
+                algorithm_version TEXT,
+                phash_distance INTEGER NOT NULL CHECK (phash_distance BETWEEN 0 AND 64),
+                dhash_distance INTEGER NOT NULL CHECK (dhash_distance BETWEEN 0 AND 64),
+                score REAL NOT NULL CHECK (score >= 0.0 AND score <= 1.0),
+                evidence_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(asset_identity_guid_a, asset_identity_guid_b, policy, source_identity),
+                FOREIGN KEY(asset_identity_guid_a) REFERENCES asset_identities(guid),
+                FOREIGN KEY(asset_identity_guid_b) REFERENCES asset_identities(guid),
+                CHECK (asset_identity_guid_a < asset_identity_guid_b)
+            );
+            CREATE INDEX idx_visual_similarity_observations_a
+                ON visual_similarity_observations(asset_identity_guid_a, source_identity, policy);
+            CREATE INDEX idx_visual_similarity_observations_b
+                ON visual_similarity_observations(asset_identity_guid_b, source_identity, policy);
+            CREATE INDEX idx_visual_similarity_observations_policy
+                ON visual_similarity_observations(source_identity, policy, phash_distance, dhash_distance);
+        `,
+    },
 ];
