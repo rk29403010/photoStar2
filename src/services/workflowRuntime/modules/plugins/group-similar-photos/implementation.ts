@@ -33,16 +33,10 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
 
             const db = options.dbManager.getDb();
             const assetIds = context.batchSubjects.map((subject) => subject.subjectId);
-            const preparedAssets = await ensureGroupingPrerequisites({
-                db,
-                assetIds,
-            });
+            const preparedAssets = await ensureGroupingPrerequisites({ db, assetIds });
             const changedAssetIds = preparedAssets.map((asset) => asset.id);
 
-            rebuildImpactedDuplicateGroups({
-                db,
-                changedAssetIds,
-            });
+            rebuildImpactedDuplicateGroups({ db, changedAssetIds });
             const nearDuplicateThreshold = 2;
             const nearDuplicateGraph = buildNearDuplicateGroupingGraph({
                 db,
