@@ -39,6 +39,7 @@ function seedRelationshipPresentationAssets(db) {
     `);
     const assets = [
         ['source', 'C:/photos/source.jpg', 'source-content', 1400, 1200, 800, '2025-06-01T00:00:00.000Z', '2025-06-01T00:00:00.000Z'],
+        ['source-copy', 'C:/photos/source-copy.jpg', 'source-content', 700, 600, 400, '2025-06-01T00:00:00.000Z', '2025-06-01T00:00:00.000Z'],
         ['edit-one', 'C:/photos/source-edit-1.jpg', 'edit-one-content', 1500, 1200, 800, '2025-06-02T00:00:00.000Z', '2025-06-02T00:00:00.000Z'],
         ['edit-two', 'C:/photos/source-edit-2.jpg', 'edit-two-content', 1600, 1200, 800, '2025-06-03T00:00:00.000Z', '2025-06-03T00:00:00.000Z'],
         ['independent-scan', 'C:/photos/independent-scan.jpg', 'independent-scan-content', 2100, 1400, 900, '2025-05-15T00:00:00.000Z', '2025-05-15T00:00:00.000Z'],
@@ -225,8 +226,8 @@ test('relationship presentation replaces edit_version groups without collapsing 
 
         const editLineage = relationshipItems[0];
         assert.equal(editLineage.relationshipKind, 'edit_lineage');
-        assert.equal(editLineage.stackCount, 3);
-        assert.deepEqual(editLineage.assetIds, ['edit-one', 'edit-two', 'source']);
+        assert.equal(editLineage.stackCount, 4);
+        assert.deepEqual(editLineage.assetIds, ['edit-one', 'edit-two', 'source', 'source-copy']);
         assert.match(editLineage.presentationKey, /^edit:representation:/);
 
         const independentScan = relationshipItems.find((item) => item.representativeAssetId === 'independent-scan');
