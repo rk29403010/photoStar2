@@ -50,6 +50,14 @@ function clearLegacyGroups(db) {
     db.prepare('DELETE FROM asset_groups').run();
 }
 
+function poisonVisualObservationEvidence(db) {
+    db.prepare(`
+        UPDATE visual_similarity_observations
+        SET evidence_json = '{"measurement":"phash64+dhash64","routes":[{"policy":"bogus"}]}'
+        WHERE source_identity = 'runtime.group_similar_photos:visual_hash'
+    `).run();
+}
+
 function assertPipelineParity(actual, expected) {
     assert.deepEqual(normalizeUnits(actual.exactUnits), normalizeUnits(expected.exactUnits));
     assert.deepEqual(normalizeUnits(actual.nearUnits), normalizeUnits(expected.nearUnits));
@@ -100,6 +108,7 @@ test('partial group-free reconstruction replaces stale visual neighbourhoods usi
             WHERE source_identity = 'runtime.group_similar_photos:visual_hash'
         `).get().count;
         assert.ok(observationCount > 0);
+        poisonVisualObservationEvidence(db);
 
         clearLegacyGroups(db);
 
