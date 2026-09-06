@@ -150,12 +150,25 @@ const RELATIONSHIP_PRESENTATION_CTE = `
         HAVING MAX(CASE WHEN representation_kind = 'derived_edit' THEN 1 ELSE 0 END) = 1
            AND COUNT(DISTINCT asset_id) > 1
     ),
-    CandidateEditMembers AS (
+    CoreEditMembers AS (
         SELECT DISTINCT lineage.root_representation_id, lineage.asset_id
         FROM RepresentationLineage lineage
         JOIN CandidateEditRoots roots
           ON roots.root_representation_id = lineage.root_representation_id
         WHERE lineage.asset_id IS NOT NULL
+    ),
+    CandidateEditMembers AS (
+        SELECT root_representation_id, asset_id
+        FROM CoreEditMembers
+
+        UNION
+
+        SELECT core.root_representation_id, copy.id
+        FROM CoreEditMembers core
+        JOIN assets source ON source.id = core.asset_id
+        JOIN assets copy
+          ON source.file_hash IS NOT NULL
+         AND copy.file_hash = source.file_hash
     ),
     AmbiguousEditAssets AS (
         SELECT asset_id
