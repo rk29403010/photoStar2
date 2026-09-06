@@ -86,7 +86,7 @@ function buildDerivedUnit(
     };
 }
 
-function collapseExactCopies(units: readonly SimilarityGroupingUnit[]): SimilarityGroupingUnit[] {
+export function buildExactCopyUnits(units: readonly SimilarityGroupingUnit[]): SimilarityGroupingUnit[] {
     const byHash = new Map<string, SimilarityGroupingUnit[]>();
     for (const unit of units) {
         if (!unit.fileHash) {
@@ -139,6 +139,20 @@ function collapseGraphComponents(
     ];
 }
 
+export function collapseNearDuplicateUnits(
+    units: readonly SimilarityGroupingUnit[],
+    graph: GroupingGraph,
+): SimilarityGroupingUnit[] {
+    return collapseGraphComponents(units, graph, 'near_duplicate', selectNearDuplicateRepresentative);
+}
+
+export function collapseVariantUnits(
+    units: readonly SimilarityGroupingUnit[],
+    graph: GroupingGraph,
+): SimilarityGroupingUnit[] {
+    return collapseGraphComponents(units, graph, 'variant', selectVariantRepresentative);
+}
+
 /**
  * Shadow implementation of the current duplicate -> near -> variant -> burst
  * computational hierarchy without reading asset_groups. It deliberately runs
@@ -148,29 +162,19 @@ function collapseGraphComponents(
 export function buildGroupFreeGroupingPipeline(db: DbHandle): GroupFreeGroupingPipeline {
     const rawUnits = buildRawSimilarityUnits(db);
     const allAssetIds = rawUnits.flatMap((unit) => unit.memberAssetIds);
-    const exactUnits = collapseExactCopies(rawUnits);
+    const exactUnits = buildExactCopyUnits(rawUnits);
     const nearGraph = buildNearDuplicateGroupingGraphFromUnits({
         units: exactUnits,
         changedAssetIds: allAssetIds,
         threshold: 2,
     });
-    const nearUnits = collapseGraphComponents(
-        exactUnits,
-        nearGraph,
-        'near_duplicate',
-        selectNearDuplicateRepresentative,
-    );
+    const nearUnits = collapseNearDuplicateUnits(exactUnits, nearGraph);
     const variantGraph = buildVariantGroupingGraphFromUnits({
         units: nearUnits,
         changedAssetIds: allAssetIds,
         threshold: 6,
     });
-    const variantUnits = collapseGraphComponents(
-        nearUnits,
-        variantGraph,
-        'variant',
-        selectVariantRepresentative,
-    );
+    const variantUnits = collapseVariantUnits(nearUnits, variantGraph);
     const burstGraph = buildBurstGroupingGraphFromUnits({
         units: variantUnits,
         changedAssetIds: allAssetIds,
