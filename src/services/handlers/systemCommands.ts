@@ -113,6 +113,12 @@ function resetGroupingData(ctx: CommandContext) {
         db.prepare('DELETE FROM asset_group_members').run();
         db.prepare('DELETE FROM asset_groups').run();
         db.prepare("DELETE FROM asset_similarity_edges WHERE kind IN ('visual', 'time', 'metadata', 'hybrid')").run();
+        db.prepare(`
+            DELETE FROM capture_sequences
+            WHERE status = 'proposed'
+              AND source_kind = 'system'
+              AND source_identity = 'runtime.group_similar_photos:burst'
+        `).run();
     })();
     ctx.respond(ctx.id, 'ok', { message: 'Grouping data reset.' }, null, ctx.originWs);
 }
