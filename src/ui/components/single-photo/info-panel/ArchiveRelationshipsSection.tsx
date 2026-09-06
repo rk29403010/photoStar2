@@ -58,6 +58,53 @@ function findParent(
   return subject.representations.find((candidate) => candidate.id === representation.derivedFromRepresentationId) ?? null;
 }
 
+function RepresentationBadges({ representation }: { readonly representation: ArchiveLineageRepresentation }) {
+  if (representation.isCurrentAsset) {
+    return (
+      <span className="text-[9px] uppercase tracking-wide font-bold rounded px-1.5 py-0.5 bg-brand-accent/15 text-brand-accent">
+        Current
+      </span>
+    );
+  }
+  if (!representation.currentAssetId) {
+    return (
+      <span className="text-[9px] uppercase tracking-wide font-bold rounded px-1.5 py-0.5 bg-content/5 text-content-secondary">
+        Not in library
+      </span>
+    );
+  }
+  return null;
+}
+
+function RelationshipDetails(props: {
+  readonly parent: ArchiveLineageRepresentation | null;
+  readonly source: string | null;
+}) {
+  if (!props.parent && !props.source) {
+    return null;
+  }
+  const parentLabel = props.parent
+    ? (props.parent.isCurrentAsset ? 'this file' : filenameFromPath(props.parent.originalPath))
+    : null;
+  return (
+    <div className="mt-2 pt-2 border-t border-content/5 grid gap-1 text-[10px] text-content-secondary">
+      {parentLabel && (
+        <div><span className="font-semibold">Derived from:</span> {parentLabel}</div>
+      )}
+      {props.source && (
+        <div><span className="font-semibold">Provenance:</span> {props.source}</div>
+      )}
+    </div>
+  );
+}
+
+function relationshipRowClass(representation: ArchiveLineageRepresentation): string {
+  const stateClass = representation.isCurrentAsset
+    ? 'border-brand-accent/35 bg-brand-accent/5'
+    : 'border-content/10 bg-surface/45';
+  return `rounded-lg border p-2.5 ${stateClass}`;
+}
+
 function RelationshipRow(props: {
   readonly representation: ArchiveLineageRepresentation;
   readonly subject: ArchiveLineageSubject;
@@ -65,29 +112,15 @@ function RelationshipRow(props: {
   const parent = findParent(props.subject, props.representation);
   const source = sourceDescriptor(props.representation);
   const fileLabel = filenameFromPath(props.representation.originalPath);
+  const displayName = props.representation.isCurrentAsset ? 'This file' : fileLabel;
 
   return (
-    <div className={`rounded-lg border p-2.5 ${
-      props.representation.isCurrentAsset
-        ? 'border-brand-accent/35 bg-brand-accent/5'
-        : 'border-content/10 bg-surface/45'
-    }`}>
+    <div className={relationshipRowClass(props.representation)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-content break-all">
-              {props.representation.isCurrentAsset ? 'This file' : fileLabel}
-            </span>
-            {props.representation.isCurrentAsset && (
-              <span className="text-[9px] uppercase tracking-wide font-bold rounded px-1.5 py-0.5 bg-brand-accent/15 text-brand-accent">
-                Current
-              </span>
-            )}
-            {!props.representation.currentAssetId && !props.representation.isCurrentAsset && (
-              <span className="text-[9px] uppercase tracking-wide font-bold rounded px-1.5 py-0.5 bg-content/5 text-content-secondary">
-                Not in library
-              </span>
-            )}
+            <span className="text-xs font-semibold text-content break-all">{displayName}</span>
+            <RepresentationBadges representation={props.representation} />
           </div>
           {!props.representation.isCurrentAsset && (
             <div className="text-[10px] text-content-secondary/70 break-all mt-0.5">{props.representation.originalPath}</div>
@@ -97,17 +130,7 @@ function RelationshipRow(props: {
           {representationDescriptor(props.representation)}
         </span>
       </div>
-      {(parent || source) && (
-        <div className="mt-2 pt-2 border-t border-content/5 grid gap-1 text-[10px] text-content-secondary">
-          {parent && (
-            <div>
-              <span className="font-semibold">Derived from:</span>{' '}
-              {parent.isCurrentAsset ? 'this file' : filenameFromPath(parent.originalPath)}
-            </div>
-          )}
-          {source && <div><span className="font-semibold">Provenance:</span> {source}</div>}
-        </div>
-      )}
+      <RelationshipDetails parent={parent} source={source} />
     </div>
   );
 }
