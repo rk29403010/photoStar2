@@ -84,6 +84,25 @@ const REPRESENTATION_SELECT = `
     JOIN semantic_entities e ON e.id = r.subject_entity_id
 `;
 
+const REPRESENTATION_ORDER = `
+    CASE r.representation_kind
+        WHEN 'original' THEN 0
+        WHEN 'scan' THEN 1
+        WHEN 'crop' THEN 2
+        WHEN 'derived_edit' THEN 3
+        WHEN 'extracted_frame' THEN 4
+        ELSE 5
+    END ASC,
+    CASE COALESCE(r.facet, '')
+        WHEN 'front' THEN 0
+        WHEN 'reverse' THEN 1
+        ELSE 2
+    END ASC,
+    COALESCE(r.facet, '') ASC,
+    ai.original_path ASC,
+    r.id ASC
+`;
+
 function representationId(
     assetIdentityGuid: string,
     input: EnsureArchiveRepresentationInput,
@@ -275,7 +294,7 @@ export function getArchiveRepresentationsForAsset(
     const rows = db.prepare(`
         ${REPRESENTATION_SELECT}
         WHERE r.asset_identity_guid = ?
-        ORDER BY e.kind ASC, r.representation_kind ASC, COALESCE(r.facet, '') ASC, r.id ASC
+        ORDER BY e.kind ASC, ${REPRESENTATION_ORDER}
     `).all(identity.guid) as RepresentationRow[];
     return rows.map(toArchiveRepresentation);
 }
@@ -287,7 +306,7 @@ export function getArchiveRepresentationsForSubject(
     const rows = db.prepare(`
         ${REPRESENTATION_SELECT}
         WHERE r.subject_entity_id = ?
-        ORDER BY r.created_at ASC, r.id ASC
+        ORDER BY ${REPRESENTATION_ORDER}
     `).all(subjectEntityId) as RepresentationRow[];
     return rows.map(toArchiveRepresentation);
 }
