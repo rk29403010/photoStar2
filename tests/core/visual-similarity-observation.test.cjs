@@ -143,14 +143,24 @@ test('runtime grouping persists policy-specific visual pairs actually measured b
         assert.equal(near.phashDistance, 1);
         assert.equal(near.dhashDistance, 2);
         assert.equal(near.score, 1 - (2 / 64));
-        assert.equal(JSON.parse(near.evidenceJson).routes[0].policy, 'near_duplicate');
+        const nearEvidence = JSON.parse(near.evidenceJson);
+        assert.equal(nearEvidence.measurement, 'phash64+dhash64');
+        assert.equal(nearEvidence.threshold, 2);
+        assert.equal(typeof nearEvidence.leftUnitId, 'string');
+        assert.equal(typeof nearEvidence.rightUnitId, 'string');
+        assert.equal(JSON.stringify(nearEvidence).includes('near_duplicate'), false);
 
         const variant = byPolicy.get('variant');
         assert.ok(variant);
         assert.equal(variant.phashDistance, 4);
         assert.equal(variant.dhashDistance, 4);
         assert.equal(variant.score, 1 - (4 / 64));
-        assert.equal(JSON.parse(variant.evidenceJson).routes[0].policy, 'variant');
+        const variantEvidence = JSON.parse(variant.evidenceJson);
+        assert.equal(variantEvidence.measurement, 'phash64+dhash64');
+        assert.equal(variantEvidence.threshold, 6);
+        assert.equal(typeof variantEvidence.leftUnitId, 'string');
+        assert.equal(typeof variantEvidence.rightUnitId, 'string');
+        assert.equal(JSON.stringify(variantEvidence).includes('variant'), false);
 
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM visual_similarity_observations').get().count, 2);
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM semantic_propositions').get().count, 0);
