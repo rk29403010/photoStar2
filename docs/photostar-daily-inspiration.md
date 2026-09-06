@@ -53,9 +53,13 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Place Solver / Location Workbench / Stand Here** — solve unknown photo locations by combining same-place retrieval, OCR, family context and historical maps; represent uncertainty explicitly and turn solved viewpoints into provenance-aware rephotography tasks.
 - **Identity Solver / Mystery Person Casefile / Family Branch Lens** — bridge face clusters to GEDCOM people and resolve unknown identities with date/age constraints, co-occurrence, family-tree context and visual similarity, exposing both supporting and contradictory evidence.
 - **Photographic Process Passport / Process Workbench / The Photograph Exploded** — identify the physical photographic/reproduction process as an evidence source for dating, preservation and restoration; combine exemplar retrieval with observable physical clues, and present the depicted moment, material object and digital lineage as distinct layers.
+- **Living Knowledge Rescue / Knowledge Gap Queue / Memory Coverage Map** — rank questions worth asking living relatives by how much uncertainty they resolve, preserve the original timestamped voice as evidence, and turn answers into attributed proposed claims rather than silent facts.
+- **Handwriting Threads / Same Hand / Writer Strip / Notes in Their Hand** — treat handwriting style as provenance evidence as well as text: retrieve recurring hands across photo backs, albums, postcards and letters, build human-confirmed age-aware handwriting anchors, and link genuine scanned fragments back to their source objects.
 
 ## Dated briefs
 
+- [2026-09-06 — Handwriting Threads](./photostar-daily-inspiration/2026-09-06.md)
+- [2026-09-05 — Living Knowledge Rescue](./photostar-daily-inspiration/2026-09-05.md)
 - [2026-09-04 — Photographic Process Passport](./photostar-daily-inspiration/2026-09-04.md)
 - [2026-09-03 — Identity Solver](./photostar-daily-inspiration/2026-09-03.md)
 - [2026-09-02 — Place Solver](./photostar-daily-inspiration/2026-09-02.md)
