@@ -1,18 +1,18 @@
 import type { DatabaseManager } from '../../data/db';
+import type { LibraryPresentationOrder } from './libraryPresentationProjection';
 import {
-    countRelationshipPresentationItems,
-    getRelationshipPresentationPage,
-    type LibraryPresentationItem,
-    type LibraryPresentationOrder,
-} from './libraryPresentationProjection';
+    countVisualSimilarityPresentationItems,
+    getVisualSimilarityPresentationPage,
+    type VisualSimilarityPresentationItem,
+} from './libraryVisualSimilarityPresentationProjection';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
 export type CaptureSequencePresentationRelationshipKind =
-    | LibraryPresentationItem['relationshipKind']
+    | VisualSimilarityPresentationItem['relationshipKind']
     | 'capture_sequence';
 
-export type CaptureSequencePresentationItem = Omit<LibraryPresentationItem, 'relationshipKind'> & {
+export type CaptureSequencePresentationItem = Omit<VisualSimilarityPresentationItem, 'relationshipKind'> & {
     relationshipKind: CaptureSequencePresentationRelationshipKind;
     momentCount: number;
 };
@@ -32,9 +32,9 @@ type SequenceCandidate = {
 function loadBaseItems(
     db: DbHandle,
     order: LibraryPresentationOrder,
-): LibraryPresentationItem[] {
-    const count = countRelationshipPresentationItems(db);
-    return getRelationshipPresentationPage(db, {
+): VisualSimilarityPresentationItem[] {
+    const count = countVisualSimilarityPresentationItems(db);
+    return getVisualSimilarityPresentationPage(db, {
         limit: count,
         offset: 0,
         order,
@@ -62,12 +62,12 @@ function loadSequenceMembers(db: DbHandle): SequenceMemberRow[] {
     `).all() as SequenceMemberRow[];
 }
 
-function indexBaseItems(baseItems: readonly LibraryPresentationItem[]): {
-    byAssetId: Map<string, LibraryPresentationItem>;
-    byKey: Map<string, LibraryPresentationItem>;
+function indexBaseItems(baseItems: readonly VisualSimilarityPresentationItem[]): {
+    byAssetId: Map<string, VisualSimilarityPresentationItem>;
+    byKey: Map<string, VisualSimilarityPresentationItem>;
 } {
-    const byAssetId = new Map<string, LibraryPresentationItem>();
-    const byKey = new Map<string, LibraryPresentationItem>();
+    const byAssetId = new Map<string, VisualSimilarityPresentationItem>();
+    const byKey = new Map<string, VisualSimilarityPresentationItem>();
     for (const item of baseItems) {
         byKey.set(item.presentationKey, item);
         for (const assetId of item.assetIds) {
@@ -90,7 +90,7 @@ function groupRowsBySequence(rows: readonly SequenceMemberRow[]): Map<string, Se
 function buildSequenceCandidate(
     sequenceId: string,
     rows: readonly SequenceMemberRow[],
-    baseByAssetId: ReadonlyMap<string, LibraryPresentationItem>,
+    baseByAssetId: ReadonlyMap<string, VisualSimilarityPresentationItem>,
 ): SequenceCandidate | null {
     const firstOrdinalByMoment = new Map<string, number>();
     for (const row of rows) {
@@ -137,11 +137,11 @@ function removeAmbiguousSequences(candidates: readonly SequenceCandidate[]): Seq
 
 function buildSequenceItem(
     candidate: SequenceCandidate,
-    baseByKey: ReadonlyMap<string, LibraryPresentationItem>,
+    baseByKey: ReadonlyMap<string, VisualSimilarityPresentationItem>,
 ): CaptureSequencePresentationItem | null {
     const moments = candidate.momentKeys
         .map((key) => baseByKey.get(key))
-        .filter((item): item is LibraryPresentationItem => Boolean(item));
+        .filter((item): item is VisualSimilarityPresentationItem => Boolean(item));
     const representative = baseByKey.get(candidate.representativeMomentKey);
     if (!representative || moments.length < 2) {
         return null;
@@ -160,7 +160,7 @@ function buildSequenceItem(
 }
 
 function collapseSequences(
-    baseItems: readonly LibraryPresentationItem[],
+    baseItems: readonly VisualSimilarityPresentationItem[],
     candidates: readonly SequenceCandidate[],
 ): CaptureSequencePresentationItem[] {
     const { byKey } = indexBaseItems(baseItems);
