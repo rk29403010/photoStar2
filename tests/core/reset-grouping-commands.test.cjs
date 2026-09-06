@@ -28,7 +28,20 @@ function count(db, tableName) {
     return db.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get().count;
 }
 
-test('reset_grouping_data removes automatic and manual grouping state without touching assets', async () => {
+function seedCaptureSequence(db, id, status, sourceKind, sourceIdentity) {
+    db.prepare(`
+        INSERT INTO capture_sequences (
+            id, status, source_kind, source_identity, source_ref, algorithm_version, params_json
+        )
+        VALUES (?, ?, ?, ?, 'test', '1.0', '{}')
+    `).run(id, status, sourceKind, sourceIdentity);
+    db.prepare(`
+        INSERT INTO capture_sequence_members (sequence_id, asset_identity_guid, ordinal, status)
+        VALUES (?, 'identity-1', 0, 'candidate')
+    `).run(id);
+}
+
+test('reset_grouping_data clears detector state but preserves reviewed semantic sequences and assets', async () => {
     const tempDir = createTempDir();
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -42,6 +55,10 @@ test('reset_grouping_data removes automatic and manual grouping state without to
             VALUES
                 ('asset-1', 'C:/photos/one.jpg', 'hash-1', 100, 10, 10, '2026-03-17T10:00:00.000Z'),
                 ('asset-2', 'C:/photos/two.jpg', 'hash-2', 200, 11, 11, '2026-03-17T10:00:01.000Z')
+        `).run();
+        db.prepare(`
+            INSERT INTO asset_identities (guid, original_path)
+            VALUES ('identity-1', 'C:/photos/one.jpg')
         `).run();
         db.prepare(`
             INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
@@ -60,6 +77,27 @@ test('reset_grouping_data removes automatic and manual grouping state without to
             INSERT INTO asset_similarity_edges (asset_id_a, asset_id_b, kind, score, reason, algorithm_version)
             VALUES ('asset-1', 'asset-2', 'visual', 0.91, 'phash', '1.0')
         `).run();
+        seedCaptureSequence(
+            db,
+            'sequence-system-proposed',
+            'proposed',
+            'system',
+            'runtime.group_similar_photos:burst',
+        );
+        seedCaptureSequence(
+            db,
+            'sequence-system-accepted',
+            'accepted',
+            'system',
+            'runtime.group_similar_photos:burst',
+        );
+        seedCaptureSequence(
+            db,
+            'sequence-human-proposed',
+            'proposed',
+            'human',
+            'family:robin',
+        );
 
         handleSystemCommand({
             id: 'cmd-reset-grouping',
@@ -78,6 +116,14 @@ test('reset_grouping_data removes automatic and manual grouping state without to
         assert.equal(count(db, 'asset_groups'), 0);
         assert.equal(count(db, 'asset_group_members'), 0);
         assert.equal(count(db, 'asset_similarity_edges'), 0);
+        assert.deepEqual(
+            db.prepare('SELECT id, status, source_kind FROM capture_sequences ORDER BY id').all(),
+            [
+                { id: 'sequence-human-proposed', status: 'proposed', source_kind: 'human' },
+                { id: 'sequence-system-accepted', status: 'accepted', source_kind: 'system' },
+            ],
+        );
+        assert.equal(count(db, 'capture_sequence_members'), 2);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
