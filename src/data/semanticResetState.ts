@@ -26,6 +26,7 @@ type SemanticAttestationRow = {
     proposition_id: string;
     stance: string;
     source_kind: string;
+    source_identity: string | null;
     source_ref: string | null;
     confidence: number | null;
     rationale: string | null;
@@ -228,10 +229,10 @@ function restorePropositions(db: Database.Database, rows: readonly SemanticPropo
 function restoreAttestations(db: Database.Database, rows: readonly SemanticAttestationRow[]): void {
     const insert = db.prepare(`
         INSERT INTO semantic_attestations (
-            id, proposition_id, stance, source_kind, source_ref, confidence,
+            id, proposition_id, stance, source_kind, source_identity, source_ref, confidence,
             rationale, supersedes_attestation_id, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
     `);
     for (const row of rows) {
         insert.run(
@@ -239,6 +240,7 @@ function restoreAttestations(db: Database.Database, rows: readonly SemanticAttes
             row.proposition_id,
             row.stance,
             row.source_kind,
+            row.source_identity,
             row.source_ref,
             row.confidence,
             row.rationale,
