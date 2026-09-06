@@ -89,6 +89,15 @@ function assertNonEmpty(value: string, label: string): void {
     }
 }
 
+function normalizeSourceIdentity(value: string | null | undefined): string | null {
+    if (value == null) {
+        return null;
+    }
+    const normalized = value.trim();
+    assertNonEmpty(normalized, 'Semantic attestation sourceIdentity');
+    return normalized;
+}
+
 function assertEntityExists(db: DbHandle, entityId: string): void {
     const row = db.prepare('SELECT id FROM semantic_entities WHERE id = ?').get(entityId);
     if (!row) {
@@ -273,10 +282,7 @@ export function putSemanticProposition(db: DbHandle, input: PutSemanticPropositi
 export function addSemanticAttestation(db: DbHandle, input: AddSemanticAttestationInput): string {
     assertAttestationConfidence(input.confidence);
     const proposition = loadProposition(db, input.propositionId);
-    const sourceIdentity = input.sourceIdentity ?? null;
-    if (sourceIdentity) {
-        assertNonEmpty(sourceIdentity, 'Semantic attestation sourceIdentity');
-    }
+    const sourceIdentity = normalizeSourceIdentity(input.sourceIdentity);
     const supersedesAttestationId = input.supersedesAttestationId ?? null;
     assertAttestationSupersession(
         db,
