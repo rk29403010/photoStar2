@@ -7,6 +7,12 @@ import {
   MIGRATIONS,
   SCHEMA_SQL,
 } from './dbSchema';
+import { NUMBERED_MIGRATIONS } from './dbMigrations';
+import { applyNumberedMigrations } from './migrationLedger';
+import {
+  restoreDurableSemanticResetState,
+  snapshotDurableSemanticResetState,
+} from './semanticResetState';
 
 
 function runMigration(db: Database.Database, sql: string): void {
@@ -127,6 +133,7 @@ export class DatabaseManager {
   private initSchema() {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
+    applyNumberedMigrations(this.db, NUMBERED_MIGRATIONS);
     this.removeLegacyWorkflowState();
     reconcileStaleWorkflowRuns(this.db);
 
@@ -203,6 +210,7 @@ export class DatabaseManager {
       settings: this.loadRows<{ id: string; value: string }>(
         'SELECT id, value FROM settings ORDER BY id ASC'
       ),
+      semantic: snapshotDurableSemanticResetState(this.db),
     };
   }
 
@@ -255,6 +263,8 @@ export class DatabaseManager {
       for (const row of snapshot.settings) {
         insertSetting.run(row.id, row.value);
       }
+
+      restoreDurableSemanticResetState(this.db, snapshot.semantic);
     });
 
     restore();

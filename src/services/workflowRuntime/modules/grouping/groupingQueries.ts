@@ -22,6 +22,12 @@ export type GroupingSimilarityEdge = {
     distance: number;
 } & SimilarityEdgeRef
 
+export type GroupingGraph = {
+    units: SimilarityGroupingUnit[];
+    edges: GroupingSimilarityEdge[];
+    components: string[][];
+};
+
 export type BurstGroupingAsset = {
     id: string;
     originalPath: string;
@@ -84,10 +90,7 @@ function collectReachableAssetIds(
                 continue;
             }
             const match = isVisualMatch(current, candidate, threshold);
-            if (!match.matches) {
-                continue;
-            }
-            if (visited.has(candidate.unitId)) {
+            if (!match.matches || visited.has(candidate.unitId)) {
                 continue;
             }
             visited.add(candidate.unitId);
@@ -248,13 +251,10 @@ function collectReachableBurstAssetIds(
         }
 
         for (const candidate of assets) {
-            if (candidate.id === current.id) {
+            if (candidate.id === current.id || visited.has(candidate.id)) {
                 continue;
             }
             if (!isBurstMatch(current, candidate, maxSeconds, maxDistance)) {
-                continue;
-            }
-            if (visited.has(candidate.id)) {
                 continue;
             }
             visited.add(candidate.id);
@@ -297,66 +297,117 @@ function buildBurstEdges(
     return edges;
 }
 
+export function buildVariantGroupingGraphFromUnits(params: {
+    units: SimilarityGroupingUnit[];
+    changedAssetIds: string[];
+    threshold: number;
+}): GroupingGraph {
+    if (params.changedAssetIds.length === 0) {
+        return { units: [], edges: [], components: [] };
+    }
+    const reachableUnitIds = collectReachableAssetIds(
+        params.units,
+        params.changedAssetIds,
+        params.threshold,
+    );
+    const impactedUnits = params.units.filter((unit) => reachableUnitIds.has(unit.unitId));
+    const { edges, components } = buildAnchoredVariantGraph(impactedUnits, params.threshold);
+    return { units: impactedUnits, edges, components };
+}
+
+export function buildNearDuplicateGroupingGraphFromUnits(params: {
+    units: SimilarityGroupingUnit[];
+    changedAssetIds: string[];
+    threshold: number;
+}): GroupingGraph {
+    if (params.changedAssetIds.length === 0) {
+        return { units: [], edges: [], components: [] };
+    }
+    const reachableUnitIds = collectReachableAssetIds(
+        params.units,
+        params.changedAssetIds,
+        params.threshold,
+    );
+    const impactedUnits = params.units.filter((unit) => reachableUnitIds.has(unit.unitId));
+    const edges = buildPairwiseEdges(impactedUnits, params.threshold);
+    const components = buildConnectedComponents(
+        impactedUnits.map((unit) => unit.unitId),
+        edges,
+    ).filter((component) => component.length > 1);
+    return { units: impactedUnits, edges, components };
+}
+
+function toBurstAsset(unit: SimilarityGroupingUnit & { exifDatetime: string }): BurstGroupingAsset {
+    return {
+        id: unit.unitId,
+        originalPath: unit.originalPath,
+        fileHash: unit.fileHash,
+        fileSize: unit.fileSize,
+        width: unit.width,
+        height: unit.height,
+        exifDatetime: unit.exifDatetime,
+        phash64: unit.phash64,
+        dhash64: unit.dhash64,
+    };
+}
+
+export function buildBurstGroupingGraphFromUnits(params: {
+    units: SimilarityGroupingUnit[];
+    changedAssetIds: string[];
+    maxSeconds: number;
+    maxDistance: number;
+}): GroupingGraph {
+    if (params.changedAssetIds.length === 0) {
+        return { units: [], edges: [], components: [] };
+    }
+    const unitsWithTime = params.units.filter(
+        (unit): unit is SimilarityGroupingUnit & { exifDatetime: string } => unit.exifDatetime !== null,
+    );
+    const burstAssets = unitsWithTime.map(toBurstAsset);
+    const changedUnitIds = unitsWithTime
+        .filter((unit) => unit.memberAssetIds.some((assetId) => params.changedAssetIds.includes(assetId)))
+        .map((unit) => unit.unitId);
+    const reachableUnitIds = collectReachableBurstAssetIds(
+        burstAssets,
+        changedUnitIds,
+        params.maxSeconds,
+        params.maxDistance,
+    );
+    const impactedUnits = unitsWithTime.filter((unit) => reachableUnitIds.has(unit.unitId));
+    const edges = buildBurstEdges(
+        impactedUnits.map(toBurstAsset),
+        params.maxSeconds,
+        params.maxDistance,
+    );
+    const components = buildConnectedComponents(
+        impactedUnits.map((unit) => unit.unitId),
+        edges,
+    ).filter((component) => component.length > 1);
+    return { units: impactedUnits, edges, components };
+}
+
 export function buildVariantGroupingGraph(params: {
     db: DbHandle;
     changedAssetIds: string[];
     threshold: number;
-}): {
-    units: SimilarityGroupingUnit[];
-    edges: GroupingSimilarityEdge[];
-    components: string[][];
-} {
-    if (params.changedAssetIds.length === 0) {
-        return { units: [], edges: [], components: [] };
-    }
-
-    const units = buildSimilarityUnits(params.db, ['near_duplicate', 'duplicate']);
-    const reachableAssetIds = collectReachableAssetIds(
-        units,
-        params.changedAssetIds,
-        params.threshold,
-    );
-    const impactedUnits = units.filter((unit) => reachableAssetIds.has(unit.unitId));
-    const { edges, components } = buildAnchoredVariantGraph(impactedUnits, params.threshold);
-
-    return {
-        units: impactedUnits,
-        edges,
-        components,
-    };
+}): GroupingGraph {
+    return buildVariantGroupingGraphFromUnits({
+        units: buildSimilarityUnits(params.db, ['near_duplicate', 'duplicate']),
+        changedAssetIds: params.changedAssetIds,
+        threshold: params.threshold,
+    });
 }
 
 export function buildNearDuplicateGroupingGraph(params: {
     db: DbHandle;
     changedAssetIds: string[];
     threshold: number;
-}): {
-    units: SimilarityGroupingUnit[];
-    edges: GroupingSimilarityEdge[];
-    components: string[][];
-} {
-    if (params.changedAssetIds.length === 0) {
-        return { units: [], edges: [], components: [] };
-    }
-
-    const units = buildSimilarityUnits(params.db, ['duplicate']);
-    const reachableAssetIds = collectReachableAssetIds(
-        units,
-        params.changedAssetIds,
-        params.threshold,
-    );
-    const impactedUnits = units.filter((unit) => reachableAssetIds.has(unit.unitId));
-    const edges = buildPairwiseEdges(impactedUnits, params.threshold);
-    const components = buildConnectedComponents(
-        impactedUnits.map((unit) => unit.unitId),
-        edges,
-    ).filter((component) => component.length > 1);
-
-    return {
-        units: impactedUnits,
-        edges,
-        components,
-    };
+}): GroupingGraph {
+    return buildNearDuplicateGroupingGraphFromUnits({
+        units: buildSimilarityUnits(params.db, ['duplicate']),
+        changedAssetIds: params.changedAssetIds,
+        threshold: params.threshold,
+    });
 }
 
 export function buildBurstGroupingGraph(params: {
@@ -364,57 +415,11 @@ export function buildBurstGroupingGraph(params: {
     changedAssetIds: string[];
     maxSeconds: number;
     maxDistance: number;
-}): {
-    units: SimilarityGroupingUnit[];
-    edges: GroupingSimilarityEdge[];
-    components: string[][];
-} {
-    if (params.changedAssetIds.length === 0) {
-        return { units: [], edges: [], components: [] };
-    }
-
-    const units = buildSimilarityUnits(params.db, ['variant_set', 'near_duplicate', 'duplicate'])
-        .filter((unit) => unit.exifDatetime !== null);
-    const reachableAssetIds = collectReachableBurstAssetIds(
-        units.map((unit) => ({
-            id: unit.unitId,
-            originalPath: unit.originalPath,
-            fileHash: unit.fileHash,
-            fileSize: unit.fileSize,
-            width: unit.width,
-            height: unit.height,
-            exifDatetime: unit.exifDatetime!,
-            phash64: unit.phash64,
-            dhash64: unit.dhash64,
-        })),
-        units.filter((unit) => unit.memberAssetIds.some((assetId) => params.changedAssetIds.includes(assetId))).map((unit) => unit.unitId),
-        params.maxSeconds,
-        params.maxDistance,
-    );
-    const impactedUnits = units.filter((unit) => reachableAssetIds.has(unit.unitId));
-    const edges = buildBurstEdges(
-        impactedUnits.map((unit) => ({
-            id: unit.unitId,
-            originalPath: unit.originalPath,
-            fileHash: unit.fileHash,
-            fileSize: unit.fileSize,
-            width: unit.width,
-            height: unit.height,
-            exifDatetime: unit.exifDatetime!,
-            phash64: unit.phash64,
-            dhash64: unit.dhash64,
-        })),
-        params.maxSeconds,
-        params.maxDistance,
-    );
-    const components = buildConnectedComponents(
-        impactedUnits.map((unit) => unit.unitId),
-        edges,
-    ).filter((component) => component.length > 1);
-
-    return {
-        units: impactedUnits,
-        edges,
-        components,
-    };
+}): GroupingGraph {
+    return buildBurstGroupingGraphFromUnits({
+        units: buildSimilarityUnits(params.db, ['variant_set', 'near_duplicate', 'duplicate']),
+        changedAssetIds: params.changedAssetIds,
+        maxSeconds: params.maxSeconds,
+        maxDistance: params.maxDistance,
+    });
 }

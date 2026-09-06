@@ -1,6 +1,7 @@
 import type { DatabaseManager } from '../../../../../data/db';
 import type { ModuleDefinition } from '../../../contracts';
 import { ensureGroupingPrerequisites } from '../../grouping/groupingAssetPrep';
+import { syncBurstCaptureSequenceProposals } from '../../grouping/captureSequenceProjection';
 import {
     rebuildImpactedBurstGroups,
     rebuildImpactedDuplicateGroups,
@@ -12,6 +13,7 @@ import {
     buildNearDuplicateGroupingGraph,
     buildVariantGroupingGraph,
 } from '../../grouping/groupingQueries';
+import { syncVisualSimilarityObservations } from '../../grouping/visualSimilarityProjection';
 
 export type GroupSimilarPhotosModuleOptions = {
     dbManager: DatabaseManager;
@@ -31,19 +33,14 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
 
             const db = options.dbManager.getDb();
             const assetIds = context.batchSubjects.map((subject) => subject.subjectId);
-            const preparedAssets = await ensureGroupingPrerequisites({
-                db,
-                assetIds,
-            });
+            const preparedAssets = await ensureGroupingPrerequisites({ db, assetIds });
+            const changedAssetIds = preparedAssets.map((asset) => asset.id);
 
-            rebuildImpactedDuplicateGroups({
-                db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
-            });
+            rebuildImpactedDuplicateGroups({ db, changedAssetIds });
             const nearDuplicateThreshold = 2;
             const nearDuplicateGraph = buildNearDuplicateGroupingGraph({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                changedAssetIds,
                 threshold: nearDuplicateThreshold,
             });
             rebuildImpactedNearDuplicateGroups({
@@ -56,7 +53,7 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
             const variantThreshold = 6;
             const variantGraph = buildVariantGroupingGraph({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                changedAssetIds,
                 threshold: variantThreshold,
             });
             rebuildImpactedVariantGroups({
@@ -66,18 +63,43 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
                 components: variantGraph.components,
                 threshold: variantThreshold,
             });
+            syncVisualSimilarityObservations({
+                db,
+                changedAssetIds,
+                nearDuplicateGraph: {
+                    units: nearDuplicateGraph.units,
+                    edges: nearDuplicateGraph.edges,
+                    threshold: nearDuplicateThreshold,
+                },
+                variantGraph: {
+                    units: variantGraph.units,
+                    edges: variantGraph.edges,
+                    threshold: variantThreshold,
+                },
+            });
+            const burstMaxSeconds = 3;
+            const burstMaxDistance = 12;
             const burstGraph = buildBurstGroupingGraph({
                 db,
-                changedAssetIds: preparedAssets.map((asset) => asset.id),
-                maxSeconds: 3,
-                maxDistance: 12,
+                changedAssetIds,
+                maxSeconds: burstMaxSeconds,
+                maxDistance: burstMaxDistance,
+            });
+            syncBurstCaptureSequenceProposals({
+                db,
+                changedAssetIds,
+                units: burstGraph.units,
+                edges: burstGraph.edges,
+                components: burstGraph.components,
+                maxSeconds: burstMaxSeconds,
+                maxDistance: burstMaxDistance,
             });
             rebuildImpactedBurstGroups({
                 db,
                 units: burstGraph.units,
                 components: burstGraph.components,
-                maxSeconds: 3,
-                maxDistance: 12,
+                maxSeconds: burstMaxSeconds,
+                maxDistance: burstMaxDistance,
             });
 
             return { outputs: [{ kind: 'artifact', artifactType: 'similar_group', subjectType: 'asset' }] };

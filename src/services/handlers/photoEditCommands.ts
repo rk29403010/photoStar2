@@ -12,6 +12,7 @@ import type {
 } from '../../boundary/contracts/photoEditor';
 import { renderPhotoEdit } from '../photoEditing/editRenderer';
 import { resolvePhotoEditStyle, versionPhotoEditStyleOperations } from '../photoEditing/photoEditStyleRecipes';
+import { projectPhotoEditRepresentations } from '../relationships/photoEditRepresentationProjection';
 import type { CommandContext, CommandHandlerMap } from './types';
 
 type EditRow = {
@@ -157,6 +158,11 @@ async function renderDocument(ctx: CommandContext, input: RenderPhotoEditInput):
         updateVersionGroup(db, groupId, input.sourceAssetId, assetId);
         db.prepare("UPDATE photo_edit_documents SET rendered_asset_id = ?, status = 'rendered', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             .run(assetId, input.id);
+        projectPhotoEditRepresentations(db, {
+            sourceAssetId: input.sourceAssetId,
+            renderedAssetId: assetId,
+            editId: input.id,
+        });
     })();
     await generateRenderedPreviews(db, dirname(db.name), assetId, outputPath);
     ctx.eventBus.emit({ type: 'AssetUpdated', assetId });
