@@ -47,6 +47,7 @@ export type AddSemanticAttestationInput = {
     propositionId: string;
     stance: SemanticAttestationStance;
     sourceKind: SemanticSourceKind;
+    sourceIdentity?: string | null;
     sourceRef?: string | null;
     confidence?: number | null;
     rationale?: string | null;
@@ -146,17 +147,22 @@ function assertAttestationSupersession(
     db: DbHandle,
     propositionScope: string,
     sourceKind: SemanticSourceKind,
+    sourceIdentity: string | null,
     supersedesAttestationId: string | null,
 ): void {
     if (!supersedesAttestationId) {
         return;
     }
     const prior = db.prepare(`
-        SELECT p.scope_key, a.source_kind
+        SELECT p.scope_key, a.source_kind, a.source_identity
         FROM semantic_attestations a
         JOIN semantic_propositions p ON p.id = a.proposition_id
         WHERE a.id = ?
-    `).get(supersedesAttestationId) as { scope_key: string; source_kind: SemanticSourceKind } | undefined;
+    `).get(supersedesAttestationId) as {
+        scope_key: string;
+        source_kind: SemanticSourceKind;
+        source_identity: string | null;
+    } | undefined;
     if (!prior) {
         throw new Error(`Unknown superseded semantic attestation '${supersedesAttestationId}'.`);
     }
@@ -166,25 +172,33 @@ function assertAttestationSupersession(
     if (prior.source_kind !== sourceKind) {
         throw new Error('A semantic attestation can only supersede an attestation from the same source kind.');
     }
+    if (!sourceIdentity) {
+        throw new Error('A superseding semantic attestation requires a stable source identity.');
+    }
+    if (prior.source_identity !== sourceIdentity) {
+        throw new Error('A semantic attestation can only supersede an attestation from the same source identity.');
+    }
 }
 
 function insertAttestationRow(
     db: DbHandle,
     attestationId: string,
     input: AddSemanticAttestationInput,
+    sourceIdentity: string | null,
     supersedesAttestationId: string | null,
 ): void {
     db.prepare(`
         INSERT INTO semantic_attestations (
-            id, proposition_id, stance, source_kind, source_ref,
+            id, proposition_id, stance, source_kind, source_identity, source_ref,
             confidence, rationale, supersedes_attestation_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         attestationId,
         input.propositionId,
         input.stance,
         input.sourceKind,
+        sourceIdentity,
         input.sourceRef ?? null,
         input.confidence ?? null,
         input.rationale ?? null,
@@ -259,12 +273,22 @@ export function putSemanticProposition(db: DbHandle, input: PutSemanticPropositi
 export function addSemanticAttestation(db: DbHandle, input: AddSemanticAttestationInput): string {
     assertAttestationConfidence(input.confidence);
     const proposition = loadProposition(db, input.propositionId);
+    const sourceIdentity = input.sourceIdentity ?? null;
+    if (sourceIdentity) {
+        assertNonEmpty(sourceIdentity, 'Semantic attestation sourceIdentity');
+    }
     const supersedesAttestationId = input.supersedesAttestationId ?? null;
-    assertAttestationSupersession(db, proposition.scope_key, input.sourceKind, supersedesAttestationId);
+    assertAttestationSupersession(
+        db,
+        proposition.scope_key,
+        input.sourceKind,
+        sourceIdentity,
+        supersedesAttestationId,
+    );
 
     const attestationId = uuidv4();
     db.transaction(() => {
-        insertAttestationRow(db, attestationId, input, supersedesAttestationId);
+        insertAttestationRow(db, attestationId, input, sourceIdentity, supersedesAttestationId);
         insertEvidenceRows(db, attestationId, input.evidence ?? []);
     })();
     return attestationId;
