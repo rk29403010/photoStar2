@@ -231,7 +231,7 @@ function restoreAttestations(db: Database.Database, rows: readonly SemanticAttes
             id, proposition_id, stance, source_kind, source_ref, confidence,
             rationale, supersedes_attestation_id, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
     `);
     for (const row of rows) {
         insert.run(
@@ -242,9 +242,19 @@ function restoreAttestations(db: Database.Database, rows: readonly SemanticAttes
             row.source_ref,
             row.confidence,
             row.rationale,
-            row.supersedes_attestation_id,
             row.created_at,
         );
+    }
+
+    const connectParent = db.prepare(`
+        UPDATE semantic_attestations
+        SET supersedes_attestation_id = ?
+        WHERE id = ?
+    `);
+    for (const row of rows) {
+        if (row.supersedes_attestation_id) {
+            connectParent.run(row.supersedes_attestation_id, row.id);
+        }
     }
 }
 
@@ -264,7 +274,7 @@ function restoreDecisions(db: Database.Database, rows: readonly SemanticDecision
             id, scope_key, status, proposition_id, source_kind, source_ref,
             rationale, supersedes_decision_id, is_current, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
     `);
     for (const row of rows) {
         insert.run(
@@ -275,10 +285,20 @@ function restoreDecisions(db: Database.Database, rows: readonly SemanticDecision
             row.source_kind,
             row.source_ref,
             row.rationale,
-            row.supersedes_decision_id,
             row.is_current,
             row.created_at,
         );
+    }
+
+    const connectParent = db.prepare(`
+        UPDATE semantic_decisions
+        SET supersedes_decision_id = ?
+        WHERE id = ?
+    `);
+    for (const row of rows) {
+        if (row.supersedes_decision_id) {
+            connectParent.run(row.supersedes_decision_id, row.id);
+        }
     }
 }
 
@@ -288,7 +308,7 @@ function restoreRepresentations(db: Database.Database, rows: readonly ArchiveRep
             id, asset_identity_guid, subject_entity_id, representation_kind,
             facet, source_kind, source_ref, derived_from_representation_id, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
     `);
     for (const row of rows) {
         insert.run(
@@ -299,9 +319,19 @@ function restoreRepresentations(db: Database.Database, rows: readonly ArchiveRep
             row.facet,
             row.source_kind,
             row.source_ref,
-            row.derived_from_representation_id,
             row.created_at,
         );
+    }
+
+    const connectParent = db.prepare(`
+        UPDATE archive_representations
+        SET derived_from_representation_id = ?
+        WHERE id = ?
+    `);
+    for (const row of rows) {
+        if (row.derived_from_representation_id) {
+            connectParent.run(row.derived_from_representation_id, row.id);
+        }
     }
 }
 
