@@ -35,6 +35,13 @@ test('semantic kernel schema is installed through the numbered migration ledger'
         assert.equal(migration.id, '20260906_001_semantic_kernel');
         assert.equal(typeof migration.checksum, 'string');
         assert.equal(migration.checksum.length, 64);
+        const sourceIdentityMigration = db.prepare(`
+            SELECT id, checksum
+            FROM schema_migrations
+            WHERE id = '20260906_004_attestation_source_identity'
+        `).get();
+        assert.equal(sourceIdentityMigration.id, '20260906_004_attestation_source_identity');
+        assert.equal(sourceIdentityMigration.checksum.length, 64);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -81,6 +88,7 @@ test('semantic resolver stays conservative through disagreement, supersession, a
             propositionId: aliceProposition,
             stance: 'support',
             sourceKind: 'machine',
+            sourceIdentity: 'arcface',
             sourceRef: 'arcface:1.0',
             confidence: 0.84,
             evidence: [{
@@ -101,6 +109,7 @@ test('semantic resolver stays conservative through disagreement, supersession, a
             propositionId: bobProposition,
             stance: 'support',
             sourceKind: 'human',
+            sourceIdentity: 'family:jean',
             sourceRef: 'family:jean',
             confidence: 1,
         });
@@ -112,6 +121,7 @@ test('semantic resolver stays conservative through disagreement, supersession, a
             propositionId: bobProposition,
             stance: 'support',
             sourceKind: 'machine',
+            sourceIdentity: 'arcface',
             sourceRef: 'arcface:1.1',
             confidence: 0.91,
             supersedesAttestationId: firstMachineAttestation,
@@ -198,13 +208,67 @@ test('attestation supersession cannot cross semantic scopes', async () => {
             propositionId: first,
             stance: 'support',
             sourceKind: 'machine',
+            sourceIdentity: 'test-model',
         });
         assert.throws(() => semantic.addSemanticAttestation(db, {
             propositionId: second,
             stance: 'support',
             sourceKind: 'machine',
+            sourceIdentity: 'test-model',
             supersedesAttestationId: firstAttestation,
         }), /same scope/);
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('attestation supersession cannot replace another source of the same broad kind', async () => {
+    const tempDir = createTempDir();
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const semantic = await import('../../dist/core/src/services/relationships/semanticRepository.js');
+    const dbManager = new DatabaseManager(tempDir);
+    try {
+        const db = dbManager.getDb();
+        const photograph = semantic.ensureSemanticEntity(db, { kind: 'photograph', nativeId: 'photo-1' });
+        const placeA = semantic.ensureSemanticEntity(db, { kind: 'place', nativeId: 'place-a' });
+        const placeB = semantic.ensureSemanticEntity(db, { kind: 'place', nativeId: 'place-b' });
+        const scopeKey = 'photograph:photo-1:takenAt';
+        const first = semantic.putSemanticProposition(db, {
+            scopeKey,
+            subjectEntityId: photograph,
+            predicate: 'takenAt',
+            object: { type: 'entity', entityId: placeA },
+        });
+        const second = semantic.putSemanticProposition(db, {
+            scopeKey,
+            subjectEntityId: photograph,
+            predicate: 'takenAt',
+            object: { type: 'entity', entityId: placeB },
+        });
+        const jean = semantic.addSemanticAttestation(db, {
+            propositionId: first,
+            stance: 'support',
+            sourceKind: 'human',
+            sourceIdentity: 'family:jean',
+            sourceRef: 'interview:jean:1',
+        });
+
+        assert.throws(() => semantic.addSemanticAttestation(db, {
+            propositionId: second,
+            stance: 'support',
+            sourceKind: 'human',
+            sourceIdentity: 'family:bob',
+            sourceRef: 'interview:bob:1',
+            supersedesAttestationId: jean,
+        }), /same source identity/);
+        assert.throws(() => semantic.addSemanticAttestation(db, {
+            propositionId: second,
+            stance: 'support',
+            sourceKind: 'human',
+            sourceRef: 'interview:jean:2',
+            supersedesAttestationId: jean,
+        }), /requires a stable source identity/);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
