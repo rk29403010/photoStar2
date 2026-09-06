@@ -68,6 +68,30 @@ type ArchiveRepresentationRow = {
     created_at: string;
 };
 
+type CaptureSequenceRow = {
+    id: string;
+    status: string;
+    source_kind: string;
+    source_identity: string;
+    source_ref: string | null;
+    algorithm_version: string | null;
+    params_json: string;
+    evidence_json: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+type CaptureSequenceMemberRow = {
+    sequence_id: string;
+    asset_identity_guid: string;
+    ordinal: number;
+    status: string;
+    captured_at: string | null;
+    evidence_json: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
 export type DurableSemanticResetState = {
     entities: SemanticEntityRow[];
     propositions: SemanticPropositionRow[];
@@ -75,6 +99,8 @@ export type DurableSemanticResetState = {
     evidence: SemanticEvidenceRow[];
     decisions: SemanticDecisionRow[];
     representations: ArchiveRepresentationRow[];
+    captureSequences: CaptureSequenceRow[];
+    captureSequenceMembers: CaptureSequenceMemberRow[];
 };
 
 const DURABLE_ATTESTATION_CTE = `
@@ -147,6 +173,27 @@ function snapshotPropositions(db: Database.Database): SemanticPropositionRow[] {
     `).all() as SemanticPropositionRow[];
 }
 
+function snapshotDurableCaptureSequences(db: Database.Database): {
+    captureSequences: CaptureSequenceRow[];
+    captureSequenceMembers: CaptureSequenceMemberRow[];
+} {
+    const durablePredicate = "NOT (status = 'proposed' AND source_kind = 'system')";
+    const captureSequences = db.prepare(`
+        SELECT *
+        FROM capture_sequences
+        WHERE ${durablePredicate}
+        ORDER BY created_at ASC, id ASC
+    `).all() as CaptureSequenceRow[];
+    const captureSequenceMembers = db.prepare(`
+        SELECT member.*
+        FROM capture_sequence_members member
+        JOIN capture_sequences sequence ON sequence.id = member.sequence_id
+        WHERE NOT (sequence.status = 'proposed' AND sequence.source_kind = 'system')
+        ORDER BY member.sequence_id ASC, member.ordinal ASC, member.asset_identity_guid ASC
+    `).all() as CaptureSequenceMemberRow[];
+    return { captureSequences, captureSequenceMembers };
+}
+
 export function snapshotDurableSemanticResetState(db: Database.Database): DurableSemanticResetState {
     const entities = db.prepare(`
         SELECT id, kind, native_id, label, created_at
@@ -181,6 +228,7 @@ export function snapshotDurableSemanticResetState(db: Database.Database): Durabl
         JOIN durable_representation_ids durable ON durable.id = representation.id
         ORDER BY representation.created_at ASC, representation.id ASC
     `).all() as ArchiveRepresentationRow[];
+    const captureSequenceState = snapshotDurableCaptureSequences(db);
 
     return {
         entities,
@@ -189,6 +237,7 @@ export function snapshotDurableSemanticResetState(db: Database.Database): Durabl
         evidence,
         decisions,
         representations,
+        ...captureSequenceState,
     };
 }
 
@@ -337,6 +386,54 @@ function restoreRepresentations(db: Database.Database, rows: readonly ArchiveRep
     }
 }
 
+function restoreCaptureSequences(
+    db: Database.Database,
+    sequences: readonly CaptureSequenceRow[],
+    members: readonly CaptureSequenceMemberRow[],
+): void {
+    const insertSequence = db.prepare(`
+        INSERT INTO capture_sequences (
+            id, status, source_kind, source_identity, source_ref, algorithm_version,
+            params_json, evidence_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const row of sequences) {
+        insertSequence.run(
+            row.id,
+            row.status,
+            row.source_kind,
+            row.source_identity,
+            row.source_ref,
+            row.algorithm_version,
+            row.params_json,
+            row.evidence_json,
+            row.created_at,
+            row.updated_at,
+        );
+    }
+
+    const insertMember = db.prepare(`
+        INSERT INTO capture_sequence_members (
+            sequence_id, asset_identity_guid, ordinal, status, captured_at,
+            evidence_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const row of members) {
+        insertMember.run(
+            row.sequence_id,
+            row.asset_identity_guid,
+            row.ordinal,
+            row.status,
+            row.captured_at,
+            row.evidence_json,
+            row.created_at,
+            row.updated_at,
+        );
+    }
+}
+
 export function restoreDurableSemanticResetState(
     db: Database.Database,
     state: DurableSemanticResetState,
@@ -347,4 +444,5 @@ export function restoreDurableSemanticResetState(
     restoreEvidence(db, state.evidence);
     restoreDecisions(db, state.decisions);
     restoreRepresentations(db, state.representations);
+    restoreCaptureSequences(db, state.captureSequences, state.captureSequenceMembers);
 }
