@@ -30,10 +30,7 @@ function pairKey(leftAssetId: string, rightAssetId: string): string {
         : `${rightAssetId}\n${leftAssetId}`;
 }
 
-function buildGraphObservations(
-    graph: VisualGraphInput,
-    policy: VisualSimilarityPolicy,
-): ObservationDraft[] {
+function buildGraphObservations(graph: VisualGraphInput): ObservationDraft[] {
     const unitById = new Map(graph.units.map((unit) => [unit.unitId, unit]));
     const drafts = new Map<string, ObservationDraft>();
     for (const edge of graph.edges) {
@@ -52,12 +49,9 @@ function buildGraphObservations(
             score: 1 - (Math.max(phashDistance, dhashDistance) / 64),
             evidence: {
                 measurement: 'phash64+dhash64',
-                routes: [{
-                    policy,
-                    threshold: graph.threshold,
-                    leftUnitId: edge.leftId,
-                    rightUnitId: edge.rightId,
-                }],
+                threshold: graph.threshold,
+                leftUnitId: edge.leftId,
+                rightUnitId: edge.rightId,
             },
         });
     }
@@ -76,7 +70,7 @@ function syncPolicy(params: {
         sourceIdentity: 'runtime.group_similar_photos:visual_hash',
         sourceRef: 'runtime.group_similar_photos@1',
         algorithmVersion: '1.0',
-        observations: buildGraphObservations(params.graph, params.policy),
+        observations: buildGraphObservations(params.graph),
     });
 }
 
