@@ -58,6 +58,8 @@ test('archive representations separate files from photographs and physical artef
         assert.equal(repeatedFrontPhotoRepresentation.id, frontPhotoRepresentation.id);
         assert.equal(repeatedFrontPhotoRepresentation.sourceKind, 'human');
         assert.equal(repeatedFrontPhotoRepresentation.sourceRef, 'owner-confirmed');
+        assert.equal(repeatedFrontPhotoRepresentation.currentAssetId, 'front-scan');
+        assert.equal(typeof repeatedFrontPhotoRepresentation.assetIdentityGuid, 'string');
 
         const frontArtefactRepresentation = representations.ensureArchiveRepresentation(db, {
             assetId: 'front-scan',
@@ -93,10 +95,48 @@ test('archive representations separate files from photographs and physical artef
 
         const artefactLinks = representations.getArchiveRepresentationsForSubject(db, artefact);
         assert.deepEqual(
-            artefactLinks.map((link) => [link.assetId, link.facet]),
+            artefactLinks.map((link) => [link.currentAssetId, link.facet]),
             [['front-scan', 'front'], ['reverse-scan', 'reverse']],
         );
         assert.equal(representations.getArchiveRepresentationsForSubject(db, photograph).length, 2);
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('representation identity survives asset id replacement at the same managed path', async () => {
+    const tempDir = createTempDir();
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const semantic = await import('../../dist/core/src/services/relationships/semanticRepository.js');
+    const representations = await import('../../dist/core/src/services/relationships/archiveRepresentationRepository.js');
+    const dbManager = new DatabaseManager(tempDir);
+
+    try {
+        const db = dbManager.getDb();
+        const managedPath = 'C:/archive/photo-front.tif';
+        seedAsset(db, 'asset-before-rebuild', managedPath);
+        const photograph = semantic.ensureSemanticEntity(db, { kind: 'photograph', nativeId: 'photo-1' });
+        const representation = representations.ensureArchiveRepresentation(db, {
+            assetId: 'asset-before-rebuild',
+            subjectEntityId: photograph,
+            representationKind: 'scan',
+            facet: 'front',
+            sourceKind: 'human',
+        });
+        const identityBefore = representation.assetIdentityGuid;
+
+        db.prepare("DELETE FROM assets WHERE id = 'asset-before-rebuild'").run();
+        const detached = representations.getArchiveRepresentationsForSubject(db, photograph)[0];
+        assert.equal(detached.currentAssetId, null);
+        assert.equal(detached.assetIdentityGuid, identityBefore);
+        assert.equal(detached.originalPath, managedPath);
+
+        seedAsset(db, 'asset-after-rebuild', managedPath);
+        const reattached = representations.getArchiveRepresentationsForSubject(db, photograph)[0];
+        assert.equal(reattached.currentAssetId, 'asset-after-rebuild');
+        assert.equal(reattached.assetIdentityGuid, identityBefore);
+        assert.equal(reattached.id, representation.id);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

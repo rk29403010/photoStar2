@@ -134,4 +134,76 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 WHERE derived_from_representation_id IS NOT NULL;
         `,
     },
+    {
+        id: '20260906_003_archive_representation_asset_identity',
+        sql: `
+            INSERT OR IGNORE INTO asset_identities (guid, original_path, created_at)
+            SELECT
+                'archive-' || lower(hex(randomblob(16))),
+                a.original_path,
+                CURRENT_TIMESTAMP
+            FROM archive_representations r
+            JOIN assets a ON a.id = r.asset_id;
+
+            CREATE TABLE archive_representations_v2 (
+                id TEXT PRIMARY KEY,
+                asset_identity_guid TEXT NOT NULL,
+                subject_entity_id TEXT NOT NULL,
+                representation_kind TEXT NOT NULL CHECK (
+                    representation_kind IN ('original', 'scan', 'crop', 'derived_edit', 'extracted_frame', 'reference')
+                ),
+                facet TEXT,
+                source_kind TEXT NOT NULL CHECK (source_kind IN ('system', 'human', 'import')),
+                source_ref TEXT,
+                derived_from_representation_id TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(asset_identity_guid) REFERENCES asset_identities(guid),
+                FOREIGN KEY(subject_entity_id) REFERENCES semantic_entities(id),
+                FOREIGN KEY(derived_from_representation_id) REFERENCES archive_representations_v2(id) ON DELETE SET NULL
+            );
+
+            INSERT INTO archive_representations_v2 (
+                id,
+                asset_identity_guid,
+                subject_entity_id,
+                representation_kind,
+                facet,
+                source_kind,
+                source_ref,
+                derived_from_representation_id,
+                created_at
+            )
+            SELECT
+                r.id,
+                ai.guid,
+                r.subject_entity_id,
+                r.representation_kind,
+                r.facet,
+                r.source_kind,
+                r.source_ref,
+                r.derived_from_representation_id,
+                r.created_at
+            FROM archive_representations r
+            JOIN assets a ON a.id = r.asset_id
+            JOIN asset_identities ai ON ai.original_path = a.original_path;
+
+            DROP TABLE archive_representations;
+            ALTER TABLE archive_representations_v2 RENAME TO archive_representations;
+
+            CREATE UNIQUE INDEX idx_archive_representations_identity
+                ON archive_representations(
+                    asset_identity_guid,
+                    subject_entity_id,
+                    representation_kind,
+                    IFNULL(facet, '')
+                );
+            CREATE INDEX idx_archive_representations_asset_identity
+                ON archive_representations(asset_identity_guid, created_at, id);
+            CREATE INDEX idx_archive_representations_subject
+                ON archive_representations(subject_entity_id, created_at, id);
+            CREATE INDEX idx_archive_representations_derived_from
+                ON archive_representations(derived_from_representation_id)
+                WHERE derived_from_representation_id IS NOT NULL;
+        `,
+    },
 ];
