@@ -25,7 +25,7 @@ function seedReadyAsset(dbManager, params) {
     });
 }
 
-test('visual similarity repository canonicalises pairs and replaces impacted detector observations', async () => {
+test('visual similarity repository canonicalises pairs and replaces only the impacted policy', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const repository = await import('../../dist/core/src/services/relationships/visualSimilarityObservationRepository.js');
@@ -37,8 +37,9 @@ test('visual similarity repository canonicalises pairs and replaces impacted det
         seedReadyAsset(dbManager, { id: 'asset-c', phash64: '000000000000000f', dhash64: '000000000000000f' });
         const db = dbManager.getDb();
 
-        repository.replaceVisualSimilarityObservations(db, {
+        repository.replaceVisualSimilarityPolicyObservations(db, {
             impactedAssetIds: ['asset-a', 'asset-b'],
+            policy: 'near_duplicate',
             sourceIdentity: 'test:visual',
             sourceRef: 'test@1',
             algorithmVersion: '1',
@@ -48,23 +49,33 @@ test('visual similarity repository canonicalises pairs and replaces impacted det
                 phashDistance: 1,
                 dhashDistance: 2,
                 score: 1 - (2 / 64),
-                evidence: { route: 'first' },
+                evidence: { route: 'near' },
+            }],
+        });
+        repository.replaceVisualSimilarityPolicyObservations(db, {
+            impactedAssetIds: ['asset-a', 'asset-b'],
+            policy: 'variant',
+            sourceIdentity: 'test:visual',
+            sourceRef: 'test@1',
+            algorithmVersion: '1',
+            observations: [{
+                assetIdA: 'asset-a',
+                assetIdB: 'asset-b',
+                phashDistance: 1,
+                dhashDistance: 2,
+                score: 1 - (2 / 64),
+                evidence: { route: 'variant' },
             }],
         });
 
         const first = repository.getVisualSimilarityObservationsForAsset(db, 'asset-a', 'test:visual');
-        assert.equal(first.length, 1);
-        assert.ok(first[0].assetIdentityGuidA < first[0].assetIdentityGuidB);
-        assert.deepEqual(
-            [first[0].currentAssetIdA, first[0].currentAssetIdB].sort(),
-            ['asset-a', 'asset-b'],
-        );
-        assert.equal(first[0].phashDistance, 1);
-        assert.equal(first[0].dhashDistance, 2);
-        assert.equal(first[0].score, 1 - (2 / 64));
+        assert.equal(first.length, 2);
+        assert.deepEqual(first.map((row) => row.policy), ['near_duplicate', 'variant']);
+        assert.ok(first.every((row) => row.assetIdentityGuidA < row.assetIdentityGuidB));
 
-        repository.replaceVisualSimilarityObservations(db, {
+        repository.replaceVisualSimilarityPolicyObservations(db, {
             impactedAssetIds: ['asset-a'],
+            policy: 'near_duplicate',
             sourceIdentity: 'test:visual',
             sourceRef: 'test@2',
             algorithmVersion: '2',
@@ -77,8 +88,15 @@ test('visual similarity repository canonicalises pairs and replaces impacted det
             }],
         });
 
-        assert.equal(repository.getVisualSimilarityObservationsForAsset(db, 'asset-b', 'test:visual').length, 0);
-        const replacement = repository.getVisualSimilarityObservationsForAsset(db, 'asset-a', 'test:visual');
+        const assetB = repository.getVisualSimilarityObservationsForAsset(db, 'asset-b', 'test:visual');
+        assert.equal(assetB.length, 1);
+        assert.equal(assetB[0].policy, 'variant');
+        const replacement = repository.getVisualSimilarityObservationsForAsset(
+            db,
+            'asset-a',
+            'test:visual',
+            'near_duplicate',
+        );
         assert.equal(replacement.length, 1);
         assert.deepEqual(
             [replacement[0].currentAssetIdA, replacement[0].currentAssetIdB].sort(),
@@ -91,7 +109,7 @@ test('visual similarity repository canonicalises pairs and replaces impacted det
     }
 });
 
-test('runtime grouping persists only the visual pairs actually measured by near and variant policies', async () => {
+test('runtime grouping persists policy-specific visual pairs actually measured by near and variant policies', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const repository = await import('../../dist/core/src/services/relationships/visualSimilarityObservationRepository.js');
@@ -118,26 +136,21 @@ test('runtime grouping persists only the visual pairs actually measured by near 
             'runtime.group_similar_photos:visual_hash',
         );
         assert.equal(observations.length, 2);
+        const byPolicy = new Map(observations.map((observation) => [observation.policy, observation]));
 
-        const byOtherAsset = new Map(observations.map((observation) => {
-            const otherAssetId = observation.currentAssetIdA === 'asset-a'
-                ? observation.currentAssetIdB
-                : observation.currentAssetIdA;
-            return [otherAssetId, observation];
-        }));
-        const near = byOtherAsset.get('asset-b');
+        const near = byPolicy.get('near_duplicate');
         assert.ok(near);
         assert.equal(near.phashDistance, 1);
         assert.equal(near.dhashDistance, 2);
         assert.equal(near.score, 1 - (2 / 64));
-        assert.deepEqual(JSON.parse(near.evidenceJson).routes.map((route) => route.policy), ['near_duplicate']);
+        assert.equal(JSON.parse(near.evidenceJson).routes[0].policy, 'near_duplicate');
 
-        const variant = byOtherAsset.get('asset-c');
+        const variant = byPolicy.get('variant');
         assert.ok(variant);
         assert.equal(variant.phashDistance, 4);
         assert.equal(variant.dhashDistance, 4);
         assert.equal(variant.score, 1 - (4 / 64));
-        assert.deepEqual(JSON.parse(variant.evidenceJson).routes.map((route) => route.policy), ['variant']);
+        assert.equal(JSON.parse(variant.evidenceJson).routes[0].policy, 'variant');
 
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM visual_similarity_observations').get().count, 2);
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM semantic_propositions').get().count, 0);
