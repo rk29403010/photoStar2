@@ -10,15 +10,17 @@ function filenameFromPath(value: string): string {
   return value.split(/[/\\]/).pop() || value;
 }
 
+const REPRESENTATION_KIND_LABELS: Record<ArchiveLineageRepresentation['representationKind'], string> = {
+  original: 'Original',
+  scan: 'Scan',
+  crop: 'Crop',
+  derived_edit: 'Derived edit',
+  extracted_frame: 'Extracted frame',
+  reference: 'Reference',
+};
+
 function formatKind(value: ArchiveLineageRepresentation['representationKind']): string {
-  switch (value) {
-    case 'derived_edit': return 'Derived edit';
-    case 'extracted_frame': return 'Extracted frame';
-    case 'original': return 'Original';
-    case 'scan': return 'Scan';
-    case 'crop': return 'Crop';
-    case 'reference': return 'Reference';
-  }
+  return REPRESENTATION_KIND_LABELS[value];
 }
 
 function subjectTypeLabel(subject: ArchiveLineageSubject): string {

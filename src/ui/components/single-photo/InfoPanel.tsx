@@ -1,9 +1,11 @@
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import type { Asset, ReviewItemSummary, TagDefinitionSummary, SimilarityOrbit } from '@contracts/core';
+import type { ArchiveLineage } from '@contracts/archiveLineage';
 import { ProfileTab } from './info-panel/ProfileTab';
 import { TagsTab } from './info-panel/TagsTab';
 import { LineageTab } from './info-panel/LineageTab';
+import { ArchiveRelationshipsSection } from './info-panel/ArchiveRelationshipsSection';
 import { GroupTab } from './info-panel/GroupTab';
 import { JsonTab } from './info-panel/JsonTab';
 import { PeopleTab } from './info-panel/PeopleTab';
@@ -50,6 +52,24 @@ const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
   { id: 'json', emoji: '{ }', label: 'Raw' },
   { id: 'ailogs', emoji: '🤖', label: 'AI Logs' },
 ];
+
+function isArchiveLineage(value: unknown): value is ArchiveLineage {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  if (!('assetId' in value) || typeof value.assetId !== 'string') {
+    return false;
+  }
+  return 'subjects' in value && Array.isArray(value.subjects);
+}
+
+function getArchiveLineage(asset: Asset): ArchiveLineage | null {
+  const metadata = asset.photo_metadata;
+  if (!metadata || !('archiveLineage' in metadata)) {
+    return null;
+  }
+  return isArchiveLineage(metadata.archiveLineage) ? metadata.archiveLineage : null;
+}
 
 const PanelHeader: React.FC<{ readonly asset: Asset; readonly onClose?: () => void }> = ({ asset, onClose }) => {
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
@@ -130,7 +150,12 @@ const PanelContent: React.FC<{
     {activeTab === 'tags' && <TagsTab asset={asset} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} />}
     {activeTab === 'people' && <PeopleTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} />}
     {activeTab === 'objects' && <ObjectsTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} />}
-    {activeTab === 'lineage' && <LineageTab asset={asset} />}
+    {activeTab === 'lineage' && (
+      <div className="flex flex-col gap-4">
+        <ArchiveRelationshipsSection lineage={getArchiveLineage(asset)} />
+        <LineageTab asset={asset} />
+      </div>
+    )}
     {activeTab === 'group' && <GroupTab asset={asset} onGetGroupOrbit={onGetGroupOrbit} onSetCanonical={onSetCanonical} />}
     {activeTab === 'json' && <JsonTab asset={asset} />}
     {activeTab === 'ailogs' && <AiLogsTab assetId={asset.id} onGetAiCallsLog={onGetAiCallsLog} onGetAiCallLogDetail={onGetAiCallLogDetail} analysisState={analysisState} />}
