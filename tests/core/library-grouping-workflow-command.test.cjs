@@ -56,6 +56,12 @@ test('start_library_grouping launches the runtime grouping workflow across the f
                 ('asset-1', 'C:/photos/one.jpg', 'hash-1', 100, 10, 10, '2026-03-17T10:00:00.000Z'),
                 ('asset-2', 'C:/photos/two.jpg', 'hash-2', 200, 11, 11, '2026-03-17T10:00:01.000Z')
         `).run();
+        db.prepare(`
+            INSERT INTO asset_features (asset_id, file_hash, phash64, dhash64)
+            VALUES
+                ('asset-1', 'hash-1', '0000000000000000', '0000000000000000'),
+                ('asset-2', 'hash-2', '00000000000000ff', '00000000000000ff')
+        `).run();
 
         const subjects = new runtime.SubjectRegistry();
         const modules = new runtime.ModuleRegistry();
@@ -108,6 +114,30 @@ test('start_library_grouping launches the runtime grouping workflow across the f
         assert.equal(detail.steps.length, 1);
         assert.equal(detail.steps[0].nodeId, 'group-library-assets');
         assert.equal(detail.steps[0].totalItems, 2);
+
+        const burstGroup = db.prepare("SELECT id, status FROM asset_groups WHERE type = 'burst'").get();
+        assert.ok(burstGroup);
+        assert.equal(burstGroup.status, 'proposed');
+
+        const sequence = db.prepare(`
+            SELECT id, status, source_identity
+            FROM capture_sequences
+        `).get();
+        assert.ok(sequence);
+        assert.equal(sequence.status, 'proposed');
+        assert.equal(sequence.source_identity, 'runtime.group_similar_photos:burst');
+        const sequenceMembers = db.prepare(`
+            SELECT asset.original_path, member.ordinal, member.status
+            FROM capture_sequence_members member
+            JOIN asset_identities identity ON identity.guid = member.asset_identity_guid
+            JOIN assets asset ON asset.original_path = identity.original_path
+            WHERE member.sequence_id = ?
+            ORDER BY member.ordinal
+        `).all(sequence.id);
+        assert.deepEqual(sequenceMembers, [
+            { original_path: 'C:/photos/one.jpg', ordinal: 0, status: 'candidate' },
+            { original_path: 'C:/photos/two.jpg', ordinal: 1, status: 'candidate' },
+        ]);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
