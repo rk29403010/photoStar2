@@ -94,15 +94,55 @@ The current legacy best-effort migration list remains temporarily for compatibil
 
 Before durable user data exists, an explicit development-only reset may still be used instead of writing migration code for throwaway intermediate schemas.
 
+## Shadow semantic kernel
+
+The first numbered semantic migration adds the minimum shared kernel:
+
+- typed semantic entities that can point at existing native records or future archive concepts;
+- propositions representing possible statements inside an explicit conflict scope;
+- append-only supporting/opposing attestations with source and optional confidence;
+- addressable evidence references attached to attestations;
+- explicit decisions that supersede previous decisions while retaining history.
+
+Confidence is evidence metadata, not an automatic truth-election mechanism. In the shadow resolver:
+
+- one supported and uncontested proposition is `proposed`;
+- competing supported propositions are `disputed`;
+- support plus active opposition is `disputed`;
+- no supported proposition is `unresolved`;
+- only an explicit decision can produce `accepted` or `rejected`.
+
+Attestation supersession is constrained to the same semantic scope so a model rerun or human correction can replace its previous statement without deleting history or accidentally invalidating an unrelated claim.
+
+### Reset gate before human cutover
+
+The semantic kernel is currently shadow-only. No supported UI command writes durable human semantic data to it yet.
+
+**Do not cut a human action over to these tables until soft-reset preservation is implemented and tested.** The preservation closure must retain any entities/propositions required by durable human/import attestations, their evidence, and explicit decisions, while machine-only attestations remain rebuildable.
+
+This is deliberately a cutover gate rather than premature reset plumbing for tables that no current user path writes to.
+
+## Exact duplicate shadow slice
+
+Exact file copies are the first deterministic relationship projection:
+
+1. exact-copy membership is derived directly from content digest equivalence;
+2. one stable semantic set is used rather than N² pairwise duplicate links;
+3. the existing duplicate representative-selection heuristic is reused;
+4. the existing group writer remains authoritative for current UI behaviour;
+5. parity tests compare new membership and representative selection against the existing duplicate groups;
+6. insertion order must not change the semantic projection.
+
 ## Next vertical slice
 
-After the migration ledger is green, implement exact duplicates as the first shadow semantic slice:
+With the migration ledger, exact-copy projection, and semantic kernel in shadow mode, the next cutover proof is a **server-side `LibraryPresentationItem` projection**.
 
-1. introduce the minimum semantic registry/proposition/attestation/decision/projection tables required by the slice;
-2. derive exact-copy membership from content digest equivalence;
-3. keep the existing group writer active;
-4. expose a parity query comparing legacy collapsed presentation with the new projection;
-5. add behavioural tests before any gallery reader is switched;
-6. only then begin the server-side `LibraryPresentationItem` cutover.
+Before any gallery reader is switched, prove that the new projection preserves:
 
-This sequence proves the semantic kernel on a deterministic relationship before weaker visual evidence, face identity or human testimony are moved.
+- collapse/grouping before pagination;
+- grouped and ungrouped filters;
+- representative selection;
+- timeline ordering/seek semantics;
+- locked edit-version presentation behaviour.
+
+After that parity gate is green, introduce Photograph/Representation semantics and then move face identity only after reset durability and disagreement handling are proven.
