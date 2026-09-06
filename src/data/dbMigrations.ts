@@ -215,4 +215,41 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 ON semantic_attestations(source_kind, source_identity, created_at, id);
         `,
     },
+    {
+        id: '20260906_005_capture_sequences',
+        sql: `
+            CREATE TABLE capture_sequences (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL CHECK (status IN ('proposed', 'accepted', 'rejected')),
+                source_kind TEXT NOT NULL CHECK (source_kind IN ('system', 'human', 'import')),
+                source_identity TEXT NOT NULL,
+                source_ref TEXT,
+                algorithm_version TEXT,
+                params_json TEXT NOT NULL DEFAULT '{}',
+                evidence_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX idx_capture_sequences_source
+                ON capture_sequences(source_kind, source_identity, status, created_at, id);
+
+            CREATE TABLE capture_sequence_members (
+                sequence_id TEXT NOT NULL,
+                asset_identity_guid TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'candidate'
+                    CHECK (status IN ('candidate', 'accepted', 'rejected')),
+                captured_at TEXT,
+                evidence_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(sequence_id, asset_identity_guid),
+                UNIQUE(sequence_id, ordinal),
+                FOREIGN KEY(sequence_id) REFERENCES capture_sequences(id) ON DELETE CASCADE,
+                FOREIGN KEY(asset_identity_guid) REFERENCES asset_identities(guid)
+            );
+            CREATE INDEX idx_capture_sequence_members_asset_identity
+                ON capture_sequence_members(asset_identity_guid, sequence_id);
+        `,
+    },
 ];
