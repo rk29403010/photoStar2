@@ -197,29 +197,49 @@ function buildConnectedComponents(edges: readonly ClusterEdge[]): string[][] {
 
 function extensionRank(originalPath: string): number {
     const path = originalPath.toLowerCase();
-    if (path.endsWith('.avif')) return 5;
-    if (path.endsWith('.heic') || path.endsWith('.heif')) return 4;
-    if (path.endsWith('.png') || path.endsWith('.tif') || path.endsWith('.tiff')) return 3;
-    if (path.endsWith('.webp')) return 2;
-    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 1;
+    if (path.endsWith('.avif')) {
+        return 5;
+    }
+    if (path.endsWith('.heic') || path.endsWith('.heif')) {
+        return 4;
+    }
+    if (path.endsWith('.png') || path.endsWith('.tif') || path.endsWith('.tiff')) {
+        return 3;
+    }
+    if (path.endsWith('.webp')) {
+        return 2;
+    }
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+        return 1;
+    }
     return 0;
 }
 
 function compareQuality(left: AssetMetadata, right: AssetMetadata): number {
     const leftArea = Math.max(left.width, 0) * Math.max(left.height, 0);
     const rightArea = Math.max(right.width, 0) * Math.max(right.height, 0);
-    if (leftArea !== rightArea) return rightArea - leftArea;
+    if (leftArea !== rightArea) {
+        return rightArea - leftArea;
+    }
     const extensionDelta = extensionRank(right.original_path) - extensionRank(left.original_path);
-    if (extensionDelta !== 0) return extensionDelta;
+    if (extensionDelta !== 0) {
+        return extensionDelta;
+    }
     const leftBpp = leftArea > 0 ? left.file_size / leftArea : 0;
     const rightBpp = rightArea > 0 ? right.file_size / rightArea : 0;
-    if (leftBpp !== rightBpp) return rightBpp - leftBpp;
-    if (left.file_size !== right.file_size) return right.file_size - left.file_size;
+    if (leftBpp !== rightBpp) {
+        return rightBpp - leftBpp;
+    }
+    if (left.file_size !== right.file_size) {
+        return right.file_size - left.file_size;
+    }
     return left.id.localeCompare(right.id);
 }
 
 function timestampValue(value: string | null): number {
-    if (!value) return Number.NEGATIVE_INFINITY;
+    if (!value) {
+        return Number.NEGATIVE_INFINITY;
+    }
     const parsed = Date.parse(value);
     return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
 }
