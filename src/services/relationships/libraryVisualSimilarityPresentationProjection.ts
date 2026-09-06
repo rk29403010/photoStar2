@@ -15,12 +15,14 @@ export type VisualSimilarityPresentationItem = Omit<LibraryPresentationItem, 're
     relationshipKind: VisualRelationshipKind;
 };
 
+type VisualPolicy = 'near_duplicate' | 'variant';
+
 type ObservationRow = {
     current_asset_id_a: string | null;
     current_asset_id_b: string | null;
+    policy: VisualPolicy;
     phash_distance: number;
     dhash_distance: number;
-    evidence_json: string | null;
 };
 
 type AssetMetadata = {
@@ -37,8 +39,6 @@ type ClusterEdge = {
     leftKey: string;
     rightKey: string;
 };
-
-type VisualPolicy = 'near_duplicate' | 'variant';
 
 type CollapseStage = {
     policy: VisualPolicy;
@@ -75,12 +75,12 @@ function loadObservations(db: DbHandle): ObservationRow[] {
                 ORDER BY asset.created_at DESC, asset.id DESC
                 LIMIT 1
             ) AS current_asset_id_b,
+            observation.policy,
             observation.phash_distance,
-            observation.dhash_distance,
-            observation.evidence_json
+            observation.dhash_distance
         FROM visual_similarity_observations observation
         WHERE observation.source_identity = ?
-        ORDER BY observation.asset_identity_guid_a, observation.asset_identity_guid_b
+        ORDER BY observation.asset_identity_guid_a, observation.asset_identity_guid_b, observation.policy
     `).all(VISUAL_SOURCE_IDENTITY) as ObservationRow[];
 }
 
@@ -101,18 +101,6 @@ function loadAssetMetadata(db: DbHandle, assetIds: readonly string[]): Map<strin
         byId.set(row.id, row);
     }
     return byId;
-}
-
-function evidenceHasPolicy(evidenceJson: string | null, policy: VisualPolicy): boolean {
-    if (!evidenceJson) {
-        return false;
-    }
-    try {
-        const evidence = JSON.parse(evidenceJson) as { routes?: Array<{ policy?: string }> };
-        return evidence.routes?.some((route) => route.policy === policy) ?? false;
-    } catch {
-        return false;
-    }
 }
 
 function indexItems(items: readonly VisualSimilarityPresentationItem[]): Map<string, VisualSimilarityPresentationItem> {
@@ -141,10 +129,10 @@ function projectObservationEdge(
     if (!leftAssetId || !rightAssetId) {
         return null;
     }
-    if (observation.phash_distance > stage.threshold || observation.dhash_distance > stage.threshold) {
+    if (observation.policy !== stage.policy) {
         return null;
     }
-    if (!evidenceHasPolicy(observation.evidence_json, stage.policy)) {
+    if (observation.phash_distance > stage.threshold || observation.dhash_distance > stage.threshold) {
         return null;
     }
 
