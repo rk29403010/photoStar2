@@ -46,6 +46,7 @@ function seedVisualObservation(db, sourceIdentity) {
         INSERT INTO visual_similarity_observations (
             asset_identity_guid_a,
             asset_identity_guid_b,
+            policy,
             source_identity,
             source_ref,
             algorithm_version,
@@ -53,7 +54,7 @@ function seedVisualObservation(db, sourceIdentity) {
             dhash_distance,
             score
         )
-        VALUES ('identity-1', 'identity-2', ?, 'test', '1.0', 1, 2, 0.96875)
+        VALUES ('identity-1', 'identity-2', 'near_duplicate', ?, 'test', '1.0', 1, 2, 0.96875)
     `).run(sourceIdentity);
 }
 
