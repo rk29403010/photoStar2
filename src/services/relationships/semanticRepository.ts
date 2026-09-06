@@ -133,6 +133,81 @@ function propositionCanonicalKey(input: PutSemanticPropositionInput): {
     };
 }
 
+function assertAttestationConfidence(confidence: number | null | undefined): void {
+    if (confidence == null) {
+        return;
+    }
+    if (confidence < 0 || confidence > 1) {
+        throw new Error('Semantic attestation confidence must be between 0 and 1.');
+    }
+}
+
+function assertAttestationSupersession(
+    db: DbHandle,
+    propositionScope: string,
+    supersedesAttestationId: string | null,
+): void {
+    if (!supersedesAttestationId) {
+        return;
+    }
+    const prior = db.prepare(`
+        SELECT p.scope_key
+        FROM semantic_attestations a
+        JOIN semantic_propositions p ON p.id = a.proposition_id
+        WHERE a.id = ?
+    `).get(supersedesAttestationId) as { scope_key: string } | undefined;
+    if (!prior) {
+        throw new Error(`Unknown superseded semantic attestation '${supersedesAttestationId}'.`);
+    }
+    if (prior.scope_key !== propositionScope) {
+        throw new Error('A semantic attestation can only supersede an attestation in the same scope.');
+    }
+}
+
+function insertAttestationRow(
+    db: DbHandle,
+    attestationId: string,
+    input: AddSemanticAttestationInput,
+    supersedesAttestationId: string | null,
+): void {
+    db.prepare(`
+        INSERT INTO semantic_attestations (
+            id, proposition_id, stance, source_kind, source_ref,
+            confidence, rationale, supersedes_attestation_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        attestationId,
+        input.propositionId,
+        input.stance,
+        input.sourceKind,
+        input.sourceRef ?? null,
+        input.confidence ?? null,
+        input.rationale ?? null,
+        supersedesAttestationId,
+    );
+}
+
+function insertEvidenceRows(
+    db: DbHandle,
+    attestationId: string,
+    evidenceRefs: readonly SemanticEvidenceRef[],
+): void {
+    const insertEvidence = db.prepare(`
+        INSERT INTO semantic_evidence (id, attestation_id, ref_kind, ref_json, label)
+        VALUES (?, ?, ?, ?, ?)
+    `);
+    for (const evidence of evidenceRefs) {
+        insertEvidence.run(
+            uuidv4(),
+            attestationId,
+            evidence.kind,
+            stableSerialize(evidence.ref),
+            evidence.label ?? null,
+        );
+    }
+}
+
 export function ensureSemanticEntity(db: DbHandle, input: EnsureSemanticEntityInput): string {
     assertNonEmpty(input.nativeId, 'Semantic entity nativeId');
     const id = `${input.kind}:${input.nativeId}`;
@@ -178,59 +253,15 @@ export function putSemanticProposition(db: DbHandle, input: PutSemanticPropositi
 }
 
 export function addSemanticAttestation(db: DbHandle, input: AddSemanticAttestationInput): string {
-    if (input.confidence !== undefined && input.confidence !== null
-        && (input.confidence < 0 || input.confidence > 1)) {
-        throw new Error('Semantic attestation confidence must be between 0 and 1.');
-    }
+    assertAttestationConfidence(input.confidence);
     const proposition = loadProposition(db, input.propositionId);
-    const supersedesId = input.supersedesAttestationId ?? null;
-    if (supersedesId) {
-        const prior = db.prepare(`
-            SELECT p.scope_key
-            FROM semantic_attestations a
-            JOIN semantic_propositions p ON p.id = a.proposition_id
-            WHERE a.id = ?
-        `).get(supersedesId) as { scope_key: string } | undefined;
-        if (!prior) {
-            throw new Error(`Unknown superseded semantic attestation '${supersedesId}'.`);
-        }
-        if (prior.scope_key !== proposition.scope_key) {
-            throw new Error('A semantic attestation can only supersede an attestation in the same scope.');
-        }
-    }
+    const supersedesAttestationId = input.supersedesAttestationId ?? null;
+    assertAttestationSupersession(db, proposition.scope_key, supersedesAttestationId);
 
     const attestationId = uuidv4();
     db.transaction(() => {
-        db.prepare(`
-            INSERT INTO semantic_attestations (
-                id, proposition_id, stance, source_kind, source_ref,
-                confidence, rationale, supersedes_attestation_id
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            attestationId,
-            input.propositionId,
-            input.stance,
-            input.sourceKind,
-            input.sourceRef ?? null,
-            input.confidence ?? null,
-            input.rationale ?? null,
-            supersedesId,
-        );
-
-        const insertEvidence = db.prepare(`
-            INSERT INTO semantic_evidence (id, attestation_id, ref_kind, ref_json, label)
-            VALUES (?, ?, ?, ?, ?)
-        `);
-        for (const evidence of input.evidence ?? []) {
-            insertEvidence.run(
-                uuidv4(),
-                attestationId,
-                evidence.kind,
-                stableSerialize(evidence.ref),
-                evidence.label ?? null,
-            );
-        }
+        insertAttestationRow(db, attestationId, input, supersedesAttestationId);
+        insertEvidenceRows(db, attestationId, input.evidence ?? []);
     })();
     return attestationId;
 }
