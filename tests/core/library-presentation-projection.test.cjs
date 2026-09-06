@@ -69,6 +69,49 @@ function insertLegacyEditGroup(db) {
     `).run();
 }
 
+async function seedRelationshipSemantics(db) {
+    const semantic = await import('../../dist/core/src/services/relationships/semanticRepository.js');
+    const representations = await import('../../dist/core/src/services/relationships/archiveRepresentationRepository.js');
+    const photograph = semantic.ensureSemanticEntity(db, {
+        kind: 'photograph',
+        nativeId: 'relationship-presentation-photo',
+    });
+    const sourceRepresentation = representations.ensureArchiveRepresentation(db, {
+        assetId: 'source',
+        subjectEntityId: photograph,
+        representationKind: 'scan',
+        facet: 'front',
+        sourceKind: 'human',
+        sourceRef: 'owner',
+    });
+    const firstEditRepresentation = representations.ensureArchiveRepresentation(db, {
+        assetId: 'edit-one',
+        subjectEntityId: photograph,
+        representationKind: 'derived_edit',
+        facet: 'front',
+        sourceKind: 'system',
+        sourceRef: 'photo-edit:first',
+        derivedFromRepresentationId: sourceRepresentation.id,
+    });
+    representations.ensureArchiveRepresentation(db, {
+        assetId: 'edit-two',
+        subjectEntityId: photograph,
+        representationKind: 'derived_edit',
+        facet: 'front',
+        sourceKind: 'system',
+        sourceRef: 'photo-edit:second',
+        derivedFromRepresentationId: firstEditRepresentation.id,
+    });
+    representations.ensureArchiveRepresentation(db, {
+        assetId: 'independent-scan',
+        subjectEntityId: photograph,
+        representationKind: 'scan',
+        facet: 'front',
+        sourceKind: 'human',
+        sourceRef: 'owner:second-scan',
+    });
+}
+
 async function loadLegacyGroupedPage({ dbManager, tempDir, limit, offset }) {
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     let response;
@@ -161,52 +204,13 @@ test('relationship presentation replaces edit_version groups without collapsing 
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const presentation = await import('../../dist/core/src/services/relationships/libraryPresentationProjection.js');
-    const semantic = await import('../../dist/core/src/services/relationships/semanticRepository.js');
-    const representations = await import('../../dist/core/src/services/relationships/archiveRepresentationRepository.js');
     const { rebuildImpactedDuplicateGroups } = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingPersistence.js');
     const dbManager = new DatabaseManager(tempDir);
 
     try {
         const db = dbManager.getDb();
         const assetIds = seedRelationshipPresentationAssets(db);
-        const photograph = semantic.ensureSemanticEntity(db, {
-            kind: 'photograph',
-            nativeId: 'relationship-presentation-photo',
-        });
-        const sourceRepresentation = representations.ensureArchiveRepresentation(db, {
-            assetId: 'source',
-            subjectEntityId: photograph,
-            representationKind: 'scan',
-            facet: 'front',
-            sourceKind: 'human',
-            sourceRef: 'owner',
-        });
-        const firstEditRepresentation = representations.ensureArchiveRepresentation(db, {
-            assetId: 'edit-one',
-            subjectEntityId: photograph,
-            representationKind: 'derived_edit',
-            facet: 'front',
-            sourceKind: 'system',
-            sourceRef: 'photo-edit:first',
-            derivedFromRepresentationId: sourceRepresentation.id,
-        });
-        representations.ensureArchiveRepresentation(db, {
-            assetId: 'edit-two',
-            subjectEntityId: photograph,
-            representationKind: 'derived_edit',
-            facet: 'front',
-            sourceKind: 'system',
-            sourceRef: 'photo-edit:second',
-            derivedFromRepresentationId: firstEditRepresentation.id,
-        });
-        representations.ensureArchiveRepresentation(db, {
-            assetId: 'independent-scan',
-            subjectEntityId: photograph,
-            representationKind: 'scan',
-            facet: 'front',
-            sourceKind: 'human',
-            sourceRef: 'owner:second-scan',
-        });
+        await seedRelationshipSemantics(db);
 
         insertLegacyEditGroup(db);
         rebuildImpactedDuplicateGroups({ db, changedAssetIds: assetIds });
@@ -241,6 +245,66 @@ test('relationship presentation replaces edit_version groups without collapsing 
         assert.equal(exactCopies.representativeAssetId, 'exact-png');
         assert.equal(exactCopies.stackCount, 2);
         assert.deepEqual(exactCopies.assetIds, ['exact-jpeg', 'exact-png']);
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('capture-sequence presentation treats edit lineages and exact copies as moments rather than extra frames', async () => {
+    const tempDir = createTempDir();
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const capturePresentation = await import('../../dist/core/src/services/relationships/libraryCaptureSequencePresentationProjection.js');
+    const captureSequences = await import('../../dist/core/src/services/relationships/captureSequenceRepository.js');
+    const dbManager = new DatabaseManager(tempDir);
+
+    try {
+        const db = dbManager.getDb();
+        seedRelationshipPresentationAssets(db);
+        await seedRelationshipSemantics(db);
+
+        captureSequences.replaceSystemCaptureSequenceProposals(db, {
+            impactedAssetIds: ['source', 'source-copy', 'edit-two', 'exact-jpeg', 'exact-png'],
+            sourceIdentity: 'test:capture-moments',
+            sourceRef: 'test',
+            algorithmVersion: '1',
+            sequences: [{
+                members: [
+                    { assetId: 'source', capturedAt: '2025-01-01T10:00:00.000Z' },
+                    { assetId: 'source-copy', capturedAt: '2025-01-01T10:00:00.000Z' },
+                    { assetId: 'edit-two', capturedAt: '2025-01-01T10:00:00.000Z' },
+                    { assetId: 'exact-jpeg', capturedAt: '2025-01-01T10:00:01.000Z' },
+                    { assetId: 'exact-png', capturedAt: '2025-01-01T10:00:01.000Z' },
+                ],
+            }],
+        });
+
+        const items = capturePresentation.getCaptureSequencePresentationPage(db, { limit: 20, offset: 0 });
+        assert.equal(capturePresentation.countCaptureSequencePresentationItems(db), 3);
+        assert.deepEqual(
+            items.map((item) => item.representativeAssetId),
+            ['independent-scan', 'exact-png', 'unique'],
+        );
+
+        const sequence = items.find((item) => item.relationshipKind === 'capture_sequence');
+        assert.ok(sequence);
+        assert.equal(sequence.representativeAssetId, 'exact-png');
+        assert.equal(sequence.momentCount, 2);
+        assert.equal(sequence.stackCount, 6);
+        assert.deepEqual(sequence.assetIds, [
+            'edit-one',
+            'edit-two',
+            'exact-jpeg',
+            'exact-png',
+            'source',
+            'source-copy',
+        ]);
+        assert.match(sequence.presentationKey, /^sequence:/);
+
+        const independentScan = items.find((item) => item.representativeAssetId === 'independent-scan');
+        assert.ok(independentScan);
+        assert.equal(independentScan.relationshipKind, null);
+        assert.equal(independentScan.momentCount, 1);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
