@@ -155,6 +155,22 @@ test('burst graph projects to durable proposed CaptureSequence candidates with e
         assert.equal(accepted.length, 1);
         assert.equal(accepted[0].status, 'accepted');
         assert.equal(accepted[0].id, replacementIds[0]);
+
+        projection.syncBurstCaptureSequenceProposals({
+            db,
+            changedAssetIds: ['frame-a'],
+            ...graph,
+            maxSeconds: 3,
+            maxDistance: 12,
+        });
+        assert.equal(db.prepare('SELECT COUNT(*) AS count FROM capture_sequences').get().count, 2);
+
+        dbManager.resetPreservingManualData();
+        const resetDb = dbManager.getDb();
+        assert.equal(resetDb.prepare('SELECT COUNT(*) AS count FROM assets').get().count, 0);
+        assert.equal(resetDb.prepare('SELECT COUNT(*) AS count FROM capture_sequences').get().count, 1);
+        assert.equal(resetDb.prepare("SELECT status FROM capture_sequences").get().status, 'accepted');
+        assert.equal(resetDb.prepare('SELECT COUNT(*) AS count FROM capture_sequence_members').get().count, 3);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
