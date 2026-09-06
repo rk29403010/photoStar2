@@ -1,6 +1,7 @@
 import type { DatabaseManager } from '../../../../../data/db';
 import type { ModuleDefinition } from '../../../contracts';
 import { ensureGroupingPrerequisites } from '../../grouping/groupingAssetPrep';
+import { syncBurstCaptureSequenceProposals } from '../../grouping/captureSequenceProjection';
 import {
     rebuildImpactedBurstGroups,
     rebuildImpactedDuplicateGroups,
@@ -66,18 +67,29 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
                 components: variantGraph.components,
                 threshold: variantThreshold,
             });
+            const burstMaxSeconds = 3;
+            const burstMaxDistance = 12;
             const burstGraph = buildBurstGroupingGraph({
                 db,
                 changedAssetIds: preparedAssets.map((asset) => asset.id),
-                maxSeconds: 3,
-                maxDistance: 12,
+                maxSeconds: burstMaxSeconds,
+                maxDistance: burstMaxDistance,
+            });
+            syncBurstCaptureSequenceProposals({
+                db,
+                changedAssetIds: preparedAssets.map((asset) => asset.id),
+                units: burstGraph.units,
+                edges: burstGraph.edges,
+                components: burstGraph.components,
+                maxSeconds: burstMaxSeconds,
+                maxDistance: burstMaxDistance,
             });
             rebuildImpactedBurstGroups({
                 db,
                 units: burstGraph.units,
                 components: burstGraph.components,
-                maxSeconds: 3,
-                maxDistance: 12,
+                maxSeconds: burstMaxSeconds,
+                maxDistance: burstMaxDistance,
             });
 
             return { outputs: [{ kind: 'artifact', artifactType: 'similar_group', subjectType: 'asset' }] };
