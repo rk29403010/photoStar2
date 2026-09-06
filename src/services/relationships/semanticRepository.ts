@@ -145,22 +145,26 @@ function assertAttestationConfidence(confidence: number | null | undefined): voi
 function assertAttestationSupersession(
     db: DbHandle,
     propositionScope: string,
+    sourceKind: SemanticSourceKind,
     supersedesAttestationId: string | null,
 ): void {
     if (!supersedesAttestationId) {
         return;
     }
     const prior = db.prepare(`
-        SELECT p.scope_key
+        SELECT p.scope_key, a.source_kind
         FROM semantic_attestations a
         JOIN semantic_propositions p ON p.id = a.proposition_id
         WHERE a.id = ?
-    `).get(supersedesAttestationId) as { scope_key: string } | undefined;
+    `).get(supersedesAttestationId) as { scope_key: string; source_kind: SemanticSourceKind } | undefined;
     if (!prior) {
         throw new Error(`Unknown superseded semantic attestation '${supersedesAttestationId}'.`);
     }
     if (prior.scope_key !== propositionScope) {
         throw new Error('A semantic attestation can only supersede an attestation in the same scope.');
+    }
+    if (prior.source_kind !== sourceKind) {
+        throw new Error('A semantic attestation can only supersede an attestation from the same source kind.');
     }
 }
 
@@ -256,7 +260,7 @@ export function addSemanticAttestation(db: DbHandle, input: AddSemanticAttestati
     assertAttestationConfidence(input.confidence);
     const proposition = loadProposition(db, input.propositionId);
     const supersedesAttestationId = input.supersedesAttestationId ?? null;
-    assertAttestationSupersession(db, proposition.scope_key, supersedesAttestationId);
+    assertAttestationSupersession(db, proposition.scope_key, input.sourceKind, supersedesAttestationId);
 
     const attestationId = uuidv4();
     db.transaction(() => {
@@ -296,6 +300,9 @@ function loadActiveAttestations(db: DbHandle, scopeKey: string): ActiveAttestati
 }
 
 export function recordSemanticDecision(db: DbHandle, input: RecordSemanticDecisionInput): string {
+    if (input.sourceKind === 'machine') {
+        throw new Error('Machine sources cannot record semantic decisions; add an attestation instead.');
+    }
     const propositionId = input.propositionId ?? null;
     const needsProposition = input.status === 'accepted' || input.status === 'rejected';
     if (needsProposition !== Boolean(propositionId)) {

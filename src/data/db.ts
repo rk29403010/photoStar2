@@ -9,6 +9,10 @@ import {
 } from './dbSchema';
 import { NUMBERED_MIGRATIONS } from './dbMigrations';
 import { applyNumberedMigrations } from './migrationLedger';
+import {
+  restoreDurableSemanticResetState,
+  snapshotDurableSemanticResetState,
+} from './semanticResetState';
 
 
 function runMigration(db: Database.Database, sql: string): void {
@@ -206,6 +210,7 @@ export class DatabaseManager {
       settings: this.loadRows<{ id: string; value: string }>(
         'SELECT id, value FROM settings ORDER BY id ASC'
       ),
+      semantic: snapshotDurableSemanticResetState(this.db),
     };
   }
 
@@ -258,6 +263,8 @@ export class DatabaseManager {
       for (const row of snapshot.settings) {
         insertSetting.run(row.id, row.value);
       }
+
+      restoreDurableSemanticResetState(this.db, snapshot.semantic);
     });
 
     restore();
