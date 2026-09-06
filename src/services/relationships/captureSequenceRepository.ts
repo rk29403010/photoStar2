@@ -145,22 +145,23 @@ function compareProposalMembers(
     return left.assetId.localeCompare(right.assetId);
 }
 
-function insertProposal(
-    db: DbHandle,
-    input: ReplaceSystemCaptureSequenceProposalsInput,
-    proposal: CaptureSequenceProposalInput,
-): string | null {
+function normalizeProposalMembers(
+    members: readonly CaptureSequenceProposalMemberInput[],
+): CaptureSequenceProposalMemberInput[] {
     const uniqueMembers = new Map<string, CaptureSequenceProposalMemberInput>();
-    for (const member of proposal.members) {
+    for (const member of members) {
         if (!uniqueMembers.has(member.assetId)) {
             uniqueMembers.set(member.assetId, member);
         }
     }
-    if (uniqueMembers.size < 2) {
-        return null;
-    }
+    return [...uniqueMembers.values()].sort(compareProposalMembers);
+}
 
-    const orderedMembers = [...uniqueMembers.values()].sort(compareProposalMembers);
+function insertProposalHeader(
+    db: DbHandle,
+    input: ReplaceSystemCaptureSequenceProposalsInput,
+    proposal: CaptureSequenceProposalInput,
+): string {
     const sequenceId = uuidv4();
     db.prepare(`
         INSERT INTO capture_sequences (
@@ -182,7 +183,14 @@ function insertProposal(
         JSON.stringify(input.params ?? {}),
         proposal.evidence ? JSON.stringify(proposal.evidence) : null,
     );
+    return sequenceId;
+}
 
+function insertProposalMembers(
+    db: DbHandle,
+    sequenceId: string,
+    members: readonly CaptureSequenceProposalMemberInput[],
+): void {
     const insertMember = db.prepare(`
         INSERT INTO capture_sequence_members (
             sequence_id,
@@ -194,7 +202,7 @@ function insertProposal(
         )
         VALUES (?, ?, ?, 'candidate', ?, ?)
     `);
-    for (const [ordinal, member] of orderedMembers.entries()) {
+    for (const [ordinal, member] of members.entries()) {
         const identity = ensureAssetIdentity(db, member.assetId);
         insertMember.run(
             sequenceId,
@@ -204,6 +212,19 @@ function insertProposal(
             member.evidence ? JSON.stringify(member.evidence) : null,
         );
     }
+}
+
+function insertProposal(
+    db: DbHandle,
+    input: ReplaceSystemCaptureSequenceProposalsInput,
+    proposal: CaptureSequenceProposalInput,
+): string | null {
+    const orderedMembers = normalizeProposalMembers(proposal.members);
+    if (orderedMembers.length < 2) {
+        return null;
+    }
+    const sequenceId = insertProposalHeader(db, input, proposal);
+    insertProposalMembers(db, sequenceId, orderedMembers);
     return sequenceId;
 }
 
