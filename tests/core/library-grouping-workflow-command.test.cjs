@@ -45,6 +45,7 @@ test('start_library_grouping launches the runtime grouping workflow across the f
     const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
     const { groupSimilarPhotosPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/group-similar-photos/plugin.js');
     const { libraryGroupingWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/libraryGroupingWorkflow.js');
+    const capturePresentation = await import('../../dist/core/src/services/relationships/libraryCaptureSequencePresentationProjection.js');
     let dbManager;
 
     try {
@@ -138,6 +139,33 @@ test('start_library_grouping launches the runtime grouping workflow across the f
             { original_path: 'C:/photos/one.jpg', ordinal: 0, status: 'candidate' },
             { original_path: 'C:/photos/two.jpg', ordinal: 1, status: 'candidate' },
         ]);
+
+        let legacyResponse;
+        await handleSystemCommand({
+            id: 'cmd-get-grouped-assets',
+            command: 'get_assets',
+            payload: { limit: 20, offset: 0, withGroupCounts: true, galleryOrder: 'default' },
+            dbManager,
+            eventBus: {},
+            activeJobs: new Map(),
+            LIB_DIR: tempDir,
+            respond: (id, status, data, error) => {
+                legacyResponse = { id, status, data, error };
+            },
+        });
+        assert.equal(legacyResponse.status, 'ok');
+
+        const shadowItems = capturePresentation.getCaptureSequencePresentationPage(db, { limit: 20, offset: 0 });
+        assert.deepEqual(
+            shadowItems.map((item) => item.representativeAssetId),
+            legacyResponse.data.assets.map((asset) => asset.id),
+        );
+        assert.equal(shadowItems.length, 1);
+        assert.equal(shadowItems[0].relationshipKind, 'capture_sequence');
+        assert.equal(shadowItems[0].representativeAssetId, 'asset-2');
+        assert.equal(shadowItems[0].momentCount, 2);
+        assert.equal(shadowItems[0].stackCount, 2);
+        assert.deepEqual(shadowItems[0].assetIds, ['asset-1', 'asset-2']);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
