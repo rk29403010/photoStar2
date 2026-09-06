@@ -247,6 +247,10 @@ function buildDirectAssetUnits(db: DbHandle, excludedAssetIds: Set<string>): Sim
         }));
 }
 
+export function buildRawSimilarityUnits(db: DbHandle): SimilarityGroupingUnit[] {
+    return buildDirectAssetUnits(db, new Set());
+}
+
 export function buildSimilarityUnits(db: DbHandle, groupTypes: string[]): SimilarityGroupingUnit[] {
     const topLevelGroupUnits = buildTopLevelGroupingUnits(db, groupTypes);
     const representedAssetIds = new Set(topLevelGroupUnits.flatMap((unit) => unit.memberAssetIds));
