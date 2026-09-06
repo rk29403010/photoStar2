@@ -299,7 +299,7 @@ function loadActiveAttestations(db: DbHandle, scopeKey: string): ActiveAttestati
     `).all(scopeKey) as ActiveAttestationRow[];
 }
 
-export function recordSemanticDecision(db: DbHandle, input: RecordSemanticDecisionInput): string {
+function validateSemanticDecisionInput(db: DbHandle, input: RecordSemanticDecisionInput): string | null {
     if (input.sourceKind === 'machine') {
         throw new Error('Machine sources cannot record semantic decisions; add an attestation instead.');
     }
@@ -308,13 +308,18 @@ export function recordSemanticDecision(db: DbHandle, input: RecordSemanticDecisi
     if (needsProposition !== Boolean(propositionId)) {
         throw new Error(`Semantic decision '${input.status}' has an invalid proposition reference.`);
     }
-    if (propositionId) {
-        const proposition = loadProposition(db, propositionId);
-        if (proposition.scope_key !== input.scopeKey) {
-            throw new Error('A semantic decision can only reference a proposition in the same scope.');
-        }
+    if (!propositionId) {
+        return null;
     }
+    const proposition = loadProposition(db, propositionId);
+    if (proposition.scope_key !== input.scopeKey) {
+        throw new Error('A semantic decision can only reference a proposition in the same scope.');
+    }
+    return propositionId;
+}
 
+export function recordSemanticDecision(db: DbHandle, input: RecordSemanticDecisionInput): string {
+    const propositionId = validateSemanticDecisionInput(db, input);
     const decisionId = uuidv4();
     db.transaction(() => {
         const current = db.prepare(`
