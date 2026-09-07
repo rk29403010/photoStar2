@@ -53,15 +53,14 @@ test('single-photo overlay only syncs library-backed asset ids while navigating'
     assert.match(lifecycleSource, /lastSyncedAssetIdRef\.current = assetId;\s*onAssetFocusChange\?\.\(assetId\);/s);
 });
 
-test('variant filmstrip keeps orbit loading stable across parent callback churn', () => {
-    const filmstripSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/single-photo/VariantFilmstrip.tsx'), 'utf8');
+test('presentation filmstrip keeps expansion loading stable across parent callback churn', () => {
+    const filmstripSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/single-photo/PresentationFilmstrip.tsx'), 'utf8');
 
-    assert.match(filmstripSource, /const onGetGroupOrbitRef = useRef\(onGetGroupOrbit\);/);
-    assert.match(filmstripSource, /const onOrbitLoadedRef = useRef\(onOrbitLoaded\);/);
-    assert.match(filmstripSource, /onGetGroupOrbitRef\.current\(groupId\)/);
-    assert.match(filmstripSource, /onOrbitLoadedRef\.current\(nextOrbit\.items\.map\(\(item\) => item\.asset\)\);/);
-    assert.match(filmstripSource, /\}, \[groupId\]\);/);
-    assert.match(filmstripSource, /lastReportedGroupIdRef\.current === orbit\.group_id/);
+    assert.match(filmstripSource, /const getExpansionRef = useRef\(onGetPresentationExpansion\);/);
+    assert.match(filmstripSource, /const onExpansionLoadedRef = useRef\(onExpansionLoaded\);/);
+    assert.match(filmstripSource, /getExpansionRef\.current\(presentationKey\)/);
+    assert.match(filmstripSource, /onExpansionLoadedRef\.current\(nextExpansion\.items\.map\(\(item\) => item\.asset\)\);/);
+    assert.match(filmstripSource, /\}, \[presentationKey\]\);/);
 });
 
 test('viewport image transitions commit from current render state instead of post-render synced refs', () => {
