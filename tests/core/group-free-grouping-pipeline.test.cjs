@@ -46,17 +46,9 @@ function normalizeGraphComponents(graph) {
     }).sort((left, right) => left.join(',').localeCompare(right.join(',')));
 }
 
-function clearLegacyGroups(db) {
-    db.prepare('DELETE FROM asset_group_children').run();
-    db.prepare('DELETE FROM asset_group_members').run();
-    db.prepare('DELETE FROM asset_groups').run();
-}
-
-test('group-free hierarchy reproduces legacy duplicate, near, variant and burst computational units', async () => {
+test('group-free hierarchy produces the accepted duplicate, near, variant and burst computational units', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const legacyUnits = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingUnits.js');
-    const legacyQueries = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingQueries.js');
     const groupFree = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupFreeGroupingPipeline.js');
     const dbManager = new DatabaseManager(tempDir);
 
@@ -108,46 +100,24 @@ test('group-free hierarchy reproduces legacy duplicate, near, variant and burst 
             inputSubjects: allAssetIds.map((subjectId) => ({ subjectType: 'asset', subjectId })),
         });
 
-        const db = dbManager.getDb();
-        const shadow = groupFree.buildGroupFreeGroupingPipeline(db);
-        const legacyExactUnits = legacyUnits.buildSimilarityUnits(db, ['duplicate']);
-        const legacyNearUnits = legacyUnits.buildSimilarityUnits(db, ['near_duplicate', 'duplicate']);
-        const legacyVariantUnits = legacyUnits.buildSimilarityUnits(db, ['variant_set', 'near_duplicate', 'duplicate']);
-        const legacyBurstGraph = legacyQueries.buildBurstGroupingGraph({
-            db,
-            changedAssetIds: allAssetIds,
-            maxSeconds: 3,
-            maxDistance: 12,
-        });
+        const projection = groupFree.buildGroupFreeGroupingPipeline(dbManager.getDb());
 
-        assert.deepEqual(normalizeUnits(shadow.exactUnits), normalizeUnits(legacyExactUnits));
-        assert.deepEqual(normalizeUnits(shadow.nearUnits), normalizeUnits(legacyNearUnits));
-        assert.deepEqual(normalizeUnits(shadow.variantUnits), normalizeUnits(legacyVariantUnits));
-        assert.deepEqual(normalizeGraphComponents(shadow.burstGraph), normalizeGraphComponents(legacyBurstGraph));
-
-        assert.deepEqual(normalizeUnits(shadow.exactUnits), [
+        assert.deepEqual(normalizeUnits(projection.exactUnits), [
             { representativeAssetId: 'asset-a-copy', memberAssetIds: ['asset-a', 'asset-a-copy'] },
             { representativeAssetId: 'asset-b', memberAssetIds: ['asset-b'] },
             { representativeAssetId: 'asset-c', memberAssetIds: ['asset-c'] },
             { representativeAssetId: 'asset-d', memberAssetIds: ['asset-d'] },
         ]);
-        assert.deepEqual(normalizeUnits(shadow.nearUnits), [
+        assert.deepEqual(normalizeUnits(projection.nearUnits), [
             { representativeAssetId: 'asset-b', memberAssetIds: ['asset-a', 'asset-a-copy', 'asset-b'] },
             { representativeAssetId: 'asset-c', memberAssetIds: ['asset-c'] },
             { representativeAssetId: 'asset-d', memberAssetIds: ['asset-d'] },
         ]);
-        assert.deepEqual(normalizeUnits(shadow.variantUnits), [
+        assert.deepEqual(normalizeUnits(projection.variantUnits), [
             { representativeAssetId: 'asset-c', memberAssetIds: ['asset-a', 'asset-a-copy', 'asset-b', 'asset-c'] },
             { representativeAssetId: 'asset-d', memberAssetIds: ['asset-d'] },
         ]);
-        assert.deepEqual(normalizeGraphComponents(shadow.burstGraph), [allAssetIds.slice().sort()]);
-
-        clearLegacyGroups(db);
-        const withoutGroups = groupFree.buildGroupFreeGroupingPipeline(db);
-        assert.deepEqual(normalizeUnits(withoutGroups.exactUnits), normalizeUnits(shadow.exactUnits));
-        assert.deepEqual(normalizeUnits(withoutGroups.nearUnits), normalizeUnits(shadow.nearUnits));
-        assert.deepEqual(normalizeUnits(withoutGroups.variantUnits), normalizeUnits(shadow.variantUnits));
-        assert.deepEqual(normalizeGraphComponents(withoutGroups.burstGraph), normalizeGraphComponents(shadow.burstGraph));
+        assert.deepEqual(normalizeGraphComponents(projection.burstGraph), [allAssetIds.slice().sort()]);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
