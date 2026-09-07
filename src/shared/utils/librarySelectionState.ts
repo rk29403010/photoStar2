@@ -15,6 +15,7 @@ export type LibrarySelectableItem = {
 export type LibrarySelectionState = {
     photoIds: Set<string>;
     groupIds: Set<string>;
+    presentationAssetIdsByKey: Map<string, string[]>;
     anchorKey: LibrarySelectionKey | null;
     mostRecentSelectionKey: LibrarySelectionKey | null;
 }
@@ -29,6 +30,7 @@ export function createEmptyLibrarySelectionState(): LibrarySelectionState {
     return {
         photoIds: new Set(),
         groupIds: new Set(),
+        presentationAssetIdsByKey: new Map(),
         anchorKey: null,
         mostRecentSelectionKey: null,
     };
@@ -56,19 +58,37 @@ export function getLibrarySelectionPhotoIds(selection: LibrarySelectionState): s
     return [...selection.photoIds];
 }
 
+function addSelectedPresentationAssetIds(selection: LibrarySelectionState, assetIds: Set<string>) {
+    for (const groupId of selection.groupIds) {
+        for (const assetId of selection.presentationAssetIdsByKey.get(groupId) ?? []) {
+            assetIds.add(assetId);
+        }
+    }
+}
+
+function addLegacySelectedGroupAssetIds(selection: LibrarySelectionState, assets: Asset[], assetIds: Set<string>) {
+    const legacyGroupIds = new Set(
+        [...selection.groupIds].filter((groupId) => !selection.presentationAssetIdsByKey.has(groupId)),
+    );
+    if (legacyGroupIds.size === 0) {
+        return;
+    }
+
+    for (const asset of assets) {
+        if (asset.group_id && legacyGroupIds.has(asset.group_id)) {
+            assetIds.add(asset.id);
+        }
+    }
+}
+
 export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, assets: Asset[]): string[] {
     const assetIds = new Set(selection.photoIds);
-
     if (selection.groupIds.size === 0) {
         return [...assetIds];
     }
 
-    for (const asset of assets) {
-        if (asset.group_id && selection.groupIds.has(asset.group_id)) {
-            assetIds.add(asset.id);
-        }
-    }
-
+    addSelectedPresentationAssetIds(selection, assetIds);
+    addLegacySelectedGroupAssetIds(selection, assets, assetIds);
     return [...assetIds];
 }
 
@@ -87,6 +107,9 @@ export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: Li
 function addItemToSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
     if (item.entityType === 'group' && item.groupId) {
         selection.groupIds.add(item.groupId);
+        if (item.presentation) {
+            selection.presentationAssetIdsByKey.set(item.groupId, [...item.presentation.assetIds]);
+        }
         return;
     }
 
@@ -96,6 +119,7 @@ function addItemToSelection(selection: LibrarySelectionState, item: LibrarySelec
 function removeItemFromSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
     if (item.entityType === 'group' && item.groupId) {
         selection.groupIds.delete(item.groupId);
+        selection.presentationAssetIdsByKey.delete(item.groupId);
         return;
     }
 
@@ -106,6 +130,9 @@ function cloneLibrarySelection(selection: LibrarySelectionState): LibrarySelecti
     return {
         photoIds: new Set(selection.photoIds),
         groupIds: new Set(selection.groupIds),
+        presentationAssetIdsByKey: new Map(
+            [...selection.presentationAssetIdsByKey].map(([key, assetIds]) => [key, [...assetIds]]),
+        ),
         anchorKey: selection.anchorKey,
         mostRecentSelectionKey: selection.mostRecentSelectionKey,
     };
