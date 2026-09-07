@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject, type UIEvent } from 'react';
 import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, getLibraryGalleryDataMode, type LibraryGalleryDataMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
@@ -32,6 +33,7 @@ export type LibraryViewProps = {
     readonly stats: LibraryStats | null;
     readonly timelineGallery: TimelineGalleryStateSlice;
     readonly assets: Asset[];
+    readonly presentationItems: LibraryPresentationItem[];
     readonly galleryTimelineSeek: GalleryTimelineSeek | null;
     readonly isSeekingTimeline: boolean;
     readonly availableTags?: string[];
@@ -170,6 +172,7 @@ function getRejectedAssetCount(showRejected?: boolean, rejectedAssets?: Asset[])
 
 function useDisplayAssets(
     assets: Asset[],
+    presentationItems: LibraryPresentationItem[],
     declusteredAssets: Set<string> | undefined,
     sortMode: LibrarySortMode,
     groupSimilarPhotos: boolean,
@@ -179,8 +182,9 @@ function useDisplayAssets(
             declusteredAssetIds: declusteredAssets,
             sortMode: getEffectiveLibrarySortMode(sortMode, groupSimilarPhotos),
             groupSimilarPhotos,
+            presentationItems,
         });
-    }, [assets, declusteredAssets, groupSimilarPhotos, sortMode]);
+    }, [assets, declusteredAssets, groupSimilarPhotos, presentationItems, sortMode]);
 }
 
 function getGalleryOrderForSortMode(sortMode: LibrarySortMode): GalleryOrder {
@@ -479,7 +483,13 @@ export function LibraryView(props: LibraryViewProps) {
         onGalleryTimelineSeek: props.onGalleryTimelineSeek,
         scrollRef,
     });
-    const displayItems = useDisplayAssets(props.assets, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
+    const displayItems = useDisplayAssets(
+        props.assets,
+        props.presentationItems,
+        props.declusteredAssets,
+        sortMode,
+        props.groupSimilarPhotos,
+    );
     const timeSectionMode = useMemo(() => getTimeSectionMode(sortMode, layoutMode), [layoutMode, sortMode]);
     const justifiedSections = useDateTimelineJustifiedSections({
         displayItems,
