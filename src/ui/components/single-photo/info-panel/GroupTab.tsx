@@ -169,10 +169,10 @@ function getExportSuccessMessage(groupType: string, items: RelationshipMember[],
 }
 
 type RelationshipLoadActions = {
-  onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
-  onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
-  onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-  onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+  readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+  readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
+  readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+  readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 };
 
 function getLegacyGroupId(asset: Asset, presentation?: LibraryPresentationItem | null) {
