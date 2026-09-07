@@ -227,6 +227,28 @@ function useRelationshipMembers(params: {
   return { items, setItems, loading, presentationKey, legacyGroupId };
 }
 
+async function setRelationshipCover(params: {
+  actions: RelationshipLoadActions;
+  presentationKey: string | null;
+  legacyGroupId: string | null;
+  assetId: string;
+}): Promise<boolean> {
+  const { actions, presentationKey, legacyGroupId, assetId } = params;
+  if (presentationKey && actions.onSetPresentationCover) {
+    await actions.onSetPresentationCover(presentationKey, assetId);
+    return true;
+  }
+  if (presentationKey && actions.onSetCanonical) {
+    await actions.onSetCanonical(presentationKey, assetId);
+    return true;
+  }
+  if (legacyGroupId && actions.onSetCanonical) {
+    await actions.onSetCanonical(legacyGroupId, assetId);
+    return true;
+  }
+  return false;
+}
+
 function useGroupTabState(
   asset: Asset,
   presentation: LibraryPresentationItem | null | undefined,
@@ -248,13 +270,8 @@ function useGroupTabState(
 
   const handleMakeCanonical = async (assetId: string) => {
     try {
-      if (presentationKey && actions.onSetPresentationCover) {
-        await actions.onSetPresentationCover(presentationKey, assetId);
-      } else if (presentationKey && actions.onSetCanonical) {
-        await actions.onSetCanonical(presentationKey, assetId);
-      } else if (legacyGroupId && actions.onSetCanonical) {
-        await actions.onSetCanonical(legacyGroupId, assetId);
-      } else {
+      const updated = await setRelationshipCover({ actions, presentationKey, legacyGroupId, assetId });
+      if (!updated) {
         return;
       }
       setItems((currentItems) => currentItems.map((item) => ({
