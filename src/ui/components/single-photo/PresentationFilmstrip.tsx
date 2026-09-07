@@ -72,7 +72,7 @@ function PresentationTile({
             title={isRepresentative ? 'Current star image' : 'View this related photo'}
         >
             <div style={{ position: 'relative', width: '100%', height: 52 }}>
-                <img loading="lazy" src={imgSrc} alt="Related photo preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img loading="lazy" src={imgSrc} alt="Related preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 {isRepresentative ? (
                     <div
                         aria-hidden
