@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject, type UIEvent } from 'react';
-import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
-import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
+import type { Asset, GalleryTimelineSeek, LibraryStats, ReviewItemSummary } from '@contracts/core';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import { getEffectiveLibrarySortMode, getLibraryGalleryDataMode, type LibraryGalleryDataMode, type LibrarySortMode } from '@shared/utils/libraryGallery';
@@ -81,8 +81,8 @@ export type LibraryViewProps = {
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+    readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
     readonly onDeclusterSelection?: (personId: string) => void;
     readonly onBulkTagSelection?: () => Promise<void>;
     readonly onBulkUntagSelection?: () => Promise<void>;
@@ -343,7 +343,6 @@ function useLibraryInfoAsset(
     return selectedInfoAsset;
 }
 
-
 function getLibraryPanelContentProps(params: {
     props: LibraryViewProps;
     handleLibraryScroll: (event: UIEvent<HTMLDivElement>) => void;
@@ -394,8 +393,8 @@ function getLibraryPanelContentProps(params: {
         onSetReviewItemStatus: params.props.onSetReviewItemStatus,
         onFlagPhotoDateCorrection: params.props.onFlagPhotoDateCorrection,
         onRecordPhotoMetadataAssertion: params.props.onRecordPhotoMetadataAssertion,
-        onGetGroupOrbit: params.props.onGetGroupOrbit,
-        onSetCanonical: params.props.onSetCanonical,
+        onGetPresentationExpansion: params.props.onGetPresentationExpansion,
+        onSetPresentationCover: params.props.onSetPresentationCover,
         browseRowHeight: params.browseRowHeight,
         isScrollSettled: params.isScrollSettled,
         setTopVisibleSelectionKey: params.setTopVisibleSelectionKey,
