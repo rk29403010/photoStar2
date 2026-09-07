@@ -61,6 +61,10 @@ function isOpenWorkflowNotification(notification: LoadedAppShellProps['photoLibr
     return notification.actionKind === 'open_workflow';
 }
 
+function normalizeTimelineGroupId(groupId: string | null) {
+    return isTimelineGroupId(groupId) ? groupId : null;
+}
+
 export function LoadedAppShell(props: LoadedAppShellProps) {
     const {
         error,
@@ -101,7 +105,7 @@ export function LoadedAppShell(props: LoadedAppShellProps) {
         return actions.removeAssetTag({ assetId, tagDefinitionId });
     }, [actions]);
     const handleTimelineVisibleGroupChange = useCallback((groupId: string | null, groupIndex: number | null) => {
-        actions.setTimelineVisibleGroup(isTimelineGroupId(groupId) ? groupId : null, groupIndex);
+        actions.setTimelineVisibleGroup(normalizeTimelineGroupId(groupId), groupIndex);
     }, [actions]);
     const trackedActivityMessage = getTrackedActivityMessage(props.activeOverlayJobs);
     const ingestActive = props.activeOverlayJobs.some(isIngestJob);
