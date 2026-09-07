@@ -207,20 +207,21 @@ function useRelationshipMembers(params: {
         .finally(() => setLoading(false));
       return;
     }
-    if (legacyGroupId && actions.onGetGroupOrbit) {
+    const compatibilityId = presentationKey ?? legacyGroupId;
+    if (compatibilityId && actions.onGetGroupOrbit) {
       setLoading(true);
-      void actions.onGetGroupOrbit(legacyGroupId)
+      void actions.onGetGroupOrbit(compatibilityId)
         .then((orbit) => {
-          const nextItems = legacyMembers(orbit, asset.id);
+          const nextItems = legacyMembers(orbit, presentation?.representativeAssetId ?? asset.id);
           setItems(nextItems);
           setSelectedVariantId(nextItems.find((item) => item.isRepresentative)?.asset.id ?? asset.id);
         })
-        .catch((error: unknown) => console.error('Failed to load legacy group:', error))
+        .catch((error: unknown) => console.error('Failed to load legacy group compatibility path:', error))
         .finally(() => setLoading(false));
       return;
     }
     setLoading(false);
-  }, [actions.onGetGroupOrbit, actions.onGetPresentationExpansion, asset.id, legacyGroupId, presentationKey, setSelectedVariantId]);
+  }, [actions.onGetGroupOrbit, actions.onGetPresentationExpansion, asset.id, legacyGroupId, presentation?.representativeAssetId, presentationKey, setSelectedVariantId]);
 
   return { items, setItems, loading, presentationKey, legacyGroupId };
 }
@@ -248,6 +249,8 @@ function useGroupTabState(
     try {
       if (presentationKey && actions.onSetPresentationCover) {
         await actions.onSetPresentationCover(presentationKey, assetId);
+      } else if (presentationKey && actions.onSetCanonical) {
+        await actions.onSetCanonical(presentationKey, assetId);
       } else if (legacyGroupId && actions.onSetCanonical) {
         await actions.onSetCanonical(legacyGroupId, assetId);
       } else {
