@@ -3,8 +3,12 @@ import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 
 export type LibrarySelectionKey = `photo:${string}` | `group:${string}`;
 
+export type LibraryDisplayAsset = Asset & {
+    libraryPresentation?: LibraryPresentationItem | null;
+};
+
 export type LibrarySelectableItem = {
-    asset: Asset;
+    asset: LibraryDisplayAsset;
     entityType: 'photo' | 'group';
     selectionKey: LibrarySelectionKey;
     photoId: string;
