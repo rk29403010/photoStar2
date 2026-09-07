@@ -12,3 +12,6 @@ export function SinglePhotoRelationshipProvider(props: {
         </SinglePhotoRelationshipContext.Provider>
     );
 }
+
+// eslint-disable-next-line react-refresh/only-export-components -- compatibility re-export while relationship consumers migrate.
+export { useSinglePhotoRelationship } from './singlePhotoRelationshipState';
