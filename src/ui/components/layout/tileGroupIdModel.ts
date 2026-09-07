@@ -26,7 +26,7 @@ function getRelationshipSymbol(kind: LibraryPresentationRelationshipKind) {
             return '*';
         case 'edit_lineage':
             return '↗';
-        default:
+        case null:
             return '#';
     }
 }
