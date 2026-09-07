@@ -255,7 +255,7 @@ export const systemCommandHandlers: CommandHandlerMap = {
             const count = db.prepare('SELECT COUNT(*) as count FROM assets').get() as { count: number };
             const history = db.prepare('SELECT path, last_scanned_at FROM folder_history ORDER BY last_scanned_at DESC LIMIT 5').all();
             const timelineStats = buildLibraryTimelineStats(db);
-            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, ...timelineStats }, null, originWs);
+            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, ...timelineStats }, null, ctx.originWs);
         } catch (error) {
             respondError(ctx, error);
         }
