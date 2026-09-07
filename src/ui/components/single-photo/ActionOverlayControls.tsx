@@ -6,6 +6,7 @@ import { NavButtons } from './ActionOverlayNavButtons';
 import { getAnalysisStatusBadgeStyle, isAnalysisStatusVisible } from './singlePhotoAnalysisStatus';
 import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getLibraryBinActionLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
 import { canStartObjectAnalysis, type AnalysisWorkflowUiState } from './singlePhotoAnalysisTracking';
+import { useSinglePhotoRelationship } from './SinglePhotoRelationshipContext';
 
 export type AnalysisUiState = AnalysisWorkflowUiState;
 
@@ -201,31 +202,24 @@ function handleSensitivityClick(
 
 async function handleSelectAsStarClick(
     event: React.MouseEvent<HTMLButtonElement>,
-    asset: Asset,
+    relationshipId: string,
+    assetId: string,
     onSetCanonical: (groupId: string, assetId: string) => Promise<void>,
     setShowActionMenu: (show: boolean) => void
 ) {
     event.stopPropagation();
-    if (!asset.group_id) {
-        return;
-    }
-
-    await onSetCanonical(asset.group_id, asset.id);
+    await onSetCanonical(relationshipId, assetId);
     closeActionMenu(setShowActionMenu);
 }
 
 async function handleExplodeGroupClick(
     event: React.MouseEvent<HTMLButtonElement>,
-    asset: Asset,
+    relationshipId: string,
     onExplodeGroup: (groupId: string) => Promise<void>,
     setShowActionMenu: (show: boolean) => void
 ) {
     event.stopPropagation();
-    if (!asset.group_id) {
-        return;
-    }
-
-    await onExplodeGroup(asset.group_id);
+    await onExplodeGroup(relationshipId);
     closeActionMenu(setShowActionMenu);
 }
 
@@ -351,32 +345,38 @@ function BinMenuItem(props: Pick<ActionMenuProps, 'asset' | 'onMoveToBin' | 'onR
 
 function GroupMenuItems(props: Pick<ActionMenuProps, 'asset' | 'onSetCanonical' | 'onExplodeGroup' | 'setShowActionMenu'>) {
     const { asset, onSetCanonical, onExplodeGroup, setShowActionMenu } = props;
-    const showSelectAsStar = onSetCanonical && canSelectAsStar(asset);
-    const showExplodeGroup = onExplodeGroup && canExplodeGroup(asset);
+    const { presentation } = useSinglePhotoRelationship();
+    const relationshipId = presentation?.presentationKey ?? asset.group_id ?? null;
+    const showSelectAsStar = Boolean(onSetCanonical && relationshipId && (
+        presentation ? presentation.representativeAssetId !== asset.id : canSelectAsStar(asset)
+    ));
+    const showExplodeGroup = Boolean(onExplodeGroup && relationshipId && (
+        presentation ? true : canExplodeGroup(asset)
+    ));
 
-    if (!showSelectAsStar && !showExplodeGroup) {
+    if (!relationshipId || (!showSelectAsStar && !showExplodeGroup)) {
         return null;
     }
 
     return (
         <>
             <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
-            {showSelectAsStar && (
+            {showSelectAsStar && onSetCanonical && (
                 <MenuItem
                     color="#facc15"
                     active={false}
                     icon="⭐"
-                    label={getSelectAsStarLabel()}
-                    onClick={(event) => handleSelectAsStarClick(event, asset, onSetCanonical, setShowActionMenu)}
+                    label={presentation ? 'Make Star' : getSelectAsStarLabel()}
+                    onClick={(event) => handleSelectAsStarClick(event, relationshipId, asset.id, onSetCanonical, setShowActionMenu)}
                 />
             )}
-            {showExplodeGroup && (
+            {showExplodeGroup && onExplodeGroup && (
                 <MenuItem
-                    color="#ef4444"
+                    color={presentation ? '#67e8f9' : '#ef4444'}
                     active={false}
-                    icon="💥"
-                    label={getExplodeGroupLabel()}
-                    onClick={(event) => handleExplodeGroupClick(event, asset, onExplodeGroup, setShowActionMenu)}
+                    icon={presentation ? '↗' : '💥'}
+                    label={presentation ? 'Show Separately' : getExplodeGroupLabel()}
+                    onClick={(event) => handleExplodeGroupClick(event, relationshipId, onExplodeGroup, setShowActionMenu)}
                 />
             )}
         </>
