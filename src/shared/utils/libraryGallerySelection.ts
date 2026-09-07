@@ -76,6 +76,7 @@ function toLegacyLibrarySelectableItem(asset: Asset, groupSimilarPhotos: boolean
             selectionKey: `group:${asset.group_id}`,
             photoId: asset.id,
             groupId: asset.group_id,
+            presentation: null,
         };
     }
 
@@ -85,6 +86,7 @@ function toLegacyLibrarySelectableItem(asset: Asset, groupSimilarPhotos: boolean
         selectionKey: `photo:${asset.id}`,
         photoId: asset.id,
         groupId: asset.group_id ?? null,
+        presentation: null,
     };
 }
 
@@ -99,6 +101,7 @@ function toPresentationSelectableItem(
             selectionKey: `group:${item.presentationKey}`,
             photoId: item.representativeAssetId,
             groupId: item.presentationKey,
+            presentation: item,
         };
     }
 
@@ -108,6 +111,7 @@ function toPresentationSelectableItem(
         selectionKey: `photo:${item.representativeAssetId}`,
         photoId: item.representativeAssetId,
         groupId: null,
+        presentation: item,
     };
 }
 
