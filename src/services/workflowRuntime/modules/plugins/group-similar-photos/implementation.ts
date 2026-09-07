@@ -2,6 +2,7 @@ import type { DatabaseManager } from '../../../../../data/db';
 import type { ModuleDefinition } from '../../../contracts';
 import { ensureGroupingPrerequisites } from '../../grouping/groupingAssetPrep';
 import { syncBurstCaptureSequenceProposals } from '../../grouping/captureSequenceProjection';
+import { buildIncrementalGroupFreeGroupingPipeline } from '../../grouping/groupFreeIncrementalPipeline';
 import {
     rebuildImpactedBurstGroups,
     rebuildImpactedDuplicateGroups,
@@ -35,9 +36,47 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
             const assetIds = context.batchSubjects.map((subject) => subject.subjectId);
             const preparedAssets = await ensureGroupingPrerequisites({ db, assetIds });
             const changedAssetIds = preparedAssets.map((asset) => asset.id);
-
-            rebuildImpactedDuplicateGroups({ db, changedAssetIds });
             const nearDuplicateThreshold = 2;
+            const variantThreshold = 6;
+            const burstMaxSeconds = 3;
+            const burstMaxDistance = 12;
+
+            // Durable detector outputs are computed without reading asset_groups.
+            // Legacy groups remain below as a temporary compatibility projection for
+            // consumers that have not yet moved to relationship presentation.
+            const semanticPipeline = buildIncrementalGroupFreeGroupingPipeline(db, changedAssetIds);
+            syncVisualSimilarityObservations({
+                db,
+                nearDuplicate: {
+                    changedAssetIds: semanticPipeline.refresh.nearDuplicate.impactedAssetIds,
+                    graph: {
+                        units: semanticPipeline.refresh.nearDuplicate.graph.units,
+                        edges: semanticPipeline.refresh.nearDuplicate.graph.edges,
+                        threshold: nearDuplicateThreshold,
+                    },
+                },
+                variant: {
+                    changedAssetIds: semanticPipeline.refresh.variant.impactedAssetIds,
+                    graph: {
+                        units: semanticPipeline.refresh.variant.graph.units,
+                        edges: semanticPipeline.refresh.variant.graph.edges,
+                        threshold: variantThreshold,
+                    },
+                },
+            });
+            syncBurstCaptureSequenceProposals({
+                db,
+                changedAssetIds: semanticPipeline.refresh.burst.impactedAssetIds,
+                units: semanticPipeline.refresh.burst.graph.units,
+                edges: semanticPipeline.refresh.burst.graph.edges,
+                components: semanticPipeline.refresh.burst.graph.components,
+                maxSeconds: burstMaxSeconds,
+                maxDistance: burstMaxDistance,
+            });
+
+            // Temporary legacy gallery compatibility. These writes are downstream
+            // of the group-free detector outputs and are not semantic inputs.
+            rebuildImpactedDuplicateGroups({ db, changedAssetIds });
             const nearDuplicateGraph = buildNearDuplicateGroupingGraph({
                 db,
                 changedAssetIds,
@@ -50,7 +89,6 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
                 components: nearDuplicateGraph.components,
                 threshold: nearDuplicateThreshold,
             });
-            const variantThreshold = 6;
             const variantGraph = buildVariantGroupingGraph({
                 db,
                 changedAssetIds,
@@ -63,34 +101,9 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
                 components: variantGraph.components,
                 threshold: variantThreshold,
             });
-            syncVisualSimilarityObservations({
-                db,
-                changedAssetIds,
-                nearDuplicateGraph: {
-                    units: nearDuplicateGraph.units,
-                    edges: nearDuplicateGraph.edges,
-                    threshold: nearDuplicateThreshold,
-                },
-                variantGraph: {
-                    units: variantGraph.units,
-                    edges: variantGraph.edges,
-                    threshold: variantThreshold,
-                },
-            });
-            const burstMaxSeconds = 3;
-            const burstMaxDistance = 12;
             const burstGraph = buildBurstGroupingGraph({
                 db,
                 changedAssetIds,
-                maxSeconds: burstMaxSeconds,
-                maxDistance: burstMaxDistance,
-            });
-            syncBurstCaptureSequenceProposals({
-                db,
-                changedAssetIds,
-                units: burstGraph.units,
-                edges: burstGraph.edges,
-                components: burstGraph.components,
                 maxSeconds: burstMaxSeconds,
                 maxDistance: burstMaxDistance,
             });
