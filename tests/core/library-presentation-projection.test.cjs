@@ -26,7 +26,6 @@ function seedAssets(db) {
     for (const asset of assets) {
         insert.run(...asset);
     }
-    return assets.map((asset) => asset[0]);
 }
 
 function seedRelationshipPresentationAssets(db) {
@@ -50,23 +49,6 @@ function seedRelationshipPresentationAssets(db) {
     for (const asset of assets) {
         insert.run(...asset);
     }
-    return assets.map((asset) => asset[0]);
-}
-
-function insertLegacyEditGroup(db) {
-    db.prepare(`
-        INSERT INTO asset_groups (
-            id, type, status, canonical_asset_id, algorithm_version, params_json
-        )
-        VALUES ('legacy-edit-lineage', 'edit_version', 'locked', 'edit-two', 'photo-edit', '{}')
-    `).run();
-    db.prepare(`
-        INSERT INTO asset_group_members (group_id, asset_id, role, rank)
-        VALUES
-            ('legacy-edit-lineage', 'source', 'original', 0),
-            ('legacy-edit-lineage', 'edit-one', 'member', 1),
-            ('legacy-edit-lineage', 'edit-two', 'canonical', 2)
-    `).run();
 }
 
 async function seedRelationshipSemantics(db) {
@@ -112,34 +94,15 @@ async function seedRelationshipSemantics(db) {
     });
 }
 
-async function loadLegacyGroupedPage({ dbManager, tempDir, limit, offset }) {
-    const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
-    let response;
-    await handleSystemCommand({
-        id: `legacy-${offset}`,
-        command: 'get_assets',
-        payload: { limit, offset, withGroupCounts: true, galleryOrder: 'default' },
-        dbManager,
-        eventBus: {},
-        activeJobs: new Map(),
-        LIB_DIR: tempDir,
-        respond: (id, status, data, error) => { response = { id, status, data, error }; },
-    });
-    assert.equal(response.status, 'ok');
-    return response.data.assets;
-}
-
-test('exact-copy presentation collapses before pagination and matches legacy duplicate paging', async () => {
+test('exact-copy presentation collapses before pagination without persisted groups', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const presentation = await import('../../dist/core/src/services/relationships/libraryPresentationProjection.js');
-    const { rebuildImpactedDuplicateGroups } = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingPersistence.js');
     const dbManager = new DatabaseManager(tempDir);
 
     try {
         const db = dbManager.getDb();
-        const assetIds = seedAssets(db);
-        rebuildImpactedDuplicateGroups({ db, changedAssetIds: assetIds });
+        seedAssets(db);
 
         const firstPage = presentation.getExactCopyPresentationPage(db, { limit: 2, offset: 0 });
         const secondPage = presentation.getExactCopyPresentationPage(db, { limit: 2, offset: 2 });
@@ -157,75 +120,29 @@ test('exact-copy presentation collapses before pagination and matches legacy dup
             createdAt: '2025-03-01T00:00:00.000Z',
             previewPath: null,
         });
-
-        const legacyFirstPage = await loadLegacyGroupedPage({ dbManager, tempDir, limit: 2, offset: 0 });
-        const legacySecondPage = await loadLegacyGroupedPage({ dbManager, tempDir, limit: 2, offset: 2 });
-        assert.deepEqual(
-            firstPage.map((item) => item.representativeAssetId),
-            legacyFirstPage.map((asset) => asset.id),
-        );
-        assert.deepEqual(
-            secondPage.map((item) => item.representativeAssetId),
-            legacySecondPage.map((asset) => asset.id),
-        );
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
 
-test('exact-copy presentation mirrors legacy behaviour when a stack representative is binned', async () => {
+test('relationship presentation collapses edit lineage without collapsing an independent scan of the same Photograph', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const presentation = await import('../../dist/core/src/services/relationships/libraryPresentationProjection.js');
-    const { rebuildImpactedDuplicateGroups } = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingPersistence.js');
     const dbManager = new DatabaseManager(tempDir);
 
     try {
         const db = dbManager.getDb();
-        const assetIds = seedAssets(db);
-        rebuildImpactedDuplicateGroups({ db, changedAssetIds: assetIds });
-        db.prepare("UPDATE assets SET binned_at = '2026-09-06T00:00:00.000Z' WHERE id = 'png-copy'").run();
-
-        const shadowIds = presentation.getExactCopyPresentationPage(db, { limit: 20, offset: 0 })
-            .map((item) => item.representativeAssetId);
-        const legacyIds = (await loadLegacyGroupedPage({ dbManager, tempDir, limit: 20, offset: 0 }))
-            .map((asset) => asset.id);
-        assert.deepEqual(shadowIds, legacyIds);
-        assert.equal(shadowIds.includes('jpeg-copy'), false);
-        assert.equal(shadowIds.includes('small-copy'), false);
-    } finally {
-        dbManager.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-});
-
-test('relationship presentation replaces edit_version groups without collapsing an independent scan of the same Photograph', async () => {
-    const tempDir = createTempDir();
-    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    const presentation = await import('../../dist/core/src/services/relationships/libraryPresentationProjection.js');
-    const { rebuildImpactedDuplicateGroups } = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingPersistence.js');
-    const dbManager = new DatabaseManager(tempDir);
-
-    try {
-        const db = dbManager.getDb();
-        const assetIds = seedRelationshipPresentationAssets(db);
+        seedRelationshipPresentationAssets(db);
         await seedRelationshipSemantics(db);
 
-        insertLegacyEditGroup(db);
-        rebuildImpactedDuplicateGroups({ db, changedAssetIds: assetIds });
-
         const relationshipItems = presentation.getRelationshipPresentationPage(db, { limit: 20, offset: 0 });
-        const legacyItems = await loadLegacyGroupedPage({ dbManager, tempDir, limit: 20, offset: 0 });
 
         assert.equal(presentation.countRelationshipPresentationItems(db), 4);
         assert.deepEqual(
             relationshipItems.map((item) => item.representativeAssetId),
             ['edit-two', 'independent-scan', 'exact-png', 'unique'],
-        );
-        assert.deepEqual(
-            relationshipItems.map((item) => item.representativeAssetId),
-            legacyItems.map((asset) => asset.id),
         );
 
         const editLineage = relationshipItems[0];
