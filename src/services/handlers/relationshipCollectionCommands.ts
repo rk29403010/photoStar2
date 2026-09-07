@@ -10,7 +10,6 @@ import {
     setLibraryPresentationCover,
     setLibraryPresentationShowSeparately,
 } from '../relationships/libraryPresentationPreferenceRepository';
-import { collectionCommandHandlers } from './collectionCommands';
 import { loadRelationshipGalleryRepresentativeAssets } from './relationshipGalleryAssetLoader';
 import type { CommandContext, CommandHandlerMap } from './types';
 
@@ -37,14 +36,6 @@ function requirePresentationItem(ctx: CommandContext, presentationKey: string): 
         throw new Error(`Library presentation '${presentationKey}' no longer exists.`);
     }
     return item;
-}
-
-async function runLegacyCommand(command: string, ctx: CommandContext): Promise<void> {
-    const handler = collectionCommandHandlers[command];
-    if (!handler) {
-        throw new Error(`Legacy collection command '${command}' is not registered.`);
-    }
-    await handler(ctx);
 }
 
 function orderedMemberIds(item: LibraryPresentationItem): string[] {
@@ -104,13 +95,9 @@ function toLegacyOrbit(expansion: LibraryPresentationExpansion) {
 }
 
 async function handleLegacyGroupOrbit(ctx: CommandContext): Promise<void> {
-    const { groupId } = ctx.payload as { groupId: string };
-    const item = findPresentationItem(ctx, groupId);
-    if (!item) {
-        await runLegacyCommand('get_group_orbit', ctx);
-        return;
-    }
     try {
+        const { groupId } = ctx.payload as { groupId: string };
+        const item = requirePresentationItem(ctx, groupId);
         ctx.respond(ctx.id, 'ok', { orbit: toLegacyOrbit(buildPresentationExpansion(ctx, item)) }, null, ctx.originWs);
     } catch (error) {
         respondWithError(ctx, error);
@@ -118,13 +105,9 @@ async function handleLegacyGroupOrbit(ctx: CommandContext): Promise<void> {
 }
 
 async function handleLegacyExplode(ctx: CommandContext): Promise<void> {
-    const { groupId } = ctx.payload as { groupId: string };
-    const item = findPresentationItem(ctx, groupId);
-    if (!item) {
-        await runLegacyCommand('explode_group', ctx);
-        return;
-    }
     try {
+        const { groupId } = ctx.payload as { groupId: string };
+        const item = requirePresentationItem(ctx, groupId);
         setLibraryPresentationShowSeparately(ctx.dbManager.getDb(), item, true);
         ctx.respond(ctx.id, 'ok', { message: 'Presentation will be shown separately' }, null, ctx.originWs);
     } catch (error) {
@@ -133,13 +116,9 @@ async function handleLegacyExplode(ctx: CommandContext): Promise<void> {
 }
 
 async function handleLegacySetCanonical(ctx: CommandContext): Promise<void> {
-    const { groupId, assetId } = ctx.payload as { groupId: string; assetId: string };
-    const item = findPresentationItem(ctx, groupId);
-    if (!item) {
-        await runLegacyCommand('set_canonical', ctx);
-        return;
-    }
     try {
+        const { groupId, assetId } = ctx.payload as { groupId: string; assetId: string };
+        const item = requirePresentationItem(ctx, groupId);
         setLibraryPresentationCover(ctx.dbManager.getDb(), item, assetId);
         ctx.respond(ctx.id, 'ok', { message: 'Presentation cover updated' }, null, ctx.originWs);
     } catch (error) {
