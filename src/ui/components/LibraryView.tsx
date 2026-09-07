@@ -483,13 +483,7 @@ export function LibraryView(props: LibraryViewProps) {
         onGalleryTimelineSeek: props.onGalleryTimelineSeek,
         scrollRef,
     });
-    const displayItems = useDisplayAssets(
-        props.assets,
-        props.presentationItems,
-        props.declusteredAssets,
-        sortMode,
-        props.groupSimilarPhotos,
-    );
+    const displayItems = useDisplayAssets(props.assets, props.presentationItems, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
     const timeSectionMode = useMemo(() => getTimeSectionMode(sortMode, layoutMode), [layoutMode, sortMode]);
     const justifiedSections = useDateTimelineJustifiedSections({
         displayItems,
