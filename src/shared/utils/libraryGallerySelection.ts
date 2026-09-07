@@ -1,7 +1,7 @@
 import type { Asset } from '@contracts/core';
 import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
-import { sortAssetsForGallery, type LibrarySortMode } from './libraryGallery';
-import type { LibrarySelectableItem } from './librarySelectionState';
+import { sortAssetsForGallery, type LibrarySortMode } from './libraryGallery.ts';
+import type { LibrarySelectableItem } from './librarySelectionState.ts';
 
 type BuildVisibleGalleryItemsOptions = {
     declusteredAssetIds?: Set<string>;
