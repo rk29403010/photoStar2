@@ -66,29 +66,9 @@ function addSelectedPresentationAssetIds(selection: LibrarySelectionState, asset
     }
 }
 
-function addLegacySelectedGroupAssetIds(selection: LibrarySelectionState, assets: Asset[], assetIds: Set<string>) {
-    const legacyGroupIds = new Set(
-        [...selection.groupIds].filter((groupId) => !selection.presentationAssetIdsByKey.has(groupId)),
-    );
-    if (legacyGroupIds.size === 0) {
-        return;
-    }
-
-    for (const asset of assets) {
-        if (asset.group_id && legacyGroupIds.has(asset.group_id)) {
-            assetIds.add(asset.id);
-        }
-    }
-}
-
-export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, assets: Asset[]): string[] {
+export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, _assets: Asset[]): string[] {
     const assetIds = new Set(selection.photoIds);
-    if (selection.groupIds.size === 0) {
-        return [...assetIds];
-    }
-
     addSelectedPresentationAssetIds(selection, assetIds);
-    addLegacySelectedGroupAssetIds(selection, assets, assetIds);
     return [...assetIds];
 }
 
