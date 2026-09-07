@@ -127,7 +127,6 @@ test('changed quality selection combines committed, working, staged, and untrack
     const outputs = new Map([
         ['diff --name-only --diff-filter=ACMRT -z base-sha...HEAD', 'committed.ts\0shared.ts\0'],
         ['diff --name-only --diff-filter=ACMRT -z HEAD', 'working.ts\0shared.ts\0'],
-        ['diff --cached --name-only --diff-filter=ACMRT -z', 'staged.ts\0shared.ts\0'],
         ['ls-files --others --exclude-standard -z', 'untracked.ts\0'],
     ]);
     const runGit = (args) => {
@@ -136,15 +135,24 @@ test('changed quality selection combines committed, working, staged, and untrack
         return outputs.get(key) ?? '';
     };
 
-    assert.deepEqual(
-        selectQualityFiles({ baseRef: 'base-sha', runGit }),
-        ['committed.ts', 'shared.ts', 'working.ts', 'staged.ts', 'untracked.ts'],
-    );
-    assert.deepEqual(invocations, [...outputs.keys()]);
+    assert.deepEqual(selectQualityFiles({ mode: 'changed', diffBase: 'base-sha', runGit }), [
+        'committed.ts',
+        'shared.ts',
+        'working.ts',
+        'untracked.ts',
+    ]);
+    assert.deepEqual(invocations, [
+        'diff --name-only --diff-filter=ACMRT -z base-sha...HEAD',
+        'diff --name-only --diff-filter=ACMRT -z HEAD',
+        'ls-files --others --exclude-standard -z',
+    ]);
 });
 
 test('changed quality selection includes local edits and preserves unusual path characters', () => {
-    const selected = selectQualityFiles({ baseRef: 'base-sha', runGit: runUnusualPathGitFixture });
-    assert.deepEqual(selected, ['staged.ts', 'folder/name with spaces.ts', 'line\nbreak.ts']);
+    assert.deepEqual(selectQualityFiles({ mode: 'changed', runGit: runUnusualPathGitFixture }), [
+        'staged.ts',
+        'folder/name with spaces.ts',
+        'line\nbreak.ts',
+    ]);
     assert.deepEqual(parseGitPathList('first.ts\0second.ts\0'), ['first.ts', 'second.ts']);
 });
