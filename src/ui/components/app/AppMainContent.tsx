@@ -10,6 +10,7 @@ import type {
   TagAliasSummary,
   TagDefinitionSummary,
 } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type {
   DataStatsSnapshot,
   JobErrorSnapshot,
@@ -55,6 +56,7 @@ type AppMainContentProps = {
   readonly stats: LibraryStats | null;
   readonly timelineGallery: TimelineGalleryStateSlice;
   readonly assets: Asset[];
+  readonly presentationItems: LibraryPresentationItem[];
   readonly galleryTimelineSeek: GalleryTimelineSeek | null;
   readonly isSeekingTimeline: boolean;
   readonly people: Person[];
@@ -192,6 +194,7 @@ function LibraryContentView(props: AppMainContentProps & { readonly visibleLibra
         stats={props.stats}
         timelineGallery={props.timelineGallery}
         assets={props.visibleLibraryAssets}
+        presentationItems={props.presentationItems}
         galleryTimelineSeek={props.galleryTimelineSeek}
         isSeekingTimeline={props.isSeekingTimeline}
         availableTags={availableTags.map((tag) => tag.canonicalLabel)}
