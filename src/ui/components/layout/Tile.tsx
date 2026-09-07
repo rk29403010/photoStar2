@@ -101,7 +101,7 @@ const LoadedTileImage: React.FC<{
         onImageVisibleChange(true);
     }, [onImageVisibleChange]);
     const handleImageRef = useCallback((image: HTMLImageElement | null) => {
-        if (image && image.complete && image.naturalWidth > 0) {
+        if (image?.complete && image.naturalWidth > 0) {
             markLoaded();
         }
     }, [markLoaded]);
