@@ -10,6 +10,7 @@ import type {
   SavePhotoEditInput,
   SimilarityOrbit,
 } from '@contracts/core';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { BackgroundJob } from '@contracts/jobs';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
@@ -26,6 +27,7 @@ import { globalRequest } from '@ui/hooks/usePhotoLibrary';
 
 type AppOverlaysProps = {
   readonly assets: Asset[];
+  readonly presentationItems: LibraryPresentationItem[];
   readonly selectedAssetId: string | null;
   readonly setSelectedAssetId: (id: string | null) => void;
   readonly showActions: boolean;
@@ -76,6 +78,9 @@ type AppOverlaysProps = {
   readonly onRestoreFromBin: (assetId: string) => Promise<void>;
   readonly onOpenSettingsFromPhoto: () => void;
   readonly onLoadAssetEvidence: (assetId: string) => Promise<void>;
+  readonly onGetPresentationExpansion: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+  readonly onSetPresentationCover: (presentationKey: string, assetId: string) => Promise<void>;
+  readonly onSetPresentationShowSeparately: (presentationKey: string, showSeparately?: boolean) => Promise<void>;
   readonly onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
   readonly onSetCanonical: (groupId: string, assetId: string) => Promise<void>;
   readonly onExplodeGroup: (groupId: string) => Promise<void>;
@@ -135,7 +140,16 @@ function createSelectedAssetCache() {
   };
 }
 
-function useSinglePhotoOverlayState(props: Pick<AppOverlaysProps, 'assets' | 'selectedAssetId'>) {
+function findSelectedPresentation(presentationItems: LibraryPresentationItem[], selectedAssetId: string | null) {
+  if (!selectedAssetId) {
+    return null;
+  }
+  return presentationItems.find((item) => item.representativeAssetId === selectedAssetId)
+    ?? presentationItems.find((item) => item.assetIds.includes(selectedAssetId))
+    ?? null;
+}
+
+function useSinglePhotoOverlayState(props: Pick<AppOverlaysProps, 'assets' | 'presentationItems' | 'selectedAssetId'>) {
   const cache = useMemo(() => createSelectedAssetCache(), []);
   const currentSelectedAsset = props.selectedAssetId
     ? props.assets.find((asset) => asset.id === props.selectedAssetId) ?? null
@@ -151,14 +165,21 @@ function useSinglePhotoOverlayState(props: Pick<AppOverlaysProps, 'assets' | 'se
   return {
     overlayAssets,
     selectedIndex,
+    presentation: findSelectedPresentation(props.presentationItems, props.selectedAssetId),
     hasSelectedAsset: props.selectedAssetId !== null && selectedIndex >= 0,
   };
 }
 
-function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], selectedIndex: number) {
+function renderSinglePhotoView(
+  props: AppOverlaysProps,
+  overlayAssets: Asset[],
+  selectedIndex: number,
+  presentation: LibraryPresentationItem | null,
+) {
   return (
     <SinglePhotoView
       assets={overlayAssets}
+      presentation={presentation}
       initialIndex={selectedIndex}
       onClose={() => props.setSelectedAssetId(null)}
       onAssetFocusChange={props.setSelectedAssetId}
@@ -179,6 +200,9 @@ function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], 
       onRerunFaceDetection={props.onRerunFaceDetection}
       onOpenSettings={props.onOpenSettingsFromPhoto}
       onLoadAssetEvidence={props.onLoadAssetEvidence}
+      onGetPresentationExpansion={props.onGetPresentationExpansion}
+      onSetPresentationCover={props.onSetPresentationCover}
+      onSetPresentationShowSeparately={props.onSetPresentationShowSeparately}
       onGetGroupOrbit={props.onGetGroupOrbit}
       onSetCanonical={props.onSetCanonical}
       onExplodeGroup={props.onExplodeGroup}
@@ -198,7 +222,7 @@ function renderSinglePhotoView(props: AppOverlaysProps, overlayAssets: Asset[], 
 }
 
 export function AppOverlays(props: AppOverlaysProps) {
-  const { overlayAssets, selectedIndex, hasSelectedAsset } = useSinglePhotoOverlayState(props);
+  const { overlayAssets, selectedIndex, presentation, hasSelectedAsset } = useSinglePhotoOverlayState(props);
 
   return (
     <>
@@ -249,7 +273,7 @@ export function AppOverlays(props: AppOverlaysProps) {
       />
 
       {hasSelectedAsset && (
-        renderSinglePhotoView(props, overlayAssets, selectedIndex)
+        renderSinglePhotoView(props, overlayAssets, selectedIndex, presentation)
       )}
 
       <TaskDrawer
