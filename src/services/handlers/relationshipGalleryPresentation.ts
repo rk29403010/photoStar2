@@ -1,9 +1,9 @@
 import type { GalleryTimelineSeek } from '../../boundary/contracts/core';
+import type { LibraryPresentationItem } from '../../boundary/contracts/libraryPresentation';
 import type { DatabaseManager } from '../../data/db';
 import {
     getAllCaptureSequencePresentationItems,
     type CaptureSequencePresentationItem,
-    type CaptureSequencePresentationRelationshipKind,
 } from '../relationships/libraryCaptureSequencePresentationProjection';
 import type { AssetGalleryOrder } from './assetGalleryOrder';
 import { buildAssetTimelineSeekClause, getAssetTimelineSeek } from './assetTimelineSeek';
@@ -19,17 +19,8 @@ type RelationshipGalleryFilter = {
     tag?: string;
 };
 
-export type RelationshipGalleryPresentationItem = {
-    presentationKey: string;
-    representativeAssetId: string;
-    relationshipKind: CaptureSequencePresentationRelationshipKind;
-    stackCount: number;
-    assetIds: string[];
-    momentCount: number;
-};
-
 export type RelationshipGalleryPresentationPage = {
-    items: RelationshipGalleryPresentationItem[];
+    items: LibraryPresentationItem[];
     representativeAssetIds: string[];
     hasMore: boolean;
     total: number;
@@ -85,7 +76,7 @@ function matchesSeek(
     return !eligibleRepresentativeIds || eligibleRepresentativeIds.has(item.representativeAssetId);
 }
 
-function toResponseItem(item: CaptureSequencePresentationItem): RelationshipGalleryPresentationItem {
+function toResponseItem(item: CaptureSequencePresentationItem): LibraryPresentationItem {
     return {
         presentationKey: item.presentationKey,
         representativeAssetId: item.representativeAssetId,
