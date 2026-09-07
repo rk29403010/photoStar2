@@ -118,7 +118,7 @@ function ViewportActions(props: {
     );
 }
 
-function ViewportStageFrame(props: {
+type ViewportStageFrameProps = {
     readonly containerRef: RefObject<HTMLDivElement | null>;
     readonly showControls: boolean;
     readonly setShowControls: Dispatch<SetStateAction<boolean>>;
@@ -144,41 +144,69 @@ function ViewportStageFrame(props: {
     readonly onActiveImageLoad: () => void;
     readonly onPendingImageLoad: () => void;
     readonly showWithFrame: boolean;
-}) {
+};
+
+function ViewportStageFrame({
+    containerRef,
+    showControls,
+    setShowControls,
+    setShowActionMenu,
+    displayedAsset,
+    imgSrc,
+    pendingImageSrc,
+    stageSize,
+    pan,
+    scale,
+    isDragging,
+    handleMouseDown,
+    showFaceOverlays,
+    overlayMode,
+    isImageTransitionPending,
+    hoveredFaceKey,
+    setHoveredFaceKey,
+    selectedOverlayKey,
+    setSelectedOverlayKey,
+    onFaceClick,
+    onIsolateFace,
+    onRevealControls,
+    onActiveImageLoad,
+    onPendingImageLoad,
+    showWithFrame,
+}: ViewportStageFrameProps) {
     return (
         <div
-            ref={props.containerRef}
+            ref={containerRef}
             style={frameStyle}
-            onMouseMove={props.onRevealControls}
+            onMouseMove={onRevealControls}
             onClick={() => {
-                props.setShowControls(!props.showControls);
-                props.setShowActionMenu(false);
+                setShowControls(!showControls);
+                setShowActionMenu(false);
             }}
         >
             <ZoomableStage
-                asset={props.displayedAsset}
-                imgSrc={props.imgSrc}
-                pendingImageSrc={props.pendingImageSrc}
-                stageSize={props.stageSize}
-                pan={props.pan}
-                scale={props.scale}
-                isDragging={props.isDragging}
-                showControls={props.showControls}
-                setShowControls={props.setShowControls}
-                setShowActionMenu={props.setShowActionMenu}
-                handleMouseDown={props.handleMouseDown}
-                overlayMode={props.overlayMode}
-                overlaysReady={props.showFaceOverlays}
-                isImageTransitionPending={props.isImageTransitionPending}
-                hoveredFaceKey={props.hoveredFaceKey}
-                setHoveredFaceKey={props.setHoveredFaceKey}
-                selectedOverlayKey={props.selectedOverlayKey}
-                setSelectedOverlayKey={props.setSelectedOverlayKey}
-                onFaceClick={props.onFaceClick}
-                onIsolateFace={props.onIsolateFace}
-                onActiveImageLoad={props.onActiveImageLoad}
-                onPendingImageLoad={props.onPendingImageLoad}
-                showWithFrame={props.showWithFrame}
+                asset={displayedAsset}
+                imgSrc={imgSrc}
+                pendingImageSrc={pendingImageSrc}
+                stageSize={stageSize}
+                pan={pan}
+                scale={scale}
+                isDragging={isDragging}
+                showControls={showControls}
+                setShowControls={setShowControls}
+                setShowActionMenu={setShowActionMenu}
+                handleMouseDown={handleMouseDown}
+                overlayMode={overlayMode}
+                overlaysReady={showFaceOverlays}
+                isImageTransitionPending={isImageTransitionPending}
+                hoveredFaceKey={hoveredFaceKey}
+                setHoveredFaceKey={setHoveredFaceKey}
+                selectedOverlayKey={selectedOverlayKey}
+                setSelectedOverlayKey={setSelectedOverlayKey}
+                onFaceClick={onFaceClick}
+                onIsolateFace={onIsolateFace}
+                onActiveImageLoad={onActiveImageLoad}
+                onPendingImageLoad={onPendingImageLoad}
+                showWithFrame={showWithFrame}
             />
         </div>
     );
