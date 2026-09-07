@@ -136,7 +136,7 @@ function useDragAutoScroll(
                 clearInterval(scrollIntervalRef.current);
                 scrollIntervalRef.current = null;
             }
-            return;
+            return undefined;
         }
 
         const handlePointerMove = (e: PointerEvent) => {
