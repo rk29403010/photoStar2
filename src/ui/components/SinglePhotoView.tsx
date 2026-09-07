@@ -11,6 +11,7 @@ import type {
     SavePhotoEditInput,
     SimilarityOrbit,
 } from '@contracts/core';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { PanelState } from './single-photo/PhotoViewport';
 import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
 import {
@@ -38,6 +39,7 @@ import { PhotoEditorErrorBoundary, PhotoEditorWorkspace } from './photo-editor/P
 
 type SinglePhotoViewProps = {
     readonly assets: Asset[];
+    readonly presentation?: LibraryPresentationItem | null;
     readonly initialIndex: number;
     readonly onClose: () => void;
     readonly onAssetFocusChange?: (assetId: string) => void;
@@ -50,6 +52,9 @@ type SinglePhotoViewProps = {
     readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
     readonly onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
     readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
+    readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+    readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
+    readonly onSetPresentationShowSeparately?: (presentationKey: string, showSeparately?: boolean) => Promise<void>;
     readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
     readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly onExplodeGroup?: (groupId: string) => Promise<void>;
@@ -322,6 +327,7 @@ function renderSinglePhotoOverlay(params: {
         <SinglePhotoOverlay
             asset={params.asset}
             assets={params.viewAssets}
+            presentation={params.props.presentation}
             currentIndex={params.controls.currentIndex}
             showControls={params.controls.showControls}
             setShowControls={params.controls.setShowControls}
@@ -341,6 +347,8 @@ function renderSinglePhotoOverlay(params: {
             onExtractAiMetadata={params.props.onExtractAiMetadata}
             onRerunFaceDetection={params.props.onRerunFaceDetection}
             onOpenSettings={params.props.onOpenSettings}
+            onGetPresentationExpansion={params.props.onGetPresentationExpansion}
+            onSetPresentationCover={params.props.onSetPresentationCover}
             onGetGroupOrbit={params.props.onGetGroupOrbit}
             onOrbitLoaded={params.handleOrbitLoaded}
             onSelectAsset={params.handleSelectAsset}
@@ -362,9 +370,24 @@ function renderSinglePhotoOverlay(params: {
     );
 }
 
+function getRelationshipActions(props: SinglePhotoViewProps) {
+    const presentationKey = props.presentation && props.presentation.stackCount > 1
+        ? props.presentation.presentationKey
+        : null;
+    return {
+        setCanonical: presentationKey && props.onSetPresentationCover
+            ? (_groupId: string, assetId: string) => props.onSetPresentationCover!(presentationKey, assetId)
+            : props.onSetCanonical,
+        explodeGroup: presentationKey && props.onSetPresentationShowSeparately
+            ? (_groupId: string) => props.onSetPresentationShowSeparately!(presentationKey, true)
+            : props.onExplodeGroup,
+    };
+}
+
 export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
     const [editorOpen, setEditorOpen] = useState(false);
     const panelState = usePanelState(props);
+    const relationshipActions = getRelationshipActions(props);
     const {
         asset,
         controls,
@@ -379,8 +402,8 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
         initialIndex: props.initialIndex,
         panelState,
         onGetWorkflowRunDetail: props.onGetWorkflowRunDetail,
-        onSetCanonical: props.onSetCanonical,
-        onExplodeGroup: props.onExplodeGroup,
+        onSetCanonical: relationshipActions.setCanonical,
+        onExplodeGroup: relationshipActions.explodeGroup,
         onAssetFocusChange: props.onAssetFocusChange,
         onPrioritize: props.onPrioritize,
         onLoadAssetEvidence: props.onLoadAssetEvidence,
