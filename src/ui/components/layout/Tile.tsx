@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import type { Asset, TileIntent } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import { TileOverlays, type SensitivityBadge } from './TileOverlays';
 
 type TileProps = {
     asset: Asset;
+    presentation?: LibraryPresentationItem | null;
     intent?: TileIntent;
     debug?: boolean;
     selected?: boolean;
@@ -37,6 +39,7 @@ const TILE_FADE_IN_KEYFRAMES = `
     }
 `;
 const DEFAULT_TILE_PROPS = {
+    presentation: null,
     intent: 'normal' as TileIntent,
     debug: false,
     selected: false,
@@ -107,9 +110,7 @@ const LoadedTileImage: React.FC<{
 
     return (
         <div className="w-full h-full relative bg-surface-secondary">
-            {!isLoaded && (
-                <div className="absolute inset-0 bg-gradient-to-br from-surface-secondary to-surface/85" />
-            )}
+            {!isLoaded && <div className="absolute inset-0 bg-gradient-to-br from-surface-secondary to-surface/85" />}
             <img
                 ref={handleImageRef}
                 src={imgSrc}
@@ -147,6 +148,7 @@ const TileMedia: React.FC<TileMediaProps> = ({ imgSrc, loadingMode, fetchPriorit
 export const Tile: React.FC<TileProps> = (props) => {
     const {
         asset,
+        presentation,
         intent,
         debug,
         selected,
@@ -179,9 +181,9 @@ export const Tile: React.FC<TileProps> = (props) => {
             <TileOverlays
                 selected={selected}
                 sensitivityBadge={sensitivityBadge}
-                stackCount={asset.stack_count}
+                stackCount={presentation?.stackCount}
                 isGroupRepresentative={isGroupRepresentative}
-                groupMemberships={asset.group_memberships}
+                presentation={presentation}
                 showGroupIds={showGroupIds}
                 hoveredGroupId={hoveredGroupId}
                 onHoveredGroupIdChange={onHoveredGroupIdChange}
