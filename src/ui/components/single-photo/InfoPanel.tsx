@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useState } from 'react';
 import type { Asset, ReviewItemSummary, TagDefinitionSummary, SimilarityOrbit } from '@contracts/core';
 import type { ArchiveLineage } from '@contracts/archiveLineage';
-import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import { ProfileTab } from './info-panel/ProfileTab';
 import { TagsTab } from './info-panel/TagsTab';
 import { LineageTab } from './info-panel/LineageTab';
@@ -40,6 +40,8 @@ type InfoPanelProps = {
   readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
   readonly analysisState?: string;
   readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
+  readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+  readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
   readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
   readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 }
@@ -115,7 +117,7 @@ const PanelTabs: React.FC<{ readonly activeTab: TabId; readonly setActiveTab: (t
   </div>
 );
 
-const PanelContent: React.FC<{
+type PanelContentProps = {
   readonly activeTab: TabId;
   readonly asset: Asset;
   readonly presentation?: LibraryPresentationItem | null;
@@ -126,19 +128,38 @@ const PanelContent: React.FC<{
   readonly availableTags?: TagDefinitionSummary[];
   readonly onAssignTag?: (tagLabel: string) => Promise<void>;
   readonly onRemoveTag?: (tagDefinitionId: string) => Promise<void>;
-  readonly onSetReviewItemStatus?: (payload: {
-    reviewItemId: string;
-    status: ReviewItemSummary['status'];
-    tagLabel?: string;
-  }) => Promise<void>;
-  readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
+  readonly onSetReviewItemStatus?: InfoPanelProps['onSetReviewItemStatus'];
   readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
   readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
   readonly analysisState?: string;
-  readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
-  readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-  readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-}> = ({ activeTab, asset, presentation, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onGetAiCallsLog, onGetAiCallLogDetail, analysisState, onRecordPhotoMetadataAssertion, onGetGroupOrbit, onSetCanonical }) => (
+  readonly onRecordPhotoMetadataAssertion?: InfoPanelProps['onRecordPhotoMetadataAssertion'];
+  readonly onGetPresentationExpansion?: InfoPanelProps['onGetPresentationExpansion'];
+  readonly onSetPresentationCover?: InfoPanelProps['onSetPresentationCover'];
+  readonly onGetGroupOrbit?: InfoPanelProps['onGetGroupOrbit'];
+  readonly onSetCanonical?: InfoPanelProps['onSetCanonical'];
+};
+
+const PanelContent: React.FC<PanelContentProps> = ({
+  activeTab,
+  asset,
+  presentation,
+  hoveredFaceKey,
+  onHoverFaceKey,
+  selectedOverlayKey,
+  onSelectOverlayKey,
+  availableTags,
+  onAssignTag,
+  onRemoveTag,
+  onSetReviewItemStatus,
+  onGetAiCallsLog,
+  onGetAiCallLogDetail,
+  analysisState,
+  onRecordPhotoMetadataAssertion,
+  onGetPresentationExpansion,
+  onSetPresentationCover,
+  onGetGroupOrbit,
+  onSetCanonical,
+}) => (
   <div className="flex-1 overflow-y-auto pt-3.5 px-3.5 pb-5 flex flex-col min-h-0">
     {activeTab === 'profile' && (
       <ProfileTab
@@ -159,13 +180,45 @@ const PanelContent: React.FC<{
         <LineageTab asset={asset} />
       </div>
     )}
-    {activeTab === 'group' && <GroupTab asset={asset} presentation={presentation} onGetGroupOrbit={onGetGroupOrbit} onSetCanonical={onSetCanonical} />}
+    {activeTab === 'group' && (
+      <GroupTab
+        asset={asset}
+        presentation={presentation}
+        onGetPresentationExpansion={onGetPresentationExpansion}
+        onSetPresentationCover={onSetPresentationCover}
+        onGetGroupOrbit={onGetGroupOrbit}
+        onSetCanonical={onSetCanonical}
+      />
+    )}
     {activeTab === 'json' && <JsonTab asset={asset} />}
     {activeTab === 'ailogs' && <AiLogsTab assetId={asset.id} onGetAiCallsLog={onGetAiCallsLog} onGetAiCallLogDetail={onGetAiCallLogDetail} analysisState={analysisState} />}
   </div>
 );
 
-export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, presentation, width = 360, activeTab: controlledTab, onTabChange, onClose, hoveredFaceKey, onHoverFaceKey, selectedOverlayKey, onSelectOverlayKey, availableTags, onAssignTag, onRemoveTag, onSetReviewItemStatus, onFlagPhotoDateCorrection, onGetAiCallsLog, onGetAiCallLogDetail, analysisState, onRecordPhotoMetadataAssertion, onGetGroupOrbit, onSetCanonical }) => {
+export const InfoPanel: React.FC<InfoPanelProps> = ({
+  asset,
+  presentation,
+  width = 360,
+  activeTab: controlledTab,
+  onTabChange,
+  onClose,
+  hoveredFaceKey,
+  onHoverFaceKey,
+  selectedOverlayKey,
+  onSelectOverlayKey,
+  availableTags,
+  onAssignTag,
+  onRemoveTag,
+  onSetReviewItemStatus,
+  onGetAiCallsLog,
+  onGetAiCallLogDetail,
+  analysisState,
+  onRecordPhotoMetadataAssertion,
+  onGetPresentationExpansion,
+  onSetPresentationCover,
+  onGetGroupOrbit,
+  onSetCanonical,
+}) => {
   const [internalTab, setInternalTab] = useState<TabId>('profile');
   const rawActiveTab = controlledTab ?? internalTab;
   const activeTab = TABS.some((t) => t.id === rawActiveTab) ? rawActiveTab : 'profile';
@@ -181,7 +234,27 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ asset, presentation, width
     >
       <PanelHeader asset={asset} onClose={onClose} />
       <PanelTabs activeTab={activeTab} setActiveTab={setActiveTab} />
-      <PanelContent activeTab={activeTab} asset={asset} presentation={presentation} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} onFlagPhotoDateCorrection={onFlagPhotoDateCorrection} onGetAiCallsLog={onGetAiCallsLog} onGetAiCallLogDetail={onGetAiCallLogDetail} analysisState={analysisState} onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion} onGetGroupOrbit={onGetGroupOrbit} onSetCanonical={onSetCanonical} />
+      <PanelContent
+        activeTab={activeTab}
+        asset={asset}
+        presentation={presentation}
+        hoveredFaceKey={hoveredFaceKey}
+        onHoverFaceKey={onHoverFaceKey}
+        selectedOverlayKey={selectedOverlayKey}
+        onSelectOverlayKey={onSelectOverlayKey}
+        availableTags={availableTags}
+        onAssignTag={onAssignTag}
+        onRemoveTag={onRemoveTag}
+        onSetReviewItemStatus={onSetReviewItemStatus}
+        onGetAiCallsLog={onGetAiCallsLog}
+        onGetAiCallLogDetail={onGetAiCallLogDetail}
+        analysisState={analysisState}
+        onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
+        onGetPresentationExpansion={onGetPresentationExpansion}
+        onSetPresentationCover={onSetPresentationCover}
+        onGetGroupOrbit={onGetGroupOrbit}
+        onSetCanonical={onSetCanonical}
+      />
     </Panel>
   );
 };
