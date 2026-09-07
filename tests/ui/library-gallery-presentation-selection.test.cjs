@@ -55,11 +55,50 @@ test('collapsed gallery follows presentation order and ignores misleading legacy
     assert.deepEqual(items.map((item) => item.photoId), ['asset-a', 'asset-b']);
     assert.deepEqual(items.map((item) => item.selectionKey), ['group:sequence:real-stack', 'photo:asset-b']);
     assert.equal(items[0].groupId, 'sequence:real-stack');
+    assert.equal(items[0].presentation, presentationItems[0]);
     assert.equal(items[0].asset.stack_count, 2);
     assert.equal(items[0].asset.group_id, 'wrong-group-a');
     assert.equal(items[1].entityType, 'photo');
     assert.equal(items[1].groupId, null);
+    assert.equal(items[1].presentation, presentationItems[1]);
     assert.equal(assetA.stack_count, 99, 'view projection must not mutate the cached Asset');
+});
+
+test('selected semantic stack expands bulk actions from presentation membership, not legacy group ids', async () => {
+    const { buildVisibleGalleryItems } = await import('../../src/shared/utils/libraryGallerySelection.ts');
+    const {
+        createEmptyLibrarySelectionState,
+        getLibrarySelectionAssetIds,
+        updateLibrarySelection,
+    } = await import('../../src/shared/utils/librarySelectionState.ts');
+    const representative = buildAsset('representative', '2025-01-01T00:00:00.000Z', 'misleading-legacy-group');
+    const unrelatedLegacyMember = buildAsset('wrong-member', '2025-01-02T00:00:00.000Z', 'misleading-legacy-group');
+    const assets = [representative, unrelatedLegacyMember];
+    const presentationItems = [
+        buildPresentationItem({
+            key: 'exact:semantic-stack',
+            representativeAssetId: 'representative',
+            assetIds: ['representative', 'semantic-member-not-in-visible-page'],
+            stackCount: 2,
+            relationshipKind: 'exact_copy',
+        }),
+    ];
+    const items = buildVisibleGalleryItems(assets, {
+        groupSimilarPhotos: true,
+        sortMode: 'date',
+        presentationItems,
+    });
+    const selection = updateLibrarySelection(
+        items,
+        createEmptyLibrarySelectionState(),
+        { mode: 'replace', index: 0 },
+    );
+
+    assert.deepEqual(
+        new Set(getLibrarySelectionAssetIds(selection, assets)),
+        new Set(['representative', 'semantic-member-not-in-visible-page']),
+    );
+    assert.equal(selection.presentationAssetIdsByKey.get('exact:semantic-stack')?.length, 2);
 });
 
 test('presentation declustering is a stable partition and does not re-sort server order', async () => {
