@@ -79,6 +79,7 @@ function buildPresentationExpansion(
         items: assets.map((asset, ordinal) => ({
             asset: {
                 ...asset,
+                sensitivity_score: asset.sensitivity_score ?? undefined,
                 faces: asset.faces.filter(isFaceBox),
             },
             ordinal,
