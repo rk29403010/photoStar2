@@ -101,7 +101,7 @@ export function buildVisibleGalleryItems(
     assets: Asset[],
     options: BuildVisibleGalleryItemsOptions,
 ): LibrarySelectableItem[] {
-    if (options.groupSimilarPhotos && options.presentationItems && options.presentationItems.length > 0) {
+    if (options.groupSimilarPhotos && options.presentationItems?.length) {
         return buildPresentationSelectableItems(
             assets,
             options.presentationItems,
