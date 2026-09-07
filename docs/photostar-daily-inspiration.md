@@ -55,9 +55,11 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Photographic Process Passport / Process Workbench / The Photograph Exploded** — identify the physical photographic/reproduction process as an evidence source for dating, preservation and restoration; combine exemplar retrieval with observable physical clues, and present the depicted moment, material object and digital lineage as distinct layers.
 - **Living Knowledge Rescue / Knowledge Gap Queue / Memory Coverage Map** — rank questions worth asking living relatives by how much uncertainty they resolve, preserve the original timestamped voice as evidence, and turn answers into attributed proposed claims rather than silent facts.
 - **Handwriting Threads / Same Hand / Writer Strip / Notes in Their Hand** — treat handwriting style as provenance evidence as well as text: retrieve recurring hands across photo backs, albums, postcards and letters, build human-confirmed age-aware handwriting anchors, and link genuine scanned fragments back to their source objects.
+- **Archive Telescope / Archive Minimap / Family Motif Atlas** — navigate very large libraries by progressive semantic zoom and representative tiles above the stable masonry gallery; use time/people/place/archive/visual lenses to jump into the same underlying collection, and treat loose recurring motifs as exploratory echoes rather than evidence.
 
 ## Dated briefs
 
+- [2026-09-07 — Archive Telescope](./photostar-daily-inspiration/2026-09-07.md)
 - [2026-09-06 — Handwriting Threads](./photostar-daily-inspiration/2026-09-06.md)
 - [2026-09-05 — Living Knowledge Rescue](./photostar-daily-inspiration/2026-09-05.md)
 - [2026-09-04 — Photographic Process Passport](./photostar-daily-inspiration/2026-09-04.md)
