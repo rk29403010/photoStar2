@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import type { Asset, SimilarityOrbit, SimilarityOrbitItem } from '@contracts/core';
-import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import { Section } from './shared';
 
+type RelationshipMember = {
+  asset: Asset;
+  isRepresentative: boolean;
+};
+
 type GroupMembersListProps = {
-  readonly items: SimilarityOrbitItem[];
+  readonly items: RelationshipMember[];
   readonly currentAssetId: string;
-  readonly representativeAssetId: string;
   readonly loading: boolean;
   readonly onMakeCanonical: (assetId: string) => Promise<void>;
 };
@@ -14,7 +18,6 @@ type GroupMembersListProps = {
 const GroupMembersList: React.FC<GroupMembersListProps> = ({
   items,
   currentAssetId,
-  representativeAssetId,
   loading,
   onMakeCanonical,
 }) => {
@@ -30,7 +33,6 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
       {items.map((item) => {
         const fileAsset = item.asset;
         const filename = fileAsset.original_path.split(/[/\\]/).pop() || '';
-        const isCanonical = fileAsset.id === representativeAssetId;
         const sizeMB = fileAsset.file_size ? `${(fileAsset.file_size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown size';
         const isCurrent = fileAsset.id === currentAssetId;
 
@@ -53,7 +55,7 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {isCanonical ? (
+                {item.isRepresentative ? (
                   <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[9px] font-bold uppercase tracking-wider">
                     ⭐ Star
                   </span>
@@ -77,8 +79,7 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
 
 type GroupExportSectionProps = {
   readonly isVariantGroup: boolean;
-  readonly items: SimilarityOrbitItem[];
-  readonly representativeAssetId: string;
+  readonly items: RelationshipMember[];
   readonly selectedVariantId: string;
   readonly setSelectedVariantId: (v: string) => void;
   readonly exporting: boolean;
@@ -89,7 +90,6 @@ type GroupExportSectionProps = {
 const GroupExportSection: React.FC<GroupExportSectionProps> = ({
   isVariantGroup,
   items,
-  representativeAssetId,
   selectedVariantId,
   setSelectedVariantId,
   exporting,
@@ -101,7 +101,7 @@ const GroupExportSection: React.FC<GroupExportSectionProps> = ({
       {isVariantGroup ? (
         <div className="flex flex-col gap-2.5">
           <span className="text-xs text-content-secondary leading-relaxed">
-            ℹ️ This is a <strong>Variant Group</strong> (e.g. photos showing different years, different versions, or photos of the same person at different ages). Choose which file to use as the template for exporting the synthesised metadata:
+            ℹ️ This is a <strong>Variant Group</strong>. Choose which file to use as the template for exporting the synthesised metadata:
           </span>
           <select
             value={selectedVariantId}
@@ -111,10 +111,9 @@ const GroupExportSection: React.FC<GroupExportSectionProps> = ({
           >
             {items.map((item) => {
               const filename = item.asset.original_path.split(/[/\\]/).pop() || '';
-              const isCanonical = item.asset.id === representativeAssetId;
               return (
                 <option key={item.asset.id} value={item.asset.id}>
-                  {filename} {isCanonical ? '(Star)' : ''}
+                  {filename} {item.isRepresentative ? '(Star)' : ''}
                 </option>
               );
             })}
@@ -143,74 +142,124 @@ const GroupExportSection: React.FC<GroupExportSectionProps> = ({
   );
 };
 
-function findLegacyStarAssetId(items: SimilarityOrbitItem[], defaultId: string): string {
-  const canonical = items.find((item) => item.asset.group_role === 'canonical' || item.asset.role === 'canonical');
-  return canonical?.asset.id ?? defaultId;
+function legacyMembers(orbit: SimilarityOrbit, defaultId: string): RelationshipMember[] {
+  const representativeId = orbit.items.find((item) => (
+    item.asset.group_role === 'canonical' || item.asset.role === 'canonical'
+  ))?.asset.id ?? defaultId;
+  return orbit.items.map((item) => ({
+    asset: item.asset,
+    isRepresentative: item.asset.id === representativeId,
+  }));
 }
 
-function getExportSuccessMessage(groupType: string, orbit: SimilarityOrbit | null, selectedVariantId: string): string {
+function presentationMembers(expansion: LibraryPresentationExpansion): RelationshipMember[] {
+  return expansion.items.map((item) => ({
+    asset: item.asset,
+    isRepresentative: item.isRepresentative,
+  }));
+}
+
+function getExportSuccessMessage(groupType: string, items: RelationshipMember[], selectedVariantId: string): string {
   if (groupType === 'variant') {
-    const selectedAsset = orbit?.items.find((i) => i.asset.id === selectedVariantId)?.asset;
+    const selectedAsset = items.find((item) => item.asset.id === selectedVariantId)?.asset;
     const filename = selectedAsset?.original_path.split(/[/\\]/).pop() || 'photo.jpg';
     return `Successfully exported variant "${filename}" as new authoritative file!`;
   }
   return 'Successfully exported presentation as a new authoritative file!';
 }
 
-function useGroupTabState(
-  asset: Asset,
-  presentation?: LibraryPresentationItem | null,
-  onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>,
-  onSetCanonical?: (groupId: string, assetId: string) => Promise<void>
-) {
-  const [orbit, setOrbit] = useState<SimilarityOrbit | null>(null);
+type RelationshipLoadActions = {
+  onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+  onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
+  onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+  onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+};
+
+function getLegacyGroupId(asset: Asset, presentation?: LibraryPresentationItem | null) {
+  if (presentation) {
+    return null;
+  }
+  return asset.group_id ?? asset.group_memberships?.[0]?.group_id ?? null;
+}
+
+function useRelationshipMembers(params: {
+  asset: Asset;
+  presentation?: LibraryPresentationItem | null;
+  actions: RelationshipLoadActions;
+  setSelectedVariantId: (assetId: string) => void;
+}) {
+  const { asset, presentation, actions, setSelectedVariantId } = params;
+  const [items, setItems] = useState<RelationshipMember[]>([]);
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState<string>('');
-  const [localRepresentativeAssetId, setLocalRepresentativeAssetId] = useState<string>(
-    presentation?.representativeAssetId ?? asset.id,
-  );
-
   const presentationKey = presentation && presentation.stackCount > 1 ? presentation.presentationKey : null;
-  const groupId = presentationKey ?? asset.group_id ?? asset.group_memberships?.[0]?.group_id;
-  const groupType = presentation?.relationshipKind ?? orbit?.group_type ?? asset.group_memberships?.[0]?.group_type ?? 'similar';
+  const legacyGroupId = getLegacyGroupId(asset, presentation);
 
   useEffect(() => {
-    setLocalRepresentativeAssetId(presentation?.representativeAssetId ?? asset.id);
-  }, [asset.id, presentation?.representativeAssetId]);
-
-  useEffect(() => {
-    if (!groupId || !onGetGroupOrbit) {
-      setOrbit(null);
+    setItems([]);
+    if (presentationKey && actions.onGetPresentationExpansion) {
+      setLoading(true);
+      void actions.onGetPresentationExpansion(presentationKey)
+        .then((expansion) => {
+          setItems(presentationMembers(expansion));
+          setSelectedVariantId(expansion.representativeAssetId);
+        })
+        .catch((error: unknown) => console.error('Failed to load presentation:', error))
+        .finally(() => setLoading(false));
       return;
     }
+    if (legacyGroupId && actions.onGetGroupOrbit) {
+      setLoading(true);
+      void actions.onGetGroupOrbit(legacyGroupId)
+        .then((orbit) => {
+          const nextItems = legacyMembers(orbit, asset.id);
+          setItems(nextItems);
+          setSelectedVariantId(nextItems.find((item) => item.isRepresentative)?.asset.id ?? asset.id);
+        })
+        .catch((error: unknown) => console.error('Failed to load legacy group:', error))
+        .finally(() => setLoading(false));
+      return;
+    }
+    setLoading(false);
+  }, [actions.onGetGroupOrbit, actions.onGetPresentationExpansion, asset.id, legacyGroupId, presentationKey, setSelectedVariantId]);
 
-    setLoading(true);
-    setExportSuccess(null);
-    onGetGroupOrbit(groupId)
-      .then((data) => {
-        setOrbit(data);
-        const representativeId = presentation?.representativeAssetId
-          ?? findLegacyStarAssetId(data.items, asset.id);
-        setLocalRepresentativeAssetId(representativeId);
-        setSelectedVariantId(representativeId);
-      })
-      .catch((err) => console.error('Failed to load presentation:', err))
-      .finally(() => setLoading(false));
-  }, [groupId, asset.id, onGetGroupOrbit, presentation?.representativeAssetId]);
+  return { items, setItems, loading, presentationKey, legacyGroupId };
+}
+
+function useGroupTabState(
+  asset: Asset,
+  presentation: LibraryPresentationItem | null | undefined,
+  actions: RelationshipLoadActions,
+) {
+  const [exporting, setExporting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(presentation?.representativeAssetId ?? asset.id);
+  const { items, setItems, loading, presentationKey, legacyGroupId } = useRelationshipMembers({
+    asset,
+    presentation,
+    actions,
+    setSelectedVariantId,
+  });
+  const relationshipId = presentationKey ?? legacyGroupId;
+  const groupType = presentation?.relationshipKind
+    ?? asset.group_memberships?.[0]?.group_type
+    ?? 'similar';
 
   const handleMakeCanonical = async (assetId: string) => {
-    if (!groupId || !onSetCanonical) { return; }
     try {
-      await onSetCanonical(groupId, assetId);
-      setLocalRepresentativeAssetId(assetId);
-      setSelectedVariantId(assetId);
-      if (onGetGroupOrbit) {
-        setOrbit(await onGetGroupOrbit(groupId));
+      if (presentationKey && actions.onSetPresentationCover) {
+        await actions.onSetPresentationCover(presentationKey, assetId);
+      } else if (legacyGroupId && actions.onSetCanonical) {
+        await actions.onSetCanonical(legacyGroupId, assetId);
+      } else {
+        return;
       }
-    } catch (err) {
-      console.error('Failed to set presentation cover:', err);
+      setItems((currentItems) => currentItems.map((item) => ({
+        ...item,
+        isRepresentative: item.asset.id === assetId,
+      })));
+      setSelectedVariantId(assetId);
+    } catch (error) {
+      console.error('Failed to set presentation cover:', error);
     }
   };
 
@@ -219,18 +268,17 @@ function useGroupTabState(
     setExportSuccess(null);
     setTimeout(() => {
       setExporting(false);
-      setExportSuccess(getExportSuccessMessage(groupType ?? 'similar', orbit, selectedVariantId));
+      setExportSuccess(getExportSuccessMessage(groupType ?? 'similar', items, selectedVariantId));
     }, 2000);
   };
 
   return {
-    groupId,
+    relationshipId,
     groupType: groupType ?? 'similar',
-    orbit,
+    items,
     loading,
     exporting,
     exportSuccess,
-    representativeAssetId: localRepresentativeAssetId,
     selectedVariantId,
     setSelectedVariantId,
     handleMakeCanonical,
@@ -238,34 +286,27 @@ function useGroupTabState(
   };
 }
 
-type GroupTabProps = {
+type GroupTabProps = RelationshipLoadActions & {
   readonly asset: Asset;
   readonly presentation?: LibraryPresentationItem | null;
-  readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-  readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 };
 
 export const GroupTab: React.FC<GroupTabProps> = ({
   asset,
   presentation,
+  onGetPresentationExpansion,
+  onSetPresentationCover,
   onGetGroupOrbit,
   onSetCanonical,
 }) => {
-  const {
-    groupId,
-    groupType,
-    orbit,
-    loading,
-    exporting,
-    exportSuccess,
-    representativeAssetId,
-    selectedVariantId,
-    setSelectedVariantId,
-    handleMakeCanonical,
-    handleExport,
-  } = useGroupTabState(asset, presentation, onGetGroupOrbit, onSetCanonical);
+  const state = useGroupTabState(asset, presentation, {
+    onGetPresentationExpansion,
+    onSetPresentationCover,
+    onGetGroupOrbit,
+    onSetCanonical,
+  });
 
-  if (!groupId) {
+  if (!state.relationshipId) {
     return (
       <div className="text-center py-10 px-5 text-content-secondary/60 select-none">
         <div className="text-3xl mb-2.5">📁</div>
@@ -275,31 +316,26 @@ export const GroupTab: React.FC<GroupTabProps> = ({
     );
   }
 
-  const items = orbit?.items ?? [];
-  const isVariantGroup = groupType === 'variant';
-
   return (
     <div className="flex flex-col gap-4 text-content select-none">
-      <Section emoji="📁" title={`Relationship: ${groupType.toUpperCase()}`}>
+      <Section emoji="📁" title={`Relationship: ${state.groupType.toUpperCase()}`}>
         <GroupMembersList
-          items={items}
+          items={state.items}
           currentAssetId={asset.id}
-          representativeAssetId={representativeAssetId}
-          loading={loading}
-          onMakeCanonical={handleMakeCanonical}
+          loading={state.loading}
+          onMakeCanonical={state.handleMakeCanonical}
         />
       </Section>
 
       <Section emoji="📤" title="Authoritative Export">
         <GroupExportSection
-          isVariantGroup={isVariantGroup}
-          items={items}
-          representativeAssetId={representativeAssetId}
-          selectedVariantId={selectedVariantId}
-          setSelectedVariantId={setSelectedVariantId}
-          exporting={exporting}
-          handleExport={handleExport}
-          exportSuccess={exportSuccess}
+          isVariantGroup={state.groupType === 'variant'}
+          items={state.items}
+          selectedVariantId={state.selectedVariantId}
+          setSelectedVariantId={state.setSelectedVariantId}
+          exporting={state.exporting}
+          handleExport={state.handleExport}
+          exportSuccess={state.exportSuccess}
         />
       </Section>
     </div>
