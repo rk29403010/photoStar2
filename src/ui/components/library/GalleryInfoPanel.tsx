@@ -1,4 +1,4 @@
-import type { ReviewItemSummary } from '@contracts/core';
+import type { ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { LibraryPresentationExpansion } from '@contracts/libraryPresentation';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
@@ -22,6 +22,8 @@ type GalleryInfoPanelProps = {
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
     readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
     readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 }
 
 function EmptyGalleryInfoPanel({ onClose }: Pick<GalleryInfoPanelProps, 'onClose'>) {
@@ -60,6 +62,8 @@ export function GalleryInfoPanel({
     onRecordPhotoMetadataAssertion,
     onGetPresentationExpansion,
     onSetPresentationCover,
+    onGetGroupOrbit,
+    onSetCanonical,
 }: GalleryInfoPanelProps) {
     if (!asset) {
         return <EmptyGalleryInfoPanel onClose={onClose} />;
@@ -79,6 +83,8 @@ export function GalleryInfoPanel({
             onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
             onGetPresentationExpansion={onGetPresentationExpansion}
             onSetPresentationCover={onSetPresentationCover}
+            onGetGroupOrbit={onGetGroupOrbit}
+            onSetCanonical={onSetCanonical}
         />
     );
 }
