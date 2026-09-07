@@ -3,6 +3,7 @@ import type { BackgroundJob } from '@contracts/jobs';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
 import { buildCurrentPhotoStatus } from '@shared/utils/libraryGallery';
 import { clearLibrarySelection, getLibrarySelectionCount } from '@shared/utils/librarySelectionState';
+import { isTimelineGroupId } from '@shared/utils/libraryTimelineGroupId';
 import type { usePhotoLibrary } from '@ui/hooks/usePhotoLibrary';
 import type { useAppUiState } from '@ui/hooks/useAppRuntimeUi';
 import type { WorkflowRunDetailResponse } from '@boundary/runtime/workflowRunDetail';
@@ -16,7 +17,6 @@ import { AppStatusRightSlot, ConnectionOverlayLayer, ErrorBanner } from './AppSh
 import { TopBar } from '../TopBar';
 import type { AppActionHandlers, ConnectionUiState } from './appShellModel';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
-import type { TimelineGroupId } from '@contracts/core';
 
 /* oxlint-disable typescript/no-misused-promises -- App child components own user-visible failure handling for their command callbacks. */
 
@@ -101,8 +101,7 @@ export function LoadedAppShell(props: LoadedAppShellProps) {
         return actions.removeAssetTag({ assetId, tagDefinitionId });
     }, [actions]);
     const handleTimelineVisibleGroupChange = useCallback((groupId: string | null, groupIndex: number | null) => {
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Timeline gallery emits the TimelineGroupId values returned by the typed backend contract.
-        actions.setTimelineVisibleGroup(groupId as TimelineGroupId | null, groupIndex);
+        actions.setTimelineVisibleGroup(isTimelineGroupId(groupId) ? groupId : null, groupIndex);
     }, [actions]);
     const trackedActivityMessage = getTrackedActivityMessage(props.activeOverlayJobs);
     const ingestActive = props.activeOverlayJobs.some(isIngestJob);
