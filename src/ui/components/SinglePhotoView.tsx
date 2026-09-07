@@ -9,14 +9,11 @@ import type {
     RenderPhotoEditInput,
     ReviewItemSummary,
     SavePhotoEditInput,
-    SimilarityOrbit,
 } from '@contracts/core';
 import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { PanelState } from './single-photo/PhotoViewport';
 import { SinglePhotoOverlay } from './single-photo/SinglePhotoOverlay';
 import {
-    applyStarSelection,
-    clearGroupMembership,
     dedupeSinglePhotoAssets,
     isLibrarySelectionAnchorAsset,
     mergeSinglePhotoAssets,
@@ -55,9 +52,6 @@ type SinglePhotoViewProps = {
     readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
     readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
     readonly onSetPresentationShowSeparately?: (presentationKey: string, showSeparately?: boolean) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
     readonly onOpenSettings?: () => void;
     readonly onLoadAssetEvidence?: (assetId: string) => Promise<void>;
     readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
@@ -183,10 +177,8 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
         }
     }, [clearControlsHideTimer, scheduleControlsHide, showActionMenu, showControls]);
 
-    useEffect(() => {
-        return () => {
-            clearControlsHideTimer();
-        };
+    useEffect(() => () => {
+        clearControlsHideTimer();
     }, [clearControlsHideTimer]);
 
     return {
@@ -201,41 +193,22 @@ function useSinglePhotoControls(initialIndex: number, assetsLength: number): Con
         selectedOverlayKey,
         setSelectedOverlayKey,
         revealControls,
-        onChangeIndex
+        onChangeIndex,
     };
 }
 
-function useSinglePhotoAssetState(params: {
-    assets: Asset[];
-    initialIndex: number;
-    onSetCanonical?: (groupId: string, assetId: string, asset: Asset) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
-}) {
-    const { assets, initialIndex, onSetCanonical, onExplodeGroup } = params;
-    const [orbitAssets, setOrbitAssets] = useState<Asset[]>([]);
-    const viewAssets = mergeSinglePhotoAssets(assets, orbitAssets);
+function useSinglePhotoAssetState(assets: Asset[], initialIndex: number) {
+    const [expandedAssets, setExpandedAssets] = useState<Asset[]>([]);
+    const viewAssets = mergeSinglePhotoAssets(assets, expandedAssets);
     const initialAssetId = assets[initialIndex]?.id ?? null;
-    const initialViewIndex = initialAssetId ? Math.max(resolveSinglePhotoAssetIndex(viewAssets, initialAssetId), 0) : initialIndex;
-    const handleOrbitLoaded = useCallback((nextOrbitAssets: Asset[]) => {
-        setOrbitAssets(dedupeSinglePhotoAssets(nextOrbitAssets));
+    const initialViewIndex = initialAssetId
+        ? Math.max(resolveSinglePhotoAssetIndex(viewAssets, initialAssetId), 0)
+        : initialIndex;
+    const handleExpansionLoaded = useCallback((nextAssets: Asset[]) => {
+        setExpandedAssets(dedupeSinglePhotoAssets(nextAssets));
     }, []);
 
-    const handleSetCanonical = useCallback(async (groupId: string, assetId: string) => {
-        const selectedAsset = viewAssets.find((asset) => asset.id === assetId);
-        if (!selectedAsset) {
-            return;
-        }
-
-        await onSetCanonical?.(groupId, assetId, selectedAsset);
-        setOrbitAssets((previousOrbitAssets) => applyStarSelection(previousOrbitAssets, groupId, assetId));
-    }, [onSetCanonical, viewAssets]);
-
-    const handleExplodeGroup = useCallback(async (groupId: string) => {
-        await onExplodeGroup?.(groupId);
-        setOrbitAssets((previousOrbitAssets) => clearGroupMembership(previousOrbitAssets, groupId));
-    }, [onExplodeGroup]);
-
-    return { viewAssets, initialViewIndex, handleOrbitLoaded, handleSetCanonical, handleExplodeGroup };
+    return { viewAssets, initialViewIndex, handleExpansionLoaded };
 }
 
 function useSinglePhotoViewState(params: {
@@ -243,23 +216,15 @@ function useSinglePhotoViewState(params: {
     initialIndex: number;
     panelState: ReturnType<typeof usePanelState>;
     onGetWorkflowRunDetail?: (runId: string) => Promise<WorkflowRunDetailResponse>;
-    onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    onExplodeGroup?: (groupId: string) => Promise<void>;
     onAssetFocusChange?: (assetId: string) => void;
     onPrioritize: (mediaId: string) => void;
     onLoadAssetEvidence?: (assetId: string) => Promise<void>;
 }) {
-    const assetState = useSinglePhotoAssetState({
-        assets: params.assets,
-        initialIndex: params.initialIndex,
-        onSetCanonical: params.onSetCanonical,
-        onExplodeGroup: params.onExplodeGroup,
-    });
+    const assetState = useSinglePhotoAssetState(params.assets, params.initialIndex);
     const controls = useSinglePhotoControls(assetState.initialViewIndex, assetState.viewAssets.length);
     const asset = assetState.viewAssets[controls.currentIndex];
     const setCurrentIndex = controls.setCurrentIndex;
     const shouldSyncAssetFocus = isLibrarySelectionAnchorAsset(params.assets, asset?.id);
-
     const analysisUi = useAnalysisUiState(asset?.id ?? null);
 
     const handleSelectAsset = useCallback((assetId: string) => {
@@ -302,9 +267,7 @@ function useSinglePhotoViewState(params: {
         asset,
         controls,
         viewAssets: assetState.viewAssets,
-        handleOrbitLoaded: assetState.handleOrbitLoaded,
-        handleSetCanonical: assetState.handleSetCanonical,
-        handleExplodeGroup: assetState.handleExplodeGroup,
+        handleExpansionLoaded: assetState.handleExpansionLoaded,
         handleSelectAsset,
         analysisUi,
     };
@@ -317,9 +280,7 @@ function renderSinglePhotoOverlay(params: {
     panelState: ReturnType<typeof usePanelState>;
     analysisUi: AnalysisUiBundle;
     props: SinglePhotoViewProps;
-    handleOrbitLoaded: (assets: Asset[]) => void;
-    handleSetCanonical: (groupId: string, assetId: string) => Promise<void>;
-    handleExplodeGroup: (groupId: string) => Promise<void>;
+    handleExpansionLoaded: (assets: Asset[]) => void;
     handleSelectAsset: (assetId: string) => void;
     onEditPhoto: () => void;
 }) {
@@ -349,11 +310,9 @@ function renderSinglePhotoOverlay(params: {
             onOpenSettings={params.props.onOpenSettings}
             onGetPresentationExpansion={params.props.onGetPresentationExpansion}
             onSetPresentationCover={params.props.onSetPresentationCover}
-            onGetGroupOrbit={params.props.onGetGroupOrbit}
-            onOrbitLoaded={params.handleOrbitLoaded}
+            onSetPresentationShowSeparately={params.props.onSetPresentationShowSeparately}
+            onExpansionLoaded={params.handleExpansionLoaded}
             onSelectAsset={params.handleSelectAsset}
-            onSetCanonical={params.handleSetCanonical}
-            onExplodeGroup={params.handleExplodeGroup}
             onAssignAssetTag={params.props.onAssignAssetTag}
             onRemoveAssetTag={params.props.onRemoveAssetTag}
             onSetReviewItemStatus={params.props.onSetReviewItemStatus}
@@ -370,31 +329,14 @@ function renderSinglePhotoOverlay(params: {
     );
 }
 
-function getRelationshipActions(props: SinglePhotoViewProps) {
-    const presentationKey = props.presentation && props.presentation.stackCount > 1
-        ? props.presentation.presentationKey
-        : null;
-    return {
-        setCanonical: presentationKey && props.onSetPresentationCover
-            ? (_groupId: string, assetId: string) => props.onSetPresentationCover!(presentationKey, assetId)
-            : props.onSetCanonical,
-        explodeGroup: presentationKey && props.onSetPresentationShowSeparately
-            ? (_groupId: string) => props.onSetPresentationShowSeparately!(presentationKey, true)
-            : props.onExplodeGroup,
-    };
-}
-
 export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
     const [editorOpen, setEditorOpen] = useState(false);
     const panelState = usePanelState(props);
-    const relationshipActions = getRelationshipActions(props);
     const {
         asset,
         controls,
         viewAssets,
-        handleOrbitLoaded,
-        handleSetCanonical,
-        handleExplodeGroup,
+        handleExpansionLoaded,
         handleSelectAsset,
         analysisUi,
     } = useSinglePhotoViewState({
@@ -402,8 +344,6 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
         initialIndex: props.initialIndex,
         panelState,
         onGetWorkflowRunDetail: props.onGetWorkflowRunDetail,
-        onSetCanonical: relationshipActions.setCanonical,
-        onExplodeGroup: relationshipActions.explodeGroup,
         onAssetFocusChange: props.onAssetFocusChange,
         onPrioritize: props.onPrioritize,
         onLoadAssetEvidence: props.onLoadAssetEvidence,
@@ -438,9 +378,7 @@ export const SinglePhotoView: FC<SinglePhotoViewProps> = (props) => {
         panelState,
         analysisUi,
         props,
-        handleOrbitLoaded,
-        handleSetCanonical,
-        handleExplodeGroup,
+        handleExpansionLoaded,
         handleSelectAsset,
         onEditPhoto: () => setEditorOpen(true),
     });
