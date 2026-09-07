@@ -29,6 +29,8 @@ function getRelationshipSymbol(kind: LibraryPresentationRelationshipKind) {
         case null:
             return '#';
     }
+
+    return '#';
 }
 
 function hashPresentationKey(presentationKey: string) {
