@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useCallback, useState } from 'react';
-import type { Asset, ReviewItemSummary, TagDefinitionSummary, SimilarityOrbit } from '@contracts/core';
+import type { Asset, ReviewItemSummary, TagDefinitionSummary } from '@contracts/core';
 import type { ArchiveLineage } from '@contracts/archiveLineage';
 import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import { ProfileTab } from './info-panel/ProfileTab';
@@ -42,8 +42,6 @@ type InfoPanelProps = {
   readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
   readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
   readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
-  readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-  readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 }
 
 const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
@@ -58,20 +56,14 @@ const TABS: Array<{ id: TabId; emoji: string; label: string }> = [
 ];
 
 function isArchiveLineage(value: unknown): value is ArchiveLineage {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  if (!('assetId' in value) || typeof value.assetId !== 'string') {
-    return false;
-  }
+  if (typeof value !== 'object' || value === null) {return false;}
+  if (!('assetId' in value) || typeof value.assetId !== 'string') {return false;}
   return 'subjects' in value && Array.isArray(value.subjects);
 }
 
 function getArchiveLineage(asset: Asset): ArchiveLineage | null {
   const metadata = asset.photo_metadata;
-  if (!metadata || !('archiveLineage' in metadata)) {
-    return null;
-  }
+  if (!metadata || !('archiveLineage' in metadata)) {return null;}
   return isArchiveLineage(metadata.archiveLineage) ? metadata.archiveLineage : null;
 }
 
@@ -79,19 +71,8 @@ const PanelHeader: React.FC<{ readonly asset: Asset; readonly onClose?: () => vo
   const filename = asset.original_path.split(/[/\\]/).pop() || '';
   return (
     <Header>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-content break-all">{filename}</div>
-      </div>
-      {onClose ? (
-        <IconButton
-          onClick={onClose}
-          title="Hide info panel"
-          aria-label="Hide info panel"
-          className="w-7 h-7 shrink-0"
-        >
-          ✕
-        </IconButton>
-      ) : null}
+      <div className="flex-1 min-w-0"><div className="text-sm font-semibold text-content break-all">{filename}</div></div>
+      {onClose ? <IconButton onClick={onClose} title="Hide info panel" aria-label="Hide info panel" className="w-7 h-7 shrink-0">✕</IconButton> : null}
     </Header>
   );
 };
@@ -104,9 +85,7 @@ const PanelTabs: React.FC<{ readonly activeTab: TabId; readonly setActiveTab: (t
         <button
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
-          className={`flex-1 py-2 px-1 bg-transparent border-b-2 cursor-pointer motion-safe:transition-all motion-safe:duration-150 flex items-center justify-center relative hover:bg-content/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${
-            isActive ? 'border-brand-accent' : 'border-transparent'
-          }`}
+          className={`flex-1 py-2 px-1 bg-transparent border-b-2 cursor-pointer motion-safe:transition-all motion-safe:duration-150 flex items-center justify-center relative hover:bg-content/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${isActive ? 'border-brand-accent' : 'border-transparent'}`}
           title={tab.label}
           aria-label={tab.label}
         >
@@ -135,8 +114,6 @@ type PanelContentProps = {
   readonly onRecordPhotoMetadataAssertion?: InfoPanelProps['onRecordPhotoMetadataAssertion'];
   readonly onGetPresentationExpansion?: InfoPanelProps['onGetPresentationExpansion'];
   readonly onSetPresentationCover?: InfoPanelProps['onSetPresentationCover'];
-  readonly onGetGroupOrbit?: InfoPanelProps['onGetGroupOrbit'];
-  readonly onSetCanonical?: InfoPanelProps['onSetCanonical'];
 };
 
 const PanelContent: React.FC<PanelContentProps> = ({
@@ -157,39 +134,19 @@ const PanelContent: React.FC<PanelContentProps> = ({
   onRecordPhotoMetadataAssertion,
   onGetPresentationExpansion,
   onSetPresentationCover,
-  onGetGroupOrbit,
-  onSetCanonical,
 }) => (
   <div className="flex-1 overflow-y-auto pt-3.5 px-3.5 pb-5 flex flex-col min-h-0">
     {activeTab === 'profile' && (
       <ProfileTab
         asset={asset}
-        onRecordPhotoMetadataAssertion={
-          onRecordPhotoMetadataAssertion
-            ? (fieldPath, value, note) => onRecordPhotoMetadataAssertion(asset.id, fieldPath, value, note)
-            : undefined
-        }
+        onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion ? (fieldPath, value, note) => onRecordPhotoMetadataAssertion(asset.id, fieldPath, value, note) : undefined}
       />
     )}
     {activeTab === 'tags' && <TagsTab asset={asset} availableTags={availableTags} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} onSetReviewItemStatus={onSetReviewItemStatus} />}
     {activeTab === 'people' && <PeopleTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} />}
     {activeTab === 'objects' && <ObjectsTab asset={asset} hoveredFaceKey={hoveredFaceKey} onHoverFaceKey={onHoverFaceKey} selectedOverlayKey={selectedOverlayKey} onSelectOverlayKey={onSelectOverlayKey} />}
-    {activeTab === 'lineage' && (
-      <div className="flex flex-col gap-4">
-        <ArchiveRelationshipsSection lineage={getArchiveLineage(asset)} />
-        <LineageTab asset={asset} />
-      </div>
-    )}
-    {activeTab === 'group' && (
-      <GroupTab
-        asset={asset}
-        presentation={presentation}
-        onGetPresentationExpansion={onGetPresentationExpansion}
-        onSetPresentationCover={onSetPresentationCover}
-        onGetGroupOrbit={onGetGroupOrbit}
-        onSetCanonical={onSetCanonical}
-      />
-    )}
+    {activeTab === 'lineage' && <div className="flex flex-col gap-4"><ArchiveRelationshipsSection lineage={getArchiveLineage(asset)} /><LineageTab asset={asset} /></div>}
+    {activeTab === 'group' && <GroupTab asset={asset} presentation={presentation} onGetPresentationExpansion={onGetPresentationExpansion} onSetPresentationCover={onSetPresentationCover} />}
     {activeTab === 'json' && <JsonTab asset={asset} />}
     {activeTab === 'ailogs' && <AiLogsTab assetId={asset.id} onGetAiCallsLog={onGetAiCallsLog} onGetAiCallLogDetail={onGetAiCallLogDetail} analysisState={analysisState} />}
   </div>
@@ -216,22 +173,17 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   onRecordPhotoMetadataAssertion,
   onGetPresentationExpansion,
   onSetPresentationCover,
-  onGetGroupOrbit,
-  onSetCanonical,
 }) => {
   const [internalTab, setInternalTab] = useState<TabId>('profile');
   const rawActiveTab = controlledTab ?? internalTab;
-  const activeTab = TABS.some((t) => t.id === rawActiveTab) ? rawActiveTab : 'profile';
+  const activeTab = TABS.some((tab) => tab.id === rawActiveTab) ? rawActiveTab : 'profile';
   const setActiveTab = useCallback((tab: TabId) => {
     setInternalTab(tab);
     onTabChange?.(tab);
   }, [onTabChange]);
 
   return (
-    <Panel
-      style={{ width, minWidth: width, maxWidth: width }}
-      className="shrink-0"
-    >
+    <Panel style={{ width, minWidth: width, maxWidth: width }} className="shrink-0">
       <PanelHeader asset={asset} onClose={onClose} />
       <PanelTabs activeTab={activeTab} setActiveTab={setActiveTab} />
       <PanelContent
@@ -252,8 +204,6 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
         onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
         onGetPresentationExpansion={onGetPresentationExpansion}
         onSetPresentationCover={onSetPresentationCover}
-        onGetGroupOrbit={onGetGroupOrbit}
-        onSetCanonical={onSetCanonical}
       />
     </Panel>
   );
