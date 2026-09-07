@@ -51,7 +51,7 @@ function semanticHistoryCounts(db) {
     };
 }
 
-test('presentation-key group actions use durable UI preferences without semantic evidence', async () => {
+test('semantic presentation actions use durable UI preferences without semantic evidence', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const dbManager = new DatabaseManager(tempDir);
@@ -71,20 +71,37 @@ test('presentation-key group actions use durable UI preferences without semantic
         assert.equal(stack.stackCount, 2);
         assert.match(stack.presentationKey, /^exact:/);
 
-        const orbitResult = await runCommand(dbManager, tempDir, 'get_group_orbit', {
+        const expansionResult = await runCommand(dbManager, tempDir, 'get_library_presentation_expansion', {
+            presentationKey: stack.presentationKey,
+        });
+        assert.equal(expansionResult.expansion.presentationKey, stack.presentationKey);
+        assert.equal(expansionResult.expansion.relationshipKind, 'exact_copy');
+        assert.equal(expansionResult.expansion.representativeAssetId, 'copy-best');
+        assert.deepEqual(
+            expansionResult.expansion.items.map((entry) => ({
+                id: entry.asset.id,
+                ordinal: entry.ordinal,
+                isRepresentative: entry.isRepresentative,
+            })),
+            [
+                { id: 'copy-best', ordinal: 0, isRepresentative: true },
+                { id: 'copy-small', ordinal: 1, isRepresentative: false },
+            ],
+        );
+
+        const legacyOrbitResult = await runCommand(dbManager, tempDir, 'get_group_orbit', {
             groupId: stack.presentationKey,
         });
-        assert.equal(orbitResult.orbit.group_id, stack.presentationKey);
-        assert.equal(orbitResult.orbit.group_type, 'exact_copy');
+        assert.equal(legacyOrbitResult.orbit.group_id, stack.presentationKey);
         assert.deepEqual(
-            new Set(orbitResult.orbit.items.map((entry) => entry.asset.id)),
-            new Set(['copy-best', 'copy-small']),
+            legacyOrbitResult.orbit.items.map((entry) => entry.asset.id),
+            ['copy-best', 'copy-small'],
         );
 
         const db = dbManager.getDb();
         const semanticBefore = semanticHistoryCounts(db);
-        await runCommand(dbManager, tempDir, 'set_canonical', {
-            groupId: stack.presentationKey,
+        await runCommand(dbManager, tempDir, 'set_library_presentation_cover', {
+            presentationKey: stack.presentationKey,
             assetId: 'copy-small',
         });
         const covered = await runCommand(dbManager, tempDir, 'get_assets', {
@@ -96,8 +113,9 @@ test('presentation-key group actions use durable UI preferences without semantic
         assert.equal(covered.presentationItems[0].representativeAssetId, 'copy-small');
         assert.deepEqual(semanticHistoryCounts(db), semanticBefore);
 
-        await runCommand(dbManager, tempDir, 'explode_group', {
-            groupId: stack.presentationKey,
+        await runCommand(dbManager, tempDir, 'set_library_presentation_show_separately', {
+            presentationKey: stack.presentationKey,
+            showSeparately: true,
         });
         const separate = await runCommand(dbManager, tempDir, 'get_assets', {
             limit: 20,
