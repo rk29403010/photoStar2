@@ -134,26 +134,27 @@ function useRelationshipMembers(params: {
   actions: RelationshipLoadActions;
   setSelectedVariantId: (assetId: string) => void;
 }) {
-  const { presentation, actions, setSelectedVariantId } = params;
+  const { presentation, setSelectedVariantId } = params;
+  const { onGetPresentationExpansion } = params.actions;
   const [items, setItems] = useState<RelationshipMember[]>([]);
   const [loading, setLoading] = useState(false);
   const presentationKey = presentation && presentation.stackCount > 1 ? presentation.presentationKey : null;
 
   useEffect(() => {
     setItems([]);
-    if (!presentationKey || !actions.onGetPresentationExpansion) {
+    if (!presentationKey || !onGetPresentationExpansion) {
       setLoading(false);
       return;
     }
     setLoading(true);
-    void actions.onGetPresentationExpansion(presentationKey)
+    void onGetPresentationExpansion(presentationKey)
       .then((expansion) => {
         setItems(presentationMembers(expansion));
         setSelectedVariantId(expansion.representativeAssetId);
       })
       .catch((error: unknown) => console.error('Failed to load presentation:', error))
       .finally(() => setLoading(false));
-  }, [actions.onGetPresentationExpansion, presentationKey, setSelectedVariantId]);
+  }, [onGetPresentationExpansion, presentationKey, setSelectedVariantId]);
 
   return { items, setItems, loading, presentationKey };
 }
