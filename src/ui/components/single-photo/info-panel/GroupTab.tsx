@@ -189,6 +189,7 @@ function useRelationshipMembers(params: {
   setSelectedVariantId: (assetId: string) => void;
 }) {
   const { asset, presentation, actions, setSelectedVariantId } = params;
+  const { onGetGroupOrbit, onGetPresentationExpansion } = actions;
   const [items, setItems] = useState<RelationshipMember[]>([]);
   const [loading, setLoading] = useState(false);
   const presentationKey = presentation && presentation.stackCount > 1 ? presentation.presentationKey : null;
@@ -196,9 +197,9 @@ function useRelationshipMembers(params: {
 
   useEffect(() => {
     setItems([]);
-    if (presentationKey && actions.onGetPresentationExpansion) {
+    if (presentationKey && onGetPresentationExpansion) {
       setLoading(true);
-      void actions.onGetPresentationExpansion(presentationKey)
+      void onGetPresentationExpansion(presentationKey)
         .then((expansion) => {
           setItems(presentationMembers(expansion));
           setSelectedVariantId(expansion.representativeAssetId);
@@ -208,9 +209,9 @@ function useRelationshipMembers(params: {
       return;
     }
     const compatibilityId = presentationKey ?? legacyGroupId;
-    if (compatibilityId && actions.onGetGroupOrbit) {
+    if (compatibilityId && onGetGroupOrbit) {
       setLoading(true);
-      void actions.onGetGroupOrbit(compatibilityId)
+      void onGetGroupOrbit(compatibilityId)
         .then((orbit) => {
           const nextItems = legacyMembers(orbit, presentation?.representativeAssetId ?? asset.id);
           setItems(nextItems);
@@ -221,7 +222,7 @@ function useRelationshipMembers(params: {
       return;
     }
     setLoading(false);
-  }, [actions.onGetGroupOrbit, actions.onGetPresentationExpansion, asset.id, legacyGroupId, presentation?.representativeAssetId, presentationKey, setSelectedVariantId]);
+  }, [asset.id, legacyGroupId, onGetGroupOrbit, onGetPresentationExpansion, presentation?.representativeAssetId, presentationKey, setSelectedVariantId]);
 
   return { items, setItems, loading, presentationKey, legacyGroupId };
 }
