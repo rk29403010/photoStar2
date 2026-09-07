@@ -157,8 +157,6 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => {
                     onExtractAiMetadata={props.onExtractAiMetadata}
                     onRerunFaceDetection={props.onRerunFaceDetection}
                     onOpenSettings={props.onOpenSettings}
-                    onOrbitLoaded={props.onExpansionLoaded}
-                    onSelectAsset={props.onSelectAsset}
                     onSetCanonical={setPresentationCover}
                     onExplodeGroup={showPresentationSeparately}
                     onChangeIndex={props.onChangeIndex}
