@@ -1,3 +1,4 @@
+import type { FaceBox } from '../../boundary/contracts/core';
 import type {
     LibraryPresentationExpansion,
     LibraryPresentationItem,
@@ -45,6 +46,20 @@ function orderedMemberIds(item: LibraryPresentationItem): string[] {
     ];
 }
 
+function isFaceBox(face: Record<string, unknown>): face is Record<string, unknown> & FaceBox {
+    const box = face.box;
+    return box !== null
+        && typeof box === 'object'
+        && 'x' in box
+        && typeof box.x === 'number'
+        && 'y' in box
+        && typeof box.y === 'number'
+        && 'width' in box
+        && typeof box.width === 'number'
+        && 'height' in box
+        && typeof box.height === 'number';
+}
+
 function buildPresentationExpansion(
     ctx: CommandContext,
     item: LibraryPresentationItem,
@@ -62,7 +77,10 @@ function buildPresentationExpansion(
         stackCount: item.stackCount,
         momentCount: item.momentCount,
         items: assets.map((asset, ordinal) => ({
-            asset,
+            asset: {
+                ...asset,
+                faces: asset.faces.filter(isFaceBox),
+            },
             ordinal,
             isRepresentative: asset.id === item.representativeAssetId,
         })),
@@ -77,53 +95,6 @@ function respondWithError(ctx: CommandContext, error: unknown): void {
         error instanceof Error ? error.message : String(error),
         ctx.originWs,
     );
-}
-
-function toLegacyOrbit(expansion: LibraryPresentationExpansion) {
-    return {
-        group_id: expansion.presentationKey,
-        group_type: expansion.relationshipKind,
-        parent_group_id: null,
-        items: expansion.items.map((item) => ({
-            kind: 'asset',
-            group_id: expansion.presentationKey,
-            group_type: expansion.relationshipKind,
-            stack_count: expansion.stackCount,
-            asset: item.asset,
-        })),
-    };
-}
-
-async function handleLegacyGroupOrbit(ctx: CommandContext): Promise<void> {
-    try {
-        const { groupId } = ctx.payload as { groupId: string };
-        const item = requirePresentationItem(ctx, groupId);
-        ctx.respond(ctx.id, 'ok', { orbit: toLegacyOrbit(buildPresentationExpansion(ctx, item)) }, null, ctx.originWs);
-    } catch (error) {
-        respondWithError(ctx, error);
-    }
-}
-
-async function handleLegacyExplode(ctx: CommandContext): Promise<void> {
-    try {
-        const { groupId } = ctx.payload as { groupId: string };
-        const item = requirePresentationItem(ctx, groupId);
-        setLibraryPresentationShowSeparately(ctx.dbManager.getDb(), item, true);
-        ctx.respond(ctx.id, 'ok', { message: 'Presentation will be shown separately' }, null, ctx.originWs);
-    } catch (error) {
-        respondWithError(ctx, error);
-    }
-}
-
-async function handleLegacySetCanonical(ctx: CommandContext): Promise<void> {
-    try {
-        const { groupId, assetId } = ctx.payload as { groupId: string; assetId: string };
-        const item = requirePresentationItem(ctx, groupId);
-        setLibraryPresentationCover(ctx.dbManager.getDb(), item, assetId);
-        ctx.respond(ctx.id, 'ok', { message: 'Presentation cover updated' }, null, ctx.originWs);
-    } catch (error) {
-        respondWithError(ctx, error);
-    }
 }
 
 export const relationshipCollectionCommandHandlers: CommandHandlerMap = {
@@ -162,8 +133,4 @@ export const relationshipCollectionCommandHandlers: CommandHandlerMap = {
             respondWithError(ctx, error);
         }
     },
-
-    get_group_orbit: handleLegacyGroupOrbit,
-    explode_group: handleLegacyExplode,
-    set_canonical: handleLegacySetCanonical,
 };
