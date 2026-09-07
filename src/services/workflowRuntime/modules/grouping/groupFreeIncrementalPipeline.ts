@@ -209,7 +209,7 @@ function buildEffectiveVariantStage(params: {
  * Incremental group-free detector model. Stored visual observations reconstruct
  * unaffected lower-level units while changed neighbourhoods are recalculated
  * from current hashes. The refresh plan contains only the neighbourhoods that
- * should replace durable detector observations. No asset_groups rows are read.
+ * should replace durable detector observations. Legacy grouping tables are not read.
  */
 export function buildIncrementalGroupFreeGroupingPipeline(
     db: DbHandle,
