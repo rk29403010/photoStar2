@@ -8,7 +8,6 @@ import type {
   RenderPhotoEditInput,
   ReviewItemSummary,
   SavePhotoEditInput,
-  SimilarityOrbit,
 } from '@contracts/core';
 import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { BackgroundJob } from '@contracts/jobs';
@@ -81,9 +80,6 @@ type AppOverlaysProps = {
   readonly onGetPresentationExpansion: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
   readonly onSetPresentationCover: (presentationKey: string, assetId: string) => Promise<void>;
   readonly onSetPresentationShowSeparately: (presentationKey: string, showSeparately?: boolean) => Promise<void>;
-  readonly onGetGroupOrbit: (groupId: string) => Promise<SimilarityOrbit>;
-  readonly onSetCanonical: (groupId: string, assetId: string) => Promise<void>;
-  readonly onExplodeGroup: (groupId: string) => Promise<void>;
   readonly onAssignAssetTag: (assetId: string, tagLabel: string) => Promise<void>;
   readonly onRemoveAssetTag: (assetId: string, tagDefinitionId: string) => Promise<void>;
   readonly onSetReviewItemStatus: (payload: {
@@ -203,9 +199,6 @@ function renderSinglePhotoView(
       onGetPresentationExpansion={props.onGetPresentationExpansion}
       onSetPresentationCover={props.onSetPresentationCover}
       onSetPresentationShowSeparately={props.onSetPresentationShowSeparately}
-      onGetGroupOrbit={props.onGetGroupOrbit}
-      onSetCanonical={props.onSetCanonical}
-      onExplodeGroup={props.onExplodeGroup}
       onAssignAssetTag={props.onAssignAssetTag}
       onRemoveAssetTag={props.onRemoveAssetTag}
       onSetReviewItemStatus={props.onSetReviewItemStatus}
