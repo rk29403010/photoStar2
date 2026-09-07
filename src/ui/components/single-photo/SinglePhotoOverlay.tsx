@@ -6,6 +6,7 @@ import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandl
 import { InfoPanel } from './InfoPanel';
 import { PhotoViewport } from './PhotoViewport';
 import { PresentationFilmstrip } from './PresentationFilmstrip';
+import { SinglePhotoRelationshipProvider } from './SinglePhotoRelationshipContext';
 import type { AnalysisState, PanelState } from './PhotoViewport';
 import { DEFAULT_INFO_PANEL_WIDTH } from './singlePhotoOverlayLayout';
 
@@ -134,39 +135,41 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => {
             style={{ bottom: APP_STATUS_BAR_HEIGHT, zIndex: 1000 }}
             className="fixed top-0 left-0 w-screen bg-slate-950 flex flex-row overflow-hidden opacity-0 motion-safe:animate-fade-in-overlay"
         >
-            <PhotoViewport
-                asset={props.asset}
-                assetsLength={props.assets.length}
-                currentIndex={props.currentIndex}
-                showControls={props.showControls}
-                setShowControls={props.setShowControls}
-                showActionMenu={props.showActionMenu}
-                setShowActionMenu={props.setShowActionMenu}
-                hoveredFaceKey={props.hoveredFaceKey}
-                setHoveredFaceKey={props.setHoveredFaceKey}
-                selectedOverlayKey={props.selectedOverlayKey}
-                setSelectedOverlayKey={props.setSelectedOverlayKey}
-                panelState={props.panelState}
-                onClose={props.onClose}
-                onFaceClick={props.onFaceClick}
-                onIsolateFace={props.onIsolateFace}
-                onSetSensitivity={props.onSetSensitivity}
-                onMoveToBin={props.onMoveToBin}
-                onRestoreFromBin={props.onRestoreFromBin}
-                onExtractAiMetadata={props.onExtractAiMetadata}
-                onRerunFaceDetection={props.onRerunFaceDetection}
-                onOpenSettings={props.onOpenSettings}
-                onGetGroupOrbit={legacyOrbitLoader}
-                onOrbitLoaded={props.onOrbitLoaded}
-                onSelectAsset={props.onSelectAsset}
-                onSetCanonical={props.onSetCanonical}
-                onExplodeGroup={props.onExplodeGroup}
-                onChangeIndex={props.onChangeIndex}
-                onRevealControls={props.onRevealControls}
-                analysis={props.analysis}
-                onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
-                onEditPhoto={props.onEditPhoto}
-            />
+            <SinglePhotoRelationshipProvider presentation={semanticPresentation}>
+                <PhotoViewport
+                    asset={props.asset}
+                    assetsLength={props.assets.length}
+                    currentIndex={props.currentIndex}
+                    showControls={props.showControls}
+                    setShowControls={props.setShowControls}
+                    showActionMenu={props.showActionMenu}
+                    setShowActionMenu={props.setShowActionMenu}
+                    hoveredFaceKey={props.hoveredFaceKey}
+                    setHoveredFaceKey={props.setHoveredFaceKey}
+                    selectedOverlayKey={props.selectedOverlayKey}
+                    setSelectedOverlayKey={props.setSelectedOverlayKey}
+                    panelState={props.panelState}
+                    onClose={props.onClose}
+                    onFaceClick={props.onFaceClick}
+                    onIsolateFace={props.onIsolateFace}
+                    onSetSensitivity={props.onSetSensitivity}
+                    onMoveToBin={props.onMoveToBin}
+                    onRestoreFromBin={props.onRestoreFromBin}
+                    onExtractAiMetadata={props.onExtractAiMetadata}
+                    onRerunFaceDetection={props.onRerunFaceDetection}
+                    onOpenSettings={props.onOpenSettings}
+                    onGetGroupOrbit={legacyOrbitLoader}
+                    onOrbitLoaded={props.onOrbitLoaded}
+                    onSelectAsset={props.onSelectAsset}
+                    onSetCanonical={props.onSetCanonical}
+                    onExplodeGroup={props.onExplodeGroup}
+                    onChangeIndex={props.onChangeIndex}
+                    onRevealControls={props.onRevealControls}
+                    analysis={props.analysis}
+                    onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
+                    onEditPhoto={props.onEditPhoto}
+                />
+            </SinglePhotoRelationshipProvider>
             {semanticPresentation && props.onGetPresentationExpansion ? (
                 <PresentationFilmstrip
                     presentationKey={semanticPresentation.presentationKey}
