@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { Asset, SimilarityOrbit, SimilarityOrbitItem } from '@contracts/core';
+import type { Asset, SimilarityOrbit } from '@contracts/core';
 import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import { Section } from './shared';
 
