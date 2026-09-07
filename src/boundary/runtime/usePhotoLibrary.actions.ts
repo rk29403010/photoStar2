@@ -1,3 +1,4 @@
+/* oxlint-disable typescript/no-unsafe-type-assertion -- command response selectors mirror typed backend contracts. */
 import type { Dispatch, SetStateAction } from 'react';
 import type {
     Asset,
