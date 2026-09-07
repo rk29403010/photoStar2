@@ -1,11 +1,12 @@
 import { useCallback, type ComponentProps, type CSSProperties, type ReactNode, type RefObject, type UIEvent } from 'react';
-import type { Asset, GalleryTimelineSeek, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, ReviewItemSummary } from '@contracts/core';
+import type { LibraryPresentationExpansion } from '@contracts/libraryPresentation';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { GalleryInfoPanel } from './GalleryInfoPanel';
 import { LibraryGalleryPane } from './LibraryGalleryPane';
 import { LibraryToolbar } from './LibraryToolbar';
-import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { createEmptyLibrarySelectionState, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
 function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
     if (seek?.kind === 'unknown') {
@@ -50,8 +51,8 @@ export type LibraryPanelProps = {
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+    readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
     readonly browseRowHeight: number;
     readonly isScrollSettled: boolean;
 }
@@ -73,12 +74,7 @@ function useContainerPointerDownHandler(
         if (event.clientX > rect.left + event.currentTarget.clientWidth) {
             return;
         }
-        onLibrarySelectionChange?.({
-            photoIds: new Set(),
-            groupIds: new Set(),
-            anchorKey: null,
-            mostRecentSelectionKey: null,
-        });
+        onLibrarySelectionChange?.(createEmptyLibrarySelectionState());
     }, [onLibrarySelectionChange]);
 }
 
@@ -101,8 +97,8 @@ export function LibraryPanel({
     onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
     onRecordPhotoMetadataAssertion,
-    onGetGroupOrbit,
-    onSetCanonical,
+    onGetPresentationExpansion,
+    onSetPresentationCover,
     browseRowHeight,
     isScrollSettled,
 }: LibraryPanelProps) {
@@ -140,8 +136,8 @@ export function LibraryPanel({
                     onSetReviewItemStatus={onSetReviewItemStatus}
                     onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
                     onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
-                    onGetGroupOrbit={onGetGroupOrbit}
-                    onSetCanonical={onSetCanonical}
+                    onGetPresentationExpansion={onGetPresentationExpansion}
+                    onSetPresentationCover={onSetPresentationCover}
                 />
             )}
         </div>
