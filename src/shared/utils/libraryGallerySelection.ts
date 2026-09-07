@@ -47,45 +47,13 @@ function sortPresentationItemsWithDeclusteredTrailing(
     return [...primaryItems, ...trailingItems];
 }
 
-function shouldShowAssetInGroupedMode(asset: Asset) {
-    return !asset.group_id || asset.group_role === 'canonical';
-}
-
-function dedupeGroupedVisibleAssets(assets: Asset[]): Asset[] {
-    const seenGroupIds = new Set<string>();
-
-    return assets.filter((asset) => {
-        if (!asset.group_id) {
-            return true;
-        }
-
-        if (seenGroupIds.has(asset.group_id)) {
-            return false;
-        }
-
-        seenGroupIds.add(asset.group_id);
-        return true;
-    });
-}
-
-function toLegacyLibrarySelectableItem(asset: Asset, groupSimilarPhotos: boolean): LibrarySelectableItem {
-    if (groupSimilarPhotos && asset.group_id && asset.group_role === 'canonical') {
-        return {
-            asset,
-            entityType: 'group',
-            selectionKey: `group:${asset.group_id}`,
-            photoId: asset.id,
-            groupId: asset.group_id,
-            presentation: null,
-        };
-    }
-
+function toPhotoSelectableItem(asset: Asset): LibrarySelectableItem {
     return {
         asset,
         entityType: 'photo',
         selectionKey: `photo:${asset.id}`,
         photoId: asset.id,
-        groupId: asset.group_id ?? null,
+        groupId: null,
         presentation: null,
     };
 }
@@ -132,7 +100,7 @@ export function buildVisibleGalleryItems(
     assets: Asset[],
     options: BuildVisibleGalleryItemsOptions,
 ): LibrarySelectableItem[] {
-    if (options.groupSimilarPhotos && options.presentationItems) {
+    if (options.groupSimilarPhotos && options.presentationItems && options.presentationItems.length > 0) {
         return buildPresentationSelectableItems(
             assets,
             options.presentationItems,
@@ -140,10 +108,9 @@ export function buildVisibleGalleryItems(
         );
     }
 
-    const sortedAssets = sortAssetsWithDeclusteredTrailing(assets, options.declusteredAssetIds, options.sortMode);
-    const visibleAssets = options.groupSimilarPhotos
-        ? dedupeGroupedVisibleAssets(sortedAssets.filter(shouldShowAssetInGroupedMode))
-        : sortedAssets;
-
-    return visibleAssets.map((asset) => toLegacyLibrarySelectableItem(asset, options.groupSimilarPhotos));
+    return sortAssetsWithDeclusteredTrailing(
+        assets,
+        options.declusteredAssetIds,
+        options.sortMode,
+    ).map(toPhotoSelectableItem);
 }
