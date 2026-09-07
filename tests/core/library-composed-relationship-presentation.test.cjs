@@ -133,3 +133,61 @@ test('CaptureSequence presentation treats a nested near-duplicate family as one 
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+test('collapsed tag filtering keeps a stack when only a non-representative member matches', async () => {
+    const tempDir = createTempDir();
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const dbManager = new DatabaseManager(tempDir);
+
+    try {
+        seedAsset(dbManager, {
+            id: 'copy-small',
+            originalPath: 'C:/photos/copy-small.jpg',
+            fileHash: 'same-content',
+            fileSize: 1000,
+            width: 1200,
+            height: 800,
+        });
+        seedAsset(dbManager, {
+            id: 'copy-best',
+            originalPath: 'C:/photos/copy-best.jpg',
+            fileHash: 'same-content',
+            fileSize: 2000,
+            width: 1200,
+            height: 800,
+        });
+        seedAsset(dbManager, {
+            id: 'unrelated',
+            originalPath: 'C:/photos/unrelated.jpg',
+            fileHash: 'other-content',
+            fileSize: 3000,
+            width: 1200,
+            height: 800,
+        });
+
+        const db = dbManager.getDb();
+        db.prepare(`
+            INSERT INTO tag_definitions (id, canonical_label, status)
+            VALUES ('tag-member-only', 'member-only', 'active')
+        `).run();
+        db.prepare(`
+            INSERT INTO asset_tag_assignments (asset_id, tag_definition_id, source_kind)
+            VALUES ('copy-small', 'tag-member-only', 'manual_user')
+        `).run();
+
+        const filtered = await loadCollapsedGallery(dbManager, tempDir, {
+            filter: { type: 'tag', value: 'member-only' },
+        });
+
+        assert.deepEqual(filtered.assets.map((asset) => asset.id), ['copy-best']);
+        assert.equal(filtered.presentationItems.length, 1);
+        assert.equal(filtered.presentationItems[0].relationshipKind, 'exact_copy');
+        assert.equal(filtered.presentationItems[0].representativeAssetId, 'copy-best');
+        assert.deepEqual(filtered.presentationItems[0].assetIds, ['copy-best', 'copy-small']);
+        assert.equal(filtered.presentationItems[0].stackCount, 2);
+        assert.equal(filtered.total, 1);
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
