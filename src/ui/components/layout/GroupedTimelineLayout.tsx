@@ -49,7 +49,7 @@ function useContainerWidth() {
 
     useEffect(() => {
         const element = containerRef.current;
-        if (!element) {return;}
+        if (!element) {return undefined;}
 
         const updateWidth = () => {
             setContainerWidth(element.getBoundingClientRect().width);
@@ -330,7 +330,7 @@ function useTimelineJumpHandler(
                 behavior: 'auto',
             });
             const headerItem = virtualItems[targetIndex];
-            if (headerItem && headerItem.type === 'header') {
+            if (headerItem?.type === 'header') {
                 onVisibleGroupChangeRef.current?.(headerItem.group.id, headerItem.groupIndex);
                 onTopVisibleSelectionKeyChangeRef.current?.(headerItem.group.firstSelectionKey ?? null);
             }
