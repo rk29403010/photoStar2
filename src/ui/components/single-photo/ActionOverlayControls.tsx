@@ -4,7 +4,13 @@ import type { AiMetadataRequestOptions, AiMetadataImageStrategy, AiMetadataPass 
 import { TopBar, ZoomBar } from './ActionOverlayChrome';
 import { NavButtons } from './ActionOverlayNavButtons';
 import { getAnalysisStatusBadgeStyle, isAnalysisStatusVisible } from './singlePhotoAnalysisStatus';
-import { canExplodeGroup, canSelectAsStar, getExplodeGroupLabel, getLibraryBinActionLabel, getSelectAsStarLabel } from './singlePhotoActionMenuModel';
+import {
+    getLibraryBinActionLabel,
+    getRelationshipSeparateLabel,
+    getRelationshipStarLabel,
+    resolveRelationshipMenuState,
+    type RelationshipMenuState,
+} from './singlePhotoActionMenuModel';
 import { canStartObjectAnalysis, type AnalysisWorkflowUiState } from './singlePhotoAnalysisTracking';
 import { useSinglePhotoRelationship } from './SinglePhotoRelationshipContext';
 
@@ -343,42 +349,63 @@ function BinMenuItem(props: Pick<ActionMenuProps, 'asset' | 'onMoveToBin' | 'onR
     );
 }
 
+type RelationshipMenuItemProps = {
+    readonly state: RelationshipMenuState;
+    readonly assetId: string;
+    readonly setShowActionMenu: (show: boolean) => void;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
+};
+
+function RelationshipStarMenuItem(props: RelationshipMenuItemProps) {
+    const { state, onSetCanonical } = props;
+    if (!state.showMakeStar || !state.relationshipId || !onSetCanonical) {
+        return null;
+    }
+    return (
+        <MenuItem
+            color="#facc15"
+            active={false}
+            icon="⭐"
+            label={getRelationshipStarLabel(state.isPresentation)}
+            onClick={(event) => handleSelectAsStarClick(event, state.relationshipId!, props.assetId, onSetCanonical, props.setShowActionMenu)}
+        />
+    );
+}
+
+function RelationshipSeparateMenuItem(props: RelationshipMenuItemProps) {
+    const { state, onExplodeGroup } = props;
+    if (!state.showSeparate || !state.relationshipId || !onExplodeGroup) {
+        return null;
+    }
+    return (
+        <MenuItem
+            color={state.isPresentation ? '#67e8f9' : '#ef4444'}
+            active={false}
+            icon={state.isPresentation ? '↗' : '💥'}
+            label={getRelationshipSeparateLabel(state.isPresentation)}
+            onClick={(event) => handleExplodeGroupClick(event, state.relationshipId!, onExplodeGroup, props.setShowActionMenu)}
+        />
+    );
+}
+
 function GroupMenuItems(props: Pick<ActionMenuProps, 'asset' | 'onSetCanonical' | 'onExplodeGroup' | 'setShowActionMenu'>) {
     const { asset, onSetCanonical, onExplodeGroup, setShowActionMenu } = props;
     const { presentation } = useSinglePhotoRelationship();
-    const relationshipId = presentation?.presentationKey ?? asset.group_id ?? null;
-    const showSelectAsStar = Boolean(onSetCanonical && relationshipId && (
-        presentation ? presentation.representativeAssetId !== asset.id : canSelectAsStar(asset)
-    ));
-    const showExplodeGroup = Boolean(onExplodeGroup && relationshipId && (
-        presentation ? true : canExplodeGroup(asset)
-    ));
-
-    if (!relationshipId || (!showSelectAsStar && !showExplodeGroup)) {
+    const state = resolveRelationshipMenuState({
+        asset,
+        presentation,
+        canSetRepresentative: Boolean(onSetCanonical),
+        canSeparate: Boolean(onExplodeGroup),
+    });
+    if (!state.showMakeStar && !state.showSeparate) {
         return null;
     }
-
     return (
         <>
             <hr style={{ borderColor: '#1f2937', margin: '4px 0' }} />
-            {showSelectAsStar && onSetCanonical && (
-                <MenuItem
-                    color="#facc15"
-                    active={false}
-                    icon="⭐"
-                    label={presentation ? 'Make Star' : getSelectAsStarLabel()}
-                    onClick={(event) => handleSelectAsStarClick(event, relationshipId, asset.id, onSetCanonical, setShowActionMenu)}
-                />
-            )}
-            {showExplodeGroup && onExplodeGroup && (
-                <MenuItem
-                    color={presentation ? '#67e8f9' : '#ef4444'}
-                    active={false}
-                    icon={presentation ? '↗' : '💥'}
-                    label={presentation ? 'Show Separately' : getExplodeGroupLabel()}
-                    onClick={(event) => handleExplodeGroupClick(event, relationshipId, onExplodeGroup, setShowActionMenu)}
-                />
-            )}
+            <RelationshipStarMenuItem state={state} assetId={asset.id} onSetCanonical={onSetCanonical} setShowActionMenu={setShowActionMenu} />
+            <RelationshipSeparateMenuItem state={state} assetId={asset.id} onExplodeGroup={onExplodeGroup} setShowActionMenu={setShowActionMenu} />
         </>
     );
 }
