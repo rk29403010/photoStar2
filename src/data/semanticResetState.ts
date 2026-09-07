@@ -92,6 +92,14 @@ type CaptureSequenceMemberRow = {
     updated_at: string;
 };
 
+type LibraryPresentationPreferenceRow = {
+    cluster_fingerprint: string;
+    preferred_asset_identity_guid: string | null;
+    show_separately: number;
+    created_at: string;
+    updated_at: string;
+};
+
 export type DurableSemanticResetState = {
     entities: SemanticEntityRow[];
     propositions: SemanticPropositionRow[];
@@ -101,6 +109,7 @@ export type DurableSemanticResetState = {
     representations: ArchiveRepresentationRow[];
     captureSequences: CaptureSequenceRow[];
     captureSequenceMembers: CaptureSequenceMemberRow[];
+    presentationPreferences: LibraryPresentationPreferenceRow[];
 };
 
 const DURABLE_ATTESTATION_CTE = `
@@ -194,6 +203,14 @@ function snapshotDurableCaptureSequences(db: Database.Database): {
     return { captureSequences, captureSequenceMembers };
 }
 
+function snapshotPresentationPreferences(db: Database.Database): LibraryPresentationPreferenceRow[] {
+    return db.prepare(`
+        SELECT cluster_fingerprint, preferred_asset_identity_guid, show_separately, created_at, updated_at
+        FROM library_presentation_preferences
+        ORDER BY created_at ASC, cluster_fingerprint ASC
+    `).all() as LibraryPresentationPreferenceRow[];
+}
+
 export function snapshotDurableSemanticResetState(db: Database.Database): DurableSemanticResetState {
     const entities = db.prepare(`
         SELECT id, kind, native_id, label, created_at
@@ -238,6 +255,7 @@ export function snapshotDurableSemanticResetState(db: Database.Database): Durabl
         decisions,
         representations,
         ...captureSequenceState,
+        presentationPreferences: snapshotPresentationPreferences(db),
     };
 }
 
@@ -434,6 +452,31 @@ function restoreCaptureSequences(
     }
 }
 
+function restorePresentationPreferences(
+    db: Database.Database,
+    rows: readonly LibraryPresentationPreferenceRow[],
+): void {
+    const insert = db.prepare(`
+        INSERT INTO library_presentation_preferences (
+            cluster_fingerprint,
+            preferred_asset_identity_guid,
+            show_separately,
+            created_at,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+    `);
+    for (const row of rows) {
+        insert.run(
+            row.cluster_fingerprint,
+            row.preferred_asset_identity_guid,
+            row.show_separately,
+            row.created_at,
+            row.updated_at,
+        );
+    }
+}
+
 export function restoreDurableSemanticResetState(
     db: Database.Database,
     state: DurableSemanticResetState,
@@ -445,4 +488,5 @@ export function restoreDurableSemanticResetState(
     restoreDecisions(db, state.decisions);
     restoreRepresentations(db, state.representations);
     restoreCaptureSequences(db, state.captureSequences, state.captureSequenceMembers);
+    restorePresentationPreferences(db, state.presentationPreferences);
 }
