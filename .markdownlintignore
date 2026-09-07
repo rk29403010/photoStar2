@@ -17,6 +17,8 @@ deployments/desktop/tauri/gen/**
 deployments/desktop/tauri/target/**
 dist-ssr/**
 dist/**
+docs/architecture/semantic-relationships-architecture.md
+docs/architecture/semantic-relationships-implementation-plan.md
 node_modules/**
 output/**
 scratch/**
