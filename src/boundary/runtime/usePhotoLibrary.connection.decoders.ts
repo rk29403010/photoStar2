@@ -15,13 +15,13 @@ import { isTimelineGroupId } from '@shared/utils/libraryTimelineGroupId';
 const AssetSchema = z.object({
     id: z.string(),
     original_path: z.string(),
-}).passthrough();
+}).loose();
 
 const PersonSchema = z.object({
     id: z.string(),
     name: z.string(),
     face_count: z.number(),
-}).passthrough();
+}).loose();
 
 const StageSchema = z.object({
     stageId: z.string(),
@@ -31,14 +31,14 @@ const StageSchema = z.object({
     done: z.number().optional(),
     lastHeartbeatAt: z.string().optional(),
     weight: z.number().optional(),
-}).passthrough();
+}).loose();
 
 const JobIssueSchema = z.object({
     id: z.string(),
     severity: z.enum(['info', 'warning', 'error', 'fatal']),
     message: z.string(),
     createdAt: z.string(),
-}).passthrough();
+}).loose();
 
 const BackgroundJobSchema = z.object({
     id: z.string(),
@@ -47,9 +47,9 @@ const BackgroundJobSchema = z.object({
     state: z.enum(['queued', 'starting', 'running', 'paused', 'retrying', 'completed', 'failed', 'cancelled', 'idle']),
     createdAt: z.string(),
     trigger: z.enum(['user', 'system']),
-    progress: z.object({ stages: z.array(StageSchema) }).passthrough(),
+    progress: z.object({ stages: z.array(StageSchema) }).loose(),
     issues: z.array(JobIssueSchema),
-}).passthrough();
+}).loose();
 
 const WorkflowStatusSchema = z.object({
     generatedAt: z.string(),
