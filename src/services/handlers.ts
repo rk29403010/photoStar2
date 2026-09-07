@@ -4,6 +4,7 @@ import { assetCommandHandlers } from './handlers/assetCommands';
 import { collectionCommandHandlers } from './handlers/collectionCommands';
 import { groupDiagnosticsCommandHandlers } from './handlers/groupDiagnosticsCommands';
 import { peopleCommandHandlers } from './handlers/peopleCommands';
+import { relationshipGalleryCommandHandlers } from './handlers/relationshipGalleryCommands';
 import { systemCommandHandlers } from './handlers/systemCommands';
 import { systemEventLogCommandHandlers } from './handlers/systemEventLogCommands';
 import { systemJobsCommandHandlers } from './handlers/systemJobsCommands';
@@ -20,6 +21,7 @@ const COMMAND_ROUTES = [
     collectionCommandHandlers,
     groupDiagnosticsCommandHandlers,
     photoEditCommandHandlers,
+    relationshipGalleryCommandHandlers,
     assetCommandHandlers,
     tagCommandHandlers,
     systemJobsCommandHandlers,
