@@ -26,13 +26,13 @@ function seedReadyAsset(dbManager, params) {
     });
 }
 
-async function loadLegacyGroupedAssets(dbManager, tempDir) {
+async function loadCollapsedGallery(dbManager, tempDir, payload = {}) {
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     let response;
     await handleSystemCommand({
-        id: 'legacy-composed-presentation',
+        id: 'composed-presentation',
         command: 'get_assets',
-        payload: { limit: 20, offset: 0, withGroupCounts: true, galleryOrder: 'default' },
+        payload: { limit: 20, offset: 0, withGroupCounts: true, galleryOrder: 'default', ...payload },
         dbManager,
         eventBus: {},
         activeJobs: new Map(),
@@ -42,7 +42,13 @@ async function loadLegacyGroupedAssets(dbManager, tempDir) {
         },
     });
     assert.equal(response.status, 'ok');
-    return response.data.assets;
+    return response.data;
+}
+
+function clearLegacyGroups(db) {
+    db.prepare('DELETE FROM asset_group_children').run();
+    db.prepare('DELETE FROM asset_group_members').run();
+    db.prepare('DELETE FROM asset_groups').run();
 }
 
 test('CaptureSequence presentation treats a nested near-duplicate family as one capture moment', async () => {
@@ -85,11 +91,11 @@ test('CaptureSequence presentation treats a nested near-duplicate family as one 
 
         const db = dbManager.getDb();
         const shadow = presentation.getCaptureSequencePresentationPage(db, { limit: 20, offset: 0 });
-        const legacy = await loadLegacyGroupedAssets(dbManager, tempDir);
+        const commandBeforeDelete = await loadCollapsedGallery(dbManager, tempDir);
 
         assert.deepEqual(
             shadow.map((item) => item.representativeAssetId),
-            legacy.map((asset) => asset.id),
+            commandBeforeDelete.assets.map((asset) => asset.id),
         );
         assert.equal(shadow.length, 1);
         assert.equal(shadow[0].relationshipKind, 'capture_sequence');
@@ -106,6 +112,22 @@ test('CaptureSequence presentation treats a nested near-duplicate family as one 
             WHERE parent.type = 'burst'
         `).all();
         assert.deepEqual(hierarchy, [{ parent_type: 'burst', child_type: 'near_duplicate' }]);
+
+        clearLegacyGroups(db);
+        const commandAfterDelete = await loadCollapsedGallery(dbManager, tempDir);
+        assert.deepEqual(commandAfterDelete.assets.map((asset) => asset.id), ['asset-d']);
+        assert.equal(commandAfterDelete.assets[0].group_id, null);
+        assert.deepEqual(commandAfterDelete.presentationItems, [{
+            presentationKey: commandAfterDelete.presentationItems[0].presentationKey,
+            representativeAssetId: 'asset-d',
+            relationshipKind: 'capture_sequence',
+            stackCount: 3,
+            assetIds: ['asset-a', 'asset-b', 'asset-d'],
+            momentCount: 2,
+        }]);
+        assert.match(commandAfterDelete.presentationItems[0].presentationKey, /^sequence:/);
+        assert.equal(commandAfterDelete.total, 1);
+        assert.equal(commandAfterDelete.hasMore, false);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
