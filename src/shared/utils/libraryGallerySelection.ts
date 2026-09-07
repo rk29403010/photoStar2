@@ -62,9 +62,10 @@ function toPresentationSelectableItem(
     item: LibraryPresentationItem,
     asset: Asset,
 ): LibrarySelectableItem {
+    const displayAsset = { ...asset, libraryPresentation: item };
     if (item.stackCount > 1) {
         return {
-            asset,
+            asset: displayAsset,
             entityType: 'group',
             selectionKey: `group:${item.presentationKey}`,
             photoId: item.representativeAssetId,
@@ -74,7 +75,7 @@ function toPresentationSelectableItem(
     }
 
     return {
-        asset,
+        asset: displayAsset,
         entityType: 'photo',
         selectionKey: `photo:${item.representativeAssetId}`,
         photoId: item.representativeAssetId,
