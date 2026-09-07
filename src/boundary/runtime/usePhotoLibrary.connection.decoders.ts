@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Asset, Person, TimelineGalleryPage, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
+import type { Asset, Person, TimelineGalleryPage, TimelineGroupId, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
 import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type {
     BackgroundJob,
@@ -138,13 +138,7 @@ const PresentationItemSchema = z.object({
     momentCount: z.number(),
 });
 
-const TimelineGroupIdSchema = z.custom<ReturnType<typeof timelineGroupIdType>>(
-    (value) => isTimelineGroupId(value),
-);
-
-function timelineGroupIdType() {
-    return 'unknown-date' as const;
-}
+const TimelineGroupIdSchema = z.custom<TimelineGroupId>((value) => isTimelineGroupId(value));
 
 const TimelineGroupSummarySchema = z.object({
     id: TimelineGroupIdSchema,
