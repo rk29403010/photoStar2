@@ -65,13 +65,11 @@ function hasMeaningfulPhotoMetadata(asset: Asset): boolean {
         return false;
     }
 
-    return Boolean(
-        hasMeaningfulProjectionScalars(asset)
+    return hasMeaningfulProjectionScalars(asset)
         || hasMeaningfulProjectionLists(asset)
         || hasMeaningfulAuthenticityScore(asset)
         || hasMeaningfulEstimatedDate(asset)
-        || hasMeaningfulQuality(asset),
-    );
+        || hasMeaningfulQuality(asset);
 }
 
 function mergeSinglePhotoAsset(existingAsset: Asset, nextAsset: Asset): Asset {
