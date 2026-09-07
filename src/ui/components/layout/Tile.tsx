@@ -1,20 +1,19 @@
 import { useCallback, useState } from 'react';
-import type { Asset, TileIntent } from '@contracts/core';
-import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
+import type { TileIntent } from '@contracts/core';
+import type { LibraryDisplayAsset } from '@shared/utils/librarySelectionState';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import { TileOverlays, type SensitivityBadge } from './TileOverlays';
 
 type TileProps = {
-    asset: Asset;
-    presentation?: LibraryPresentationItem | null;
+    asset: LibraryDisplayAsset;
     intent?: TileIntent;
     debug?: boolean;
     selected?: boolean;
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    onHoverAssetChange?: (asset: Asset | null) => void;
+    onHoverAssetChange?: (asset: LibraryDisplayAsset | null) => void;
     imageLoading?: 'eager' | 'lazy';
     imageFetchPriority?: 'high' | 'auto';
     isGroupRepresentative?: boolean;
@@ -39,7 +38,6 @@ const TILE_FADE_IN_KEYFRAMES = `
     }
 `;
 const DEFAULT_TILE_PROPS = {
-    presentation: null,
     intent: 'normal' as TileIntent,
     debug: false,
     selected: false,
@@ -52,7 +50,7 @@ const DEFAULT_TILE_PROPS = {
     hasSelection: false,
 };
 
-function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
+function getSensitivityDisplay(asset: LibraryDisplayAsset): SensitivityBadge | null {
     const manualStatus = asset.sensitivity_status;
     if (manualStatus === 'unsafe') {return { label: '🔞 Unsafe', tone: 'error' };}
     if (manualStatus === 'review') {return { label: '⚠ Review', tone: 'warning' };}
@@ -69,7 +67,7 @@ function getBorderClass(selected: boolean): string {
     return selected ? 'border-2 border-brand-accent' : 'border-2 border-surface-secondary';
 }
 
-function useTileHoverState(asset: Asset, onHoverAssetChange?: (asset: Asset | null) => void) {
+function useTileHoverState(asset: LibraryDisplayAsset, onHoverAssetChange?: (asset: LibraryDisplayAsset | null) => void) {
     const [isHovered, setIsHovered] = useState(false);
     const handleMouseEnter = useCallback(() => {
         setIsHovered(true);
@@ -148,7 +146,6 @@ const TileMedia: React.FC<TileMediaProps> = ({ imgSrc, loadingMode, fetchPriorit
 export const Tile: React.FC<TileProps> = (props) => {
     const {
         asset,
-        presentation,
         intent,
         debug,
         selected,
@@ -165,6 +162,7 @@ export const Tile: React.FC<TileProps> = (props) => {
         isScrollSettled,
         hasSelection,
     } = getTileProps(props);
+    const presentation = asset.libraryPresentation ?? null;
     const imgSrc = asset.preview_data_url ?? resolveImageUrl(asset.preview_path);
     const sensitivityBadge = getSensitivityDisplay(asset);
     const { isHovered, handleMouseEnter, handleMouseLeave } = useTileHoverState(asset, onHoverAssetChange);
