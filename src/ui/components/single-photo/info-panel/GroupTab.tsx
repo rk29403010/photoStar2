@@ -59,7 +59,7 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
                   </span>
                 ) : (
                   <button
-                    onClick={() => onMakeCanonical(fileAsset.id)}
+                    onClick={() => { void onMakeCanonical(fileAsset.id); }}
                     className="px-1.5 py-0.5 bg-content/5 hover:bg-content/10 border border-content/10 rounded text-[9px] font-medium transition-colors cursor-pointer"
                     title="Make this the star image for this presentation"
                   >
@@ -144,11 +144,7 @@ const GroupExportSection: React.FC<GroupExportSectionProps> = ({
 };
 
 function findLegacyStarAssetId(items: SimilarityOrbitItem[], defaultId: string): string {
-  const canonical = items.find((item) => {
-    const asset = item.asset;
-    const role = (asset as unknown as Record<string, unknown>).role;
-    return asset.group_role === 'canonical' || role === 'canonical';
-  });
+  const canonical = items.find((item) => item.asset.group_role === 'canonical' || item.asset.role === 'canonical');
   return canonical?.asset.id ?? defaultId;
 }
 
