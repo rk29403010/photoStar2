@@ -1,16 +1,15 @@
-import type { Asset, Person, TimelineGalleryPage, TimelineGroupId, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
+import type { Asset, TimelineGalleryPage } from '@contracts/core';
 import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
-import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { WsResponse } from '@contracts/schemas';
 import { WsResponseSchema } from '@contracts/schemas';
-import type { DomainEvent } from '@contracts/events';
 import { applyQuotaNotifications } from '@boundary/runtime/usePhotoLibrary.connection.notifications';
-import type { FolderHistoryItem, LibraryFilter } from '@contracts/usePhotoLibrary.types';
+import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import type { ConnectionStateParams, ParamsRef } from '@boundary/runtime/usePhotoLibrary.connection';
 import { ASSET_PAGE_SIZE } from '@boundary/runtime/usePhotoLibrary.constants';
 import { mergeRefreshedAssetPage } from '@shared/utils/libraryAssetRefresh';
 import { buildEventFeedDetail, countPreviewAssets } from '@shared/utils/libraryUiDiagnostics';
 import { isTimelineGroupPageRequestId, isTimelineJumpTargetRequestId } from '@shared/utils/libraryTimelineRequestIds';
+import { isTimelineGroupId } from '@shared/utils/libraryTimelineGroupId';
 import { getAssetUpdateInstruction } from './assetUpdateEvents';
 import {
     isAssetPageResponseId,
@@ -19,15 +18,39 @@ import {
     isPreservedPagingAssetRefreshId,
     shouldUpdatePagingStateFromAssetResponse,
 } from '@shared/utils/libraryPagingState';
+import {
+    readAssets,
+    readBackgroundJobs,
+    readDataStats,
+    readDomainEvent,
+    readFolderHistory,
+    readLegacyProgress,
+    readPeople,
+    readPresentationItems,
+    readRecentEvents,
+    readRecord,
+    readTimelineGalleryPage,
+    readTimelineGroupSummaries,
+    readTimelineJumpTarget,
+    readWorkflowRuns,
+    readWorkflowStatus,
+} from './usePhotoLibrary.connection.decoders';
 
 const BASE_INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init'] as const;
 const INITIAL_SYNC_REQUEST_ID_SET = new Set<string>(BASE_INITIAL_SYNC_REQUEST_IDS);
 
-type PresentationAwareConnectionState = ConnectionStateParams & {
-    setPresentationItems: (
-        value: LibraryPresentationItem[] | ((previous: LibraryPresentationItem[]) => LibraryPresentationItem[]),
-    ) => void;
-};
+type PresentationItemsSetter = (
+    value: LibraryPresentationItem[] | ((previous: LibraryPresentationItem[]) => LibraryPresentationItem[]),
+) => void;
+
+function isPresentationItemsSetter(value: unknown): value is PresentationItemsSetter {
+    return typeof value === 'function';
+}
+
+function getPresentationItemsSetter(params: ConnectionStateParams): PresentationItemsSetter | null {
+    const record = Object.fromEntries(Object.entries(params));
+    return isPresentationItemsSetter(record.setPresentationItems) ? record.setPresentationItems : null;
+}
 
 function dedupeAssetsById(assets: Asset[]): Asset[] {
     const deduped = new Map<string, Asset>();
@@ -107,84 +130,60 @@ function isTimelineJumpTargetResponseId(id: string | undefined): boolean {
     return isTimelineJumpTargetRequestId(id);
 }
 
-function isTimelineGroupSummary(value: unknown): value is TimelineGroupSummary {
-    if (!value || typeof value !== 'object') {
-        return false;
-    }
-
-    const candidate = value as Partial<TimelineGroupSummary>;
-    return typeof candidate.id === 'string'
-        && typeof candidate.label === 'string'
-        && typeof candidate.sortKey === 'string'
-        && typeof candidate.itemCount === 'number'
-        && typeof candidate.isLoaded === 'boolean';
-}
-
-function isTimelineGalleryPage(value: unknown): value is TimelineGalleryPage {
-    if (!value || typeof value !== 'object') {
-        return false;
-    }
-
-    const candidate = value as Partial<TimelineGalleryPage>;
-    return typeof candidate.groupId === 'string'
-        && Array.isArray(candidate.items)
-        && typeof candidate.isFullyLoaded === 'boolean'
-        && (typeof candidate.nextCursor === 'string' || candidate.nextCursor === null);
-}
-
-function isTimelineJumpTarget(value: unknown): value is TimelineJumpTarget {
-    if (!value || typeof value !== 'object') {
-        return false;
-    }
-
-    const candidate = value as Partial<TimelineJumpTarget>;
-    return typeof candidate.groupId === 'string';
-}
-
-function readTimelineGroupSummaries(data: Record<string, unknown>) {
+function decodeTimelineGroupSummaries(data: Record<string, unknown>) {
     const candidateCollections = [data.timelineGroups, data.groupSummaries, data.groups];
     for (const candidate of candidateCollections) {
-        if (Array.isArray(candidate) && candidate.every(isTimelineGroupSummary)) {
-            return candidate;
+        const decoded = readTimelineGroupSummaries(candidate);
+        if (decoded) {
+            return decoded;
         }
     }
     return null;
 }
 
-function readTimelineGalleryPage(data: Record<string, unknown>) {
+function decodeTimelineGalleryPage(data: Record<string, unknown>) {
     const candidatePages = [data.timelineGroupPage, data.page];
     for (const candidate of candidatePages) {
-        if (isTimelineGalleryPage(candidate)) {
-            return candidate;
+        const decoded = readTimelineGalleryPage(candidate);
+        if (decoded) {
+            return decoded;
         }
     }
     return null;
 }
 
-function readTimelineJumpTarget(data: Record<string, unknown>) {
+function decodeTimelineJumpTarget(data: Record<string, unknown>) {
     const candidateTargets = [data.timelineJumpTarget, data.jumpTarget];
     for (const candidate of candidateTargets) {
-        if (isTimelineJumpTarget(candidate)) {
-            return candidate;
+        const decoded = readTimelineJumpTarget(candidate);
+        if (decoded) {
+            return decoded;
         }
     }
     return null;
-}
-
-function readPresentationItems(data: Record<string, unknown>): LibraryPresentationItem[] | null {
-    return Array.isArray(data.presentationItems)
-        ? data.presentationItems as LibraryPresentationItem[]
-        : null;
 }
 
 function applySnapshotPayload(data: Record<string, unknown>, params: ConnectionStateParams) {
-    if (data.people) {params.setPeople(data.people as Person[]);}
-    if (data.jobs) {params.setSystemJobs(data.jobs as BackgroundJob[]);}
-    if (data.workflowStatus) {params.setWorkflowStatus(data.workflowStatus as WorkflowStatusSnapshot);}
-    if (data.dataStats) {params.setDataStats(data.dataStats as DataStatsSnapshot);}
-    if (data.recentEvents) {params.setRecentEvents(data.recentEvents as RecentEventSnapshot[]);}
-    if (data.workflowRuns) {params.setWorkflowRuns(data.workflowRuns as WorkflowRunListItem[]);}
-    if (data.folderHistory) {params.setFolderHistory(data.folderHistory as FolderHistoryItem[]);}
+    const people = readPeople(data.people);
+    if (people) {params.setPeople(people);}
+
+    const jobs = readBackgroundJobs(data.jobs);
+    if (jobs) {params.setSystemJobs(jobs);}
+
+    const workflowStatus = readWorkflowStatus(data.workflowStatus);
+    if (workflowStatus) {params.setWorkflowStatus(workflowStatus);}
+
+    const dataStats = readDataStats(data.dataStats);
+    if (dataStats) {params.setDataStats(dataStats);}
+
+    const recentEvents = readRecentEvents(data.recentEvents);
+    if (recentEvents) {params.setRecentEvents(recentEvents);}
+
+    const workflowRuns = readWorkflowRuns(data.workflowRuns);
+    if (workflowRuns) {params.setWorkflowRuns(workflowRuns);}
+
+    const folderHistory = readFolderHistory(data.folderHistory);
+    if (folderHistory) {params.setFolderHistory(folderHistory);}
 }
 
 function applyOkPresentationPayload(
@@ -195,22 +194,25 @@ function applyOkPresentationPayload(
     if (msg.id?.startsWith('rejected-assets-')) {
         return;
     }
-    const presentationParams = params as PresentationAwareConnectionState;
+    const setPresentationItems = getPresentationItemsSetter(params);
+    if (!setPresentationItems) {
+        return;
+    }
     if (!presentationItems) {
         if (!isAssetPageResponseId(msg.id) && !isPreservedPagingAssetRefreshId(msg.id)) {
-            presentationParams.setPresentationItems([]);
+            setPresentationItems([]);
         }
         return;
     }
     if (isAssetPageResponseId(msg.id)) {
-        presentationParams.setPresentationItems((previousItems) => appendPresentationItems(previousItems, presentationItems));
+        setPresentationItems((previousItems) => appendPresentationItems(previousItems, presentationItems));
         return;
     }
     if (isPreservedPagingAssetRefreshId(msg.id)) {
-        presentationParams.setPresentationItems((previousItems) => mergeRefreshedPresentationPage(previousItems, presentationItems));
+        setPresentationItems((previousItems) => mergeRefreshedPresentationPage(previousItems, presentationItems));
         return;
     }
-    presentationParams.setPresentationItems(presentationItems);
+    setPresentationItems(presentationItems);
 }
 
 function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, assets: Asset[]) {
@@ -275,17 +277,17 @@ function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, ass
 }
 
 function applyTimelineOkPayload(data: Record<string, unknown>, params: ConnectionStateParams) {
-    const timelineGroupSummaries = readTimelineGroupSummaries(data);
+    const timelineGroupSummaries = decodeTimelineGroupSummaries(data);
     if (timelineGroupSummaries) {
         params.setTimelineGroupSummaries(timelineGroupSummaries);
     }
 
-    const timelineGroupPage = readTimelineGalleryPage(data);
+    const timelineGroupPage = decodeTimelineGalleryPage(data);
     if (timelineGroupPage) {
         params.upsertTimelineGroupPage(timelineGroupPage);
     }
 
-    const timelineJumpTarget = readTimelineJumpTarget(data);
+    const timelineJumpTarget = decodeTimelineJumpTarget(data);
     if (timelineJumpTarget) {
         params.setTimelineActiveJumpTarget(timelineJumpTarget);
     }
@@ -308,24 +310,25 @@ function applyTimelineResponseFlags(params: {
     }
 
     const groupId = params.timelineGroupPage?.groupId ?? params.data.groupId;
-    if (typeof groupId === 'string') {
-        params.connection.setTimelineGroupLoading(groupId as TimelineGroupId, false);
+    if (isTimelineGroupId(groupId)) {
+        params.connection.setTimelineGroupLoading(groupId, false);
     }
 }
 
 function handleOkMessage(msg: WsResponse, params: ConnectionStateParams) {
-    const data = msg.data;
+    const rawData: unknown = msg.data;
+    const data = readRecord(rawData);
     if (!data) {return;}
     if (data.message === 'pong') {params.addLog('Pong received');}
-    if (data.count !== undefined) {params.setStats(data);}
+    if (typeof data.count === 'number') {params.setStats({ ...data, count: data.count });}
     const { timelineGroupPage } = applyTimelineOkPayload(data, params);
     applySnapshotPayload(data, params);
     applyTimelineResponseFlags({ msg, data, connection: params, timelineGroupPage });
-    if (!data.assets) {return;}
 
-    const assets = dedupeAssetsById(data.assets as Asset[]);
-    applyOkPresentationPayload(msg, params, readPresentationItems(data));
-    applyOkAssetPayload(msg, params, assets);
+    const assets = readAssets(data.assets);
+    if (!assets) {return;}
+    applyOkPresentationPayload(msg, params, readPresentationItems(data.presentationItems));
+    applyOkAssetPayload(msg, params, dedupeAssetsById(assets));
 
     if (shouldUpdatePagingStateFromAssetResponse(msg.id) && data.hasMore !== undefined) {
         params.setHasMoreAssets(Boolean(data.hasMore));
@@ -337,9 +340,11 @@ function handleErrorMessage(msg: WsResponse, params: ConnectionStateParams) {
         params.setIsLoadingMoreAssets(false);
     }
     if (isTimelineGroupPageResponseId(msg.id)) {
-        const groupId = msg.data?.groupId;
-        if (typeof groupId === 'string') {
-            params.setTimelineGroupLoading(groupId as TimelineGroupId, false);
+        const rawData: unknown = msg.data;
+        const data = readRecord(rawData);
+        const groupId = data?.groupId;
+        if (isTimelineGroupId(groupId)) {
+            params.setTimelineGroupLoading(groupId, false);
         }
     }
     if (isReplacementAssetRefreshId(msg.id)) {
@@ -449,23 +454,29 @@ function applyFaceStats(event: Record<string, unknown>, params: ConnectionStateP
 }
 
 function handleEventMessage(msg: WsResponse, params: ConnectionStateParams) {
+    const rawData: unknown = msg.data;
     if (msg.id !== 'event_stream') {
-        params.updateJobProgress(msg.id, msg.data);
+        params.updateJobProgress(msg.id, readLegacyProgress(rawData));
         return;
     }
 
-    const event = msg.data as Record<string, unknown>;
+    const event = readRecord(rawData);
+    if (!event) {return;}
+    const eventType = typeof event.type === 'string' ? event.type : 'UnknownEvent';
     params.addUiFeedEntry({
         id: createUiFeedId('event'),
         timestamp: new Date().toISOString(),
         source: 'event',
-        label: String(event.type ?? 'UnknownEvent'),
+        label: eventType,
         detail: buildEventFeedDetail(event),
         requestId: msg.id,
         applied: true,
     });
 
-    params.processEvent(event as DomainEvent);
+    const domainEvent = readDomainEvent(rawData);
+    if (domainEvent) {
+        params.processEvent(domainEvent);
+    }
     applyQuotaNotifications(event, params.addNotification);
     applyFaceStats(event, params);
     applyEventAssetUpdates(event, params);
@@ -517,7 +528,6 @@ export function createSnapshotSyncController(paramsRef: ParamsRef) {
                 initialSyncErrors.push(`${msg.id}: ${msg.error}`);
             }
             if (pendingInitialSyncIds.size > 0) {return;}
-
             finishSnapshotSync();
         },
     };
