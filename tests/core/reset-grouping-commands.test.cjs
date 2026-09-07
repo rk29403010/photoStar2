@@ -58,7 +58,7 @@ function seedVisualObservation(db, sourceIdentity) {
     `).run(sourceIdentity);
 }
 
-test('reset_grouping_data clears detector state but preserves reviewed semantic sequences and assets', async () => {
+test('reset_grouping_data clears rebuildable detector state but preserves reviewed semantic sequences and assets', async () => {
     const tempDir = createTempDir();
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -78,19 +78,6 @@ test('reset_grouping_data clears detector state but preserves reviewed semantic 
             VALUES
                 ('identity-1', 'C:/photos/one.jpg'),
                 ('identity-2', 'C:/photos/two.jpg')
-        `).run();
-        db.prepare(`
-            INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
-            VALUES
-                ('group-auto', 'variant_set', 'proposed', 'asset-1', '1.0', '{}'),
-                ('group-manual', 'duplicate', 'locked', 'asset-2', '1.0', '{}')
-        `).run();
-        db.prepare(`
-            INSERT INTO asset_group_members (group_id, asset_id, role, rank)
-            VALUES
-                ('group-auto', 'asset-1', 'canonical', 0),
-                ('group-auto', 'asset-2', 'member', 1),
-                ('group-manual', 'asset-2', 'canonical', 0)
         `).run();
         db.prepare(`
             INSERT INTO asset_similarity_edges (asset_id_a, asset_id_b, kind, score, reason, algorithm_version)
@@ -134,8 +121,6 @@ test('reset_grouping_data clears detector state but preserves reviewed semantic 
         const response = collector.takeLast();
         assert.equal(response.status, 'ok');
         assert.equal(count(db, 'assets'), 2);
-        assert.equal(count(db, 'asset_groups'), 0);
-        assert.equal(count(db, 'asset_group_members'), 0);
         assert.equal(count(db, 'asset_similarity_edges'), 0);
         assert.deepEqual(
             db.prepare('SELECT source_identity FROM visual_similarity_observations ORDER BY source_identity').all(),
