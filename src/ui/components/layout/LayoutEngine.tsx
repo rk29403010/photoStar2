@@ -252,8 +252,6 @@ function useSelectionInteractions(
     }), [isSelecting, dragRange, stopDragging]);
 }
 
-
-
 function applySelectionChange(
     layoutItems: LayoutItem[],
     librarySelection: LibrarySelectionState,
@@ -384,9 +382,12 @@ function handleTileClick(
     onAssetClick?.(layoutItem.item.asset.id);
 }
 
-function addItemToSet(item: LibrarySelectableItem, selection: { photoIds: Set<string>; groupIds: Set<string> }) {
+function addItemToSet(item: LibrarySelectableItem, selection: LibrarySelectionState) {
     if (item.entityType === 'group' && item.groupId) {
         selection.groupIds.add(item.groupId);
+        if (item.presentation) {
+            selection.presentationAssetIdsByKey.set(item.groupId, [...item.presentation.assetIds]);
+        }
     } else {
         selection.photoIds.add(item.photoId);
     }
@@ -399,9 +400,12 @@ function commitDragSelection(
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
 ) {
     const { anchorIndex, currentIndex } = dragRange;
-    const nextSelection = {
+    const nextSelection: LibrarySelectionState = {
         photoIds: new Set(originalSelection.photoIds),
         groupIds: new Set(originalSelection.groupIds),
+        presentationAssetIdsByKey: new Map(
+            [...originalSelection.presentationAssetIdsByKey].map(([key, assetIds]) => [key, [...assetIds]]),
+        ),
         anchorKey: originalSelection.anchorKey,
         mostRecentSelectionKey: originalSelection.mostRecentSelectionKey,
     };
