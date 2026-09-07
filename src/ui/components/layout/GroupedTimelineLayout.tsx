@@ -114,28 +114,50 @@ function calculateSectionSelectionState(
     };
 }
 
+function applySectionItemSelection(
+    selection: LibrarySelectionState,
+    item: LibrarySelectableItem,
+    selected: boolean,
+) {
+    if (item.entityType === 'group' && item.groupId) {
+        if (selected) {
+            selection.groupIds.add(item.groupId);
+            if (item.presentation) {
+                selection.presentationAssetIdsByKey.set(item.groupId, [...item.presentation.assetIds]);
+            }
+        } else {
+            selection.groupIds.delete(item.groupId);
+            selection.presentationAssetIdsByKey.delete(item.groupId);
+        }
+        return;
+    }
+
+    if (selected) {
+        selection.photoIds.add(item.photoId);
+    } else {
+        selection.photoIds.delete(item.photoId);
+    }
+}
+
 function toggleSectionSelection(
     validItems: Array<{ selectableItem?: LibrarySelectableItem }>,
     librarySelection: LibrarySelectionState,
     onLibrarySelectionChange: (selection: LibrarySelectionState) => void,
     allSelected: boolean
 ) {
-    const nextSelection = {
+    const nextSelection: LibrarySelectionState = {
         photoIds: new Set(librarySelection.photoIds),
         groupIds: new Set(librarySelection.groupIds),
+        presentationAssetIdsByKey: new Map(
+            [...librarySelection.presentationAssetIdsByKey].map(([key, assetIds]) => [key, [...assetIds]]),
+        ),
         anchorKey: librarySelection.anchorKey,
         mostRecentSelectionKey: librarySelection.mostRecentSelectionKey,
     };
 
     validItems.forEach(item => {
         if (!item.selectableItem) {return;}
-        const key = item.selectableItem.entityType === 'group' && item.selectableItem.groupId ? 'groupIds' : 'photoIds';
-        const val = item.selectableItem.entityType === 'group' && item.selectableItem.groupId ? item.selectableItem.groupId : item.selectableItem.photoId;
-        if (allSelected) {
-            nextSelection[key].delete(val);
-        } else {
-            nextSelection[key].add(val);
-        }
+        applySectionItemSelection(nextSelection, item.selectableItem, !allSelected);
     });
 
     onLibrarySelectionChange(nextSelection);
