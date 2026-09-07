@@ -1,4 +1,5 @@
 import type { Asset, Person, TimelineGalleryPage, TimelineGroupId, TimelineGroupSummary, TimelineJumpTarget } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { WsResponse } from '@contracts/schemas';
 import { WsResponseSchema } from '@contracts/schemas';
@@ -22,9 +23,21 @@ import {
 const BASE_INITIAL_SYNC_REQUEST_IDS = ['stats-init', 'assets-init'] as const;
 const INITIAL_SYNC_REQUEST_ID_SET = new Set<string>(BASE_INITIAL_SYNC_REQUEST_IDS);
 
+type PresentationAwareConnectionState = ConnectionStateParams & {
+    setPresentationItems: (
+        value: LibraryPresentationItem[] | ((previous: LibraryPresentationItem[]) => LibraryPresentationItem[]),
+    ) => void;
+};
+
 function dedupeAssetsById(assets: Asset[]): Asset[] {
     const deduped = new Map<string, Asset>();
     for (const asset of assets) {deduped.set(asset.id, asset);}
+    return Array.from(deduped.values());
+}
+
+function dedupePresentationItems(items: LibraryPresentationItem[]): LibraryPresentationItem[] {
+    const deduped = new Map<string, LibraryPresentationItem>();
+    for (const item of items) {deduped.set(item.presentationKey, item);}
     return Array.from(deduped.values());
 }
 
@@ -43,6 +56,24 @@ export function currentFilter(filterStackRef: { current: LibraryFilter[] }): Lib
 
 function appendAssets(existingAssets: Asset[], incomingAssets: Asset[]) {
     return dedupeAssetsById([...existingAssets, ...incomingAssets]);
+}
+
+function appendPresentationItems(existingItems: LibraryPresentationItem[], incomingItems: LibraryPresentationItem[]) {
+    return dedupePresentationItems([...existingItems, ...incomingItems]);
+}
+
+function mergeRefreshedPresentationPage(
+    existingItems: LibraryPresentationItem[],
+    refreshedItems: LibraryPresentationItem[],
+): LibraryPresentationItem[] {
+    if (existingItems.length === 0) {
+        return refreshedItems;
+    }
+    const refreshedKeys = new Set(refreshedItems.map((item) => item.presentationKey));
+    const preservedTail = existingItems
+        .slice(Math.max(ASSET_PAGE_SIZE, refreshedItems.length))
+        .filter((item) => !refreshedKeys.has(item.presentationKey));
+    return [...refreshedItems, ...preservedTail];
 }
 
 function createUiFeedId(prefix: string) {
@@ -140,6 +171,12 @@ function readTimelineJumpTarget(data: Record<string, unknown>) {
     return null;
 }
 
+function readPresentationItems(data: Record<string, unknown>): LibraryPresentationItem[] | null {
+    return Array.isArray(data.presentationItems)
+        ? data.presentationItems as LibraryPresentationItem[]
+        : null;
+}
+
 function applySnapshotPayload(data: Record<string, unknown>, params: ConnectionStateParams) {
     if (data.people) {params.setPeople(data.people as Person[]);}
     if (data.jobs) {params.setSystemJobs(data.jobs as BackgroundJob[]);}
@@ -148,6 +185,32 @@ function applySnapshotPayload(data: Record<string, unknown>, params: ConnectionS
     if (data.recentEvents) {params.setRecentEvents(data.recentEvents as RecentEventSnapshot[]);}
     if (data.workflowRuns) {params.setWorkflowRuns(data.workflowRuns as WorkflowRunListItem[]);}
     if (data.folderHistory) {params.setFolderHistory(data.folderHistory as FolderHistoryItem[]);}
+}
+
+function applyOkPresentationPayload(
+    msg: WsResponse,
+    params: ConnectionStateParams,
+    presentationItems: LibraryPresentationItem[] | null,
+) {
+    if (msg.id?.startsWith('rejected-assets-')) {
+        return;
+    }
+    const presentationParams = params as PresentationAwareConnectionState;
+    if (!presentationItems) {
+        if (!isAssetPageResponseId(msg.id) && !isPreservedPagingAssetRefreshId(msg.id)) {
+            presentationParams.setPresentationItems([]);
+        }
+        return;
+    }
+    if (isAssetPageResponseId(msg.id)) {
+        presentationParams.setPresentationItems((previousItems) => appendPresentationItems(previousItems, presentationItems));
+        return;
+    }
+    if (isPreservedPagingAssetRefreshId(msg.id)) {
+        presentationParams.setPresentationItems((previousItems) => mergeRefreshedPresentationPage(previousItems, presentationItems));
+        return;
+    }
+    presentationParams.setPresentationItems(presentationItems);
 }
 
 function applyOkAssetPayload(msg: WsResponse, params: ConnectionStateParams, assets: Asset[]) {
@@ -261,6 +324,7 @@ function handleOkMessage(msg: WsResponse, params: ConnectionStateParams) {
     if (!data.assets) {return;}
 
     const assets = dedupeAssetsById(data.assets as Asset[]);
+    applyOkPresentationPayload(msg, params, readPresentationItems(data));
     applyOkAssetPayload(msg, params, assets);
 
     if (shouldUpdatePagingStateFromAssetResponse(msg.id) && data.hasMore !== undefined) {
