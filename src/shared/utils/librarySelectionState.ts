@@ -1,21 +1,18 @@
 import type { Asset } from '@contracts/core';
-import type { LibraryPresentationRelationshipKind } from '@contracts/libraryPresentation';
 
-export type LibrarySelectionKey = `photo:${string}` | `presentation:${string}`;
+export type LibrarySelectionKey = `photo:${string}` | `group:${string}`;
 
 export type LibrarySelectableItem = {
     asset: Asset;
-    entityType: 'photo' | 'presentation';
+    entityType: 'photo' | 'group';
     selectionKey: LibrarySelectionKey;
     photoId: string;
-    presentationKey: string | null;
-    assetIds: string[];
-    stackCount: number;
-    relationshipKind: LibraryPresentationRelationshipKind;
+    groupId: string | null;
 };
 
 export type LibrarySelectionState = {
-    selectedAssetIdsByKey: Map<LibrarySelectionKey, string[]>;
+    photoIds: Set<string>;
+    groupIds: Set<string>;
     anchorKey: LibrarySelectionKey | null;
     mostRecentSelectionKey: LibrarySelectionKey | null;
 }
@@ -28,14 +25,15 @@ export type LibrarySelectionAction =
 
 export function createEmptyLibrarySelectionState(): LibrarySelectionState {
     return {
-        selectedAssetIdsByKey: new Map(),
+        photoIds: new Set(),
+        groupIds: new Set(),
         anchorKey: null,
         mostRecentSelectionKey: null,
     };
 }
 
 export function getLibrarySelectionCount(selection: LibrarySelectionState): number {
-    return selection.selectedAssetIdsByKey.size;
+    return selection.photoIds.size + selection.groupIds.size;
 }
 
 export function hasLibrarySelection(selection: LibrarySelectionState): boolean {
@@ -47,21 +45,29 @@ export function clearLibrarySelection(): LibrarySelectionState {
 }
 
 export function isItemSelected(selection: LibrarySelectionState, item: LibrarySelectableItem): boolean {
-    return selection.selectedAssetIdsByKey.has(item.selectionKey);
-}
-
-export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, _assets?: Asset[]): string[] {
-    const assetIds = new Set<string>();
-    for (const selectedIds of selection.selectedAssetIdsByKey.values()) {
-        for (const assetId of selectedIds) {
-            assetIds.add(assetId);
-        }
-    }
-    return [...assetIds];
+    return item.entityType === 'group'
+        ? selection.groupIds.has(item.groupId ?? '')
+        : selection.photoIds.has(item.photoId);
 }
 
 export function getLibrarySelectionPhotoIds(selection: LibrarySelectionState): string[] {
-    return getLibrarySelectionAssetIds(selection);
+    return [...selection.photoIds];
+}
+
+export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, assets: Asset[]): string[] {
+    const assetIds = new Set(selection.photoIds);
+
+    if (selection.groupIds.size === 0) {
+        return [...assetIds];
+    }
+
+    for (const asset of assets) {
+        if (asset.group_id && selection.groupIds.has(asset.group_id)) {
+            assetIds.add(asset.id);
+        }
+    }
+
+    return [...assetIds];
 }
 
 export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: LibrarySelectionKey, targetKey: LibrarySelectionKey): LibrarySelectionKey[] {
@@ -77,18 +83,27 @@ export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: Li
 }
 
 function addItemToSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
-    selection.selectedAssetIdsByKey.set(item.selectionKey, [...item.assetIds]);
+    if (item.entityType === 'group' && item.groupId) {
+        selection.groupIds.add(item.groupId);
+        return;
+    }
+
+    selection.photoIds.add(item.photoId);
 }
 
 function removeItemFromSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
-    selection.selectedAssetIdsByKey.delete(item.selectionKey);
+    if (item.entityType === 'group' && item.groupId) {
+        selection.groupIds.delete(item.groupId);
+        return;
+    }
+
+    selection.photoIds.delete(item.photoId);
 }
 
 function cloneLibrarySelection(selection: LibrarySelectionState): LibrarySelectionState {
     return {
-        selectedAssetIdsByKey: new Map(
-            [...selection.selectedAssetIdsByKey].map(([key, assetIds]) => [key, [...assetIds]]),
-        ),
+        photoIds: new Set(selection.photoIds),
+        groupIds: new Set(selection.groupIds),
         anchorKey: selection.anchorKey,
         mostRecentSelectionKey: selection.mostRecentSelectionKey,
     };
