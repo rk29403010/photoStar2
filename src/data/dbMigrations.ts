@@ -311,4 +311,20 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 ON visual_similarity_observations(source_identity, policy, phash_distance, dhash_distance);
         `,
     },
+    {
+        id: '20260907_002_library_presentation_preferences',
+        sql: `
+            CREATE TABLE library_presentation_preferences (
+                cluster_fingerprint TEXT PRIMARY KEY,
+                preferred_asset_identity_guid TEXT,
+                show_separately INTEGER NOT NULL DEFAULT 0 CHECK (show_separately IN (0, 1)),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(preferred_asset_identity_guid) REFERENCES asset_identities(guid) ON DELETE SET NULL
+            );
+            CREATE INDEX idx_library_presentation_preferences_cover
+                ON library_presentation_preferences(preferred_asset_identity_guid)
+                WHERE preferred_asset_identity_guid IS NOT NULL;
+        `,
+    },
 ];
