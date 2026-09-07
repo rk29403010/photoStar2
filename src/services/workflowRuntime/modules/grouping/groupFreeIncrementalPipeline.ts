@@ -26,6 +26,19 @@ type ObservationRow = {
     score: number;
 };
 
+export type GroupFreeRefreshStage = {
+    graph: GroupingGraph;
+    impactedAssetIds: string[];
+};
+
+export type IncrementalGroupFreeGroupingPipeline = GroupFreeGroupingPipeline & {
+    refresh: {
+        nearDuplicate: GroupFreeRefreshStage;
+        variant: GroupFreeRefreshStage;
+        burst: GroupFreeRefreshStage;
+    };
+};
+
 const VISUAL_SOURCE_IDENTITY = 'runtime.group_similar_photos:visual_hash';
 
 function loadObservationRows(db: DbHandle): ObservationRow[] {
@@ -144,11 +157,15 @@ function memberAssetIds(units: readonly SimilarityGroupingUnit[]): string[] {
     return [...new Set(units.flatMap((unit) => unit.memberAssetIds))];
 }
 
+function refreshAssetIds(seedAssetIds: readonly string[], units: readonly SimilarityGroupingUnit[]): string[] {
+    return [...new Set([...seedAssetIds, ...memberAssetIds(units)])];
+}
+
 function buildEffectiveNearStage(params: {
     exactUnits: SimilarityGroupingUnit[];
     observations: ObservationRow[];
     changedAssetIds: string[];
-}): { graph: GroupingGraph; units: SimilarityGroupingUnit[]; impactedAssetIds: string[] } {
+}): { graph: GroupingGraph; units: SimilarityGroupingUnit[]; refresh: GroupFreeRefreshStage } {
     const storedEdges = buildStoredPolicyEdges(params.observations, params.exactUnits, 'near_duplicate');
     const freshGraph = buildNearDuplicateGroupingGraphFromUnits({
         units: params.exactUnits,
@@ -159,7 +176,10 @@ function buildEffectiveNearStage(params: {
     return {
         graph,
         units: collapseNearDuplicateUnits(params.exactUnits, graph),
-        impactedAssetIds: memberAssetIds(freshGraph.units),
+        refresh: {
+            graph: freshGraph,
+            impactedAssetIds: refreshAssetIds(params.changedAssetIds, freshGraph.units),
+        },
     };
 }
 
@@ -167,7 +187,7 @@ function buildEffectiveVariantStage(params: {
     nearUnits: SimilarityGroupingUnit[];
     observations: ObservationRow[];
     changedAssetIds: string[];
-}): { graph: GroupingGraph; units: SimilarityGroupingUnit[]; impactedAssetIds: string[] } {
+}): { graph: GroupingGraph; units: SimilarityGroupingUnit[]; refresh: GroupFreeRefreshStage } {
     const storedEdges = buildStoredPolicyEdges(params.observations, params.nearUnits, 'variant');
     const freshGraph = buildVariantGroupingGraphFromUnits({
         units: params.nearUnits,
@@ -178,36 +198,42 @@ function buildEffectiveVariantStage(params: {
     return {
         graph,
         units: collapseVariantUnits(params.nearUnits, graph),
-        impactedAssetIds: memberAssetIds(freshGraph.units),
+        refresh: {
+            graph: freshGraph,
+            impactedAssetIds: refreshAssetIds(params.changedAssetIds, freshGraph.units),
+        },
     };
 }
 
 /**
- * Shadow partial-run model. Stored visual observations reconstruct unaffected
- * lower-level units while the changed neighbourhood is recalculated from the
- * current hashes. No asset_groups rows are read or written.
+ * Incremental group-free detector model. Stored visual observations reconstruct
+ * unaffected lower-level units while changed neighbourhoods are recalculated
+ * from current hashes. The refresh plan contains only the neighbourhoods that
+ * should replace durable detector observations. No asset_groups rows are read.
  */
 export function buildIncrementalGroupFreeGroupingPipeline(
     db: DbHandle,
     changedAssetIds: string[],
-): GroupFreeGroupingPipeline {
+): IncrementalGroupFreeGroupingPipeline {
     const rawUnits = buildRawSimilarityUnits(db);
     const exactUnits = buildExactCopyUnits(rawUnits);
     const observations = loadObservationRows(db);
     const near = buildEffectiveNearStage({ exactUnits, observations, changedAssetIds });
-    const variantSeeds = near.impactedAssetIds.length > 0 ? near.impactedAssetIds : changedAssetIds;
     const variant = buildEffectiveVariantStage({
         nearUnits: near.units,
         observations,
-        changedAssetIds: variantSeeds,
+        changedAssetIds: near.refresh.impactedAssetIds,
     });
-    const burstSeeds = variant.impactedAssetIds.length > 0 ? variant.impactedAssetIds : variantSeeds;
     const burstGraph = buildBurstGroupingGraphFromUnits({
         units: variant.units,
-        changedAssetIds: burstSeeds,
+        changedAssetIds: variant.refresh.impactedAssetIds,
         maxSeconds: 3,
         maxDistance: 12,
     });
+    const burstRefresh: GroupFreeRefreshStage = {
+        graph: burstGraph,
+        impactedAssetIds: refreshAssetIds(variant.refresh.impactedAssetIds, burstGraph.units),
+    };
 
     return {
         rawUnits,
@@ -217,5 +243,10 @@ export function buildIncrementalGroupFreeGroupingPipeline(
         variantGraph: variant.graph,
         variantUnits: variant.units,
         burstGraph,
+        refresh: {
+            nearDuplicate: near.refresh,
+            variant: variant.refresh,
+            burst: burstRefresh,
+        },
     };
 }
