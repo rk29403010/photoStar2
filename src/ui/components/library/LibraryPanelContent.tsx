@@ -1,4 +1,4 @@
-import type { Asset, GalleryTimelineSeek, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, ReviewItemSummary } from '@contracts/core';
 import type { LibraryPresentationExpansion } from '@contracts/libraryPresentation';
 import type { LibraryFilter } from '@ui/hooks/usePhotoLibrary';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
@@ -68,8 +68,6 @@ type LibraryPanelContentProps = {
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
     readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
     readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly browseRowHeight: number;
     readonly isScrollSettled: boolean;
     readonly setTopVisibleSelectionKey: (selectionKey: string | null) => void;
@@ -133,8 +131,6 @@ export function LibraryPanelContent(props: LibraryPanelContentProps) {
             onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
             onGetPresentationExpansion={props.onGetPresentationExpansion}
             onSetPresentationCover={props.onSetPresentationCover}
-            onGetGroupOrbit={props.onGetGroupOrbit}
-            onSetCanonical={props.onSetCanonical}
             browseRowHeight={props.browseRowHeight}
             isScrollSettled={props.isScrollSettled}
         />
