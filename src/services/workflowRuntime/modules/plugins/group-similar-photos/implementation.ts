@@ -3,17 +3,6 @@ import type { ModuleDefinition } from '../../../contracts';
 import { ensureGroupingPrerequisites } from '../../grouping/groupingAssetPrep';
 import { syncBurstCaptureSequenceProposals } from '../../grouping/captureSequenceProjection';
 import { buildIncrementalGroupFreeGroupingPipeline } from '../../grouping/groupFreeIncrementalPipeline';
-import {
-    rebuildImpactedBurstGroups,
-    rebuildImpactedDuplicateGroups,
-    rebuildImpactedNearDuplicateGroups,
-    rebuildImpactedVariantGroups,
-} from '../../grouping/groupingPersistence';
-import {
-    buildBurstGroupingGraph,
-    buildNearDuplicateGroupingGraph,
-    buildVariantGroupingGraph,
-} from '../../grouping/groupingQueries';
 import { syncVisualSimilarityObservations } from '../../grouping/visualSimilarityProjection';
 
 export type GroupSimilarPhotosModuleOptions = {
@@ -59,47 +48,6 @@ function syncGroupFreeDetectorOutputs(db: DbHandle, changedAssetIds: string[]): 
     });
 }
 
-function rebuildLegacyCompatibilityGroups(db: DbHandle, changedAssetIds: string[]): void {
-    rebuildImpactedDuplicateGroups({ db, changedAssetIds });
-    const nearDuplicateGraph = buildNearDuplicateGroupingGraph({
-        db,
-        changedAssetIds,
-        threshold: NEAR_DUPLICATE_THRESHOLD,
-    });
-    rebuildImpactedNearDuplicateGroups({
-        db,
-        units: nearDuplicateGraph.units,
-        edges: nearDuplicateGraph.edges,
-        components: nearDuplicateGraph.components,
-        threshold: NEAR_DUPLICATE_THRESHOLD,
-    });
-    const variantGraph = buildVariantGroupingGraph({
-        db,
-        changedAssetIds,
-        threshold: VARIANT_THRESHOLD,
-    });
-    rebuildImpactedVariantGroups({
-        db,
-        units: variantGraph.units,
-        edges: variantGraph.edges,
-        components: variantGraph.components,
-        threshold: VARIANT_THRESHOLD,
-    });
-    const burstGraph = buildBurstGroupingGraph({
-        db,
-        changedAssetIds,
-        maxSeconds: BURST_MAX_SECONDS,
-        maxDistance: BURST_MAX_DISTANCE,
-    });
-    rebuildImpactedBurstGroups({
-        db,
-        units: burstGraph.units,
-        components: burstGraph.components,
-        maxSeconds: BURST_MAX_SECONDS,
-        maxDistance: BURST_MAX_DISTANCE,
-    });
-}
-
 export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModuleOptions): ModuleDefinition {
     return {
         id: 'runtime.group_similar_photos',
@@ -117,10 +65,7 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
             const preparedAssets = await ensureGroupingPrerequisites({ db, assetIds });
             const changedAssetIds = preparedAssets.map((asset) => asset.id);
 
-            // Semantic detector outputs are deliberately computed before and without
-            // the temporary asset_groups compatibility projection below.
             syncGroupFreeDetectorOutputs(db, changedAssetIds);
-            rebuildLegacyCompatibilityGroups(db, changedAssetIds);
 
             return { outputs: [{ kind: 'artifact', artifactType: 'similar_group', subjectType: 'asset' }] };
         },
