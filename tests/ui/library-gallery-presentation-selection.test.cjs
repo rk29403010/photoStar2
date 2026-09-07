@@ -1,15 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-function buildAsset(id, createdAt, groupId) {
+function buildAsset(id, createdAt) {
     return {
         id,
         original_path: `${id}.jpg`,
         created_at: createdAt,
         photo_created_at: createdAt,
-        group_id: groupId,
-        group_role: 'canonical',
-        stack_count: 99,
     };
 }
 
@@ -24,10 +21,10 @@ function buildPresentationItem({ key, representativeAssetId, assetIds, stackCoun
     };
 }
 
-test('collapsed gallery follows presentation order and ignores misleading legacy group identity', async () => {
+test('collapsed gallery follows presentation order and attaches presentation metadata to its display asset', async () => {
     const { buildVisibleGalleryItems } = await import('../../src/shared/utils/libraryGallerySelection.ts');
-    const assetA = buildAsset('asset-a', '2025-01-01T00:00:00.000Z', 'wrong-group-a');
-    const assetB = buildAsset('asset-b', '2026-01-01T00:00:00.000Z', 'wrong-group-b');
+    const assetA = buildAsset('asset-a', '2025-01-01T00:00:00.000Z');
+    const assetB = buildAsset('asset-b', '2026-01-01T00:00:00.000Z');
     const assets = [assetA, assetB];
     const presentationItems = [
         buildPresentationItem({
@@ -56,24 +53,25 @@ test('collapsed gallery follows presentation order and ignores misleading legacy
     assert.deepEqual(items.map((item) => item.selectionKey), ['group:sequence:real-stack', 'photo:asset-b']);
     assert.equal(items[0].groupId, 'sequence:real-stack');
     assert.equal(items[0].presentation, presentationItems[0]);
-    assert.equal(items[0].asset.stack_count, 2);
-    assert.equal(items[0].asset.group_id, 'wrong-group-a');
+    assert.equal(items[0].asset.libraryPresentation, presentationItems[0]);
+    assert.equal(items[0].asset.libraryPresentation.stackCount, 2);
     assert.equal(items[1].entityType, 'photo');
     assert.equal(items[1].groupId, null);
     assert.equal(items[1].presentation, presentationItems[1]);
-    assert.equal(assetA.stack_count, 99, 'view projection must not mutate the cached Asset');
+    assert.equal(items[1].asset.libraryPresentation, presentationItems[1]);
+    assert.equal(assetA.libraryPresentation, undefined, 'view projection must not mutate the cached Asset');
 });
 
-test('selected semantic stack expands bulk actions from presentation membership, not legacy group ids', async () => {
+test('selected semantic stack expands bulk actions from presentation membership', async () => {
     const { buildVisibleGalleryItems } = await import('../../src/shared/utils/libraryGallerySelection.ts');
     const {
         createEmptyLibrarySelectionState,
         getLibrarySelectionAssetIds,
         updateLibrarySelection,
     } = await import('../../src/shared/utils/librarySelectionState.ts');
-    const representative = buildAsset('representative', '2025-01-01T00:00:00.000Z', 'misleading-legacy-group');
-    const unrelatedLegacyMember = buildAsset('wrong-member', '2025-01-02T00:00:00.000Z', 'misleading-legacy-group');
-    const assets = [representative, unrelatedLegacyMember];
+    const representative = buildAsset('representative', '2025-01-01T00:00:00.000Z');
+    const unrelatedAsset = buildAsset('unrelated', '2025-01-02T00:00:00.000Z');
+    const assets = [representative, unrelatedAsset];
     const presentationItems = [
         buildPresentationItem({
             key: 'exact:semantic-stack',
@@ -104,9 +102,9 @@ test('selected semantic stack expands bulk actions from presentation membership,
 test('presentation declustering is a stable partition and does not re-sort server order', async () => {
     const { buildVisibleGalleryItems } = await import('../../src/shared/utils/libraryGallerySelection.ts');
     const assets = [
-        buildAsset('first', '2024-01-01T00:00:00.000Z', 'legacy-first'),
-        buildAsset('second', '2026-01-01T00:00:00.000Z', 'legacy-second'),
-        buildAsset('third', '2025-01-01T00:00:00.000Z', 'legacy-third'),
+        buildAsset('first', '2024-01-01T00:00:00.000Z'),
+        buildAsset('second', '2026-01-01T00:00:00.000Z'),
+        buildAsset('third', '2025-01-01T00:00:00.000Z'),
     ];
     const presentationItems = [
         buildPresentationItem({ key: 'asset:first', representativeAssetId: 'first', assetIds: ['first'], stackCount: 1, relationshipKind: null }),
@@ -127,8 +125,8 @@ test('presentation declustering is a stable partition and does not re-sort serve
 test('ungrouped gallery ignores presentation items and keeps raw asset sorting', async () => {
     const { buildVisibleGalleryItems } = await import('../../src/shared/utils/libraryGallerySelection.ts');
     const assets = [
-        buildAsset('older', '2024-01-01T00:00:00.000Z', 'legacy-older'),
-        buildAsset('newer', '2026-01-01T00:00:00.000Z', 'legacy-newer'),
+        buildAsset('older', '2024-01-01T00:00:00.000Z'),
+        buildAsset('newer', '2026-01-01T00:00:00.000Z'),
     ];
     const presentationItems = [
         buildPresentationItem({ key: 'asset:older', representativeAssetId: 'older', assetIds: ['older'], stackCount: 1, relationshipKind: null }),
@@ -142,4 +140,5 @@ test('ungrouped gallery ignores presentation items and keeps raw asset sorting',
 
     assert.deepEqual(items.map((item) => item.photoId), ['newer', 'older']);
     assert.deepEqual(items.map((item) => item.selectionKey), ['photo:newer', 'photo:older']);
+    assert.equal(items[0].asset.libraryPresentation, undefined);
 });
