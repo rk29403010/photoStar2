@@ -206,7 +206,9 @@ function useSelectAllShortcut(
     setIsSelecting: (value: boolean) => void,
 ) {
     useEffect(() => {
-        const handlePointerUp = () => setIsSelecting(false);
+        const handlePointerUp = () => {
+            setIsSelecting(false);
+        };
         const handleKeyDown = (event: KeyboardEvent) => {
             if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') {return;}
             if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {return;}
@@ -426,9 +428,7 @@ function commitDragSelection(
         nextSelection.mostRecentSelectionKey = lastItem.item.selectionKey;
     }
 
-    if (onLibrarySelectionChange) {
-        onLibrarySelectionChange(nextSelection);
-    }
+    onLibrarySelectionChange?.(nextSelection);
 }
 
 function handlePointerDownHelper(
@@ -617,7 +617,9 @@ function LayoutTile({
             onPointerEnter={onPointerEnter}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
-            onDragStart={(e) => e.preventDefault()}
+            onDragStart={(event) => {
+                event.preventDefault();
+            }}
             draggable={false}
         >
             <Tile
