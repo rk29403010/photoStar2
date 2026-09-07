@@ -25,6 +25,19 @@ function seedReadyAsset(dbManager, params) {
     });
 }
 
+function seedContradictoryLockedLegacyGroup(db) {
+    db.prepare(`
+        INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
+        VALUES ('legacy-wrong-duplicate', 'duplicate', 'locked', 'asset-a', 'test', '{}')
+    `).run();
+    db.prepare(`
+        INSERT INTO asset_group_members (group_id, asset_id, role, rank)
+        VALUES
+            ('legacy-wrong-duplicate', 'asset-a', 'canonical', 0),
+            ('legacy-wrong-duplicate', 'asset-c', 'member', 1)
+    `).run();
+}
+
 test('visual similarity repository canonicalises pairs and replaces only the impacted policy', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -109,7 +122,7 @@ test('visual similarity repository canonicalises pairs and replaces only the imp
     }
 });
 
-test('runtime grouping persists policy-specific visual pairs actually measured by near and variant policies', async () => {
+test('runtime grouping persists group-free visual observations despite contradictory locked legacy groups', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const repository = await import('../../dist/core/src/services/relationships/visualSimilarityObservationRepository.js');
@@ -119,6 +132,8 @@ test('runtime grouping persists policy-specific visual pairs actually measured b
         seedReadyAsset(dbManager, { id: 'asset-a', phash64: '0000000000000000', dhash64: '0000000000000000' });
         seedReadyAsset(dbManager, { id: 'asset-b', phash64: '0000000000000001', dhash64: '0000000000000003' });
         seedReadyAsset(dbManager, { id: 'asset-c', phash64: '000000000000000f', dhash64: '000000000000000f' });
+        const db = dbManager.getDb();
+        seedContradictoryLockedLegacyGroup(db);
 
         await runGroupingWorkflow({
             dbManager,
@@ -129,7 +144,6 @@ test('runtime grouping persists policy-specific visual pairs actually measured b
             ],
         });
 
-        const db = dbManager.getDb();
         const observations = repository.getVisualSimilarityObservationsForAsset(
             db,
             'asset-a',
@@ -140,6 +154,7 @@ test('runtime grouping persists policy-specific visual pairs actually measured b
 
         const near = byPolicy.get('near_duplicate');
         assert.ok(near);
+        assert.deepEqual([near.currentAssetIdA, near.currentAssetIdB].sort(), ['asset-a', 'asset-b']);
         assert.equal(near.phashDistance, 1);
         assert.equal(near.dhashDistance, 2);
         assert.equal(near.score, 1 - (2 / 64));
@@ -152,6 +167,7 @@ test('runtime grouping persists policy-specific visual pairs actually measured b
 
         const variant = byPolicy.get('variant');
         assert.ok(variant);
+        assert.deepEqual([variant.currentAssetIdA, variant.currentAssetIdB].sort(), ['asset-a', 'asset-c']);
         assert.equal(variant.phashDistance, 4);
         assert.equal(variant.dhashDistance, 4);
         assert.equal(variant.score, 1 - (4 / 64));
@@ -162,6 +178,10 @@ test('runtime grouping persists policy-specific visual pairs actually measured b
         assert.equal(typeof variantEvidence.rightUnitId, 'string');
         assert.equal(JSON.stringify(variantEvidence).includes('variant'), false);
 
+        assert.equal(
+            db.prepare("SELECT COUNT(*) AS count FROM asset_groups WHERE id = 'legacy-wrong-duplicate' AND status = 'locked'").get().count,
+            1,
+        );
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM visual_similarity_observations').get().count, 2);
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM semantic_propositions').get().count, 0);
         assert.equal(db.prepare('SELECT COUNT(*) AS count FROM semantic_decisions').get().count, 0);
