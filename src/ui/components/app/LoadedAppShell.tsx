@@ -43,6 +43,9 @@ type LoadedAppShellProps = {
     readonly onRunWorkflowOnAssets: (workflowId: string, assetIds: string[], parameters?: Record<string, unknown>) => void;
 }
 
+type PhotoLibraryActions = LoadedAppShellProps['photoLibrary']['actions'];
+type PhotoLibraryNotification = LoadedAppShellProps['photoLibrary']['notifications'][number];
+
 function getTrackedActivityMessage(activeOverlayJobs: BackgroundJob[]): string | null {
     return activeOverlayJobs[0]?.progress.message
         ?? activeOverlayJobs[0]?.progress.current
@@ -53,16 +56,64 @@ function isIngestJob(job: BackgroundJob): boolean {
     return job.stage === 'scan' || job.stage === 'bulk_ingest';
 }
 
-function isOpenAssetNotification(notification: LoadedAppShellProps['photoLibrary']['notifications'][number]) {
+function isOpenAssetNotification(notification: PhotoLibraryNotification) {
     return notification.actionKind === 'open_asset' && typeof notification.actionPayload?.assetId === 'string';
 }
 
-function isOpenWorkflowNotification(notification: LoadedAppShellProps['photoLibrary']['notifications'][number]) {
+function isOpenWorkflowNotification(notification: PhotoLibraryNotification) {
     return notification.actionKind === 'open_workflow';
 }
 
 function normalizeTimelineGroupId(groupId: string | null) {
     return isTimelineGroupId(groupId) ? groupId : null;
+}
+
+function useLoadedAppShellCallbacks(params: {
+    actions: PhotoLibraryActions;
+    notifications: LoadedAppShellProps['photoLibrary']['notifications'];
+    dismissNotification: LoadedAppShellProps['photoLibrary']['dismissNotification'];
+    uiState: LoadedAppShellProps['uiState'];
+}) {
+    const { actions, notifications, dismissNotification, uiState } = params;
+    const ensureAssetDetails = useCallback((assetId: string) => {
+        void actions.loadAssetDetails(assetId);
+    }, [actions]);
+    const handleAssignAssetTag = useCallback((assetId: string, tagLabel: string) => {
+        return actions.assignAssetTag({ assetId, tagLabel });
+    }, [actions]);
+    const handleRemoveAssetTag = useCallback((assetId: string, tagDefinitionId: string) => {
+        return actions.removeAssetTag({ assetId, tagDefinitionId });
+    }, [actions]);
+    const handleTimelineVisibleGroupChange = useCallback((groupId: string | null, groupIndex: number | null) => {
+        actions.setTimelineVisibleGroup(normalizeTimelineGroupId(groupId), groupIndex);
+    }, [actions]);
+    const handleNotificationAction = useCallback((notificationId: string) => {
+        const notification = notifications.find((item) => item.id === notificationId);
+        if (!notification) {return;}
+        if (isOpenAssetNotification(notification)) {
+            const assetId = notification.actionPayload?.assetId;
+            if (typeof assetId !== 'string') {
+                dismissNotification(notificationId);
+                return;
+            }
+            uiState.setView('library');
+            uiState.setSelectedAssetId(assetId);
+        } else if (isOpenWorkflowNotification(notification)) {
+            uiState.setView('workflows');
+            if (typeof notification.actionPayload?.workflowId === 'string') {
+                uiState.setSelectedWorkflowId(notification.actionPayload.workflowId);
+            }
+        }
+        dismissNotification(notificationId);
+    }, [dismissNotification, notifications, uiState]);
+
+    return {
+        ensureAssetDetails,
+        handleAssignAssetTag,
+        handleRemoveAssetTag,
+        handleTimelineVisibleGroupChange,
+        handleNotificationAction,
+    };
 }
 
 export function LoadedAppShell(props: LoadedAppShellProps) {
@@ -95,39 +146,9 @@ export function LoadedAppShell(props: LoadedAppShellProps) {
         updateJobProgress,
     } = props.photoLibrary;
     const { backendReady, shellStyle, connectionOverlay } = props.connectionUiState;
-    const ensureAssetDetails = useCallback((assetId: string) => {
-        void actions.loadAssetDetails(assetId);
-    }, [actions]);
-    const handleAssignAssetTag = useCallback((assetId: string, tagLabel: string) => {
-        return actions.assignAssetTag({ assetId, tagLabel });
-    }, [actions]);
-    const handleRemoveAssetTag = useCallback((assetId: string, tagDefinitionId: string) => {
-        return actions.removeAssetTag({ assetId, tagDefinitionId });
-    }, [actions]);
-    const handleTimelineVisibleGroupChange = useCallback((groupId: string | null, groupIndex: number | null) => {
-        actions.setTimelineVisibleGroup(normalizeTimelineGroupId(groupId), groupIndex);
-    }, [actions]);
+    const callbacks = useLoadedAppShellCallbacks({ actions, notifications, dismissNotification, uiState: props.uiState });
     const trackedActivityMessage = getTrackedActivityMessage(props.activeOverlayJobs);
     const ingestActive = props.activeOverlayJobs.some(isIngestJob);
-    const handleNotificationAction = useCallback((notificationId: string) => {
-        const notification = notifications.find((item) => item.id === notificationId);
-        if (!notification) {return;}
-        if (isOpenAssetNotification(notification)) {
-            const assetId = notification.actionPayload?.assetId;
-            if (typeof assetId !== 'string') {
-                dismissNotification(notificationId);
-                return;
-            }
-            props.uiState.setView('library');
-            props.uiState.setSelectedAssetId(assetId);
-        } else if (isOpenWorkflowNotification(notification)) {
-            props.uiState.setView('workflows');
-            if (typeof notification.actionPayload?.workflowId === 'string') {
-                props.uiState.setSelectedWorkflowId(notification.actionPayload.workflowId);
-            }
-        }
-        dismissNotification(notificationId);
-    }, [dismissNotification, notifications, props.uiState]);
 
     return (
         <div className="container flex flex-col w-screen h-screen p-0 bg-surface text-content">
@@ -142,13 +163,13 @@ export function LoadedAppShell(props: LoadedAppShellProps) {
                         showSettings={props.uiState.showSettings}
                     />
                     <AppFilterBar view={props.uiState.view} filterStack={filterStack} showRejected={props.uiState.showRejected} onToggleRejected={props.handlers.handleToggleRejected} onBack={props.handlers.handleFilterBack} onClearAll={props.handlers.handleClearAllFilters} />
-                    <AppMainContent onViewChange={props.handlers.handleViewChange} view={props.uiState.view} selectedWorkflowId={props.uiState.selectedWorkflowId} onSelectWorkflowId={props.uiState.setSelectedWorkflowId} stats={stats} timelineGallery={timelineGallery} assets={assets} presentationItems={presentationItems} galleryTimelineSeek={galleryTimelineSeek} isSeekingTimeline={isSeekingTimeline} libraryActive={props.uiState.view === 'library'} people={people} status={status} backendReady={backendReady} filterStack={filterStack} selectedAssetId={props.uiState.selectedAssetId} showInfoPanel={props.uiState.showInfoPanel} setShowInfoPanel={props.uiState.setShowInfoPanel} activeInfoTab={props.uiState.activeInfoTab} setActiveInfoTab={props.uiState.setActiveInfoTab} showFaces={false} librarySelection={props.uiState.librarySelection} groupSimilarPhotos={props.uiState.groupSimilarPhotos} showGroupIds={props.uiState.showGroupIds} groupDiagnosticsReport={props.groupDiagnosticsReport} isLoadingGroupDiagnostics={props.isLoadingGroupDiagnostics} declusteredAssets={props.uiState.declusteredAssets} showRejected={props.uiState.showRejected} rejectedAssets={rejectedAssets} workflowStatus={workflowStatus} dataStats={dataStats} recentEvents={recentEvents} workflowRuns={workflowRuns} uiFeedEntries={uiFeedEntries} ingestActive={ingestActive} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} isRefreshingLibrary={isRefreshingLibrary} onLoadMoreAssets={actions.loadMoreAssets} onLoadTimelineGroupPage={actions.loadTimelineGroupPage} onRequestTimelineJumpTarget={actions.requestTimelineJumpTarget} onTimelineVisibleGroupChange={handleTimelineVisibleGroupChange} onGalleryDataModeChange={actions.setGalleryDataMode} onGalleryOrderChange={actions.setGalleryOrder} onGalleryTimelineSeek={actions.seekGalleryTimeline} onAssetClick={props.uiState.setSelectedAssetId} onEnsureAssetDetails={ensureAssetDetails} onTagFilterChange={props.handlers.handleTagFilterChange} onUntagAsset={props.handlers.handleUntagAsset} onLibrarySelectionChange={props.uiState.setLibrarySelection} onGroupSimilarPhotosChange={props.uiState.setGroupSimilarPhotos} onShowGroupIdsChange={props.uiState.setShowGroupIds} onRefreshGroupDiagnostics={props.onRefreshGroupDiagnostics} onPeopleFilter={props.handlers.handlePeopleFilter} onPeopleSelectionChange={props.uiState.setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onGetWorkflowVisualiser={actions.getWorkflowVisualiser} onGetWorkflowModuleRepository={actions.getWorkflowModuleRepository} onRerunMissingFolderAiMetadata={actions.rerunMissingFolderAiMetadata} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={props.handlers.handleOpenAlbum} onHoverLibraryAssetChange={(asset) => props.uiState.setHoveredLibraryPhoto(asset ? buildCurrentPhotoStatus(asset) : null)} onListAvailableTags={actions.listAvailableTags} onListReviewItems={actions.listReviewItems} onAssignAssetTag={handleAssignAssetTag} onRemoveAssetTag={handleRemoveAssetTag} onMoveAssetToBin={props.handlers.handleMoveAssetToBin} onRestoreAssetFromBin={props.handlers.handleRestoreAssetFromBin} onSetReviewItemStatus={actions.setReviewItemStatus} onGetTagDefinitionDetail={actions.getTagDefinitionDetail} onRenameTagDefinition={actions.renameTagDefinition} onCreateTagAlias={actions.createTagAlias} onDeleteTagAlias={actions.deleteTagAlias} onMergeTagDefinitions={actions.mergeTagDefinitions} onFlagPhotoDateCorrection={props.handleFlagPhotoDateCorrection} onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion} onGetPresentationExpansion={actions.getPresentationExpansion} onSetPresentationCover={actions.setPresentationCover} onAddJob={addJob} onUpdateJobState={updateJobState} onUpdateJobProgress={updateJobProgress} onDeclusterSelection={props.handlers.handleDeclusterSelection} onBulkTagSelection={props.handlers.handleBulkTagSelection} onBulkUntagSelection={props.handlers.handleBulkUntagSelection} onMoveSelectionToBin={props.handlers.handleMoveSelectionToBin} onRestoreSelectionFromBin={props.handlers.handleRestoreSelectionFromBin} onClearSelection={() => props.uiState.setLibrarySelection(clearLibrarySelection())} />
+                    <AppMainContent onViewChange={props.handlers.handleViewChange} view={props.uiState.view} selectedWorkflowId={props.uiState.selectedWorkflowId} onSelectWorkflowId={props.uiState.setSelectedWorkflowId} stats={stats} timelineGallery={timelineGallery} assets={assets} presentationItems={presentationItems} galleryTimelineSeek={galleryTimelineSeek} isSeekingTimeline={isSeekingTimeline} libraryActive={props.uiState.view === 'library'} people={people} status={status} backendReady={backendReady} filterStack={filterStack} selectedAssetId={props.uiState.selectedAssetId} showInfoPanel={props.uiState.showInfoPanel} setShowInfoPanel={props.uiState.setShowInfoPanel} activeInfoTab={props.uiState.activeInfoTab} setActiveInfoTab={props.uiState.setActiveInfoTab} showFaces={false} librarySelection={props.uiState.librarySelection} groupSimilarPhotos={props.uiState.groupSimilarPhotos} showGroupIds={props.uiState.showGroupIds} groupDiagnosticsReport={props.groupDiagnosticsReport} isLoadingGroupDiagnostics={props.isLoadingGroupDiagnostics} declusteredAssets={props.uiState.declusteredAssets} showRejected={props.uiState.showRejected} rejectedAssets={rejectedAssets} workflowStatus={workflowStatus} dataStats={dataStats} recentEvents={recentEvents} workflowRuns={workflowRuns} uiFeedEntries={uiFeedEntries} ingestActive={ingestActive} hasMoreAssets={hasMoreAssets} isLoadingMoreAssets={isLoadingMoreAssets} isRefreshingLibrary={isRefreshingLibrary} onLoadMoreAssets={actions.loadMoreAssets} onLoadTimelineGroupPage={actions.loadTimelineGroupPage} onRequestTimelineJumpTarget={actions.requestTimelineJumpTarget} onTimelineVisibleGroupChange={callbacks.handleTimelineVisibleGroupChange} onGalleryDataModeChange={actions.setGalleryDataMode} onGalleryOrderChange={actions.setGalleryOrder} onGalleryTimelineSeek={actions.seekGalleryTimeline} onAssetClick={props.uiState.setSelectedAssetId} onEnsureAssetDetails={callbacks.ensureAssetDetails} onTagFilterChange={props.handlers.handleTagFilterChange} onUntagAsset={props.handlers.handleUntagAsset} onLibrarySelectionChange={props.uiState.setLibrarySelection} onGroupSimilarPhotosChange={props.uiState.setGroupSimilarPhotos} onShowGroupIdsChange={props.uiState.setShowGroupIds} onRefreshGroupDiagnostics={props.onRefreshGroupDiagnostics} onPeopleFilter={props.handlers.handlePeopleFilter} onPeopleSelectionChange={props.uiState.setPeopleSelectionCount} onRenamePerson={actions.renamePerson} onMergePeople={actions.mergePeople} onRefreshSystemJobs={actions.refreshSystemJobs} onGetEventPayloadRaw={actions.getEventPayloadRaw} onGetJobErrors={actions.getJobErrors} onGetWorkflowVisualiser={actions.getWorkflowVisualiser} onGetWorkflowModuleRepository={actions.getWorkflowModuleRepository} onRerunMissingFolderAiMetadata={actions.rerunMissingFolderAiMetadata} onGetAlbums={actions.getAlbums} onCreateAlbum={actions.createAlbum} onDeleteAlbum={actions.deleteAlbum} onOpenAlbum={props.handlers.handleOpenAlbum} onHoverLibraryAssetChange={(asset) => props.uiState.setHoveredLibraryPhoto(asset ? buildCurrentPhotoStatus(asset) : null)} onListAvailableTags={actions.listAvailableTags} onListReviewItems={actions.listReviewItems} onAssignAssetTag={callbacks.handleAssignAssetTag} onRemoveAssetTag={callbacks.handleRemoveAssetTag} onMoveAssetToBin={props.handlers.handleMoveAssetToBin} onRestoreAssetFromBin={props.handlers.handleRestoreAssetFromBin} onSetReviewItemStatus={actions.setReviewItemStatus} onGetTagDefinitionDetail={actions.getTagDefinitionDetail} onRenameTagDefinition={actions.renameTagDefinition} onCreateTagAlias={actions.createTagAlias} onDeleteTagAlias={actions.deleteTagAlias} onMergeTagDefinitions={actions.mergeTagDefinitions} onFlagPhotoDateCorrection={props.handleFlagPhotoDateCorrection} onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion} onGetPresentationExpansion={actions.getPresentationExpansion} onSetPresentationCover={actions.setPresentationCover} onAddJob={addJob} onUpdateJobState={updateJobState} onUpdateJobProgress={updateJobProgress} onDeclusterSelection={props.handlers.handleDeclusterSelection} onBulkTagSelection={props.handlers.handleBulkTagSelection} onBulkUntagSelection={props.handlers.handleBulkUntagSelection} onMoveSelectionToBin={props.handlers.handleMoveSelectionToBin} onRestoreSelectionFromBin={props.handlers.handleRestoreSelectionFromBin} onClearSelection={() => props.uiState.setLibrarySelection(clearLibrarySelection())} />
                     <AppStatusBar statusBanner={props.uiState.statusBanner} activityMessage={trackedActivityMessage} status={status} view={props.uiState.view} librarySelectionCount={getLibrarySelectionCount(props.uiState.librarySelection)} shownAssetsCount={props.handlers.shownAssetsCount} peopleSelectionCount={props.uiState.peopleSelectionCount} totalPhotoCount={props.totalPhotoCount} peopleCount={people.length} currentPhoto={props.uiState.view === 'library' ? props.uiState.hoveredLibraryPhoto : null} rightSlot={<AppStatusRightSlot isTaskDrawerMinimized={props.uiState.isTaskDrawerMinimized} activeOverlayJobCount={props.activeOverlayJobs.length} onToggleTaskDrawer={() => props.uiState.setIsTaskDrawerMinimized(!props.uiState.isTaskDrawerMinimized)} devRuntimeImpact={props.uiState.devRuntimeImpact} />} />
-                    <AppOverlays assets={assets} presentationItems={presentationItems} selectedAssetId={props.uiState.selectedAssetId} setSelectedAssetId={props.uiState.setSelectedAssetId} showActions={props.uiState.showActions} setShowActions={props.uiState.setShowActions} showSettings={props.uiState.showSettings} setShowSettings={props.uiState.setShowSettings} showInfoPanel={props.uiState.showInfoPanel} setShowInfoPanel={props.uiState.setShowInfoPanel} activeInfoTab={props.uiState.activeInfoTab} setActiveInfoTab={props.uiState.setActiveInfoTab} onGetAiCallsLog={actions.getAiCallsLog} onGetAiCallLogDetail={actions.getAiCallLogDetail} jobs={props.activeOverlayJobs} folderHistory={folderHistory} onScan={props.handlers.handleScan} onPreviews={actions.generatePreviews} onDetect={actions.detectFaces} onCluster={actions.clusterFaces} onRecalculatePhotoDates={actions.recalculatePhotoDates} onScanSensitive={actions.scanSensitive} onScanSensitiveAll={actions.scanSensitiveAll} onStartSimulationWorkflow={props.onStartSimulationWorkflow} onExtractAiMetadata={props.handleExtractAiMetadata} onGetWorkflowRunDetail={props.getWorkflowRunDetail} onRerunFaceDetection={actions.rerunFaceDetectionForAsset} onRefresh={props.handlers.handleOverlayRefresh} onResetFaces={actions.resetFaces} onResetAll={actions.resetLibrary} onFactoryReset={actions.factoryResetLibrary} onResetGroupingData={actions.resetGroupingData} onStopScan={actions.stopScan} onOpenGroupDiagnostics={props.onOpenGroupDiagnostics} onGetSetting={actions.getSetting} onSetSetting={actions.setSetting} onTestProviderKey={actions.testProviderKeyCommand} onSaveProviderKey={actions.saveProviderKey} onDeleteProviderKey={actions.deleteProviderKey} onGetRedactedProviderKey={actions.getRedactedProviderKey} theme={props.uiState.theme} setTheme={props.uiState.setTheme} animationsEnabled={props.uiState.animationsEnabled} setAnimationsEnabled={props.uiState.setAnimationsEnabled} aiMode={props.aiMode} setAiMode={props.setAiMode} onPrioritize={actions.prioritizeAsset} onFaceClick={props.handlers.handleFaceClick} onIsolateFace={actions.isolateFace} onSetSensitivity={actions.setSensitivity} onMoveToBin={props.handlers.handleMoveAssetToBin} onRestoreFromBin={props.handlers.handleRestoreAssetFromBin} onOpenSettingsFromPhoto={props.handlers.handleOpenSettingsFromPhoto} onLoadAssetEvidence={(assetId) => actions.loadAssetDetails(assetId, { includeEvidence: true })} onGetPresentationExpansion={actions.getPresentationExpansion} onSetPresentationCover={actions.setPresentationCover} onSetPresentationShowSeparately={actions.setPresentationShowSeparately} onAssignAssetTag={handleAssignAssetTag} onRemoveAssetTag={handleRemoveAssetTag} onSetReviewItemStatus={actions.setReviewItemStatus} onFlagPhotoDateCorrection={props.handleFlagPhotoDateCorrection} onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion} onStopJob={props.handleOverlayStopJob} isTaskDrawerMinimized={props.uiState.isTaskDrawerMinimized} onTaskDrawerMinimizedChange={props.uiState.setIsTaskDrawerMinimized} onRunWorkflowOnAssets={props.onRunWorkflowOnAssets} librarySelection={props.uiState.librarySelection} />
+                    <AppOverlays assets={assets} presentationItems={presentationItems} selectedAssetId={props.uiState.selectedAssetId} setSelectedAssetId={props.uiState.setSelectedAssetId} showActions={props.uiState.showActions} setShowActions={props.uiState.setShowActions} showSettings={props.uiState.showSettings} setShowSettings={props.uiState.setShowSettings} showInfoPanel={props.uiState.showInfoPanel} setShowInfoPanel={props.uiState.setShowInfoPanel} activeInfoTab={props.uiState.activeInfoTab} setActiveInfoTab={props.uiState.setActiveInfoTab} onGetAiCallsLog={actions.getAiCallsLog} onGetAiCallLogDetail={actions.getAiCallLogDetail} jobs={props.activeOverlayJobs} folderHistory={folderHistory} onScan={props.handlers.handleScan} onPreviews={actions.generatePreviews} onDetect={actions.detectFaces} onCluster={actions.clusterFaces} onRecalculatePhotoDates={actions.recalculatePhotoDates} onScanSensitive={actions.scanSensitive} onScanSensitiveAll={actions.scanSensitiveAll} onStartSimulationWorkflow={props.onStartSimulationWorkflow} onExtractAiMetadata={props.handleExtractAiMetadata} onGetWorkflowRunDetail={props.getWorkflowRunDetail} onRerunFaceDetection={actions.rerunFaceDetectionForAsset} onRefresh={props.handlers.handleOverlayRefresh} onResetFaces={actions.resetFaces} onResetAll={actions.resetLibrary} onFactoryReset={actions.factoryResetLibrary} onResetGroupingData={actions.resetGroupingData} onStopScan={actions.stopScan} onOpenGroupDiagnostics={props.onOpenGroupDiagnostics} onGetSetting={actions.getSetting} onSetSetting={actions.setSetting} onTestProviderKey={actions.testProviderKeyCommand} onSaveProviderKey={actions.saveProviderKey} onDeleteProviderKey={actions.deleteProviderKey} onGetRedactedProviderKey={actions.getRedactedProviderKey} theme={props.uiState.theme} setTheme={props.uiState.setTheme} animationsEnabled={props.uiState.animationsEnabled} setAnimationsEnabled={props.uiState.setAnimationsEnabled} aiMode={props.aiMode} setAiMode={props.setAiMode} onPrioritize={actions.prioritizeAsset} onFaceClick={props.handlers.handleFaceClick} onIsolateFace={actions.isolateFace} onSetSensitivity={actions.setSensitivity} onMoveToBin={props.handlers.handleMoveAssetToBin} onRestoreFromBin={props.handlers.handleRestoreAssetFromBin} onOpenSettingsFromPhoto={props.handlers.handleOpenSettingsFromPhoto} onLoadAssetEvidence={(assetId) => actions.loadAssetDetails(assetId, { includeEvidence: true })} onGetPresentationExpansion={actions.getPresentationExpansion} onSetPresentationCover={actions.setPresentationCover} onSetPresentationShowSeparately={actions.setPresentationShowSeparately} onAssignAssetTag={callbacks.handleAssignAssetTag} onRemoveAssetTag={callbacks.handleRemoveAssetTag} onSetReviewItemStatus={actions.setReviewItemStatus} onFlagPhotoDateCorrection={props.handleFlagPhotoDateCorrection} onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion} onStopJob={props.handleOverlayStopJob} isTaskDrawerMinimized={props.uiState.isTaskDrawerMinimized} onTaskDrawerMinimizedChange={props.uiState.setIsTaskDrawerMinimized} onRunWorkflowOnAssets={props.onRunWorkflowOnAssets} librarySelection={props.uiState.librarySelection} />
                 </div>
                 <ConnectionOverlayLayer connectionOverlay={connectionOverlay} status={status} />
             </div>
-            <AppNotifications notifications={notifications} dismissNotification={dismissNotification} onNotificationAction={handleNotificationAction} />
+            <AppNotifications notifications={notifications} dismissNotification={dismissNotification} onNotificationAction={callbacks.handleNotificationAction} />
         </div>
     );
 }
