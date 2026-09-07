@@ -340,43 +340,6 @@ export const SCHEMA_SQL = `
     value TEXT
   );
 
-  CREATE TABLE IF NOT EXISTS asset_groups (
-    id TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    status TEXT NOT NULL,
-    title TEXT,
-    description TEXT,
-    canonical_asset_id TEXT,
-    algorithm_version TEXT,
-    params_json TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (canonical_asset_id) REFERENCES assets(id) ON DELETE SET NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS asset_group_members (
-    group_id TEXT NOT NULL,
-    asset_id TEXT NOT NULL,
-    role TEXT NOT NULL,
-    rank INTEGER,
-    evidence_json TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (group_id, asset_id),
-    FOREIGN KEY (group_id) REFERENCES asset_groups(id) ON DELETE CASCADE,
-    FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS asset_group_children (
-    parent_group_id TEXT NOT NULL,
-    child_group_id TEXT NOT NULL,
-    rank INTEGER,
-    evidence_json TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (parent_group_id, child_group_id),
-    FOREIGN KEY (parent_group_id) REFERENCES asset_groups(id) ON DELETE CASCADE,
-    FOREIGN KEY (child_group_id) REFERENCES asset_groups(id) ON DELETE CASCADE
-  );
-
   CREATE TABLE IF NOT EXISTS asset_similarity_edges (
     asset_id_a TEXT NOT NULL,
     asset_id_b TEXT NOT NULL,
@@ -469,12 +432,6 @@ export const SCHEMA_SQL = `
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE INDEX IF NOT EXISTS idx_asset_groups_type ON asset_groups(type);
-  CREATE INDEX IF NOT EXISTS idx_asset_groups_canonical ON asset_groups(canonical_asset_id);
-  CREATE INDEX IF NOT EXISTS idx_group_members_asset ON asset_group_members(asset_id);
-  CREATE INDEX IF NOT EXISTS idx_group_members_group ON asset_group_members(group_id);
-  CREATE INDEX IF NOT EXISTS idx_group_children_parent ON asset_group_children(parent_group_id);
-  CREATE INDEX IF NOT EXISTS idx_group_children_child ON asset_group_children(child_group_id);
   CREATE INDEX IF NOT EXISTS idx_edges_a ON asset_similarity_edges(asset_id_a);
   CREATE INDEX IF NOT EXISTS idx_edges_b ON asset_similarity_edges(asset_id_b);
   CREATE INDEX IF NOT EXISTS idx_edges_kind_score ON asset_similarity_edges(kind, score);
