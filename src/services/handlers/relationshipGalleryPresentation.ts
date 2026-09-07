@@ -5,6 +5,7 @@ import {
     getAllCaptureSequencePresentationItems,
     type CaptureSequencePresentationItem,
 } from '../relationships/libraryCaptureSequencePresentationProjection';
+import { applyLibraryPresentationPreferences } from '../relationships/libraryPresentationPreferenceRepository';
 import type { AssetGalleryOrder } from './assetGalleryOrder';
 import { buildAssetTimelineSeekClause, getAssetTimelineSeek } from './assetTimelineSeek';
 import { buildFilterSubquery } from './assetQueryFilters';
@@ -63,14 +64,14 @@ function loadSeekEligibleRepresentativeIds(
 }
 
 function matchesEligibleMembers(
-    item: CaptureSequencePresentationItem,
+    item: LibraryPresentationItem,
     eligibleAssetIds: ReadonlySet<string> | null,
 ): boolean {
     return !eligibleAssetIds || item.assetIds.some((assetId) => eligibleAssetIds.has(assetId));
 }
 
 function matchesSeek(
-    item: CaptureSequencePresentationItem,
+    item: LibraryPresentationItem,
     eligibleRepresentativeIds: ReadonlySet<string> | null,
 ): boolean {
     return !eligibleRepresentativeIds || eligibleRepresentativeIds.has(item.representativeAssetId);
@@ -105,10 +106,12 @@ export function getRelationshipGalleryPresentationPage(
         options.galleryOrder,
         options.gallerySeek,
     );
-    const eligibleItems = getAllCaptureSequencePresentationItems(db, options.galleryOrder)
+    const projectedItems = getAllCaptureSequencePresentationItems(db, options.galleryOrder).map(toResponseItem);
+    const preferredItems = applyLibraryPresentationPreferences(db, projectedItems, eligibleAssetIds);
+    const eligibleItems = preferredItems
         .filter((item) => matchesEligibleMembers(item, eligibleAssetIds))
         .filter((item) => matchesSeek(item, eligibleRepresentativeIds));
-    const pageItems = eligibleItems.slice(offset, offset + limit).map(toResponseItem);
+    const pageItems = eligibleItems.slice(offset, offset + limit);
 
     return {
         items: pageItems,
