@@ -155,8 +155,8 @@ export function collapseVariantUnits(
 
 /**
  * Shadow implementation of the current duplicate -> near -> variant -> burst
- * computational hierarchy without reading asset_groups. It deliberately runs
- * across every currently-ready asset so arbitrary-subject workflow runs remain
+ * computational hierarchy without reading legacy grouping tables. It deliberately
+ * runs across every currently-ready asset so arbitrary-subject workflow runs remain
  * semantically correct while incremental reconstruction is developed separately.
  */
 export function buildGroupFreeGroupingPipeline(db: DbHandle): GroupFreeGroupingPipeline {
