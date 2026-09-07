@@ -64,7 +64,7 @@ function toPresentationSelectableItem(
 ): LibrarySelectableItem {
     if (item.stackCount > 1) {
         return {
-            asset: { ...asset, stack_count: item.stackCount },
+            asset,
             entityType: 'group',
             selectionKey: `group:${item.presentationKey}`,
             photoId: item.representativeAssetId,
