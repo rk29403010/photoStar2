@@ -88,13 +88,13 @@ test('all lint configurations use the canonical ignore policy', async () => {
     }
 });
 
-test('markdownlint ignores every generated and isolated quality-policy path', async () => {
+test('markdownlint ignores the canonical markdown policy', async () => {
     const markdownIgnores = (await readFile('.markdownlintignore', 'utf8'))
         .split(/\r?\n/u)
         .map((line) => line.trim())
         .filter(Boolean);
 
-    assert.deepEqual(markdownIgnores, [...qualityPolicy.lintIgnores]);
+    assert.deepEqual(markdownIgnores, [...qualityPolicy.markdownIgnores]);
 });
 
 test('Oxlint reviewability limits match the canonical policy', async () => {
@@ -127,6 +127,7 @@ test('changed quality selection combines committed, working, staged, and untrack
     const outputs = new Map([
         ['diff --name-only --diff-filter=ACMRT -z base-sha...HEAD', 'committed.ts\0shared.ts\0'],
         ['diff --name-only --diff-filter=ACMRT -z HEAD', 'working.ts\0shared.ts\0'],
+        ['diff --cached --name-only --diff-filter=ACMRT -z', 'staged.ts\0shared.ts\0'],
         ['ls-files --others --exclude-standard -z', 'untracked.ts\0'],
     ]);
     const runGit = (args) => {
@@ -135,24 +136,15 @@ test('changed quality selection combines committed, working, staged, and untrack
         return outputs.get(key) ?? '';
     };
 
-    assert.deepEqual(selectQualityFiles({ mode: 'changed', diffBase: 'base-sha', runGit }), [
-        'committed.ts',
-        'shared.ts',
-        'working.ts',
-        'untracked.ts',
-    ]);
-    assert.deepEqual(invocations, [
-        'diff --name-only --diff-filter=ACMRT -z base-sha...HEAD',
-        'diff --name-only --diff-filter=ACMRT -z HEAD',
-        'ls-files --others --exclude-standard -z',
-    ]);
+    assert.deepEqual(
+        selectQualityFiles({ baseRef: 'base-sha', runGit }),
+        ['committed.ts', 'shared.ts', 'working.ts', 'staged.ts', 'untracked.ts'],
+    );
+    assert.deepEqual(invocations, [...outputs.keys()]);
 });
 
 test('changed quality selection includes local edits and preserves unusual path characters', () => {
-    assert.deepEqual(selectQualityFiles({ mode: 'changed', runGit: runUnusualPathGitFixture }), [
-        'staged.ts',
-        'folder/name with spaces.ts',
-        'line\nbreak.ts',
-    ]);
+    const selected = selectQualityFiles({ baseRef: 'base-sha', runGit: runUnusualPathGitFixture });
+    assert.deepEqual(selected, ['staged.ts', 'folder/name with spaces.ts', 'line\nbreak.ts']);
     assert.deepEqual(parseGitPathList('first.ts\0second.ts\0'), ['first.ts', 'second.ts']);
 });
