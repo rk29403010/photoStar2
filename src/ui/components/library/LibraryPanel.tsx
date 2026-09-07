@@ -1,5 +1,5 @@
 import { useCallback, type ComponentProps, type CSSProperties, type ReactNode, type RefObject, type UIEvent } from 'react';
-import type { Asset, GalleryTimelineSeek, ReviewItemSummary } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { LibraryPresentationExpansion } from '@contracts/libraryPresentation';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
@@ -53,6 +53,8 @@ export type LibraryPanelProps = {
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
     readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
     readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
+    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
+    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly browseRowHeight: number;
     readonly isScrollSettled: boolean;
 }
@@ -99,6 +101,8 @@ export function LibraryPanel({
     onRecordPhotoMetadataAssertion,
     onGetPresentationExpansion,
     onSetPresentationCover,
+    onGetGroupOrbit,
+    onSetCanonical,
     browseRowHeight,
     isScrollSettled,
 }: LibraryPanelProps) {
@@ -138,6 +142,8 @@ export function LibraryPanel({
                     onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
                     onGetPresentationExpansion={onGetPresentationExpansion}
                     onSetPresentationCover={onSetPresentationCover}
+                    onGetGroupOrbit={onGetGroupOrbit}
+                    onSetCanonical={onSetCanonical}
                 />
             )}
         </div>
