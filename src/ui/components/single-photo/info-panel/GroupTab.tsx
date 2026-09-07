@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import type { Asset, SimilarityOrbit, SimilarityOrbitItem } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import { Section } from './shared';
 
 type GroupMembersListProps = {
   readonly items: SimilarityOrbitItem[];
   readonly currentAssetId: string;
+  readonly representativeAssetId: string;
   readonly loading: boolean;
   readonly onMakeCanonical: (assetId: string) => Promise<void>;
 };
@@ -12,22 +14,23 @@ type GroupMembersListProps = {
 const GroupMembersList: React.FC<GroupMembersListProps> = ({
   items,
   currentAssetId,
+  representativeAssetId,
   loading,
   onMakeCanonical,
 }) => {
   if (loading) {
-    return <div className="text-xs text-content-secondary py-4 text-center">Loading group assets...</div>;
+    return <div className="text-xs text-content-secondary py-4 text-center">Loading related photos...</div>;
   }
 
   return (
     <div className="flex flex-col gap-2">
       <div className="text-[11px] text-content-secondary mb-1">
-        All files in this duplicate/similar group ({items.length} files):
+        All files in this presentation ({items.length} files):
       </div>
       {items.map((item) => {
         const fileAsset = item.asset;
         const filename = fileAsset.original_path.split(/[/\\]/).pop() || '';
-        const isCanonical = fileAsset.group_role === 'canonical' || (fileAsset as unknown as Record<string, unknown>).role === 'canonical';
+        const isCanonical = fileAsset.id === representativeAssetId;
         const sizeMB = fileAsset.file_size ? `${(fileAsset.file_size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown size';
         const isCurrent = fileAsset.id === currentAssetId;
 
@@ -58,7 +61,7 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
                   <button
                     onClick={() => onMakeCanonical(fileAsset.id)}
                     className="px-1.5 py-0.5 bg-content/5 hover:bg-content/10 border border-content/10 rounded text-[9px] font-medium transition-colors cursor-pointer"
-                    title="Make this the star image for grouping"
+                    title="Make this the star image for this presentation"
                   >
                     Make Star
                   </button>
@@ -75,6 +78,7 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
 type GroupExportSectionProps = {
   readonly isVariantGroup: boolean;
   readonly items: SimilarityOrbitItem[];
+  readonly representativeAssetId: string;
   readonly selectedVariantId: string;
   readonly setSelectedVariantId: (v: string) => void;
   readonly exporting: boolean;
@@ -85,6 +89,7 @@ type GroupExportSectionProps = {
 const GroupExportSection: React.FC<GroupExportSectionProps> = ({
   isVariantGroup,
   items,
+  representativeAssetId,
   selectedVariantId,
   setSelectedVariantId,
   exporting,
@@ -106,7 +111,7 @@ const GroupExportSection: React.FC<GroupExportSectionProps> = ({
           >
             {items.map((item) => {
               const filename = item.asset.original_path.split(/[/\\]/).pop() || '';
-              const isCanonical = item.asset.group_role === 'canonical' || (item.asset as unknown as Record<string, unknown>).role === 'canonical';
+              const isCanonical = item.asset.id === representativeAssetId;
               return (
                 <option key={item.asset.id} value={item.asset.id}>
                   {filename} {isCanonical ? '(Star)' : ''}
@@ -117,7 +122,7 @@ const GroupExportSection: React.FC<GroupExportSectionProps> = ({
         </div>
       ) : (
         <span className="text-xs text-content-secondary leading-relaxed">
-          ℹ️ This is a <strong>Duplicate/Similar Group</strong>. Exporting will collapse these down and create a single new file embedded with the best synthesised metadata estimates (date, location, tags, and caption).
+          ℹ️ This presentation groups files that PhotoStar currently treats as related. Exporting will create a single new file using the best synthesised metadata estimates (date, location, tags, and caption).
         </span>
       )}
 
@@ -138,7 +143,7 @@ const GroupExportSection: React.FC<GroupExportSectionProps> = ({
   );
 };
 
-function findStarAssetId(items: SimilarityOrbitItem[], defaultId: string): string {
+function findLegacyStarAssetId(items: SimilarityOrbitItem[], defaultId: string): string {
   const canonical = items.find((item) => {
     const asset = item.asset;
     const role = (asset as unknown as Record<string, unknown>).role;
@@ -153,11 +158,12 @@ function getExportSuccessMessage(groupType: string, orbit: SimilarityOrbit | nul
     const filename = selectedAsset?.original_path.split(/[/\\]/).pop() || 'photo.jpg';
     return `Successfully exported variant "${filename}" as new authoritative file!`;
   }
-  return `Successfully collapsed and exported group as new authoritative file!`;
+  return 'Successfully exported presentation as a new authoritative file!';
 }
 
 function useGroupTabState(
   asset: Asset,
+  presentation?: LibraryPresentationItem | null,
   onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>,
   onSetCanonical?: (groupId: string, assetId: string) => Promise<void>
 ) {
@@ -166,9 +172,17 @@ function useGroupTabState(
   const [exporting, setExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
+  const [localRepresentativeAssetId, setLocalRepresentativeAssetId] = useState<string>(
+    presentation?.representativeAssetId ?? asset.id,
+  );
 
-  const groupId = asset.group_id || asset.group_memberships?.[0]?.group_id;
-  const groupType = orbit?.group_type || asset.group_memberships?.[0]?.group_type || 'similar';
+  const presentationKey = presentation && presentation.stackCount > 1 ? presentation.presentationKey : null;
+  const groupId = presentationKey ?? asset.group_id ?? asset.group_memberships?.[0]?.group_id;
+  const groupType = presentation?.relationshipKind ?? orbit?.group_type ?? asset.group_memberships?.[0]?.group_type ?? 'similar';
+
+  useEffect(() => {
+    setLocalRepresentativeAssetId(presentation?.representativeAssetId ?? asset.id);
+  }, [asset.id, presentation?.representativeAssetId]);
 
   useEffect(() => {
     if (!groupId || !onGetGroupOrbit) {
@@ -181,22 +195,26 @@ function useGroupTabState(
     onGetGroupOrbit(groupId)
       .then((data) => {
         setOrbit(data);
-        setSelectedVariantId(findStarAssetId(data.items, asset.id));
+        const representativeId = presentation?.representativeAssetId
+          ?? findLegacyStarAssetId(data.items, asset.id);
+        setLocalRepresentativeAssetId(representativeId);
+        setSelectedVariantId(representativeId);
       })
-      .catch((err) => console.error('Failed to load group orbit:', err))
+      .catch((err) => console.error('Failed to load presentation:', err))
       .finally(() => setLoading(false));
-  }, [groupId, asset.id, onGetGroupOrbit]);
+  }, [groupId, asset.id, onGetGroupOrbit, presentation?.representativeAssetId]);
 
   const handleMakeCanonical = async (assetId: string) => {
     if (!groupId || !onSetCanonical) { return; }
     try {
       await onSetCanonical(groupId, assetId);
+      setLocalRepresentativeAssetId(assetId);
+      setSelectedVariantId(assetId);
       if (onGetGroupOrbit) {
-        const data = await onGetGroupOrbit(groupId);
-        setOrbit(data);
+        setOrbit(await onGetGroupOrbit(groupId));
       }
     } catch (err) {
-      console.error('Failed to set canonical asset:', err);
+      console.error('Failed to set presentation cover:', err);
     }
   };
 
@@ -205,17 +223,18 @@ function useGroupTabState(
     setExportSuccess(null);
     setTimeout(() => {
       setExporting(false);
-      setExportSuccess(getExportSuccessMessage(groupType, orbit, selectedVariantId));
+      setExportSuccess(getExportSuccessMessage(groupType ?? 'similar', orbit, selectedVariantId));
     }, 2000);
   };
 
   return {
     groupId,
-    groupType,
+    groupType: groupType ?? 'similar',
     orbit,
     loading,
     exporting,
     exportSuccess,
+    representativeAssetId: localRepresentativeAssetId,
     selectedVariantId,
     setSelectedVariantId,
     handleMakeCanonical,
@@ -225,12 +244,14 @@ function useGroupTabState(
 
 type GroupTabProps = {
   readonly asset: Asset;
+  readonly presentation?: LibraryPresentationItem | null;
   readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
   readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
 };
 
 export const GroupTab: React.FC<GroupTabProps> = ({
   asset,
+  presentation,
   onGetGroupOrbit,
   onSetCanonical,
 }) => {
@@ -241,18 +262,19 @@ export const GroupTab: React.FC<GroupTabProps> = ({
     loading,
     exporting,
     exportSuccess,
+    representativeAssetId,
     selectedVariantId,
     setSelectedVariantId,
     handleMakeCanonical,
     handleExport,
-  } = useGroupTabState(asset, onGetGroupOrbit, onSetCanonical);
+  } = useGroupTabState(asset, presentation, onGetGroupOrbit, onSetCanonical);
 
   if (!groupId) {
     return (
       <div className="text-center py-10 px-5 text-content-secondary/60 select-none">
         <div className="text-3xl mb-2.5">📁</div>
         <div className="text-xs font-bold uppercase text-content-secondary/80">Single Photo</div>
-        <div className="text-[11px] text-content-secondary/70 mt-1">This photo is not part of any duplicate or similar photo group.</div>
+        <div className="text-[11px] text-content-secondary/70 mt-1">This photo is not currently part of a collapsed relationship presentation.</div>
       </div>
     );
   }
@@ -262,10 +284,11 @@ export const GroupTab: React.FC<GroupTabProps> = ({
 
   return (
     <div className="flex flex-col gap-4 text-content select-none">
-      <Section emoji="📁" title={`Group: ${groupType.toUpperCase()}`}>
+      <Section emoji="📁" title={`Relationship: ${groupType.toUpperCase()}`}>
         <GroupMembersList
           items={items}
           currentAssetId={asset.id}
+          representativeAssetId={representativeAssetId}
           loading={loading}
           onMakeCanonical={handleMakeCanonical}
         />
@@ -275,6 +298,7 @@ export const GroupTab: React.FC<GroupTabProps> = ({
         <GroupExportSection
           isVariantGroup={isVariantGroup}
           items={items}
+          representativeAssetId={representativeAssetId}
           selectedVariantId={selectedVariantId}
           setSelectedVariantId={setSelectedVariantId}
           exporting={exporting}
