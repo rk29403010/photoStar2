@@ -2,8 +2,6 @@ import type { Asset } from '@contracts/core';
 import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import { getLibraryBinActionLabel as getSharedLibraryBinActionLabel } from '../app/libraryBinActionModel.ts';
 
-type GroupedAsset = Asset & { role?: string | null };
-
 const STAR_LABELS = ['Select as ⭐', 'Make Star'] as const;
 const SEPARATE_LABELS = ['Explode Group', 'Show Separately'] as const;
 
@@ -14,19 +12,6 @@ export type RelationshipMenuState = {
     showSeparate: boolean;
 };
 
-export function isCanonicalGroupMember(asset: Asset): boolean {
-    const groupedAsset = asset as GroupedAsset;
-    return asset.group_role === 'canonical' || groupedAsset.role === 'canonical';
-}
-
-export function canSelectAsStar(asset: Asset): boolean {
-    return Boolean(asset.group_id) && !isCanonicalGroupMember(asset);
-}
-
-export function canExplodeGroup(asset: Asset): boolean {
-    return Boolean(asset.group_id);
-}
-
 export function resolveRelationshipMenuState(params: {
     asset: Asset;
     presentation: LibraryPresentationItem | null;
@@ -34,21 +19,14 @@ export function resolveRelationshipMenuState(params: {
     canSeparate: boolean;
 }): RelationshipMenuState {
     const { asset, presentation, canSetRepresentative, canSeparate } = params;
-    const isPresentation = presentation !== null;
-    const relationshipId = presentation?.presentationKey ?? asset.group_id ?? null;
+    const relationshipId = presentation?.presentationKey ?? null;
     const isPresentationRepresentative = presentation?.representativeAssetId === asset.id;
-    const showMakeStar = Boolean(relationshipId)
-        && canSetRepresentative
-        && (isPresentation ? !isPresentationRepresentative : canSelectAsStar(asset));
-    const showSeparate = Boolean(relationshipId)
-        && canSeparate
-        && (isPresentation || canExplodeGroup(asset));
 
     return {
         relationshipId,
-        isPresentation,
-        showMakeStar,
-        showSeparate,
+        isPresentation: presentation !== null,
+        showMakeStar: Boolean(relationshipId) && canSetRepresentative && !isPresentationRepresentative,
+        showSeparate: Boolean(relationshipId) && canSeparate,
     };
 }
 
