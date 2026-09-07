@@ -1,4 +1,5 @@
 import type { Asset } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 
 export type LibrarySelectionKey = `photo:${string}` | `group:${string}`;
 
@@ -8,6 +9,7 @@ export type LibrarySelectableItem = {
     selectionKey: LibrarySelectionKey;
     photoId: string;
     groupId: string | null;
+    presentation?: LibraryPresentationItem | null;
 };
 
 export type LibrarySelectionState = {
@@ -181,7 +183,7 @@ export function updateLibrarySelection(
     }
 
     if (action.mode === 'replace') {
-        return replaceLibrarySelection(items, action.index);
+        return replaceLibrarySelection(items, index);
     }
 
     if (action.mode === 'toggle') {
