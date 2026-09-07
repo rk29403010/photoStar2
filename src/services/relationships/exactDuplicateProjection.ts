@@ -58,8 +58,8 @@ function groupRowsByContentHash(rows: ExactDuplicateAssetRow[]): Map<string, Exa
  * Deterministic semantic projection for exact file copies.
  *
  * Exact-copy membership comes directly from content digest equivalence rather
- * than persisted pairwise relationships. The legacy `asset_groups` writer
- * remains authoritative for the current UI until the presentation cutover.
+ * than persisted pairwise relationships. Presentation projection is the only
+ * runtime grouping surface after the semantic cutover.
  */
 export function getExactDuplicateSets(db: DbHandle): ExactDuplicateSet[] {
     const groupedRows = groupRowsByContentHash(loadDuplicateAssetRows(db));
