@@ -184,6 +184,95 @@ function ViewportStageFrame(props: {
     );
 }
 
+type PhotoViewportContentProps = {
+    readonly props: PhotoViewportProps;
+    readonly containerRef: RefObject<HTMLDivElement | null>;
+    readonly stageAsset: Asset;
+    readonly stageImageSrc: string | null;
+    readonly pendingImageSrc: string | null;
+    readonly stageSize: { width: number; height: number } | null;
+    readonly pan: { x: number; y: number };
+    readonly scale: number;
+    readonly setScale: Dispatch<SetStateAction<number>>;
+    readonly setPan: Dispatch<SetStateAction<{ x: number; y: number }>>;
+    readonly isDragging: boolean;
+    readonly handleMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
+    readonly resetPanZoom: () => void;
+    readonly overlayMode: 'people' | 'objects' | null;
+    readonly isImageTransitionPending: boolean;
+    readonly showFaceOverlays: boolean;
+    readonly markActiveImageReady: () => void;
+    readonly commitPendingImage: () => void;
+    readonly hasFrame: boolean;
+    readonly showWithFrame: boolean;
+    readonly setShowWithFrame: (show: boolean) => void;
+};
+
+function PhotoViewportContent(state: PhotoViewportContentProps) {
+    const { props } = state;
+    return (
+        <>
+            <ViewportStageFrame
+                containerRef={state.containerRef}
+                showControls={props.showControls}
+                setShowControls={props.setShowControls}
+                setShowActionMenu={props.setShowActionMenu}
+                displayedAsset={state.stageAsset}
+                imgSrc={state.stageImageSrc}
+                pendingImageSrc={state.pendingImageSrc}
+                stageSize={state.stageSize}
+                pan={state.pan}
+                scale={state.scale}
+                isDragging={state.isDragging}
+                handleMouseDown={state.handleMouseDown}
+                showFaceOverlays={state.showFaceOverlays}
+                overlayMode={state.overlayMode}
+                isImageTransitionPending={state.isImageTransitionPending}
+                hoveredFaceKey={props.hoveredFaceKey}
+                setHoveredFaceKey={props.setHoveredFaceKey}
+                selectedOverlayKey={props.selectedOverlayKey}
+                setSelectedOverlayKey={props.setSelectedOverlayKey}
+                onFaceClick={props.onFaceClick}
+                onIsolateFace={props.onIsolateFace}
+                onRevealControls={props.onRevealControls}
+                onActiveImageLoad={state.markActiveImageReady}
+                onPendingImageLoad={state.commitPendingImage}
+                showWithFrame={state.showWithFrame}
+            />
+            <ViewportActions
+                asset={props.asset}
+                assetsLength={props.assetsLength}
+                currentIndex={props.currentIndex}
+                showControls={props.showControls}
+                showActionMenu={props.showActionMenu}
+                setShowActionMenu={props.setShowActionMenu}
+                panelState={props.panelState}
+                isImageTransitionPending={state.isImageTransitionPending}
+                scale={state.scale}
+                setScale={state.setScale}
+                setPan={state.setPan}
+                resetPanZoom={state.resetPanZoom}
+                onClose={props.onClose}
+                onChangeIndex={props.onChangeIndex}
+                onSetSensitivity={props.onSetSensitivity}
+                onMoveToBin={props.onMoveToBin}
+                onRestoreFromBin={props.onRestoreFromBin}
+                onSetCanonical={props.onSetCanonical}
+                onExplodeGroup={props.onExplodeGroup}
+                onExtractAiMetadata={props.onExtractAiMetadata}
+                onRerunFaceDetection={props.onRerunFaceDetection}
+                onOpenSettings={props.onOpenSettings}
+                analysis={props.analysis}
+                onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
+                onEditPhoto={props.onEditPhoto}
+                hasFrame={state.hasFrame}
+                showWithFrame={state.showWithFrame}
+                setShowWithFrame={state.setShowWithFrame}
+            />
+        </>
+    );
+}
+
 export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scale, setScale, pan, setPan, isDragging, handleMouseDown, resetPanZoom } = usePanZoom(containerRef);
@@ -221,64 +310,28 @@ export const PhotoViewport: FC<PhotoViewportProps> = (props) => {
     });
 
     return (
-        <>
-            <ViewportStageFrame
-                containerRef={containerRef}
-                showControls={props.showControls}
-                setShowControls={props.setShowControls}
-                setShowActionMenu={props.setShowActionMenu}
-                displayedAsset={stageAsset}
-                imgSrc={stageImageSrc}
-                pendingImageSrc={pendingImageSrc}
-                stageSize={stageSize}
-                pan={pan}
-                scale={scale}
-                isDragging={isDragging}
-                handleMouseDown={handleMouseDown}
-                showFaceOverlays={showFaceOverlays}
-                overlayMode={overlayMode}
-                isImageTransitionPending={isImageTransitionPending}
-                hoveredFaceKey={props.hoveredFaceKey}
-                setHoveredFaceKey={props.setHoveredFaceKey}
-                selectedOverlayKey={props.selectedOverlayKey}
-                setSelectedOverlayKey={props.setSelectedOverlayKey}
-                onFaceClick={props.onFaceClick}
-                onIsolateFace={props.onIsolateFace}
-                onRevealControls={props.onRevealControls}
-                onActiveImageLoad={markActiveImageReady}
-                onPendingImageLoad={commitPendingImage}
-                showWithFrame={showWithFrame}
-            />
-            <ViewportActions
-                asset={props.asset}
-                assetsLength={props.assetsLength}
-                currentIndex={props.currentIndex}
-                showControls={props.showControls}
-                showActionMenu={props.showActionMenu}
-                setShowActionMenu={props.setShowActionMenu}
-                panelState={props.panelState}
-                isImageTransitionPending={isImageTransitionPending}
-                scale={scale}
-                setScale={setScale}
-                setPan={setPan}
-                resetPanZoom={resetPanZoom}
-                onClose={props.onClose}
-                onChangeIndex={props.onChangeIndex}
-                onSetSensitivity={props.onSetSensitivity}
-                onMoveToBin={props.onMoveToBin}
-                onRestoreFromBin={props.onRestoreFromBin}
-                onSetCanonical={props.onSetCanonical}
-                onExplodeGroup={props.onExplodeGroup}
-                onExtractAiMetadata={props.onExtractAiMetadata}
-                onRerunFaceDetection={props.onRerunFaceDetection}
-                onOpenSettings={props.onOpenSettings}
-                analysis={props.analysis}
-                onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
-                onEditPhoto={props.onEditPhoto}
-                hasFrame={hasFrame}
-                showWithFrame={showWithFrame}
-                setShowWithFrame={setShowWithFrame}
-            />
-        </>
+        <PhotoViewportContent
+            props={props}
+            containerRef={containerRef}
+            stageAsset={stageAsset}
+            stageImageSrc={stageImageSrc}
+            pendingImageSrc={pendingImageSrc}
+            stageSize={stageSize}
+            pan={pan}
+            scale={scale}
+            setScale={setScale}
+            setPan={setPan}
+            isDragging={isDragging}
+            handleMouseDown={handleMouseDown}
+            resetPanZoom={resetPanZoom}
+            overlayMode={overlayMode}
+            isImageTransitionPending={isImageTransitionPending}
+            showFaceOverlays={showFaceOverlays}
+            markActiveImageReady={markActiveImageReady}
+            commitPendingImage={commitPendingImage}
+            hasFrame={hasFrame}
+            showWithFrame={showWithFrame}
+            setShowWithFrame={setShowWithFrame}
+        />
     );
 };
