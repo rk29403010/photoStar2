@@ -24,6 +24,11 @@ type VisualGraphInput = {
     threshold: number;
 };
 
+type VisualPolicyRefresh = {
+    changedAssetIds: string[];
+    graph: VisualGraphInput;
+};
+
 function pairKey(leftAssetId: string, rightAssetId: string): string {
     return leftAssetId < rightAssetId
         ? `${leftAssetId}\n${rightAssetId}`
@@ -76,20 +81,19 @@ function syncPolicy(params: {
 
 export function syncVisualSimilarityObservations(params: {
     db: DbHandle;
-    changedAssetIds: string[];
-    nearDuplicateGraph: VisualGraphInput;
-    variantGraph: VisualGraphInput;
+    nearDuplicate: VisualPolicyRefresh;
+    variant: VisualPolicyRefresh;
 }): void {
     syncPolicy({
         db: params.db,
-        changedAssetIds: params.changedAssetIds,
+        changedAssetIds: params.nearDuplicate.changedAssetIds,
         policy: 'near_duplicate',
-        graph: params.nearDuplicateGraph,
+        graph: params.nearDuplicate.graph,
     });
     syncPolicy({
         db: params.db,
-        changedAssetIds: params.changedAssetIds,
+        changedAssetIds: params.variant.changedAssetIds,
         policy: 'variant',
-        graph: params.variantGraph,
+        graph: params.variant.graph,
     });
 }
