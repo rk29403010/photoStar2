@@ -183,7 +183,7 @@ export function updateLibrarySelection(
     }
 
     if (action.mode === 'replace') {
-        return replaceLibrarySelection(items, index);
+        return replaceLibrarySelection(items, action.index);
     }
 
     if (action.mode === 'toggle') {
