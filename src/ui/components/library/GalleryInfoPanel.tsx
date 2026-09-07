@@ -1,11 +1,12 @@
-import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
+import type { GalleryInfoPanelAsset } from './galleryInfoPanelModel';
 import { InfoPanel } from '../single-photo/InfoPanel';
 import { IconButton, Panel, Header } from '../Primitives';
 
 type GalleryInfoPanelProps = {
-    readonly asset: Asset | null;
+    readonly asset: GalleryInfoPanelAsset | null;
     readonly activeTab: InfoTab;
     readonly onTabChange: (tab: InfoTab) => void;
     readonly onClose: () => void;
@@ -66,6 +67,7 @@ export function GalleryInfoPanel({
     return (
         <InfoPanel
             asset={asset}
+            presentation={asset.libraryPresentation}
             activeTab={activeTab}
             onTabChange={onTabChange}
             onClose={onClose}
