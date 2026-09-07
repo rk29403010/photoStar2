@@ -327,4 +327,12 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 WHERE preferred_asset_identity_guid IS NOT NULL;
         `,
     },
+    {
+        id: '20260907_003_drop_legacy_asset_groups',
+        sql: `
+            DROP TABLE IF EXISTS asset_group_children;
+            DROP TABLE IF EXISTS asset_group_members;
+            DROP TABLE IF EXISTS asset_groups;
+        `,
+    },
 ];
