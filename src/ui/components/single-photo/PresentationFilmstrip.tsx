@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { Asset } from '@contracts/core';
 import type { LibraryPresentationExpansion, LibraryPresentationRelationshipKind } from '@contracts/libraryPresentation';
 import { resolveImageUrl } from '@boundary/runtime/backend';
-import { FILLED_STAR_SYMBOL } from './variantFilmstripModel';
+
+const FILLED_STAR_SYMBOL = '⭐';
 
 type PresentationFilmstripProps = {
     readonly presentationKey: string;
@@ -50,13 +51,7 @@ function updateTileOpacity(target: HTMLDivElement, isSelected: boolean, opacity:
     }
 }
 
-function PresentationTile({
-    asset,
-    selectedAssetId,
-    isRepresentative,
-    ordinal,
-    onSelectAsset,
-}: PresentationFilmstripItemProps) {
+function PresentationTile({ asset, selectedAssetId, isRepresentative, ordinal, onSelectAsset }: PresentationFilmstripItemProps) {
     const isSelected = asset.id === selectedAssetId;
     const imgSrc = resolveImageUrl(asset.preview_path ?? asset.original_path) || '';
 
@@ -167,13 +162,7 @@ function usePresentationExpansion(
     return expansion;
 }
 
-export const PresentationFilmstrip: React.FC<PresentationFilmstripProps> = ({
-    presentationKey,
-    selectedAsset,
-    onGetPresentationExpansion,
-    onExpansionLoaded,
-    onSelectAsset,
-}) => {
+export const PresentationFilmstrip: React.FC<PresentationFilmstripProps> = ({ presentationKey, selectedAsset, onGetPresentationExpansion, onExpansionLoaded, onSelectAsset }) => {
     const expansion = usePresentationExpansion(presentationKey, onGetPresentationExpansion, onExpansionLoaded);
     if (!expansion || expansion.items.length <= 1) {
         return null;
@@ -196,13 +185,7 @@ export const PresentationFilmstrip: React.FC<PresentationFilmstripProps> = ({
             overflow: 'hidden',
         }}>
             <FilmStripSprockets />
-            <div style={{
-                marginBottom: 10,
-                color: '#e7e5e4',
-                fontSize: 11,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-            }}>
+            <div style={{ marginBottom: 10, color: '#e7e5e4', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {relationshipLabel(expansion.relationshipKind)} · {expansion.items.length} photos
             </div>
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '6px 0', scrollbarWidth: 'thin' }}>
