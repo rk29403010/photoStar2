@@ -110,8 +110,6 @@ async function resetLibrary(ctx: CommandContext, mode: ResetMode) {
 function resetGroupingData(ctx: CommandContext) {
     const db = ctx.dbManager.getDb();
     db.transaction(() => {
-        db.prepare('DELETE FROM asset_group_members').run();
-        db.prepare('DELETE FROM asset_groups').run();
         db.prepare("DELETE FROM asset_similarity_edges WHERE kind IN ('visual', 'time', 'metadata', 'hybrid')").run();
         db.prepare(`
             DELETE FROM visual_similarity_observations
@@ -257,7 +255,7 @@ export const systemCommandHandlers: CommandHandlerMap = {
             const count = db.prepare('SELECT COUNT(*) as count FROM assets').get() as { count: number };
             const history = db.prepare('SELECT path, last_scanned_at FROM folder_history ORDER BY last_scanned_at DESC LIMIT 5').all();
             const timelineStats = buildLibraryTimelineStats(db);
-            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, ...timelineStats }, null, ctx.originWs);
+            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, ...timelineStats }, null, originWs);
         } catch (error) {
             respondError(ctx, error);
         }
