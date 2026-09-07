@@ -8,6 +8,7 @@ import {
   SCHEMA_SQL,
 } from './dbSchema';
 import { NUMBERED_MIGRATIONS } from './dbMigrations';
+import { ensureLegacyGroupCompatibilityTables } from './legacyGroupCompatibility';
 import { applyNumberedMigrations } from './migrationLedger';
 import {
   restoreDurableSemanticResetState,
@@ -134,6 +135,7 @@ export class DatabaseManager {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
     applyNumberedMigrations(this.db, NUMBERED_MIGRATIONS);
+    ensureLegacyGroupCompatibilityTables(this.db);
     this.removeLegacyWorkflowState();
     reconcileStaleWorkflowRuns(this.db);
 
