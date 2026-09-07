@@ -4,6 +4,9 @@ import { getLibraryBinActionLabel as getSharedLibraryBinActionLabel } from '../a
 
 type GroupedAsset = Asset & { role?: string | null };
 
+const STAR_LABELS = ['Select as ⭐', 'Make Star'] as const;
+const SEPARATE_LABELS = ['Explode Group', 'Show Separately'] as const;
+
 export type RelationshipMenuState = {
     relationshipId: string | null;
     isPresentation: boolean;
@@ -50,19 +53,19 @@ export function resolveRelationshipMenuState(params: {
 }
 
 export function getRelationshipStarLabel(isPresentation: boolean): string {
-    return isPresentation ? 'Make Star' : getSelectAsStarLabel();
+    return STAR_LABELS[Number(isPresentation)] ?? STAR_LABELS[0];
 }
 
 export function getRelationshipSeparateLabel(isPresentation: boolean): string {
-    return isPresentation ? 'Show Separately' : getExplodeGroupLabel();
+    return SEPARATE_LABELS[Number(isPresentation)] ?? SEPARATE_LABELS[0];
 }
 
 export function getSelectAsStarLabel(): string {
-    return 'Select as ⭐';
+    return STAR_LABELS[0];
 }
 
 export function getExplodeGroupLabel(): string {
-    return 'Explode Group';
+    return SEPARATE_LABELS[0];
 }
 
 export function getLibraryBinActionLabel(action: 'move_to_bin' | 'restore'): string {
