@@ -1,9 +1,6 @@
-import type { DatabaseManager } from '../../../../data/db';
 import { hammingDistance } from '../../../math-utils';
 import { buildConnectedComponents, type SimilarityEdgeRef } from './groupingGraph';
-import { buildSimilarityUnits, type SimilarityGroupingUnit } from './groupingUnits';
-
-type DbHandle = ReturnType<DatabaseManager['getDb']>;
+import type { SimilarityGroupingUnit } from './groupingUnits';
 
 export type GroupingSimilarityAsset = {
     id: string;
@@ -384,42 +381,4 @@ export function buildBurstGroupingGraphFromUnits(params: {
         edges,
     ).filter((component) => component.length > 1);
     return { units: impactedUnits, edges, components };
-}
-
-export function buildVariantGroupingGraph(params: {
-    db: DbHandle;
-    changedAssetIds: string[];
-    threshold: number;
-}): GroupingGraph {
-    return buildVariantGroupingGraphFromUnits({
-        units: buildSimilarityUnits(params.db, ['near_duplicate', 'duplicate']),
-        changedAssetIds: params.changedAssetIds,
-        threshold: params.threshold,
-    });
-}
-
-export function buildNearDuplicateGroupingGraph(params: {
-    db: DbHandle;
-    changedAssetIds: string[];
-    threshold: number;
-}): GroupingGraph {
-    return buildNearDuplicateGroupingGraphFromUnits({
-        units: buildSimilarityUnits(params.db, ['duplicate']),
-        changedAssetIds: params.changedAssetIds,
-        threshold: params.threshold,
-    });
-}
-
-export function buildBurstGroupingGraph(params: {
-    db: DbHandle;
-    changedAssetIds: string[];
-    maxSeconds: number;
-    maxDistance: number;
-}): GroupingGraph {
-    return buildBurstGroupingGraphFromUnits({
-        units: buildSimilarityUnits(params.db, ['variant_set', 'near_duplicate', 'duplicate']),
-        changedAssetIds: params.changedAssetIds,
-        maxSeconds: params.maxSeconds,
-        maxDistance: params.maxDistance,
-    });
 }
