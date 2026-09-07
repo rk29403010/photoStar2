@@ -33,3 +33,8 @@ test('WP9 runtime source has no legacy group commands', () => {
     const matches = gitGrep('get_group_orbit|set_canonical|explode_group');
     assert.equal(matches, '', `Legacy group command runtime references remain:\n${matches}`);
 });
+
+test('WP9 runtime source has no legacy group fields in core payloads', () => {
+    const matches = gitGrep('group_id|group_role');
+    assert.equal(matches, '', `Legacy group payload fields remain in runtime source:\n${matches}`);
+});
