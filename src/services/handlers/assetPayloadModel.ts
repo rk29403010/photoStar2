@@ -82,7 +82,7 @@ function parseFaces(row: AssetPayloadRow): FaceBox[] {
         return Array.isArray(parsedFaces)
             ? parsedFaces.flatMap((face: Record<string, unknown>) => {
                 const normalizedBox = normalizeStoredPhotoBox(face.box);
-                return normalizedBox ? [{ ...face, box: normalizedBox } as FaceBox] : [];
+                return normalizedBox ? [{ ...face, box: normalizedBox }] : [];
             })
             : [];
     } catch {
