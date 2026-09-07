@@ -1,5 +1,5 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
-import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { Asset, ReviewItemSummary } from '@contracts/core';
 import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
@@ -37,11 +37,9 @@ export type SinglePhotoOverlayProps = {
     readonly onOpenSettings?: () => void;
     readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
     readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onOrbitLoaded: (assets: Asset[]) => void;
+    readonly onSetPresentationShowSeparately?: (presentationKey: string, showSeparately?: boolean) => Promise<void>;
+    readonly onExpansionLoaded: (assets: Asset[]) => void;
     readonly onSelectAsset: (assetId: string) => void;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
     readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
     readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
     readonly onSetReviewItemStatus?: (payload: {
@@ -81,8 +79,6 @@ function PhotoInfoSidebar(props: {
     readonly analysisState?: string;
     readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
     readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
 }) {
     const assignAssetTag = props.onAssignAssetTag;
@@ -116,8 +112,6 @@ function PhotoInfoSidebar(props: {
                 analysisState={props.analysisState}
                 onGetPresentationExpansion={props.onGetPresentationExpansion}
                 onSetPresentationCover={props.onSetPresentationCover}
-                onGetGroupOrbit={props.onGetGroupOrbit}
-                onSetCanonical={props.onSetCanonical}
                 onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
             />
         </div>
@@ -125,10 +119,15 @@ function PhotoInfoSidebar(props: {
 }
 
 export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => {
-    const semanticPresentation = props.presentation && props.presentation.stackCount > 1 && props.onGetPresentationExpansion
+    const semanticPresentation = props.presentation && props.presentation.stackCount > 1
         ? props.presentation
         : null;
-    const legacyOrbitLoader = semanticPresentation ? undefined : props.onGetGroupOrbit;
+    const setPresentationCover = semanticPresentation && props.onSetPresentationCover
+        ? (_relationshipId: string, assetId: string) => props.onSetPresentationCover!(semanticPresentation.presentationKey, assetId)
+        : undefined;
+    const showPresentationSeparately = semanticPresentation && props.onSetPresentationShowSeparately
+        ? (_relationshipId: string) => props.onSetPresentationShowSeparately!(semanticPresentation.presentationKey, true)
+        : undefined;
 
     return (
         <div
@@ -158,11 +157,10 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => {
                     onExtractAiMetadata={props.onExtractAiMetadata}
                     onRerunFaceDetection={props.onRerunFaceDetection}
                     onOpenSettings={props.onOpenSettings}
-                    onGetGroupOrbit={legacyOrbitLoader}
-                    onOrbitLoaded={props.onOrbitLoaded}
+                    onOrbitLoaded={props.onExpansionLoaded}
                     onSelectAsset={props.onSelectAsset}
-                    onSetCanonical={props.onSetCanonical}
-                    onExplodeGroup={props.onExplodeGroup}
+                    onSetCanonical={setPresentationCover}
+                    onExplodeGroup={showPresentationSeparately}
                     onChangeIndex={props.onChangeIndex}
                     onRevealControls={props.onRevealControls}
                     analysis={props.analysis}
@@ -175,7 +173,7 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => {
                     presentationKey={semanticPresentation.presentationKey}
                     selectedAsset={props.asset}
                     onGetPresentationExpansion={props.onGetPresentationExpansion}
-                    onExpansionLoaded={props.onOrbitLoaded}
+                    onExpansionLoaded={props.onExpansionLoaded}
                     onSelectAsset={props.onSelectAsset}
                 />
             ) : null}
@@ -196,8 +194,6 @@ export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => {
                 analysisState={props.analysis.analysisState}
                 onGetPresentationExpansion={props.onGetPresentationExpansion}
                 onSetPresentationCover={props.onSetPresentationCover}
-                onGetGroupOrbit={legacyOrbitLoader}
-                onSetCanonical={props.onSetCanonical}
                 onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
             />
         </div>
