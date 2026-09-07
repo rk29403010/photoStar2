@@ -34,11 +34,10 @@ function seedAssets(db, assets) {
     }
 }
 
-test('exact duplicate projection matches legacy duplicate membership and representative selection', async () => {
+test('exact duplicate projection derives deterministic membership and representative directly from content identity', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const { getExactDuplicateSets } = await import('../../dist/core/src/services/relationships/exactDuplicateProjection.js');
-    const { rebuildImpactedDuplicateGroups } = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupingPersistence.js');
     const dbManager = new DatabaseManager(tempDir);
 
     try {
@@ -50,11 +49,6 @@ test('exact duplicate projection matches legacy duplicate membership and represe
             { id: 'unique', path: 'C:/photos/unique.jpg', hash: 'unique-content', fileSize: 900, width: 900, height: 600 },
         ]);
 
-        rebuildImpactedDuplicateGroups({
-            db,
-            changedAssetIds: ['jpeg-copy', 'png-copy', 'small-copy', 'unique'],
-        });
-
         const projection = getExactDuplicateSets(db);
         assert.equal(projection.length, 1);
         assert.equal(projection[0].key, 'exact:same-content');
@@ -62,21 +56,6 @@ test('exact duplicate projection matches legacy duplicate membership and represe
         assert.equal(projection[0].representativeAssetId, 'png-copy');
         assert.deepEqual(projection[0].assetIds, ['jpeg-copy', 'png-copy', 'small-copy']);
         assert.equal(projection[0].count, 3);
-
-        const legacyGroup = db.prepare(`
-            SELECT id, canonical_asset_id AS canonicalAssetId
-            FROM asset_groups
-            WHERE type = 'duplicate'
-        `).get();
-        const legacyMembers = db.prepare(`
-            SELECT asset_id AS assetId
-            FROM asset_group_members
-            WHERE group_id = ?
-            ORDER BY asset_id ASC
-        `).all(legacyGroup.id).map((row) => row.assetId);
-
-        assert.equal(projection[0].representativeAssetId, legacyGroup.canonicalAssetId);
-        assert.deepEqual(projection[0].assetIds, legacyMembers);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
