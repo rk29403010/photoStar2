@@ -8,6 +8,10 @@ import { LibraryGalleryPane } from './LibraryGalleryPane';
 import { LibraryToolbar } from './LibraryToolbar';
 import { createEmptyLibrarySelectionState, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 
+type GalleryScrollStyle = CSSProperties & {
+    '--gallery-browse-row-height': string;
+};
+
 function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
     if (seek?.kind === 'unknown') {
         return 'Unknown date';
@@ -63,7 +67,10 @@ function useContainerPointerDownHandler(
     onLibrarySelectionChange: ((selection: LibrarySelectionState) => void) | undefined
 ) {
     return useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        const target = event.target as HTMLElement;
+        const target = event.target;
+        if (!(target instanceof Element)) {
+            return;
+        }
         if (
             target.closest('[data-selection-key]') ||
             target.closest('[data-time-section-id]') ||
@@ -106,9 +113,9 @@ export function LibraryPanel({
     browseRowHeight,
     isScrollSettled,
 }: LibraryPanelProps) {
-    const scrollContainerStyle = {
+    const scrollContainerStyle: GalleryScrollStyle = {
         '--gallery-browse-row-height': `${browseRowHeight}px`,
-    } as CSSProperties;
+    };
 
     const handleContainerPointerDown = useContainerPointerDownHandler(layout.onLibrarySelectionChange);
 
