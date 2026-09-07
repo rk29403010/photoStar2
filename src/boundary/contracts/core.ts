@@ -54,31 +54,6 @@ export type FaceBox = {
     person_name?: string;
 }
 
-export type AssetGroupMembership = {
-    group_id: string;
-    group_role: string | null;
-    stack_count: number | null;
-    role: string | null;
-    rank: number | null;
-    match_evidence: Record<string, unknown> | string | null;
-    group_type: string | null;
-}
-
-export type SimilarityOrbitItem = {
-    kind: 'group' | 'asset';
-    group_id: string;
-    group_type: string | null;
-    stack_count: number | null;
-    asset: Asset;
-}
-
-export type SimilarityOrbit = {
-    group_id: string;
-    group_type: string | null;
-    parent_group_id: string | null;
-    items: SimilarityOrbitItem[];
-}
-
 export type PhotoMetadataSourceSummary = {
     sourceKind: string | null;
     sourceId: string | null;
@@ -270,15 +245,6 @@ export type Asset = {
 
     // Layout Derived Properties
     intent?: TileIntent;
-
-    // Grouping Properties
-    group_id?: string | null;
-    group_role?: string | null;
-    stack_count?: number | null;
-    role?: string | null;
-    rank?: number | null;
-    match_evidence?: Record<string, unknown> | string | null;
-    group_memberships?: AssetGroupMembership[];
 
     // Progressive Enhancement State (Masonry Gallery)
     processingPhase?: 0 | 1 | 2;
