@@ -59,3 +59,33 @@ test('getGalleryInfoPanelAsset resolves grouped selections to the visible group 
 
     assert.equal(getGalleryInfoPanelAsset(items, selection)?.id, 'a1');
 });
+
+test('getGalleryInfoPanelAsset preserves semantic presentation context for a stacked item', async () => {
+    const { getGalleryInfoPanelAsset } = await import('../../src/ui/components/library/galleryInfoPanelModel.ts');
+    const presentation = {
+        presentationKey: 'exact:stack-1',
+        representativeAssetId: 'a1',
+        relationshipKind: 'exact_copy',
+        stackCount: 2,
+        assetIds: ['a1', 'a2'],
+        momentCount: 1,
+    };
+    const items = [{
+        selectionKey: 'group:exact:stack-1',
+        entityType: 'group',
+        photoId: 'a1',
+        groupId: 'exact:stack-1',
+        asset: { id: 'a1', original_path: 'a1.jpg' },
+        presentation,
+    }];
+    const selection = createSelection({
+        groupIds: new Set(['exact:stack-1']),
+        anchorKey: 'group:exact:stack-1',
+        mostRecentSelectionKey: 'group:exact:stack-1',
+    });
+
+    const result = getGalleryInfoPanelAsset(items, selection);
+    assert.equal(result?.id, 'a1');
+    assert.deepEqual(result?.libraryPresentation, presentation);
+    assert.equal(result?.group_id, undefined, 'semantic context must not be rewritten into legacy group fields');
+});
