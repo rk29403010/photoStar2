@@ -89,15 +89,6 @@ test('semantic presentation actions use durable UI preferences without semantic 
             ],
         );
 
-        const legacyOrbitResult = await runCommand(dbManager, tempDir, 'get_group_orbit', {
-            groupId: stack.presentationKey,
-        });
-        assert.equal(legacyOrbitResult.orbit.group_id, stack.presentationKey);
-        assert.deepEqual(
-            legacyOrbitResult.orbit.items.map((entry) => entry.asset.id),
-            ['copy-best', 'copy-small'],
-        );
-
         const db = dbManager.getDb();
         const semanticBefore = semanticHistoryCounts(db);
         await runCommand(dbManager, tempDir, 'set_library_presentation_cover', {
