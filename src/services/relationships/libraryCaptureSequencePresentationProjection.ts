@@ -192,9 +192,9 @@ function collapseSequences(
     return items;
 }
 
-function buildAllCaptureSequencePresentationItems(
+export function getAllCaptureSequencePresentationItems(
     db: DbHandle,
-    order: LibraryPresentationOrder,
+    order: LibraryPresentationOrder = 'default',
 ): CaptureSequencePresentationItem[] {
     const baseItems = loadBaseItems(db, order);
     const { byAssetId } = indexBaseItems(baseItems);
@@ -215,10 +215,10 @@ export function getCaptureSequencePresentationPage(
 ): CaptureSequencePresentationItem[] {
     const limit = Math.max(0, Math.trunc(options.limit));
     const offset = Math.max(0, Math.trunc(options.offset));
-    const items = buildAllCaptureSequencePresentationItems(db, options.order ?? 'default');
+    const items = getAllCaptureSequencePresentationItems(db, options.order ?? 'default');
     return items.slice(offset, offset + limit);
 }
 
 export function countCaptureSequencePresentationItems(db: DbHandle): number {
-    return buildAllCaptureSequencePresentationItems(db, 'default').length;
+    return getAllCaptureSequencePresentationItems(db).length;
 }
