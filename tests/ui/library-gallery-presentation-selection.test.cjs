@@ -96,7 +96,12 @@ test('selected semantic stack expands bulk actions from presentation membership'
         new Set(getLibrarySelectionAssetIds(selection, assets)),
         new Set(['representative', 'semantic-member-not-in-visible-page']),
     );
-    assert.equal(selection.presentationAssetIdsByKey.get('exact:semantic-stack')?.length, 2);
+    assert.deepEqual(selection.selectedItemsByKey.get('group:exact:semantic-stack'), {
+        selectionKey: 'group:exact:semantic-stack',
+        kind: 'presentation',
+        representativeAssetId: 'representative',
+        assetIds: ['representative', 'semantic-member-not-in-visible-page'],
+    });
 });
 
 test('presentation declustering is a stable partition and does not re-sort server order', async () => {
