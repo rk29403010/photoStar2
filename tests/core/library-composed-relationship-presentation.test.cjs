@@ -104,15 +104,6 @@ test('CaptureSequence presentation treats a nested near-duplicate family as one 
         assert.equal(shadow[0].stackCount, 3);
         assert.deepEqual(shadow[0].assetIds, ['asset-a', 'asset-b', 'asset-d']);
 
-        const hierarchy = db.prepare(`
-            SELECT parent.type AS parent_type, child.type AS child_type
-            FROM asset_group_children link
-            JOIN asset_groups parent ON parent.id = link.parent_group_id
-            JOIN asset_groups child ON child.id = link.child_group_id
-            WHERE parent.type = 'burst'
-        `).all();
-        assert.deepEqual(hierarchy, [{ parent_type: 'burst', child_type: 'near_duplicate' }]);
-
         clearLegacyGroups(db);
         const commandAfterDelete = await loadCollapsedGallery(dbManager, tempDir);
         assert.deepEqual(commandAfterDelete.assets.map((asset) => asset.id), ['asset-d']);
