@@ -10,8 +10,15 @@ type GroupingAssetRow = {
     width: number;
     height: number;
     exifDatetime: string | null;
-    phash64: string;
-    dhash64: string;
+    phash64: string | null;
+    dhash64: string | null;
+};
+
+export type SimilarityGroupingMemberEvidence = {
+    assetId: string;
+    exifDatetime: string | null;
+    phash64: string | null;
+    dhash64: string | null;
 };
 
 export type SimilarityGroupingUnit = {
@@ -25,8 +32,9 @@ export type SimilarityGroupingUnit = {
     width: number;
     height: number;
     exifDatetime: string | null;
-    phash64: string;
-    dhash64: string;
+    phash64: string | null;
+    dhash64: string | null;
+    memberEvidence?: SimilarityGroupingMemberEvidence[];
 }
 
 function loadEligibleAssets(db: DbHandle): GroupingAssetRow[] {
@@ -42,13 +50,11 @@ function loadEligibleAssets(db: DbHandle): GroupingAssetRow[] {
             f.phash64,
             f.dhash64
         FROM assets a
-        JOIN asset_features f ON f.asset_id = a.id
+        LEFT JOIN asset_features f ON f.asset_id = a.id
         WHERE a.file_hash IS NOT NULL
           AND a.file_size IS NOT NULL
           AND a.width > 0
           AND a.height > 0
-          AND f.phash64 IS NOT NULL
-          AND f.dhash64 IS NOT NULL
     `).all() as GroupingAssetRow[];
 }
 
@@ -66,5 +72,11 @@ export function buildRawSimilarityUnits(db: DbHandle): SimilarityGroupingUnit[] 
         exifDatetime: asset.exifDatetime,
         phash64: asset.phash64,
         dhash64: asset.dhash64,
+        memberEvidence: [{
+            assetId: asset.id,
+            exifDatetime: asset.exifDatetime,
+            phash64: asset.phash64,
+            dhash64: asset.dhash64,
+        }],
     }));
 }
