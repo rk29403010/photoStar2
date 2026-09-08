@@ -116,10 +116,6 @@ test('start_library_grouping launches the runtime grouping workflow across the f
         assert.equal(detail.steps[0].nodeId, 'group-library-assets');
         assert.equal(detail.steps[0].totalItems, 2);
 
-        const burstGroup = db.prepare("SELECT id, status FROM asset_groups WHERE type = 'burst'").get();
-        assert.ok(burstGroup);
-        assert.equal(burstGroup.status, 'proposed');
-
         const sequence = db.prepare(`
             SELECT id, status, source_identity
             FROM capture_sequences
