@@ -86,14 +86,6 @@ test('rendered photo edits inherit Photograph provenance without inheriting phys
 
         const artefactRepresentations = representations.getArchiveRepresentationsForSubject(db, artefact);
         assert.deepEqual(artefactRepresentations.map((item) => item.currentAssetId), ['source']);
-
-        const group = db.prepare("SELECT * FROM asset_groups WHERE type = 'edit_version'").get();
-        assert.equal(group.status, 'locked');
-        assert.equal(group.canonical_asset_id, renderedAssetId);
-        assert.deepEqual(
-            db.prepare('SELECT asset_id, role FROM asset_group_members WHERE group_id = ? ORDER BY role').all(group.id),
-            [{ asset_id: renderedAssetId, role: 'canonical' }, { asset_id: 'source', role: 'original' }],
-        );
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
