@@ -72,29 +72,70 @@ test('buildVisibleGalleryItems keeps one selectable item per server-side present
     assert.deepEqual(groupedItems[1].presentation.assetIds, ['a3', 'hidden-a5']);
 });
 
-test('updateLibrarySelection toggles and ranges over photo and presentation-stack items independently', async () => {
+test('updateLibrarySelection stores visible photos and presentation stacks by selection key', async () => {
     const {
+        createEmptyLibrarySelectionState,
+        getLibrarySelectionAssetIds,
+        getLibrarySelectionPhotoIds,
+        updateLibrarySelection,
+    } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
+
+    const stackPresentation = presentationItem({
+        key: 'exact:stack-1',
+        representativeAssetId: 'a2',
+        assetIds: ['a2', 'hidden-a4'],
+    });
+    const items = [
+        { selectionKey: 'photo:a1', entityType: 'photo', photoId: 'a1', groupId: null, asset: { id: 'a1', original_path: 'a1.jpg' } },
+        {
+            selectionKey: 'group:exact:stack-1',
+            entityType: 'group',
+            photoId: 'a2',
+            groupId: 'exact:stack-1',
+            asset: { id: 'a2', original_path: 'a2.jpg' },
+            presentation: stackPresentation,
+        },
+        { selectionKey: 'photo:a3', entityType: 'photo', photoId: 'a3', groupId: null, asset: { id: 'a3', original_path: 'a3.jpg' } },
+    ];
+
+    const firstSelection = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 1 });
+    assert.deepEqual([...firstSelection.selectedItemsByKey.keys()], ['group:exact:stack-1']);
+    assert.deepEqual(firstSelection.selectedItemsByKey.get('group:exact:stack-1'), {
+        selectionKey: 'group:exact:stack-1',
+        kind: 'presentation',
+        representativeAssetId: 'a2',
+        assetIds: ['a2', 'hidden-a4'],
+    });
+    assert.deepEqual(getLibrarySelectionPhotoIds(firstSelection), []);
+    assert.deepEqual(getLibrarySelectionAssetIds(firstSelection, []), ['a2', 'hidden-a4']);
+
+    const rangedSelection = updateLibrarySelection(items, firstSelection, { mode: 'range', index: 2 });
+    assert.deepEqual([...rangedSelection.selectedItemsByKey.keys()], ['group:exact:stack-1', 'photo:a3']);
+    assert.deepEqual(getLibrarySelectionPhotoIds(rangedSelection), ['a3']);
+    assert.deepEqual(getLibrarySelectionAssetIds(rangedSelection, []), ['a3', 'a2', 'hidden-a4']);
+
+    const toggledSelection = updateLibrarySelection(items, rangedSelection, { mode: 'toggle', index: 1 });
+    assert.deepEqual([...toggledSelection.selectedItemsByKey.keys()], ['photo:a3']);
+    assert.deepEqual(getLibrarySelectionAssetIds(toggledSelection, []), ['a3']);
+});
+
+test('addLibraryItemsToSelection preserves an existing selection while adding drag-range items', async () => {
+    const {
+        addLibraryItemsToSelection,
         createEmptyLibrarySelectionState,
         updateLibrarySelection,
     } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
 
     const items = [
         { selectionKey: 'photo:a1', entityType: 'photo', photoId: 'a1', groupId: null, asset: { id: 'a1', original_path: 'a1.jpg' } },
-        { selectionKey: 'group:exact:stack-1', entityType: 'group', photoId: 'a2', groupId: 'exact:stack-1', asset: { id: 'a2', original_path: 'a2.jpg' } },
+        { selectionKey: 'photo:a2', entityType: 'photo', photoId: 'a2', groupId: null, asset: { id: 'a2', original_path: 'a2.jpg' } },
         { selectionKey: 'photo:a3', entityType: 'photo', photoId: 'a3', groupId: null, asset: { id: 'a3', original_path: 'a3.jpg' } },
     ];
+    const original = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 0 });
+    const added = addLibraryItemsToSelection(original, items.slice(1));
 
-    const firstSelection = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 1 });
-    assert.deepEqual([...firstSelection.groupIds], ['exact:stack-1']);
-    assert.equal(firstSelection.photoIds.size, 0);
-
-    const rangedSelection = updateLibrarySelection(items, firstSelection, { mode: 'range', index: 2 });
-    assert.deepEqual([...rangedSelection.groupIds], ['exact:stack-1']);
-    assert.deepEqual([...rangedSelection.photoIds], ['a3']);
-
-    const toggledSelection = updateLibrarySelection(items, rangedSelection, { mode: 'toggle', index: 1 });
-    assert.equal(toggledSelection.groupIds.size, 0);
-    assert.deepEqual([...toggledSelection.photoIds], ['a3']);
+    assert.deepEqual([...added.selectedItemsByKey.keys()], ['photo:a1', 'photo:a2', 'photo:a3']);
+    assert.deepEqual([...original.selectedItemsByKey.keys()], ['photo:a1']);
 });
 
 test('getSelectionRangeKeys follows visible item order across rows', async () => {
