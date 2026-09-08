@@ -81,7 +81,7 @@ test('grouping hierarchy helpers prefer quality for duplicates and recency for v
     assert.equal(variantRepresentative.id, 'asset-new');
 });
 
-test('runtime grouping writes duplicate groups for changed assets', async () => {
+test.skip('WP9: legacy duplicate-group persistence fixture - runtime grouping now persists durable semantic evidence', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
     const firstPath = path.join(fixtureDir, 'one.png');
@@ -231,6 +231,7 @@ test('runtime duplicate grouping matches changed assets against older library as
     createFixtureImage(newPath);
 
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const groupFree = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupFreeGroupingPipeline.js');
     let dbManager;
 
     try {
@@ -257,16 +258,11 @@ test('runtime duplicate grouping matches changed assets against older library as
             inputSubjects: [{ subjectType: 'asset', subjectId: newId }],
         });
 
-        const duplicateMembers = dbManager.getDb().prepare(`
-            SELECT m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'duplicate'
-            ORDER BY m.rank ASC
-        `).all();
-
+        const projection = groupFree.buildGroupFreeGroupingPipeline(dbManager.getDb());
+        const duplicateUnit = projection.exactUnits.find((unit) => unit.memberAssetIds.includes(newId));
+        assert.ok(duplicateUnit);
         assert.deepEqual(
-            duplicateMembers.map((row) => row.asset_id).sort(),
+            [...duplicateUnit.memberAssetIds].sort(),
             [oldId, newId].sort(),
         );
     } finally {
@@ -275,7 +271,7 @@ test('runtime duplicate grouping matches changed assets against older library as
     }
 });
 
-test('runtime duplicate grouping replaces stale subset groups when a new duplicate expands the set', async () => {
+test.skip('WP9: legacy duplicate subset-group replacement fixture - expansion is covered by group-free incremental reconstruction', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
     const firstPath = path.join(fixtureDir, 'first.png');
@@ -346,7 +342,7 @@ test('runtime duplicate grouping replaces stale subset groups when a new duplica
     }
 });
 
-test('runtime grouping persists near-duplicate groups for same-content assets with different file identities', async () => {
+test('runtime grouping preserves near-duplicate behavior for same-content assets with different file identities', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
     const firstPath = path.join(fixtureDir, 'near-one.png');
@@ -355,6 +351,7 @@ test('runtime grouping persists near-duplicate groups for same-content assets wi
     createFixtureImage(secondPath);
 
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const groupFree = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupFreeGroupingPipeline.js');
     let dbManager;
 
     try {
@@ -399,18 +396,12 @@ test('runtime grouping persists near-duplicate groups for same-content assets wi
             inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
         });
 
-        const nearDuplicateMembers = dbManager.getDb().prepare(`
-            SELECT g.canonical_asset_id AS canonical_asset_id, m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'near_duplicate'
-            ORDER BY m.rank ASC
-        `).all();
-
-        assert.equal(nearDuplicateMembers.length, 2);
-        assert.equal(nearDuplicateMembers[0].canonical_asset_id, secondId);
+        const projection = groupFree.buildGroupFreeGroupingPipeline(dbManager.getDb());
+        const nearDuplicateUnit = projection.nearUnits.find((unit) => unit.memberAssetIds.includes(firstId));
+        assert.ok(nearDuplicateUnit);
+        assert.equal(nearDuplicateUnit.representativeAssetId, secondId);
         assert.deepEqual(
-            nearDuplicateMembers.map((row) => row.asset_id).sort(),
+            [...nearDuplicateUnit.memberAssetIds].sort(),
             [firstId, secondId].sort(),
         );
     } finally {
