@@ -107,7 +107,7 @@ test('CaptureSequence presentation treats a nested near-duplicate family as one 
         clearLegacyGroups(db);
         const commandAfterDelete = await loadCollapsedGallery(dbManager, tempDir);
         assert.deepEqual(commandAfterDelete.assets.map((asset) => asset.id), ['asset-d']);
-        assert.equal(commandAfterDelete.assets[0].group_id, null);
+        assert.equal('group_id' in commandAfterDelete.assets[0], false);
         assert.deepEqual(commandAfterDelete.presentationItems, [{
             presentationKey: commandAfterDelete.presentationItems[0].presentationKey,
             representativeAssetId: 'asset-d',
