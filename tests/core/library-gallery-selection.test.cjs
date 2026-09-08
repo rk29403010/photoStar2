@@ -138,6 +138,41 @@ test('addLibraryItemsToSelection preserves an existing selection while adding dr
     assert.deepEqual([...original.selectedItemsByKey.keys()], ['photo:a1']);
 });
 
+test('setLibraryItemsSelected selects and deselects a timeline section without touching other selections', async () => {
+    const {
+        createEmptyLibrarySelectionState,
+        setLibraryItemsSelected,
+        updateLibrarySelection,
+    } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
+
+    const stackPresentation = presentationItem({
+        key: 'exact:section-stack',
+        representativeAssetId: 'a2',
+        assetIds: ['a2', 'hidden-a4'],
+    });
+    const items = [
+        { selectionKey: 'photo:a1', entityType: 'photo', photoId: 'a1', groupId: null, asset: { id: 'a1', original_path: 'a1.jpg' } },
+        {
+            selectionKey: 'group:exact:section-stack',
+            entityType: 'group',
+            photoId: 'a2',
+            groupId: 'exact:section-stack',
+            asset: { id: 'a2', original_path: 'a2.jpg' },
+            presentation: stackPresentation,
+        },
+        { selectionKey: 'photo:a3', entityType: 'photo', photoId: 'a3', groupId: null, asset: { id: 'a3', original_path: 'a3.jpg' } },
+    ];
+    const original = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 0 });
+    const sectionSelected = setLibraryItemsSelected(original, items.slice(1), true);
+
+    assert.deepEqual([...sectionSelected.selectedItemsByKey.keys()], ['photo:a1', 'group:exact:section-stack', 'photo:a3']);
+    assert.deepEqual(sectionSelected.selectedItemsByKey.get('group:exact:section-stack').assetIds, ['a2', 'hidden-a4']);
+    assert.deepEqual([...original.selectedItemsByKey.keys()], ['photo:a1']);
+
+    const sectionCleared = setLibraryItemsSelected(sectionSelected, items.slice(1), false);
+    assert.deepEqual([...sectionCleared.selectedItemsByKey.keys()], ['photo:a1']);
+});
+
 test('getSelectionRangeKeys follows visible item order across rows', async () => {
     const { getSelectionRangeKeys } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
 
