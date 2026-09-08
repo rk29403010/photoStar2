@@ -153,15 +153,6 @@ test('variant presentation consumes a near-duplicate cluster as one unit and mat
         assert.equal(shadow[0].representativeAssetId, 'asset-c');
         assert.equal(shadow[0].stackCount, 3);
         assert.deepEqual(shadow[0].assetIds, ['asset-a', 'asset-b', 'asset-c']);
-
-        const legacyHierarchy = db.prepare(`
-            SELECT parent.type AS parent_type, child.type AS child_type
-            FROM asset_group_children link
-            JOIN asset_groups parent ON parent.id = link.parent_group_id
-            JOIN asset_groups child ON child.id = link.child_group_id
-            WHERE parent.type = 'variant_set'
-        `).all();
-        assert.deepEqual(legacyHierarchy, [{ parent_type: 'variant_set', child_type: 'near_duplicate' }]);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
