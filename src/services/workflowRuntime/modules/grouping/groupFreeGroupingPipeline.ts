@@ -13,6 +13,7 @@ import {
 } from './groupingQueries';
 import {
     buildRawSimilarityUnits,
+    type SimilarityGroupingMemberEvidence,
     type SimilarityGroupingUnit,
 } from './groupingUnits';
 
@@ -70,6 +71,29 @@ function selectRepresentativeUnit(
     return representative;
 }
 
+function fallbackMemberEvidence(unit: SimilarityGroupingUnit): SimilarityGroupingMemberEvidence {
+    return {
+        assetId: unit.representativeAssetId,
+        exifDatetime: unit.exifDatetime,
+        phash64: unit.phash64,
+        dhash64: unit.dhash64,
+    };
+}
+
+function collectMemberEvidence(units: readonly SimilarityGroupingUnit[]): SimilarityGroupingMemberEvidence[] {
+    const byAssetId = new Map<string, SimilarityGroupingMemberEvidence>();
+    for (const unit of units) {
+        const evidence = unit.memberEvidence?.length
+            ? unit.memberEvidence
+            : [fallbackMemberEvidence(unit)];
+        for (const member of evidence) {
+            byAssetId.set(member.assetId, member);
+        }
+    }
+    return [...byAssetId.values()]
+        .sort((left, right) => left.assetId.localeCompare(right.assetId));
+}
+
 function buildDerivedUnit(
     stage: DerivedStage,
     units: readonly SimilarityGroupingUnit[],
@@ -78,11 +102,18 @@ function buildDerivedUnit(
     const representative = selectRepresentativeUnit(units, selector);
     const memberAssetIds = [...new Set(units.flatMap((unit) => unit.memberAssetIds))]
         .sort((left, right) => left.localeCompare(right));
+    const memberEvidence = collectMemberEvidence(units);
+    const exactVisualEvidence = stage === 'duplicate' && (!representative.phash64 || !representative.dhash64)
+        ? units.find((unit) => Boolean(unit.phash64 && unit.dhash64))
+        : undefined;
     return {
         ...representative,
         unitId: stableUnitId(stage, memberAssetIds),
         sourceGroupId: null,
         memberAssetIds,
+        phash64: exactVisualEvidence?.phash64 ?? representative.phash64,
+        dhash64: exactVisualEvidence?.dhash64 ?? representative.dhash64,
+        memberEvidence,
     };
 }
 
