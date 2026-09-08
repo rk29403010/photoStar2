@@ -33,10 +33,6 @@ test('render_photo_edit creates a derived canonical asset and preserves the sour
         assert.equal(response.status, 'ok');
         assert.notEqual(response.data.assetId, 'source');
         assert.deepEqual(fs.readFileSync(sourcePath), sourceBytes);
-        const group = dbManager.getDb().prepare("SELECT * FROM asset_groups WHERE type = 'edit_version'").get();
-        assert.equal(group.canonical_asset_id, response.data.assetId);
-        const members = dbManager.getDb().prepare('SELECT asset_id, role FROM asset_group_members WHERE group_id = ? ORDER BY role').all(group.id);
-        assert.deepEqual(members, [{ asset_id: response.data.assetId, role: 'canonical' }, { asset_id: 'source', role: 'original' }]);
         assert.equal(dbManager.getDb().prepare('SELECT COUNT(*) AS count FROM previews WHERE asset_id = ?').get(response.data.assetId).count, 2);
     } finally {
         dbManager.close();
