@@ -42,7 +42,9 @@ test('library and single-photo actions switch between Move to Bin and Restore', 
     assert.match(viewportSource, /onRestoreFromBin=\{props\.onRestoreFromBin\}/);
 
     assert.match(selectionSource, /export function getLibrarySelectionAssetIds/);
-    assert.match(selectionSource, /selection\.presentationAssetIdsByKey\.get\(groupId\) \?\? \[\]/);
+    assert.match(selectionSource, /selection\.selectedItemsByKey\.values\(\)/);
+    assert.match(selectionSource, /item\.assetIds/);
+    assert.doesNotMatch(selectionSource, /presentationAssetIdsByKey/);
     assert.doesNotMatch(selectionSource, /asset\.group_id/);
     assert.match(hookSource, /export function usePhotoBinActions/);
     assert.match(hookSource, /assets: Asset\[\];/);
