@@ -6,6 +6,7 @@ import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/li
 import { LayoutModeRenderer } from './LayoutModeRenderer';
 import { GALLERY_EAGER_PREVIEW_COUNT, GALLERY_ROW_GAP_PX, GALLERY_TILE_GAP_PX } from '../library/galleryBrowseRailModel';
 import {
+    addLibraryItemsToSelection,
     createEmptyLibrarySelectionState,
     hasLibrarySelection,
     isItemSelected,
@@ -384,17 +385,6 @@ function handleTileClick(
     onAssetClick?.(layoutItem.item.asset.id);
 }
 
-function addItemToSet(item: LibrarySelectableItem, selection: LibrarySelectionState) {
-    if (item.entityType === 'group' && item.groupId) {
-        selection.groupIds.add(item.groupId);
-        if (item.presentation) {
-            selection.presentationAssetIdsByKey.set(item.groupId, [...item.presentation.assetIds]);
-        }
-    } else {
-        selection.photoIds.add(item.photoId);
-    }
-}
-
 function commitDragSelection(
     dragRange: { anchorIndex: number; currentIndex: number },
     originalSelection: LibrarySelectionState,
@@ -402,24 +392,12 @@ function commitDragSelection(
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
 ) {
     const { anchorIndex, currentIndex } = dragRange;
-    const nextSelection: LibrarySelectionState = {
-        photoIds: new Set(originalSelection.photoIds),
-        groupIds: new Set(originalSelection.groupIds),
-        presentationAssetIdsByKey: new Map(
-            [...originalSelection.presentationAssetIdsByKey].map(([key, assetIds]) => [key, [...assetIds]]),
-        ),
-        anchorKey: originalSelection.anchorKey,
-        mostRecentSelectionKey: originalSelection.mostRecentSelectionKey,
-    };
-
     const start = Math.min(anchorIndex, currentIndex);
     const end = Math.max(anchorIndex, currentIndex);
-    for (let i = start; i <= end; i++) {
-        const layoutItem = layoutItems[i];
-        if (layoutItem) {
-            addItemToSet(layoutItem.item, nextSelection);
-        }
-    }
+    const rangedItems = layoutItems
+        .slice(start, end + 1)
+        .map((layoutItem) => layoutItem.item);
+    const nextSelection = addLibraryItemsToSelection(originalSelection, rangedItems);
 
     const lastItem = layoutItems[currentIndex];
     if (lastItem) {
