@@ -41,7 +41,15 @@ function buildGraphObservations(graph: VisualGraphInput): ObservationDraft[] {
     for (const edge of graph.edges) {
         const left = unitById.get(edge.leftId);
         const right = unitById.get(edge.rightId);
-        if (!left || !right || left.representativeAssetId === right.representativeAssetId) {
+        if (
+            !left
+            || !right
+            || left.representativeAssetId === right.representativeAssetId
+            || !left.phash64
+            || !right.phash64
+            || !left.dhash64
+            || !right.dhash64
+        ) {
             continue;
         }
         const phashDistance = hammingDistance(left.phash64, right.phash64);
