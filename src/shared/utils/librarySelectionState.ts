@@ -136,6 +136,22 @@ export function addLibraryItemsToSelection(
     return nextSelection;
 }
 
+export function setLibraryItemsSelected(
+    selection: LibrarySelectionState,
+    items: readonly LibrarySelectableItem[],
+    selected: boolean,
+): LibrarySelectionState {
+    const nextSelection = cloneLibrarySelection(selection);
+    for (const item of items) {
+        if (selected) {
+            addItemToSelection(nextSelection, item);
+        } else {
+            removeItemFromSelection(nextSelection, item);
+        }
+    }
+    return nextSelection;
+}
+
 function getItemAtIndex(items: LibrarySelectableItem[], index: number): LibrarySelectableItem | null {
     return items[index] ?? null;
 }
