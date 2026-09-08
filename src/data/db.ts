@@ -8,12 +8,12 @@ import {
   SCHEMA_SQL,
 } from './dbSchema';
 import { NUMBERED_MIGRATIONS } from './dbMigrations';
-import { ensureLegacyGroupCompatibilityTables } from './legacyGroupCompatibility';
 import { applyNumberedMigrations } from './migrationLedger';
 import {
   restoreDurableSemanticResetState,
   snapshotDurableSemanticResetState,
 } from './semanticResetState';
+import { WP9_CONTRACTION_MIGRATIONS } from './wp9ContractionMigrations';
 
 
 function runMigration(db: Database.Database, sql: string): void {
@@ -134,8 +134,7 @@ export class DatabaseManager {
   private initSchema() {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
-    applyNumberedMigrations(this.db, NUMBERED_MIGRATIONS);
-    ensureLegacyGroupCompatibilityTables(this.db);
+    applyNumberedMigrations(this.db, [...NUMBERED_MIGRATIONS, ...WP9_CONTRACTION_MIGRATIONS]);
     this.removeLegacyWorkflowState();
     reconcileStaleWorkflowRuns(this.db);
 
