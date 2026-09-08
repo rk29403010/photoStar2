@@ -29,10 +29,19 @@ type VisualPolicyRefresh = {
     graph: VisualGraphInput;
 };
 
+type UnitWithVisualHashes = SimilarityGroupingUnit & {
+    phash64: string;
+    dhash64: string;
+};
+
 function pairKey(leftAssetId: string, rightAssetId: string): string {
     return leftAssetId < rightAssetId
         ? `${leftAssetId}\n${rightAssetId}`
         : `${rightAssetId}\n${leftAssetId}`;
+}
+
+function hasVisualHashes(unit: SimilarityGroupingUnit): unit is UnitWithVisualHashes {
+    return Boolean(unit.phash64 && unit.dhash64);
 }
 
 function buildGraphObservations(graph: VisualGraphInput): ObservationDraft[] {
@@ -45,10 +54,8 @@ function buildGraphObservations(graph: VisualGraphInput): ObservationDraft[] {
             !left
             || !right
             || left.representativeAssetId === right.representativeAssetId
-            || !left.phash64
-            || !right.phash64
-            || !left.dhash64
-            || !right.dhash64
+            || !hasVisualHashes(left)
+            || !hasVisualHashes(right)
         ) {
             continue;
         }
