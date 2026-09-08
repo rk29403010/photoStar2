@@ -83,6 +83,7 @@ test('runtime variant grouping does not merge transitive visual neighbors into o
     createFixtureImage(thirdPath);
 
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const groupFree = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupFreeGroupingPipeline.js');
     let dbManager;
 
     try {
@@ -143,18 +144,14 @@ test('runtime variant grouping does not merge transitive visual neighbors into o
             inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
         });
 
-        const variantMembers = dbManager.getDb().prepare(`
-            SELECT m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'variant_set'
-            ORDER BY m.rank ASC
-        `).all();
-
+        const projection = groupFree.buildGroupFreeGroupingPipeline(dbManager.getDb());
+        const variantUnit = projection.variantUnits.find((unit) => unit.memberAssetIds.includes(firstId));
+        assert.ok(variantUnit);
         assert.deepEqual(
-            variantMembers.map((row) => row.asset_id).sort(),
+            [...variantUnit.memberAssetIds].sort(),
             [firstId, secondId].sort(),
         );
+        assert.ok(!variantUnit.memberAssetIds.includes(thirdId));
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -172,6 +169,7 @@ test('runtime burst grouping merges transitive time-neighbours into one group', 
     createFixtureImage(thirdPath);
 
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const groupFree = await import('../../dist/core/src/services/workflowRuntime/modules/grouping/groupFreeGroupingPipeline.js');
     let dbManager;
 
     try {
@@ -232,17 +230,15 @@ test('runtime burst grouping merges transitive time-neighbours into one group', 
             inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
         });
 
-        const burstMembers = dbManager.getDb().prepare(`
-            SELECT m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'burst'
-            ORDER BY m.rank ASC
-        `).all();
-
+        const projection = groupFree.buildGroupFreeGroupingPipeline(dbManager.getDb());
+        const unitsById = new Map(projection.burstGraph.units.map((unit) => [unit.unitId, unit]));
+        const burstMembers = projection.burstGraph.components
+            .map((component) => [...new Set(component.flatMap((unitId) => unitsById.get(unitId)?.memberAssetIds ?? []))])
+            .find((assetIds) => assetIds.includes(firstId));
+        assert.ok(burstMembers);
         assert.deepEqual(
-            burstMembers.map((row) => row.asset_id),
-            [thirdId, secondId, firstId],
+            [...burstMembers].sort(),
+            [firstId, secondId, thirdId].sort(),
         );
     } finally {
         dbManager?.close();
@@ -316,7 +312,7 @@ test('runtime burst grouping rejects phash-only matches when dhash disagrees', a
     }
 });
 
-test('runtime variant grouping replaces stale proposed groups for impacted assets', async () => {
+test.skip('WP9: legacy proposed variant-group replacement fixture - replacement is covered by group-free incremental reconstruction', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
     const firstPath = path.join(fixtureDir, 'one.png');
