@@ -1,6 +1,6 @@
 # PhotoStar2 Semantic Relationships Refactor — Implementation Plan
 
-**Status:** Revised implementation plan after implementation-readiness review  
+**Status:** Revised implementation plan after implementation-readiness review and WP9 execution-granularity review  
 **Review baseline:** feedback reviewed clean `main` at `888e510`; implementation must pin its own starting SHA in the Phase 1 ADR set.  
 **Data policy:** Existing development data may be discarded when explicitly chosen, but the implementation itself must support durable manual data and safe schema evolution.  
 **Implementation philosophy:** **expand → shadow/compare → cut over → contract**. Preserve good algorithms/UI; replace only structural assumptions that are wrong.
@@ -107,11 +107,47 @@ Therefore:
 
 Do not delete `asset_groups` at the beginning of Phase 1.
 
+## 3.1 Mandatory durable implementation status and handoff
+
+Chat history is **not** an implementation record. The repository must contain a live durable handoff document at:
+
+`docs/architecture/semantic-relationships-implementation-status.md`
+
+This file is mandatory for the remainder of Phase 1. It owns volatile implementation state that should not pollute the target architecture document or this migration plan.
+
+It must record at least:
+
+- repository and active branch;
+- last materially assessed implementation HEAD and last known fully green HEAD;
+- latest canonical CI/QA result and direct run/job link where available;
+- current WP and sub-WP;
+- what is complete and the evidence that proves it;
+- current blocker and exact next action;
+- implementation deviations/lessons that affect later work;
+- a deferred/revisit ledger with explicit completion criteria;
+- UI/functional acceptance matrix, including what has and has not been manually exercised;
+- known transitional compatibility state and intentional skips;
+- mandatory fresh-chat/bootstrap instructions.
+
+Maintenance rules:
+
+1. Read the status document before starting work in a new chat or agent session.
+2. Verify the actual branch HEAD and latest canonical CI before trusting any SHA/status copied into the document.
+3. Update the status document after every completed sub-WP, newly discovered blocker, meaningful plan deviation, deferred item, or canonical QA state change.
+4. Do **not** mark a WP/sub-WP complete merely because code was committed. Its stated completion gate must be demonstrated.
+5. Do **not** silently drop a deferred item. Remove it from the ledger only when its completion criterion is demonstrably satisfied, or explicitly supersede it with a documented architectural decision.
+6. UI/functionality acceptance is continuous, not something postponed wholesale to WP16. Any sub-WP that changes a user journey must update the acceptance matrix and exercise the affected journey as far as the current implementation permits.
+7. The architecture document remains the intended design; this implementation plan remains the route/gates; the status document remains the live execution/handoff record.
+
+Because work is expected to move between chats frequently, every WP from WP10 onward is decomposed below into independently gated sub-WPs. A fresh chat may be used for every WP (or more often), and repository state must be sufficient to resume without relying on previous-chat memory.
+
 ---
 
 # 4. Phase 1 work packages
 
 Each package should be independently reviewable. Shared schema/contracts/registries should be owned by one integration stream; only leaf work should be parallelised after those boundaries exist.
+
+WP1-WP9 retain their original package boundaries because they are already implemented or substantially in flight. Based on the WP9 execution experience, WP10-WP16 are explicitly decomposed into smaller sub-WPs. Each sub-WP must leave a coherent branch, satisfy its own listed gate, and update the mandatory implementation-status document before work moves on.
 
 ---
 
@@ -561,28 +597,28 @@ Full grouping/gallery/editor parity suite passes with legacy tables absent.
 
 ### Goal
 
-Eliminate durable `(assetId, faceIndex)` identity.
+Eliminate durable `(assetId, faceIndex)` identity while preserving existing face detection, geometry, People actions and user-created identity work.
 
-### 10.1 Integrate existing mask infrastructure
+### WP10a — Inventory and stable-identity contract
 
-Do not build another canonical mask store.
+- Re-read the stable-region ADR and refresh the current file/schema/write-path inventory.
+- Identify every durable and transitional `(asset_id, face_index)` dependency, including soft-reset snapshot/restore paths and payload wiring.
+- Define stable VisualRegion/Face ID ownership, lifecycle and geometry-generation contract without yet cutting consumers over.
 
-`VisualRegion` provides semantic identity over existing `PhotoMaskMetadata`/analysis geometry where applicable.
+**Gate:** repository-resident inventory/search evidence identifies all durable face-index dependencies and the exact cutover targets.
 
-Editor document mask snapshots stay immutable and separate.
+### WP10b — Additive VisualRegion/Face persistence and mask integration
 
-### 10.2 Geometry contract
+- Add/complete stable VisualRegion/Face persistence additively.
+- Reuse existing `PhotoMaskMetadata`/analysis geometry rather than creating a second canonical mask store.
+- Use normalized post-EXIF coordinates, recorded source dimensions, append-only geometry generations and provider/model provenance.
+- Keep editor document mask snapshots immutable and separate.
 
-Implement:
+**Gate:** stable regions/faces can coexist with the current face pipeline and existing mask/editor tests remain green.
 
-- normalized post-EXIF coordinate system;
-- recorded source dimensions;
-- append-only geometry generations;
-- provider/model provenance.
+### WP10c — Detection reconciliation engine
 
-### 10.3 Reconciliation
-
-Implement deterministic one-to-one matching with:
+Implement deterministic one-to-one reconciliation using:
 
 - IoU;
 - landmarks when available;
@@ -592,30 +628,63 @@ Implement deterministic one-to-one matching with:
 - no auto-reuse on ambiguous match;
 - tombstones for removed detections.
 
-### 10.4 Current consumer cutover
+**Gate:** reconciliation produces stable IDs for deterministic non-ambiguous cases without mutating durable user intent.
 
-Update all relevant code, explicitly including:
+### WP10d — Reconciliation regression and ambiguity suite
 
-- `peopleCommands.ts`;
-- face assignment payload assembly;
-- `PeopleView.tsx`;
-- runtime action wiring;
-- manual rename/merge/isolate/approve/reject actions.
-
-### Tests
-
-Include:
+Cover at least:
 
 - reordered faces;
 - overlapping faces;
 - swapped similar faces;
 - geometry drift;
 - added/removed detections;
-- soft reset/reimport.
+- ambiguous candidates;
+- provider/model/settings reruns where relevant.
 
-### Completion gate
+**Gate:** permutation/jitter/add/remove/ambiguity fixtures are green and ambiguous matches demonstrably fail safe.
 
-No durable manual face action depends on `face_index`.
+### WP10e — Durable People action cutover
+
+Move persistent/manual face actions from face indexes to stable IDs/semantic decisions, explicitly including:
+
+- rename/name assignment;
+- merge/person assignment;
+- isolate/split;
+- approve;
+- reject.
+
+Do not remove transitional adapters until all current write paths have replacements.
+
+**Gate:** new manual actions persist against stable identity and no newly written durable record requires `face_index`.
+
+### WP10f — Reset and reimport preservation
+
+Replace transitional reset/rebuild restoration that keys durable work by path + face index. Test soft reset, face-analysis reset and supported reimport/re-detection paths.
+
+**Gate:** durable face-related user work follows the reconciled Face/VisualRegion identity across the tested reset/rerun cases.
+
+### WP10g — People UI, payload and runtime-action cutover
+
+Update all relevant consumers, explicitly including:
+
+- `peopleCommands.ts`;
+- face assignment payload assembly;
+- `PeopleView.tsx`;
+- runtime action wiring;
+- thumbnails/deep links where stable face identity is exposed.
+
+Exercise the affected People journeys and record them in the mandatory UI acceptance matrix.
+
+**Gate:** current People UI/action journeys operate on stable IDs and affected smoke/manual acceptance is recorded.
+
+### WP10h — Contract durable `face_index` dependencies
+
+- Repository search for remaining durable `face_index` dependencies.
+- Remove obsolete manual compatibility storage/adapters only where replacement coverage exists.
+- Preserve face index only as ephemeral detector ordering where still useful, never as durable identity.
+
+**WP10 completion gate:** no durable manual face action or reset-preservation path depends on `face_index`; reconciliation and UI acceptance gates are green.
 
 ---
 
@@ -623,9 +692,11 @@ No durable manual face action depends on `face_index`.
 
 ### Goal
 
-Make face/model evidence reproducible, idempotent and safe across reruns.
+Make face/model evidence reproducible, idempotent and safe across reruns without coupling vector lifecycle to Person lifecycle.
 
-### Add analysis generation records with
+### WP11a — Generation/provenance schema and lifecycle
+
+Add/complete analysis generation records with:
 
 - workflow run;
 - step run;
@@ -638,13 +709,13 @@ Make face/model evidence reproducible, idempotent and safe across reruns.
 - supersedes generation;
 - lifecycle state.
 
-### Atomic generation rule
+Define the atomic generation rule: previous successful data remains active until a replacement generation completes successfully.
 
-Previous successful data remains active until replacement generation completes successfully.
+**Gate:** schema/lifecycle tests prove failed/incomplete generations cannot displace the active successful generation.
 
-### Vector storage
+### WP11b — Feature-vector storage contract
 
-Contract:
+Implement and validate:
 
 - Float32 little-endian BLOB;
 - dimensions;
@@ -655,17 +726,30 @@ Contract:
 - generation ID;
 - length/finite validation.
 
-### Compaction
+**Gate:** malformed vectors are rejected and valid vectors round-trip with explicit provenance.
 
-Keep active + prior successful + human-referenced generations. Make stale unreferenced large BLOBs cleanable through maintenance.
+### WP11c — Production/backfill and current-pipeline cutover
 
-### Benchmark
+Adapt the existing ArcFace/current feature production path to generation-owned vector persistence, including any necessary backfill/rebuild path for development data.
 
-Run target-tier candidate lookup benchmark before considering `sqlite-vec` or any other index.
+**Gate:** current inference can produce a complete successful generation without legacy vector ownership being required by the active read path.
 
-### Completion gate
+### WP11d — Retrieval contract and benchmark
 
-Interrupted/retried model runs cannot corrupt active candidate data or duplicate vectors.
+- Define candidate/vector retrieval through the generation-aware contract.
+- Benchmark target-tier lookup before introducing `sqlite-vec` or another vector index.
+- Record measured evidence in the status document.
+
+**Gate:** retrieval behaviour is correct and benchmark evidence exists to justify either staying with SQLite/native scanning or promoting an index proposal.
+
+### WP11e — Retry, supersession and compaction hardening
+
+- Prove idempotent retry and atomic supersession.
+- Keep active + prior successful + human-referenced generations.
+- Make stale unreferenced large BLOBs cleanable through maintenance.
+- Test that compaction cannot delete human-referenced evidence.
+
+**WP11 completion gate:** interrupted/retried model runs cannot corrupt active candidate data or duplicate vectors, and lifecycle/compaction rules are covered.
 
 ---
 
@@ -673,15 +757,21 @@ Interrupted/retried model runs cannot corrupt active candidate data or duplicate
 
 ### Goal
 
-Separate machine clustering from historical Person identity and preserve weaker candidate signals.
+Separate machine clustering from historical Person identity, preserve weaker candidate signals, and retain existing People behaviour across machine reruns.
 
-### IdentityCluster
+### WP12a — IdentityCluster model and clustering output
 
-Adapt the existing clustering algorithm initially rather than replacing it.
+Adapt the existing clustering algorithm initially rather than replacing it. Its output creates/rebuilds `IdentityCluster`, not Person.
 
-Its output creates/rebuilds `IdentityCluster`, not Person.
+**Gate:** clustering can rebuild machine IdentityClusters without creating/deleting confirmed Persons as a side effect.
 
-### Person lifecycle
+### WP12b — Stable cluster reconciliation across reruns
+
+Define and test how new machine cluster generations relate to prior clusters when memberships shift, split or merge. Machine cluster identity is rebuildable; durable human Person identity is not.
+
+**Gate:** rerun/split/merge fixtures show deterministic cluster replacement/reconciliation without silently rewriting Person truth.
+
+### WP12c — Person lifecycle and redirect model
 
 Implement:
 
@@ -693,9 +783,11 @@ Implement:
 - redirect-cycle prevention;
 - permanent old-ID resolution.
 
-### Existing action mapping
+**Gate:** merge/redirect/old-ID/cycle tests are green and a confirmed Person survives machine cluster replacement.
 
-Explicitly reimplement current:
+### WP12d — Existing People action semantics and durable metadata
+
+Explicitly reimplement/preserve current:
 
 - rename;
 - merge;
@@ -707,11 +799,11 @@ Explicitly reimplement current:
 - thumbnail selection;
 - deep links.
 
-### Minimal face anchors
-
 If needed by candidate generation, persist multiple trusted Person↔Face anchors without implementing the full age-aware Lifetime Identity UI.
 
-### Weak candidates
+**Gate:** characterization tests for existing actions/metadata pass against Person/IdentityCluster separation.
+
+### WP12e — Weak candidates and threshold separation
 
 Retain:
 
@@ -722,15 +814,24 @@ Retain:
 - margin;
 - model/generation.
 
-Separate settings for retention/review/auto-action/margin.
+Use separate settings for evidence retention, review surfacing, auto-action and minimum margin.
 
-### UI correction
+**Gate:** evidence below action threshold is retained where policy requires and rejection/acceptance cannot be inferred from a single threshold.
 
-Stop displaying raw cosine similarity as a percentage unless a calibrated probability exists. Use e.g. raw score or labelled strength with explanation.
+### WP12f — People UI/deep-link candidate cutover
 
-### Completion gate
+- Move People candidate/review UI to the separated Face → IdentityCluster → Person model.
+- Stop displaying raw cosine similarity as a percentage unless a calibrated probability exists; use raw score or labelled strength with explanation.
+- Preserve thumbnail/deep-link behaviour through Person redirects.
 
-Machine rerun cannot delete a confirmed Person or resurrect a rejected identity as accepted without a new explicit decision.
+**Gate:** affected People journeys and old deep links work through the new model and are recorded in the UI acceptance matrix.
+
+### WP12g — Rerun durability, parity and contract gate
+
+- Prove machine reruns cannot delete confirmed Persons or resurrect rejected identities as accepted without a new explicit decision.
+- Search for and remove obsolete machine-cluster-directly-owns-Person assumptions once replacement coverage exists.
+
+**WP12 completion gate:** IdentityCluster is demonstrably rebuildable and distinct from durable Person lifecycle; existing People actions and weak-candidate behaviour are covered end to end.
 
 ---
 
@@ -738,13 +839,15 @@ Machine rerun cannot delete a confirmed Person or resurrect a rejected identity 
 
 ### Goal
 
-Capture the user's real range of certainty and disagreement.
+Capture the user's real range of certainty and disagreement without collapsing testimony into current truth.
 
-### Contributor
+### WP13a — Contributor identity and attribution
 
-Add local Contributor identity/profile selection sufficient to attribute decisions. No broader authentication rewrite.
+Add local Contributor identity/profile selection sufficient to attribute decisions/testimony. Do not broaden this into an authentication rewrite.
 
-### Review responses
+**Gate:** review/testimony writes have explicit Contributor attribution and historical attribution remains readable.
+
+### WP13b — Review-response and attestation normalization
 
 Support at least:
 
@@ -757,9 +860,7 @@ Support at least:
 - recognise but cannot name;
 - abstain.
 
-### Normalisation
-
-Examples:
+Normalize deliberately, for example:
 
 - “Definitely Jean” -> supporting attestation with high subjective certainty;
 - “I think Jean” -> supporting tentative attestation;
@@ -767,22 +868,30 @@ Examples:
 - “I don't know” -> attributed response, **no opposing attestation**;
 - “Jean or Mary” -> ambiguous response and candidate propositions/attestations according to UI choice.
 
-### Conflict
+**Gate:** domain tests prove every supported response maps to the intended proposition/attestation/response semantics.
 
-Multiple contributors' attestations remain side-by-side. Decision can remain disputed/deferred.
+### WP13c — Conflict, resolution and append-only history
 
-### UI engineering
+Allow multiple contributors' attestations to remain side-by-side and a decision to remain disputed/deferred. Later decisions must not rewrite original testimony.
 
-New review/relationship UI must declare:
+**Gate:** conflict and superseding-decision tests preserve original attributed evidence/history.
+
+### WP13d — Review UI uncertainty and recovery states
+
+New review/relationship UI must declare and implement:
 
 - shared-feedback mode (loading/empty/error/success as appropriate);
 - local error boundary;
 - retry/recovery behaviour;
 - accessible uncertainty wording.
 
-### Completion gate
+**Gate:** UI smoke/manual acceptance covers the supported uncertainty choices plus loading/empty/error/retry states.
 
-Tests prove `unknown` differs from negative evidence and later decisions do not rewrite original testimony.
+### WP13e — Durability and acceptance closeout
+
+Exercise testimony across relevant restart/reset/rebuild paths and update the durable/rebuildable matrix where necessary.
+
+**WP13 completion gate:** `unknown` is distinct from negative evidence, contributor attribution/history survives supported rebuilds, and later decisions never rewrite original testimony.
 
 ---
 
@@ -790,32 +899,48 @@ Tests prove `unknown` differs from negative evidence and later decisions do not 
 
 ### Goal
 
-Introduce only the Photograph structure current/follow-on version semantics actually exercise.
+Introduce only the Photograph structure current/follow-on version semantics actually exercise. WP14 is an explicit Phase 1 work package; it was omitted from one earlier execution-decomposition discussion by mistake, not from the architecture or Phase 1 scope.
 
 ### Definition
 
 One Photograph = one captured photographic image/exposure or deliberate authored composite treated as one historical photographic work.
 
-### Membership source
+### WP14a — Membership contract and current-state ownership
 
-Support membership from:
+Define/confirm the minimal Photograph entity and authoritative current membership projection. Support membership from:
 
 - whole Asset -> Photograph;
-- VisualRegion -> Photograph (needed for later album extraction and avoids a dead-end contract).
-
-### Current projection
-
-Resolved membership is current semantic state.
+- VisualRegion -> Photograph, preserving the future album-extraction contract without adding Artefact now.
 
 Pairwise “same photograph” machine/human propositions remain evidence/history; they do not become a second editable membership truth.
 
-### Editor inheritance policy
+**Gate:** source-of-truth tests establish one authoritative resolved membership path and no competing editable membership store.
 
-Document/test when crop/restoration/edit remains the same Photograph versus when an authored composite creates a new Photograph.
+### WP14b — Asset/copy membership projection
 
-### Completion gate
+Implement/verify current Asset -> Photograph membership for exact-copy/current representation semantics, including deterministic rebuild where appropriate.
 
-Current copy/edit-version semantics have a clear Photograph membership path without introducing physical Artefact schema.
+**Gate:** copy/representation fixtures resolve to the intended Photograph without depending on legacy groups.
+
+### WP14c — Editor inheritance policy
+
+Document and test when crop/restoration/edit remains the same Photograph versus when a deliberate authored composite creates a new Photograph.
+
+**Gate:** editor lineage tests explicitly cover same-Photograph inheritance and new-Photograph boundary cases.
+
+### WP14d — Gallery/editor current-consumer verification
+
+Cut over or verify any remaining current consumer that needs Photograph membership for version/copy presentation. Preserve `photo_edit_documents` as editor recipe/branch authority.
+
+**Gate:** current copy/edit-version/gallery semantics exercise the Photograph path end to end without reintroducing grouping semantics.
+
+### WP14e — Scope boundary and acceptance closeout
+
+- Verify whole-Asset and VisualRegion membership contracts are coherent.
+- Do not add physical Artefact, full temporal constraints or speculative future tables.
+- Record any intentionally deferred richer Photograph/Artefact semantics in the deferred ledger.
+
+**WP14 completion gate:** current copy/edit-version semantics have a clear Photograph membership path, including editor inheritance rules, without speculative Artefact schema.
 
 ---
 
@@ -823,9 +948,11 @@ Current copy/edit-version semantics have a clear Photograph membership path with
 
 ### Goal
 
-Ensure the architecture is safe for the point where test data becomes valuable.
+Ensure the architecture is safe for the point where test data becomes valuable. Durability tests required by earlier WPs must be added as those WPs are implemented; WP15 is the cross-domain hardening pass, not permission to postpone known durability problems.
 
-### Implement table-by-table reset matrix for
+### WP15a — Durable/rebuildable inventory and reset matrix
+
+Create/refresh a table-by-table/entity-by-entity reset matrix for:
 
 - factory reset;
 - soft library rebuild;
@@ -834,9 +961,7 @@ Ensure the architecture is safe for the point where test data becomes valuable.
 - asset removal/reimport;
 - model replacement.
 
-### Durable by default
-
-Preserve across soft rebuild:
+Durable by default includes:
 
 - Contributors;
 - testimony/review responses;
@@ -849,7 +974,7 @@ Preserve across soft rebuild:
 - edit documents;
 - durable Asset identities.
 
-### Rebuildable by default
+Rebuildable by default includes:
 
 - machine observations;
 - vectors;
@@ -857,9 +982,29 @@ Preserve across soft rebuild:
 - machine-only candidates;
 - current presentation projections.
 
-### Interrupted upgrade/run tests
+**Gate:** every relevant table/entity has an explicit preserve/rebuild/destroy contract for each reset type.
 
-Add:
+### WP15b — Factory and soft-library reset implementation
+
+Implement/verify explicitly destructive factory reset and non-destructive soft library rebuild according to the matrix.
+
+**Gate:** automated tests prove soft rebuild preserves all declared durable human work and factory reset requires the explicit destructive path.
+
+### WP15c — Domain reset/recompute paths
+
+Implement/verify face-analysis reset, relationship recomputation and model replacement against the same ownership rules.
+
+**Gate:** each domain reset replaces only rebuildable machine state and leaves declared durable state intact.
+
+### WP15d — Asset removal/reimport reconciliation
+
+Test supported remove/reimport cases, including ambiguous identity transfer. Never silently attach durable semantic identity when the reimport match is ambiguous.
+
+**Gate:** deterministic reimport preserves intended durable identity; ambiguous cases fail safe and require review/new identity as designed.
+
+### WP15e — Interrupted operations, retry and concurrency
+
+Add/complete:
 
 - interrupted migration;
 - interrupted projection rebuild;
@@ -867,9 +1012,13 @@ Add:
 - retry/idempotency;
 - concurrent read during generation switch where applicable.
 
-### Completion gate
+**Gate:** interrupted/retried operations cannot leave mixed authoritative generations or silently lose durable data.
 
-No normal upgrade/reset path silently destroys durable human work.
+### WP15f — Destructive-path and schema hardening closeout
+
+Search for obsolete reset snapshots, swallowed migration/reset errors and transitional durability adapters that are no longer required. Exercise destructive reset QA from a clean development database.
+
+**WP15 completion gate:** no normal upgrade/reset/rebuild path silently destroys durable human work and all reset classes have executable acceptance coverage.
 
 ---
 
@@ -877,9 +1026,9 @@ No normal upgrade/reset path silently destroys durable human work.
 
 ### Goal
 
-Prove the new structure works beyond fixture scale.
+Prove the new structure works beyond fixture scale and complete Phase 1 with measured runtime and real user-journey evidence. WP16 consolidates acceptance; it does not replace the continuous UI checks required by earlier sub-WPs.
 
-### Data tiers
+### WP16a — Benchmark harness and representative data tiers
 
 Benchmark at least:
 
@@ -887,27 +1036,60 @@ Benchmark at least:
 - target: ~100k assets / 250k faces;
 - stretch sample or synthetic equivalent sufficient to expose query/memory failure modes.
 
-### Runtime targets
+**Gate:** repeatable benchmark data generation/loading and measurement procedure is documented in-repo.
+
+### WP16b — Library/presentation performance
+
+Measure paged `LibraryPresentationItem` query p50/p95, cluster expansion and affected selection/bulk-action paths at representative scale.
+
+**Gate:** measurements meet accepted targets or the status document records the measured blocker and concrete remediation decision.
+
+### WP16c — Face candidate/clustering/vector performance
+
+Measure face candidate lookup p50/p95, relevant clustering/reconciliation throughput and vector retrieval path at representative scale.
+
+**Gate:** measurements justify the current storage/query strategy or provide evidence for an explicit index/architecture follow-up.
+
+### WP16d — Projection, memory and SQLite growth
 
 Measure:
 
-- paged library presentation query p50/p95;
-- face candidate lookup p50/p95;
 - projection rebuild throughput;
 - memory ceiling;
-- SQLite DB/vector growth.
+- SQLite DB/vector growth;
+- large-generation replacement/compaction behaviour.
 
-### UI smoke/manual acceptance
+**Gate:** no unrecorded scale blocker remains for the accepted Phase 1 target tier.
 
-Run affected `ui:smoke` suites and manually verify:
+### WP16e — Automated functional/UI smoke journeys
 
-- library paging/collapse/expand;
-- representative changes;
-- explode/show separately;
-- editor version display;
-- People review/merge/isolate;
-- uncertain testimony UI;
-- error/loading/empty states.
+Run affected `ui:smoke` and integration journeys, covering at minimum:
+
+- fresh DB + representative ingest;
+- library open/render/paging/scrolling;
+- single/range/presentation/timeline selection;
+- bulk actions expanding the correct underlying assets;
+- presentation filmstrip/member expansion;
+- editor open/save/return-to-library;
+- People load/review/merge/isolate as implemented;
+- uncertain testimony;
+- loading/empty/error/retry states.
+
+**Gate:** automated journeys are green and the mandatory UI acceptance matrix points to the evidence.
+
+### WP16f — Manual visual acceptance and large-library soak
+
+Manually verify the affected library/editor/People/review journeys, including visual layout/interaction quality, and run a representative large-library soak sufficient to expose memory/query/interaction regressions.
+
+**Gate:** manual acceptance is explicitly recorded; unresolved defects are blockers or ledgered follow-ups with owner/completion criteria, never implicit omissions.
+
+### WP16g — Final Phase 1 gate and documentation closeout
+
+- Run relevant `qa:quick`, `qa:ready`, generated checks, `ui:smoke`, runtime evidence and final `pnpm.cmd run qa:merge`.
+- Reconcile architecture/plan/status documents with the delivered implementation.
+- Close/supersede every deferred ledger item that is required by the Phase 1 completion gate.
+
+**WP16/Phase 1 completion gate:** all Section 9 gates are satisfied, the canonical merge gate is green, runtime/visual acceptance is recorded, and the durable implementation-status document contains an unambiguous completed handoff state.
 
 ---
 
@@ -1076,12 +1258,15 @@ Required gate intent:
 5. runtime evidence for server paging, projection rebuild and face candidate paths.
 6. manual visual acceptance for changed gallery/People/review UI.
 7. final `pnpm.cmd run qa:merge` before merge.
+8. mandatory `semantic-relationships-implementation-status.md` update after every sub-WP/canonical QA state change and before handing work to a fresh chat/agent.
 
 New review/relationship UI must have:
 
 - declared loading/empty/error/success feedback modes;
 - local error boundaries;
 - recoverable retry where appropriate.
+
+A green unit/integration gate does not substitute for the affected functional/UI journey when a sub-WP changes user-visible behaviour. Conversely, a manual smoke check does not substitute for the canonical automated gate.
 
 ---
 
@@ -1117,6 +1302,7 @@ Phase 1 is complete only when all of the following are true:
 26. Minimal Photograph membership is exercised without speculative Artefact/temporal tables.
 27. Scale/runtime benchmarks meet accepted target or document the measured blocker/next action.
 28. Relevant `qa:quick`, `qa:ready`, generated checks, `ui:smoke`, runtime evidence, manual visual acceptance and final `pnpm.cmd run qa:merge` pass.
+29. The mandatory implementation-status document is current, every Phase-1-required deferred item is closed/superseded explicitly, and the UI acceptance matrix records the final functional state.
 
 ---
 
