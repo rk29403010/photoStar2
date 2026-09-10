@@ -38,10 +38,10 @@ UI/functional acceptance is continuous. WP16 consolidates final acceptance but i
 - Repository: `rk29403010/photoStar2`
 - Active branch: `task/semantic-relationships-phase1-foundation`
 - Pull request: `#42`
-- Branch URL: https://github.com/rk29403010/photoStar2/tree/task/semantic-relationships-phase1-foundation
-- Implementation plan: https://github.com/rk29403010/photoStar2/blob/task/semantic-relationships-phase1-foundation/docs/architecture/semantic-relationships-implementation-plan.md
-- Architecture: https://github.com/rk29403010/photoStar2/blob/task/semantic-relationships-phase1-foundation/docs/architecture/semantic-relationships-architecture.md
-- Phase 1 foundation notes: https://github.com/rk29403010/photoStar2/blob/task/semantic-relationships-phase1-foundation/docs/architecture/semantic-relationships-phase1-foundation.md
+- [Branch](https://github.com/rk29403010/photoStar2/tree/task/semantic-relationships-phase1-foundation)
+- [Implementation plan](https://github.com/rk29403010/photoStar2/blob/task/semantic-relationships-phase1-foundation/docs/architecture/semantic-relationships-implementation-plan.md)
+- [Architecture](https://github.com/rk29403010/photoStar2/blob/task/semantic-relationships-phase1-foundation/docs/architecture/semantic-relationships-architecture.md)
+- [Phase 1 foundation notes](https://github.com/rk29403010/photoStar2/blob/task/semantic-relationships-phase1-foundation/docs/architecture/semantic-relationships-phase1-foundation.md)
 
 ### SHA conventions in this document
 
@@ -54,11 +54,11 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 - Last material implementation HEAD assessed: `1ab0f573052c9ff66bb9794c70fee7c7b8b9d953`
 - Current documentation/process commit immediately before this status file: `10f6ca70132b32d3feda4df879abf33681c005c9`
 - Last known fully green implementation HEAD before the WP9 schema-contraction attempt: `b3b7ffe7b8cc34582d68f4a6c4e4324ad5d9027e`
-- Last known green quality-gate run for that HEAD: https://github.com/rk29403010/photoStar2/actions/runs/34208398132
+- [Last known green quality-gate run for that HEAD](https://github.com/rk29403010/photoStar2/actions/runs/34208398132)
 - Known green core-test result at that checkpoint: 307 tests, 299 pass, 0 fail, 8 skipped.
 - Current material implementation gate: **RED / WP9 NOT COMPLETE**
-- Failing quality-gate run for `1ab0f573`: https://github.com/rk29403010/photoStar2/actions/runs/34209117615
-- Failing job previously identified: https://github.com/rk29403010/photoStar2/actions/runs/34209117615/job/102005651344
+- [Failing quality-gate run for `1ab0f573`](https://github.com/rk29403010/photoStar2/actions/runs/34209117615)
+- [Failing job previously identified](https://github.com/rk29403010/photoStar2/actions/runs/34209117615/job/102005651344)
 
 Do not start WP10 until WP9's final contraction gate is genuinely green and this file is updated accordingly.
 
@@ -107,7 +107,7 @@ The material contraction head `1ab0f573` includes the intended move away from re
 This table is a navigation snapshot, not a substitute for each WP completion gate.
 
 | WP | State | Notes |
-|---|---|---|
+| --- | --- | --- |
 | WP1 | Largely complete | ADR/foundation work exists; reconcile at final closeout. |
 | WP2 | Largely complete | Characterization expanded during grouping migration; later face/People work must refresh relevant fixtures. |
 | WP3 | Largely complete | Migration ledger + semantic kernel established; final durability closeout remains WP15. |
@@ -138,7 +138,7 @@ For WP10 onward, each sub-WP has its own gate and status-file update. Large impl
 Each entry stays here until its completion criterion is satisfied or it is explicitly superseded.
 
 | WP | Item | Current state / reason | Completion criterion |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | WP9 | Final legacy group schema contraction | Implemented attempt exists at `1ab0f573`, but canonical gate is red. | Exact failure fixed; legacy tables absent; WP9 search/parity/canonical QA green. |
 | WP9 | Intentional legacy-era skipped tests | Last known green checkpoint had 8 skips; several grouping-era skips were retained only where explicitly obsolete/deferred. | Re-audit skips after WP9 green; each remaining skip has an explicit current reason/WP or is removed/replaced by active coverage. |
 | WP10 | Durable `(asset_id, face_index)` identity | Transitional People/manual/reset paths still use face indexes. | WP10h search gate: no durable manual action or reset-preservation path depends on `face_index`. |
@@ -157,7 +157,7 @@ Each entry stays here until its completion criterion is satisfied or it is expli
 Maintain this table continuously. `Not recorded` means exactly that; do not infer a working UI merely from unit/integration coverage.
 
 | Journey | Automated evidence | Manual/visual evidence | Current status / next obligation |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Fresh DB opens/migrates | WP9/schema tests exist, but current contraction HEAD is red | Not recorded at current head | Re-run after WP9 contraction fix. |
 | Representative ingest -> Library opens/renders | Existing core/integration coverage at prior green checkpoints | Not recorded here | Smoke after WP9 green; repeat when later WPs affect ingest/library. |
 | Library paging/scrolling/collapse | Presentation paging tests exist | Not recorded here | Record manual journey by WP16; earlier if touched. |
