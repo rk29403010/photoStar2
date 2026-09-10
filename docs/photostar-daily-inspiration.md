@@ -57,9 +57,13 @@ The full daily feed before this repository log lived in ChatGPT. These names are
 - **Handwriting Threads / Same Hand / Writer Strip / Notes in Their Hand** — treat handwriting style as provenance evidence as well as text: retrieve recurring hands across photo backs, albums, postcards and letters, build human-confirmed age-aware handwriting anchors, and link genuine scanned fragments back to their source objects.
 - **Archive Telescope / Archive Minimap / Family Motif Atlas** — navigate very large libraries by progressive semantic zoom and representative tiles above the stable masonry gallery; use time/people/place/archive/visual lenses to jump into the same underlying collection, and treat loose recurring motifs as exploratory echoes rather than evidence.
 - **Wardrobe Threads / Same Outfit / Event Stitcher / Family Wardrobe Timeline** — retrieve the same real garments or outfits across photographs, use confirmed recurrence as evidence for event reconstruction and date constraints, and keep clothing identity strictly separate from person identity.
+- **Film Strip Archaeology / Strip Ingest / Find the Print / The Unprinted Story** — preserve negative/slide strips as historical objects, extract exposures while retaining physical order and edge evidence, match negatives to existing positive representations, and use surviving film sequence as stronger evidence than inferred event similarity.
+- **Viewpoint Graph / Around This Viewpoint / Room Through Time / Evidence Splat** — materially develop Memory Spaces by estimating geometric overlap and relative camera pose between genuine photographs; use geometry as an observation/evidence layer for same-scene navigation, restoration references and event stitching, and only build 3D visualisations where real multi-view coverage supports them.
 
 ## Dated briefs
 
+- [2026-09-10 — Viewpoint Graph](./photostar-daily-inspiration/2026-09-10.md)
+- [2026-09-09 — Film Strip Archaeology](./photostar-daily-inspiration/2026-09-09.md)
 - [2026-09-08 — Wardrobe Threads](./photostar-daily-inspiration/2026-09-08.md)
 - [2026-09-07 — Archive Telescope](./photostar-daily-inspiration/2026-09-07.md)
 - [2026-09-06 — Handwriting Threads](./photostar-daily-inspiration/2026-09-06.md)
