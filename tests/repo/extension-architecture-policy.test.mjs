@@ -13,11 +13,12 @@ function writeFixtureFile(root, file, source = '') {
 }
 
 function addPlugin(root, family, name, id, source = '') {
-    const directory = family === 'workflow'
-        ? `src/services/workflowRuntime/modules/plugins/${name}`
-        : family === 'photo'
-            ? `src/services/photoEditing/tools/plugins/${name}`
-            : `src/services/relationships/predicates/plugins/${name}`;
+    let directory = `src/services/relationships/predicates/plugins/${name}`;
+    if (family === 'workflow') {
+        directory = `src/services/workflowRuntime/modules/plugins/${name}`;
+    } else if (family === 'photo') {
+        directory = `src/services/photoEditing/tools/plugins/${name}`;
+    }
     writeFixtureFile(root, `${directory}/manifest.ts`, "export { default } from './plugin';\n");
     writeFixtureFile(root, `${directory}/plugin.ts`, source || `export default { id: '${id}', label: '${name}', icon: 'Icon', group: 'group', defaults: {} };\n`);
 }
