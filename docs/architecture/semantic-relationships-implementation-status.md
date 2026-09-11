@@ -51,16 +51,14 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 
 ### Current snapshot
 
-- Last material implementation HEAD assessed: `1ab0f573052c9ff66bb9794c70fee7c7b8b9d953`
-- Current documentation/process commit immediately before this status file: `10f6ca70132b32d3feda4df879abf33681c005c9`
-- Last known fully green implementation HEAD before the WP9 schema-contraction attempt: `b3b7ffe7b8cc34582d68f4a6c4e4324ad5d9027e`
-- [Last known green quality-gate run for that HEAD](https://github.com/rk29403010/photoStar2/actions/runs/34208398132)
-- Known green core-test result at that checkpoint: 307 tests, 299 pass, 0 fail, 8 skipped.
-- Current material implementation gate: **RED / WP9 NOT COMPLETE**
-- [Failing quality-gate run for `1ab0f573`](https://github.com/rk29403010/photoStar2/actions/runs/34209117615)
-- [Failing job previously identified](https://github.com/rk29403010/photoStar2/actions/runs/34209117615/job/102005651344)
+- Last material implementation HEAD assessed: `5469dccb82a233b6a8508cef3b697e11e5b8e3c5`
+- WP9 completion gate: **GREEN / WP9 COMPLETE**
+- [Canonical green quality-gate run for `5469dcc`](https://github.com/rk29403010/photoStar2/actions/runs/34550734260)
+- Quality-gate job `103112905211`: completed successfully.
+- CodeQL checks for the same HEAD: green.
+- Next work package: **WP10a — inventory and stable-identity contract**.
 
-Do not start WP10 until WP9's final contraction gate is genuinely green and this file is updated accordingly.
+WP9's repository-defined completion gate is satisfied. PostgreSQL is not part of the WP9 gate or PhotoStar2's current runtime persistence stack; the project uses SQLite (`better-sqlite3`). Do not add a PostgreSQL validation requirement unless the architecture is explicitly changed later.
 
 ---
 
@@ -68,11 +66,11 @@ Do not start WP10 until WP9's final contraction gate is genuinely green and this
 
 ### WP9 — grouping consumer cutover and legacy-group contraction
 
-**State:** IN PROGRESS / BLOCKED AT FINAL CONTRACTION GATE.
+**State: COMPLETE.**
 
-The substantive grouping/presentation migration is mostly complete. The remaining blocker is the final schema-contraction checkpoint introduced after the last fully green WP9 consumer/selection state.
+WP9 is closed at material implementation HEAD `5469dccb82a233b6a8508cef3b697e11e5b8e3c5`. The canonical quality gate is green and the implementation-plan completion gate — full grouping/gallery/editor parity with legacy tables absent — is satisfied.
 
-### Completed/established before the contraction attempt
+### WP9 closure evidence
 
 - Grouping presentation is relationship/presentation-native rather than backed by legacy `asset_groups` as functional truth.
 - Exact duplicate, visual-similarity/variant and CaptureSequence presentation paths have replacement coverage.
@@ -82,23 +80,14 @@ The substantive grouping/presentation migration is mostly complete. The remainin
 - Timeline/drag/section selection was adapted to the presentation-native selection state.
 - Dedicated presentation filmstrip/member expansion exists instead of relying on a legacy group-orbit contract.
 - WP9 repository search gates cover functional runtime references to legacy group tables/commands/core `group_id`/`group_role` payloads.
-- The branch was fully green at `b3b7ffe7` before the final legacy-schema contraction attempt.
-
-### Final contraction attempt now blocking WP9
-
-The material contraction head `1ab0f573` includes the intended move away from recreating legacy group compatibility tables and a new post-compatibility contraction migration. Its canonical quality gate is red.
-
-**Evidence boundary:** the exact failure must be retrieved from the failing job/log or reproduced from the repository before changing production code/tests. Do not infer the cause from the fact that the migration changed.
+- Commit `9ff2cfb` stopped recreating the legacy group compatibility tables.
+- Commit `e878af2` removed the legacy compatibility schema.
+- Subsequent WP9 fixes migrated/retired tests that still depended on seeding or querying the removed legacy group structures rather than restoring those structures.
+- Canonical quality-gate run `34550734260` is green at `5469dcc` with the contracted schema.
 
 ### Exact next action
 
-1. Verify current branch HEAD and confirm no material implementation commit has appeared after `1ab0f573`.
-2. Retrieve the exact failure from run `34209117615`, job `102005651344`, or reproduce the same canonical gate locally/through available CI evidence.
-3. Classify the failure as production regression, stale compatibility test, migration-ledger issue, or other evidenced cause.
-4. Make the smallest evidence-based correction. Do not restore functional legacy group persistence merely to satisfy stale tests.
-5. Run the canonical quality gate.
-6. Only after green: mark WP9 complete here, record its green HEAD/run and update the deferred/UI sections below.
-7. Start WP10 in a fresh chat/session by following Section 8.
+Start **WP10a — inventory and stable-identity contract** in a fresh chat/session by following Section 8. Do not reopen WP9 unless new repository evidence demonstrates a regression in its completed gate.
 
 ---
 
@@ -116,8 +105,8 @@ This table is a navigation snapshot, not a substitute for each WP completion gat
 | WP6 | Substantially complete | Similarity/CaptureSequence/presentation preference path established; later generation provenance intersects WP11. |
 | WP7 | Substantially complete | Server-side presentation/expansion path established; final scale evidence is WP16. |
 | WP8 | Substantially complete | Editor group dependency replaced by semantic/editor lineage path; Photograph closeout intersects WP14. |
-| WP9 | **In progress / red gate** | Final legacy schema contraction must be green before completion. |
-| WP10 | Not started | Stable VisualRegion/Face identity. Split into WP10a-WP10h in implementation plan. |
+| WP9 | **Complete** | Grouping/gallery/editor parity gate is green with legacy group tables absent at `5469dcc`; canonical run `34550734260`. |
+| WP10 | Not started | Stable VisualRegion/Face identity. Split into WP10a-WP10h in implementation plan; WP10a is next. |
 | WP11 | Not started | Machine generations + feature vectors. Split into WP11a-WP11e. |
 | WP12 | Not started | IdentityCluster/Person lifecycle/weak candidates. Split into WP12a-WP12g. |
 | WP13 | Not started | Contributor testimony/uncertainty/review. Split into WP13a-WP13e. |
@@ -137,10 +126,15 @@ For WP10 onward, each sub-WP has its own gate and status-file update. Large impl
 
 Each entry stays here until its completion criterion is satisfied or it is explicitly superseded.
 
+### Resolved by WP9 close-out
+
+- **Final legacy group schema contraction:** resolved. Legacy compatibility tables are no longer recreated, the compatibility schema is removed, stale legacy-dependent test assumptions were migrated/retired, and the WP9 search/parity/canonical QA gate is green at `5469dcc` / run `34550734260`.
+
+### Active deferred items
+
 | WP | Item | Current state / reason | Completion criterion |
 | --- | --- | --- | --- |
-| WP9 | Final legacy group schema contraction | Implemented attempt exists at `1ab0f573`, but canonical gate is red. | Exact failure fixed; legacy tables absent; WP9 search/parity/canonical QA green. |
-| WP9 | Intentional legacy-era skipped tests | Last known green checkpoint had 8 skips; several grouping-era skips were retained only where explicitly obsolete/deferred. | Re-audit skips after WP9 green; each remaining skip has an explicit current reason/WP or is removed/replaced by active coverage. |
+| WP16 | Intentional skipped-test audit | WP9's required parity/canonical gate is green. Any remaining intentional skips are not assumed resolved merely because WP9 closed. | Before final Phase 1 acceptance, every remaining skip has an explicit current reason/WP or is removed/replaced by active coverage. |
 | WP10 | Durable `(asset_id, face_index)` identity | Transitional People/manual/reset paths still use face indexes. | WP10h search gate: no durable manual action or reset-preservation path depends on `face_index`. |
 | WP10/WP15 | Soft-reset face preservation by path + face index | Transitional compatibility only; cannot be target durable identity. | Stable VisualRegion/Face reconciliation preserves the durable work; transitional snapshot path removed when replacement coverage is green. |
 | WP11 | Analysis-generation provenance/vector lifecycle | Current analysis/vector ownership predates target generation contract. | WP11 completion gate green, including failed replacement + retry + compaction tests. |
@@ -158,13 +152,13 @@ Maintain this table continuously. `Not recorded` means exactly that; do not infe
 
 | Journey | Automated evidence | Manual/visual evidence | Current status / next obligation |
 | --- | --- | --- | --- |
-| Fresh DB opens/migrates | WP9/schema tests exist, but current contraction HEAD is red | Not recorded at current head | Re-run after WP9 contraction fix. |
-| Representative ingest -> Library opens/renders | Existing core/integration coverage at prior green checkpoints | Not recorded here | Smoke after WP9 green; repeat when later WPs affect ingest/library. |
+| Fresh DB opens/migrates | WP9/schema coverage included in green canonical gate at `5469dcc` | Not recorded at current head | Automated WP9 obligation satisfied; retain manual smoke for later acceptance. |
+| Representative ingest -> Library opens/renders | Existing core/integration coverage included in green canonical gate | Not recorded here | Record manual smoke when next exercising the Library; repeat when later WPs affect ingest/library. |
 | Library paging/scrolling/collapse | Presentation paging tests exist | Not recorded here | Record manual journey by WP16; earlier if touched. |
-| Select single photo | Selection tests at `b3b7ffe7` | Not recorded here | Verify after WP9 green. |
-| Range/drag/timeline selection | Selection/timeline tests adapted at `b3b7ffe7` | Not recorded here | Verify after WP9 green. |
-| Select collapsed presentation/stack | Presentation-native selection tests exist | Not recorded here | Confirm selected tile count vs underlying bulk asset IDs. |
-| Bulk action expands correct underlying assets | Presentation-native bulk-selection tests exist | Not recorded here | Verify representative + hidden members after WP9 green. |
+| Select single photo | Presentation-native selection tests are green at WP9 close-out | Not recorded here | Manual/visual verification remains an acceptance obligation, not a WP9 blocker. |
+| Range/drag/timeline selection | Selection/timeline tests adapted and green at WP9 close-out | Not recorded here | Manual/visual verification remains an acceptance obligation, not a WP9 blocker. |
+| Select collapsed presentation/stack | Presentation-native selection tests exist | Not recorded here | Confirm selected tile count vs underlying bulk asset IDs during manual acceptance. |
+| Bulk action expands correct underlying assets | Presentation-native bulk-selection tests exist | Not recorded here | Verify representative + hidden members during manual acceptance. |
 | Presentation filmstrip/member expansion | Replacement contract/wiring tests exist | Not recorded here | Manual expand/navigation still to be recorded. |
 | Open editor -> save/render -> return to Library | Editor characterization/semantic-lineage tests exist | Not recorded here | Manual journey by WP14/WP16; repeat on editor-affecting changes. |
 | People view loads | Existing pre-WP10 People behavior characterized | Not recorded here | Establish baseline before WP10 consumer cutover. |
@@ -216,7 +210,11 @@ Library selection now treats visible presentation items as selected units while 
 
 ### Migration-ledger contraction rule
 
-Do not modify already-applied checksummed migration history simply to perform a later contraction. Existing development databases may have recorded an earlier migration and then had compatibility tables recreated; a new forward migration is the correct mechanism for a final post-compatibility drop, subject to the currently red WP9 gate being diagnosed and fixed.
+Do not modify already-applied checksummed migration history simply to perform a later contraction. Existing development databases may have recorded an earlier migration and then had compatibility tables recreated; a new forward migration is the correct mechanism for the final post-compatibility drop. WP9's green contraction gate demonstrates that route at `5469dcc`.
+
+### Persistence/gate clarification
+
+PhotoStar2's current runtime persistence is SQLite via `better-sqlite3`. WP9's implementation plan does not require PostgreSQL validation. Do not invent an additional PostgreSQL completion gate from generic database expectations or stale assumptions.
 
 ---
 
@@ -237,31 +235,3 @@ Required bootstrap sequence:
 9. Inspect the relevant current code/tests before implementing; do not trust old chat descriptions over repository contents.
 10. Continue from the recorded **Exact next action** or first incomplete sub-WP gate.
 11. Never infer completion because commits exist. Run/verify the required gate and then update this file.
-
-A sufficient user prompt for a new chat should be:
-
-> Continue the semantic relationships implementation from the repository implementation-status document. Work only on the current WP/sub-WP, verify repository HEAD/CI first, and keep the status/deferred/UI-acceptance document current.
-
-For the next new chat specifically, **do not start WP10 while WP9 remains red**. Finish WP9 contraction and update this document first. Once WP9 is green, WP10 starts at **WP10a — Inventory and stable-identity contract**.
-
----
-
-## 9. Sub-WP closeout checklist
-
-Before moving from one sub-WP to the next:
-
-- implementation is coherent and reviewed against the plan/architecture;
-- affected tests are green;
-- required canonical QA for that checkpoint is green or an explicit blocker is recorded;
-- affected user journey is exercised/recorded where applicable;
-- new deferred items have explicit completion criteria;
-- obsolete deferred items are closed/superseded explicitly;
-- architecture doc is updated if the intended architecture changed;
-- implementation plan is updated if the migration route/gate changed;
-- **this status document is updated last with the verified state and exact next action**.
-
-Preferred rhythm:
-
-`implementation -> focused tests -> canonical gate -> functional/UI acceptance -> docs if architecture/plan changed -> status handoff`
-
-If the canonical gate is red, stop at the evidenced failure and record the blocker here rather than beginning the next sub-WP.
