@@ -392,6 +392,42 @@ type PersonDetailModalProps = {
 
 type FamilyTreeInfo = { id: string; filename: string; version_label?: string };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isFaceAssignmentInfo(value: unknown): value is FaceAssignmentInfo {
+    if (!isRecord(value)) {return false;}
+    return typeof value.asset_id === 'string'
+        && typeof value.face_id === 'string'
+        && typeof value.visual_region_id === 'string'
+        && typeof value.confidence === 'number'
+        && typeof value.is_suggested === 'number'
+        && typeof value.original_path === 'string'
+        && (value.preview_path === null || typeof value.preview_path === 'string');
+}
+
+function selectFaceAssignments(data: Record<string, unknown> | undefined) {
+    const values = data?.assignments;
+    return { assignments: Array.isArray(values) ? values.filter(isFaceAssignmentInfo) : [] };
+}
+
+function isFamilyTreeInfo(value: unknown): value is FamilyTreeInfo {
+    if (!isRecord(value)) {return false;}
+    return typeof value.id === 'string'
+        && typeof value.filename === 'string'
+        && (value.version_label === undefined || typeof value.version_label === 'string');
+}
+
+function selectFamilyTrees(data: Record<string, unknown> | undefined) {
+    const values = data?.trees;
+    return { trees: Array.isArray(values) ? values.filter(isFamilyTreeInfo) : [] };
+}
+
+function selectGedcomContent(data: Record<string, unknown> | undefined) {
+    return { content: typeof data?.content === 'string' ? data.content : '' };
+}
+
 function usePersonDetailData(personId: string) {
     const [assignments, setAssignments] = useState<FaceAssignmentInfo[]>([]);
     const [trees, setTrees] = useState<FamilyTreeInfo[]>([]);
@@ -401,7 +437,7 @@ function usePersonDetailData(personId: string) {
             idPrefix: 'get_person_face_assignments',
             command: 'get_person_face_assignments',
             payload: { personId },
-            select: (d) => d as { assignments: FaceAssignmentInfo[] }
+            select: selectFaceAssignments
         }).then(res => {
             setAssignments(res.assignments || []);
         });
@@ -413,7 +449,7 @@ function usePersonDetailData(personId: string) {
             idPrefix: 'get_family_trees',
             command: 'get_family_trees',
             payload: {},
-            select: (data) => data as { trees: FamilyTreeInfo[] }
+            select: selectFamilyTrees
         }).then(result => setTrees(result.trees || []));
     }, [loadAssignments]);
     return { assignments, loadAssignments, trees };
@@ -506,10 +542,10 @@ function AssignmentGrid(props: {
                         alt={props.suggested ? 'Suggested person match' : 'Confirmed person match'} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
                         {props.suggested ? (
-                            <><button onClick={() => props.actions.confirm(assignment.face_id)}>Approve</button>
-                            <button onClick={() => props.actions.reject(assignment.face_id)}>Reject</button></>
+                            <><button onClick={() => { void props.actions.confirm(assignment.face_id); }}>Approve</button>
+                            <button onClick={() => { void props.actions.reject(assignment.face_id); }}>Reject</button></>
                         ) : (
-                            <button onClick={() => props.actions.unmatch(assignment.face_id)} title="Unmatch / Isolate Face"><Trash2 className="w-4 h-4" /></button>
+                            <button onClick={() => { void props.actions.unmatch(assignment.face_id); }} title="Unmatch / Isolate Face"><Trash2 className="w-4 h-4" /></button>
                         )}
                     </div>
                     <div className="absolute bottom-1 right-1 bg-black/60 px-1 text-[9px] text-white">
@@ -583,7 +619,7 @@ function useGedcomCandidates(treeId: string, personName: string, search: string)
         }
         void globalRequest<{ content: string }>({
             idPrefix: 'get_linker_content', command: 'get_family_tree_content',
-            payload: { treeId }, select: (data) => data as { content: string }
+            payload: { treeId }, select: selectGedcomContent
         }).then(result => setPeople(Object.values(parseGedcom(result.content).people)));
     }, [treeId]);
     return useMemo(() => {
@@ -603,7 +639,7 @@ function TreeCandidatePicker(props: {
     readonly selectedTreeId: string;
     readonly trees: FamilyTreeInfo[];
     readonly onSearchChange: (search: string) => void;
-    readonly onSelectCandidate: (id: string) => void;
+    readonly onSelectCandidate: (id: string) => Promise<void>;
     readonly onTreeChange: (id: string) => void;
 }) {
     return (
@@ -625,7 +661,7 @@ function TreeCandidatePicker(props: {
             </div>
             {props.selectedTreeId && <div className="max-h-60 overflow-y-auto space-y-1 mb-4">
                 {props.candidates.map(candidate => (
-                    <button key={candidate.id} type="button" onClick={() => props.onSelectCandidate(candidate.id)}>
+                    <button key={candidate.id} type="button" onClick={() => { void props.onSelectCandidate(candidate.id); }}>
                         <span>{candidate.name}</span>
                         <span>{candidate.birthDate ? `* ${candidate.birthDate}` : ''} {candidate.deathDate ? `† ${candidate.deathDate}` : ''}</span>
                         {candidate.score > 0 && <span>Match: {candidate.score}%</span>}
