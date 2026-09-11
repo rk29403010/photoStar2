@@ -10,22 +10,23 @@ const {
     runGroupingWorkflow,
     seedAsset,
     seedAssetFeatures,
-    seedDuplicateGroup,
 } = require('./workflow-runtime-grouping.helpers.cjs');
 
-test('database schema includes direct child-group links for similarity hierarchy', async () => {
+test('database schema omits legacy asset-group hierarchy tables', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const dbManager = new DatabaseManager(tempDir);
 
     try {
-        const childTable = dbManager.getDb().prepare(`
+        const legacyTables = dbManager.getDb().prepare(`
             SELECT name
             FROM sqlite_master
-            WHERE type = 'table' AND name = 'asset_group_children'
-        `).get();
+            WHERE type = 'table'
+              AND name IN ('asset_groups', 'asset_group_members', 'asset_group_children')
+            ORDER BY name
+        `).all();
 
-        assert.deepEqual(childTable, { name: 'asset_group_children' });
+        assert.deepEqual(legacyTables, []);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -81,47 +82,6 @@ test('grouping hierarchy helpers prefer quality for duplicates and recency for v
     assert.equal(variantRepresentative.id, 'asset-new');
 });
 
-test.skip('WP9: legacy duplicate-group persistence fixture - runtime grouping now persists durable semantic evidence', async () => {
-    const tempDir = createTempDir();
-    const fixtureDir = path.join(tempDir, 'fixtures');
-    const firstPath = path.join(fixtureDir, 'one.png');
-    const secondPath = path.join(fixtureDir, 'two.png');
-    createFixtureImage(firstPath);
-    createFixtureImage(secondPath);
-
-    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    let dbManager;
-
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const firstId = uuidv4();
-        const secondId = uuidv4();
-
-        seedAsset(dbManager, { id: firstId, originalPath: firstPath });
-        seedAsset(dbManager, { id: secondId, originalPath: secondPath });
-
-        await runGroupingWorkflow({
-            dbManager,
-            inputSubjects: [
-                { subjectType: 'asset', subjectId: firstId },
-                { subjectType: 'asset', subjectId: secondId },
-            ],
-        });
-
-        const duplicateGroups = dbManager.getDb().prepare(`
-            SELECT g.id, m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'duplicate'
-        `).all();
-
-        assert.equal(duplicateGroups.length, 2);
-    } finally {
-        dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-});
-
 test('runtime grouping backfills missing hashes and dimensions before grouping', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
@@ -171,57 +131,6 @@ test('runtime grouping backfills missing hashes and dimensions before grouping',
     }
 });
 
-test('runtime grouping preserves locked duplicate groups for impacted assets', async () => {
-    const tempDir = createTempDir();
-    const fixtureDir = path.join(tempDir, 'fixtures');
-    const firstPath = path.join(fixtureDir, 'one.png');
-    const secondPath = path.join(fixtureDir, 'two.png');
-    createFixtureImage(firstPath);
-    createFixtureImage(secondPath);
-
-    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    let dbManager;
-
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const firstId = uuidv4();
-        const secondId = uuidv4();
-        const duplicateHash = hashFileContents(secondPath);
-
-        seedAsset(dbManager, { id: firstId, originalPath: firstPath });
-        seedAsset(dbManager, {
-            id: secondId,
-            originalPath: secondPath,
-            fileHash: duplicateHash,
-            fileSize: fs.statSync(secondPath).size,
-            width: 1,
-            height: 1,
-        });
-        seedDuplicateGroup(dbManager, {
-            groupId: uuidv4(),
-            status: 'locked',
-            canonicalAssetId: firstId,
-            assetIds: [firstId, secondId],
-        });
-
-        await runGroupingWorkflow({
-            dbManager,
-            inputSubjects: [{ subjectType: 'asset', subjectId: firstId }],
-        });
-
-        const duplicateGroups = dbManager.getDb().prepare(`
-            SELECT COUNT(*) AS count
-            FROM asset_groups
-            WHERE type = 'duplicate'
-        `).get();
-
-        assert.equal(duplicateGroups.count, 1);
-    } finally {
-        dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-});
-
 test('runtime duplicate grouping matches changed assets against older library assets', async () => {
     const tempDir = createTempDir();
     const fixtureDir = path.join(tempDir, 'fixtures');
@@ -261,81 +170,7 @@ test('runtime duplicate grouping matches changed assets against older library as
         const projection = groupFree.buildGroupFreeGroupingPipeline(dbManager.getDb());
         const duplicateUnit = projection.exactUnits.find((unit) => unit.memberAssetIds.includes(newId));
         assert.ok(duplicateUnit);
-        assert.deepEqual(
-            [...duplicateUnit.memberAssetIds].sort(),
-            [oldId, newId].sort(),
-        );
-    } finally {
-        dbManager?.close();
-        fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-});
-
-test.skip('WP9: legacy duplicate subset-group replacement fixture - expansion is covered by group-free incremental reconstruction', async () => {
-    const tempDir = createTempDir();
-    const fixtureDir = path.join(tempDir, 'fixtures');
-    const firstPath = path.join(fixtureDir, 'first.png');
-    const secondPath = path.join(fixtureDir, 'second.png');
-    const thirdPath = path.join(fixtureDir, 'third.png');
-    createFixtureImage(firstPath);
-    createFixtureImage(secondPath);
-    createFixtureImage(thirdPath);
-
-    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
-    let dbManager;
-
-    try {
-        dbManager = new DatabaseManager(tempDir);
-        const firstId = uuidv4();
-        const secondId = uuidv4();
-        const thirdId = uuidv4();
-        const duplicateHash = hashFileContents(firstPath);
-
-        seedAsset(dbManager, {
-            id: firstId,
-            originalPath: firstPath,
-            fileHash: duplicateHash,
-            fileSize: fs.statSync(firstPath).size,
-            width: 1,
-            height: 1,
-        });
-        seedAsset(dbManager, {
-            id: secondId,
-            originalPath: secondPath,
-            fileHash: duplicateHash,
-            fileSize: fs.statSync(secondPath).size,
-            width: 1,
-            height: 1,
-        });
-        seedAsset(dbManager, {
-            id: thirdId,
-            originalPath: thirdPath,
-        });
-        seedDuplicateGroup(dbManager, {
-            groupId: uuidv4(),
-            status: 'confirmed',
-            canonicalAssetId: firstId,
-            assetIds: [firstId, secondId],
-        });
-
-        await runGroupingWorkflow({
-            dbManager,
-            inputSubjects: [{ subjectType: 'asset', subjectId: thirdId }],
-        });
-
-        const duplicateGroups = dbManager.getDb().prepare(`
-            SELECT g.id, m.asset_id
-            FROM asset_groups g
-            JOIN asset_group_members m ON m.group_id = g.id
-            WHERE g.type = 'duplicate'
-            ORDER BY g.id ASC, m.rank ASC
-        `).all();
-
-        assert.equal(new Set(duplicateGroups.map((row) => row.id)).size, 1);
-        assert.deepEqual(
-            duplicateGroups.map((row) => row.asset_id).sort(),
-            [firstId, secondId, thirdId].sort(),
-        );
+        assert.deepEqual([...duplicateUnit.memberAssetIds].sort(), [oldId, newId].sort());
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -400,10 +235,7 @@ test('runtime grouping preserves near-duplicate behavior for same-content assets
         const nearDuplicateUnit = projection.nearUnits.find((unit) => unit.memberAssetIds.includes(firstId));
         assert.ok(nearDuplicateUnit);
         assert.equal(nearDuplicateUnit.representativeAssetId, secondId);
-        assert.deepEqual(
-            [...nearDuplicateUnit.memberAssetIds].sort(),
-            [firstId, secondId].sort(),
-        );
+        assert.deepEqual([...nearDuplicateUnit.memberAssetIds].sort(), [firstId, secondId].sort());
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
