@@ -41,6 +41,16 @@ const LEGACY_FACE_INDEX_BASELINE = [
     ['src/services/faces/peopleResolution.ts', '`).get(personId) as { asset_id: string; face_index: number } | undefined;', 1],
     ['src/services/faces/peopleResolution.ts', 'const face = (JSON.parse(detection.data) as { faces?: Array<{ box: StoredPhotoBox | number[] }> }).faces?.[bestFace.face_index];', 1],
 
+    // WP10e transitional adapter/projection only: these statements resolve the
+    // existing positional face_assignments payload into stable Face identity or
+    // project stable human decisions back into the rebuildable compatibility table.
+    ['src/services/faces/manualFaceSemanticRepository.ts', 'SELECT asset_id, face_index', 1],
+    ['src/services/faces/manualFaceSemanticRepository.ts', 'ORDER BY asset_id ASC, face_index ASC', 1],
+    ['src/services/faces/manualFaceSemanticRepository.ts', '`).all(personId) as Array<{ asset_id: string; face_index: number }>;', 1],
+    ['src/services/faces/manualFaceSemanticRepository.ts', 'faceIndex: assignment.face_index,', 1],
+    ['src/services/faces/manualFaceSemanticRepository.ts', 'WHERE asset_id = ? AND face_index = ?', 1],
+    ['src/services/faces/manualFaceSemanticRepository.ts', 'WHERE asset_id = ? AND face_index = ? AND person_id = ?', 1],
+
     ['src/services/handlers/peopleCommands.ts', 'INSERT OR REPLACE INTO manual_face_names (original_path, face_index, name)', 2],
     ['src/services/handlers/peopleCommands.ts', 'SELECT a.original_path, fa.face_index, ?', 2],
     ['src/services/handlers/peopleCommands.ts', 'INSERT OR REPLACE INTO manual_face_isolations (original_path, face_index)', 1],
