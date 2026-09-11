@@ -51,6 +51,19 @@ const LEGACY_FACE_INDEX_BASELINE = [
     ['src/services/faces/manualFaceSemanticRepository.ts', 'WHERE asset_id = ? AND face_index = ?', 1],
     ['src/services/faces/manualFaceSemanticRepository.ts', 'WHERE asset_id = ? AND face_index = ? AND person_id = ?', 1],
 
+    // WP10e handler bridge: existing UI payloads still arrive as assetId +
+    // faceIndex until WP10g, and face_assignments remains a rebuildable
+    // compatibility projection rather than durable manual truth.
+    ['src/services/handlers/peopleCommands.ts', 'SELECT asset_id, face_index', 1],
+    ['src/services/handlers/peopleCommands.ts', '`).all(personId) as Array<{ asset_id: string; face_index: number }>;', 1],
+    ['src/services/handlers/peopleCommands.ts', 'faceIndex: row.face_index,', 1],
+    ['src/services/handlers/peopleCommands.ts', "db.prepare('UPDATE face_assignments SET person_id = ?, is_suggested = 0 WHERE asset_id = ? AND face_index = ?')", 2],
+    ['src/services/handlers/peopleCommands.ts', "const faces = db.prepare('SELECT face_index FROM face_assignments WHERE asset_id = ? AND person_id = ?')", 1],
+    ['src/services/handlers/peopleCommands.ts', '.all(assetId, personId) as Array<{ face_index: number }>;', 1],
+    ['src/services/handlers/peopleCommands.ts', 'faceIndex: face.face_index,', 2],
+    ['src/services/handlers/peopleCommands.ts', '.run(newPersonId, assetId, face.face_index);', 1],
+    ['src/services/handlers/peopleCommands.ts', 'WHERE fa.asset_id = ? AND fa.face_index = ?', 1],
+
     ['src/services/handlers/peopleCommands.ts', 'INSERT OR REPLACE INTO manual_face_names (original_path, face_index, name)', 2],
     ['src/services/handlers/peopleCommands.ts', 'SELECT a.original_path, fa.face_index, ?', 2],
     ['src/services/handlers/peopleCommands.ts', 'INSERT OR REPLACE INTO manual_face_isolations (original_path, face_index)', 1],
