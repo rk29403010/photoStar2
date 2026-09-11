@@ -13,6 +13,7 @@ import {
   restoreDurableSemanticResetState,
   snapshotDurableSemanticResetState,
 } from './semanticResetState';
+import { WP11_MIGRATIONS } from './wp11Migrations';
 import { WP9_CONTRACTION_MIGRATIONS } from './wp9ContractionMigrations';
 import { snapshotSemanticPredicateDefinitions } from '../services/relationships/predicates/registry';
 
@@ -135,7 +136,11 @@ export class DatabaseManager {
   private initSchema() {
     this.db.exec(SCHEMA_SQL);
     for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
-    applyNumberedMigrations(this.db, [...NUMBERED_MIGRATIONS, ...WP9_CONTRACTION_MIGRATIONS]);
+    applyNumberedMigrations(this.db, [
+      ...NUMBERED_MIGRATIONS,
+      ...WP9_CONTRACTION_MIGRATIONS,
+      ...WP11_MIGRATIONS,
+    ]);
     snapshotSemanticPredicateDefinitions(this.db);
     this.removeLegacyWorkflowState();
     reconcileStaleWorkflowRuns(this.db);
