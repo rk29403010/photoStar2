@@ -1,4 +1,14 @@
 import type { NormalizedBox, NormalizedPoint } from '../../boundary/contracts/photoEditor';
+import type { DatabaseManager } from '../../data/db';
+import {
+    createStableFaceDetection,
+    loadReconcileableStableFaceRegions,
+    markStableFaceRegionStatus,
+    reuseStableFaceDetection,
+} from './stableFaceRepository';
+import type { StableFaceDetectionIdentity } from './stableFaceRepository';
+
+type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
 export type FaceReconciliationSource = {
     provider: string;
@@ -237,4 +247,86 @@ export function reconcileFaceDetections(
         ambiguousDetectionIds: [...ambiguousDetections].sort((left, right) => left.localeCompare(right)),
         ambiguousVisualRegionIds: [...ambiguousRegions].sort((left, right) => left.localeCompare(right)),
     };
+}
+
+
+export const RETINAFACE_10G_RECONCILIATION_POLICY: FaceReconciliationPolicy = {
+    id: 'runtime.detect_faces.onnx_retina_10g',
+    version: '1',
+    compatiblePriorSources: [{ provider: 'onnx_retina_10g', modelVersion: '1.0' }],
+    minimumIoU: 0.2,
+    landmarkWeight: 0.25,
+    ambiguityMargin: 0.02,
+};
+
+export type PersistStableFaceDetectionsInput = {
+    assetId: string;
+    sourceAnalysisGenerationId: string;
+    detections: readonly CurrentFaceDetection[];
+    sourceWidth: number;
+    sourceHeight: number;
+    sourceOrientation: number;
+    sourceModuleId: string;
+    provider: string;
+    modelVersion: string;
+    policy: FaceReconciliationPolicy;
+};
+
+function geometryInput(
+    input: PersistStableFaceDetectionsInput,
+    detection: CurrentFaceDetection,
+) {
+    return {
+        sourceAnalysisGenerationId: input.sourceAnalysisGenerationId,
+        box: detection.box,
+        sourceWidth: input.sourceWidth,
+        sourceHeight: input.sourceHeight,
+        sourceOrientation: input.sourceOrientation,
+        sourceModuleId: input.sourceModuleId,
+        provider: input.provider,
+        modelVersion: input.modelVersion,
+    };
+}
+
+export function reconcileAndPersistStableFaceDetections(
+    db: DbHandle,
+    input: PersistStableFaceDetectionsInput,
+): StableFaceDetectionIdentity[] {
+    const priorRegions = loadReconcileableStableFaceRegions(db, input.assetId);
+    const result = reconcileFaceDetections(input.policy, priorRegions, input.detections);
+    const matchByDetectionId = new Map(
+        result.matches.map((match) => [match.detectionId, match.visualRegionId]),
+    );
+
+    const identities = input.detections.map((detection) => {
+        const matchedVisualRegionId = matchByDetectionId.get(detection.detectionId);
+        const generation = geometryInput(input, detection);
+        if (matchedVisualRegionId) {
+            return reuseStableFaceDetection(db, {
+                visualRegionId: matchedVisualRegionId,
+                ...generation,
+            });
+        }
+        return createStableFaceDetection(db, {
+            assetId: input.assetId,
+            ...generation,
+        });
+    });
+
+    const ambiguousRegions = new Set(result.ambiguousVisualRegionIds);
+    for (const visualRegionId of result.unmatchedVisualRegionIds) {
+        markStableFaceRegionStatus(db, {
+            visualRegionId,
+            sourceAnalysisGenerationId: input.sourceAnalysisGenerationId,
+            sourceWidth: input.sourceWidth,
+            sourceHeight: input.sourceHeight,
+            sourceOrientation: input.sourceOrientation,
+            sourceModuleId: input.sourceModuleId,
+            provider: input.provider,
+            modelVersion: input.modelVersion,
+            status: ambiguousRegions.has(visualRegionId) ? 'unmatched' : 'tombstoned',
+        });
+    }
+
+    return identities;
 }

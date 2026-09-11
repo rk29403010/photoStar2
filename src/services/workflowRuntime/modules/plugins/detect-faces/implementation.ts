@@ -5,7 +5,10 @@ import type { DatabaseManager } from '../../../../../data/db';
 import type { FacesDetected } from '@contracts/events';
 import { RetinaFaceDetector } from '../../../../faces/retinaFaceDetector';
 import { normalizeStoredPhotoBox } from '../../../../faces/faceImageGeometry';
-import { createStableFaceDetection } from '../../../../faces/stableFaceRepository';
+import {
+    reconcileAndPersistStableFaceDetections,
+    RETINAFACE_10G_RECONCILIATION_POLICY,
+} from '../../../../faces/faceReconciliation';
 import type { ModuleDefinition } from '../../../contracts';
 import { getFrameInteriorBox } from '../../../../photoMetadata/frameUtils';
 import { saveAssetMaskMetadata } from '../../../../photoEditing/assetMaskMetadata';
@@ -121,17 +124,22 @@ function persistFaceDetection(db: DbHandle, assetId: string, state: DetectionSta
     );
 
     const stableFaceIdentities = state.sourceImageMetadata
-        ? state.faces.map((face) => createStableFaceDetection(db, {
+        ? reconcileAndPersistStableFaceDetections(db, {
             assetId,
             sourceAnalysisGenerationId: faceDetectionResultId,
-            box: face.box,
-            sourceWidth: state.sourceImageMetadata!.width,
-            sourceHeight: state.sourceImageMetadata!.height,
-            sourceOrientation: state.sourceImageMetadata!.orientation,
+            detections: state.faces.map((face) => ({
+                detectionId: face.id,
+                box: face.box,
+                landmarks: face.landmarks,
+            })),
+            sourceWidth: state.sourceImageMetadata.width,
+            sourceHeight: state.sourceImageMetadata.height,
+            sourceOrientation: state.sourceImageMetadata.orientation,
             sourceModuleId: FACE_DETECTOR_MODULE_ID,
             provider: FACE_DETECTOR_PROVIDER,
             modelVersion: FACE_DETECTOR_MODEL_VERSION,
-        }))
+            policy: RETINAFACE_10G_RECONCILIATION_POLICY,
+        })
         : [];
 
     saveAssetMaskMetadata(db, {
