@@ -30,7 +30,6 @@ const LEGACY_FACE_INDEX_BASELINE = [
     ['src/services/faces/peopleResolution.ts', 'const previousAssignments = new Map(existingAssignments.map((row) => [`${row.asset_id}_${row.face_index}`, row.person_id]));', 1],
     ['src/services/faces/peopleResolution.ts', 'INSERT INTO face_assignments (asset_id, face_index, person_id, confidence, is_suggested)', 1],
     ['src/services/faces/peopleResolution.ts', 'SELECT a.id AS asset_id, m.face_index', 1],
-    ['src/services/faces/peopleResolution.ts', '` ).all() as Array<{ asset_id: string; face_index: number }>;', 0],
     ['src/services/faces/peopleResolution.ts', '`).all() as Array<{ asset_id: string; face_index: number }>;', 1],
     ['src/services/faces/peopleResolution.ts', "db.prepare('UPDATE face_assignments SET person_id = ? WHERE asset_id = ? AND face_index = ?')", 1],
     ['src/services/faces/peopleResolution.ts', '.run(newPersonId, isolation.asset_id, isolation.face_index);', 1],
