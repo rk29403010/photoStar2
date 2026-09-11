@@ -51,7 +51,7 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 
 ### Current snapshot
 
-- Last material production implementation HEAD assessed: `0b12d654c4dd6a0f5c24a96cf567e11d8ce91eac`.
+- Last material production implementation HEAD assessed: `0223f5cff4d987f5c8a7be198cbb5cf0dc3ab871`.
 - WP9 completion gate: **GREEN / WP9 COMPLETE**.
 - [Canonical green quality-gate run for `5469dcc`](https://github.com/rk29403010/photoStar2/actions/runs/34550734260).
 - WP10a contract/guard checkpoint: `184178e566bc386401e71c29e611f4402bca1cd6`.
@@ -77,7 +77,10 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 - WP10f implementation checkpoint: `0b12d654c4dd6a0f5c24a96cf567e11d8ce91eac`.
 - WP10f completion gate: **GREEN / WP10f COMPLETE**.
 - [Canonical green quality-gate run for `0b12d65`](https://github.com/rk29403010/photoStar2/actions/runs/34601385219).
-- Current package: **WP10g — People UI, payload and runtime-action cutover**.
+- WP10g implementation checkpoint: `0223f5cff4d987f5c8a7be198cbb5cf0dc3ab871`.
+- WP10g completion gate: **GREEN / WP10g COMPLETE**.
+- [Canonical green quality-gate run for `0223f5c`](https://github.com/rk29403010/photoStar2/actions/runs/34603414830), including affected UI boot smoke.
+- Current package: **WP10h — contract durable `face_index` dependencies**.
 
 WP9's repository-defined completion gate remains satisfied. PostgreSQL is not part of the WP9 gate or PhotoStar2's current runtime persistence stack; the project uses SQLite (`better-sqlite3`). Do not add a PostgreSQL validation requirement unless the architecture is explicitly changed later.
 
@@ -85,31 +88,27 @@ WP9's repository-defined completion gate remains satisfied. PostgreSQL is not pa
 
 ## 3. Current work package
 
-### WP10g — People UI, payload and runtime-action cutover
+### WP10h — contract durable `face_index` dependencies
 
 **State: IN PROGRESS.**
 
-WP10f is closed at green head `0b12d654c4dd6a0f5c24a96cf567e11d8ce91eac`, canonical run `34601385219`.
+WP10g is closed at green head `0223f5cff4d987f5c8a7be198cbb5cf0dc3ab871`, canonical run `34603414830`.
 
-### WP10f closure evidence
+### WP10g closure evidence
 
-- Soft library reset preserves manually referenced typed Face/VisualRegion identities plus a current reconciliation geometry anchor.
-- Human-referenced Person semantic entities, propositions and decisions survive reset while rebuildable detector outputs and compatibility assignments can be regenerated.
-- Face-analysis reset preserves stable semantic truth and current region identity needed for subsequent redetection/reconciliation.
-- WP10f regression coverage exercises soft reset/reimport, face-analysis reset/redetection and supported removal/reimport preservation.
-- Legacy `manual_face_*` rows remain compatibility-only for pre-cutover data and are not the target durable identity path.
-- Canonical quality-gate run `34601385219` is green at `0b12d65`.
-
-### WP10g implementation target
-
-- Return stable Face/VisualRegion IDs from People assignment payloads.
-- Move People approve/reject/unmatch UI actions and runtime action wiring to `faceId`.
-- Replace positional People attachment in general asset payloads where stable region identity is already available.
-- Exercise affected People journeys and record automated/manual evidence honestly.
+- People detail assignment payloads expose stable `face_id` and `visual_region_id`.
+- Approve, reject and unmatch/isolate UI actions send stable `faceId`; the backend resolves any remaining detector position only inside the compatibility projection boundary.
+- Runtime `isolateFace` wiring now accepts `faceId` rather than `assetId + faceIndex`.
+- General asset and `AssetUpdated` face payloads carry stable `visual_region_id` and bind People through that region when stable mask identity is available.
+- Existing `face_assignments.face_index` remains an internal rebuildable detector-order compatibility projection for the later WP10h contraction; no new durable human truth is keyed by it.
+- `tests/core/wp10g-stable-people-actions.test.cjs` proves direct stable-Face semantic action persistence.
+- `tests/core/asset-payload-model.test.cjs` characterizes stable VisualRegion identity in normal face/person payload assembly.
+- Canonical quality-gate run `34603414830` is green and its affected UI boot smoke passed at an isolated browser runtime.
+- Human visual interaction was not available from this remote GitHub session; that absence is recorded in the acceptance matrix rather than inferred as passed.
 
 ### Exact next action
 
-Complete the stable People action/payload cutover, then run the canonical gate and record the affected People acceptance evidence before advancing to WP10h.
+Run the WP10h repository search/inventory against current HEAD, classify every remaining `face_index` use as ephemeral detector ordering, rebuildable compatibility projection or obsolete durable storage, then remove only the obsolete durable/manual/reset dependencies whose replacement coverage is green. Do not remove positional detector ordering that remains legitimately ephemeral.
 
 ---
 
@@ -128,7 +127,7 @@ This table is a navigation snapshot, not a substitute for each WP completion gat
 | WP7 | Substantially complete | Server-side presentation/expansion path established; final scale evidence is WP16. |
 | WP8 | Substantially complete | Editor group dependency replaced by semantic/editor lineage path; Photograph closeout intersects WP14. |
 | WP9 | **Complete** | Grouping/gallery/editor parity gate is green with legacy group tables absent at `5469dcc`; canonical run `34550734260`. |
-| WP10 | **In progress** | WP10a-WP10f are complete; WP10g People UI/payload/runtime-action cutover is in progress. |
+| WP10 | **In progress** | WP10a-WP10g are complete; WP10h final durable `face_index` contraction/search gate is in progress. |
 | WP11 | Not started | Machine generations + feature vectors. Split into WP11a-WP11e. |
 | WP12 | Not started | IdentityCluster/Person lifecycle/weak candidates. Split into WP12a-WP12g. |
 | WP13 | Not started | Contributor testimony/uncertainty/review. Split into WP13a-WP13e. |
@@ -184,8 +183,8 @@ Maintain this table continuously. `Not recorded` means exactly that; do not infe
 | Bulk action expands correct underlying assets | Presentation-native bulk-selection tests exist | Not recorded here | Verify representative + hidden members during manual acceptance. |
 | Presentation filmstrip/member expansion | Replacement contract/wiring tests exist | Not recorded here | Manual expand/navigation still to be recorded. |
 | Open editor -> save/render -> return to Library | WP10b verifies editor mask snapshots remain separate; existing editor characterization/semantic-lineage tests remain green | Not recorded here | Manual journey by WP14/WP16; repeat on editor-affecting changes. |
-| People view loads | Existing pre-WP10 People behaviour remains green; WP10b does not cut current consumers over | Not recorded here | Preserve behaviour through reconciliation; exercise manually when WP10g changes People consumers. |
-| Rename/merge/isolate/approve/reject person/face | Existing behavior characterized; stable-ID replacement ahead | Not recorded on target model | WP10/WP12 must update row as actions move to stable IDs/Person lifecycle. |
+| People view loads | WP10g canonical run `34603414830` includes a green affected UI boot smoke; People payload/action contract tests are green | Human visual interaction not available in the remote GitHub session | Stable-ID consumer wiring is green; retain full manual visual journey for WP16 acceptance. |
+| Rename/merge/isolate/approve/reject person/face | WP10e stable semantic decisions + WP10g stable `faceId` UI/action wiring and core contract tests are green at `0223f5c` | Human visual interaction not available in the remote GitHub session | Stable Face identity cutover is automated/boot-smoke green; Person lifecycle/redirect semantics remain WP12. |
 | Old Person/deep link survives merge redirect | Not implemented on target model | Not applicable yet | WP12c/f. |
 | Uncertain testimony choices | Not implemented end to end | Not applicable yet | WP13b-d. |
 | Loading/empty/error/retry states for new review UI | Not implemented end to end | Not applicable yet | WP13d and WP16e/f. |
