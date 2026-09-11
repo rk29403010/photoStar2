@@ -335,4 +335,54 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
             DROP TABLE IF EXISTS asset_groups;
         `,
     },
+    {
+        id: '20260911_001_stable_visual_regions_faces',
+        sql: `
+            CREATE TABLE visual_regions (
+                id TEXT PRIMARY KEY,
+                asset_identity_guid TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(id) REFERENCES semantic_entities(id),
+                FOREIGN KEY(asset_identity_guid) REFERENCES asset_identities(guid)
+            );
+            CREATE INDEX idx_visual_regions_asset_identity
+                ON visual_regions(asset_identity_guid, created_at, id);
+
+            CREATE TABLE faces (
+                id TEXT PRIMARY KEY,
+                visual_region_id TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(id) REFERENCES semantic_entities(id),
+                FOREIGN KEY(visual_region_id) REFERENCES visual_regions(id)
+            );
+            CREATE INDEX idx_faces_visual_region
+                ON faces(visual_region_id, created_at, id);
+
+            CREATE TABLE visual_region_geometry_generations (
+                id TEXT PRIMARY KEY,
+                visual_region_id TEXT NOT NULL,
+                source_analysis_generation_id TEXT NOT NULL,
+                x REAL NOT NULL CHECK (x >= 0.0 AND x <= 1.0),
+                y REAL NOT NULL CHECK (y >= 0.0 AND y <= 1.0),
+                width REAL NOT NULL CHECK (width > 0.0 AND width <= 1.0),
+                height REAL NOT NULL CHECK (height > 0.0 AND height <= 1.0),
+                source_width INTEGER NOT NULL CHECK (source_width > 0),
+                source_height INTEGER NOT NULL CHECK (source_height > 0),
+                source_orientation INTEGER NOT NULL CHECK (source_orientation BETWEEN 1 AND 8),
+                source_module_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                model_version TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(visual_region_id) REFERENCES visual_regions(id),
+                UNIQUE(visual_region_id, source_analysis_generation_id),
+                CHECK (x + width <= 1.000000001),
+                CHECK (y + height <= 1.000000001)
+            );
+            CREATE INDEX idx_visual_region_geometry_region
+                ON visual_region_geometry_generations(visual_region_id, created_at, id);
+            CREATE INDEX idx_visual_region_geometry_source_generation
+                ON visual_region_geometry_generations(source_analysis_generation_id, created_at, id);
+        `,
+    },
 ];
