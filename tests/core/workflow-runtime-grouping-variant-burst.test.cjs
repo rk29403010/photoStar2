@@ -222,8 +222,7 @@ test('runtime burst grouping rejects phash-only matches when dhash disagrees', a
 
         const projection = groupFree.buildGroupFreeGroupingPipeline(dbManager.getDb());
         const burstMembers = getBurstComponentMembers(projection.burstGraph, firstId);
-        assert.ok(burstMembers);
-        assert.equal(burstMembers.includes(secondId), false);
+        assert.equal(burstMembers, undefined);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
