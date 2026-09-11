@@ -43,17 +43,27 @@ function assertSourceDimensions(width: number, height: number, orientation: numb
     }
 }
 
+function hasPositiveNormalizedExtent(box: NormalizedBox): boolean {
+    return box.x >= 0 && box.y >= 0 && box.width > 0 && box.height > 0;
+}
+
+function fitsNormalizedBounds(box: NormalizedBox): boolean {
+    const epsilon = 1e-9;
+    const values = [box.x, box.y, box.width, box.height];
+    return values.every((value) => value <= 1)
+        && box.x + box.width <= 1 + epsilon
+        && box.y + box.height <= 1 + epsilon;
+}
+
 function assertNormalizedBox(box: NormalizedBox): void {
     const values = [box.x, box.y, box.width, box.height];
     if (!values.every(Number.isFinite)) {
         throw new Error('Visual region geometry values must be finite.');
     }
-    if (box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0) {
+    if (!hasPositiveNormalizedExtent(box)) {
         throw new Error('Visual region geometry must have non-negative origin and positive dimensions.');
     }
-    const epsilon = 1e-9;
-    if (box.x > 1 || box.y > 1 || box.width > 1 || box.height > 1
-        || box.x + box.width > 1 + epsilon || box.y + box.height > 1 + epsilon) {
+    if (!fitsNormalizedBounds(box)) {
         throw new Error('Visual region geometry must be normalized to the canonical image bounds.');
     }
 }
