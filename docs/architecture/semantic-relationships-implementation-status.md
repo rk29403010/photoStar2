@@ -78,7 +78,7 @@ WP9's repository-defined completion gate remains satisfied. PostgreSQL is not pa
 
 ### WP10e — durable People action cutover
 
-**State: BLOCKED — do not implement the human-action cutover until the repository contracts are reconciled.**
+**State: PREREQUISITES IN PROGRESS.**
 
 WP10d is closed at checkpoint `756f7a9884220413f2d4c45a4bf511da4159d3bf`. Canonical quality-gate run `34594221168` is green at that exact head.
 
@@ -89,22 +89,14 @@ WP10d is closed at checkpoint `756f7a9884220413f2d4c45a4bf511da4159d3bf`. Canoni
 - Ambiguous matches remain fail-safe: no existing stable ID is auto-reused.
 - Canonical quality-gate run `34594221168` is green at `756f7a9`.
 
-### WP10e blockers discovered before implementation
+### WP10e prerequisite resolution
 
-1. **Reset-preservation ordering conflict.**  
-   `semantic-relationships-phase1-foundation.md` states: **"Do not cut a human action over to these tables until soft-reset preservation is implemented and tested."** The current execution plan orders WP10e (persistent/manual human face actions) before WP10f (reset and reimport preservation). Implementing WP10e as written would violate the foundation gate; silently running WP10f first would violate the requested in-order execution. This ordering must be reconciled explicitly before the cutover.
-
-2. **Predicate-registry prerequisite is not present in the repository.**  
-   WP4 requires manifest-owned predicates plus a deterministic generated registry and lists `depicts` specifically where the face identity cutover uses it. The current branch contains the semantic kernel but no semantic predicate manifest/generated-registry implementation or persisted predicate-definition snapshot. The status table's previous wording that the predicate manifest/generated-registry foundation was established was therefore too strong. WP10e must not create an unregistered ad-hoc `depicts` predicate and bypass the architecture.
+- The apparent WP10e/WP10f ordering conflict is resolved by existing repository evidence: `semanticResetState.ts` already preserves human/import attestations, required propositions/evidence and non-machine decisions through soft reset, and `tests/core/semantic-soft-reset.test.cjs` proves that behavior. WP10e therefore only needs that existing gate green at its cutover head; WP10f remains the later face-specific reset/reimport preservation package.
+- The missing WP4 predicate ownership slice is being completed before WP10e writes `depicts`: manifest-owned predicates, generated registry checking and persisted definition snapshots are required.
 
 ### Exact next action
 
-Resolve the two repository-contract prerequisites before writing WP10e human actions:
-
-- reconcile WP10e/WP10f ordering so reset preservation demonstrably precedes the first durable human semantic write; and
-- complete/verify the WP4 predicate manifest/generated-registry slice required to own `depicts`.
-
-Do not guess a new package order or introduce an ad-hoc predicate key merely to continue.
+Complete and gate the WP4 predicate-registry prerequisite, then begin WP10e durable People action cutover using the registered `depicts` manifest.
 
 ---
 
@@ -117,7 +109,7 @@ This table is a navigation snapshot, not a substitute for each WP completion gat
 | WP1 | Largely complete | ADR/foundation work exists; reconcile at final closeout. |
 | WP2 | Largely complete | Characterization expanded during grouping migration; later face/People work must refresh relevant fixtures. |
 | WP3 | Largely complete | Migration ledger + semantic kernel established; final durability closeout remains WP15. |
-| WP4 | **Incomplete prerequisite discovered** | Semantic kernel exists, but no predicate manifest/generated-registry implementation or persisted predicate-definition snapshot is present on the current branch. Must be resolved before WP10e uses `depicts`. |
+| WP4 | **Prerequisite in progress** | Completing manifest-owned initial predicates, deterministic generated registry and persisted definition snapshots before WP10e uses `depicts`. |
 | WP5 | Complete for current Phase 1 slice | Exact-duplicate shadow/replacement path established. |
 | WP6 | Substantially complete | Similarity/CaptureSequence/presentation preference path established; later generation provenance intersects WP11. |
 | WP7 | Substantially complete | Server-side presentation/expansion path established; final scale evidence is WP16. |

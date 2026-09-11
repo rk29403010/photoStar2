@@ -385,4 +385,18 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
                 ON visual_region_geometry_generations(source_analysis_generation_id, created_at, id);
         `,
     },
+    {
+        id: '20260911_002_semantic_predicate_definitions',
+        sql: `
+            CREATE TABLE semantic_predicate_definitions (
+                predicate_key TEXT NOT NULL,
+                predicate_version INTEGER NOT NULL,
+                definition_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(predicate_key, predicate_version)
+            );
+        `,
+    },
 ];

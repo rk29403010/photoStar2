@@ -646,6 +646,8 @@ Cover at least:
 
 ### WP10e — Durable People action cutover
 
+Before the first human action writes to the semantic kernel, re-run the existing soft-reset preservation proof from the Phase 1 foundation gate. The repository already has generic semantic soft-reset preservation; WP10e must prove that prerequisite remains green at the cutover head. This prerequisite does not replace WP10f's face-specific reset/reimport matrix.
+
 Move persistent/manual face actions from face indexes to stable IDs/semantic decisions, explicitly including:
 
 - rename/name assignment;

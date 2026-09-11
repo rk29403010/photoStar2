@@ -25,6 +25,7 @@ test('semantic kernel schema is installed through the numbered migration ledger'
             'semantic_decisions',
             'semantic_entities',
             'semantic_evidence',
+            'semantic_predicate_definitions',
             'semantic_propositions',
         ]);
         const migration = db.prepare(`
