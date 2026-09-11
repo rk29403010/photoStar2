@@ -44,12 +44,6 @@ function normalizeGraphComponents(graph) {
     )).sort((left, right) => left.join(',').localeCompare(right.join(',')));
 }
 
-function clearLegacyGroups(db) {
-    db.prepare('DELETE FROM asset_group_children').run();
-    db.prepare('DELETE FROM asset_group_members').run();
-    db.prepare('DELETE FROM asset_groups').run();
-}
-
 function poisonVisualObservationEvidence(db) {
     db.prepare(`
         UPDATE visual_similarity_observations
@@ -109,8 +103,6 @@ test('partial group-free reconstruction replaces stale visual neighbourhoods usi
         `).get().count;
         assert.ok(observationCount > 0);
         poisonVisualObservationEvidence(db);
-
-        clearLegacyGroups(db);
 
         db.prepare(`
             UPDATE asset_features
