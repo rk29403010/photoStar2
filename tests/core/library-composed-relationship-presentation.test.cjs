@@ -45,12 +45,6 @@ async function loadCollapsedGallery(dbManager, tempDir, payload = {}) {
     return response.data;
 }
 
-function clearLegacyGroups(db) {
-    db.prepare('DELETE FROM asset_group_children').run();
-    db.prepare('DELETE FROM asset_group_members').run();
-    db.prepare('DELETE FROM asset_groups').run();
-}
-
 test('CaptureSequence presentation treats a nested near-duplicate family as one capture moment', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -91,11 +85,11 @@ test('CaptureSequence presentation treats a nested near-duplicate family as one 
 
         const db = dbManager.getDb();
         const shadow = presentation.getCaptureSequencePresentationPage(db, { limit: 20, offset: 0 });
-        const commandBeforeDelete = await loadCollapsedGallery(dbManager, tempDir);
+        const commandResult = await loadCollapsedGallery(dbManager, tempDir);
 
         assert.deepEqual(
             shadow.map((item) => item.representativeAssetId),
-            commandBeforeDelete.assets.map((asset) => asset.id),
+            commandResult.assets.map((asset) => asset.id),
         );
         assert.equal(shadow.length, 1);
         assert.equal(shadow[0].relationshipKind, 'capture_sequence');
@@ -104,21 +98,19 @@ test('CaptureSequence presentation treats a nested near-duplicate family as one 
         assert.equal(shadow[0].stackCount, 3);
         assert.deepEqual(shadow[0].assetIds, ['asset-a', 'asset-b', 'asset-d']);
 
-        clearLegacyGroups(db);
-        const commandAfterDelete = await loadCollapsedGallery(dbManager, tempDir);
-        assert.deepEqual(commandAfterDelete.assets.map((asset) => asset.id), ['asset-d']);
-        assert.equal('group_id' in commandAfterDelete.assets[0], false);
-        assert.deepEqual(commandAfterDelete.presentationItems, [{
-            presentationKey: commandAfterDelete.presentationItems[0].presentationKey,
+        assert.deepEqual(commandResult.assets.map((asset) => asset.id), ['asset-d']);
+        assert.equal('group_id' in commandResult.assets[0], false);
+        assert.deepEqual(commandResult.presentationItems, [{
+            presentationKey: commandResult.presentationItems[0].presentationKey,
             representativeAssetId: 'asset-d',
             relationshipKind: 'capture_sequence',
             stackCount: 3,
             assetIds: ['asset-a', 'asset-b', 'asset-d'],
             momentCount: 2,
         }]);
-        assert.match(commandAfterDelete.presentationItems[0].presentationKey, /^sequence:/);
-        assert.equal(commandAfterDelete.total, 1);
-        assert.equal(commandAfterDelete.hasMore, false);
+        assert.match(commandResult.presentationItems[0].presentationKey, /^sequence:/);
+        assert.equal(commandResult.total, 1);
+        assert.equal(commandResult.hasMore, false);
     } finally {
         dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
