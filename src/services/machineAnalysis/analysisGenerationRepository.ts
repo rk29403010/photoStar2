@@ -62,6 +62,20 @@ type AnalysisGenerationRow = {
     finished_at: string | null;
 };
 
+type ImmutableGenerationSignature = readonly [
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string | null,
+    string,
+    string,
+];
+
 const GENERATION_SELECT = `
     SELECT id, scope_key, workflow_run_id, step_run_id, subject_execution_id,
            input_fingerprint, provider, model_key, model_version,
@@ -116,18 +130,40 @@ export function getActiveAnalysisGeneration(db: DbHandle, scopeKey: string): Ana
     return row ? mapGeneration(row) : null;
 }
 
+function generationSignature(generation: AnalysisGeneration): ImmutableGenerationSignature {
+    return [
+        generation.scopeKey,
+        generation.workflowRunId,
+        generation.stepRunId,
+        generation.subjectExecutionId,
+        generation.inputFingerprint,
+        generation.provider,
+        generation.modelKey,
+        generation.modelVersion,
+        generation.modelArtifactChecksum,
+        generation.preprocessingVersion,
+        generation.configHash,
+    ];
+}
+
+function inputSignature(input: StartAnalysisGenerationInput): ImmutableGenerationSignature {
+    return [
+        input.scopeKey,
+        input.workflowRunId,
+        input.stepRunId,
+        input.subjectExecutionId,
+        input.inputFingerprint,
+        input.provider,
+        input.modelKey,
+        input.modelVersion,
+        input.modelArtifactChecksum ?? null,
+        input.preprocessingVersion,
+        input.configHash,
+    ];
+}
+
 function immutableInputMatches(generation: AnalysisGeneration, input: StartAnalysisGenerationInput): boolean {
-    return generation.scopeKey === input.scopeKey
-        && generation.workflowRunId === input.workflowRunId
-        && generation.stepRunId === input.stepRunId
-        && generation.subjectExecutionId === input.subjectExecutionId
-        && generation.inputFingerprint === input.inputFingerprint
-        && generation.provider === input.provider
-        && generation.modelKey === input.modelKey
-        && generation.modelVersion === input.modelVersion
-        && generation.modelArtifactChecksum === (input.modelArtifactChecksum ?? null)
-        && generation.preprocessingVersion === input.preprocessingVersion
-        && generation.configHash === input.configHash;
+    return JSON.stringify(generationSignature(generation)) === JSON.stringify(inputSignature(input));
 }
 
 export function startAnalysisGeneration(db: DbHandle, input: StartAnalysisGenerationInput): AnalysisGeneration {
