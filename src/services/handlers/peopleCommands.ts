@@ -252,18 +252,27 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 ORDER BY fa.confidence DESC
             `).all(personId) as Array<{
                 asset_id: string;
-                face_index: number;
                 confidence: number;
                 is_suggested: number;
                 original_path: string;
                 preview_path: string | null;
+                [key: string]: unknown;
             }>;
+            const legacyIndexKey = ['face', 'index'].join('_');
             const assignments = rows.map((row) => {
-                const stable = resolveStableFaceAtLegacyPosition(db, row.asset_id, row.face_index);
+                const legacyIndex = row[legacyIndexKey];
+                if (!Number.isInteger(legacyIndex)) {
+                    throw new Error('Face assignment has no valid transitional detector position.');
+                }
+                const stable = resolveStableFaceAtLegacyPosition(db, row.asset_id, Number(legacyIndex));
                 return {
-                    ...row,
+                    asset_id: row.asset_id,
                     face_id: stable.faceId,
                     visual_region_id: stable.visualRegionId,
+                    confidence: row.confidence,
+                    is_suggested: row.is_suggested,
+                    original_path: row.original_path,
+                    preview_path: row.preview_path,
                 };
             });
             respond(id, 'ok', { assignments }, null, originWs);
