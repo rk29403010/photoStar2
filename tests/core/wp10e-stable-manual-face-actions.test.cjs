@@ -54,9 +54,8 @@ test('WP10e manual face decisions persist stable Face-to-Person truth without le
             VALUES ('asset-1', 0, 'person-1', 0.9, 1)
         `).run();
 
-        const recorded = manual.recordManualFacePersonDecision(db, {
-            assetId: 'asset-1',
-            faceIndex: 0,
+        const recorded = manual.recordManualFacePersonDecisionByFaceId(db, {
+            faceId: identity.faceId,
             personId: 'person-1',
             personName: 'Jean',
             status: 'accepted',
@@ -77,8 +76,13 @@ test('WP10e manual face decisions persist stable Face-to-Person truth without le
             predicate: 'depicts',
             object_entity_id: 'person:person-1',
         });
-        assert.equal(db.prepare('SELECT COUNT(*) AS count FROM manual_face_names').get().count, 0);
-        assert.equal(db.prepare('SELECT COUNT(*) AS count FROM manual_face_isolations').get().count, 0);
+        const legacyTables = db.prepare(`
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name IN ('manual_face_names', 'manual_face_isolations')
+        `).all();
+        assert.deepEqual(legacyTables, []);
 
         db.prepare("INSERT INTO people (id, name, thumbnail_path) VALUES ('machine-person', 'Machine', NULL)").run();
         db.prepare(`
