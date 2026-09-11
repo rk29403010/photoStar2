@@ -6,6 +6,7 @@ export type SemanticEntityKind =
     | 'photograph'
     | 'artefact'
     | 'person'
+    | 'face'
     | 'place'
     | 'event'
     | 'object'
