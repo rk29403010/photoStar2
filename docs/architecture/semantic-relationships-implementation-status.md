@@ -45,49 +45,49 @@ UI/functional acceptance is continuous. WP16 consolidates final acceptance but i
 
 ### SHA conventions in this document
 
-Documentation-only commits can advance branch HEAD without changing the implementation being assessed. Therefore this document records a **last material implementation HEAD** rather than trying to self-reference its own latest commit SHA.
+Documentation-only commits can advance branch HEAD without changing the implementation being assessed. Therefore this document records a **last material production implementation HEAD** separately from contract/test-only WP checkpoint commits.
 
 Before doing any work, fetch the actual branch HEAD and compare it with this snapshot.
 
 ### Current snapshot
 
-- Last material implementation HEAD assessed: `5469dccb82a233b6a8508cef3b697e11e5b8e3c5`
-- WP9 completion gate: **GREEN / WP9 COMPLETE**
-- [Canonical green quality-gate run for `5469dcc`](https://github.com/rk29403010/photoStar2/actions/runs/34550734260)
-- Quality-gate job `103112905211`: completed successfully.
-- CodeQL checks for the same HEAD: green.
-- Next work package: **WP10a — inventory and stable-identity contract**.
+- Last material production implementation HEAD assessed: `5469dccb82a233b6a8508cef3b697e11e5b8e3c5`.
+- WP9 completion gate: **GREEN / WP9 COMPLETE**.
+- [Canonical green quality-gate run for `5469dcc`](https://github.com/rk29403010/photoStar2/actions/runs/34550734260).
+- WP10a contract/guard checkpoint: `184178e566bc386401e71c29e611f4402bca1cd6`.
+- WP10a completion gate: **GREEN / WP10a COMPLETE**.
+- [Canonical green quality-gate run for `184178e`](https://github.com/rk29403010/photoStar2/actions/runs/34559139522), job `103138080317`.
+- [Descreen diagnostic run for `184178e`](https://github.com/rk29403010/photoStar2/actions/runs/34559139475): green.
+- Next work package: **WP10b — additive VisualRegion/Face persistence and mask integration**.
 
-WP9's repository-defined completion gate is satisfied. PostgreSQL is not part of the WP9 gate or PhotoStar2's current runtime persistence stack; the project uses SQLite (`better-sqlite3`). Do not add a PostgreSQL validation requirement unless the architecture is explicitly changed later.
+WP9's repository-defined completion gate remains satisfied. PostgreSQL is not part of the WP9 gate or PhotoStar2's current runtime persistence stack; the project uses SQLite (`better-sqlite3`). Do not add a PostgreSQL validation requirement unless the architecture is explicitly changed later.
 
 ---
 
 ## 3. Current work package
 
-### WP9 — grouping consumer cutover and legacy-group contraction
+### WP10a — inventory and stable-identity contract
 
 **State: COMPLETE.**
 
-WP9 is closed at material implementation HEAD `5469dccb82a233b6a8508cef3b697e11e5b8e3c5`. The canonical quality gate is green and the implementation-plan completion gate — full grouping/gallery/editor parity with legacy tables absent — is satisfied.
+WP10a is closed at contract/guard checkpoint `184178e566bc386401e71c29e611f4402bca1cd6`. The canonical quality gate and descreen diagnostic are green, and no WP10b production cutover was mixed into the package.
 
-### WP9 closure evidence
+### WP10a closure evidence
 
-- Grouping presentation is relationship/presentation-native rather than backed by legacy `asset_groups` as functional truth.
-- Exact duplicate, visual-similarity/variant and CaptureSequence presentation paths have replacement coverage.
-- Group diagnostics derive from presentation/relationship-native state rather than legacy tables.
-- Editor semantic lineage uses Photograph/archive-representation semantics rather than `edit_version` group persistence.
-- Library selection state is presentation-native: selected presentation items carry their underlying asset IDs and bulk selection expands those IDs.
-- Timeline/drag/section selection was adapted to the presentation-native selection state.
-- Dedicated presentation filmstrip/member expansion exists instead of relying on a legacy group-orbit contract.
-- WP9 repository search gates cover functional runtime references to legacy group tables/commands/core `group_id`/`group_role` payloads.
-- Commit `9ff2cfb` stopped recreating the legacy group compatibility tables.
-- Commit `e878af2` removed the legacy compatibility schema.
-- Subsequent WP9 fixes migrated/retired tests that still depended on seeding or querying the removed legacy group structures rather than restoring those structures.
-- Canonical quality-gate run `34550734260` is green at `5469dcc` with the contracted schema.
+- `docs/architecture/semantic-relationships-wp10-stable-face-contract.md` records the durable VisualRegion/Face ownership, append-only geometry-generation, normalized coordinate, reconciliation, reset and migration contracts.
+- The repository inventory identifies all currently proven literal `face_index` source paths plus reset/rerun and positional-mask dependencies that do not necessarily spell `face_index` in the relevant entry point.
+- The inventory classifies the newly exposed payload dependencies in `src/entrypoints/core/main.ts`, `assetCommands.ts`, `assetPayloadModel.ts` and `relationshipGalleryAssetLoader.ts` instead of silently broadening an allowlist.
+- `tests/repo/wp10-face-index-inventory.test.mjs` scans maintained source files and freezes reviewed `face_index` statements plus their maximum current multiplicity. New/changed statements or increased multiplicity fail the repository gate; later WP10 cutovers may remove baseline statements.
+- Camel-case `faceIndex` command wiring and reset/rerun dependencies are explicitly retained as WP10f/WP10g targets rather than misrepresented as covered by the snake-case persistence scan.
+- Canonical quality-gate run `34559139522` is green at `184178e`; descreen run `34559139475` is also green.
+
+### Previous completed package: WP9
+
+WP9 is closed at material production implementation HEAD `5469dccb82a233b6a8508cef3b697e11e5b8e3c5`. The canonical quality gate is green and the implementation-plan completion gate — full grouping/gallery/editor parity with legacy tables absent — is satisfied.
 
 ### Exact next action
 
-Start **WP10a — inventory and stable-identity contract** in a fresh chat/session by following Section 8. Do not reopen WP9 unless new repository evidence demonstrates a regression in its completed gate.
+Start **WP10b — additive VisualRegion/Face persistence and mask integration**. Re-read the exact WP10b plan gate and current semantic-kernel/migration conventions before choosing schema columns. Add stable persistence additively through the numbered migration ledger, reuse `PhotoMaskMetadata` as the canonical analysis-mask metadata surface, preserve current face pipeline behaviour, and do not implement WP10c reconciliation early. Do not remove any legacy `face_index` compatibility storage in WP10b.
 
 ---
 
@@ -106,7 +106,7 @@ This table is a navigation snapshot, not a substitute for each WP completion gat
 | WP7 | Substantially complete | Server-side presentation/expansion path established; final scale evidence is WP16. |
 | WP8 | Substantially complete | Editor group dependency replaced by semantic/editor lineage path; Photograph closeout intersects WP14. |
 | WP9 | **Complete** | Grouping/gallery/editor parity gate is green with legacy group tables absent at `5469dcc`; canonical run `34550734260`. |
-| WP10 | Not started | Stable VisualRegion/Face identity. Split into WP10a-WP10h in implementation plan; WP10a is next. |
+| WP10 | **In progress** | WP10a inventory/stable-identity contract complete at `184178e`; WP10b additive persistence/mask integration is next. |
 | WP11 | Not started | Machine generations + feature vectors. Split into WP11a-WP11e. |
 | WP12 | Not started | IdentityCluster/Person lifecycle/weak candidates. Split into WP12a-WP12g. |
 | WP13 | Not started | Contributor testimony/uncertainty/review. Split into WP13a-WP13e. |
@@ -135,7 +135,7 @@ Each entry stays here until its completion criterion is satisfied or it is expli
 | WP | Item | Current state / reason | Completion criterion |
 | --- | --- | --- | --- |
 | WP16 | Intentional skipped-test audit | WP9's required parity/canonical gate is green. Any remaining intentional skips are not assumed resolved merely because WP9 closed. | Before final Phase 1 acceptance, every remaining skip has an explicit current reason/WP or is removed/replaced by active coverage. |
-| WP10 | Durable `(asset_id, face_index)` identity | Transitional People/manual/reset paths still use face indexes. | WP10h search gate: no durable manual action or reset-preservation path depends on `face_index`. |
+| WP10 | Durable `(asset_id, face_index)` identity | WP10a has frozen the current dependency surface; transitional People/manual/reset paths still use face indexes. | WP10h search gate: no durable manual action or reset-preservation path depends on `face_index`. |
 | WP10/WP15 | Soft-reset face preservation by path + face index | Transitional compatibility only; cannot be target durable identity. | Stable VisualRegion/Face reconciliation preserves the durable work; transitional snapshot path removed when replacement coverage is green. |
 | WP11 | Analysis-generation provenance/vector lifecycle | Current analysis/vector ownership predates target generation contract. | WP11 completion gate green, including failed replacement + retry + compaction tests. |
 | WP12 | Machine clustering vs Person lifecycle | Current People implementation still needs explicit IdentityCluster/Person separation. | IdentityCluster rebuild cannot create/delete durable confirmed Person truth; redirects/actions/deep links covered. |
@@ -161,12 +161,12 @@ Maintain this table continuously. `Not recorded` means exactly that; do not infe
 | Bulk action expands correct underlying assets | Presentation-native bulk-selection tests exist | Not recorded here | Verify representative + hidden members during manual acceptance. |
 | Presentation filmstrip/member expansion | Replacement contract/wiring tests exist | Not recorded here | Manual expand/navigation still to be recorded. |
 | Open editor -> save/render -> return to Library | Editor characterization/semantic-lineage tests exist | Not recorded here | Manual journey by WP14/WP16; repeat on editor-affecting changes. |
-| People view loads | Existing pre-WP10 People behavior characterized | Not recorded here | Establish baseline before WP10 consumer cutover. |
+| People view loads | Existing pre-WP10 People behavior characterized; WP10a adds no consumer change | Not recorded here | Preserve behaviour through WP10b; exercise manually when WP10g changes People consumers. |
 | Rename/merge/isolate/approve/reject person/face | Existing behavior characterized; stable-ID replacement ahead | Not recorded on target model | WP10/WP12 must update row as actions move to stable IDs/Person lifecycle. |
 | Old Person/deep link survives merge redirect | Not implemented on target model | Not applicable yet | WP12c/f. |
 | Uncertain testimony choices | Not implemented end to end | Not applicable yet | WP13b-d. |
 | Loading/empty/error/retry states for new review UI | Not implemented end to end | Not applicable yet | WP13d and WP16e/f. |
-| Restart/rebuild preserves durable manual state | Partial/transitional reset tests exist | Not recorded on final target model | Add per-WP durability tests; complete cross-domain evidence in WP15. |
+| Restart/rebuild preserves durable manual state | Partial/transitional reset tests exist; WP10a records exact transitional dependency | Not recorded on final target model | Add per-WP durability tests; complete cross-domain evidence in WP15. |
 | Representative large-library soak | Not yet final | Not yet | WP16a-f. |
 
 Minimum manual smoke sequence for a significant user-facing checkpoint:
@@ -187,6 +187,10 @@ Record exceptions honestly when a later WP is required before a journey can be e
 ---
 
 ## 7. Significant implementation decisions / deviations / lessons
+
+### WP10a dependency-inventory rule
+
+Do not treat a filename allowlist as sufficient evidence for the stable-face cutover. WP10a's final guard freezes the reviewed trimmed `face_index` statements and their maximum current multiplicity across maintained source. Newly exposed payload paths were individually inspected and classified before being admitted to the inventory. Reset/rerun and camel-case payload dependencies that a literal snake-case scan cannot prove remain explicit cutover targets in the WP10 contract document.
 
 ### WP9 execution-granularity lesson
 
