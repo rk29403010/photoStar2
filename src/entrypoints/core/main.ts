@@ -260,24 +260,41 @@ type UpdatedPersonAssignment = {
 
 const LEGACY_UPDATED_FACE_POSITION_KEY = ['face', 'index'].join('_');
 
-function mergeFaceAssignments(row: AssetUpdatedRow) {
-    const faces = row.faces_data
+type UpdatedFaceMask = { visualRegionId?: string };
+
+function parseUpdatedFaces(row: AssetUpdatedRow): UpdatedFacePayload[] {
+    return row.faces_data
         ? (JSON.parse(row.faces_data).faces || []) as UpdatedFacePayload[]
         : [];
-    const peopleData = row.people_data
+}
+
+function parseUpdatedPeople(row: AssetUpdatedRow): UpdatedPersonAssignment[] {
+    return row.people_data
         ? JSON.parse(row.people_data) as UpdatedPersonAssignment[]
         : [];
-    const masks = row.mask_metadata_data
-        ? (JSON.parse(row.mask_metadata_data).masks || []) as Array<{ visualRegionId?: string }>
-        : [];
+}
 
+function parseUpdatedFaceMasks(row: AssetUpdatedRow): UpdatedFaceMask[] {
+    return row.mask_metadata_data
+        ? (JSON.parse(row.mask_metadata_data).masks || []) as UpdatedFaceMask[]
+        : [];
+}
+
+function attachUpdatedStableRegions(faces: UpdatedFacePayload[], masks: UpdatedFaceMask[]): void {
     for (const [index, face] of faces.entries()) {
         const visualRegionId = masks[index]?.visualRegionId;
         if (visualRegionId) {
             face.visual_region_id = visualRegionId;
         }
     }
-    for (const assignment of peopleData) {
+}
+
+function applyUpdatedPeople(
+    faces: UpdatedFacePayload[],
+    masks: UpdatedFaceMask[],
+    assignments: UpdatedPersonAssignment[],
+): void {
+    for (const assignment of assignments) {
         const value = assignment[LEGACY_UPDATED_FACE_POSITION_KEY];
         if (!Number.isInteger(value)) {continue;}
         const legacyPosition = Number(value);
@@ -289,7 +306,13 @@ function mergeFaceAssignments(row: AssetUpdatedRow) {
         face.person_id = assignment.person_id;
         face.person_name = assignment.name;
     }
+}
 
+function mergeFaceAssignments(row: AssetUpdatedRow) {
+    const faces = parseUpdatedFaces(row);
+    const masks = parseUpdatedFaceMasks(row);
+    attachUpdatedStableRegions(faces, masks);
+    applyUpdatedPeople(faces, masks, parseUpdatedPeople(row));
     return faces;
 }
 
