@@ -10,7 +10,9 @@ function discoverManifestPaths(directory) {
     return readdirSync(directory, { withFileTypes: true })
         .flatMap((entry) => {
             const path = join(directory, entry.name);
-            if (entry.isDirectory()) return discoverManifestPaths(path);
+            if (entry.isDirectory()) {
+                return discoverManifestPaths(path);
+            }
             return entry.name === 'manifest.ts' ? [path] : [];
         })
         .sort((left, right) => left.localeCompare(right));
@@ -34,7 +36,9 @@ function buildRegistrySource(manifestPaths) {
     ].join('\n');
 }
 
-if (!existsSync(pluginsRoot)) throw new Error(`semantic predicate plug-in directory is missing: ${pluginsRoot}`);
+if (!existsSync(pluginsRoot)) {
+    throw new Error(`semantic predicate plug-in directory is missing: ${pluginsRoot}`);
+}
 const expected = buildRegistrySource(discoverManifestPaths(pluginsRoot));
 if (checkOnly) {
     if (!existsSync(outputPath) || readFileSync(outputPath, 'utf8') !== expected) {
