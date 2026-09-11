@@ -148,7 +148,7 @@ These rules are programmatically checked and enforced by our ESLint setup (using
   - `img` elements must have an `alt` prop (S1077).
 - **String Handling:**
   - Prefer `String#replaceAll()` over `String#replace()` for global replacements (S7781).
-  - Avoid default object stringification (`[object Object]`) by ensuring objects are properly serialized or accessed before being used in template literals or string concatenation (S6551).
+  - Avoid default object stringification (`[object Object]`) by ensuring objects are properly serialized or accessed before being used in template literals or string concatenations (S6551).
 - **TypeScript & Logic:**
   - Remove redundant type aliases (S6564).
   - Avoid redundant use of the `void` operator (S3735).
