@@ -636,9 +636,21 @@ export class WorkflowRuntimeOrchestrator {
     ): Promise<{ emittedSubjects?: SubjectRef[]; error?: string }> {
         this.telemetry.subjectStarted(runId, node.id, subject.subjectType, subject.subjectId);
         const module = this.deps.modules.get(node.moduleId);
+        const subjectExecutionId = this.deps.store.recordSubjectExecution({
+            workflowRunId: runId,
+            stepRunId,
+            subjectType: subject.subjectType,
+            subjectId: subject.subjectId,
+            status: 'running',
+        });
+        const runtimeContext = Object.assign(
+            { runId, subject, batchSubjects: [subject], parameters, signal },
+            { stepRunId, subjectExecutionId },
+        );
         try {
-            const result = await module.run({ runId, subject, batchSubjects: [subject], parameters, signal });
+            const result = await module.run(runtimeContext);
             this.deps.store.recordSubjectExecution({
+                subjectExecutionId,
                 workflowRunId: runId,
                 stepRunId,
                 subjectType: subject.subjectType,
@@ -651,6 +663,7 @@ export class WorkflowRuntimeOrchestrator {
             const errorMessage = error instanceof Error ? error.message : String(error);
             console.error(`[Workflow] Subject ${subject.subjectType}:${subject.subjectId} failed in node ${node.id}: ${errorMessage}`);
             this.deps.store.recordSubjectExecution({
+                subjectExecutionId,
                 workflowRunId: runId,
                 stepRunId,
                 subjectType: subject.subjectType,

@@ -5,7 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
 import { cosineSimilarity } from '../math-utils';
-import { applyStableManualFaceDecisionProjection } from './manualFaceSemanticRepository';
+import { decodeFeatureVector } from '../machineAnalysis/featureVectorRepository';
+import { applyStableManualFaceDecisionProjection, resolveStableFaceById } from './manualFaceSemanticRepository';
 import {
     normalizeStoredPhotoBox,
     storedPhotoBoxToPixelCrop,
@@ -15,31 +16,60 @@ import {
 type FaceRef = { assetId: string; faceIndex: number; embedding: number[] };
 type Cluster = { id: string; faces: number[]; centroid: number[] };
 
-function loadRecognisedFaces(db: ReturnType<DatabaseManager['getDb']>): FaceRef[] {
+type ActiveVectorRow = {
+    face_id: string;
+    vector_blob: Buffer;
+    dimensions: number;
+};
+
+export function loadRecognisedFaces(db: ReturnType<DatabaseManager['getDb']>): FaceRef[] {
     const rows = db.prepare(`
-        SELECT asset_id, data
-        FROM derived_results
-        WHERE task = 'face_recognition'
-    `).all() as Array<{ asset_id: string; data: string }>;
+        SELECT
+            vector.subject_entity_id AS face_id,
+            vector.vector_blob,
+            vector.dimensions
+        FROM feature_vectors vector
+        JOIN analysis_generations generation
+          ON generation.id = vector.analysis_generation_id
+        JOIN analysis_generation_heads head
+          ON head.active_generation_id = generation.id
+        WHERE vector.feature_key = 'face_embedding'
+          AND generation.status = 'successful'
+        ORDER BY vector.subject_entity_id ASC
+    `).all() as ActiveVectorRow[];
 
     const faces: FaceRef[] = [];
     for (const row of rows) {
         try {
-            const parsed = JSON.parse(row.data) as { embeddings?: Array<number[] | null> };
-            if (!Array.isArray(parsed.embeddings)) {
-                continue;
-            }
-            parsed.embeddings.forEach((embedding, faceIndex) => {
-                if (!embedding) {
-                    return;
-                }
-                faces.push({ assetId: row.asset_id, faceIndex, embedding });
+            const position = resolveStableFaceById(db, row.face_id);
+            faces.push({
+                assetId: position.assetId,
+                faceIndex: position.faceIndex,
+                embedding: decodeFeatureVector(row.vector_blob, row.dimensions),
             });
         } catch {
-            // ignore bad legacy rows
+            // An active vector whose stable Face no longer has a current detector position
+            // is retained as evidence but cannot participate in the transitional cluster projection.
         }
     }
     return faces;
+}
+
+function hasOnlyLegacyRecognitionData(db: ReturnType<DatabaseManager['getDb']>): boolean {
+    const activeGenerationCount = (db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM analysis_generation_heads
+        WHERE scope_key LIKE 'face-vectors:%'
+    `).get() as { count: number }).count;
+    if (activeGenerationCount > 0) {
+        return false;
+    }
+    const legacyCount = (db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM derived_results
+        WHERE task = 'face_recognition'
+    `).get() as { count: number }).count;
+    return legacyCount > 0;
 }
 
 function buildClusters(allFaces: FaceRef[], threshold: number): Cluster[] {
@@ -279,6 +309,9 @@ export async function resolvePeopleAssignments(params: {
     const db = params.dbManager.getDb();
     const faces = loadRecognisedFaces(db);
     if (faces.length === 0) {
+        if (hasOnlyLegacyRecognitionData(db)) {
+            return;
+        }
         db.prepare('DELETE FROM face_assignments').run();
         db.prepare('DELETE FROM people').run();
         return;
