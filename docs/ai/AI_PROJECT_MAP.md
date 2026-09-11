@@ -86,6 +86,10 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 - Registries are discovered or deterministically generated. Generated registries
   are machine-owned, reproducible outputs; edit declared inputs and generators,
   never generated registry files.
+- Semantic predicates follow the same extension rule under
+  `src/services/relationships/predicates/plugins/`; the generated registry owns
+  active authoring definitions while `semantic_predicate_definitions` snapshots
+  versions needed to interpret persisted history when an extension disappears.
 - Reduce shared edit hotspots. Assign disjoint scopes to peer leaf tasks; use an
   integration task and branch when related leaves share host, contract, or
   registry integration files.
@@ -101,6 +105,7 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **face detection / recognition** | `src/services/faces/`, `src/services/handlers/peopleCommands.ts` | `src/ui/components/PeopleView.tsx` | `tests/core/` |
 | **duplicate detection / grouping** | `src/services/handlers/collectionCommands.ts`, `src/services/handlers/groupDiagnosticsCommands.ts` | `src/ui/components/AlbumsView.tsx` | `tests/core/` |
 | **database / schema / migrations** | `src/data/dbSchema.ts`, `src/data/db.ts` | `src/services/events/` | `tests/core/` |
+| **semantic predicates / propositions** | `src/services/relationships/predicates/`, `src/services/relationships/semanticRepository.ts` | `src/data/dbMigrations.ts`, `src/data/semanticResetState.ts` | `tests/core/semantic-*.test.cjs` |
 | **background jobs / workflows** | `src/services/workflowRuntime/`, `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `src/data/dbSchema.ts` (workflow_runs) | `tests/core/` |
 | **AI / local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
 | **Segmentation providers** | `src/services/segmentation/`, `docs/architecture/segmentation-providers.md` | `tooling/scripts/core/export_fastsam_s_model.py` | `tests/core/fastsam-provider-contract.test.cjs` |

@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
 import { cosineSimilarity } from '../math-utils';
+import { applyStableManualFaceDecisionProjection } from './manualFaceSemanticRepository';
 import {
     normalizeStoredPhotoBox,
     storedPhotoBoxToPixelCrop,
@@ -335,5 +336,6 @@ export async function resolvePeopleAssignments(params: {
     assignStableClusterIds(db, faces, clusters);
     persistClusters(db, clusters, faces, params.eventSink);
     applyManualOverrides(db);
+    applyStableManualFaceDecisionProjection(db);
     await generatePersonThumbnails(db, clusters);
 }

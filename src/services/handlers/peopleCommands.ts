@@ -1,4 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
+import {
+    acceptCurrentAssignmentsForPerson,
+    getRejectedAssetIdsForPerson,
+    recordManualFacePersonDecision,
+    updateSemanticPersonLabel,
+} from '../faces/manualFaceSemanticRepository';
 import type { CommandHandlerMap } from './types';
 
 export const peopleCommandHandlers: CommandHandlerMap = {
@@ -8,13 +14,8 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             const db = dbManager.getDb();
             const { newName, personId } = payload as { newName: string; personId: string };
             db.transaction(() => {
-                db.prepare(`
-                    INSERT OR REPLACE INTO manual_face_names (original_path, face_index, name)
-                    SELECT a.original_path, fa.face_index, ?
-                    FROM face_assignments fa
-                    JOIN assets a ON a.id = fa.asset_id
-                    WHERE fa.person_id = ?
-                `).run(newName, personId);
+                acceptCurrentAssignmentsForPerson(db, personId, newName, 'people.rename');
+                updateSemanticPersonLabel(db, personId, newName);
                 db.prepare('UPDATE people SET name = ? WHERE id = ?').run(newName, personId);
             })();
             respond(id, 'ok', { message: 'Person renamed' }, null, originWs);
@@ -33,14 +34,23 @@ export const peopleCommandHandlers: CommandHandlerMap = {
 
             db.transaction(() => {
                 const canonicalId = personIds[0];
+                updateSemanticPersonLabel(db, canonicalId, targetName);
                 for (const personId of personIds) {
-                    db.prepare(`
-                        INSERT OR REPLACE INTO manual_face_names (original_path, face_index, name)
-                        SELECT a.original_path, fa.face_index, ?
-                        FROM face_assignments fa
-                        JOIN assets a ON a.id = fa.asset_id
-                        WHERE fa.person_id = ?
-                    `).run(targetName, personId);
+                    const rows = db.prepare(`
+                        SELECT asset_id, face_index
+                        FROM face_assignments
+                        WHERE person_id = ?
+                    `).all(personId) as Array<{ asset_id: string; face_index: number }>;
+                    for (const row of rows) {
+                        recordManualFacePersonDecision(db, {
+                            assetId: row.asset_id,
+                            faceIndex: row.face_index,
+                            personId: canonicalId,
+                            personName: targetName,
+                            status: 'accepted',
+                            sourceRef: 'people.merge',
+                        });
+                    }
                 }
 
                 db.prepare('UPDATE people SET name = ? WHERE id = ?').run(targetName, canonicalId);
@@ -63,19 +73,19 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             const db = dbManager.getDb();
             const { assetId, faceIndex } = payload as { assetId: string; faceIndex: number };
             db.transaction(() => {
-                db.prepare(`
-                    INSERT OR REPLACE INTO manual_face_isolations (original_path, face_index)
-                    SELECT original_path, ? FROM assets WHERE id = ?
-                `).run(faceIndex, assetId);
-
-                db.prepare(`
-                    DELETE FROM manual_face_names
-                    WHERE original_path = (SELECT original_path FROM assets WHERE id = ?) AND face_index = ?
-                `).run(assetId, faceIndex);
-
                 const newPersonId = uuidv4();
-                db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)').run(newPersonId, 'Unknown Person', null);
-                db.prepare('UPDATE face_assignments SET person_id = ? WHERE asset_id = ? AND face_index = ?').run(newPersonId, assetId, faceIndex);
+                recordManualFacePersonDecision(db, {
+                    assetId,
+                    faceIndex,
+                    personId: newPersonId,
+                    personName: 'Unknown Person',
+                    status: 'accepted',
+                    sourceRef: 'people.isolate_face',
+                });
+                db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)')
+                    .run(newPersonId, 'Unknown Person', null);
+                db.prepare('UPDATE face_assignments SET person_id = ?, is_suggested = 0 WHERE asset_id = ? AND face_index = ?')
+                    .run(newPersonId, assetId, faceIndex);
             })();
             respond(id, 'ok', { message: 'Face isolated' }, null, originWs);
             eventBus.emit({ type: 'JobCompleted', jobId: 'isolate', pipelineStage: 'analysis' });
@@ -90,21 +100,29 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             const db = dbManager.getDb();
             const { assetId, personId } = payload as { assetId: string; personId: string };
             db.transaction(() => {
-                const faces = db.prepare('SELECT face_index FROM face_assignments WHERE asset_id = ? AND person_id = ?').all(assetId, personId) as { face_index: number }[];
+                const faces = db.prepare('SELECT face_index FROM face_assignments WHERE asset_id = ? AND person_id = ?')
+                    .all(assetId, personId) as Array<{ face_index: number }>;
                 for (const face of faces) {
-                    db.prepare(`
-                        INSERT OR REPLACE INTO manual_face_isolations (original_path, face_index, from_person_id)
-                        SELECT original_path, ?, ? FROM assets WHERE id = ?
-                    `).run(face.face_index, personId, assetId);
-
-                    db.prepare(`
-                        DELETE FROM manual_face_names
-                        WHERE original_path = (SELECT original_path FROM assets WHERE id = ?) AND face_index = ?
-                    `).run(assetId, face.face_index);
-
+                    recordManualFacePersonDecision(db, {
+                        assetId,
+                        faceIndex: face.face_index,
+                        personId,
+                        status: 'rejected',
+                        sourceRef: 'people.isolate_person_asset',
+                    });
                     const newPersonId = uuidv4();
-                    db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)').run(newPersonId, 'Unknown Person', null);
-                    db.prepare('UPDATE face_assignments SET person_id = ? WHERE asset_id = ? AND face_index = ?').run(newPersonId, assetId, face.face_index);
+                    recordManualFacePersonDecision(db, {
+                        assetId,
+                        faceIndex: face.face_index,
+                        personId: newPersonId,
+                        personName: 'Unknown Person',
+                        status: 'accepted',
+                        sourceRef: 'people.isolate_person_asset',
+                    });
+                    db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)')
+                        .run(newPersonId, 'Unknown Person', null);
+                    db.prepare('UPDATE face_assignments SET person_id = ?, is_suggested = 0 WHERE asset_id = ? AND face_index = ?')
+                        .run(newPersonId, assetId, face.face_index);
                 }
             })();
             respond(id, 'ok', { message: 'Photos untagged' }, null, originWs);
@@ -150,8 +168,10 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 const pLinks = links
                     .filter(l => l.personId === p.id)
                     .map(l => ({ treeId: l.treeId, personId: l.personIdInTree }));
+                const rejectedCount = getRejectedAssetIdsForPerson(db, p.id).length;
                 return {
                     ...p,
+                    rejected_count: rejectedCount,
                     birth_date: p.birth_date || undefined,
                     death_date: p.death_date || undefined,
                     gedcom_links: pLinks.length > 0 ? pLinks : undefined
@@ -168,7 +188,17 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
             const { personId } = payload as { personId: string };
-            const assets = dbManager.getDb().prepare(`
+            const db = dbManager.getDb();
+            const semanticAssetIds = getRejectedAssetIdsForPerson(db, personId);
+            const semanticAssets = semanticAssetIds.map((assetId) => db.prepare(`
+                SELECT a.id, a.original_path, a.width, a.height,
+                       p.path as preview_path
+                FROM assets a
+                LEFT JOIN previews p ON p.asset_id = a.id AND p.size = 'thumbnail'
+                WHERE a.id = ?
+                LIMIT 1
+            `).get(assetId)).filter(Boolean);
+            const legacyAssets = db.prepare(`
                 SELECT a.id, a.original_path, a.width, a.height,
                        p.path as preview_path
                 FROM manual_face_isolations mfi
@@ -177,8 +207,9 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 WHERE mfi.from_person_id = ?
                 GROUP BY a.id
                 ORDER BY mfi.created_at ASC
-            `).all(personId) as { id: string; original_path: string; width: number; height: number; preview_path: string | null }[];
-            respond(id, 'ok', { assets }, null, originWs);
+            `).all(personId);
+            const byId = new Map([...legacyAssets, ...semanticAssets].map((asset) => [(asset as { id: string }).id, asset]));
+            respond(id, 'ok', { assets: [...byId.values()] }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
         }
@@ -208,7 +239,25 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
             const { assetId, faceIndex } = payload as { assetId: string; faceIndex: number };
-            dbManager.getDb().prepare(`
+            const db = dbManager.getDb();
+            const assignment = db.prepare(`
+                SELECT fa.person_id, p.name
+                FROM face_assignments fa
+                JOIN people p ON p.id = fa.person_id
+                WHERE fa.asset_id = ? AND fa.face_index = ?
+            `).get(assetId, faceIndex) as { person_id: string; name: string } | undefined;
+            if (!assignment) {
+                throw new Error('Face assignment no longer exists.');
+            }
+            recordManualFacePersonDecision(db, {
+                assetId,
+                faceIndex,
+                personId: assignment.person_id,
+                personName: assignment.name,
+                status: 'accepted',
+                sourceRef: 'people.confirm',
+            });
+            db.prepare(`
                 UPDATE face_assignments SET is_suggested = 0
                 WHERE asset_id = ? AND face_index = ?
             `).run(assetId, faceIndex);
@@ -224,10 +273,16 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             const { assetId, faceIndex, personId } = payload as { assetId: string; faceIndex: number; personId: string };
             const db = dbManager.getDb();
             db.transaction(() => {
-                db.prepare(`
-                    INSERT OR REPLACE INTO manual_face_isolations (original_path, face_index, from_person_id)
-                    SELECT original_path, ?, ? FROM assets WHERE id = ?
-                `).run(faceIndex, personId, assetId);
+                const person = db.prepare('SELECT name FROM people WHERE id = ?')
+                    .get(personId) as { name: string } | undefined;
+                recordManualFacePersonDecision(db, {
+                    assetId,
+                    faceIndex,
+                    personId,
+                    personName: person?.name ?? null,
+                    status: 'rejected',
+                    sourceRef: 'people.reject',
+                });
                 db.prepare(`
                     DELETE FROM face_assignments
                     WHERE asset_id = ? AND face_index = ?
