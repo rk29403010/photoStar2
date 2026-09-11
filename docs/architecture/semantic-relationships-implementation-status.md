@@ -51,7 +51,7 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 
 ### Current snapshot
 
-- Last material production implementation HEAD assessed: `d7f62e118958f9cd609bde3af01c8271cd5c0238`.
+- Last material production implementation HEAD assessed: `a131601794f6b27f68b5028394a0503f90b7d474`.
 - WP9 completion gate: **GREEN / WP9 COMPLETE**.
 - [Canonical green quality-gate run for `5469dcc`](https://github.com/rk29403010/photoStar2/actions/runs/34550734260).
 - WP10a contract/guard checkpoint: `184178e566bc386401e71c29e611f4402bca1cd6`.
@@ -62,7 +62,10 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 - WP10b completion gate: **GREEN / WP10b COMPLETE**.
 - [Canonical green quality-gate run for `d7f62e1`](https://github.com/rk29403010/photoStar2/actions/runs/34572434832).
 - [Descreen diagnostic run for `d7f62e1`](https://github.com/rk29403010/photoStar2/actions/runs/34572434819): green.
-- Next work package: **WP10c — detection reconciliation engine**.
+- WP10c implementation checkpoint: `a131601794f6b27f68b5028394a0503f90b7d474`.
+- WP10c completion gate: **GREEN / WP10c COMPLETE**.
+- [Canonical green quality-gate run for `a131601`](https://github.com/rk29403010/photoStar2/actions/runs/34593962456).
+- Next work package: **WP10d — reconciliation regression and ambiguity suite**.
 
 WP9's repository-defined completion gate remains satisfied. PostgreSQL is not part of the WP9 gate or PhotoStar2's current runtime persistence stack; the project uses SQLite (`better-sqlite3`). Do not add a PostgreSQL validation requirement unless the architecture is explicitly changed later.
 
@@ -70,31 +73,26 @@ WP9's repository-defined completion gate remains satisfied. PostgreSQL is not pa
 
 ## 3. Current work package
 
-### WP10b — additive VisualRegion/Face persistence and mask integration
+### WP10d — reconciliation regression and ambiguity suite
 
-**State: COMPLETE.**
+**State: IN PROGRESS.**
 
-WP10b is closed at material implementation checkpoint `d7f62e118958f9cd609bde3af01c8271cd5c0238`. The canonical quality gate and descreen diagnostic are green, and the implementation remains additive: current `face_index` consumers and People actions have not been cut over early.
+WP10c is closed at material implementation checkpoint `a131601794f6b27f68b5028394a0503f90b7d474`. Canonical quality-gate run `34593962456` is green at that exact head.
 
-### WP10b closure evidence
+### WP10c closure evidence
 
-- Numbered migration `20260911_001_stable_visual_regions_faces` adds `visual_regions`, typed `faces` and append-only `visual_region_geometry_generations` without editing shipped migration bodies.
-- `visual_regions.id` and `faces.id` are real foreign keys to `semantic_entities`; `face` was added to the semantic entity kind vocabulary.
-- `stableFaceRepository.ts` creates durable Region/Face identities, attaches regions to durable `asset_identities`, validates normalized geometry and records source dimensions/orientation, source analysis generation, module/provider/model provenance and geometry status.
-- The detect-faces runtime continues to write the existing face-detection result, positional detector output, masks and `FacesDetected` event while shadow-persisting stable Region/Face identity.
-- The current face-detection result ID is used as the source analysis generation for the geometry generation; rerun identity reconciliation remains WP10c rather than being guessed from detector order.
-- `PhotoMaskMetadata` remains schema version 1 and gains only an optional `visualRegionId` on a mask item. No second canonical mask store was introduced.
-- Editor-document mask snapshots remain separate and immutable.
-- `tests/core/wp10b-stable-face-persistence.test.cjs` covers typed semantic IDs, durable asset linkage, append-only geometry generations, analysis-mask Region linkage and editor-snapshot separation.
-- Canonical quality-gate run `34572434832` is green at `d7f62e1`; descreen run `34572434819` is also green, including changed complexity and core/app typechecks.
-
-### Previous completed package: WP10a
-
-WP10a is closed at contract/guard checkpoint `184178e566bc386401e71c29e611f4402bca1cd6`. Its repository inventory and guard continue to freeze the reviewed durable/transitional `face_index` dependency surface for the later WP10e-WP10h cutovers.
+- `faceReconciliation.ts` provides deterministic one-to-one IoU/landmark reconciliation with provider/model compatibility, deterministic tie-breaking and an explicit ambiguity margin.
+- Ambiguous candidates do not auto-reuse an existing stable VisualRegion ID.
+- `stableFaceRepository.ts` preserves append-only geometry history, reuses matched Face/VisualRegion identity, retains ambiguous prior regions as `unmatched`, and tombstones removed detections instead of deleting durable history.
+- The detect-faces runtime now invokes reconciliation before creating stable identities, so clear reruns reuse stable IDs rather than minting a new identity solely because detector order or geometry changed.
+- Existing positional detector output, face masks/events and legacy People consumers remain intact; WP10e-WP10g still own their durable/manual consumer cutovers.
+- `tests/core/wp10c-face-reconciliation.test.cjs` covers deterministic reorder, landmark evidence, fail-safe ambiguity and incompatible provider behavior.
+- `tests/core/wp10c-stable-face-reconciliation-persistence.test.cjs` covers stable-ID reuse, append-only lifecycle state and tombstoning on detector rerun.
+- Canonical quality-gate run `34593962456` is green at `a131601`.
 
 ### Exact next action
 
-Start **WP10c — detection reconciliation engine**. Implement deterministic one-to-one reconciliation over existing stable VisualRegion/Face geometry using IoU, landmarks when available, kind/provider-specific thresholds, deterministic tie-breaking and an explicit ambiguity margin. Ambiguous matches must not auto-reuse a stable ID; removed detections must be tombstoned rather than having durable history deleted. Do not cut People/manual-action consumers over in WP10c; that remains WP10e/WP10g.
+Complete **WP10d — reconciliation regression and ambiguity suite** with explicit overlapping-face, swapped-similar-face, geometry-drift, add/remove and provider/model rerun fixtures. Do not change reconciliation policy merely to make a fixture pass without evidence; if a regression exposes an ambiguous policy case, preserve fail-safe behavior and record the blocker.
 
 ---
 
@@ -113,7 +111,7 @@ This table is a navigation snapshot, not a substitute for each WP completion gat
 | WP7 | Substantially complete | Server-side presentation/expansion path established; final scale evidence is WP16. |
 | WP8 | Substantially complete | Editor group dependency replaced by semantic/editor lineage path; Photograph closeout intersects WP14. |
 | WP9 | **Complete** | Grouping/gallery/editor parity gate is green with legacy group tables absent at `5469dcc`; canonical run `34550734260`. |
-| WP10 | **In progress** | WP10a contract/inventory and WP10b additive stable persistence/mask integration are complete; WP10c reconciliation is next. |
+| WP10 | **In progress** | WP10a-WP10c are complete; WP10d reconciliation regression/ambiguity coverage is in progress. |
 | WP11 | Not started | Machine generations + feature vectors. Split into WP11a-WP11e. |
 | WP12 | Not started | IdentityCluster/Person lifecycle/weak candidates. Split into WP12a-WP12g. |
 | WP13 | Not started | Contributor testimony/uncertainty/review. Split into WP13a-WP13e. |
@@ -173,7 +171,7 @@ Maintain this table continuously. `Not recorded` means exactly that; do not infe
 | Old Person/deep link survives merge redirect | Not implemented on target model | Not applicable yet | WP12c/f. |
 | Uncertain testimony choices | Not implemented end to end | Not applicable yet | WP13b-d. |
 | Loading/empty/error/retry states for new review UI | Not implemented end to end | Not applicable yet | WP13d and WP16e/f. |
-| Restart/rebuild preserves durable manual state | Stable Region/Face persistence exists; reconciliation/reset preservation remain WP10c/WP10f | Not recorded on final target model | Add per-WP durability tests; complete cross-domain evidence in WP15. |
+| Restart/rebuild preserves durable manual state | Stable Region/Face reconciliation is green through WP10c; reset preservation remains WP10f | Not recorded on final target model | Add per-WP durability tests; complete cross-domain evidence in WP15. |
 | Representative large-library soak | Not yet final | Not yet | WP16a-f. |
 
 Minimum manual smoke sequence for a significant user-facing checkpoint:
@@ -194,6 +192,12 @@ Record exceptions honestly when a later WP is required before a journey can be e
 ---
 
 ## 7. Significant implementation decisions / deviations / lessons
+
+### WP10c reconciliation cutover rule
+
+Detector reruns now reconcile against stable VisualRegion geometry before persisting the new generation. Clear compatible matches reuse the existing Face/VisualRegion IDs; ambiguous matches fail safe, and removed detections are tombstoned without deleting history. This changes only stable detector identity ownership: durable People/manual actions remain on their transitional paths until WP10e-WP10g.
+
+The initial `onnx_retina_10g` reconciliation policy is versioned and provider/model-specific. WP10d regression fixtures are the required evidence before treating its overlap/drift/ambiguity behaviour as closed.
 
 ### WP10b additive-coexistence rule
 

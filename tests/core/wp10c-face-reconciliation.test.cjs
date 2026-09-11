@@ -98,3 +98,89 @@ test('WP10c reconciliation rejects prior regions from incompatible detector sour
     assert.deepEqual(result.unmatchedDetectionIds, ['new-face']);
     assert.deepEqual(result.unmatchedVisualRegionIds, ['region:legacy-provider']);
 });
+
+
+test('WP10d reconciliation keeps one-to-one identity for overlapping faces', async () => {
+    const { reconcileFaceDetections } = await import('../../dist/core/src/services/faces/faceReconciliation.js');
+    const priorRegions = [
+        prior('region:overlap-left', { x: 0.1, y: 0.2, width: 0.4, height: 0.3 }),
+        prior('region:overlap-right', { x: 0.35, y: 0.2, width: 0.4, height: 0.3 }),
+    ];
+    const detections = [
+        current('current-right', { x: 0.36, y: 0.2, width: 0.4, height: 0.3 }),
+        current('current-left', { x: 0.11, y: 0.2, width: 0.4, height: 0.3 }),
+    ];
+
+    const result = reconcileFaceDetections(policy(), priorRegions, detections);
+
+    assert.deepEqual(result.matches.map(({ detectionId, visualRegionId }) => ({ detectionId, visualRegionId })), [
+        { detectionId: 'current-left', visualRegionId: 'region:overlap-left' },
+        { detectionId: 'current-right', visualRegionId: 'region:overlap-right' },
+    ]);
+    assert.deepEqual(result.ambiguousDetectionIds, []);
+    assert.deepEqual(result.ambiguousVisualRegionIds, []);
+});
+
+test('WP10d landmark evidence prevents swapped similar faces from exchanging stable identity', async () => {
+    const { reconcileFaceDetections } = await import('../../dist/core/src/services/faces/faceReconciliation.js');
+    const box = { x: 0.2, y: 0.2, width: 0.3, height: 0.3 };
+    const upperLandmarks = [{ x: 0.25, y: 0.3 }, { x: 0.35, y: 0.3 }];
+    const lowerLandmarks = [{ x: 0.25, y: 0.4 }, { x: 0.35, y: 0.4 }];
+    const priorRegions = [
+        prior('region:upper', box, upperLandmarks),
+        prior('region:lower', box, lowerLandmarks),
+    ];
+    const detections = [
+        current('swapped-first', box, lowerLandmarks),
+        current('swapped-second', box, upperLandmarks),
+    ];
+
+    const result = reconcileFaceDetections(
+        policy({ landmarkWeight: 0.5 }),
+        priorRegions,
+        detections,
+    );
+
+    assert.deepEqual(result.matches.map(({ detectionId, visualRegionId }) => ({ detectionId, visualRegionId })), [
+        { detectionId: 'swapped-first', visualRegionId: 'region:lower' },
+        { detectionId: 'swapped-second', visualRegionId: 'region:upper' },
+    ]);
+    assert.deepEqual(result.ambiguousDetectionIds, []);
+});
+
+test('WP10d geometry drift preserves a clear match while added and removed detections stay unmatched', async () => {
+    const { reconcileFaceDetections } = await import('../../dist/core/src/services/faces/faceReconciliation.js');
+    const priorRegions = [
+        prior('region:keep', { x: 0.2, y: 0.2, width: 0.25, height: 0.25 }),
+        prior('region:removed', { x: 0.65, y: 0.1, width: 0.2, height: 0.2 }),
+    ];
+    const detections = [
+        current('drifted', { x: 0.23, y: 0.21, width: 0.25, height: 0.25 }),
+        current('added', { x: 0.6, y: 0.65, width: 0.2, height: 0.2 }),
+    ];
+
+    const result = reconcileFaceDetections(policy(), priorRegions, detections);
+
+    assert.deepEqual(result.matches.map(({ detectionId, visualRegionId }) => ({ detectionId, visualRegionId })), [
+        { detectionId: 'drifted', visualRegionId: 'region:keep' },
+    ]);
+    assert.deepEqual(result.unmatchedDetectionIds, ['added']);
+    assert.deepEqual(result.unmatchedVisualRegionIds, ['region:removed']);
+});
+
+test('WP10d model-version changes do not silently reuse stable identity', async () => {
+    const { reconcileFaceDetections } = await import('../../dist/core/src/services/faces/faceReconciliation.js');
+    const box = { x: 0.15, y: 0.15, width: 0.25, height: 0.25 };
+    const priorRegions = [{
+        visualRegionId: 'region:old-model',
+        box,
+        provider: SOURCE.provider,
+        modelVersion: '0.9',
+    }];
+
+    const result = reconcileFaceDetections(policy(), priorRegions, [current('new-model-face', box)]);
+
+    assert.deepEqual(result.matches, []);
+    assert.deepEqual(result.unmatchedDetectionIds, ['new-model-face']);
+    assert.deepEqual(result.unmatchedVisualRegionIds, ['region:old-model']);
+});
