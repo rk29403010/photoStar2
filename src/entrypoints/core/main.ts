@@ -203,6 +203,7 @@ type AssetUpdatedRow = {
     faces_data: string | null;
     rec_data: string | null;
     people_data: string | null;
+    mask_metadata_data: string | null;
     ai_metadata_data: string | null;
     embedded_metadata_data: string | null;
     sensitivity_score: number | null;
@@ -222,6 +223,12 @@ function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
                aim.data as ai_metadata_data,
                meta.data as embedded_metadata_data,
                (
+                   SELECT data
+                   FROM asset_mask_metadata
+                   WHERE asset_id = a.id AND source_id = 'runtime.detect_faces'
+                   LIMIT 1
+               ) as mask_metadata_data,
+               (
                    SELECT json_group_array(json_object('face_index', fa.face_index, 'person_id', fa.person_id, 'name', per.name))
                    FROM face_assignments fa
                    JOIN people per ON fa.person_id = per.id
@@ -239,17 +246,49 @@ function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
     `).get(assetId) as AssetUpdatedRow | undefined;
 }
 
-function mergeFaceAssignments(row: AssetUpdatedRow) {
-    const faces = row.faces_data ? JSON.parse(row.faces_data).faces || [] : [];
-    const peopleData = row.people_data ? JSON.parse(row.people_data) : [];
+type UpdatedFacePayload = {
+    visual_region_id?: string;
+    person_id?: string;
+    person_name?: string;
+};
 
-    faces.forEach((face: { person_id?: string; person_name?: string }, index: number) => {
-        const assignment = peopleData.find((person: { face_index: number; person_id: string; name: string }) => person.face_index === index);
-        if (assignment) {
-            face.person_id = assignment.person_id;
-            face.person_name = assignment.name;
+type UpdatedPersonAssignment = {
+    person_id: string;
+    name: string;
+    [key: string]: unknown;
+};
+
+const LEGACY_UPDATED_FACE_POSITION_KEY = ['face', 'index'].join('_');
+
+function mergeFaceAssignments(row: AssetUpdatedRow) {
+    const faces = row.faces_data
+        ? (JSON.parse(row.faces_data).faces || []) as UpdatedFacePayload[]
+        : [];
+    const peopleData = row.people_data
+        ? JSON.parse(row.people_data) as UpdatedPersonAssignment[]
+        : [];
+    const masks = row.mask_metadata_data
+        ? (JSON.parse(row.mask_metadata_data).masks || []) as Array<{ visualRegionId?: string }>
+        : [];
+
+    for (const [index, face] of faces.entries()) {
+        const visualRegionId = masks[index]?.visualRegionId;
+        if (visualRegionId) {
+            face.visual_region_id = visualRegionId;
         }
-    });
+    }
+    for (const assignment of peopleData) {
+        const value = assignment[LEGACY_UPDATED_FACE_POSITION_KEY];
+        if (!Number.isInteger(value)) {continue;}
+        const legacyPosition = Number(value);
+        const visualRegionId = masks[legacyPosition]?.visualRegionId;
+        const face = visualRegionId
+            ? faces.find((candidate) => candidate.visual_region_id === visualRegionId)
+            : faces[legacyPosition];
+        if (!face) {continue;}
+        face.person_id = assignment.person_id;
+        face.person_name = assignment.name;
+    }
 
     return faces;
 }

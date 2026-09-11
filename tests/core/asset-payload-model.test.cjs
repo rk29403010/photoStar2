@@ -51,6 +51,17 @@ const BASE_ROW = {
         },
     }),
     people_data: JSON.stringify([{ face_index: 0, person_id: 'person-1', name: 'Person 1' }]),
+    mask_metadata_data: JSON.stringify([JSON.stringify({
+        schemaVersion: 1,
+        masks: [{
+            id: 'face-0',
+            label: 'Face 1',
+            kind: 'ellipse',
+            box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+            visualRegionId: 'region:stable-1',
+            source: { moduleId: 'runtime.detect_faces', referenceId: 'face-0' },
+        }],
+    })]),
     type: 'portrait',
     type_source_kind: 'manual_user',
     type_source_id: 'type-1',
@@ -137,9 +148,12 @@ test('toAssetPayload returns projection-backed metadata without machine evidence
     assert.equal(asset.photo_metadata.projection.authenticity.score, 0.95);
     assert.deepEqual(asset.faces, [{
         box: { x: 0.1, y: 0.2, width: 0.2, height: 0.2 },
+        visual_region_id: 'region:stable-1',
         person_id: 'person-1',
         person_name: 'Person 1',
     }]);
+    assert.equal(asset.mask_metadata.masks[0].visualRegionId, 'region:stable-1');
+    assert.equal(asset.mask_metadata.masks[0].label, 'Person 1');
     assert.deepEqual(asset.photo_metadata.projection.subjects, [{
         kind: 'person',
         label: 'Billy',

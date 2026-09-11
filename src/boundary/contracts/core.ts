@@ -50,6 +50,7 @@ export type FaceBox = {
     box: StoredPhotoBox;
     landmarks?: Array<{ x: number; y: number }>;
     embedding?: number[]; // Optional presence check
+    visual_region_id?: string;
     person_id?: string;
     person_name?: string;
 }

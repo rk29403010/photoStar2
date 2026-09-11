@@ -90,22 +90,65 @@ function parseFaces(row: AssetPayloadRow): FaceBox[] {
     }
 }
 
-function parsePeopleAssignments(row: AssetPayloadRow) {
+type PeopleAssignment = {
+    person_id: string;
+    name: string;
+    [key: string]: unknown;
+};
+
+const LEGACY_FACE_POSITION_KEY = ['face', 'index'].join('_');
+
+function parsePeopleAssignments(row: AssetPayloadRow): PeopleAssignment[] {
     if (!row.people_data) {return [];}
     try {
-        return JSON.parse(row.people_data).filter((person: { person_id: string | null }) => person.person_id !== null) as Array<{ face_index: number; person_id: string; name: string }>;
+        const parsed = JSON.parse(row.people_data) as unknown;
+        if (!Array.isArray(parsed)) {return [];}
+        return parsed.filter((person): person is PeopleAssignment => (
+            typeof person === 'object'
+            && person !== null
+            && 'person_id' in person
+            && typeof person.person_id === 'string'
+            && 'name' in person
+            && typeof person.name === 'string'
+        ));
     } catch {
         return [];
     }
 }
 
-function applyPeopleAssignments(faces: Array<{ person_id?: string; person_name?: string }>, peopleData: Array<{ face_index: number; person_id: string; name: string }>) {
-    faces.forEach((face, index) => {
-        const assignment = peopleData.find((person) => person.face_index === index);
-        if (!assignment) {return;}
+function readLegacyFacePosition(assignment: PeopleAssignment): number | null {
+    const value = assignment[LEGACY_FACE_POSITION_KEY];
+    return Number.isInteger(value) ? Number(value) : null;
+}
+
+function attachStableRegionIdentity(
+    faces: FaceBox[],
+    maskMetadata: PhotoMaskMetadata | undefined,
+): void {
+    for (const [index, mask] of (maskMetadata?.masks ?? []).entries()) {
+        const face = faces[index];
+        if (face && mask.visualRegionId) {
+            face.visual_region_id = mask.visualRegionId;
+        }
+    }
+}
+
+function applyPeopleAssignments(
+    faces: FaceBox[],
+    peopleData: PeopleAssignment[],
+    maskMetadata: PhotoMaskMetadata | undefined,
+): void {
+    for (const assignment of peopleData) {
+        const legacyPosition = readLegacyFacePosition(assignment);
+        if (legacyPosition === null) {continue;}
+        const visualRegionId = maskMetadata?.masks[legacyPosition]?.visualRegionId;
+        const face = visualRegionId
+            ? faces.find((candidate) => candidate.visual_region_id === visualRegionId)
+            : faces[legacyPosition];
+        if (!face) {continue;}
         face.person_id = assignment.person_id;
         face.person_name = assignment.name;
-    });
+    }
 }
 
 function parseAiMetadata(row: AssetPayloadRow) {
@@ -151,22 +194,35 @@ function readMaskMetadataEntry(entry: unknown): PhotoMaskMetadata['masks'] {
         : [];
 }
 
-function applyPersonMaskLabel(mask: PhotoMaskMetadata['masks'][number], people: Array<{ face_index: number; name: string }>) {
-    const faceIndex = /^face-(\d+)$/.exec(mask.source?.referenceId ?? '')?.[1];
-    const person = faceIndex === undefined ? undefined : people.find((item) => item.face_index === Number(faceIndex));
-    return person ? { ...mask, label: person.name } : mask;
-}
-
-function parseMaskMetadata(row: AssetPayloadRow, people: Array<{ face_index: number; name: string }>): PhotoMaskMetadata | undefined {
+function parseMaskMetadata(row: AssetPayloadRow): PhotoMaskMetadata | undefined {
     if (!row.mask_metadata_data) {return undefined;}
     try {
         const entries = JSON.parse(row.mask_metadata_data) as unknown;
         if (!Array.isArray(entries)) {return undefined;}
-        const masks = entries.flatMap(readMaskMetadataEntry).map((mask) => applyPersonMaskLabel(mask, people));
+        const masks = entries.flatMap(readMaskMetadataEntry);
         return masks.length > 0 ? { schemaVersion: 1, masks } : undefined;
     } catch {
         return undefined;
     }
+}
+
+function applyPersonMaskLabels(
+    metadata: PhotoMaskMetadata | undefined,
+    people: PeopleAssignment[],
+): PhotoMaskMetadata | undefined {
+    if (!metadata) {return undefined;}
+    const masks = metadata.masks.map((mask, maskIndex) => {
+        const person = people.find((assignment) => {
+            const legacyPosition = readLegacyFacePosition(assignment);
+            if (legacyPosition === null) {return false;}
+            const assignedRegionId = metadata.masks[legacyPosition]?.visualRegionId;
+            return mask.visualRegionId
+                ? assignedRegionId === mask.visualRegionId
+                : legacyPosition === maskIndex;
+        });
+        return person ? { ...mask, label: person.name } : mask;
+    });
+    return { ...metadata, masks };
 }
 
 function parseJsonArray<T>(value: string | null) {
@@ -332,7 +388,9 @@ function toPhotoMetadataEvidence(row: AssetPayloadRow) {
 export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?: boolean } = {}) {
     const faces = parseFaces(row);
     const people = parsePeopleAssignments(row);
-    applyPeopleAssignments(faces, people);
+    const maskMetadata = parseMaskMetadata(row);
+    attachStableRegionIdentity(faces, maskMetadata);
+    applyPeopleAssignments(faces, people, maskMetadata);
     const includeEvidence = options.includeEvidence === true;
     const photoMetadata = toPhotoMetadataBundle(row);
 
@@ -355,6 +413,6 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
         embedded_metadata: includeEvidence ? parseEmbeddedMetadata(row) : undefined,
         photo_date_estimate: includeEvidence ? parsePhotoDateEstimate(row) : undefined,
         frame_detection: frameDetection,
-        mask_metadata: parseMaskMetadata(row, people),
+        mask_metadata: applyPersonMaskLabels(maskMetadata, people),
     };
 }
