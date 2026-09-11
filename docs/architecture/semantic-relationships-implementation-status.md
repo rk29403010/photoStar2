@@ -51,7 +51,7 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 
 ### Current snapshot
 
-- Last material production implementation HEAD assessed: `a131601794f6b27f68b5028394a0503f90b7d474`.
+- Last material production implementation HEAD assessed: `0b12d654c4dd6a0f5c24a96cf567e11d8ce91eac`.
 - WP9 completion gate: **GREEN / WP9 COMPLETE**.
 - [Canonical green quality-gate run for `5469dcc`](https://github.com/rk29403010/photoStar2/actions/runs/34550734260).
 - WP10a contract/guard checkpoint: `184178e566bc386401e71c29e611f4402bca1cd6`.
@@ -74,7 +74,10 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 - WP10e completion checkpoint: `879eb5bca104105995bbec7f5e8e96d186413944`.
 - WP10e completion gate: **GREEN / WP10e COMPLETE**.
 - [Canonical green quality-gate run for `879eb5b`](https://github.com/rk29403010/photoStar2/actions/runs/34600759748).
-- Current package: **WP10f — reset and reimport preservation**.
+- WP10f implementation checkpoint: `0b12d654c4dd6a0f5c24a96cf567e11d8ce91eac`.
+- WP10f completion gate: **GREEN / WP10f COMPLETE**.
+- [Canonical green quality-gate run for `0b12d65`](https://github.com/rk29403010/photoStar2/actions/runs/34601385219).
+- Current package: **WP10g — People UI, payload and runtime-action cutover**.
 
 WP9's repository-defined completion gate remains satisfied. PostgreSQL is not part of the WP9 gate or PhotoStar2's current runtime persistence stack; the project uses SQLite (`better-sqlite3`). Do not add a PostgreSQL validation requirement unless the architecture is explicitly changed later.
 
@@ -82,32 +85,31 @@ WP9's repository-defined completion gate remains satisfied. PostgreSQL is not pa
 
 ## 3. Current work package
 
-### WP10f — reset and reimport preservation
+### WP10g — People UI, payload and runtime-action cutover
 
 **State: IN PROGRESS.**
 
-WP10e is closed at green head `879eb5bca104105995bbec7f5e8e96d186413944`, canonical run `34600759748`.
+WP10f is closed at green head `0b12d654c4dd6a0f5c24a96cf567e11d8ce91eac`, canonical run `34601385219`.
 
-### WP10e closure evidence
+### WP10f closure evidence
 
-- Manual rename, merge, isolate/split, approve and reject paths now persist human identity intent as stable Face-to-Person `depicts` semantic decisions.
-- Existing `assetId + faceIndex` action payloads are only a transitional resolver adapter into the stable Face identity; WP10g owns the UI/payload cutover.
-- New manual actions no longer write durable `manual_face_names` or `manual_face_isolations` records.
-- `face_assignments` remains a rebuildable compatibility projection for existing People UI/runtime consumers, and stable human decisions are reapplied after machine clustering.
-- The WP10a face-index inventory explicitly admits only the reviewed WP10e positional adapter/projection statements; they remain contraction targets for WP10g/WP10h.
-- Generic semantic soft-reset preservation remains green, satisfying the foundation prerequisite for human semantic writes.
-- Canonical quality-gate run `34600759748` is green at `879eb5b`.
+- Soft library reset preserves manually referenced typed Face/VisualRegion identities plus a current reconciliation geometry anchor.
+- Human-referenced Person semantic entities, propositions and decisions survive reset while rebuildable detector outputs and compatibility assignments can be regenerated.
+- Face-analysis reset preserves stable semantic truth and current region identity needed for subsequent redetection/reconciliation.
+- WP10f regression coverage exercises soft reset/reimport, face-analysis reset/redetection and supported removal/reimport preservation.
+- Legacy `manual_face_*` rows remain compatibility-only for pre-cutover data and are not the target durable identity path.
+- Canonical quality-gate run `34601385219` is green at `0b12d65`.
 
-### WP10f implementation target
+### WP10g implementation target
 
-- Preserve typed Face/VisualRegion identity and a reconciliation geometry anchor for manually touched durable faces through soft library reset.
-- Preserve human-referenced Person records and stable identity decisions through face-analysis reset while clearing rebuildable detector results, masks and compatibility assignments.
-- Prove stable identity reuse after soft reset/reimport, face-analysis reset/redetection and supported remove/reimport flows.
-- Legacy `manual_face_*` rows remain restore-compatible for pre-cutover data until WP10h; WP10f must no longer rely on them as the target durable identity path.
+- Return stable Face/VisualRegion IDs from People assignment payloads.
+- Move People approve/reject/unmatch UI actions and runtime action wiring to `faceId`.
+- Replace positional People attachment in general asset payloads where stable region identity is already available.
+- Exercise affected People journeys and record automated/manual evidence honestly.
 
 ### Exact next action
 
-Gate the WP10f stable reset/reimport implementation and tests. If green, update this handoff and advance to WP10g People UI/payload/runtime-action cutover.
+Complete the stable People action/payload cutover, then run the canonical gate and record the affected People acceptance evidence before advancing to WP10h.
 
 ---
 
@@ -126,7 +128,7 @@ This table is a navigation snapshot, not a substitute for each WP completion gat
 | WP7 | Substantially complete | Server-side presentation/expansion path established; final scale evidence is WP16. |
 | WP8 | Substantially complete | Editor group dependency replaced by semantic/editor lineage path; Photograph closeout intersects WP14. |
 | WP9 | **Complete** | Grouping/gallery/editor parity gate is green with legacy group tables absent at `5469dcc`; canonical run `34550734260`. |
-| WP10 | **In progress** | WP10a-WP10e are complete; WP10f stable reset/reimport preservation is in progress. |
+| WP10 | **In progress** | WP10a-WP10f are complete; WP10g People UI/payload/runtime-action cutover is in progress. |
 | WP11 | Not started | Machine generations + feature vectors. Split into WP11a-WP11e. |
 | WP12 | Not started | IdentityCluster/Person lifecycle/weak candidates. Split into WP12a-WP12g. |
 | WP13 | Not started | Contributor testimony/uncertainty/review. Split into WP13a-WP13e. |
@@ -187,7 +189,7 @@ Maintain this table continuously. `Not recorded` means exactly that; do not infe
 | Old Person/deep link survives merge redirect | Not implemented on target model | Not applicable yet | WP12c/f. |
 | Uncertain testimony choices | Not implemented end to end | Not applicable yet | WP13b-d. |
 | Loading/empty/error/retry states for new review UI | Not implemented end to end | Not applicable yet | WP13d and WP16e/f. |
-| Restart/rebuild preserves durable manual state | Stable Region/Face reconciliation is green through WP10c; reset preservation remains WP10f | Not recorded on final target model | Add per-WP durability tests; complete cross-domain evidence in WP15. |
+| Restart/rebuild preserves durable manual state | WP10f stable Face/VisualRegion reset/reimport preservation is green at `0b12d65` | Not recorded on final target model | Cross-domain durability evidence remains WP15. |
 | Representative large-library soak | Not yet final | Not yet | WP16a-f. |
 
 Minimum manual smoke sequence for a significant user-facing checkpoint:

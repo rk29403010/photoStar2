@@ -10,7 +10,7 @@ import { getSemanticPredicateManifest } from '../relationships/predicates/regist
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 type ManualDecisionStatus = 'accepted' | 'rejected';
 
-type StableFacePosition = {
+export type StableFacePosition = {
     faceId: string;
     visualRegionId: string;
     assetId: string;
@@ -20,6 +20,14 @@ type StableFacePosition = {
 type RecordFacePersonDecisionInput = {
     assetId: string;
     faceIndex: number;
+    personId: string;
+    personName?: string | null;
+    status: ManualDecisionStatus;
+    sourceRef: string;
+};
+
+export type RecordStableFacePersonDecisionInput = {
+    faceId: string;
     personId: string;
     personName?: string | null;
     status: ManualDecisionStatus;
@@ -85,11 +93,11 @@ function depictsScopeKey(faceId: string): string {
     return `${faceId}:depicts`;
 }
 
-export function recordManualFacePersonDecision(
+export function recordManualFacePersonDecisionByFaceId(
     db: DbHandle,
-    input: RecordFacePersonDecisionInput,
+    input: RecordStableFacePersonDecisionInput,
 ): { faceId: string; personEntityId: string; propositionId: string; decisionId: string } {
-    const position = resolveStableFaceAtLegacyPosition(db, input.assetId, input.faceIndex);
+    const position = resolveStableFaceById(db, input.faceId);
     const predicate = getSemanticPredicateManifest('depicts');
     const personEntityId = ensurePersonEntity(db, input.personId, input.personName);
     const propositionId = putSemanticProposition(db, {
@@ -106,6 +114,20 @@ export function recordManualFacePersonDecision(
         sourceRef: input.sourceRef,
     });
     return { faceId: position.faceId, personEntityId, propositionId, decisionId };
+}
+
+export function recordManualFacePersonDecision(
+    db: DbHandle,
+    input: RecordFacePersonDecisionInput,
+): { faceId: string; personEntityId: string; propositionId: string; decisionId: string } {
+    const position = resolveStableFaceAtLegacyPosition(db, input.assetId, input.faceIndex);
+    return recordManualFacePersonDecisionByFaceId(db, {
+        faceId: position.faceId,
+        personId: input.personId,
+        personName: input.personName,
+        status: input.status,
+        sourceRef: input.sourceRef,
+    });
 }
 
 export function acceptCurrentAssignmentsForPerson(
@@ -170,6 +192,14 @@ function currentPositionForFace(db: DbHandle, faceId: string): StableFacePositio
         assetId: row.asset_id,
         faceIndex,
     };
+}
+
+export function resolveStableFaceById(db: DbHandle, faceId: string): StableFacePosition {
+    const position = currentPositionForFace(db, faceId);
+    if (!position) {
+        throw new Error(`Stable Face '${faceId}' has no current asset position.`);
+    }
+    return position;
 }
 
 type DurableDecisionRow = {

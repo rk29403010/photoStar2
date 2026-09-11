@@ -78,7 +78,7 @@ export function createCoreActions(params: CoreActionParams) {
         prioritizeAsset: (_mediaId: string) => undefined,
         renamePerson: (personId: string, newName: string) => sendCommand('rename_person', { personId, newName }),
         mergePeople: (personIds: string[], targetName: string) => sendCommand('merge_people', { personIds, targetName }),
-        isolateFace: (assetId: string, faceIndex: number) => sendCommand('isolate_face', { assetId, faceIndex }),
+        isolateFace: (faceId: string) => sendCommand('isolate_face', { faceId }),
         isolatePersonAsset: (assetId: string, personId: string) => sendCommand('isolate_person_asset', { assetId, personId }),
         getRejectedAssetsForPerson,
         updateAsset: (id: string, partial: Partial<Asset>) => setAssets((prev) => prev.map((asset) => asset.id === id ? { ...asset, ...partial } : asset)),

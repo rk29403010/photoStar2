@@ -375,7 +375,8 @@ function SelectionActionBar({
 
 type FaceAssignmentInfo = {
     asset_id: string;
-    face_index: number;
+    face_id: string;
+    visual_region_id: string;
     confidence: number;
     is_suggested: number;
     original_path: string;
@@ -430,13 +431,13 @@ function useFaceAssignmentActions(personId: string, reload: () => void) {
         reload();
         globalThis.dispatchEvent(new CustomEvent('refresh-people-list'));
     };
-    const confirm = (assetId: string, faceIndex: number) =>
-        run('confirm_face_assignment', { assetId, faceIndex });
-    const reject = (assetId: string, faceIndex: number) =>
-        run('reject_face_assignment', { assetId, faceIndex, personId });
-    const unmatch = async (assetId: string, faceIndex: number) => {
+    const confirm = (faceId: string) =>
+        run('confirm_face_assignment', { faceId });
+    const reject = (faceId: string) =>
+        run('reject_face_assignment', { faceId, personId });
+    const unmatch = async (faceId: string) => {
         if (!globalThis.confirm('Are you sure you want to isolate/unmatch this photo from this person?')) {return;}
-        await run('isolate_face', { assetId, faceIndex });
+        await run('isolate_face', { faceId });
     };
     return { confirm, reject, unmatch };
 }
@@ -500,15 +501,15 @@ function AssignmentGrid(props: {
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {props.assignments.map(assignment => (
-                <div key={`${assignment.asset_id}-${assignment.face_index}`} className="relative group rounded-lg overflow-hidden border border-content/10 bg-surface-secondary aspect-square">
+                <div key={assignment.face_id} className="relative group rounded-lg overflow-hidden border border-content/10 bg-surface-secondary aspect-square">
                     <img src={resolveImageUrl(assignment.preview_path || assignment.original_path) || undefined}
                         alt={props.suggested ? 'Suggested person match' : 'Confirmed person match'} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
                         {props.suggested ? (
-                            <><button onClick={() => props.actions.confirm(assignment.asset_id, assignment.face_index)}>Approve</button>
-                            <button onClick={() => props.actions.reject(assignment.asset_id, assignment.face_index)}>Reject</button></>
+                            <><button onClick={() => props.actions.confirm(assignment.face_id)}>Approve</button>
+                            <button onClick={() => props.actions.reject(assignment.face_id)}>Reject</button></>
                         ) : (
-                            <button onClick={() => props.actions.unmatch(assignment.asset_id, assignment.face_index)} title="Unmatch / Isolate Face"><Trash2 className="w-4 h-4" /></button>
+                            <button onClick={() => props.actions.unmatch(assignment.face_id)} title="Unmatch / Isolate Face"><Trash2 className="w-4 h-4" /></button>
                         )}
                     </div>
                     <div className="absolute bottom-1 right-1 bg-black/60 px-1 text-[9px] text-white">

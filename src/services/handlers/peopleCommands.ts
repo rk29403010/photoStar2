@@ -3,9 +3,31 @@ import {
     acceptCurrentAssignmentsForPerson,
     getRejectedAssetIdsForPerson,
     recordManualFacePersonDecision,
+    recordManualFacePersonDecisionByFaceId,
+    resolveStableFaceAtLegacyPosition,
+    resolveStableFaceById,
     updateSemanticPersonLabel,
 } from '../faces/manualFaceSemanticRepository';
 import type { CommandHandlerMap } from './types';
+
+type StableFaceActionPayload = {
+    faceId?: string;
+    assetId?: string;
+    faceIndex?: number;
+};
+
+function resolveFaceActionTarget(
+    db: Parameters<typeof resolveStableFaceById>[0],
+    payload: StableFaceActionPayload,
+) {
+    if (payload.faceId) {
+        return resolveStableFaceById(db, payload.faceId);
+    }
+    if (payload.assetId && Number.isInteger(payload.faceIndex)) {
+        return resolveStableFaceAtLegacyPosition(db, payload.assetId, payload.faceIndex!);
+    }
+    throw new Error('A stable faceId is required for this face action.');
+}
 
 export const peopleCommandHandlers: CommandHandlerMap = {
     rename_person: (ctx) => {
@@ -71,12 +93,11 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         const { id, payload, originWs, dbManager, eventBus, respond } = ctx;
         try {
             const db = dbManager.getDb();
-            const { assetId, faceIndex } = payload as { assetId: string; faceIndex: number };
+            const target = resolveFaceActionTarget(db, payload as StableFaceActionPayload);
             db.transaction(() => {
                 const newPersonId = uuidv4();
-                recordManualFacePersonDecision(db, {
-                    assetId,
-                    faceIndex,
+                recordManualFacePersonDecisionByFaceId(db, {
+                    faceId: target.faceId,
                     personId: newPersonId,
                     personName: 'Unknown Person',
                     status: 'accepted',
@@ -85,7 +106,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)')
                     .run(newPersonId, 'Unknown Person', null);
                 db.prepare('UPDATE face_assignments SET person_id = ?, is_suggested = 0 WHERE asset_id = ? AND face_index = ?')
-                    .run(newPersonId, assetId, faceIndex);
+                    .run(newPersonId, target.assetId, target.faceIndex);
             })();
             respond(id, 'ok', { message: 'Face isolated' }, null, originWs);
             eventBus.emit({ type: 'JobCompleted', jobId: 'isolate', pipelineStage: 'analysis' });
@@ -219,7 +240,8 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
             const { personId } = payload as { personId: string };
-            const assignments = dbManager.getDb().prepare(`
+            const db = dbManager.getDb();
+            const rows = db.prepare(`
                 SELECT fa.asset_id, fa.face_index, fa.confidence, fa.is_suggested,
                        a.original_path,
                        p.path as preview_path
@@ -228,7 +250,22 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 LEFT JOIN previews p ON p.asset_id = a.id AND p.size = 'thumbnail'
                 WHERE fa.person_id = ?
                 ORDER BY fa.confidence DESC
-            `).all(personId);
+            `).all(personId) as Array<{
+                asset_id: string;
+                face_index: number;
+                confidence: number;
+                is_suggested: number;
+                original_path: string;
+                preview_path: string | null;
+            }>;
+            const assignments = rows.map((row) => {
+                const stable = resolveStableFaceAtLegacyPosition(db, row.asset_id, row.face_index);
+                return {
+                    ...row,
+                    face_id: stable.faceId,
+                    visual_region_id: stable.visualRegionId,
+                };
+            });
             respond(id, 'ok', { assignments }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
@@ -238,20 +275,19 @@ export const peopleCommandHandlers: CommandHandlerMap = {
     confirm_face_assignment: (ctx) => {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
-            const { assetId, faceIndex } = payload as { assetId: string; faceIndex: number };
             const db = dbManager.getDb();
+            const target = resolveFaceActionTarget(db, payload as StableFaceActionPayload);
             const assignment = db.prepare(`
                 SELECT fa.person_id, p.name
                 FROM face_assignments fa
                 JOIN people p ON p.id = fa.person_id
                 WHERE fa.asset_id = ? AND fa.face_index = ?
-            `).get(assetId, faceIndex) as { person_id: string; name: string } | undefined;
+            `).get(target.assetId, target.faceIndex) as { person_id: string; name: string } | undefined;
             if (!assignment) {
                 throw new Error('Face assignment no longer exists.');
             }
-            recordManualFacePersonDecision(db, {
-                assetId,
-                faceIndex,
+            recordManualFacePersonDecisionByFaceId(db, {
+                faceId: target.faceId,
                 personId: assignment.person_id,
                 personName: assignment.name,
                 status: 'accepted',
@@ -260,7 +296,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             db.prepare(`
                 UPDATE face_assignments SET is_suggested = 0
                 WHERE asset_id = ? AND face_index = ?
-            `).run(assetId, faceIndex);
+            `).run(target.assetId, target.faceIndex);
             respond(id, 'ok', { message: 'Face assignment confirmed' }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
@@ -270,14 +306,14 @@ export const peopleCommandHandlers: CommandHandlerMap = {
     reject_face_assignment: (ctx) => {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
-            const { assetId, faceIndex, personId } = payload as { assetId: string; faceIndex: number; personId: string };
+            const { personId } = payload as { personId: string };
             const db = dbManager.getDb();
+            const target = resolveFaceActionTarget(db, payload as StableFaceActionPayload);
             db.transaction(() => {
                 const person = db.prepare('SELECT name FROM people WHERE id = ?')
                     .get(personId) as { name: string } | undefined;
-                recordManualFacePersonDecision(db, {
-                    assetId,
-                    faceIndex,
+                recordManualFacePersonDecisionByFaceId(db, {
+                    faceId: target.faceId,
                     personId,
                     personName: person?.name ?? null,
                     status: 'rejected',
@@ -286,7 +322,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 db.prepare(`
                     DELETE FROM face_assignments
                     WHERE asset_id = ? AND face_index = ?
-                `).run(assetId, faceIndex);
+                `).run(target.assetId, target.faceIndex);
             })();
             respond(id, 'ok', { message: 'Face assignment rejected' }, null, originWs);
         } catch (error) {
