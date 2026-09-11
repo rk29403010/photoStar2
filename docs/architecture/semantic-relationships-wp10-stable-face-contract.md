@@ -76,27 +76,33 @@ WP10b is additive: legacy face tables and `face_index` remain available while st
 | --- | --- | --- |
 | `src/data/dbSchema.ts` | `face_assignments`, `manual_face_names` and `manual_face_isolations` persist `face_index`; assignment/manual keys are index-based. | WP10b adds stable persistence additively; WP10e migrates durable writes; WP10h removes obsolete durable index storage only after proof. |
 | `src/data/db.ts` | Soft reset snapshots and restores manual face work by `original_path + face_index`. | WP10f durable reset/reimport preservation. |
-| `src/services/faces/peopleResolution.ts` | Reads prior assignments by `(asset_id, face_index)`, rewrites assignments with `face_index`, applies manual path/index overrides, and indexes detector output by `face_index` for thumbnails. | WP10b stable persistence, WP10c reconciliation/bridge, then WP10h contraction. |
+| `src/services/faces/peopleResolution.ts` | Reads prior assignments by `(asset_id, face_index)`, rewrites assignments with `face_index`, applies manual path/index overrides, and indexes detector output by `face_index` for thumbnails. | WP10b stable persistence, WP10c reconciliation, then WP10h contraction. |
 | `src/services/handlers/peopleCommands.ts` | Rename/merge/isolate/confirm/reject durable actions read/write `face_index`; API payloads accept `assetId + faceIndex`. | WP10e durable People action cutover; WP10g payload/runtime cutover. |
+| `src/entrypoints/core/main.ts` | `AssetUpdated` payload assembly reads assignment `face_index` and attaches People to the positional detector face array. | WP10g payload/runtime cutover. |
+| `src/services/handlers/assetCommands.ts` | Asset list/detail SQL serializes `face_index` into `people_data` for the legacy face payload adapter. | WP10g payload cutover. |
+| `src/services/handlers/assetPayloadModel.ts` | Attaches People to positional face arrays by `face_index`; mask labels also resolve positional `face-N` reference IDs back through `face_index`. | WP10b stable VisualRegion mask integration; WP10g payload cutover. |
+| `src/services/handlers/relationshipGalleryAssetLoader.ts` | Relationship-gallery asset payloads serialize `face_index` into `people_data` before using the common asset payload adapter. | WP10g payload cutover. |
 | `src/ui/components/PeopleView.tsx` | Face assignment response contains `face_index`; confirm/reject/unmatch send `assetId + faceIndex`. | WP10g People UI/payload cutover. |
-| `src/services/handlers/systemCommands.ts` | `reset_faces` deletes face analysis, assignments, People and manual name/isolation state globally or per asset. | WP10f reset preservation. |
-| `src/boundary/runtime/usePhotoLibrary.faceSystemActions.ts` | Reset/rerun commands invoke the transitional reset behaviour before re-detection. | WP10f preservation plus WP10g runtime-action cutover where stable identity must be passed/resolved. |
+| `src/services/handlers/systemCommands.ts` | `reset_faces` deletes face analysis, assignments, People and manual name/isolation state globally or per asset. This is a required cutover path even though it contains no literal `face_index`. | WP10f reset preservation. |
+| `src/boundary/runtime/usePhotoLibrary.faceSystemActions.ts` | Reset/rerun commands invoke the transitional reset behaviour before re-detection. This is a required cutover path even though it contains no literal `face_index`. | WP10f preservation plus WP10g runtime-action cutover where stable identity must be passed/resolved. |
 | `src/services/workflowRuntime/modules/plugins/detect-faces/implementation.ts` | Detection currently emits positional face identifiers such as `face-1`, `face-2`. | WP10b stable region/face population; WP10c reconciliation. |
 | `src/services/workflowRuntime/modules/plugins/generate-face-vectors/implementation.ts` | Vector generation inherits current detector face identity/order. | WP10b stable persistence/provenance; later WP11 owns the full vector-generation lifecycle. |
-| `src/services/workflowRuntime/modules/plugins/resolve-people/implementation.ts` | People resolution enters the legacy assignment path. | WP10c bridge, WP10e durable action separation, later WP12 machine-cluster/Person lifecycle split. |
+| `src/services/workflowRuntime/modules/plugins/resolve-people/implementation.ts` | People resolution enters the legacy assignment path. | WP10c reconciliation support, WP10e durable action separation, later WP12 machine-cluster/Person lifecycle split. |
 | `src/boundary/contracts/photoEditor.ts` and `src/services/photoEditing/assetMaskMetadata.ts` | `PhotoMaskMetadata` persists masks but currently has no stable VisualRegion serialization. | WP10b mask integration using the existing metadata store. |
 
 ## Automated repository guard
 
-`tests/repo/wp10-face-index-inventory.test.mjs` scans source for durable snake-case `face_index` dependencies and freezes the current source-path inventory. A new source path containing `face_index` fails the repository test and requires explicit WP10 review. As later work removes legacy dependencies, the corresponding inventory entries must be removed rather than replaced with new index-based storage.
+`tests/repo/wp10-face-index-inventory.test.mjs` scans all maintained source files for snake-case `face_index`. The baseline is statement-level rather than a filename allowlist: each reviewed trimmed statement and its maximum current multiplicity are frozen. A new path, a changed/new `face_index` statement, or an increase in an existing statement's multiplicity fails the repository test and requires explicit WP10 review. Removing legacy statements is allowed as the later cutovers land.
 
-Camel-case `faceIndex` command payload wiring is deliberately documented above instead of being treated as database persistence; WP10g owns that consumer cutover.
+The source scan deliberately cannot discover reset/rerun dependencies that do not literally contain `face_index`; `systemCommands.ts` and `usePhotoLibrary.faceSystemActions.ts` are therefore explicit inventory entries above and remain mandatory WP10f/WP10g cutover targets.
+
+Camel-case `faceIndex` command payload wiring is likewise documented as consumer wiring rather than database persistence; WP10g owns that consumer cutover.
 
 ## WP10a exit condition
 
 WP10a is complete only when:
 
 1. this contract/inventory is present in the repository;
-2. the automated legacy-path guard is green;
+2. the automated legacy-statement guard is green;
 3. canonical quality-gate CI is green on the contract/guard commit;
 4. no WP10b consumer cutover has been mixed into WP10a.
