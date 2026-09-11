@@ -100,6 +100,36 @@ type LibraryPresentationPreferenceRow = {
     updated_at: string;
 };
 
+type VisualRegionRow = {
+    id: string;
+    asset_identity_guid: string;
+    created_at: string;
+};
+
+type FaceRow = {
+    id: string;
+    visual_region_id: string;
+    created_at: string;
+};
+
+type VisualRegionGeometryRow = {
+    id: string;
+    visual_region_id: string;
+    source_analysis_generation_id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    source_width: number;
+    source_height: number;
+    source_orientation: number;
+    source_module_id: string;
+    provider: string;
+    model_version: string;
+    status: string;
+    created_at: string;
+};
+
 export type DurableSemanticResetState = {
     entities: SemanticEntityRow[];
     propositions: SemanticPropositionRow[];
@@ -110,6 +140,9 @@ export type DurableSemanticResetState = {
     captureSequences: CaptureSequenceRow[];
     captureSequenceMembers: CaptureSequenceMemberRow[];
     presentationPreferences: LibraryPresentationPreferenceRow[];
+    visualRegions: VisualRegionRow[];
+    faces: FaceRow[];
+    visualRegionGeometry: VisualRegionGeometryRow[];
 };
 
 const DURABLE_ATTESTATION_CTE = `
@@ -211,6 +244,60 @@ function snapshotPresentationPreferences(db: Database.Database): LibraryPresenta
     `).all() as LibraryPresentationPreferenceRow[];
 }
 
+function snapshotDurableFaceState(
+    db: Database.Database,
+    propositions: readonly SemanticPropositionRow[],
+): {
+    visualRegions: VisualRegionRow[];
+    faces: FaceRow[];
+    visualRegionGeometry: VisualRegionGeometryRow[];
+} {
+    const durableFaceIds = propositions
+        .map((proposition) => proposition.subject_entity_id)
+        .filter((entityId) => {
+            const row = db.prepare("SELECT kind FROM semantic_entities WHERE id = ?")
+                .get(entityId) as { kind: string } | undefined;
+            return row?.kind === 'face';
+        });
+    if (durableFaceIds.length === 0) {
+        return { visualRegions: [], faces: [], visualRegionGeometry: [] };
+    }
+
+    const placeholders = durableFaceIds.map(() => '?').join(', ');
+    const faces = db.prepare(`
+        SELECT id, visual_region_id, created_at
+        FROM faces
+        WHERE id IN (${placeholders})
+        ORDER BY created_at ASC, id ASC
+    `).all(...durableFaceIds) as FaceRow[];
+    const regionIds = faces.map((face) => face.visual_region_id);
+    if (regionIds.length === 0) {
+        return { visualRegions: [], faces, visualRegionGeometry: [] };
+    }
+
+    const regionPlaceholders = regionIds.map(() => '?').join(', ');
+    const visualRegions = db.prepare(`
+        SELECT id, asset_identity_guid, created_at
+        FROM visual_regions
+        WHERE id IN (${regionPlaceholders})
+        ORDER BY created_at ASC, id ASC
+    `).all(...regionIds) as VisualRegionRow[];
+    const visualRegionGeometry = db.prepare(`
+        SELECT generation.*
+        FROM visual_region_geometry_generations generation
+        WHERE generation.visual_region_id IN (${regionPlaceholders})
+          AND generation.rowid = (
+              SELECT latest.rowid
+              FROM visual_region_geometry_generations latest
+              WHERE latest.visual_region_id = generation.visual_region_id
+              ORDER BY latest.created_at DESC, latest.rowid DESC
+              LIMIT 1
+          )
+        ORDER BY generation.created_at ASC, generation.id ASC
+    `).all(...regionIds) as VisualRegionGeometryRow[];
+    return { visualRegions, faces, visualRegionGeometry };
+}
+
 export function snapshotDurableSemanticResetState(db: Database.Database): DurableSemanticResetState {
     const entities = db.prepare(`
         SELECT id, kind, native_id, label, created_at
@@ -246,16 +333,19 @@ export function snapshotDurableSemanticResetState(db: Database.Database): Durabl
         ORDER BY representation.created_at ASC, representation.id ASC
     `).all() as ArchiveRepresentationRow[];
     const captureSequenceState = snapshotDurableCaptureSequences(db);
+    const propositions = snapshotPropositions(db);
+    const durableFaceState = snapshotDurableFaceState(db, propositions);
 
     return {
         entities,
-        propositions: snapshotPropositions(db),
+        propositions,
         attestations,
         evidence,
         decisions,
         representations,
         ...captureSequenceState,
         presentationPreferences: snapshotPresentationPreferences(db),
+        ...durableFaceState,
     };
 }
 
@@ -477,11 +567,62 @@ function restorePresentationPreferences(
     }
 }
 
+function restoreDurableFaceState(
+    db: Database.Database,
+    state: Pick<DurableSemanticResetState, 'visualRegions' | 'faces' | 'visualRegionGeometry'>,
+): void {
+    const insertRegion = db.prepare(`
+        INSERT INTO visual_regions (id, asset_identity_guid, created_at)
+        VALUES (?, ?, ?)
+    `);
+    for (const row of state.visualRegions) {
+        insertRegion.run(row.id, row.asset_identity_guid, row.created_at);
+    }
+
+    const insertFace = db.prepare(`
+        INSERT INTO faces (id, visual_region_id, created_at)
+        VALUES (?, ?, ?)
+    `);
+    for (const row of state.faces) {
+        insertFace.run(row.id, row.visual_region_id, row.created_at);
+    }
+
+    const insertGeometry = db.prepare(`
+        INSERT INTO visual_region_geometry_generations (
+            id, visual_region_id, source_analysis_generation_id,
+            x, y, width, height, source_width, source_height, source_orientation,
+            source_module_id, provider, model_version, status, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const row of state.visualRegionGeometry) {
+        insertGeometry.run(
+            row.id,
+            row.visual_region_id,
+            row.source_analysis_generation_id,
+            row.x,
+            row.y,
+            row.width,
+            row.height,
+            row.source_width,
+            row.source_height,
+            row.source_orientation,
+            row.source_module_id,
+            row.provider,
+            row.model_version,
+            row.status,
+            row.created_at,
+        );
+    }
+}
+
+
 export function restoreDurableSemanticResetState(
     db: Database.Database,
     state: DurableSemanticResetState,
 ): void {
     restoreEntities(db, state.entities);
+    restoreDurableFaceState(db, state);
     restorePropositions(db, state.propositions);
     restoreAttestations(db, state.attestations);
     restoreEvidence(db, state.evidence);

@@ -313,3 +313,8 @@ UI Improvements
 - Predicate prerequisite resolved at `e3f074a6`: semantic predicate manifests, generated registry checking and persisted definition snapshots are now present and green.
 
 - Ordering clarification: generic semantic soft-reset preservation already exists in `semanticResetState.ts` and is covered by `semantic-soft-reset.test.cjs`; WP10e can proceed once that gate is green at the cutover head. WP10f still owns face-specific reset/reimport preservation.
+
+## 2026-09-11 - Legacy manual face reset compatibility
+
+- WP10e no longer writes new `manual_face_names` / `manual_face_isolations` records and WP10f makes stable Face/VisualRegion semantic state independently durable across reset/reimport.
+- Keep restoring old path/index manual rows temporarily so pre-cutover development/user data is not silently discarded. WP10h should remove that legacy reset/storage path only after its final search and replacement coverage are green.
