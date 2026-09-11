@@ -5,6 +5,8 @@ import { ensureSemanticEntity } from '../relationships/semanticRepository';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
+export type VisualRegionGeometryStatus = 'active' | 'unmatched' | 'tombstoned';
+
 export type VisualRegionGeometryGenerationInput = {
     visualRegionId: string;
     sourceAnalysisGenerationId: string;
@@ -15,7 +17,7 @@ export type VisualRegionGeometryGenerationInput = {
     sourceModuleId: string;
     provider: string;
     modelVersion: string;
-    status?: string;
+    status?: VisualRegionGeometryStatus;
 };
 
 export type CreateStableFaceDetectionInput = Omit<VisualRegionGeometryGenerationInput, 'visualRegionId'> & {
@@ -26,6 +28,32 @@ export type StableFaceDetectionIdentity = {
     visualRegionId: string;
     faceId: string;
     geometryGenerationId: string;
+};
+
+export type ReconcileableStableFaceRegion = {
+    visualRegionId: string;
+    faceId: string;
+    box: NormalizedBox;
+    provider: string;
+    modelVersion: string;
+    status: Exclude<VisualRegionGeometryStatus, 'tombstoned'>;
+};
+
+export type MarkStableFaceRegionStatusInput = Omit<
+    VisualRegionGeometryGenerationInput,
+    'box' | 'status'
+> & {
+    status: Exclude<VisualRegionGeometryStatus, 'active'>;
+};
+
+type LatestGeometryRow = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    provider: string;
+    model_version: string;
+    status: VisualRegionGeometryStatus;
 };
 
 function assertNonEmpty(value: string, label: string): void {
@@ -97,6 +125,29 @@ function ensureAssetIdentity(db: DbHandle, assetId: string): string {
     return persisted.guid;
 }
 
+function latestGeometryForRegion(db: DbHandle, visualRegionId: string): LatestGeometryRow {
+    const row = db.prepare(`
+        SELECT x, y, width, height, provider, model_version, status
+        FROM visual_region_geometry_generations
+        WHERE visual_region_id = ?
+        ORDER BY created_at DESC, rowid DESC
+        LIMIT 1
+    `).get(visualRegionId) as LatestGeometryRow | undefined;
+    if (!row) {
+        throw new Error(`Visual region '${visualRegionId}' has no geometry generation.`);
+    }
+    return row;
+}
+
+function faceIdForRegion(db: DbHandle, visualRegionId: string): string {
+    const face = db.prepare('SELECT id FROM faces WHERE visual_region_id = ?')
+        .get(visualRegionId) as { id: string } | undefined;
+    if (!face) {
+        throw new Error(`Visual region '${visualRegionId}' has no Face entity.`);
+    }
+    return face.id;
+}
+
 export function appendVisualRegionGeometryGeneration(
     db: DbHandle,
     input: VisualRegionGeometryGenerationInput,
@@ -107,7 +158,6 @@ export function appendVisualRegionGeometryGeneration(
     assertNonEmpty(input.provider, 'Visual region provider');
     assertNonEmpty(input.modelVersion, 'Visual region model version');
     const status = input.status ?? 'active';
-    assertNonEmpty(status, 'Visual region geometry status');
     assertSourceDimensions(input.sourceWidth, input.sourceHeight, input.sourceOrientation);
     assertNormalizedBox(input.box);
 
@@ -153,6 +203,85 @@ export function appendVisualRegionGeometryGeneration(
         status,
     );
     return generationId;
+}
+
+export function loadReconcileableStableFaceRegions(
+    db: DbHandle,
+    assetId: string,
+): ReconcileableStableFaceRegion[] {
+    const assetIdentityGuid = ensureAssetIdentity(db, assetId);
+    const rows = db.prepare(`
+        SELECT
+            region.id AS visual_region_id,
+            face.id AS face_id,
+            geometry.x,
+            geometry.y,
+            geometry.width,
+            geometry.height,
+            geometry.provider,
+            geometry.model_version,
+            geometry.status
+        FROM visual_regions region
+        JOIN faces face ON face.visual_region_id = region.id
+        JOIN visual_region_geometry_generations geometry
+          ON geometry.rowid = (
+              SELECT candidate.rowid
+              FROM visual_region_geometry_generations candidate
+              WHERE candidate.visual_region_id = region.id
+              ORDER BY candidate.created_at DESC, candidate.rowid DESC
+              LIMIT 1
+          )
+        WHERE region.asset_identity_guid = ?
+          AND geometry.status IN ('active', 'unmatched')
+        ORDER BY region.id ASC
+    `).all(assetIdentityGuid) as Array<{
+        visual_region_id: string;
+        face_id: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        provider: string;
+        model_version: string;
+        status: ReconcileableStableFaceRegion['status'];
+    }>;
+    return rows.map((row) => ({
+        visualRegionId: row.visual_region_id,
+        faceId: row.face_id,
+        box: { x: row.x, y: row.y, width: row.width, height: row.height },
+        provider: row.provider,
+        modelVersion: row.model_version,
+        status: row.status,
+    }));
+}
+
+export function reuseStableFaceDetection(
+    db: DbHandle,
+    input: VisualRegionGeometryGenerationInput,
+): StableFaceDetectionIdentity {
+    const faceId = faceIdForRegion(db, input.visualRegionId);
+    const geometryGenerationId = appendVisualRegionGeometryGeneration(db, {
+        ...input,
+        status: 'active',
+    });
+    return { visualRegionId: input.visualRegionId, faceId, geometryGenerationId };
+}
+
+export function markStableFaceRegionStatus(
+    db: DbHandle,
+    input: MarkStableFaceRegionStatusInput,
+): string {
+    const latest = latestGeometryForRegion(db, input.visualRegionId);
+    return appendVisualRegionGeometryGeneration(db, {
+        ...input,
+        box: {
+            x: latest.x,
+            y: latest.y,
+            width: latest.width,
+            height: latest.height,
+        },
+        status: input.status,
+    });
 }
 
 export function createStableFaceDetection(
