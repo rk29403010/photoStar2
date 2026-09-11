@@ -201,12 +201,6 @@ export class DatabaseManager {
       assetsManual: this.loadRows<{ identity_guid: string; sensitivity_status: string | null; updated_at: string }>(
         'SELECT identity_guid, sensitivity_status, updated_at FROM assets_manual ORDER BY identity_guid ASC'
       ),
-      manualFaceNames: this.loadRows<{ original_path: string; face_index: number; name: string; created_at: string }>(
-        'SELECT original_path, face_index, name, created_at FROM manual_face_names ORDER BY original_path ASC, face_index ASC'
-      ),
-      manualFaceIsolations: this.loadRows<{ original_path: string; face_index: number; from_person_id: string | null; created_at: string }>(
-        'SELECT original_path, face_index, from_person_id, created_at FROM manual_face_isolations ORDER BY original_path ASC, face_index ASC'
-      ),
       folderHistory: this.loadRows<{ path: string; last_scanned_at: string }>(
         'SELECT path, last_scanned_at FROM folder_history ORDER BY path ASC'
       ),
@@ -233,22 +227,6 @@ export class DatabaseManager {
       `);
       for (const row of snapshot.assetsManual) {
         insertAssetManual.run(row.identity_guid, row.sensitivity_status, row.updated_at);
-      }
-
-      const insertManualFaceName = this.db.prepare(`
-        INSERT INTO manual_face_names (original_path, face_index, name, created_at)
-        VALUES (?, ?, ?, ?)
-      `);
-      for (const row of snapshot.manualFaceNames) {
-        insertManualFaceName.run(row.original_path, row.face_index, row.name, row.created_at);
-      }
-
-      const insertManualFaceIsolation = this.db.prepare(`
-        INSERT INTO manual_face_isolations (original_path, face_index, from_person_id, created_at)
-        VALUES (?, ?, ?, ?)
-      `);
-      for (const row of snapshot.manualFaceIsolations) {
-        insertManualFaceIsolation.run(row.original_path, row.face_index, row.from_person_id, row.created_at);
       }
 
       const insertFolderHistory = this.db.prepare(`

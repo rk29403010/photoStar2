@@ -160,12 +160,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             const people = db.prepare(`
                 SELECT p.id, p.name, p.birth_date, p.death_date,
                        COUNT(DISTINCT CASE WHEN fa.is_suggested = 0 THEN fa.asset_id END) as face_count,
-                       (
-                           SELECT COUNT(DISTINCT a2.id)
-                           FROM manual_face_isolations mfi
-                           JOIN assets a2 ON a2.original_path = mfi.original_path
-                           WHERE mfi.from_person_id = p.id
-                       ) as rejected_count,
+                       0 as rejected_count,
                        COALESCE(p.thumbnail_path, (
                            SELECT path FROM previews
                            WHERE asset_id = (
@@ -211,7 +206,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             const { personId } = payload as { personId: string };
             const db = dbManager.getDb();
             const semanticAssetIds = getRejectedAssetIdsForPerson(db, personId);
-            const semanticAssets = semanticAssetIds.map((assetId) => db.prepare(`
+            const assets = semanticAssetIds.map((assetId) => db.prepare(`
                 SELECT a.id, a.original_path, a.width, a.height,
                        p.path as preview_path
                 FROM assets a
@@ -219,18 +214,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 WHERE a.id = ?
                 LIMIT 1
             `).get(assetId)).filter(Boolean);
-            const legacyAssets = db.prepare(`
-                SELECT a.id, a.original_path, a.width, a.height,
-                       p.path as preview_path
-                FROM manual_face_isolations mfi
-                JOIN assets a ON a.original_path = mfi.original_path
-                LEFT JOIN previews p ON p.asset_id = a.id AND p.size = 'thumbnail'
-                WHERE mfi.from_person_id = ?
-                GROUP BY a.id
-                ORDER BY mfi.created_at ASC
-            `).all(personId);
-            const byId = new Map([...legacyAssets, ...semanticAssets].map((asset) => [(asset as { id: string }).id, asset]));
-            respond(id, 'ok', { assets: [...byId.values()] }, null, originWs);
+            respond(id, 'ok', { assets }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
         }

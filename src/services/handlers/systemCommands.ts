@@ -165,21 +165,14 @@ function resetFaceData(ctx: CommandContext, mediaId?: string) {
             db.prepare("DELETE FROM derived_results WHERE task IN ('face_detection', 'face_recognition')").run();
             db.prepare("DELETE FROM asset_mask_metadata WHERE source_id = 'runtime.detect_faces'").run();
             db.prepare('DELETE FROM face_assignments').run();
-            db.prepare('DELETE FROM manual_face_names').run();
-            db.prepare('DELETE FROM manual_face_isolations').run();
             pruneTransientPeopleAfterFaceReset(ctx);
             return;
         }
 
-        const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(mediaId) as { original_path?: string } | undefined;
         db.prepare("DELETE FROM derived_results WHERE asset_id = ? AND task IN ('face_detection', 'face_recognition')").run(mediaId);
         db.prepare("DELETE FROM asset_mask_metadata WHERE asset_id = ? AND source_id = 'runtime.detect_faces'").run(mediaId);
         db.prepare('DELETE FROM face_assignments WHERE asset_id = ?').run(mediaId);
 
-        if (asset?.original_path) {
-            db.prepare('DELETE FROM manual_face_names WHERE original_path = ?').run(asset.original_path);
-            db.prepare('DELETE FROM manual_face_isolations WHERE original_path = ?').run(asset.original_path);
-        }
 
         pruneTransientPeopleAfterFaceReset(ctx);
     })();

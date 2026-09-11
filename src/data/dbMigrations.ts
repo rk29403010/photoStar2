@@ -399,4 +399,11 @@ export const NUMBERED_MIGRATIONS: readonly NumberedMigration[] = [
             );
         `,
     },
+    {
+        id: '20260911_003_drop_legacy_manual_face_overrides',
+        sql: `
+            DROP TABLE IF EXISTS manual_face_names;
+            DROP TABLE IF EXISTS manual_face_isolations;
+        `,
+    },
 ];

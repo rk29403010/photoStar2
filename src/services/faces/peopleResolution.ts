@@ -156,52 +156,6 @@ function persistClusters(
     })();
 }
 
-function applyManualOverrides(db: ReturnType<DatabaseManager['getDb']>): void {
-    db.transaction(() => {
-        const isolations = db.prepare(`
-            SELECT a.id AS asset_id, m.face_index
-            FROM manual_face_isolations m
-            JOIN assets a ON a.original_path = m.original_path
-        `).all() as Array<{ asset_id: string; face_index: number }>;
-
-        for (const isolation of isolations) {
-            const newPersonId = uuidv4();
-            db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)').run(newPersonId, 'Unknown Person', null);
-            db.prepare('UPDATE face_assignments SET person_id = ? WHERE asset_id = ? AND face_index = ?')
-                .run(newPersonId, isolation.asset_id, isolation.face_index);
-        }
-
-        const names = db.prepare(`
-            SELECT a.id AS asset_id, m.face_index, m.name
-            FROM manual_face_names m
-            JOIN assets a ON a.original_path = m.original_path
-        `).all() as Array<{ asset_id: string; face_index: number; name: string }>;
-
-        const canonicalPeopleByName = new Map<string, string>();
-        for (const row of names) {
-            const assignment = db.prepare(
-                'SELECT person_id FROM face_assignments WHERE asset_id = ? AND face_index = ?'
-            ).get(row.asset_id, row.face_index) as { person_id: string } | undefined;
-            if (!assignment) {
-                continue;
-            }
-
-            if (!canonicalPeopleByName.has(row.name)) {
-                canonicalPeopleByName.set(row.name, assignment.person_id);
-                db.prepare('UPDATE people SET name = ? WHERE id = ?').run(row.name, assignment.person_id);
-                continue;
-            }
-
-            const canonicalPersonId = canonicalPeopleByName.get(row.name)!;
-            if (canonicalPersonId !== assignment.person_id) {
-                db.prepare('UPDATE face_assignments SET person_id = ? WHERE person_id = ?')
-                    .run(canonicalPersonId, assignment.person_id);
-                db.prepare('DELETE FROM people WHERE id = ?').run(assignment.person_id);
-            }
-        }
-    })();
-}
-
 function expandStoredPhotoBox(box: StoredPhotoBox, multiplier: number): StoredPhotoBox | null {
     const expandedWidth = box.width * multiplier;
     const expandedHeight = box.height * multiplier;
@@ -335,7 +289,6 @@ export async function resolvePeopleAssignments(params: {
     const clusters = buildClusters(faces, Number.isFinite(threshold) ? threshold : 0.6);
     assignStableClusterIds(db, faces, clusters);
     persistClusters(db, clusters, faces, params.eventSink);
-    applyManualOverrides(db);
     applyStableManualFaceDecisionProjection(db);
     await generatePersonThumbnails(db, clusters);
 }

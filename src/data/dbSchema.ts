@@ -292,22 +292,6 @@ export const SCHEMA_SQL = `
     FOREIGN KEY(asset_id) REFERENCES assets(id)
   );
 
-  CREATE TABLE IF NOT EXISTS manual_face_names (
-    original_path TEXT NOT NULL,
-    face_index INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (original_path, face_index)
-  );
-
-  CREATE TABLE IF NOT EXISTS manual_face_isolations (
-    original_path TEXT NOT NULL,
-    face_index INTEGER NOT NULL,
-    from_person_id TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (original_path, face_index)
-  );
-
   CREATE INDEX IF NOT EXISTS idx_assets_path ON assets(original_path);
   CREATE INDEX IF NOT EXISTS idx_assets_photo_created_at ON assets(photo_created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_derived_task ON derived_results(task);

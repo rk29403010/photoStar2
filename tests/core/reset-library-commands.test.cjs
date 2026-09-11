@@ -37,8 +37,6 @@ function seedResetFixture(db) {
 
     db.prepare("INSERT INTO asset_identities (guid, original_path, created_at) VALUES ('identity-1', 'C:/photos/one.jpg', '2026-03-13T00:00:00.000Z')").run();
     db.prepare("INSERT INTO assets_manual (identity_guid, sensitivity_status, updated_at) VALUES ('identity-1', 'review', '2026-03-13T00:00:00.000Z')").run();
-    db.prepare("INSERT INTO manual_face_names (original_path, face_index, name, created_at) VALUES ('C:/photos/one.jpg', 0, 'Alice', '2026-03-13T00:00:00.000Z')").run();
-    db.prepare("INSERT INTO manual_face_isolations (original_path, face_index, from_person_id, created_at) VALUES ('C:/photos/one.jpg', 0, 'person-1', '2026-03-13T00:00:00.000Z')").run();
     db.prepare("INSERT INTO folder_history (path, last_scanned_at) VALUES ('C:/photos', '2026-03-13T00:00:00.000Z')").run();
     db.prepare("INSERT OR REPLACE INTO settings (id, value) VALUES ('custom-setting', 'keep-me')").run();
 }
@@ -77,11 +75,9 @@ function seedFaceResetFixture(db) {
     db.prepare("INSERT INTO derived_results (id, asset_id, task, provider, model_version, data, created_at) VALUES ('face-rec-1', 'asset-1', 'face_recognition', 'recognizer', '1.0', '{\"embeddings\":[[0.1,0.2,0.3]]}', '2026-03-13T00:00:00.000Z')").run();
     db.prepare("INSERT INTO people (id, name, thumbnail_path, created_at) VALUES ('person-1', 'Alice', 'C:/tmp/person-1.webp', '2026-03-13T00:00:00.000Z')").run();
     db.prepare("INSERT INTO face_assignments (asset_id, face_index, person_id, confidence, created_at) VALUES ('asset-1', 0, 'person-1', 0.99, '2026-03-13T00:00:00.000Z')").run();
-    db.prepare("INSERT INTO manual_face_names (original_path, face_index, name, created_at) VALUES ('C:/photos/one.jpg', 0, 'Alice', '2026-03-13T00:00:00.000Z')").run();
-    db.prepare("INSERT INTO manual_face_isolations (original_path, face_index, from_person_id, created_at) VALUES ('C:/photos/one.jpg', 0, 'person-1', '2026-03-13T00:00:00.000Z')").run();
 }
 
-test('soft reset recreates schema while preserving manual tables, settings, and folder history', async () => {
+test('soft reset recreates schema while preserving durable settings, identities, and folder history', async () => {
     const tempDir = createTempDir();
     const previewsDir = path.join(tempDir, 'previews');
     fs.mkdirSync(previewsDir, { recursive: true });
@@ -120,8 +116,6 @@ test('soft reset recreates schema while preserving manual tables, settings, and 
 
         assert.equal(count(db, 'asset_identities'), 1);
         assert.equal(count(db, 'assets_manual'), 1);
-        assert.equal(count(db, 'manual_face_names'), 1);
-        assert.equal(count(db, 'manual_face_isolations'), 1);
         assert.equal(count(db, 'folder_history'), 1);
         assert.equal(db.prepare("SELECT value FROM settings WHERE id = 'custom-setting'").get().value, 'keep-me');
         assert.equal(fs.existsSync(previewsDir), false);
@@ -168,8 +162,6 @@ test('factory reset recreates schema with only built-in defaults remaining', asy
         assert.equal(count(db, 'subject_executions'), 0);
         assert.equal(count(db, 'asset_identities'), 0);
         assert.equal(count(db, 'assets_manual'), 0);
-        assert.equal(count(db, 'manual_face_names'), 0);
-        assert.equal(count(db, 'manual_face_isolations'), 0);
         assert.equal(count(db, 'folder_history'), 0);
         assert.equal(db.prepare("SELECT value FROM settings WHERE id = 'custom-setting'").get(), undefined);
         assert.equal(count(db, 'settings'), 0);
@@ -180,7 +172,7 @@ test('factory reset recreates schema with only built-in defaults remaining', asy
     }
 });
 
-test('reset faces clears derived face results, people assignments, and manual face overrides', async () => {
+test('reset faces clears rebuildable derived face results and people assignments', async () => {
     const tempDir = createTempDir();
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -206,8 +198,6 @@ test('reset faces clears derived face results, people assignments, and manual fa
         const db = dbManager.getDb();
         assert.equal(count(db, 'people'), 0);
         assert.equal(count(db, 'face_assignments'), 0);
-        assert.equal(count(db, 'manual_face_names'), 0);
-        assert.equal(count(db, 'manual_face_isolations'), 0);
         assert.equal(db.prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'face_detection'").get().count, 0);
         assert.equal(db.prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'face_recognition'").get().count, 0);
     } finally {

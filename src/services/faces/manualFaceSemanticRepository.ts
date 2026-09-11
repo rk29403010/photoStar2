@@ -280,14 +280,5 @@ export function getRejectedAssetIdsForPerson(db: DbHandle, personId: string): st
             assetIds.add(position.assetId);
         }
     }
-    const legacyRows = db.prepare(`
-        SELECT DISTINCT asset.id
-        FROM manual_face_isolations isolation
-        JOIN assets asset ON asset.original_path = isolation.original_path
-        WHERE isolation.from_person_id = ?
-    `).all(personId) as Array<{ id: string }>;
-    for (const row of legacyRows) {
-        assetIds.add(row.id);
-    }
     return [...assetIds].sort((left, right) => left.localeCompare(right));
 }
