@@ -65,7 +65,10 @@ Before doing any work, fetch the actual branch HEAD and compare it with this sna
 - WP10c implementation checkpoint: `a131601794f6b27f68b5028394a0503f90b7d474`.
 - WP10c completion gate: **GREEN / WP10c COMPLETE**.
 - [Canonical green quality-gate run for `a131601`](https://github.com/rk29403010/photoStar2/actions/runs/34593962456).
-- Next work package: **WP10d — reconciliation regression and ambiguity suite**.
+- WP10d regression checkpoint: `756f7a9884220413f2d4c45a4bf511da4159d3bf`.
+- WP10d completion gate: **GREEN / WP10d COMPLETE**.
+- [Canonical green quality-gate run for `756f7a9`](https://github.com/rk29403010/photoStar2/actions/runs/34594221168).
+- Next planned package: **WP10e — durable People action cutover**, currently **BLOCKED by contract/order prerequisites recorded below**.
 
 WP9's repository-defined completion gate remains satisfied. PostgreSQL is not part of the WP9 gate or PhotoStar2's current runtime persistence stack; the project uses SQLite (`better-sqlite3`). Do not add a PostgreSQL validation requirement unless the architecture is explicitly changed later.
 
@@ -73,26 +76,35 @@ WP9's repository-defined completion gate remains satisfied. PostgreSQL is not pa
 
 ## 3. Current work package
 
-### WP10d — reconciliation regression and ambiguity suite
+### WP10e — durable People action cutover
 
-**State: IN PROGRESS.**
+**State: BLOCKED — do not implement the human-action cutover until the repository contracts are reconciled.**
 
-WP10c is closed at material implementation checkpoint `a131601794f6b27f68b5028394a0503f90b7d474`. Canonical quality-gate run `34593962456` is green at that exact head.
+WP10d is closed at checkpoint `756f7a9884220413f2d4c45a4bf511da4159d3bf`. Canonical quality-gate run `34594221168` is green at that exact head.
 
-### WP10c closure evidence
+### WP10d closure evidence
 
-- `faceReconciliation.ts` provides deterministic one-to-one IoU/landmark reconciliation with provider/model compatibility, deterministic tie-breaking and an explicit ambiguity margin.
-- Ambiguous candidates do not auto-reuse an existing stable VisualRegion ID.
-- `stableFaceRepository.ts` preserves append-only geometry history, reuses matched Face/VisualRegion identity, retains ambiguous prior regions as `unmatched`, and tombstones removed detections instead of deleting durable history.
-- The detect-faces runtime now invokes reconciliation before creating stable identities, so clear reruns reuse stable IDs rather than minting a new identity solely because detector order or geometry changed.
-- Existing positional detector output, face masks/events and legacy People consumers remain intact; WP10e-WP10g still own their durable/manual consumer cutovers.
-- `tests/core/wp10c-face-reconciliation.test.cjs` covers deterministic reorder, landmark evidence, fail-safe ambiguity and incompatible provider behavior.
-- `tests/core/wp10c-stable-face-reconciliation-persistence.test.cjs` covers stable-ID reuse, append-only lifecycle state and tombstoning on detector rerun.
-- Canonical quality-gate run `34593962456` is green at `a131601`.
+- Reconciliation coverage now includes reordered detections, small geometry drift, overlapping faces, swapped similar faces with landmark evidence, added/removed detections, explicit ambiguity, incompatible providers and model-version changes.
+- The persistence/orchestration suite proves reordered reruns reuse stable Face/VisualRegion identity and removed detections are tombstoned append-only.
+- Ambiguous matches remain fail-safe: no existing stable ID is auto-reused.
+- Canonical quality-gate run `34594221168` is green at `756f7a9`.
+
+### WP10e blockers discovered before implementation
+
+1. **Reset-preservation ordering conflict.**  
+   `semantic-relationships-phase1-foundation.md` states: **"Do not cut a human action over to these tables until soft-reset preservation is implemented and tested."** The current execution plan orders WP10e (persistent/manual human face actions) before WP10f (reset and reimport preservation). Implementing WP10e as written would violate the foundation gate; silently running WP10f first would violate the requested in-order execution. This ordering must be reconciled explicitly before the cutover.
+
+2. **Predicate-registry prerequisite is not present in the repository.**  
+   WP4 requires manifest-owned predicates plus a deterministic generated registry and lists `depicts` specifically where the face identity cutover uses it. The current branch contains the semantic kernel but no semantic predicate manifest/generated-registry implementation or persisted predicate-definition snapshot. The status table's previous wording that the predicate manifest/generated-registry foundation was established was therefore too strong. WP10e must not create an unregistered ad-hoc `depicts` predicate and bypass the architecture.
 
 ### Exact next action
 
-Complete **WP10d — reconciliation regression and ambiguity suite** with explicit overlapping-face, swapped-similar-face, geometry-drift, add/remove and provider/model rerun fixtures. Do not change reconciliation policy merely to make a fixture pass without evidence; if a regression exposes an ambiguous policy case, preserve fail-safe behavior and record the blocker.
+Resolve the two repository-contract prerequisites before writing WP10e human actions:
+
+- reconcile WP10e/WP10f ordering so reset preservation demonstrably precedes the first durable human semantic write; and
+- complete/verify the WP4 predicate manifest/generated-registry slice required to own `depicts`.
+
+Do not guess a new package order or introduce an ad-hoc predicate key merely to continue.
 
 ---
 
@@ -105,13 +117,13 @@ This table is a navigation snapshot, not a substitute for each WP completion gat
 | WP1 | Largely complete | ADR/foundation work exists; reconcile at final closeout. |
 | WP2 | Largely complete | Characterization expanded during grouping migration; later face/People work must refresh relevant fixtures. |
 | WP3 | Largely complete | Migration ledger + semantic kernel established; final durability closeout remains WP15. |
-| WP4 | Largely complete | Predicate manifest/generated-registry foundation established. |
+| WP4 | **Incomplete prerequisite discovered** | Semantic kernel exists, but no predicate manifest/generated-registry implementation or persisted predicate-definition snapshot is present on the current branch. Must be resolved before WP10e uses `depicts`. |
 | WP5 | Complete for current Phase 1 slice | Exact-duplicate shadow/replacement path established. |
 | WP6 | Substantially complete | Similarity/CaptureSequence/presentation preference path established; later generation provenance intersects WP11. |
 | WP7 | Substantially complete | Server-side presentation/expansion path established; final scale evidence is WP16. |
 | WP8 | Substantially complete | Editor group dependency replaced by semantic/editor lineage path; Photograph closeout intersects WP14. |
 | WP9 | **Complete** | Grouping/gallery/editor parity gate is green with legacy group tables absent at `5469dcc`; canonical run `34550734260`. |
-| WP10 | **In progress** | WP10a-WP10c are complete; WP10d reconciliation regression/ambiguity coverage is in progress. |
+| WP10 | **Blocked after WP10d** | WP10a-WP10d are complete. WP10e cannot safely start until reset-preservation ordering and the missing predicate-registry prerequisite are reconciled. |
 | WP11 | Not started | Machine generations + feature vectors. Split into WP11a-WP11e. |
 | WP12 | Not started | IdentityCluster/Person lifecycle/weak candidates. Split into WP12a-WP12g. |
 | WP13 | Not started | Contributor testimony/uncertainty/review. Split into WP13a-WP13e. |
@@ -139,6 +151,7 @@ Each entry stays here until its completion criterion is satisfied or it is expli
 
 | WP | Item | Current state / reason | Completion criterion |
 | --- | --- | --- | --- |
+| WP4/WP10 | Predicate registry prerequisite | Current branch has semantic propositions but no manifest-owned/generated predicate registry or persisted predicate-definition snapshot; WP10e needs owned `depicts`. | Complete/verify WP4 registry gate before first WP10e `depicts` write. |
 | WP16 | Intentional skipped-test audit | WP9's required parity/canonical gate is green. Any remaining intentional skips are not assumed resolved merely because WP9 closed. | Before final Phase 1 acceptance, every remaining skip has an explicit current reason/WP or is removed/replaced by active coverage. |
 | WP10 | Durable `(asset_id, face_index)` identity | WP10b now provides stable Face/VisualRegion persistence, but transitional People/manual/reset paths still use face indexes until the later cutovers. | WP10h search gate: no durable manual action or reset-preservation path depends on `face_index`. |
 | WP10/WP15 | Soft-reset face preservation by path + face index | Transitional compatibility only; cannot be target durable identity. | Stable VisualRegion/Face reconciliation preserves the durable work; transitional snapshot path removed when replacement coverage is green. |

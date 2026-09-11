@@ -305,3 +305,10 @@ UI Improvements
 - Verify real EfficientSAM-Ti model execution against representative local photos before enabling it in any default ingest tier.
 - Build the optional Model Manager: installation UI, progress/cancellation/retry, disk-space checks, removal/update, trusted source manifests, version migration, and local-conversion guidance.
 - Obtain legal redistribution review and a legally cleared source or hosting route for the derived FastSAM-s FP32 ONNX file before any production download or bundle; consider FP16/INT8 only after calibrated FP32 comparison.
+
+
+## 2026-09-11 - Semantic relationships WP10e prerequisite conflict
+
+- WP10d reconciliation regression gate is green at `756f7a9` / Actions run `34594221168`.
+- Before WP10e durable People actions, reconcile an execution-order conflict: `semantic-relationships-phase1-foundation.md` forbids cutting human actions to semantic tables until soft-reset preservation is implemented/tested, while the implementation plan currently places WP10e before WP10f reset preservation.
+- Also complete or verify the missing WP4 semantic predicate manifest/generated-registry and persisted predicate-definition snapshot before authoring the face-to-Person `depicts` predicate. Do not bypass this with an ad-hoc predicate string.
