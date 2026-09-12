@@ -14,7 +14,7 @@ export function IdentityReviewControl(props: {
     const choices = useMemo(() => buildIdentityReviewChoices(props.candidatePeople), [props.candidatePeople]);
     const [kind, setKind] = useState<IdentityReviewKind>('definite_identification');
     const [busy, setBusy] = useState(false);
-    const selectedChoice = choices.find((choice) => choice.kind === kind) ?? choices[0]!;
+    const selectedChoice = choices.find((choice) => choice.kind === kind) ?? choices[0];
 
     const submit = async () => {
         setBusy(true);
@@ -34,7 +34,12 @@ export function IdentityReviewControl(props: {
                     className="rounded-md border border-content/20 bg-surface p-2 text-content"
                     disabled={busy}
                     value={kind}
-                    onChange={(event) => setKind(event.target.value as IdentityReviewKind)}
+                    onChange={(event) => {
+                        const choice = choices.find((item) => item.kind === event.target.value);
+                        if (choice) {
+                            setKind(choice.kind);
+                        }
+                    }}
                 >
                     {choices.map((choice) => (
                         <option key={choice.kind} value={choice.kind}>{choice.label}</option>
