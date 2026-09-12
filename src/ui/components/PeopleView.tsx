@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import type { Person } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import { globalRequest } from '@ui/hooks/usePhotoLibrary';
 import { parseGedcom } from '../../services/gedcom/gedcomParser';
-import { Trash2, Link2, Search } from 'lucide-react';
+import { Link2, Search } from 'lucide-react';
+import { AssignmentGrid, IdentityReviewSection } from './people/IdentityReviewSection';
+import { useFaceAssignmentActions, usePersonDetailData, type FamilyTreeInfo } from './people/identityReviewData';
 
 type PeopleViewProps = {
     readonly people: Person[];
@@ -373,16 +375,6 @@ function SelectionActionBar({
     );
 }
 
-type FaceAssignmentInfo = {
-    asset_id: string;
-    face_id: string;
-    visual_region_id: string;
-    confidence: number;
-    is_suggested: number;
-    original_path: string;
-    preview_path: string | null;
-};
-
 type PersonDetailModalProps = {
     readonly person: Person;
     readonly onClose: () => void;
@@ -390,103 +382,10 @@ type PersonDetailModalProps = {
     readonly onRename?: (personId: string, newName: string) => void;
 };
 
-type FamilyTreeInfo = { id: string; filename: string; version_label?: string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isFaceAssignmentInfo(value: unknown): value is FaceAssignmentInfo {
-    if (!isRecord(value)) {return false;}
-    return typeof value.asset_id === 'string'
-        && typeof value.face_id === 'string'
-        && typeof value.visual_region_id === 'string'
-        && typeof value.confidence === 'number'
-        && typeof value.is_suggested === 'number'
-        && typeof value.original_path === 'string'
-        && (value.preview_path === null || typeof value.preview_path === 'string');
-}
-
-function selectFaceAssignments(data: Record<string, unknown> | undefined) {
-    const values = data?.assignments;
-    return { assignments: Array.isArray(values) ? values.filter(isFaceAssignmentInfo) : [] };
-}
-
-function isFamilyTreeInfo(value: unknown): value is FamilyTreeInfo {
-    if (!isRecord(value)) {return false;}
-    return typeof value.id === 'string'
-        && typeof value.filename === 'string'
-        && (value.version_label === undefined || typeof value.version_label === 'string');
-}
-
-function selectFamilyTrees(data: Record<string, unknown> | undefined) {
-    const values = data?.trees;
-    return { trees: Array.isArray(values) ? values.filter(isFamilyTreeInfo) : [] };
-}
-
 function selectGedcomContent(data: Record<string, unknown> | undefined) {
     return { content: typeof data?.content === 'string' ? data.content : '' };
 }
 
-function usePersonDetailData(personId: string) {
-    const [assignments, setAssignments] = useState<FaceAssignmentInfo[]>([]);
-    const [trees, setTrees] = useState<FamilyTreeInfo[]>([]);
-    const loadAssignments = useCallback(() => {
-        if (!globalRequest) {return;}
-        const confirmedRequest = globalRequest<{ assignments: FaceAssignmentInfo[] }>({
-            idPrefix: 'get_person_face_assignments',
-            command: 'get_person_face_assignments',
-            payload: { personId },
-            select: selectFaceAssignments
-        });
-        const candidateRequest = globalRequest<{ assignments: FaceAssignmentInfo[] }>({
-            idPrefix: 'get_person_face_candidates',
-            command: 'get_person_face_candidates',
-            payload: { personId },
-            select: selectFaceAssignments
-        });
-        void Promise.all([confirmedRequest, candidateRequest]).then(([confirmed, candidates]) => {
-            setAssignments([
-                ...(confirmed.assignments || []).filter(item => item.is_suggested === 0),
-                ...(candidates.assignments || []),
-            ]);
-        });
-    }, [personId]);
-    useEffect(() => {
-        loadAssignments();
-        if (!globalRequest) {return;}
-        void globalRequest<{ trees: FamilyTreeInfo[] }>({
-            idPrefix: 'get_family_trees',
-            command: 'get_family_trees',
-            payload: {},
-            select: selectFamilyTrees
-        }).then(result => setTrees(result.trees || []));
-    }, [loadAssignments]);
-    return { assignments, loadAssignments, trees };
-}
-
-function useFaceAssignmentActions(personId: string, reload: () => void) {
-    const run = async (command: string, payload: Record<string, unknown>) => {
-        if (!globalRequest) {return;}
-        await globalRequest({
-            idPrefix: command,
-            command,
-            payload,
-            select: (d) => d
-        });
-        reload();
-        globalThis.dispatchEvent(new CustomEvent('refresh-people-list'));
-    };
-    const confirm = (faceId: string) =>
-        run('confirm_face_person_candidate', { faceId, personId });
-    const reject = (faceId: string) =>
-        run('reject_face_person_candidate', { faceId, personId });
-    const unmatch = async (faceId: string) => {
-        if (!globalThis.confirm('Are you sure you want to isolate/unmatch this photo from this person?')) {return;}
-        await run('isolate_face', { faceId });
-    };
-    return { confirm, reject, unmatch };
-}
 
 function PersonDetailHeader(props: {
     readonly person: Person;
@@ -536,39 +435,6 @@ function PersonDetailHeader(props: {
     );
 }
 
-function AssignmentGrid(props: {
-    readonly assignments: FaceAssignmentInfo[];
-    readonly suggested: boolean;
-    readonly actions: ReturnType<typeof useFaceAssignmentActions>;
-}) {
-    if (props.assignments.length === 0) {
-        return <div className="p-6 bg-content/5 rounded-xl text-center text-sm text-content-secondary">No {props.suggested ? 'suggested matches' : 'confirmed photos'}.</div>;
-    }
-    return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {props.assignments.map(assignment => (
-                <div key={assignment.face_id} className="relative group rounded-lg overflow-hidden border border-content/10 bg-surface-secondary aspect-square">
-                    <img src={resolveImageUrl(assignment.preview_path || assignment.original_path) || undefined}
-                        alt={props.suggested ? 'Suggested person match' : 'Confirmed person match'} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
-                        {props.suggested ? (
-                            <><button onClick={() => { void props.actions.confirm(assignment.face_id); }}>Approve</button>
-                            <button onClick={() => { void props.actions.reject(assignment.face_id); }}>Reject</button></>
-                        ) : (
-                            <button onClick={() => { void props.actions.unmatch(assignment.face_id); }} title="Unmatch / Isolate Face"><Trash2 className="w-4 h-4" /></button>
-                        )}
-                    </div>
-                    {props.suggested && (
-                        <div className="absolute bottom-1 right-1 bg-black/60 px-1 text-[9px] text-white">
-                            Similarity {assignment.confidence.toFixed(2)}
-                        </div>
-                    )}
-                </div>
-            ))}
-        </div>
-    );
-}
-
 function PersonDetailModal({ person, onClose, onFilter, onRename }: PersonDetailModalProps) {
     const [showLinker, setShowLinker] = useState(false);
     const data = usePersonDetailData(person.id);
@@ -585,8 +451,8 @@ function PersonDetailModal({ person, onClose, onFilter, onRename }: PersonDetail
             <dialog className="w-full max-w-4xl rounded-xl border bg-surface p-6 text-content flex flex-col max-h-[90vh]" open>
                 <PersonDetailHeader person={person} trees={data.trees} onClose={onClose} onRename={onRename} onViewPhotos={viewPhotos} />
                 <div className="flex-1 overflow-y-auto space-y-6 pr-2">
-                    <section><h3>Confirmed Photos</h3><AssignmentGrid assignments={data.assignments.filter(item => item.is_suggested === 0)} suggested={false} actions={actions} /></section>
-                    <section><h3>Suggested Matches</h3><AssignmentGrid assignments={data.assignments.filter(item => item.is_suggested === 1)} suggested actions={actions} /></section>
+                    <section><h3>Confirmed Photos</h3><AssignmentGrid assignments={data.assignments.filter(item => item.is_suggested === 0)} personName={person.name || 'Unknown'} suggested={false} actions={actions} /></section>
+                    <IdentityReviewSection actions={actions} data={data} personName={person.name || 'Unknown'} />
                 </div>
                 <div className="mt-4 border-t border-content/10 pt-4 flex justify-between">
                     <button onClick={() => setShowLinker(true)}><Link2 className="w-3.5 h-3.5" /> Link to Family Tree</button>
@@ -594,7 +460,7 @@ function PersonDetailModal({ person, onClose, onFilter, onRename }: PersonDetail
                 </div>
             </dialog>
             {showLinker && <TreeLinkerDialog person={person} trees={data.trees} onClose={closeLinker}
-                onLinkComplete={() => { closeLinker(); data.loadAssignments(); }} />}
+                onLinkComplete={() => { closeLinker(); void data.loadAssignments(); }} />}
         </div>
     );
 }

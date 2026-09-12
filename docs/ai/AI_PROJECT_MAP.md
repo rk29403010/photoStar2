@@ -153,6 +153,8 @@ Human semantic attribution is durable identity, not a display string: Contributo
 
 Identity testimony normalization lives in `reviewResponseRepository.ts`. It preserves the original attributed response separately from any generated proposition/attestation: certainty responses add supporting testimony, rejection adds opposition, ambiguous choices retain candidate propositions, and unknown/recognise/abstain do not manufacture negative evidence. Decision chronology must be read from the explicit `supersedes_decision_id` chain, not inferred from second-resolution timestamps or UUID order.
 
+The People identity-review UI is split across `people/IdentityReviewControl.tsx`, `people/IdentityReviewSection.tsx`, `people/identityReviewChoices.ts` and `people/identityReviewData.ts`; keep `PeopleView.tsx` as composition rather than moving the workflow back into that large component. UI responses use `record_face_identity_review_response`, while definite acceptance/rejection still update the existing durable decision and manual face projection in the same transaction.
+
 ## Non-destructive photo editor
 
 - Start future tool work with [PHOTO_EDITOR_TOOL_GUIDE.md](./PHOTO_EDITOR_TOOL_GUIDE.md). It documents the required file shape, editor entry points, settings and canvas-interaction standards, automatic-suggestion rules, error containment, workflow feedback, and external-AI disclosure requirements.

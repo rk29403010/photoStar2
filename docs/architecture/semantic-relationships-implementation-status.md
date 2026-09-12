@@ -30,6 +30,7 @@ Always verify actual HEAD/Actions before continuing.
 - WP13a complete: local Contributor profiles support explicit selection; new attestations and decisions retain durable Contributor entity attribution while pre-WP13 null attribution remains readable.
 - WP13b complete: all specified identity review responses normalize into attributed responses, propositions and attestations without turning unknown/recognise/abstain into negative evidence.
 - WP13c complete: competing attributed testimony remains side-by-side; disputed/deferred/accepted decisions supersede append-only. Decision history ordering follows the supersession chain rather than second-resolution timestamps and random UUIDs. Canonical run `34696835803`.
+- WP13d implementation prepared: People candidate cards expose all WP13b response kinds with named ambiguous candidates; the command path records normalized attributed responses and preserves accepted/rejected projection behaviour. The review region declares inline loading/error/success/retry feedback and a local error boundary. Targeted WP12f/WP13a-d tests pass locally; canonical and runtime/manual acceptance remain outstanding.
 
 ## 3. Current package — WP13d
 
@@ -43,11 +44,10 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 
 ### Exact next action
 
-1. Inventory the existing People candidate-review UI, shared feedback adapters and error-boundary patterns.
-2. Define the smallest accessible wording/control model for every WP13b response kind.
-3. Wire that model to `recordIdentityReviewResponse` through a focused command boundary without removing existing candidate projection behaviour prematurely.
-4. Add loading, empty, error, success and retry states using the declared shared-feedback mode and a local error boundary.
-5. Add UI/command smoke evidence and run canonical QA before recording WP13d complete.
+1. Run canonical QA for the prepared WP13d vertical slice and inspect any exact failure before editing.
+2. Exercise the People candidate-review journey in a real runtime: keyboard-labelled certainty selection, every uncertainty choice, named ambiguous candidates, empty state, save success, induced load/save error and retry.
+3. Record runtime/manual evidence or any concrete blocker; do not mark WP13d complete from source-characterization tests alone.
+4. Once the WP13d gate is demonstrated, advance the handoff to WP13e durability and acceptance closeout.
 
 ## 4. Phase status
 
@@ -86,7 +86,8 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 | Weak candidates | WP12e persistence/policy + WP12f payload/UI characterization and candidate action tests | Final manual/visual acceptance WP16 |
 | Candidate confidence wording | WP12f source characterization proves raw cosine uses `Similarity 0.xx` and not `%` | Final visual acceptance WP16 |
 | Restart/rebuild preserves Person truth | WP10 reset + WP11 generation + WP12g rerun durability fixtures | Broader cross-domain matrix WP15 |
-| Contributor attribution/history | WP13a-c domain tests + canonical run `34696835803` | WP13d UI journey and WP13e durability |
+| Contributor attribution/history | WP13a-c domain tests + canonical run `34696835803` | WP13e durability |
+| Identity uncertainty review | WP13d command/UI characterization tests cover all response wording plus loading/error/success/retry structure | Canonical + real-runtime keyboard/visual/error-recovery acceptance |
 | Final visual/manual acceptance | Not recorded | WP16 |
 
 ## 7. Significant decisions

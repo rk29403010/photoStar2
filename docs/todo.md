@@ -1,5 +1,12 @@
 # TO DO List
 
+## 2026-09-12 - WP13d identity-review runtime acceptance
+
+- Complete the real-runtime keyboard and visual journey for every identity-review
+  response, including named ambiguous candidates, empty state, induced load/save
+  errors, and retry. Source, command, and UI characterization tests are present,
+  but the current local environment has no supported Chrome or Edge executable.
+
 ## 2026-07-25 - Plug-in compatibility layers
 
 - Registration adapters are removed and generated registries are checked by the
