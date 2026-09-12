@@ -106,6 +106,7 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **duplicate detection / grouping** | `src/services/handlers/collectionCommands.ts`, `src/services/handlers/groupDiagnosticsCommands.ts` | `src/ui/components/AlbumsView.tsx` | `tests/core/` |
 | **database / schema / migrations** | `src/data/dbSchema.ts`, `src/data/db.ts` | `src/services/events/` | `tests/core/` |
 | **semantic predicates / propositions** | `src/services/relationships/predicates/`, `src/services/relationships/semanticRepository.ts` | `src/data/dbMigrations.ts`, `src/data/semanticResetState.ts` | `tests/core/semantic-*.test.cjs` |
+| **contributors / testimony / review attribution** | `src/services/relationships/contributorRepository.ts`, `src/services/handlers/contributorCommands.ts` | `src/services/relationships/semanticRepository.ts`, `src/services/handlers/peopleCandidateCommands.ts` | `tests/core/wp13*.test.cjs` |
 | **background jobs / workflows** | `src/services/workflowRuntime/`, `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `src/data/dbSchema.ts` (workflow_runs) | `tests/core/` |
 | **AI / local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
 | **Segmentation providers** | `src/services/segmentation/`, `docs/architecture/segmentation-providers.md` | `tooling/scripts/core/export_fastsam_s_model.py` | `tests/core/fastsam-provider-contract.test.cjs` |
@@ -131,6 +132,7 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 | `jobs` | High-level status for long-running workflows | PK: `id` |
 | `people` | Durable Person catalog with lifecycle `provisional`, `confirmed`, `merged`, `retired`; machine rebuilds must not delete confirmed/manually touched identity | PK: `id` |
 | `person_redirects` | Permanent aliases created by Person merges so historical IDs/deep links resolve to the current Person | PK: `old_person_id`; FK/current target: `people.id` |
+| `contributors` | Durable local human profiles used to attribute testimony and review decisions; current profile selection is stored in settings, not auth state | PK/FK: `id` -> `semantic_entities.id` |
 | `identity_clusters` | Current rebuildable machine face clusters; never durable Person identity | PK: `id`; algorithm/version/threshold and centroid metadata |
 | `identity_cluster_members` | Stable Face membership of current machine clusters | PK: `cluster_id, face_id`; unique `face_id`; FKs to `identity_clusters.id`, `faces.id` |
 | `face_person_candidates` | Rebuildable weak Face→Person evidence with raw cosine, rank, runner-up/margin and model/generation provenance; explicit decisions stay separate | PK: `face_id, person_id`; FKs to stable `faces`, durable `people`, analysis generations |
@@ -146,6 +148,8 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 | `photo_edit_styles` | Named reusable edit stacks and normalized mask recipes | PK: `id`, Unique: `name` |
 
 For face identity, keep durable truth and rebuildable machine state separate: stable `Face` semantic decisions and Person lifecycle/redirects are durable; `IdentityCluster` and `face_person_candidates` are machine-rebuildable; `face_assignments` remains only a transitional projection for legacy consumers. Candidate review is sourced through `peopleCandidateCommands.ts`, and raw cosine must not be presented as calibrated probability.
+
+Human semantic attribution is durable identity, not a display string: Contributor-aware attestations store `source_actor_entity_id` and decisions store `decider_entity_id`. Pre-WP13 rows may legitimately have null actor IDs; new review/testimony paths should use `contributorRepository.ts` so later profile changes or contributor switching do not rewrite historical attribution.
 
 ## Non-destructive photo editor
 
