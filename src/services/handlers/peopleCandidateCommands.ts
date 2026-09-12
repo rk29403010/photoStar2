@@ -1,8 +1,11 @@
-import {
-    applyStableManualFaceDecisionProjection,
-    recordManualFacePersonDecisionByFaceId,
-} from '../faces/manualFaceSemanticRepository';
+import { applyStableManualFaceDecisionProjection } from '../faces/manualFaceSemanticRepository';
 import { markPersonConfirmed, resolveCurrentPersonId } from '../faces/personLifecycleRepository';
+import { getSemanticPredicateManifest } from '../relationships/predicates/registry';
+import {
+    ensureSemanticEntity,
+    putSemanticProposition,
+    recordSemanticDecision,
+} from '../relationships/semanticRepository';
 import type { CommandContext, CommandHandlerMap } from './types';
 
 type CandidateActionPayload = {
@@ -55,6 +58,41 @@ function loadReviewCandidates(ctx: CommandContext, requestedPersonId: string): C
     `).all(personId) as CandidateAssignment[];
 }
 
+function recordCandidateDecision(
+    ctx: CommandContext,
+    input: CandidateActionPayload,
+    personName: string | null,
+    status: 'accepted' | 'rejected',
+): void {
+    const db = ctx.dbManager.getDb();
+    const face = db.prepare('SELECT id FROM faces WHERE id = ?')
+        .get(input.faceId) as { id: string } | undefined;
+    if (!face) {
+        throw new Error(`Stable Face '${input.faceId}' does not exist.`);
+    }
+
+    const personEntityId = ensureSemanticEntity(db, {
+        kind: 'person',
+        nativeId: input.personId,
+        label: personName,
+    });
+    const predicate = getSemanticPredicateManifest('depicts');
+    const scopeKey = `${input.faceId}:depicts`;
+    const propositionId = putSemanticProposition(db, {
+        scopeKey,
+        subjectEntityId: input.faceId,
+        predicate: predicate.key,
+        object: { type: 'entity', entityId: personEntityId },
+    });
+    recordSemanticDecision(db, {
+        scopeKey,
+        status,
+        propositionId,
+        sourceKind: 'human',
+        sourceRef: `people.candidate.${status}`,
+    });
+}
+
 function updateCandidateDecision(
     ctx: CommandContext,
     input: CandidateActionPayload,
@@ -69,13 +107,7 @@ function updateCandidateDecision(
     }
 
     db.transaction(() => {
-        recordManualFacePersonDecisionByFaceId(db, {
-            faceId: input.faceId,
-            personId,
-            personName: person.name,
-            status,
-            sourceRef: `people.candidate.${status}`,
-        });
+        recordCandidateDecision(ctx, { faceId: input.faceId, personId }, person.name, status);
         if (status === 'accepted') {
             markPersonConfirmed(db, personId);
         }
