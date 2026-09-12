@@ -66,7 +66,7 @@ function preferredRepresentation(representations: readonly ArchiveRepresentation
         if (priority !== 0) {
             return priority;
         }
-        const assetOrder = left.currentAssetId.localeCompare(right.currentAssetId);
+        const assetOrder = (left.currentAssetId ?? '').localeCompare(right.currentAssetId ?? '');
         return assetOrder !== 0 ? assetOrder : left.id.localeCompare(right.id);
     })[0] ?? null;
 }
