@@ -8,6 +8,11 @@ import {
     resolveStableFaceById,
     updateSemanticPersonLabel,
 } from '../faces/manualFaceSemanticRepository';
+import {
+    markPersonConfirmed,
+    redirectMergedPerson,
+    resolveCurrentPersonId,
+} from '../faces/personLifecycleRepository';
 import type { CommandHandlerMap } from './types';
 
 type StableFaceActionPayload = {
@@ -35,10 +40,12 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         try {
             const db = dbManager.getDb();
             const { newName, personId } = payload as { newName: string; personId: string };
+            const currentPersonId = resolveCurrentPersonId(db, personId);
             db.transaction(() => {
-                acceptCurrentAssignmentsForPerson(db, personId, newName, 'people.rename');
-                updateSemanticPersonLabel(db, personId, newName);
-                db.prepare('UPDATE people SET name = ? WHERE id = ?').run(newName, personId);
+                acceptCurrentAssignmentsForPerson(db, currentPersonId, newName, 'people.rename');
+                updateSemanticPersonLabel(db, currentPersonId, newName);
+                db.prepare('UPDATE people SET name = ? WHERE id = ?').run(newName, currentPersonId);
+                markPersonConfirmed(db, currentPersonId);
             })();
             respond(id, 'ok', { message: 'Person renamed' }, null, originWs);
             eventBus.emit({ type: 'JobCompleted', jobId: 'rename', pipelineStage: 'analysis' });
@@ -55,16 +62,21 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             if (!personIds || personIds.length < 2) {throw new Error('Need at least 2 people to merge');}
 
             db.transaction(() => {
-                const canonicalId = personIds[0];
+                const canonicalId = resolveCurrentPersonId(db, personIds[0]);
+                const mergeIds = personIds.map((personId) => resolveCurrentPersonId(db, personId));
+                if (new Set(mergeIds).size < 2) {
+                    throw new Error('Need at least 2 current people to merge');
+                }
                 updateSemanticPersonLabel(db, canonicalId, targetName);
-                for (const personId of personIds) {
+                let reasonDecisionId: string | null = null;
+                for (const personId of mergeIds) {
                     const rows = db.prepare(`
                         SELECT asset_id, face_index
                         FROM face_assignments
                         WHERE person_id = ?
                     `).all(personId) as Array<{ asset_id: string; face_index: number }>;
                     for (const row of rows) {
-                        recordManualFacePersonDecision(db, {
+                        const decision = recordManualFacePersonDecision(db, {
                             assetId: row.asset_id,
                             faceIndex: row.face_index,
                             personId: canonicalId,
@@ -72,13 +84,18 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                             status: 'accepted',
                             sourceRef: 'people.merge',
                         });
+                        reasonDecisionId ??= decision.decisionId;
                     }
                 }
 
                 db.prepare('UPDATE people SET name = ? WHERE id = ?').run(targetName, canonicalId);
-                for (let i = 1; i < personIds.length; i += 1) {
-                    db.prepare('UPDATE face_assignments SET person_id = ? WHERE person_id = ?').run(canonicalId, personIds[i]);
-                    db.prepare('DELETE FROM people WHERE id = ?').run(personIds[i]);
+                markPersonConfirmed(db, canonicalId);
+                for (const personId of mergeIds) {
+                    if (personId === canonicalId) {
+                        continue;
+                    }
+                    db.prepare('UPDATE face_assignments SET person_id = ? WHERE person_id = ?').run(canonicalId, personId);
+                    redirectMergedPerson(db, personId, canonicalId, reasonDecisionId);
                 }
             })();
 
@@ -103,7 +120,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                     status: 'accepted',
                     sourceRef: 'people.isolate_face',
                 });
-                db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)')
+                db.prepare("INSERT INTO people (id, name, thumbnail_path, lifecycle_status) VALUES (?, ?, ?, 'confirmed')")
                     .run(newPersonId, 'Unknown Person', null);
                 db.prepare('UPDATE face_assignments SET person_id = ?, is_suggested = 0 WHERE asset_id = ? AND face_index = ?')
                     .run(newPersonId, target.assetId, target.faceIndex);
@@ -120,14 +137,15 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         try {
             const db = dbManager.getDb();
             const { assetId, personId } = payload as { assetId: string; personId: string };
+            const currentPersonId = resolveCurrentPersonId(db, personId);
             db.transaction(() => {
                 const faces = db.prepare('SELECT face_index FROM face_assignments WHERE asset_id = ? AND person_id = ?')
-                    .all(assetId, personId) as Array<{ face_index: number }>;
+                    .all(assetId, currentPersonId) as Array<{ face_index: number }>;
                 for (const face of faces) {
                     recordManualFacePersonDecision(db, {
                         assetId,
                         faceIndex: face.face_index,
-                        personId,
+                        personId: currentPersonId,
                         status: 'rejected',
                         sourceRef: 'people.isolate_person_asset',
                     });
@@ -140,7 +158,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                         status: 'accepted',
                         sourceRef: 'people.isolate_person_asset',
                     });
-                    db.prepare('INSERT INTO people (id, name, thumbnail_path) VALUES (?, ?, ?)')
+                    db.prepare("INSERT INTO people (id, name, thumbnail_path, lifecycle_status) VALUES (?, ?, ?, 'confirmed')")
                         .run(newPersonId, 'Unknown Person', null);
                     db.prepare('UPDATE face_assignments SET person_id = ?, is_suggested = 0 WHERE asset_id = ? AND face_index = ?')
                         .run(newPersonId, assetId, face.face_index);
@@ -171,6 +189,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                        )) as cover_image
                 FROM people p
                 LEFT JOIN face_assignments fa ON fa.person_id = p.id
+                WHERE p.lifecycle_status IN ('provisional', 'confirmed')
                 GROUP BY p.id
                 ORDER BY face_count DESC
             `).all() as { id: string; name: string; birth_date: string | null; death_date: string | null; face_count: number; rejected_count: number; cover_image: string | null }[];
@@ -205,7 +224,8 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         try {
             const { personId } = payload as { personId: string };
             const db = dbManager.getDb();
-            const semanticAssetIds = getRejectedAssetIdsForPerson(db, personId);
+            const currentPersonId = resolveCurrentPersonId(db, personId);
+            const semanticAssetIds = getRejectedAssetIdsForPerson(db, currentPersonId);
             const assets = semanticAssetIds.map((assetId) => db.prepare(`
                 SELECT a.id, a.original_path, a.width, a.height,
                        p.path as preview_path
@@ -225,6 +245,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         try {
             const { personId } = payload as { personId: string };
             const db = dbManager.getDb();
+            const currentPersonId = resolveCurrentPersonId(db, personId);
             const rows = db.prepare(`
                 SELECT fa.asset_id, fa.face_index, fa.confidence, fa.is_suggested,
                        a.original_path,
@@ -234,7 +255,7 @@ export const peopleCommandHandlers: CommandHandlerMap = {
                 LEFT JOIN previews p ON p.asset_id = a.id AND p.size = 'thumbnail'
                 WHERE fa.person_id = ?
                 ORDER BY fa.confidence DESC
-            `).all(personId) as Array<{
+            `).all(currentPersonId) as Array<{
                 asset_id: string;
                 confidence: number;
                 is_suggested: number;
@@ -279,13 +300,15 @@ export const peopleCommandHandlers: CommandHandlerMap = {
             if (!assignment) {
                 throw new Error('Face assignment no longer exists.');
             }
+            const currentPersonId = resolveCurrentPersonId(db, assignment.person_id);
             recordManualFacePersonDecisionByFaceId(db, {
                 faceId: target.faceId,
-                personId: assignment.person_id,
+                personId: currentPersonId,
                 personName: assignment.name,
                 status: 'accepted',
                 sourceRef: 'people.confirm',
             });
+            markPersonConfirmed(db, currentPersonId);
             db.prepare(`
                 UPDATE face_assignments SET is_suggested = 0
                 WHERE asset_id = ? AND face_index = ?
@@ -301,13 +324,14 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         try {
             const { personId } = payload as { personId: string };
             const db = dbManager.getDb();
+            const currentPersonId = resolveCurrentPersonId(db, personId);
             const target = resolveFaceActionTarget(db, payload as StableFaceActionPayload);
             db.transaction(() => {
                 const person = db.prepare('SELECT name FROM people WHERE id = ?')
-                    .get(personId) as { name: string } | undefined;
+                    .get(currentPersonId) as { name: string } | undefined;
                 recordManualFacePersonDecisionByFaceId(db, {
                     faceId: target.faceId,
-                    personId,
+                    personId: currentPersonId,
                     personName: person?.name ?? null,
                     status: 'rejected',
                     sourceRef: 'people.reject',
