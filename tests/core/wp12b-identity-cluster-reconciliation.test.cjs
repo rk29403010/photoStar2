@@ -63,7 +63,7 @@ test('WP12b reconciliation is independent of previous/proposed array order', asy
     const previous = [cluster('old-a', ['a', 'b']), cluster('old-b', ['c', 'd', 'e'])];
     const proposed = [cluster('fresh-a', ['a', 'b', 'x']), cluster('fresh-b', ['c', 'd', 'e'])];
     const forward = byFaces(reconcileIdentityClusterIds(previous, proposed));
-    const reversed = byFaces(reconcileIdentityClusterIds([...previous].reverse(), [...proposed].reverse()));
+    const reversed = byFaces(reconcileIdentityClusterIds(previous.toReversed(), proposed.toReversed()));
     assert.deepEqual([...forward.entries()].sort(), [...reversed.entries()].sort());
 });
 
