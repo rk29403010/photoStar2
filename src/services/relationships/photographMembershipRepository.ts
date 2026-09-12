@@ -82,15 +82,15 @@ function assetResolutionFromRepresentations(
     source: Extract<PhotographMembershipSource, 'direct_representation' | 'exact_copy'>,
 ): PhotographMembershipResolution {
     const candidateIds = uniqueSorted(representations.map((representation) => representation.subjectEntityId));
-    const resolved = candidateIds.length === 1;
-    const preferred = resolved
-        ? preferredRepresentation(representations.filter((representation) => representation.subjectEntityId === candidateIds[0]))
+    const resolvedPhotographId = candidateIds.length === 1 ? candidateIds[0]! : null;
+    const preferred = resolvedPhotographId
+        ? preferredRepresentation(representations.filter((representation) => representation.subjectEntityId === resolvedPhotographId))
         : null;
     return {
         memberKind: 'asset',
         memberId: assetId,
-        status: resolved ? 'resolved' : 'disputed',
-        photographEntityId: resolved ? candidateIds[0]! : null,
+        status: resolvedPhotographId ? 'resolved' : 'disputed',
+        photographEntityId: resolvedPhotographId,
         candidatePhotographEntityIds: candidateIds,
         source,
         sourceRepresentationId: preferred?.id ?? null,
@@ -208,6 +208,16 @@ function photographCandidateFromProposition(
     return proposition.object_entity_id;
 }
 
+function regionMembershipStatus(
+    acceptedPhotograph: string | null,
+    semanticStatus: ReturnType<typeof resolveSemanticScope>['status'],
+): PhotographMembershipStatus {
+    if (acceptedPhotograph) {
+        return 'resolved';
+    }
+    return semanticStatus === 'disputed' ? 'disputed' : 'unresolved';
+}
+
 /**
  * Authoritative current VisualRegion -> Photograph resolution.
  *
@@ -233,9 +243,7 @@ export function resolveVisualRegionPhotographMembership(
     return {
         memberKind: 'visual_region',
         memberId: visualRegionId,
-        status: acceptedPhotograph
-            ? 'resolved'
-            : semanticResolution.status === 'disputed' ? 'disputed' : 'unresolved',
+        status: regionMembershipStatus(acceptedPhotograph, semanticResolution.status),
         photographEntityId: acceptedPhotograph,
         candidatePhotographEntityIds: candidates,
         source: acceptedPhotograph ? 'semantic_decision' : 'none',
