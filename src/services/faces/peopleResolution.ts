@@ -6,7 +6,8 @@ import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
 import { cosineSimilarity } from '../math-utils';
 import { iterateActiveFeatureVectors } from '../machineAnalysis/featureVectorRetrieval';
-import { replaceIdentityClusters } from './identityClusterRepository';
+import { loadIdentityClusters, replaceIdentityClusters } from './identityClusterRepository';
+import { reconcileIdentityClusterIds } from './identityClusterReconciliation';
 import { applyStableManualFaceDecisionProjection, resolveStableFaceById } from './manualFaceSemanticRepository';
 import {
     normalizeStoredPhotoBox,
@@ -95,6 +96,25 @@ function buildClusters(allFaces: FaceRef[], threshold: number): Cluster[] {
         }
     }
     return activeClusters;
+}
+
+function reconcileClusterIds(
+    db: ReturnType<DatabaseManager['getDb']>,
+    allFaces: FaceRef[],
+    clusters: Cluster[],
+): void {
+    const previous = loadIdentityClusters(db).map((cluster) => ({
+        id: cluster.id,
+        faceIds: cluster.faceIds,
+    }));
+    const proposed = clusters.map((cluster) => ({
+        id: cluster.id,
+        faceIds: cluster.faces.map((faceIndex) => allFaces[faceIndex].faceId),
+    }));
+    const reconciled = reconcileIdentityClusterIds(previous, proposed);
+    for (let index = 0; index < clusters.length; index += 1) {
+        clusters[index].id = reconciled[index].id;
+    }
 }
 
 function assignCompatibilityPersonIds(
@@ -295,6 +315,7 @@ export async function resolvePeopleAssignments(params: {
     const parsedThreshold = thresholdSetting ? Number.parseFloat(thresholdSetting) : 0.6;
     const threshold = Number.isFinite(parsedThreshold) ? parsedThreshold : 0.6;
     const clusters = buildClusters(faces, threshold);
+    reconcileClusterIds(db, faces, clusters);
     assignCompatibilityPersonIds(db, faces, clusters);
     persistIdentityClusterOutput(db, clusters, faces, threshold);
     persistCompatibilityPeopleProjection(db, clusters, faces, params.eventSink);

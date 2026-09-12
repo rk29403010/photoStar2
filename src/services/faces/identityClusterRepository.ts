@@ -13,6 +13,12 @@ export type IdentityClusterInput = {
     members: IdentityClusterMemberInput[];
 };
 
+export type StoredIdentityCluster = {
+    id: string;
+    centroid: number[];
+    faceIds: string[];
+};
+
 export type ReplaceIdentityClustersInput = {
     algorithmKey: string;
     algorithmVersion: string;
@@ -30,6 +36,32 @@ function assertConfidence(confidence: number): void {
     if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
         throw new Error('IdentityCluster member confidence must be between 0 and 1.');
     }
+}
+
+export function loadIdentityClusters(db: DbHandle): StoredIdentityCluster[] {
+    const rows = db.prepare(`
+        SELECT c.id, c.centroid_json, m.face_id
+        FROM identity_clusters c
+        LEFT JOIN identity_cluster_members m ON m.cluster_id = c.id
+        ORDER BY c.id ASC, m.face_id ASC
+    `).all() as Array<{ id: string; centroid_json: string; face_id: string | null }>;
+    const byId = new Map<string, StoredIdentityCluster>();
+
+    for (const row of rows) {
+        let cluster = byId.get(row.id);
+        if (!cluster) {
+            cluster = {
+                id: row.id,
+                centroid: JSON.parse(row.centroid_json) as number[],
+                faceIds: [],
+            };
+            byId.set(row.id, cluster);
+        }
+        if (row.face_id) {
+            cluster.faceIds.push(row.face_id);
+        }
+    }
+    return [...byId.values()];
 }
 
 /**
