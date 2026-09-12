@@ -2,6 +2,7 @@ import { executeCommandRoute } from './handlers/router';
 import type { CommandContext } from './handlers/types';
 import { assetCommandHandlers } from './handlers/assetCommands';
 import { collectionCommandHandlers } from './handlers/collectionCommands';
+import { contributorCommandHandlers } from './handlers/contributorCommands';
 import { groupDiagnosticsCommandHandlers } from './handlers/groupDiagnosticsCommands';
 import { peopleCandidateCommandHandlers } from './handlers/peopleCandidateCommands';
 import { peopleCommandHandlers } from './handlers/peopleCommands';
@@ -19,6 +20,7 @@ const COMMAND_ROUTES = [
     systemCommandHandlers,
     systemWorkflowRuntimeCommandHandlers,
     systemEventLogCommandHandlers,
+    contributorCommandHandlers,
     peopleCandidateCommandHandlers,
     peopleCommandHandlers,
     relationshipCollectionCommandHandlers,
