@@ -10,6 +10,7 @@ import type {
     SemanticObjectRef,
     SemanticResolution,
     SemanticSourceKind,
+    SemanticSubjectiveCertainty,
 } from './semanticTypes';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
@@ -50,6 +51,8 @@ export type AddSemanticAttestationInput = {
     sourceIdentity?: string | null;
     sourceRef?: string | null;
     confidence?: number | null;
+    subjectiveCertainty?: SemanticSubjectiveCertainty | null;
+    rawWording?: string | null;
     rationale?: string | null;
     supersedesAttestationId?: string | null;
     evidence?: SemanticEvidenceRef[];
@@ -199,9 +202,9 @@ function insertAttestationRow(
     db.prepare(`
         INSERT INTO semantic_attestations (
             id, proposition_id, stance, source_kind, source_identity, source_ref,
-            confidence, rationale, supersedes_attestation_id
+            confidence, subjective_certainty, raw_wording, rationale, supersedes_attestation_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         attestationId,
         input.propositionId,
@@ -210,6 +213,8 @@ function insertAttestationRow(
         sourceIdentity,
         input.sourceRef ?? null,
         input.confidence ?? null,
+        input.subjectiveCertainty ?? null,
+        input.rawWording ?? null,
         input.rationale ?? null,
         supersedesAttestationId,
     );
