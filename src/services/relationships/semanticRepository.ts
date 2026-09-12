@@ -10,6 +10,7 @@ import type {
     SemanticObjectRef,
     SemanticResolution,
     SemanticSourceKind,
+    SemanticSubjectiveCertainty,
 } from './semanticTypes';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
@@ -50,6 +51,8 @@ export type AddSemanticAttestationInput = {
     sourceIdentity?: string | null;
     sourceRef?: string | null;
     confidence?: number | null;
+    subjectiveCertainty?: SemanticSubjectiveCertainty | null;
+    rawWording?: string | null;
     rationale?: string | null;
     supersedesAttestationId?: string | null;
     evidence?: SemanticEvidenceRef[];
@@ -62,6 +65,20 @@ export type RecordSemanticDecisionInput = {
     sourceKind: SemanticSourceKind;
     sourceRef?: string | null;
     rationale?: string | null;
+};
+
+export type SemanticDecisionHistoryEntry = {
+    id: string;
+    scopeKey: string;
+    status: SemanticDecisionStatus;
+    propositionId: string | null;
+    sourceKind: SemanticSourceKind;
+    sourceRef: string | null;
+    rationale: string | null;
+    supersedesDecisionId: string | null;
+    deciderEntityId: string | null;
+    isCurrent: boolean;
+    createdAt: string;
 };
 
 function stableSerialize(value: JsonValue): string {
@@ -199,9 +216,9 @@ function insertAttestationRow(
     db.prepare(`
         INSERT INTO semantic_attestations (
             id, proposition_id, stance, source_kind, source_identity, source_ref,
-            confidence, rationale, supersedes_attestation_id
+            confidence, subjective_certainty, raw_wording, rationale, supersedes_attestation_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         attestationId,
         input.propositionId,
@@ -210,6 +227,8 @@ function insertAttestationRow(
         sourceIdentity,
         input.sourceRef ?? null,
         input.confidence ?? null,
+        input.subjectiveCertainty ?? null,
+        input.rawWording ?? null,
         input.rationale ?? null,
         supersedesAttestationId,
     );
@@ -378,6 +397,54 @@ export function recordSemanticDecision(db: DbHandle, input: RecordSemanticDecisi
         );
     })();
     return decisionId;
+}
+
+export function listSemanticDecisionHistory(db: DbHandle, scopeKey: string): SemanticDecisionHistoryEntry[] {
+    const rows = db.prepare(`
+        WITH RECURSIVE ordered_decisions AS (
+            SELECT *, 0 AS history_index
+            FROM semantic_decisions
+            WHERE scope_key = ? AND supersedes_decision_id IS NULL
+
+            UNION ALL
+
+            SELECT successor.*, predecessor.history_index + 1
+            FROM semantic_decisions successor
+            JOIN ordered_decisions predecessor
+              ON successor.supersedes_decision_id = predecessor.id
+            WHERE successor.scope_key = ?
+        )
+        SELECT
+            id, scope_key, status, proposition_id, source_kind, source_ref,
+            rationale, supersedes_decision_id, decider_entity_id, is_current, created_at
+        FROM ordered_decisions
+        ORDER BY history_index ASC, created_at ASC, id ASC
+    `).all(scopeKey, scopeKey) as Array<{
+        id: string;
+        scope_key: string;
+        status: SemanticDecisionStatus;
+        proposition_id: string | null;
+        source_kind: SemanticSourceKind;
+        source_ref: string | null;
+        rationale: string | null;
+        supersedes_decision_id: string | null;
+        decider_entity_id: string | null;
+        is_current: number;
+        created_at: string;
+    }>;
+    return rows.map((row) => ({
+        id: row.id,
+        scopeKey: row.scope_key,
+        status: row.status,
+        propositionId: row.proposition_id,
+        sourceKind: row.source_kind,
+        sourceRef: row.source_ref,
+        rationale: row.rationale,
+        supersedesDecisionId: row.supersedes_decision_id,
+        deciderEntityId: row.decider_entity_id,
+        isCurrent: row.is_current === 1,
+        createdAt: row.created_at,
+    }));
 }
 
 export function resolveSemanticScope(db: DbHandle, scopeKey: string): SemanticResolution {

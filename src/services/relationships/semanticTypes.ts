@@ -32,7 +32,8 @@ export type SemanticObjectRef =
 
 export type SemanticSourceKind = 'human' | 'machine' | 'import' | 'system';
 export type SemanticAttestationStance = 'support' | 'oppose';
-export type SemanticDecisionStatus = 'accepted' | 'rejected' | 'disputed' | 'unresolved';
+export type SemanticSubjectiveCertainty = 'definite' | 'tentative' | 'possible';
+export type SemanticDecisionStatus = 'accepted' | 'rejected' | 'disputed' | 'unresolved' | 'deferred';
 export type SemanticResolutionStatus = SemanticDecisionStatus | 'proposed';
 
 export type SemanticEvidenceRef = {

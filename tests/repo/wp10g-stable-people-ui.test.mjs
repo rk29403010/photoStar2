@@ -2,15 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const peopleView = readFileSync('src/ui/components/PeopleView.tsx', 'utf8');
+const identityReviewData = readFileSync('src/ui/components/people/identityReviewData.ts', 'utf8');
+const candidateHandlers = readFileSync('src/services/handlers/peopleCandidateCommands.ts', 'utf8');
 const runtimeActions = readFileSync('src/boundary/runtime/usePhotoLibrary.actions.ts', 'utf8');
 
-test('WP10g People UI actions retain stable faceId payloads after WP12f candidate cutover', () => {
-    assert.match(peopleView, /face_id:\s*string/);
-    assert.match(peopleView, /run\('confirm_face_person_candidate', \{ faceId, personId \}\)/);
-    assert.match(peopleView, /run\('reject_face_person_candidate', \{ faceId, personId \}\)/);
-    assert.match(peopleView, /run\('isolate_face', \{ faceId \}\)/);
-    assert.doesNotMatch(peopleView, /face_index:\s*number/);
+test('WP10g People UI actions retain stable faceId payloads after WP13d review cutover', () => {
+    assert.match(identityReviewData, /face_id:\s*string/);
+    assert.match(identityReviewData, /run\('record_face_identity_review_response'/);
+    assert.match(identityReviewData, /run\('isolate_face', \{ faceId \}\)/);
+    assert.match(candidateHandlers, /input\.kind === 'definite_identification' \? 'accepted' : 'rejected'/);
+    assert.doesNotMatch(identityReviewData, /face_index:\s*number/);
 });
 
 test('WP10g runtime isolate action exposes stable faceId', () => {
