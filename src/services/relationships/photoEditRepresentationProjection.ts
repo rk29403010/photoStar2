@@ -1,68 +1,78 @@
-import type Database from 'better-sqlite3';
+import type { DatabaseManager } from '../../data/db';
 import {
     ensureArchiveRepresentation,
-    getArchiveRepresentationsForAsset,
-    type ArchiveRepresentation,
     type ArchiveRepresentationKind,
 } from './archiveRepresentationRepository';
+import { resolveAssetPhotographMembership } from './photographMembershipRepository';
+import { ensureSemanticEntity } from './semanticRepository';
 
-const SOURCE_KIND_PRIORITY: Record<ArchiveRepresentationKind, number> = {
-    derived_edit: 0,
-    crop: 1,
-    scan: 2,
-    original: 3,
-    extracted_frame: 4,
-    reference: 5,
-};
+type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
-type ProjectPhotoEditRepresentationsInput = {
+export type PhotoEditPhotographIntent =
+    | 'restoration'
+    | 'crop'
+    | 'ordinary_edit'
+    | 'authored_composite';
+
+export type ProjectPhotoEditRepresentationsInput = {
     sourceAssetId: string;
     renderedAssetId: string;
     editId: string;
+    photographIntent?: PhotoEditPhotographIntent;
 };
 
-function sourceKey(representation: ArchiveRepresentation): string {
-    return `${representation.subjectEntityId}\n${representation.facet ?? ''}`;
+function representationKindForIntent(intent: PhotoEditPhotographIntent): ArchiveRepresentationKind {
+    return intent === 'crop' ? 'crop' : 'derived_edit';
 }
 
-function choosePhotographSources(representations: readonly ArchiveRepresentation[]): ArchiveRepresentation[] {
-    const selected = new Map<string, ArchiveRepresentation>();
-    const ordered = [...representations]
-        .filter((representation) => representation.subjectKind === 'photograph')
-        .sort((left, right) => {
-            const kindDifference = SOURCE_KIND_PRIORITY[left.representationKind]
-                - SOURCE_KIND_PRIORITY[right.representationKind];
-            return kindDifference || left.id.localeCompare(right.id);
-        });
-    for (const representation of ordered) {
-        const key = sourceKey(representation);
-        if (!selected.has(key)) {
-            selected.set(key, representation);
-        }
-    }
-    return [...selected.values()].sort((left, right) => sourceKey(left).localeCompare(sourceKey(right)));
+function projectAuthoredComposite(
+    db: DbHandle,
+    input: ProjectPhotoEditRepresentationsInput,
+    sourceRepresentationId: string | null,
+): void {
+    const photographEntityId = ensureSemanticEntity(db, {
+        kind: 'photograph',
+        nativeId: `photo-edit-composite:${input.editId}`,
+    });
+    ensureArchiveRepresentation(db, {
+        assetId: input.renderedAssetId,
+        subjectEntityId: photographEntityId,
+        representationKind: 'derived_edit',
+        sourceKind: 'system',
+        sourceRef: `photo-edit:${input.editId}`,
+        derivedFromRepresentationId: sourceRepresentationId,
+    });
 }
 
 /**
- * Projects editor ancestry into archive semantics without changing editor truth.
- * A rendered edit represents the same logical Photograph as its source, but it
- * does not inherit an Artefact link because a digital restoration is not the
- * physical print, negative, album page, etc. that was scanned.
+ * Project editor lineage into Photograph representation semantics.
+ *
+ * `photo_edit_documents` remains authoritative for recipes and branch lineage.
+ * This projection only answers historical Photograph membership: restoration,
+ * crop and ordinary edits inherit a uniquely resolved source Photograph, while
+ * an explicitly authored composite starts a stable new Photograph identity.
  */
 export function projectPhotoEditRepresentations(
-    db: Database.Database,
+    db: DbHandle,
     input: ProjectPhotoEditRepresentationsInput,
-): string[] {
-    const sourceRepresentations = choosePhotographSources(
-        getArchiveRepresentationsForAsset(db, input.sourceAssetId),
-    );
-    return sourceRepresentations.map((source) => ensureArchiveRepresentation(db, {
+): void {
+    const membership = resolveAssetPhotographMembership(db, input.sourceAssetId);
+    const intent = input.photographIntent ?? 'ordinary_edit';
+
+    if (intent === 'authored_composite') {
+        projectAuthoredComposite(db, input, membership.sourceRepresentationId);
+        return;
+    }
+    if (membership.status !== 'resolved' || !membership.photographEntityId) {
+        return;
+    }
+
+    ensureArchiveRepresentation(db, {
         assetId: input.renderedAssetId,
-        subjectEntityId: source.subjectEntityId,
-        representationKind: 'derived_edit',
-        facet: source.facet,
+        subjectEntityId: membership.photographEntityId,
+        representationKind: representationKindForIntent(intent),
         sourceKind: 'system',
         sourceRef: `photo-edit:${input.editId}`,
-        derivedFromRepresentationId: source.id,
-    }).id);
+        derivedFromRepresentationId: membership.sourceRepresentationId,
+    });
 }
