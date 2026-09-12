@@ -129,7 +129,7 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 | `step_runs` | Individual step/module execution tracking | PK: `id`, FK: `workflow_run_id` |
 | `subject_executions` | Tracking an individual subject through a step | PK: `id`, FK: `workflow_run_id`, `step_run_id` |
 | `jobs` | High-level status for long-running workflows | PK: `id` |
-| `people` | Durable Person catalog with lifecycle `provisional|confirmed|merged|retired`; machine rebuilds must not delete confirmed/manually touched identity | PK: `id` |
+| `people` | Durable Person catalog with lifecycle `provisional`, `confirmed`, `merged`, `retired`; machine rebuilds must not delete confirmed/manually touched identity | PK: `id` |
 | `person_redirects` | Permanent aliases created by Person merges so historical IDs/deep links resolve to the current Person | PK: `old_person_id`; FK/current target: `people.id` |
 | `identity_clusters` | Current rebuildable machine face clusters; never durable Person identity | PK: `id`; algorithm/version/threshold and centroid metadata |
 | `identity_cluster_members` | Stable Face membership of current machine clusters | PK: `cluster_id, face_id`; unique `face_id`; FKs to `identity_clusters.id`, `faces.id` |
