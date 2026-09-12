@@ -1,6 +1,6 @@
 # AI Project Map
 
-Last updated: 2026-07-21
+Last updated: 2026-09-12
 
 ## Product summary
 
@@ -114,7 +114,7 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 
 ## Core domain entities & Data Model
 
-The application state is persisted in SQLite (`src/data/dbSchema.ts`).
+The application state is persisted in SQLite (`src/data/dbSchema.ts` plus numbered forward migrations registered by `src/data/db.ts`).
 
 | Table | Purpose | Keys / Links |
 | --- | --- | --- |
@@ -129,8 +129,10 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts`).
 | `step_runs` | Individual step/module execution tracking | PK: `id`, FK: `workflow_run_id` |
 | `subject_executions` | Tracking an individual subject through a step | PK: `id`, FK: `workflow_run_id`, `step_run_id` |
 | `jobs` | High-level status for long-running workflows | PK: `id` |
-| `people` | Recognized people catalog | PK: `id` |
-| `face_assignments` | Linking a detected face in an asset to a person | PK: `asset_id, face_index` -> `assets.id`, `people.id` |
+| `people` | Durable/compatibility people catalog; explicit lifecycle refinement continues in WP12 | PK: `id` |
+| `identity_clusters` | Current rebuildable machine face clusters | PK: `id`; algorithm/version/threshold and centroid metadata |
+| `identity_cluster_members` | Stable Face membership of current machine clusters | PK: `cluster_id, face_id`; unique `face_id`; FKs to `identity_clusters.id`, `faces.id` |
+| `face_assignments` | Transitional compatibility projection from detected face position to a Person | PK: `asset_id, face_index` -> `assets.id`, `people.id` |
 | `tag_definitions` | System vocabulary of tags | PK: `id`, Unique: `canonical_label` |
 | `asset_tag_assignments` | Assignment of tags to assets | PK: `asset_id, tag_definition_id, source_kind` |
 | `asset_groups` | Grouping definitions (e.g. albums, duplicates) | PK: `id`, FK: `canonical_asset_id` |
@@ -207,7 +209,7 @@ settings in `WorkflowDetailPanel.tsx`.
 - `generatePreviewsModule`: Downscales assets using Sharp to standard dimensions.
 - `detectFacesModule`: Locates faces using models (e.g., MediaPipe/TFJS).
 - `generateFaceVectorsModule`: Computes facial embeddings for detected faces.
-- `resolvePeopleModule`: Groups face vectors to existing or new `people` entities.
+- `resolvePeopleModule`: Builds/rebuilds machine `IdentityCluster` output from stable Face-owned vectors, reconciles clear cluster continuations across reruns, and maintains the transitional People compatibility projection.
 - `groupSimilarPhotosModule`: Computes and compares image hashes/features to detect duplicates.
 - `detectSensitiveContentModule`: Evaluates assets against NSFW classifiers.
 - `estimatePhotoDateModule`: Combines EXIF, file dates, and AI analysis to find best-guess photo dates.
@@ -221,10 +223,10 @@ settings in `WorkflowDetailPanel.tsx`.
 - **UI visual hierarchy:** Avoid rectangles within rectangles. When a framed container contains only another framed container, remove the redundant boundary and use spacing, typography, dividers, or a single state accent for grouping. Keep frames where they communicate an interaction, editable field, selection, or genuinely distinct region.
 - **Workflow Runtime:** Use the `workflow_runs` orchestration model; do not revert to legacy `task_queue` structures.
 - **UI Non-blocking:** Do not block the main/UI thread during long-running data analysis.
-- **Data integrity:** Schema changes in `src/data/dbSchema.ts` require inline SQL migrations in `MIGRATIONS` array and respective TS type updates.
+- **Data integrity:** Use append-only forward migrations and the numbered migration ledger for schema evolution; do not rewrite checksummed applied migration history.
 - **Idempotency:** Background runs (especially imports and metadata scans) should ideally be idempotent and resumable on interruption.
 
 ## Areas needing verification
 
-- If exploring new deployment environments (e.g., mobile), verify transport layer boundaries.
-- The precise bounds of "albums" vs "asset_groups" (duplicates vs intentional collections).
+- If exploring new deployment environments (e.g. mobile), verify transport layer boundaries.
+- The precise bounds of albums versus semantic/presentation relationships as legacy grouping terminology is fully retired.
