@@ -67,6 +67,20 @@ export type RecordSemanticDecisionInput = {
     rationale?: string | null;
 };
 
+export type SemanticDecisionHistoryEntry = {
+    id: string;
+    scopeKey: string;
+    status: SemanticDecisionStatus;
+    propositionId: string | null;
+    sourceKind: SemanticSourceKind;
+    sourceRef: string | null;
+    rationale: string | null;
+    supersedesDecisionId: string | null;
+    deciderEntityId: string | null;
+    isCurrent: boolean;
+    createdAt: string;
+};
+
 function stableSerialize(value: JsonValue): string {
     if (value === null || typeof value === 'string' || typeof value === 'boolean') {
         return JSON.stringify(value);
@@ -383,6 +397,42 @@ export function recordSemanticDecision(db: DbHandle, input: RecordSemanticDecisi
         );
     })();
     return decisionId;
+}
+
+export function listSemanticDecisionHistory(db: DbHandle, scopeKey: string): SemanticDecisionHistoryEntry[] {
+    const rows = db.prepare(`
+        SELECT
+            id, scope_key, status, proposition_id, source_kind, source_ref,
+            rationale, supersedes_decision_id, decider_entity_id, is_current, created_at
+        FROM semantic_decisions
+        WHERE scope_key = ?
+        ORDER BY created_at ASC, id ASC
+    `).all(scopeKey) as Array<{
+        id: string;
+        scope_key: string;
+        status: SemanticDecisionStatus;
+        proposition_id: string | null;
+        source_kind: SemanticSourceKind;
+        source_ref: string | null;
+        rationale: string | null;
+        supersedes_decision_id: string | null;
+        decider_entity_id: string | null;
+        is_current: number;
+        created_at: string;
+    }>;
+    return rows.map((row) => ({
+        id: row.id,
+        scopeKey: row.scope_key,
+        status: row.status,
+        propositionId: row.proposition_id,
+        sourceKind: row.source_kind,
+        sourceRef: row.source_ref,
+        rationale: row.rationale,
+        supersedesDecisionId: row.supersedes_decision_id,
+        deciderEntityId: row.decider_entity_id,
+        isCurrent: row.is_current === 1,
+        createdAt: row.created_at,
+    }));
 }
 
 export function resolveSemanticScope(db: DbHandle, scopeKey: string): SemanticResolution {

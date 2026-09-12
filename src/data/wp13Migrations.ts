@@ -70,4 +70,52 @@ export const WP13_MIGRATIONS: readonly NumberedMigration[] = [
                 ON review_response_propositions(proposition_id, response_id);
         `,
     },
+    {
+        id: '20260912_006_deferred_semantic_decisions',
+        sql: `
+            CREATE TABLE semantic_decisions_v2 (
+                id TEXT PRIMARY KEY,
+                scope_key TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (
+                    status IN ('accepted', 'rejected', 'disputed', 'unresolved', 'deferred')
+                ),
+                proposition_id TEXT,
+                source_kind TEXT NOT NULL,
+                source_ref TEXT,
+                rationale TEXT,
+                supersedes_decision_id TEXT,
+                is_current INTEGER NOT NULL DEFAULT 1 CHECK (is_current IN (0, 1)),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                decider_entity_id TEXT,
+                FOREIGN KEY(proposition_id) REFERENCES semantic_propositions(id),
+                FOREIGN KEY(supersedes_decision_id) REFERENCES semantic_decisions_v2(id),
+                FOREIGN KEY(decider_entity_id) REFERENCES semantic_entities(id),
+                CHECK (
+                    (status IN ('accepted', 'rejected') AND proposition_id IS NOT NULL)
+                    OR
+                    (status IN ('disputed', 'unresolved', 'deferred') AND proposition_id IS NULL)
+                )
+            );
+
+            INSERT INTO semantic_decisions_v2 (
+                id, scope_key, status, proposition_id, source_kind, source_ref,
+                rationale, supersedes_decision_id, is_current, created_at, decider_entity_id
+            )
+            SELECT
+                id, scope_key, status, proposition_id, source_kind, source_ref,
+                rationale, supersedes_decision_id, is_current, created_at, decider_entity_id
+            FROM semantic_decisions;
+
+            DROP TABLE semantic_decisions;
+            ALTER TABLE semantic_decisions_v2 RENAME TO semantic_decisions;
+
+            CREATE UNIQUE INDEX idx_semantic_decisions_current_scope
+                ON semantic_decisions(scope_key)
+                WHERE is_current = 1;
+            CREATE INDEX idx_semantic_decisions_scope_history
+                ON semantic_decisions(scope_key, created_at, id);
+            CREATE INDEX idx_semantic_decisions_decider
+                ON semantic_decisions(decider_entity_id, created_at, id);
+        `,
+    },
 ];
