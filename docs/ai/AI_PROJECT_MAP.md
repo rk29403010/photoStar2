@@ -102,10 +102,11 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **gallery / browser** | `src/ui/components/LibraryView.tsx`, `src/ui/components/SinglePhotoView.tsx` | `src/services/handlers/assetCommands.ts` | `tests/ui/` |
 | **thumbnails / previews** | `src/services/handlers/assetCommands.ts`, `src/services/workflowRuntime/` | `src/data/dbSchema.ts` (previews table) | `tests/core/` |
 | **photo editing / restoration / masks** | `src/services/handlers/photoEditCommands.ts`, `src/services/photoEditing/editRenderer.ts` | `src/ui/components/photo-editor/`, `src/data/dbSchema.ts` | `tests/core/photo-edit-*.test.cjs`, `tests/repo/photo-editor-wiring.test.mjs` |
-| **face detection / recognition** | `src/services/faces/`, `src/services/handlers/peopleCommands.ts` | `src/ui/components/PeopleView.tsx` | `tests/core/` |
+| **face detection / recognition / People** | `src/services/faces/`, `src/services/handlers/peopleCommands.ts`, `src/services/handlers/peopleCandidateCommands.ts` | `src/ui/components/PeopleView.tsx` | `tests/core/wp10*.test.cjs`, `tests/core/wp12*.test.cjs`, `tests/repo/wp10g-stable-people-ui.test.mjs` |
 | **duplicate detection / grouping** | `src/services/handlers/collectionCommands.ts`, `src/services/handlers/groupDiagnosticsCommands.ts` | `src/ui/components/AlbumsView.tsx` | `tests/core/` |
 | **database / schema / migrations** | `src/data/dbSchema.ts`, `src/data/db.ts` | `src/services/events/` | `tests/core/` |
 | **semantic predicates / propositions** | `src/services/relationships/predicates/`, `src/services/relationships/semanticRepository.ts` | `src/data/dbMigrations.ts`, `src/data/semanticResetState.ts` | `tests/core/semantic-*.test.cjs` |
+| **contributors / testimony / review attribution** | `src/services/relationships/contributorRepository.ts`, `src/services/handlers/contributorCommands.ts` | `src/services/relationships/semanticRepository.ts`, `src/services/handlers/peopleCandidateCommands.ts` | `tests/core/wp13*.test.cjs` |
 | **background jobs / workflows** | `src/services/workflowRuntime/`, `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `src/data/dbSchema.ts` (workflow_runs) | `tests/core/` |
 | **AI / local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
 | **Segmentation providers** | `src/services/segmentation/`, `docs/architecture/segmentation-providers.md` | `tooling/scripts/core/export_fastsam_s_model.py` | `tests/core/fastsam-provider-contract.test.cjs` |
@@ -129,10 +130,13 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 | `step_runs` | Individual step/module execution tracking | PK: `id`, FK: `workflow_run_id` |
 | `subject_executions` | Tracking an individual subject through a step | PK: `id`, FK: `workflow_run_id`, `step_run_id` |
 | `jobs` | High-level status for long-running workflows | PK: `id` |
-| `people` | Durable/compatibility people catalog; explicit lifecycle refinement continues in WP12 | PK: `id` |
-| `identity_clusters` | Current rebuildable machine face clusters | PK: `id`; algorithm/version/threshold and centroid metadata |
+| `people` | Durable Person catalog with lifecycle `provisional`, `confirmed`, `merged`, `retired`; machine rebuilds must not delete confirmed/manually touched identity | PK: `id` |
+| `person_redirects` | Permanent aliases created by Person merges so historical IDs/deep links resolve to the current Person | PK: `old_person_id`; FK/current target: `people.id` |
+| `contributors` | Durable local human profiles used to attribute testimony and review decisions; current profile selection is stored in settings, not auth state | PK/FK: `id` -> `semantic_entities.id` |
+| `identity_clusters` | Current rebuildable machine face clusters; never durable Person identity | PK: `id`; algorithm/version/threshold and centroid metadata |
 | `identity_cluster_members` | Stable Face membership of current machine clusters | PK: `cluster_id, face_id`; unique `face_id`; FKs to `identity_clusters.id`, `faces.id` |
-| `face_assignments` | Transitional compatibility projection from detected face position to a Person | PK: `asset_id, face_index` -> `assets.id`, `people.id` |
+| `face_person_candidates` | Rebuildable weak Face→Person evidence with raw cosine, rank, runner-up/margin and model/generation provenance; explicit decisions stay separate | PK: `face_id, person_id`; FKs to stable `faces`, durable `people`, analysis generations |
+| `face_assignments` | Transitional compatibility projection from detected face position to a Person; not authoritative semantic truth | PK: `asset_id, face_index` -> `assets.id`, `people.id` |
 | `tag_definitions` | System vocabulary of tags | PK: `id`, Unique: `canonical_label` |
 | `asset_tag_assignments` | Assignment of tags to assets | PK: `asset_id, tag_definition_id, source_kind` |
 | `asset_groups` | Grouping definitions (e.g. albums, duplicates) | PK: `id`, FK: `canonical_asset_id` |
@@ -142,6 +146,10 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 | `processing_issues` | Warnings/errors during background ingestion | PK: `id`, FK: `asset_id` |
 | `photo_edit_documents` | Mutable non-destructive edit recipes and rendered-version lineage | PK: `id`, FK: source/rendered assets and parent edit |
 | `photo_edit_styles` | Named reusable edit stacks and normalized mask recipes | PK: `id`, Unique: `name` |
+
+For face identity, keep durable truth and rebuildable machine state separate: stable `Face` semantic decisions and Person lifecycle/redirects are durable; `IdentityCluster` and `face_person_candidates` are machine-rebuildable; `face_assignments` remains only a transitional projection for legacy consumers. Candidate review is sourced through `peopleCandidateCommands.ts`, and raw cosine must not be presented as calibrated probability.
+
+Human semantic attribution is durable identity, not a display string: Contributor-aware attestations store `source_actor_entity_id` and decisions store `decider_entity_id`. Pre-WP13 rows may legitimately have null actor IDs; new review/testimony paths should use `contributorRepository.ts` so later profile changes or contributor switching do not rewrite historical attribution.
 
 ## Non-destructive photo editor
 
@@ -209,7 +217,7 @@ settings in `WorkflowDetailPanel.tsx`.
 - `generatePreviewsModule`: Downscales assets using Sharp to standard dimensions.
 - `detectFacesModule`: Locates faces using models (e.g., MediaPipe/TFJS).
 - `generateFaceVectorsModule`: Computes facial embeddings for detected faces.
-- `resolvePeopleModule`: Builds/rebuilds machine `IdentityCluster` output from stable Face-owned vectors, reconciles clear cluster continuations across reruns, and maintains the transitional People compatibility projection.
+- `resolvePeopleModule`: Builds/rebuilds machine `IdentityCluster` output from stable Face-owned vectors, reconciles clear cluster continuations across reruns, maintains the transitional People compatibility projection, reapplies durable manual Face→Person decisions, then rebuilds weak Face→Person candidate evidence from explicit accepted anchors.
 - `groupSimilarPhotosModule`: Computes and compares image hashes/features to detect duplicates.
 - `detectSensitiveContentModule`: Evaluates assets against NSFW classifiers.
 - `estimatePhotoDateModule`: Combines EXIF, file dates, and AI analysis to find best-guess photo dates.
