@@ -401,13 +401,25 @@ export function recordSemanticDecision(db: DbHandle, input: RecordSemanticDecisi
 
 export function listSemanticDecisionHistory(db: DbHandle, scopeKey: string): SemanticDecisionHistoryEntry[] {
     const rows = db.prepare(`
+        WITH RECURSIVE ordered_decisions AS (
+            SELECT *, 0 AS history_index
+            FROM semantic_decisions
+            WHERE scope_key = ? AND supersedes_decision_id IS NULL
+
+            UNION ALL
+
+            SELECT successor.*, predecessor.history_index + 1
+            FROM semantic_decisions successor
+            JOIN ordered_decisions predecessor
+              ON successor.supersedes_decision_id = predecessor.id
+            WHERE successor.scope_key = ?
+        )
         SELECT
             id, scope_key, status, proposition_id, source_kind, source_ref,
             rationale, supersedes_decision_id, decider_entity_id, is_current, created_at
-        FROM semantic_decisions
-        WHERE scope_key = ?
-        ORDER BY created_at ASC, id ASC
-    `).all(scopeKey) as Array<{
+        FROM ordered_decisions
+        ORDER BY history_index ASC, created_at ASC, id ASC
+    `).all(scopeKey, scopeKey) as Array<{
         id: string;
         scope_key: string;
         status: SemanticDecisionStatus;
