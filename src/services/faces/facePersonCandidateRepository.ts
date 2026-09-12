@@ -193,7 +193,6 @@ function loadCurrentDecisions(db: DbHandle): Map<string, Exclude<CandidateDecisi
 }
 
 function loadTrustedAnchors(
-    db: DbHandle,
     vectors: Map<string, VectorEvidence>,
     decisions: Map<string, 'accepted' | 'rejected'>,
 ): TrustedAnchor[] {
@@ -344,7 +343,7 @@ export function rebuildFacePersonCandidates(dbManager: DatabaseManager): FacePer
     const policy = getFaceCandidatePolicy(dbManager);
     const vectors = loadActiveVectors(db);
     const decisions = loadCurrentDecisions(db);
-    const anchors = loadTrustedAnchors(db, vectors, decisions);
+    const anchors = loadTrustedAnchors(vectors, decisions);
     const candidates: FacePersonCandidateEvidence[] = [];
     for (const source of vectors.values()) {
         const scored = scorePeopleForFace(source, anchors, decisions, policy);
