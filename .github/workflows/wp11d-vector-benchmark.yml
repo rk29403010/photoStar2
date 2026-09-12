@@ -1,0 +1,34 @@
+name: wp11d-vector-benchmark
+
+on:
+  pull_request:
+    paths:
+      - tooling/scripts/repo/wp11d-vector-benchmark.cjs
+      - .github/workflows/wp11d-vector-benchmark.yml
+      - src/services/machineAnalysis/featureVectorRetrieval.ts
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.3.0
+          run_install: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install native test runtime dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsecret-1-0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build core
+        run: pnpm run build:core:ts
+      - name: Benchmark target-tier vector retrieval
+        run: node tooling/scripts/repo/wp11d-vector-benchmark.cjs
