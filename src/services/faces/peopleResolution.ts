@@ -105,9 +105,7 @@ function assignCompatibilityPersonIds(
     const existingAssignments = db.prepare(
         'SELECT asset_id, face_index, person_id FROM face_assignments'
     ).all() as Array<{ asset_id: string; face_index: number; person_id: string }>;
-    const previousAssignments = new Map(
-        existingAssignments.map((row) => [`${row.asset_id}_${row.face_index}`, row.person_id]),
-    );
+    const previousAssignments = new Map(existingAssignments.map((row) => [`${row.asset_id}_${row.face_index}`, row.person_id]));
 
     for (const cluster of activeClusters) {
         const votes = new Map<string, number>();
