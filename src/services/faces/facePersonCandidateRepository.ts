@@ -84,19 +84,16 @@ function numericSetting(dbManager: DatabaseManager, key: string, fallback: numbe
     return parsed;
 }
 
-export function getFaceCandidatePolicy(dbManager: DatabaseManager): FaceCandidatePolicy {
-    const policy = {
-        evidenceRetentionFloor: numericSetting(dbManager, SETTING_KEYS.evidenceRetentionFloor, DEFAULT_POLICY.evidenceRetentionFloor),
-        reviewThreshold: numericSetting(dbManager, SETTING_KEYS.reviewThreshold, DEFAULT_POLICY.reviewThreshold),
-        autoActionThreshold: numericSetting(dbManager, SETTING_KEYS.autoActionThreshold, DEFAULT_POLICY.autoActionThreshold),
-        minimumWinnerMargin: numericSetting(dbManager, SETTING_KEYS.minimumWinnerMargin, DEFAULT_POLICY.minimumWinnerMargin),
-        candidateCount: numericSetting(dbManager, SETTING_KEYS.candidateCount, DEFAULT_POLICY.candidateCount),
-    };
-    if (policy.evidenceRetentionFloor < -1 || policy.evidenceRetentionFloor > 1
-        || policy.reviewThreshold < -1 || policy.reviewThreshold > 1
-        || policy.autoActionThreshold < -1 || policy.autoActionThreshold > 1) {
+function validateScoreThreshold(value: number): void {
+    if (value < -1 || value > 1) {
         throw new Error('Face candidate score thresholds must be between -1 and 1.');
     }
+}
+
+function validateFaceCandidatePolicy(policy: FaceCandidatePolicy): void {
+    validateScoreThreshold(policy.evidenceRetentionFloor);
+    validateScoreThreshold(policy.reviewThreshold);
+    validateScoreThreshold(policy.autoActionThreshold);
     if (policy.evidenceRetentionFloor > policy.reviewThreshold
         || policy.reviewThreshold > policy.autoActionThreshold) {
         throw new Error('Face candidate thresholds must satisfy evidence <= review <= auto-action.');
@@ -107,6 +104,17 @@ export function getFaceCandidatePolicy(dbManager: DatabaseManager): FaceCandidat
     if (!Number.isInteger(policy.candidateCount) || policy.candidateCount < 1 || policy.candidateCount > 50) {
         throw new Error('Face candidate count must be an integer between 1 and 50.');
     }
+}
+
+export function getFaceCandidatePolicy(dbManager: DatabaseManager): FaceCandidatePolicy {
+    const policy = {
+        evidenceRetentionFloor: numericSetting(dbManager, SETTING_KEYS.evidenceRetentionFloor, DEFAULT_POLICY.evidenceRetentionFloor),
+        reviewThreshold: numericSetting(dbManager, SETTING_KEYS.reviewThreshold, DEFAULT_POLICY.reviewThreshold),
+        autoActionThreshold: numericSetting(dbManager, SETTING_KEYS.autoActionThreshold, DEFAULT_POLICY.autoActionThreshold),
+        minimumWinnerMargin: numericSetting(dbManager, SETTING_KEYS.minimumWinnerMargin, DEFAULT_POLICY.minimumWinnerMargin),
+        candidateCount: numericSetting(dbManager, SETTING_KEYS.candidateCount, DEFAULT_POLICY.candidateCount),
+    };
+    validateFaceCandidatePolicy(policy);
     return policy;
 }
 
@@ -205,6 +213,40 @@ function loadTrustedAnchors(
     return anchors;
 }
 
+function scoreAnchor(
+    source: VectorEvidence,
+    anchor: TrustedAnchor,
+    decisions: Map<string, 'accepted' | 'rejected'>,
+    policy: FaceCandidatePolicy,
+    sourceSpace: string,
+): ScoredPerson | null {
+    if (spaceKey(anchor.vector) !== sourceSpace) {
+        return null;
+    }
+    const rawCosine = cosineSimilarity(source.values, anchor.vector.values);
+    if (!Number.isFinite(rawCosine)) {
+        return null;
+    }
+    const decisionStatus = decisions.get(decisionKey(source.subjectEntityId, anchor.personId)) ?? null;
+    if (rawCosine < policy.evidenceRetentionFloor && decisionStatus === null) {
+        return null;
+    }
+    return {
+        personId: anchor.personId,
+        anchorFaceId: anchor.faceId,
+        anchorAnalysisGenerationId: anchor.vector.analysisGenerationId,
+        rawCosine,
+        decisionStatus,
+    };
+}
+
+function isBetterPersonScore(candidate: ScoredPerson, current: ScoredPerson | undefined): boolean {
+    if (!current || candidate.rawCosine > current.rawCosine) {
+        return true;
+    }
+    return candidate.rawCosine === current.rawCosine && candidate.anchorFaceId < current.anchorFaceId;
+}
+
 function scorePeopleForFace(
     source: VectorEvidence,
     anchors: TrustedAnchor[],
@@ -214,28 +256,11 @@ function scorePeopleForFace(
     const bestByPerson = new Map<string, ScoredPerson>();
     const sourceSpace = spaceKey(source);
     for (const anchor of anchors) {
-        if (spaceKey(anchor.vector) !== sourceSpace) {
+        const candidate = scoreAnchor(source, anchor, decisions, policy, sourceSpace);
+        if (!candidate || !isBetterPersonScore(candidate, bestByPerson.get(candidate.personId))) {
             continue;
         }
-        const rawCosine = cosineSimilarity(source.values, anchor.vector.values);
-        if (!Number.isFinite(rawCosine)) {
-            continue;
-        }
-        const decisionStatus = decisions.get(decisionKey(source.subjectEntityId, anchor.personId)) ?? null;
-        if (rawCosine < policy.evidenceRetentionFloor && decisionStatus === null) {
-            continue;
-        }
-        const current = bestByPerson.get(anchor.personId);
-        if (!current || rawCosine > current.rawCosine
-            || (rawCosine === current.rawCosine && anchor.faceId < current.anchorFaceId)) {
-            bestByPerson.set(anchor.personId, {
-                personId: anchor.personId,
-                anchorFaceId: anchor.faceId,
-                anchorAnalysisGenerationId: anchor.vector.analysisGenerationId,
-                rawCosine,
-                decisionStatus,
-            });
-        }
+        bestByPerson.set(candidate.personId, candidate);
     }
     return Array.from(bestByPerson.values()).sort((left, right) =>
         right.rawCosine - left.rawCosine || left.personId.localeCompare(right.personId));
