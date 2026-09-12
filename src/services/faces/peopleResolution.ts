@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
 import type { DomainEvent } from '../events/types';
 import { cosineSimilarity } from '../math-utils';
-import { decodeFeatureVector } from '../machineAnalysis/featureVectorRepository';
+import { iterateActiveFeatureVectors } from '../machineAnalysis/featureVectorRetrieval';
 import { applyStableManualFaceDecisionProjection, resolveStableFaceById } from './manualFaceSemanticRepository';
 import {
     normalizeStoredPhotoBox,
@@ -16,36 +16,15 @@ import {
 type FaceRef = { assetId: string; faceIndex: number; embedding: number[] };
 type Cluster = { id: string; faces: number[]; centroid: number[] };
 
-type ActiveVectorRow = {
-    face_id: string;
-    vector_blob: Buffer;
-    dimensions: number;
-};
-
 export function loadRecognisedFaces(db: ReturnType<DatabaseManager['getDb']>): FaceRef[] {
-    const rows = db.prepare(`
-        SELECT
-            vector.subject_entity_id AS face_id,
-            vector.vector_blob,
-            vector.dimensions
-        FROM feature_vectors vector
-        JOIN analysis_generations generation
-          ON generation.id = vector.analysis_generation_id
-        JOIN analysis_generation_heads head
-          ON head.active_generation_id = generation.id
-        WHERE vector.feature_key = 'face_embedding'
-          AND generation.status = 'successful'
-        ORDER BY vector.subject_entity_id ASC
-    `).all() as ActiveVectorRow[];
-
     const faces: FaceRef[] = [];
-    for (const row of rows) {
+    for (const vector of iterateActiveFeatureVectors(db, 'face_embedding')) {
         try {
-            const position = resolveStableFaceById(db, row.face_id);
+            const position = resolveStableFaceById(db, vector.subjectEntityId);
             faces.push({
                 assetId: position.assetId,
                 faceIndex: position.faceIndex,
-                embedding: decodeFeatureVector(row.vector_blob, row.dimensions),
+                embedding: vector.values,
             });
         } catch {
             // An active vector whose stable Face no longer has a current detector position
