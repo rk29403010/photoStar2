@@ -13,72 +13,56 @@ Update this file after every completed sub-WP, blocker, meaningful deviation, de
 - Repository: `rk29403010/photoStar2`
 - Active branch: `task/semantic-relationships-phase1-foundation`
 - Pull request: `#42`
-- Last material implementation HEAD assessed: `5c720a6547819be737de3733d57db740abb77d04`
-- Canonical quality gate: **GREEN**, run `34686873656`, job `103535276383`
-- Current package: **WP12d — Existing People action semantics and durable metadata**
+- Last material implementation HEAD assessed: `5d0c158580a5fdf2aef0fab5624e891001f072ec`
+- Canonical quality gate: **GREEN**, run `34687156154`, job `103536030029`
+- Current package: **WP12e — Weak candidates and threshold separation**
 
-Before working, fetch actual branch HEAD and Actions state rather than assuming this snapshot is still current.
+Before working, fetch actual branch HEAD and Actions state rather than assuming this snapshot is current.
 
 ## 3. Recent package evidence
 
 - WP9 complete at `5469dcc`; canonical run `34550734260`.
 - WP10 complete: stable VisualRegion/Face identity, reconciliation, stable-ID People actions/reset preservation, and durable `face_index` contraction. The frozen WP10 transitional inventory remains an active regression guard.
-- WP11 complete: generation ownership/provenance, Float32 vector storage, ArcFace cutover, generation-aware retrieval, retry/supersession and retention/compaction. Final WP11 implementation `546e155`; canonical run `34683370717`.
-- WP12a complete: IdentityCluster machine-output separation (`199fa2d`, compatibility fix `c1e85be`); canonical run `34684403167`. Machine clustering persists independently in `identity_clusters` / `identity_cluster_members` keyed by stable Face ID; rebuilds no longer delete People.
-- WP12b complete: stable cluster reconciliation (`3a57c80`, fixture lint fix `81f0ab9`); canonical run `34684761693`. Mutual unique-best stable-Face overlap preserves machine cluster continuity; clear split/merge has at most one continuation; ties fail safe with fresh IDs.
-- WP12c complete: Person lifecycle/redirect model (`453f11b`, WP10 inventory-preserving fix `5c720a6`); canonical run `34686873656`. `people.lifecycle_status` supports `provisional|confirmed|merged|retired`; `person_redirects` permanently maps historical IDs; redirect cycles are rejected; merges retain old Person rows as `merged` instead of deleting them; current lookups/actions resolve redirects; human actions confirm People; confirmed Person truth survives IdentityCluster replacement.
+- WP11 complete: machine generation/vector lifecycle through `546e155`; canonical run `34683370717`. Target-tier native vector scan remains a WP16 performance follow-up (250k×512 p95 2334.8 ms vs 150 ms target; bounded heap growth).
+- WP12a complete: IdentityCluster machine-output separation (`199fa2d`, compatibility fix `c1e85be`); canonical run `34684403167`.
+- WP12b complete: stable IdentityCluster reconciliation (`3a57c80`, fixture lint fix `81f0ab9`); canonical run `34684761693`.
+- WP12c complete: Person lifecycle/redirect model (`453f11b`, WP10 inventory-preserving fix `5c720a6`); canonical run `34686873656`.
+- WP12d complete: redirect-aware durable metadata/navigation (`5d0c158`); canonical run `34687156154`. Merge keeps canonical birth/death/thumbnail metadata and fills only missing values from merged People, copies GEDCOM links to the canonical Person while retaining historical rows, GEDCOM link/unlink/list resolves old IDs, and person gallery filters follow redirect chains. Existing WP10e/g tests cover stable Face manual actions; WP12c covers command-level merge/old-ID lifecycle; WP12d characterization covers the metadata/deep-link gaps.
 
 PhotoStar2 runtime persistence is SQLite via `better-sqlite3`. Do not invent PostgreSQL as a completion requirement.
 
-## 4. Current work package — WP12d
+## 4. Current work package — WP12e
 
 ### Goal
 
-Reimplement/preserve existing People semantics and durable metadata across the new Person/IdentityCluster separation:
-
-- rename;
-- merge;
-- isolate/split;
-- approve;
-- reject;
-- GEDCOM linkage;
-- birth/death metadata;
-- thumbnail selection;
-- deep links.
-
-If candidate generation requires it, multiple trusted Person↔Face anchors may be persisted without implementing the later Lifetime Identity UI.
+Retain weak Person/Face candidate evidence instead of collapsing recognition to one threshold. Preserve top-N, raw cosine, rank, runner-up, winner margin and model/generation provenance. Separate evidence-retention, review, auto-action, minimum-margin and candidate-count settings. Manual rejection/acceptance must remain durable explicit decisions, not be inferred from a score threshold.
 
 ### Gate
 
-Characterization tests for existing actions/metadata pass against Person/IdentityCluster separation.
+Evidence below action threshold is retained where policy requires and rejection/acceptance cannot be inferred from a single threshold.
 
 ### Exact next action
 
-1. Inventory all People commands, metadata writers/readers, GEDCOM links, thumbnails and deep-link/person-filter entry points.
-2. Identify paths still assuming machine cluster == Person or failing to resolve historical Person redirects.
-3. Add characterization tests first for rename/merge/isolate/approve/reject and durable metadata/links.
-4. Adapt only the failing semantics to current-Person resolution while preserving historical IDs and existing UI payloads.
-5. Prove thumbnail/GEDCOM/birth/death metadata survive merge/redirect as intended.
-6. Satisfy the WP12d gate before advancing to WP12e weak-candidate retention/threshold separation.
+1. Inventory current candidate/threshold behaviour and generation metadata available from active face vectors.
+2. Add minimal rebuildable weak-candidate persistence linked to stable Face, durable Person and real analysis generation provenance.
+3. Generate top-N Person candidates from trusted Face→Person evidence/anchors; preserve raw cosine/rank/runner-up/margin.
+4. Introduce separately named/configurable retention, review, auto-action, margin and count policy values; remove the hard-coded single-threshold assumption from new candidate semantics.
+5. Keep current durable accepted/rejected semantic decisions authoritative and visible alongside candidate evidence; do not let reruns turn score changes into human decisions.
+6. Add policy + persistence/integration fixtures and satisfy WP12e before WP12f People UI/deep-link candidate cutover.
 
-Do not widen WP12d into candidate-threshold redesign or People UI redesign; those are WP12e/f.
+Do not redesign the People UI in WP12e; WP12f owns presentation/calibration wording and candidate UI cutover.
 
 ## 5. Phase 1 status
 
 | WP | State | Notes |
 | --- | --- | --- |
-| WP1 | Largely complete | Foundation/ADR work; reconcile final closeout. |
-| WP2 | Largely complete | Characterization exists; refresh affected fixtures as needed. |
-| WP3 | Largely complete | Migration ledger + semantic kernel established; final durability work remains WP15. |
-| WP4 | Complete for Phase 1 slice | Manifest-owned predicates/generated registry green. |
-| WP5 | Complete for Phase 1 slice | Exact-duplicate replacement path established. |
-| WP6 | Substantially complete | Similarity/CaptureSequence/presentation preference established. |
-| WP7 | Substantially complete | Presentation/expansion path established; final scale evidence WP16. |
-| WP8 | Substantially complete | Editor group dependency replaced; Photograph closeout intersects WP14. |
+| WP1-3 | Largely complete | Foundation/kernel/migration work; final reconciliation/durability closeout remains. |
+| WP4-5 | Complete for Phase 1 slice | Predicate registry and exact-duplicate replacement green. |
+| WP6-8 | Substantially complete | Similarity/presentation/editor replacement established; later closeouts remain. |
 | WP9 | **Complete** | Legacy grouping tables absent; parity gate green. |
 | WP10 | **Complete** | Stable Face/VisualRegion identity and durable action/reset cutover green. |
 | WP11 | **Complete** | Machine-generation/vector lifecycle green. |
-| WP12 | **In progress** | WP12a-c complete; WP12d is current. |
+| WP12 | **In progress** | WP12a-d complete; WP12e current. |
 | WP13 | Not started | Contributor testimony/uncertainty/review. |
 | WP14 | Partially implemented ahead of sequence | Minimal Photograph/editor semantics exist; full audit remains. |
 | WP15 | Mostly not started | Cross-domain durability/reset hardening. |
@@ -88,10 +72,10 @@ Do not widen WP12d into candidate-threshold redesign or People UI redesign; thos
 
 | WP | Item | Current state | Completion criterion |
 | --- | --- | --- | --- |
-| WP10 | Durable `(asset_id, face_index)` identity | Durable semantics moved to stable Face/VisualRegion; detector position remains transitional projection. | Resolved for WP10; do not widen frozen inventory. |
-| WP10/WP15 | Soft-reset preservation | Face slice green; broader domains remain. | WP15 matrix proves all reset classes. |
-| WP11/WP16 | Vector lookup performance | 250k×512 native SQLite/BLOB benchmark p95 2334.8 ms vs 150 ms target; heap growth ~3.1 MiB. | Indexed retrieval implemented/measured without weakening generation semantics. |
-| WP12 | Person/IdentityCluster separation | Storage, machine reconciliation and lifecycle/redirect are green; action/metadata/candidate/UI closeout remains. | Full WP12 completion gate. |
+| WP10 | Transitional `face_index` projection | Durable semantics use stable Face/VisualRegion; frozen inventory guards remaining adapter statements. | Do not widen; later contraction only with explicit evidence. |
+| WP10/WP15 | Soft-reset preservation | Face slice green; broader domains remain. | WP15 durability matrix. |
+| WP11/WP16 | Vector lookup performance | Native scan misses 150 ms target substantially. | Indexed retrieval implemented/measured without weakening generation semantics. |
+| WP12 | Person/IdentityCluster separation | Storage, cluster reconciliation, lifecycle/redirect and existing metadata/action parity green; weak candidate/UI/rerun closeout remains. | Full WP12 completion gate. |
 | WP13 | Contributor testimony/uncertainty | Not yet implemented end-to-end. | WP13 gate. |
 | WP14 | Photograph semantics | Early editor semantics landed ahead of package. | All WP14 sub-gates. |
 | WP15 | Cross-domain durability | Transitional behavior remains outside face slice. | Explicit durability/reset matrix + tests. |
@@ -99,46 +83,29 @@ Do not widen WP12d into candidate-threshold redesign or People UI redesign; thos
 
 ## 7. Functional acceptance obligations
 
-| Journey | Automated evidence | Manual/visual evidence | Remaining obligation |
-| --- | --- | --- | --- |
-| Fresh DB/migrations | WP10-12 migrations exercised in canonical suite | Not recorded | Final smoke WP16. |
-| Library/group/editor parity | WP9/editor suites green | Not recorded | Manual WP14/WP16. |
-| People view loads | WP10 UI boot/payload tests + WP11/12 core tests | Not recorded | Continue WP12 semantics/UI. |
-| Rename/merge/isolate/approve/reject | Stable Face action tests + WP12c redirect/lifecycle tests | Not recorded | WP12d characterization/parity. |
-| Old Person ID/deep link survives merge | Redirect model exists | Not recorded | WP12d/f end-to-end coverage. |
-| Restart/rebuild preserves manual Person truth | WP10 reset + WP11 generation + WP12a-c preservation evidence | Not recorded | WP12g + WP15. |
-| Large-library performance | WP11d vector benchmark only | Not recorded | WP16 soak/index follow-up. |
+| Journey | Automated evidence | Remaining obligation |
+| --- | --- | --- |
+| Fresh DB/migrations | WP10-12 migrations exercised in canonical suite | Final manual smoke WP16. |
+| Library/group/editor parity | WP9/editor suites green | Manual WP14/WP16. |
+| People actions | WP10e/g stable-ID actions + WP12c redirect lifecycle + WP12d metadata/deep-link parity | Candidate semantics/UI WP12e/f. |
+| Old Person ID survives merge | Redirect, GEDCOM and gallery-filter coverage green | UI old-link journey WP12f. |
+| Restart/rebuild preserves manual Person truth | WP10 reset + WP11 generation + WP12a-d evidence | WP12g + WP15. |
+| Large-library performance | WP11d vector benchmark only | WP16 soak/index follow-up. |
 
 ## 8. Significant decisions
 
-### IdentityCluster versus Person
-
-IdentityCluster is rebuildable machine analysis, not a semantic Person. Cluster IDs may be reconciled for useful continuity but never define historical human identity. Person has independent durable lifecycle and permanent redirects.
-
-### Person lifecycle and redirects
-
-- `provisional`: machine-created compatibility Person not yet human-confirmed.
-- `confirmed`: durable human Person truth.
-- `merged`: historical Person retained with redirect to a current Person.
-- `retired`: durable inactive Person that is not merged.
-- Redirect resolution is permanent and cycle-safe; old IDs must remain resolvable rather than being reused/deleted.
-
-### Frozen WP10 inventory
-
-The WP10 repository test intentionally freezes remaining transitional `face_index` statements. Later work must not casually alter/add those statements. If semantics can be changed while preserving the frozen statement shape, do that; otherwise any inventory change requires explicit review and contraction evidence.
-
-### Migration rule
-
-Numbered migrations are append-only/checksummed. Never rewrite an applied migration to implement later contraction.
+- IdentityCluster is rebuildable machine analysis, never historical Person identity.
+- Person lifecycle is durable (`provisional|confirmed|merged|retired`); redirects are permanent and cycle-safe.
+- Merge metadata policy is non-destructive: canonical values win; only missing birth/death/thumbnail values are filled; GEDCOM links are projected to the canonical Person while historical rows remain.
+- WP10's frozen `face_index` inventory must not be widened casually.
+- Numbered migrations are append-only/checksummed; never rewrite applied migration history.
 
 ## 9. Fresh-chat bootstrap
 
 1. Read root `AGENTS.md` from the active branch.
-2. Read `docs/ai/AI_PROJECT_MAP.md`.
-3. Read `semantic-relationships-architecture.md`.
-4. Read `semantic-relationships-implementation-plan.md`.
-5. Read `semantic-relationships-phase1-foundation.md` and this file.
-6. Verify actual branch HEAD and current canonical Actions result.
-7. Inspect current WP code/tests; repository evidence outranks chat history.
-8. Continue from **Exact next action** / first incomplete sub-WP gate.
-9. Never infer completion merely because commits exist; demonstrate the gate, then update this file.
+2. Read `docs/ai/AI_PROJECT_MAP.md` and this status file.
+3. Read only the directly relevant architecture/implementation-plan section for the current WP.
+4. Verify actual branch HEAD and canonical Actions result.
+5. Inspect current WP code/tests; repository evidence outranks chat history.
+6. Continue from **Exact next action** / first incomplete sub-WP gate.
+7. Demonstrate the gate before recording completion.
