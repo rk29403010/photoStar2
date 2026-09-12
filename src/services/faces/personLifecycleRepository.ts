@@ -9,6 +9,12 @@ export type PersonLifecycleRow = {
     lifecycleStatus: PersonLifecycleStatus;
 };
 
+type DurablePersonMetadata = {
+    birth_date: string | null;
+    death_date: string | null;
+    thumbnail_path: string | null;
+};
+
 function loadPerson(db: DbHandle, personId: string): PersonLifecycleRow {
     const row = db.prepare(`
         SELECT id, lifecycle_status
@@ -24,6 +30,34 @@ function loadPerson(db: DbHandle, personId: string): PersonLifecycleRow {
 function setLifecycleStatus(db: DbHandle, personId: string, status: PersonLifecycleStatus): void {
     loadPerson(db, personId);
     db.prepare('UPDATE people SET lifecycle_status = ? WHERE id = ?').run(status, personId);
+}
+
+function copyMissingDurableMetadata(db: DbHandle, oldPersonId: string, currentPersonId: string): void {
+    const source = db.prepare(`
+        SELECT birth_date, death_date, thumbnail_path
+        FROM people
+        WHERE id = ?
+    `).get(oldPersonId) as DurablePersonMetadata | undefined;
+    if (!source) {
+        throw new Error(`Person '${oldPersonId}' does not exist.`);
+    }
+
+    db.prepare(`
+        UPDATE people
+        SET birth_date = COALESCE(birth_date, ?),
+            death_date = COALESCE(death_date, ?),
+            thumbnail_path = COALESCE(thumbnail_path, ?)
+        WHERE id = ?
+    `).run(source.birth_date, source.death_date, source.thumbnail_path, currentPersonId);
+
+    db.prepare(`
+        INSERT OR IGNORE INTO people_gedcom_links (
+            person_id, gedcom_tree_id, gedcom_person_id, created_at
+        )
+        SELECT ?, gedcom_tree_id, gedcom_person_id, created_at
+        FROM people_gedcom_links
+        WHERE person_id = ?
+    `).run(currentPersonId, oldPersonId);
 }
 
 export function markPersonConfirmed(db: DbHandle, personId: string): void {
@@ -87,6 +121,7 @@ export function redirectMergedPerson(
         throw new Error(`Cannot redirect to retired Person '${resolvedCurrentId}'.`);
     }
 
+    copyMissingDurableMetadata(db, oldPersonId, resolvedCurrentId);
     db.prepare(`
         INSERT INTO person_redirects (
             old_person_id, current_person_id, reason_decision_id
