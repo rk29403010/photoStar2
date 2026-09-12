@@ -1,10 +1,13 @@
 import { applyStableManualFaceDecisionProjection } from '../faces/manualFaceSemanticRepository';
 import { markPersonConfirmed, resolveCurrentPersonId } from '../faces/personLifecycleRepository';
+import {
+    ensureCurrentContributor,
+    recordContributorDecision,
+} from '../relationships/contributorRepository';
 import { getSemanticPredicateManifest } from '../relationships/predicates/registry';
 import {
     ensureSemanticEntity,
     putSemanticProposition,
-    recordSemanticDecision,
 } from '../relationships/semanticRepository';
 import type { CommandContext, CommandHandlerMap } from './types';
 
@@ -84,11 +87,11 @@ function recordCandidateDecision(
         predicate: predicate.key,
         object: { type: 'entity', entityId: personEntityId },
     });
-    recordSemanticDecision(db, {
+    const contributor = ensureCurrentContributor(db);
+    recordContributorDecision(db, contributor.id, {
         scopeKey,
         status,
         propositionId,
-        sourceKind: 'human',
         sourceRef: `people.candidate.${status}`,
     });
 }
