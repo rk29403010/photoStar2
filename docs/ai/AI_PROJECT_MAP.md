@@ -151,6 +151,8 @@ For face identity, keep durable truth and rebuildable machine state separate: st
 
 Human semantic attribution is durable identity, not a display string: Contributor-aware attestations store `source_actor_entity_id` and decisions store `decider_entity_id`. Pre-WP13 rows may legitimately have null actor IDs; new review/testimony paths should use `contributorRepository.ts` so later profile changes or contributor switching do not rewrite historical attribution.
 
+Identity testimony normalization lives in `reviewResponseRepository.ts`. It preserves the original attributed response separately from any generated proposition/attestation: certainty responses add supporting testimony, rejection adds opposition, ambiguous choices retain candidate propositions, and unknown/recognise/abstain do not manufacture negative evidence. Decision chronology must be read from the explicit `supersedes_decision_id` chain, not inferred from second-resolution timestamps or UUID order.
+
 ## Non-destructive photo editor
 
 - Start future tool work with [PHOTO_EDITOR_TOOL_GUIDE.md](./PHOTO_EDITOR_TOOL_GUIDE.md). It documents the required file shape, editor entry points, settings and canvas-interaction standards, automatic-suggestion rules, error containment, workflow feedback, and external-AI disclosure requirements.

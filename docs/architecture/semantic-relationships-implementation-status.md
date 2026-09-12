@@ -9,9 +9,9 @@
 - Repository: `rk29403010/photoStar2`
 - Branch: `task/semantic-relationships-phase1-foundation`
 - Pull request: `#42`
-- Last material implementation HEAD assessed: `fe24c88a93a90b2f6116bb9cf038c39fc1c9f331`
-- Canonical quality gate: **GREEN**, run `34691265488`, job `103546812129`
-- Current package: **WP13a — Contributor identity and attribution**
+- Last material implementation HEAD assessed: `7f27c5d1676a44fd2f5c58241782863e78211503`
+- Canonical quality gate: **GREEN**, run `34696835803`, job `103561650233`
+- Current package: **WP13d — Review UI uncertainty and recovery states**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -27,26 +27,27 @@ Always verify actual HEAD/Actions before continuing.
 - WP12e complete: weak Face→Person candidate evidence; canonical run `34687663108`. `face_person_candidates` retains top-N raw cosine/rank/runner-up/margin plus real model/preprocessing/generation provenance. Candidate policy separates retention/review/auto-action/minimum-margin/count. Trusted anchors are explicit accepted Face→Person decisions, not machine cluster centroids.
 - WP12f complete: People candidate review reads `face_person_candidates`; candidate approve/reject carries stable Face ID + durable Person ID; raw cosine is labelled `Similarity 0.xx`, never a probability percentage. Canonical run `34690912171`.
 - WP12g complete: rerun fixtures prove confirmed Person lifecycle survives machine IdentityCluster disappearance/rebuild and candidate recomputation restores durable rejection rather than resurrecting acceptance. Runtime audit confirmed machine projection rebuild is followed by durable manual semantic projection, and no evidence-backed production rewrite was required. Final WP12 contract/project-map gate passed canonical run `34691265488`.
+- WP13a complete: local Contributor profiles support explicit selection; new attestations and decisions retain durable Contributor entity attribution while pre-WP13 null attribution remains readable.
+- WP13b complete: all specified identity review responses normalize into attributed responses, propositions and attestations without turning unknown/recognise/abstain into negative evidence.
+- WP13c complete: competing attributed testimony remains side-by-side; disputed/deferred/accepted decisions supersede append-only. Decision history ordering follows the supersession chain rather than second-resolution timestamps and random UUIDs. Canonical run `34696835803`.
 
-## 3. Current package — WP13a
+## 3. Current package — WP13d
 
 ### Goal
 
-Add the smallest local Contributor identity/profile-selection layer required to attribute review/testimony decisions. Do not broaden this into authentication, accounts or cloud identity.
+Expose the supported identity-review uncertainty choices through an accessible review journey with explicit loading, empty, error, success and retry behaviour.
 
 ### Gate
 
-Review/testimony writes have explicit Contributor attribution and historical attribution remains readable.
+UI smoke/manual acceptance covers the supported uncertainty choices plus loading, empty, error and retry states.
 
 ### Exact next action
 
-1. Inventory existing contributor/actor/source attribution fields in semantic decisions, attestations and review-related schema/repositories.
-2. Read the Contributor/testimony sections of `semantic-relationships-architecture.md` and existing migrations before choosing schema.
-3. Define the minimal local Contributor identity and current-profile selection contract without auth semantics.
-4. Wire explicit Contributor attribution into the review/testimony write path while retaining readable historical attribution.
-5. Add executable attribution/history tests and run canonical QA.
-
-Do not broaden WP13a into WP13b response normalization or WP13c conflict-resolution semantics.
+1. Inventory the existing People candidate-review UI, shared feedback adapters and error-boundary patterns.
+2. Define the smallest accessible wording/control model for every WP13b response kind.
+3. Wire that model to `recordIdentityReviewResponse` through a focused command boundary without removing existing candidate projection behaviour prematurely.
+4. Add loading, empty, error, success and retry states using the declared shared-feedback mode and a local error boundary.
+5. Add UI/command smoke evidence and run canonical QA before recording WP13d complete.
 
 ## 4. Phase status
 
@@ -59,7 +60,7 @@ Do not broaden WP13a into WP13b response normalization or WP13c conflict-resolut
 | WP10 | **Complete** |
 | WP11 | **Complete** |
 | WP12 | **Complete** |
-| WP13 | **In progress — WP13a current** |
+| WP13 | **In progress — WP13d current** |
 | WP14 | Partially implemented ahead of sequence |
 | WP15 | Mostly not started |
 | WP16 | Not started |
@@ -85,7 +86,7 @@ Do not broaden WP13a into WP13b response normalization or WP13c conflict-resolut
 | Weak candidates | WP12e persistence/policy + WP12f payload/UI characterization and candidate action tests | Final manual/visual acceptance WP16 |
 | Candidate confidence wording | WP12f source characterization proves raw cosine uses `Similarity 0.xx` and not `%` | Final visual acceptance WP16 |
 | Restart/rebuild preserves Person truth | WP10 reset + WP11 generation + WP12g rerun durability fixtures | Broader cross-domain matrix WP15 |
-| Contributor attribution/uncertainty | Not yet implemented | WP13 |
+| Contributor attribution/history | WP13a-c domain tests + canonical run `34696835803` | WP13d UI journey and WP13e durability |
 | Final visual/manual acceptance | Not recorded | WP16 |
 
 ## 7. Significant decisions
