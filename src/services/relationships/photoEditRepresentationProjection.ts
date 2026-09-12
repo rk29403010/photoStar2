@@ -1,6 +1,7 @@
 import type { DatabaseManager } from '../../data/db';
 import {
     ensureArchiveRepresentation,
+    getArchiveRepresentationsForAsset,
     type ArchiveRepresentationKind,
 } from './archiveRepresentationRepository';
 import { resolveAssetPhotographMembership } from './photographMembershipRepository';
@@ -23,6 +24,18 @@ export type ProjectPhotoEditRepresentationsInput = {
 
 function representationKindForIntent(intent: PhotoEditPhotographIntent): ArchiveRepresentationKind {
     return intent === 'crop' ? 'crop' : 'derived_edit';
+}
+
+function sourceRepresentationFacet(
+    db: DbHandle,
+    sourceAssetId: string | null,
+    sourceRepresentationId: string | null,
+): string | null {
+    if (!sourceAssetId || !sourceRepresentationId) {
+        return null;
+    }
+    return getArchiveRepresentationsForAsset(db, sourceAssetId)
+        .find((representation) => representation.id === sourceRepresentationId)?.facet ?? null;
 }
 
 function projectAuthoredComposite(
@@ -71,6 +84,7 @@ export function projectPhotoEditRepresentations(
         assetId: input.renderedAssetId,
         subjectEntityId: membership.photographEntityId,
         representationKind: representationKindForIntent(intent),
+        facet: sourceRepresentationFacet(db, membership.sourceAssetId, membership.sourceRepresentationId),
         sourceKind: 'system',
         sourceRef: `photo-edit:${input.editId}`,
         derivedFromRepresentationId: membership.sourceRepresentationId,
