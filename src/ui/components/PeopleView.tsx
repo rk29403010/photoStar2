@@ -433,13 +433,23 @@ function usePersonDetailData(personId: string) {
     const [trees, setTrees] = useState<FamilyTreeInfo[]>([]);
     const loadAssignments = useCallback(() => {
         if (!globalRequest) {return;}
-        void globalRequest<{ assignments: FaceAssignmentInfo[] }>({
+        const confirmedRequest = globalRequest<{ assignments: FaceAssignmentInfo[] }>({
             idPrefix: 'get_person_face_assignments',
             command: 'get_person_face_assignments',
             payload: { personId },
             select: selectFaceAssignments
-        }).then(res => {
-            setAssignments(res.assignments || []);
+        });
+        const candidateRequest = globalRequest<{ assignments: FaceAssignmentInfo[] }>({
+            idPrefix: 'get_person_face_candidates',
+            command: 'get_person_face_candidates',
+            payload: { personId },
+            select: selectFaceAssignments
+        });
+        void Promise.all([confirmedRequest, candidateRequest]).then(([confirmed, candidates]) => {
+            setAssignments([
+                ...(confirmed.assignments || []).filter(item => item.is_suggested === 0),
+                ...(candidates.assignments || []),
+            ]);
         });
     }, [personId]);
     useEffect(() => {
@@ -468,9 +478,9 @@ function useFaceAssignmentActions(personId: string, reload: () => void) {
         globalThis.dispatchEvent(new CustomEvent('refresh-people-list'));
     };
     const confirm = (faceId: string) =>
-        run('confirm_face_assignment', { faceId });
+        run('confirm_face_person_candidate', { faceId, personId });
     const reject = (faceId: string) =>
-        run('reject_face_assignment', { faceId, personId });
+        run('reject_face_person_candidate', { faceId, personId });
     const unmatch = async (faceId: string) => {
         if (!globalThis.confirm('Are you sure you want to isolate/unmatch this photo from this person?')) {return;}
         await run('isolate_face', { faceId });
@@ -548,9 +558,11 @@ function AssignmentGrid(props: {
                             <button onClick={() => { void props.actions.unmatch(assignment.face_id); }} title="Unmatch / Isolate Face"><Trash2 className="w-4 h-4" /></button>
                         )}
                     </div>
-                    <div className="absolute bottom-1 right-1 bg-black/60 px-1 text-[9px] text-white">
-                        {(assignment.confidence * 100).toFixed(0)}%
-                    </div>
+                    {props.suggested && (
+                        <div className="absolute bottom-1 right-1 bg-black/60 px-1 text-[9px] text-white">
+                            Similarity {assignment.confidence.toFixed(2)}
+                        </div>
+                    )}
                 </div>
             ))}
         </div>
