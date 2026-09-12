@@ -12,7 +12,7 @@ import type {
 } from '../../boundary/contracts/photoEditor';
 import { renderPhotoEdit } from '../photoEditing/editRenderer';
 import { resolvePhotoEditStyle, versionPhotoEditStyleOperations } from '../photoEditing/photoEditStyleRecipes';
-import { projectPhotoEditRepresentations } from '../relationships/photoEditRepresentationProjection';
+import { projectPhotoEditRepresentations, type PhotoEditPhotographIntent } from '../relationships/photoEditRepresentationProjection';
 import type { CommandContext, CommandHandlerMap } from './types';
 
 type EditRow = {
@@ -68,6 +68,13 @@ function validateDocumentInput(input: SavePhotoEditInput): void {
         if (!operation.id || ids.has(operation.id)) {throw new Error('Each edit operation must have a unique id');}
         ids.add(operation.id);
     }
+}
+
+function photographIntentFromRecipe(operations: PhotoEditOperation[]): PhotoEditPhotographIntent {
+    const enabledTools = new Set(operations.filter((operation) => operation.enabled).map((operation) => operation.tool));
+    if (enabledTools.has('crop')) {return 'crop';}
+    if (enabledTools.has('restore')) {return 'restoration';}
+    return 'ordinary_edit';
 }
 
 function saveDocument(db: Database.Database, input: SavePhotoEditInput): PhotoEditDocument {
@@ -132,6 +139,7 @@ async function renderDocument(ctx: CommandContext, input: RenderPhotoEditInput):
             sourceAssetId: input.sourceAssetId,
             renderedAssetId: assetId,
             editId: input.id,
+            photographIntent: photographIntentFromRecipe(input.operations),
         });
     })();
     await generateRenderedPreviews(db, dirname(db.name), assetId, outputPath);

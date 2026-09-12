@@ -53,7 +53,7 @@ test('rendered photo edits inherit Photograph provenance without inheriting phys
             payload: {
                 id: 'edit-semantic-1',
                 sourceAssetId: 'source',
-                name: 'Restored',
+                name: 'Restored and cropped',
                 mode: 'new_version',
                 masks: [],
                 operations: [{
@@ -63,6 +63,13 @@ test('rendered photo edits inherit Photograph provenance without inheriting phys
                     enabled: true,
                     maskId: null,
                     values: { brightness: 1.1, contrast: 0.05, saturation: 1, hue: 0 },
+                }, {
+                    id: 'crop-1',
+                    tool: 'crop',
+                    name: 'Crop',
+                    enabled: true,
+                    maskId: null,
+                    values: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
                 }],
             },
             dbManager,
@@ -78,7 +85,7 @@ test('rendered photo edits inherit Photograph provenance without inheriting phys
         assert.equal(renderedRepresentations.length, 1);
         assert.equal(renderedRepresentations[0].subjectEntityId, photograph);
         assert.equal(renderedRepresentations[0].subjectKind, 'photograph');
-        assert.equal(renderedRepresentations[0].representationKind, 'derived_edit');
+        assert.equal(renderedRepresentations[0].representationKind, 'crop');
         assert.equal(renderedRepresentations[0].facet, 'front');
         assert.equal(renderedRepresentations[0].sourceKind, 'system');
         assert.equal(renderedRepresentations[0].sourceRef, 'photo-edit:edit-semantic-1');
