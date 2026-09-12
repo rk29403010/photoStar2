@@ -9,8 +9,8 @@
 - Repository: `rk29403010/photoStar2`
 - Branch: `task/semantic-relationships-phase1-foundation`
 - Pull request: `#42`
-- Last material implementation HEAD assessed: `7f27c5d1676a44fd2f5c58241782863e78211503`
-- Canonical quality gate: **GREEN**, run `34696835803`, job `103561650233`
+- Last material implementation HEAD assessed: `43208c04ef1edabe268a8adc61ea28f8faf319ab`
+- Canonical quality gate: **GREEN**, run `34699825589`, job `103569488019`
 - Current package: **WP13d — Review UI uncertainty and recovery states**
 
 Always verify actual HEAD/Actions before continuing.
@@ -31,6 +31,7 @@ Always verify actual HEAD/Actions before continuing.
 - WP13b complete: all specified identity review responses normalize into attributed responses, propositions and attestations without turning unknown/recognise/abstain into negative evidence.
 - WP13c complete: competing attributed testimony remains side-by-side; disputed/deferred/accepted decisions supersede append-only. Decision history ordering follows the supersession chain rather than second-resolution timestamps and random UUIDs. Canonical run `34696835803`.
 - WP13d implementation canonical-green: People candidate cards expose all WP13b response kinds with named ambiguous candidates; the command path records normalized attributed responses and preserves accepted/rejected projection behaviour. The review region declares inline loading/error/success/retry feedback and a local error boundary. Targeted WP12f/WP13a-d tests pass and canonical run `34698288634` (job `103565454011`) is green; runtime/manual acceptance remains outstanding.
+- WP14 complete through a-e: whole-Asset and VisualRegion Photograph membership now resolve through `photographMembershipRepository.ts`; exact copies inherit unique Photograph membership without legacy groups; disputed evidence is not guessed; restoration/crop/ordinary edit lineage preserves Photograph identity while explicit authored composites create a stable new Photograph. `photo_edit_documents` remains authoritative for edit recipes and branch lineage. PR `#43` merged at `43208c04ef1edabe268a8adc61ea28f8faf319ab`; post-merge canonical run `34699825589` (job `103569488019`) is green.
 
 ## 3. Current package — WP13d
 
@@ -60,7 +61,7 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 | WP11 | **Complete** |
 | WP12 | **Complete** |
 | WP13 | **In progress — WP13d current** |
-| WP14 | Partially implemented ahead of sequence |
+| WP14 | **Complete** |
 | WP15 | Mostly not started |
 | WP16 | Not started |
 
@@ -72,7 +73,6 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 | WP10/WP15 | Broader reset durability | WP15 durability matrix |
 | WP11/WP16 | Vector lookup target missed | Indexed retrieval implemented/measured without weakening generation semantics |
 | WP13 | Contributor uncertainty/testimony | WP13 completion gate |
-| WP14 | Photograph completeness | All WP14 sub-gates |
 | WP15 | Cross-domain durability | Explicit matrix + executable tests |
 | WP16 | Skips/manual acceptance/scale | Acceptance matrix + final `qa:merge` |
 
@@ -87,6 +87,7 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 | Restart/rebuild preserves Person truth | WP10 reset + WP11 generation + WP12g rerun durability fixtures | Broader cross-domain matrix WP15 |
 | Contributor attribution/history | WP13a-c domain tests + canonical run `34696835803` | WP13e durability |
 | Identity uncertainty review | WP13d command/UI characterization tests plus canonical run `34698288634` cover all response wording and loading/error/success/retry structure | Real-runtime keyboard/visual/error-recovery acceptance |
+| Photograph membership/edit lineage | WP14a-e membership, exact-copy and photo-edit policy/provenance tests + post-merge canonical run `34699825589` | None for WP14 |
 | Final visual/manual acceptance | Not recorded | WP16 |
 
 ## 7. Significant decisions
@@ -97,6 +98,8 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 - Candidate accept/reject writes durable semantic decisions against stable Face IDs; positional compatibility lookup is not a prerequisite for durable truth.
 - Raw cosine is not a calibrated probability and must not be displayed as one.
 - Machine reruns may replace machine clusters/candidate projections but cannot delete confirmed Person truth or override durable human rejection.
+- Photograph membership has one resolved service path: whole Assets use current Photograph archive representations with exact-copy projection, while VisualRegions use current accepted `represents_photograph` semantic decisions. Unresolved/disputed evidence is preserved rather than guessed.
+- Non-destructive restoration, crop and ordinary edits preserve historical Photograph identity; an explicitly authored composite may create a new Photograph. `photo_edit_documents` remains authoritative for edit recipes and branch lineage.
 - WP10 frozen `face_index` inventory must not be widened casually.
 - Numbered migrations are append-only/checksummed.
 
