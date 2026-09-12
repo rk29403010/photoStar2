@@ -59,4 +59,40 @@ export const WP12_MIGRATIONS: readonly NumberedMigration[] = [
                 ON person_redirects(current_person_id, created_at, old_person_id);
         `,
     },
+    {
+        id: '20260912_003_face_person_candidates',
+        sql: `
+            CREATE TABLE face_person_candidates (
+                face_id TEXT NOT NULL,
+                person_id TEXT NOT NULL,
+                source_analysis_generation_id TEXT NOT NULL,
+                anchor_face_id TEXT NOT NULL,
+                anchor_analysis_generation_id TEXT NOT NULL,
+                raw_cosine REAL NOT NULL CHECK (raw_cosine >= -1.0 AND raw_cosine <= 1.0),
+                rank INTEGER NOT NULL CHECK (rank > 0),
+                runner_up_score REAL CHECK (runner_up_score IS NULL OR (runner_up_score >= -1.0 AND runner_up_score <= 1.0)),
+                winner_margin REAL CHECK (winner_margin IS NULL OR (winner_margin >= 0.0 AND winner_margin <= 2.0)),
+                model_key TEXT NOT NULL,
+                model_version TEXT NOT NULL,
+                preprocessing_version TEXT NOT NULL,
+                config_hash TEXT NOT NULL,
+                decision_status TEXT CHECK (decision_status IS NULL OR decision_status IN ('accepted', 'rejected')),
+                review_eligible INTEGER NOT NULL CHECK (review_eligible IN (0, 1)),
+                auto_action_eligible INTEGER NOT NULL CHECK (auto_action_eligible IN (0, 1)),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(face_id, person_id),
+                FOREIGN KEY(face_id) REFERENCES faces(id) ON DELETE CASCADE,
+                FOREIGN KEY(person_id) REFERENCES people(id),
+                FOREIGN KEY(source_analysis_generation_id) REFERENCES analysis_generations(id),
+                FOREIGN KEY(anchor_face_id) REFERENCES faces(id),
+                FOREIGN KEY(anchor_analysis_generation_id) REFERENCES analysis_generations(id)
+            );
+            CREATE INDEX idx_face_person_candidates_face_rank
+                ON face_person_candidates(face_id, rank, person_id);
+            CREATE INDEX idx_face_person_candidates_person_score
+                ON face_person_candidates(person_id, raw_cosine DESC, face_id);
+            CREATE INDEX idx_face_person_candidates_source_generation
+                ON face_person_candidates(source_analysis_generation_id, face_id);
+        `,
+    },
 ];
