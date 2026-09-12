@@ -136,16 +136,16 @@ export const peopleCommandHandlers: CommandHandlerMap = {
         const { id, payload, originWs, dbManager, eventBus, respond } = ctx;
         try {
             const db = dbManager.getDb();
-            const { assetId, personId } = payload as { assetId: string; personId: string };
-            const currentPersonId = resolveCurrentPersonId(db, personId);
+            const { assetId, personId: requestedPersonId } = payload as { assetId: string; personId: string };
+            const personId = resolveCurrentPersonId(db, requestedPersonId);
             db.transaction(() => {
                 const faces = db.prepare('SELECT face_index FROM face_assignments WHERE asset_id = ? AND person_id = ?')
-                    .all(assetId, currentPersonId) as Array<{ face_index: number }>;
+                    .all(assetId, personId) as Array<{ face_index: number }>;
                 for (const face of faces) {
                     recordManualFacePersonDecision(db, {
                         assetId,
                         faceIndex: face.face_index,
-                        personId: currentPersonId,
+                        personId,
                         status: 'rejected',
                         sourceRef: 'people.isolate_person_asset',
                     });
