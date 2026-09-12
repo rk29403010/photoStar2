@@ -35,7 +35,14 @@ export type SemanticDecisionStatus = 'accepted' | 'rejected' | 'disputed' | 'unr
 export type SemanticResolutionStatus = SemanticDecisionStatus | 'proposed';
 
 export type SemanticEvidenceRef = {
-    kind: 'asset' | 'region' | 'audio_span' | 'video_span' | 'document_region' | 'external_record';
+    kind:
+        | 'asset'
+        | 'region'
+        | 'audio_span'
+        | 'video_span'
+        | 'document_region'
+        | 'external_record'
+        | 'analysis_generation';
     ref: JsonValue;
     label?: string | null;
 };
