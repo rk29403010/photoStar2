@@ -192,7 +192,7 @@ function collapseSequences(
     return items;
 }
 
-export function getAllCaptureSequencePresentationItems(
+function buildAllCaptureSequencePresentationItems(
     db: DbHandle,
     order: LibraryPresentationOrder = 'default',
 ): CaptureSequencePresentationItem[] {
@@ -209,16 +209,61 @@ export function getAllCaptureSequencePresentationItems(
     return collapseSequences(baseItems, candidates);
 }
 
+function refreshCaptureSequencePresentationCache(
+    db: DbHandle,
+    order: LibraryPresentationOrder,
+): void {
+    const state = db.prepare(`
+        SELECT is_dirty FROM capture_sequence_presentation_cache_state WHERE id = ?
+    `).get(order) as { is_dirty: number } | undefined;
+    if (state && state.is_dirty === 0) {
+        return;
+    }
+    const items = buildAllCaptureSequencePresentationItems(db, order);
+    db.transaction(() => {
+        db.prepare('DELETE FROM capture_sequence_presentation_cache WHERE presentation_order = ?').run(order);
+        const insert = db.prepare(`
+            INSERT INTO capture_sequence_presentation_cache (presentation_order, ordinal, payload_json)
+            VALUES (?, ?, ?)
+        `);
+        for (const [ordinal, item] of items.entries()) {
+            insert.run(order, ordinal, JSON.stringify(item));
+        }
+        db.prepare(`
+            INSERT INTO capture_sequence_presentation_cache_state (id, is_dirty)
+            VALUES (?, 0)
+            ON CONFLICT(id) DO UPDATE SET is_dirty = excluded.is_dirty
+        `).run(order);
+    })();
+}
+
+export function getAllCaptureSequencePresentationItems(
+    db: DbHandle,
+    order: LibraryPresentationOrder = 'default',
+): CaptureSequencePresentationItem[] {
+    refreshCaptureSequencePresentationCache(db, order);
+    return (db.prepare(`
+        SELECT payload_json FROM capture_sequence_presentation_cache
+        WHERE presentation_order = ? ORDER BY ordinal ASC
+    `).all(order) as { payload_json: string }[]).map((row) => JSON.parse(row.payload_json) as CaptureSequencePresentationItem);
+}
+
 export function getCaptureSequencePresentationPage(
     db: DbHandle,
     options: { limit: number; offset: number; order?: LibraryPresentationOrder },
 ): CaptureSequencePresentationItem[] {
     const limit = Math.max(0, Math.trunc(options.limit));
     const offset = Math.max(0, Math.trunc(options.offset));
-    const items = getAllCaptureSequencePresentationItems(db, options.order ?? 'default');
-    return items.slice(offset, offset + limit);
+    const order = options.order ?? 'default';
+    refreshCaptureSequencePresentationCache(db, order);
+    return (db.prepare(`
+        SELECT payload_json FROM capture_sequence_presentation_cache
+        WHERE presentation_order = ? ORDER BY ordinal ASC LIMIT ? OFFSET ?
+    `).all(order, limit, offset) as { payload_json: string }[]).map((row) => JSON.parse(row.payload_json) as CaptureSequencePresentationItem);
 }
 
 export function countCaptureSequencePresentationItems(db: DbHandle): number {
-    return getAllCaptureSequencePresentationItems(db).length;
+    refreshCaptureSequencePresentationCache(db, 'default');
+    return (db.prepare(`SELECT COUNT(*) AS count FROM capture_sequence_presentation_cache WHERE presentation_order = ?`)
+        .get('default') as { count: number }).count;
 }
