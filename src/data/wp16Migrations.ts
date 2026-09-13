@@ -95,4 +95,21 @@ export const WP16_MIGRATIONS: readonly NumberedMigration[] = [
             AFTER DELETE ON capture_sequence_members BEGIN UPDATE capture_sequence_presentation_cache_state SET is_dirty = 1; END;
         `,
     },
+    {
+        id: '20260913_006_capture_sequence_visual_invalidation',
+        sql: `
+            CREATE TRIGGER IF NOT EXISTS mark_capture_sequence_presentation_cache_dirty_on_representation_change
+            AFTER INSERT ON archive_representations BEGIN UPDATE capture_sequence_presentation_cache_state SET is_dirty = 1; END;
+            CREATE TRIGGER IF NOT EXISTS mark_capture_sequence_presentation_cache_dirty_on_representation_update
+            AFTER UPDATE ON archive_representations BEGIN UPDATE capture_sequence_presentation_cache_state SET is_dirty = 1; END;
+            CREATE TRIGGER IF NOT EXISTS mark_capture_sequence_presentation_cache_dirty_on_representation_delete
+            AFTER DELETE ON archive_representations BEGIN UPDATE capture_sequence_presentation_cache_state SET is_dirty = 1; END;
+            CREATE TRIGGER IF NOT EXISTS mark_capture_sequence_presentation_cache_dirty_on_similarity_change
+            AFTER INSERT ON asset_similarity_edges BEGIN UPDATE capture_sequence_presentation_cache_state SET is_dirty = 1; END;
+            CREATE TRIGGER IF NOT EXISTS mark_capture_sequence_presentation_cache_dirty_on_similarity_update
+            AFTER UPDATE ON asset_similarity_edges BEGIN UPDATE capture_sequence_presentation_cache_state SET is_dirty = 1; END;
+            CREATE TRIGGER IF NOT EXISTS mark_capture_sequence_presentation_cache_dirty_on_similarity_delete
+            AFTER DELETE ON asset_similarity_edges BEGIN UPDATE capture_sequence_presentation_cache_state SET is_dirty = 1; END;
+        `,
+    },
 ];
