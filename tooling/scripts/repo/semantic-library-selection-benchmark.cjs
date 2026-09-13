@@ -12,16 +12,17 @@ async function main() {
         asset: { id: String(index), original_path: `C:/benchmark/${index}.jpg` },
     }));
     let state = selection.updateLibrarySelection(items, selection.createEmptyLibrarySelectionState(), { mode: 'replace', index: 0 });
-    const samples = [];
+    const durations = [];
     for (let sample = 0; sample < 8; sample += 1) {
         const started = performance.now();
         state = selection.updateLibrarySelection(items, state, { mode: 'range', index: count - 1 });
-        samples.push(performance.now() - started);
+        durations.push(performance.now() - started);
     }
-    samples.sort((left, right) => left - right);
+    durations.sort((left, right) => left - right);
     const expansionStarted = performance.now();
     const expandedAssetCount = selection.getLibrarySelectionAssetIds(state, []).length;
     const expansionMs = performance.now() - expansionStarted;
-    console.log(`LIBRARY_SELECTION_BENCHMARK_RESULT ${JSON.stringify({ tier, itemCount: count, selectedCount: selection.getLibrarySelectionCount(state), expandedAssetCount, expansionMs: Number(expansionMs.toFixed(1)), p50Ms: Number(samples[3].toFixed(1)), p95Ms: Number(samples[7].toFixed(1)), targetP95Ms: 150 })}`);
+    console.log(`LIBRARY_SELECTION_BENCHMARK_RESULT ${JSON.stringify({ tier, itemCount: count, selectedCount: selection.getLibrarySelectionCount(state), expandedAssetCount, expansionMs: Number(expansionMs.toFixed(1)), p50Ms: Number(durations[3].toFixed(1)), p95Ms: Number(durations[7].toFixed(1)), targetP95Ms: 150 })}`);
 }
 main();
+
