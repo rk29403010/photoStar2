@@ -20,10 +20,6 @@ function getTimestampRank(timestampValue: string | null | undefined): number {
     return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
 }
 
-function getGroupSortKey(asset: Pick<Asset, 'group_id'>): string {
-    return asset.group_id ?? '';
-}
-
 export function getEffectiveLibrarySortMode(mode: LibrarySortMode, groupSimilarPhotos: boolean): LibrarySortMode {
     if (groupSimilarPhotos && mode === 'group') {
         return 'filename';
@@ -83,17 +79,6 @@ function compareAssetDates(left: Asset, right: Asset, direction: 'asc' | 'desc')
     return direction === 'asc' ? leftRank - rightRank : rightRank - leftRank;
 }
 
-function sortAssetsByGroup(sorted: Asset[]) {
-    sorted.sort((left, right) => {
-        const groupDelta = getGroupSortKey(left).localeCompare(getGroupSortKey(right), undefined, { numeric: true, sensitivity: 'base' });
-        if (groupDelta !== 0) {
-            return groupDelta;
-        }
-
-        return compareAssetIds(left, right);
-    });
-}
-
 function sortAssetsByFilename(sorted: Asset[]) {
     sorted.sort((left, right) => (
         getFilename(left).localeCompare(getFilename(right), undefined, { numeric: true, sensitivity: 'base' })
@@ -107,12 +92,11 @@ function sortAssetsByDate(sorted: Asset[], direction: 'asc' | 'desc') {
 export function sortAssetsForGallery(assets: Asset[], mode: LibrarySortMode): Asset[] {
     const sorted = [...assets];
 
-    if (mode === 'group') {
-        sortAssetsByGroup(sorted);
-        return sorted;
-    }
-
-    if (mode === 'filename') {
+    // Relationship grouping is applied to LibraryPresentationItem objects before
+    // this flat-asset sorter is used. A legacy "group" sort therefore has no
+    // Asset-level relationship key to order by and intentionally falls back to
+    // deterministic filename order.
+    if (mode === 'group' || mode === 'filename') {
         sortAssetsByFilename(sorted);
         return sorted;
     }

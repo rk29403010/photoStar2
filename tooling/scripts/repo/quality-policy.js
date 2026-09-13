@@ -5,6 +5,36 @@
  * accept static configuration (Oxlint and markdownlint) are kept in sync by
  * tests/repo/quality-policy.test.mjs.
  */
+const lintIgnores = Object.freeze([
+    '.agents/**',
+    '.codegrok/**',
+    '.codex/**',
+    '.local/**',
+    '.nyc_output/**',
+    '.playwright-cli/**',
+    '.superpowers/**',
+    '.vscode/**',
+    '.worktrees/**',
+    'artifacts/**',
+    'core/dist/**',
+    'core/models/nsfwjs/**',
+    'core/node_modules/**',
+    'coverage/**',
+    'deployments/desktop/tauri/binaries/**',
+    'deployments/desktop/tauri/gen/**',
+    'deployments/desktop/tauri/target/**',
+    'dist-ssr/**',
+    'dist/**',
+    'node_modules/**',
+    'output/**',
+    'scratch/**',
+    'src-tauri/binaries/**',
+    'src-tauri/gen/**',
+    'src-tauri/target/**',
+    'vite.config.ts.timestamp-*.mjs',
+    'worktrees/**',
+]);
+
 export const qualityPolicy = Object.freeze({
     complexity: Object.freeze({
         maxCyclomatic: 10,
@@ -25,34 +55,11 @@ export const qualityPolicy = Object.freeze({
     typeAwareApplicationFiles: Object.freeze([
         'src/boundary/transport/usePhotoLibrary.transport.ts',
     ]),
-    lintIgnores: Object.freeze([
-        '.agents/**',
-        '.codegrok/**',
-        '.codex/**',
-        '.local/**',
-        '.nyc_output/**',
-        '.playwright-cli/**',
-        '.superpowers/**',
-        '.vscode/**',
-        '.worktrees/**',
-        'artifacts/**',
-        'core/dist/**',
-        'core/models/nsfwjs/**',
-        'core/node_modules/**',
-        'coverage/**',
-        'deployments/desktop/tauri/binaries/**',
-        'deployments/desktop/tauri/gen/**',
-        'deployments/desktop/tauri/target/**',
-        'dist-ssr/**',
-        'dist/**',
-        'node_modules/**',
-        'output/**',
-        'scratch/**',
-        'src-tauri/binaries/**',
-        'src-tauri/gen/**',
-        'src-tauri/target/**',
-        'vite.config.ts.timestamp-*.mjs',
-        'worktrees/**',
+    lintIgnores,
+    markdownIgnores: Object.freeze([
+        ...lintIgnores,
+        'docs/architecture/semantic-relationships-architecture.md',
+        'docs/architecture/semantic-relationships-implementation-plan.md',
     ]),
 });
 

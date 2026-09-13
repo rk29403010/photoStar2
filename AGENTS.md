@@ -40,6 +40,45 @@ This project is **AI-first**, written and maintained through AI prompts rather t
 8. Add a concise `docs/todo.md` entry for any follow-up, caveat, or cleanup item
    mentioned to the user.
 
+## Session Bootstrap & Remote Repository Efficiency
+
+For every fresh AI coding session, read this root `AGENTS.md` from the active
+branch before implementation. Prefer durable repository handoff/status documents
+over chat history or model memory. When a task has a live status document, read
+that first and fetch only the directly relevant plan/architecture sections.
+
+When repository work is being performed through GitHub or another remote API
+rather than a local worktree:
+
+- Resolve the active branch and HEAD once at session start. After writes, retain
+  the returned commit SHA instead of repeatedly refetching HEAD.
+- Prefer compact, specialised repository actions over generic API fetches. Avoid
+  whole-PR diffs, recursive trees, broad history reads, and complete CI logs
+  unless the task actually requires them.
+- Fetch only relevant line ranges from large source or documentation files where
+  possible. Do not refetch unchanged files or repeatedly reload architecture
+  documents already represented by a current durable handoff.
+- Search narrowly by filename, symbol, error, or contract. Do not compensate for
+  a slow connector by issuing broad repeated searches or retries.
+- Treat a coherent multi-file change as one repository checkpoint. When remote
+  write primitives would otherwise create one commit per file, create the
+  required blobs/tree/commit and advance the branch once. A genuine single-file
+  change may use a normal single-file update.
+- Do not push intentionally broken intermediate states merely to stage remote
+  edits. Complete the smallest coherent vertical/sub-WP change, then publish it
+  once so CI evaluates a meaningful checkpoint.
+- During iteration use targeted deterministic checks. Run the comprehensive
+  merge gate only at the appropriate integration/checkpoint boundary; it is not
+  a substitute for targeted debugging on every edit.
+- Inspect CI from smallest to largest: run/status, then jobs, then step summaries,
+  and fetch full logs only for the failing job/step that needs diagnosis.
+- For long refactors, update the durable implementation-status/handoff document
+  in the same coherent checkpoint commit as the implementation evidence it
+  describes rather than generating a separate documentation push.
+- Do not weaken product-quality gates merely to save connector time. A diagnostic
+  workflow that only duplicates a stronger canonical gate should be on-demand
+  rather than automatically rerun on every checkpoint.
+
 ## Windows Commands
 
 - Prefer direct executables: `rg.exe`, `git.exe`, `node.exe`, `pnpm.cmd`,

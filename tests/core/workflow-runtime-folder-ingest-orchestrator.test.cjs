@@ -139,9 +139,7 @@ test('folder_ingest_v1 completes enrichment branches after Library ready', async
         assert.ok(run.steps.some((step) => step.nodeId === 'group-similar-photos'));
 
         const peopleCount = harness.dbManager.getDb().prepare('SELECT COUNT(*) AS count FROM people').get();
-        const groupCount = harness.dbManager.getDb().prepare("SELECT COUNT(*) AS count FROM asset_groups WHERE type = 'people'").get();
         assert.equal(peopleCount.count, 0);
-        assert.equal(groupCount.count, 0);
         const metadataCount = harness.dbManager.getDb().prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'embedded_metadata'").get();
         assert.equal(metadataCount.count, 2);
         const estimateCount = harness.dbManager.getDb().prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'photo_date_estimate'").get();

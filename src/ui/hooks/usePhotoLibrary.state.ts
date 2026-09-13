@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Asset, GalleryTimelineSeek, LibraryStats, Person } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { BackgroundJob, DataStatsSnapshot, RecentEventSnapshot, WorkflowRunListItem, WorkflowStatusSnapshot } from '@contracts/jobs';
 import type { BackendTransport } from '@boundary/transport/usePhotoLibrary.transport';
 import type { FolderHistoryItem, LibraryFilter, NotificationItem, UiFeedEntry } from '@contracts/usePhotoLibrary.types';
@@ -86,6 +87,7 @@ export function usePhotoLibraryState() {
 
     const [stats, setStats] = useState<LibraryStats | null>(null);
     const [assets, setAssets] = useState<Asset[]>([]);
+    const [presentationItems, setPresentationItems] = useState<LibraryPresentationItem[]>([]);
     const [people, setPeople] = useState<Person[]>([]);
     const [systemJobs, setSystemJobs] = useState<BackgroundJob[]>([]);
     const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatusSnapshot | null>(null);
@@ -125,6 +127,8 @@ export function usePhotoLibraryState() {
         setStats,
         assets,
         setAssets,
+        presentationItems,
+        setPresentationItems,
         people,
         setPeople,
         systemJobs,

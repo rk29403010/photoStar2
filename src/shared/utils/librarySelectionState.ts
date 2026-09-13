@@ -1,18 +1,30 @@
 import type { Asset } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 
 export type LibrarySelectionKey = `photo:${string}` | `group:${string}`;
 
+export type LibraryDisplayAsset = Asset & {
+    libraryPresentation?: LibraryPresentationItem | null;
+};
+
 export type LibrarySelectableItem = {
-    asset: Asset;
+    asset: LibraryDisplayAsset;
     entityType: 'photo' | 'group';
     selectionKey: LibrarySelectionKey;
     photoId: string;
     groupId: string | null;
+    presentation?: LibraryPresentationItem | null;
+};
+
+export type LibrarySelectedItem = {
+    selectionKey: LibrarySelectionKey;
+    kind: 'photo' | 'presentation';
+    representativeAssetId: string;
+    assetIds: string[];
 };
 
 export type LibrarySelectionState = {
-    photoIds: Set<string>;
-    groupIds: Set<string>;
+    selectedItemsByKey: Map<LibrarySelectionKey, LibrarySelectedItem>;
     anchorKey: LibrarySelectionKey | null;
     mostRecentSelectionKey: LibrarySelectionKey | null;
 }
@@ -25,15 +37,14 @@ export type LibrarySelectionAction =
 
 export function createEmptyLibrarySelectionState(): LibrarySelectionState {
     return {
-        photoIds: new Set(),
-        groupIds: new Set(),
+        selectedItemsByKey: new Map(),
         anchorKey: null,
         mostRecentSelectionKey: null,
     };
 }
 
 export function getLibrarySelectionCount(selection: LibrarySelectionState): number {
-    return selection.photoIds.size + selection.groupIds.size;
+    return selection.selectedItemsByKey.size;
 }
 
 export function hasLibrarySelection(selection: LibrarySelectionState): boolean {
@@ -45,28 +56,29 @@ export function clearLibrarySelection(): LibrarySelectionState {
 }
 
 export function isItemSelected(selection: LibrarySelectionState, item: LibrarySelectableItem): boolean {
-    return item.entityType === 'group'
-        ? selection.groupIds.has(item.groupId ?? '')
-        : selection.photoIds.has(item.photoId);
+    return selection.selectedItemsByKey.has(item.selectionKey);
 }
 
 export function getLibrarySelectionPhotoIds(selection: LibrarySelectionState): string[] {
-    return [...selection.photoIds];
+    return [...selection.selectedItemsByKey.values()]
+        .filter((item) => item.kind === 'photo')
+        .map((item) => item.representativeAssetId);
 }
 
-export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, assets: Asset[]): string[] {
-    const assetIds = new Set(selection.photoIds);
-
-    if (selection.groupIds.size === 0) {
-        return [...assetIds];
-    }
-
-    for (const asset of assets) {
-        if (asset.group_id && selection.groupIds.has(asset.group_id)) {
-            assetIds.add(asset.id);
+export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, _assets: Asset[]): string[] {
+    const assetIds = new Set<string>();
+    for (const item of selection.selectedItemsByKey.values()) {
+        if (item.kind === 'photo') {
+            assetIds.add(item.representativeAssetId);
         }
     }
-
+    for (const item of selection.selectedItemsByKey.values()) {
+        if (item.kind === 'presentation') {
+            for (const assetId of item.assetIds) {
+                assetIds.add(assetId);
+            }
+        }
+    }
     return [...assetIds];
 }
 
@@ -82,31 +94,62 @@ export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: Li
     return keys.slice(rangeStart, rangeEnd + 1);
 }
 
-function addItemToSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
-    if (item.entityType === 'group' && item.groupId) {
-        selection.groupIds.add(item.groupId);
-        return;
-    }
+function toSelectedItem(item: LibrarySelectableItem): LibrarySelectedItem {
+    const isPresentation = item.entityType === 'group';
+    const presentationAssetIds = item.presentation?.assetIds ?? [];
+    return {
+        selectionKey: item.selectionKey,
+        kind: isPresentation ? 'presentation' : 'photo',
+        representativeAssetId: item.photoId,
+        assetIds: isPresentation && presentationAssetIds.length > 0
+            ? [...presentationAssetIds]
+            : [item.photoId],
+    };
+}
 
-    selection.photoIds.add(item.photoId);
+function addItemToSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
+    selection.selectedItemsByKey.set(item.selectionKey, toSelectedItem(item));
 }
 
 function removeItemFromSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
-    if (item.entityType === 'group' && item.groupId) {
-        selection.groupIds.delete(item.groupId);
-        return;
-    }
-
-    selection.photoIds.delete(item.photoId);
+    selection.selectedItemsByKey.delete(item.selectionKey);
 }
 
 function cloneLibrarySelection(selection: LibrarySelectionState): LibrarySelectionState {
     return {
-        photoIds: new Set(selection.photoIds),
-        groupIds: new Set(selection.groupIds),
+        selectedItemsByKey: new Map(
+            [...selection.selectedItemsByKey].map(([key, item]) => [key, { ...item, assetIds: [...item.assetIds] }]),
+        ),
         anchorKey: selection.anchorKey,
         mostRecentSelectionKey: selection.mostRecentSelectionKey,
     };
+}
+
+export function addLibraryItemsToSelection(
+    selection: LibrarySelectionState,
+    items: readonly LibrarySelectableItem[],
+): LibrarySelectionState {
+    const nextSelection = cloneLibrarySelection(selection);
+    for (const item of items) {
+        addItemToSelection(nextSelection, item);
+    }
+    return nextSelection;
+}
+
+export function setLibraryItemsSelected(
+    selection: LibrarySelectionState,
+    items: readonly LibrarySelectableItem[],
+    selected: boolean,
+): LibrarySelectionState {
+    const nextSelection = cloneLibrarySelection(selection);
+    for (const item of items) {
+        if (selected) {
+            addItemToSelection(nextSelection, item);
+        } else {
+            removeItemFromSelection(nextSelection, item);
+        }
+    }
+    return nextSelection;
 }
 
 function getItemAtIndex(items: LibrarySelectableItem[], index: number): LibrarySelectableItem | null {
@@ -171,10 +214,7 @@ export function updateLibrarySelection(
     action: LibrarySelectionAction,
 ): LibrarySelectionState {
     if (action.mode === 'select_all') {
-        const nextSelection = createEmptyLibrarySelectionState();
-        for (const item of items) {
-            addItemToSelection(nextSelection, item);
-        }
+        const nextSelection = addLibraryItemsToSelection(createEmptyLibrarySelectionState(), items);
         nextSelection.anchorKey = items[0]?.selectionKey ?? null;
         nextSelection.mostRecentSelectionKey = items.at(-1)?.selectionKey ?? null;
         return nextSelection;

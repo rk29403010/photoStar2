@@ -10,6 +10,7 @@ const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/u;
 const families = [
     { name: 'workflow module', root: 'src/services/workflowRuntime/modules/plugins', hostRoots: ['src/services/workflowRuntime', 'src/entrypoints/core'], allowedIdRoots: ['src/services/workflowRuntime/modules/plugins', 'src/services/workflowRuntime/workflows'], contractTest: 'tests/core/workflow-module-plugin-contract.test.cjs', registryScript: 'generate-workflow-module-registry.mjs' },
     { name: 'photo tool', root: 'src/services/photoEditing/tools/plugins', hostRoots: ['src/services/photoEditing', 'src/ui/components/photo-editor'], allowedIdRoots: ['src/services/photoEditing/tools/plugins'], contractTest: 'tests/core/photo-edit-tool-plugin-contract.test.cjs', registryScript: 'generate-photo-edit-tool-registry.mjs' },
+    { name: 'semantic predicate', root: 'src/services/relationships/predicates/plugins', hostRoots: ['src/services/relationships'], allowedIdRoots: ['src/services/relationships/predicates/plugins'], contractTest: 'tests/core/semantic-predicate-plugin-contract.test.cjs', registryScript: 'generate-semantic-predicate-registry.mjs' },
 ];
 const presentationProperties = new Set(['label', 'icon', 'group', 'defaults', 'capabilities', 'help', 'errorBoundaryDisplayName']);
 

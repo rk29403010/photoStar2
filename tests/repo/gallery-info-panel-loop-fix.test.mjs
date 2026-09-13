@@ -15,5 +15,5 @@ test('gallery info panel detail loading keys off a stable asset id and callback'
     assert.match(libraryViewSource, /onEnsureAssetDetails\?\.\(selectedInfoAssetId\);/);
     assert.match(libraryViewSource, /\[onEnsureAssetDetails, selectedInfoAssetId, showInfoPanel\]/);
     assert.match(loadedShellSource, /const ensureAssetDetails = useCallback\(\(assetId: string\) => \{\s*void actions\.loadAssetDetails\(assetId\);\s*\}, \[actions\]\);/s);
-    assert.match(loadedShellSource, /onEnsureAssetDetails=\{ensureAssetDetails\}/);
+    assert.match(loadedShellSource, /onEnsureAssetDetails=\{callbacks\.ensureAssetDetails\}/);
 });

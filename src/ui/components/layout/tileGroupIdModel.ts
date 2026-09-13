@@ -1,4 +1,4 @@
-import type { AssetGroupMembership } from '@contracts/core';
+import type { LibraryPresentationItem, LibraryPresentationRelationshipKind } from '@contracts/libraryPresentation';
 
 export type GroupIdPillModel = {
     key: string;
@@ -10,39 +10,40 @@ export type GroupIdPillModel = {
     textColor: string;
 };
 
-function formatGroupIdSuffix(groupId: string) {
-    return groupId.length <= 4 ? groupId : groupId.slice(-4);
+function formatPresentationKeySuffix(presentationKey: string) {
+    return presentationKey.length <= 4 ? presentationKey : presentationKey.slice(-4);
 }
 
-function getGroupSymbol(groupType: string | null | undefined) {
-    if (groupType == null) {return '#';}
-    switch (groupType) {
-        case 'duplicate':
+function getRelationshipSymbol(kind: LibraryPresentationRelationshipKind) {
+    switch (kind) {
+        case 'exact_copy':
             return '≡';
         case 'near_duplicate':
             return '≈';
-        case 'variant_set':
+        case 'variant':
             return '~';
-        case 'burst':
+        case 'capture_sequence':
             return '*';
-        case 'people':
-            return 'P';
+        case 'edit_lineage':
+            return '↗';
+        case null:
+            return '#';
     }
 
     return '#';
 }
 
-function hashGroupId(groupId: string) {
+function hashPresentationKey(presentationKey: string) {
     let hash = 0;
-    for (let index = 0; index < groupId.length; index += 1) {
-        hash = ((hash << 5) - hash + groupId.charCodeAt(index)) | 0;
+    for (let index = 0; index < presentationKey.length; index += 1) {
+        hash = ((hash << 5) - hash + presentationKey.charCodeAt(index)) | 0;
     }
 
     return Math.abs(hash);
 }
 
-function getGroupColorVisuals(groupId: string) {
-    const hash = hashGroupId(groupId);
+function getPresentationColorVisuals(presentationKey: string) {
+    const hash = hashPresentationKey(presentationKey);
     const hue = hash % 360;
     const borderHue = (hue + 8) % 360;
     return {
@@ -52,35 +53,36 @@ function getGroupColorVisuals(groupId: string) {
     };
 }
 
-export function buildGroupIdPills(memberships: Array<Pick<AssetGroupMembership, 'group_id'> | null | undefined>) {
+export function buildGroupIdPills(items: Array<Pick<LibraryPresentationItem, 'presentationKey'> | null | undefined>) {
     const seen = new Set<string>();
     const pills: string[] = [];
 
-    for (const membership of memberships) {
-        const groupId = membership?.group_id;
-        if (!groupId || seen.has(groupId)) {continue;}
-        seen.add(groupId);
-        pills.push(formatGroupIdSuffix(groupId));
+    for (const item of items) {
+        const presentationKey = item?.presentationKey;
+        if (!presentationKey || seen.has(presentationKey)) {continue;}
+        seen.add(presentationKey);
+        pills.push(formatPresentationKeySuffix(presentationKey));
     }
 
     return pills;
 }
 
-export function buildGroupIdPillModels(memberships: Array<AssetGroupMembership | null | undefined>): GroupIdPillModel[] {
+export function buildGroupIdPillModels(items: Array<LibraryPresentationItem | null | undefined>): GroupIdPillModel[] {
     const seen = new Set<string>();
     const pills: GroupIdPillModel[] = [];
 
-    for (const membership of memberships) {
-        const groupId = membership?.group_id;
-        if (!groupId || seen.has(groupId)) {continue;}
-        seen.add(groupId);
+    for (const item of items) {
+        const presentationKey = item?.presentationKey;
+        if (!presentationKey || seen.has(presentationKey)) {continue;}
+        seen.add(presentationKey);
 
-        const visuals = getGroupColorVisuals(groupId);
+        const visuals = getPresentationColorVisuals(presentationKey);
+        const kindLabel = item.relationshipKind?.replaceAll('_', ' ');
         pills.push({
-            key: groupId,
-            label: formatGroupIdSuffix(groupId),
-            title: membership?.group_type ? `${membership.group_type}: ${groupId}` : groupId,
-            symbol: getGroupSymbol(membership?.group_type),
+            key: presentationKey,
+            label: formatPresentationKeySuffix(presentationKey),
+            title: kindLabel ? `${kindLabel}: ${presentationKey}` : presentationKey,
+            symbol: getRelationshipSymbol(item.relationshipKind),
             ...visuals,
         });
     }

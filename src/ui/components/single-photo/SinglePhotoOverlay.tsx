@@ -1,9 +1,12 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
-import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { Asset, ReviewItemSummary } from '@contracts/core';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type { AiMetadataRequestOptions } from '@shared/aiMetadata/analysisOptions';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { InfoPanel } from './InfoPanel';
 import { PhotoViewport } from './PhotoViewport';
+import { PresentationFilmstrip } from './PresentationFilmstrip';
+import { SinglePhotoRelationshipProvider } from './SinglePhotoRelationshipContext';
 import type { AnalysisState, PanelState } from './PhotoViewport';
 import { DEFAULT_INFO_PANEL_WIDTH } from './singlePhotoOverlayLayout';
 
@@ -12,6 +15,7 @@ const APP_STATUS_BAR_HEIGHT = 30;
 export type SinglePhotoOverlayProps = {
     readonly asset: Asset;
     readonly assets: Asset[];
+    readonly presentation?: LibraryPresentationItem | null;
     readonly currentIndex: number;
     readonly showControls: boolean;
     readonly setShowControls: Dispatch<SetStateAction<boolean>>;
@@ -31,11 +35,11 @@ export type SinglePhotoOverlayProps = {
     readonly onExtractAiMetadata?: (assetId: string, options?: AiMetadataRequestOptions) => Promise<string | undefined>;
     readonly onRerunFaceDetection?: (assetId: string) => Promise<string | undefined>;
     readonly onOpenSettings?: () => void;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onOrbitLoaded: (assets: Asset[]) => void;
+    readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+    readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
+    readonly onSetPresentationShowSeparately?: (presentationKey: string, showSeparately?: boolean) => Promise<void>;
+    readonly onExpansionLoaded: (assets: Asset[]) => void;
     readonly onSelectAsset: (assetId: string) => void;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
-    readonly onExplodeGroup?: (groupId: string) => Promise<void>;
     readonly onAssignAssetTag?: (assetId: string, tagLabel: string) => Promise<void>;
     readonly onRemoveAssetTag?: (assetId: string, tagDefinitionId: string) => Promise<void>;
     readonly onSetReviewItemStatus?: (payload: {
@@ -56,6 +60,7 @@ export type SinglePhotoOverlayProps = {
 
 function PhotoInfoSidebar(props: {
     readonly asset: Asset;
+    readonly presentation?: LibraryPresentationItem | null;
     readonly panelState: PanelState;
     readonly hoveredFaceKey: string | null;
     readonly setHoveredFaceKey: Dispatch<SetStateAction<string | null>>;
@@ -72,8 +77,8 @@ function PhotoInfoSidebar(props: {
     readonly onGetAiCallsLog?: (assetId: string) => Promise<unknown[]>;
     readonly onGetAiCallLogDetail?: (logId: string) => Promise<unknown>;
     readonly analysisState?: string;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+    readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
 }) {
     const assignAssetTag = props.onAssignAssetTag;
@@ -83,12 +88,13 @@ function PhotoInfoSidebar(props: {
     }
 
     return (
-        <div 
-            style={{ width: DEFAULT_INFO_PANEL_WIDTH, height: '100%', zIndex: 1002 }} 
+        <div
+            style={{ width: DEFAULT_INFO_PANEL_WIDTH, height: '100%', zIndex: 1002 }}
             className="shrink-0 motion-safe:animate-slide-in-right"
         >
             <InfoPanel
                 asset={props.asset}
+                presentation={props.presentation}
                 width={DEFAULT_INFO_PANEL_WIDTH}
                 activeTab={props.panelState.activeInfoTab}
                 onTabChange={props.panelState.setActiveInfoTab}
@@ -104,69 +110,90 @@ function PhotoInfoSidebar(props: {
                 onGetAiCallsLog={props.onGetAiCallsLog}
                 onGetAiCallLogDetail={props.onGetAiCallLogDetail}
                 analysisState={props.analysisState}
-                onGetGroupOrbit={props.onGetGroupOrbit}
-                onSetCanonical={props.onSetCanonical}
+                onGetPresentationExpansion={props.onGetPresentationExpansion}
+                onSetPresentationCover={props.onSetPresentationCover}
                 onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
             />
         </div>
     );
 }
 
-export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => (
-    <div
-        style={{ bottom: APP_STATUS_BAR_HEIGHT, zIndex: 1000 }}
-        className="fixed top-0 left-0 w-screen bg-slate-950 flex flex-row overflow-hidden opacity-0 motion-safe:animate-fade-in-overlay"
-    >
-        <PhotoViewport
-            asset={props.asset}
-            assetsLength={props.assets.length}
-            currentIndex={props.currentIndex}
-            showControls={props.showControls}
-            setShowControls={props.setShowControls}
-            showActionMenu={props.showActionMenu}
-            setShowActionMenu={props.setShowActionMenu}
-            hoveredFaceKey={props.hoveredFaceKey}
-            setHoveredFaceKey={props.setHoveredFaceKey}
-            selectedOverlayKey={props.selectedOverlayKey}
-            setSelectedOverlayKey={props.setSelectedOverlayKey}
-            panelState={props.panelState}
-            onClose={props.onClose}
-            onFaceClick={props.onFaceClick}
-            onIsolateFace={props.onIsolateFace}
-            onSetSensitivity={props.onSetSensitivity}
-            onMoveToBin={props.onMoveToBin}
-            onRestoreFromBin={props.onRestoreFromBin}
-            onExtractAiMetadata={props.onExtractAiMetadata}
-            onRerunFaceDetection={props.onRerunFaceDetection}
-            onOpenSettings={props.onOpenSettings}
-            onGetGroupOrbit={props.onGetGroupOrbit}
-            onOrbitLoaded={props.onOrbitLoaded}
-            onSelectAsset={props.onSelectAsset}
-            onSetCanonical={props.onSetCanonical}
-            onExplodeGroup={props.onExplodeGroup}
-            onChangeIndex={props.onChangeIndex}
-            onRevealControls={props.onRevealControls}
-            analysis={props.analysis}
-            onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
-            onEditPhoto={props.onEditPhoto}
-        />
-        <PhotoInfoSidebar
-            asset={props.asset}
-            panelState={props.panelState}
-            hoveredFaceKey={props.hoveredFaceKey}
-            setHoveredFaceKey={props.setHoveredFaceKey}
-            selectedOverlayKey={props.selectedOverlayKey}
-            setSelectedOverlayKey={props.setSelectedOverlayKey}
-            onAssignAssetTag={props.onAssignAssetTag}
-            onRemoveAssetTag={props.onRemoveAssetTag}
-            onSetReviewItemStatus={props.onSetReviewItemStatus}
-            onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
-            onGetAiCallsLog={props.onGetAiCallsLog}
-            onGetAiCallLogDetail={props.onGetAiCallLogDetail}
-            analysisState={props.analysis.analysisState}
-            onGetGroupOrbit={props.onGetGroupOrbit}
-            onSetCanonical={props.onSetCanonical}
-            onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
-        />
-    </div>
-);
+export const SinglePhotoOverlay: FC<SinglePhotoOverlayProps> = (props) => {
+    const semanticPresentation = props.presentation && props.presentation.stackCount > 1
+        ? props.presentation
+        : null;
+    const setPresentationCover = semanticPresentation && props.onSetPresentationCover
+        ? (_relationshipId: string, assetId: string) => props.onSetPresentationCover!(semanticPresentation.presentationKey, assetId)
+        : undefined;
+    const showPresentationSeparately = semanticPresentation && props.onSetPresentationShowSeparately
+        ? (_relationshipId: string) => props.onSetPresentationShowSeparately!(semanticPresentation.presentationKey, true)
+        : undefined;
+
+    return (
+        <div
+            style={{ bottom: APP_STATUS_BAR_HEIGHT, zIndex: 1000 }}
+            className="fixed top-0 left-0 w-screen bg-slate-950 flex flex-row overflow-hidden opacity-0 motion-safe:animate-fade-in-overlay"
+        >
+            <SinglePhotoRelationshipProvider presentation={semanticPresentation}>
+                <PhotoViewport
+                    asset={props.asset}
+                    assetsLength={props.assets.length}
+                    currentIndex={props.currentIndex}
+                    showControls={props.showControls}
+                    setShowControls={props.setShowControls}
+                    showActionMenu={props.showActionMenu}
+                    setShowActionMenu={props.setShowActionMenu}
+                    hoveredFaceKey={props.hoveredFaceKey}
+                    setHoveredFaceKey={props.setHoveredFaceKey}
+                    selectedOverlayKey={props.selectedOverlayKey}
+                    setSelectedOverlayKey={props.setSelectedOverlayKey}
+                    panelState={props.panelState}
+                    onClose={props.onClose}
+                    onFaceClick={props.onFaceClick}
+                    onIsolateFace={props.onIsolateFace}
+                    onSetSensitivity={props.onSetSensitivity}
+                    onMoveToBin={props.onMoveToBin}
+                    onRestoreFromBin={props.onRestoreFromBin}
+                    onExtractAiMetadata={props.onExtractAiMetadata}
+                    onRerunFaceDetection={props.onRerunFaceDetection}
+                    onOpenSettings={props.onOpenSettings}
+                    onSetCanonical={setPresentationCover}
+                    onExplodeGroup={showPresentationSeparately}
+                    onChangeIndex={props.onChangeIndex}
+                    onRevealControls={props.onRevealControls}
+                    analysis={props.analysis}
+                    onRunWorkflowOnAssets={props.onRunWorkflowOnAssets}
+                    onEditPhoto={props.onEditPhoto}
+                />
+            </SinglePhotoRelationshipProvider>
+            {semanticPresentation && props.onGetPresentationExpansion ? (
+                <PresentationFilmstrip
+                    presentationKey={semanticPresentation.presentationKey}
+                    selectedAsset={props.asset}
+                    onGetPresentationExpansion={props.onGetPresentationExpansion}
+                    onExpansionLoaded={props.onExpansionLoaded}
+                    onSelectAsset={props.onSelectAsset}
+                />
+            ) : null}
+            <PhotoInfoSidebar
+                asset={props.asset}
+                presentation={props.presentation}
+                panelState={props.panelState}
+                hoveredFaceKey={props.hoveredFaceKey}
+                setHoveredFaceKey={props.setHoveredFaceKey}
+                selectedOverlayKey={props.selectedOverlayKey}
+                setSelectedOverlayKey={props.setSelectedOverlayKey}
+                onAssignAssetTag={props.onAssignAssetTag}
+                onRemoveAssetTag={props.onRemoveAssetTag}
+                onSetReviewItemStatus={props.onSetReviewItemStatus}
+                onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
+                onGetAiCallsLog={props.onGetAiCallsLog}
+                onGetAiCallLogDetail={props.onGetAiCallLogDetail}
+                analysisState={props.analysis.analysisState}
+                onGetPresentationExpansion={props.onGetPresentationExpansion}
+                onSetPresentationCover={props.onSetPresentationCover}
+                onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
+            />
+        </div>
+    );
+};

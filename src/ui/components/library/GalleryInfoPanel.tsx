@@ -1,11 +1,13 @@
-import type { Asset, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { ReviewItemSummary } from '@contracts/core';
+import type { LibraryPresentationExpansion } from '@contracts/libraryPresentation';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
+import type { GalleryInfoPanelAsset } from './galleryInfoPanelModel';
 import { InfoPanel } from '../single-photo/InfoPanel';
 import { IconButton, Panel, Header } from '../Primitives';
 
 type GalleryInfoPanelProps = {
-    readonly asset: Asset | null;
+    readonly asset: GalleryInfoPanelAsset | null;
     readonly activeTab: InfoTab;
     readonly onTabChange: (tab: InfoTab) => void;
     readonly onClose: () => void;
@@ -18,8 +20,8 @@ type GalleryInfoPanelProps = {
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+    readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
 }
 
 function EmptyGalleryInfoPanel({ onClose }: Pick<GalleryInfoPanelProps, 'onClose'>) {
@@ -30,14 +32,7 @@ function EmptyGalleryInfoPanel({ onClose }: Pick<GalleryInfoPanelProps, 'onClose
                     <div className="text-sm font-semibold text-content mb-0.5">Photo details</div>
                     <div className="text-xs text-content-secondary">Select a photo to inspect its metadata.</div>
                 </div>
-                <IconButton
-                    onClick={onClose}
-                    title="Hide info panel"
-                    aria-label="Hide info panel"
-                    className="w-7 h-7"
-                >
-                    ✕
-                </IconButton>
+                <IconButton onClick={onClose} title="Hide info panel" aria-label="Hide info panel" className="w-7 h-7">✕</IconButton>
             </Header>
             <div className="flex-1 flex items-center justify-center p-6 text-content-secondary text-center text-sm leading-relaxed">
                 Multi-select stays intact here. The panel follows the latest selected photo.
@@ -56,8 +51,8 @@ export function GalleryInfoPanel({
     onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
     onRecordPhotoMetadataAssertion,
-    onGetGroupOrbit,
-    onSetCanonical,
+    onGetPresentationExpansion,
+    onSetPresentationCover,
 }: GalleryInfoPanelProps) {
     if (!asset) {
         return <EmptyGalleryInfoPanel onClose={onClose} />;
@@ -66,6 +61,7 @@ export function GalleryInfoPanel({
     return (
         <InfoPanel
             asset={asset}
+            presentation={asset.libraryPresentation}
             activeTab={activeTab}
             onTabChange={onTabChange}
             onClose={onClose}
@@ -74,8 +70,8 @@ export function GalleryInfoPanel({
             onSetReviewItemStatus={onSetReviewItemStatus}
             onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
             onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
-            onGetGroupOrbit={onGetGroupOrbit}
-            onSetCanonical={onSetCanonical}
+            onGetPresentationExpansion={onGetPresentationExpansion}
+            onSetPresentationCover={onSetPresentationCover}
         />
     );
 }

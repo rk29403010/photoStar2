@@ -110,11 +110,52 @@ async function resetLibrary(ctx: CommandContext, mode: ResetMode) {
 function resetGroupingData(ctx: CommandContext) {
     const db = ctx.dbManager.getDb();
     db.transaction(() => {
-        db.prepare('DELETE FROM asset_group_members').run();
-        db.prepare('DELETE FROM asset_groups').run();
         db.prepare("DELETE FROM asset_similarity_edges WHERE kind IN ('visual', 'time', 'metadata', 'hybrid')").run();
+        db.prepare(`
+            DELETE FROM visual_similarity_observations
+            WHERE source_identity = 'runtime.group_similar_photos:visual_hash'
+        `).run();
+        db.prepare(`
+            DELETE FROM capture_sequences
+            WHERE status = 'proposed'
+              AND source_kind = 'system'
+              AND source_identity = 'runtime.group_similar_photos:burst'
+        `).run();
     })();
     ctx.respond(ctx.id, 'ok', { message: 'Grouping data reset.' }, null, ctx.originWs);
+}
+
+function pruneTransientPeopleAfterFaceReset(ctx: CommandContext): void {
+    const db = ctx.dbManager.getDb();
+    db.prepare(`
+        DELETE FROM people
+        WHERE id NOT IN (
+            SELECT DISTINCT durable_person.native_id
+            FROM semantic_propositions proposition
+            JOIN semantic_entities durable_person
+              ON durable_person.id = proposition.object_entity_id
+             AND durable_person.kind = 'person'
+            WHERE proposition.predicate = 'depicts'
+              AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM semantic_decisions decision
+                      WHERE decision.proposition_id = proposition.id
+                        AND decision.source_kind != 'machine'
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM semantic_attestations attestation
+                      WHERE attestation.proposition_id = proposition.id
+                        AND attestation.source_kind IN ('human', 'import')
+                  )
+              )
+            UNION
+            SELECT DISTINCT assignment.person_id
+            FROM face_assignments assignment
+            WHERE assignment.person_id IS NOT NULL
+        )
+    `).run();
 }
 
 function resetFaceData(ctx: CommandContext, mediaId?: string) {
@@ -122,30 +163,18 @@ function resetFaceData(ctx: CommandContext, mediaId?: string) {
     db.transaction(() => {
         if (!mediaId) {
             db.prepare("DELETE FROM derived_results WHERE task IN ('face_detection', 'face_recognition')").run();
+            db.prepare("DELETE FROM asset_mask_metadata WHERE source_id = 'runtime.detect_faces'").run();
             db.prepare('DELETE FROM face_assignments').run();
-            db.prepare('DELETE FROM people').run();
-            db.prepare('DELETE FROM manual_face_names').run();
-            db.prepare('DELETE FROM manual_face_isolations').run();
+            pruneTransientPeopleAfterFaceReset(ctx);
             return;
         }
 
-        const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(mediaId) as { original_path?: string } | undefined;
         db.prepare("DELETE FROM derived_results WHERE asset_id = ? AND task IN ('face_detection', 'face_recognition')").run(mediaId);
+        db.prepare("DELETE FROM asset_mask_metadata WHERE asset_id = ? AND source_id = 'runtime.detect_faces'").run(mediaId);
         db.prepare('DELETE FROM face_assignments WHERE asset_id = ?').run(mediaId);
 
-        if (asset?.original_path) {
-            db.prepare('DELETE FROM manual_face_names WHERE original_path = ?').run(asset.original_path);
-            db.prepare('DELETE FROM manual_face_isolations WHERE original_path = ?').run(asset.original_path);
-        }
 
-        db.prepare(`
-            DELETE FROM people
-            WHERE id NOT IN (
-                SELECT DISTINCT person_id
-                FROM face_assignments
-                WHERE person_id IS NOT NULL
-            )
-        `).run();
+        pruneTransientPeopleAfterFaceReset(ctx);
     })();
     ctx.respond(ctx.id, 'ok', { message: mediaId ? 'Face data reset for asset.' : 'Face data reset.' }, null, ctx.originWs);
 }

@@ -1,78 +1,184 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('buildVisibleGalleryItems projects canonical groups in grouped mode and all photos in expanded mode', async () => {
+function presentationItem({ key, representativeAssetId, assetIds, relationshipKind = 'exact_copy' }) {
+    return {
+        presentationKey: key,
+        representativeAssetId,
+        relationshipKind,
+        stackCount: assetIds.length,
+        assetIds,
+        originalPath: `C:/photos/${representativeAssetId}.jpg`,
+        photoCreatedAt: null,
+        createdAt: '2026-03-01T00:00:00.000Z',
+        previewPath: null,
+    };
+}
+
+test('buildVisibleGalleryItems uses server presentation stacks in grouped mode and all photos in expanded mode', async () => {
     const { buildVisibleGalleryItems } = await import('../../dist/core/src/shared/utils/libraryGallerySelection.js');
 
     const assets = [
-        { id: 'a1', original_path: 'C:/photos/a1.jpg', created_at: '2026-03-01T00:00:00.000Z', group_id: 'g1', group_role: 'canonical', stack_count: 3 },
-        { id: 'a2', original_path: 'C:/photos/a2.jpg', created_at: '2026-03-02T00:00:00.000Z', group_id: 'g1', group_role: 'member', stack_count: 3 },
+        { id: 'a1', original_path: 'C:/photos/a1.jpg', created_at: '2026-03-01T00:00:00.000Z' },
+        { id: 'a2', original_path: 'C:/photos/a2.jpg', created_at: '2026-03-02T00:00:00.000Z' },
         { id: 'a3', original_path: 'C:/photos/a3.jpg', created_at: '2026-03-03T00:00:00.000Z' },
+    ];
+    const presentationItems = [
+        presentationItem({ key: 'asset:a3', representativeAssetId: 'a3', assetIds: ['a3'], relationshipKind: null }),
+        presentationItem({ key: 'exact:stack-1', representativeAssetId: 'a1', assetIds: ['a1', 'a2'] }),
     ];
 
     const groupedItems = buildVisibleGalleryItems(assets, {
         groupSimilarPhotos: true,
         sortMode: 'date',
+        presentationItems,
     });
-    assert.deepEqual(groupedItems.map((item) => item.selectionKey), ['photo:a3', 'group:g1']);
+    assert.deepEqual(groupedItems.map((item) => item.selectionKey), ['photo:a3', 'group:exact:stack-1']);
 
     const expandedItems = buildVisibleGalleryItems(assets, {
         groupSimilarPhotos: false,
         sortMode: 'date',
+        presentationItems,
     });
     assert.deepEqual(expandedItems.map((item) => item.selectionKey), ['photo:a3', 'photo:a2', 'photo:a1']);
 });
 
-test('buildVisibleGalleryItems keeps one visible item per collapsed group key in grouped mode', async () => {
+test('buildVisibleGalleryItems keeps one selectable item per server-side presentation item', async () => {
     const { buildVisibleGalleryItems } = await import('../../dist/core/src/shared/utils/libraryGallerySelection.js');
 
     const assets = [
-        { id: 'a1', original_path: 'C:/photos/a1.jpg', created_at: '2026-03-04T00:00:00.000Z', group_id: 'g1', group_role: 'canonical', stack_count: 4 },
-        { id: 'a2', original_path: 'C:/photos/a2.jpg', created_at: '2026-03-03T00:00:00.000Z', group_id: 'g1', group_role: 'canonical', stack_count: 4 },
-        { id: 'a3', original_path: 'C:/photos/a3.jpg', created_at: '2026-03-02T00:00:00.000Z', group_id: 'g2', group_role: 'canonical', stack_count: 2 },
+        { id: 'a1', original_path: 'C:/photos/a1.jpg', created_at: '2026-03-04T00:00:00.000Z' },
+        { id: 'a2', original_path: 'C:/photos/a2.jpg', created_at: '2026-03-03T00:00:00.000Z' },
+        { id: 'a3', original_path: 'C:/photos/a3.jpg', created_at: '2026-03-02T00:00:00.000Z' },
         { id: 'a4', original_path: 'C:/photos/a4.jpg', created_at: '2026-03-01T00:00:00.000Z' },
+    ];
+    const presentationItems = [
+        presentationItem({ key: 'exact:stack-1', representativeAssetId: 'a1', assetIds: ['a1', 'a2'] }),
+        presentationItem({ key: 'variant:stack-2', representativeAssetId: 'a3', assetIds: ['a3', 'hidden-a5'], relationshipKind: 'variant' }),
+        presentationItem({ key: 'asset:a4', representativeAssetId: 'a4', assetIds: ['a4'], relationshipKind: null }),
     ];
 
     const groupedItems = buildVisibleGalleryItems(assets, {
         groupSimilarPhotos: true,
         sortMode: 'date',
+        presentationItems,
     });
 
-    assert.deepEqual(groupedItems.map((item) => item.selectionKey), ['group:g1', 'group:g2', 'photo:a4']);
+    assert.deepEqual(
+        groupedItems.map((item) => item.selectionKey),
+        ['group:exact:stack-1', 'group:variant:stack-2', 'photo:a4'],
+    );
     assert.deepEqual(groupedItems.map((item) => item.asset.id), ['a1', 'a3', 'a4']);
+    assert.deepEqual(groupedItems[1].presentation.assetIds, ['a3', 'hidden-a5']);
 });
 
-test('updateLibrarySelection toggles and ranges over photo and group items independently', async () => {
+test('updateLibrarySelection stores visible photos and presentation stacks by selection key', async () => {
     const {
+        createEmptyLibrarySelectionState,
+        getLibrarySelectionAssetIds,
+        getLibrarySelectionPhotoIds,
+        updateLibrarySelection,
+    } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
+
+    const stackPresentation = presentationItem({
+        key: 'exact:stack-1',
+        representativeAssetId: 'a2',
+        assetIds: ['a2', 'hidden-a4'],
+    });
+    const items = [
+        { selectionKey: 'photo:a1', entityType: 'photo', photoId: 'a1', groupId: null, asset: { id: 'a1', original_path: 'a1.jpg' } },
+        {
+            selectionKey: 'group:exact:stack-1',
+            entityType: 'group',
+            photoId: 'a2',
+            groupId: 'exact:stack-1',
+            asset: { id: 'a2', original_path: 'a2.jpg' },
+            presentation: stackPresentation,
+        },
+        { selectionKey: 'photo:a3', entityType: 'photo', photoId: 'a3', groupId: null, asset: { id: 'a3', original_path: 'a3.jpg' } },
+    ];
+
+    const firstSelection = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 1 });
+    assert.deepEqual([...firstSelection.selectedItemsByKey.keys()], ['group:exact:stack-1']);
+    assert.deepEqual(firstSelection.selectedItemsByKey.get('group:exact:stack-1'), {
+        selectionKey: 'group:exact:stack-1',
+        kind: 'presentation',
+        representativeAssetId: 'a2',
+        assetIds: ['a2', 'hidden-a4'],
+    });
+    assert.deepEqual(getLibrarySelectionPhotoIds(firstSelection), []);
+    assert.deepEqual(getLibrarySelectionAssetIds(firstSelection, []), ['a2', 'hidden-a4']);
+
+    const rangedSelection = updateLibrarySelection(items, firstSelection, { mode: 'range', index: 2 });
+    assert.deepEqual([...rangedSelection.selectedItemsByKey.keys()], ['group:exact:stack-1', 'photo:a3']);
+    assert.deepEqual(getLibrarySelectionPhotoIds(rangedSelection), ['a3']);
+    assert.deepEqual(getLibrarySelectionAssetIds(rangedSelection, []), ['a3', 'a2', 'hidden-a4']);
+
+    const toggledSelection = updateLibrarySelection(items, rangedSelection, { mode: 'toggle', index: 1 });
+    assert.deepEqual([...toggledSelection.selectedItemsByKey.keys()], ['photo:a3']);
+    assert.deepEqual(getLibrarySelectionAssetIds(toggledSelection, []), ['a3']);
+});
+
+test('addLibraryItemsToSelection preserves an existing selection while adding drag-range items', async () => {
+    const {
+        addLibraryItemsToSelection,
         createEmptyLibrarySelectionState,
         updateLibrarySelection,
     } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
 
     const items = [
         { selectionKey: 'photo:a1', entityType: 'photo', photoId: 'a1', groupId: null, asset: { id: 'a1', original_path: 'a1.jpg' } },
-        { selectionKey: 'group:g1', entityType: 'group', photoId: 'a2', groupId: 'g1', asset: { id: 'a2', original_path: 'a2.jpg' } },
+        { selectionKey: 'photo:a2', entityType: 'photo', photoId: 'a2', groupId: null, asset: { id: 'a2', original_path: 'a2.jpg' } },
         { selectionKey: 'photo:a3', entityType: 'photo', photoId: 'a3', groupId: null, asset: { id: 'a3', original_path: 'a3.jpg' } },
     ];
+    const original = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 0 });
+    const added = addLibraryItemsToSelection(original, items.slice(1));
 
-    const firstSelection = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 1 });
-    assert.deepEqual([...firstSelection.groupIds], ['g1']);
-    assert.equal(firstSelection.photoIds.size, 0);
+    assert.deepEqual([...added.selectedItemsByKey.keys()], ['photo:a1', 'photo:a2', 'photo:a3']);
+    assert.deepEqual([...original.selectedItemsByKey.keys()], ['photo:a1']);
+});
 
-    const rangedSelection = updateLibrarySelection(items, firstSelection, { mode: 'range', index: 2 });
-    assert.deepEqual([...rangedSelection.groupIds], ['g1']);
-    assert.deepEqual([...rangedSelection.photoIds], ['a3']);
+test('setLibraryItemsSelected selects and deselects a timeline section without touching other selections', async () => {
+    const {
+        createEmptyLibrarySelectionState,
+        setLibraryItemsSelected,
+        updateLibrarySelection,
+    } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
 
-    const toggledSelection = updateLibrarySelection(items, rangedSelection, { mode: 'toggle', index: 1 });
-    assert.equal(toggledSelection.groupIds.size, 0);
-    assert.deepEqual([...toggledSelection.photoIds], ['a3']);
+    const stackPresentation = presentationItem({
+        key: 'exact:section-stack',
+        representativeAssetId: 'a2',
+        assetIds: ['a2', 'hidden-a4'],
+    });
+    const items = [
+        { selectionKey: 'photo:a1', entityType: 'photo', photoId: 'a1', groupId: null, asset: { id: 'a1', original_path: 'a1.jpg' } },
+        {
+            selectionKey: 'group:exact:section-stack',
+            entityType: 'group',
+            photoId: 'a2',
+            groupId: 'exact:section-stack',
+            asset: { id: 'a2', original_path: 'a2.jpg' },
+            presentation: stackPresentation,
+        },
+        { selectionKey: 'photo:a3', entityType: 'photo', photoId: 'a3', groupId: null, asset: { id: 'a3', original_path: 'a3.jpg' } },
+    ];
+    const original = updateLibrarySelection(items, createEmptyLibrarySelectionState(), { mode: 'replace', index: 0 });
+    const sectionSelected = setLibraryItemsSelected(original, items.slice(1), true);
+
+    assert.deepEqual([...sectionSelected.selectedItemsByKey.keys()], ['photo:a1', 'group:exact:section-stack', 'photo:a3']);
+    assert.deepEqual(sectionSelected.selectedItemsByKey.get('group:exact:section-stack').assetIds, ['a2', 'hidden-a4']);
+    assert.deepEqual([...original.selectedItemsByKey.keys()], ['photo:a1']);
+
+    const sectionCleared = setLibraryItemsSelected(sectionSelected, items.slice(1), false);
+    assert.deepEqual([...sectionCleared.selectedItemsByKey.keys()], ['photo:a1']);
 });
 
 test('getSelectionRangeKeys follows visible item order across rows', async () => {
     const { getSelectionRangeKeys } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
 
     assert.deepEqual(
-        getSelectionRangeKeys(['photo:a1', 'photo:a2', 'group:g1', 'photo:a4'], 'photo:a1', 'group:g1'),
-        ['photo:a1', 'photo:a2', 'group:g1'],
+        getSelectionRangeKeys(['photo:a1', 'photo:a2', 'group:exact:stack-1', 'photo:a4'], 'photo:a1', 'group:exact:stack-1'),
+        ['photo:a1', 'photo:a2', 'group:exact:stack-1'],
     );
 });
 

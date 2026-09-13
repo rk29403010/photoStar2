@@ -1,18 +1,19 @@
 import { useCallback, useState } from 'react';
-import type { Asset, TileIntent } from '@contracts/core';
+import type { TileIntent } from '@contracts/core';
+import type { LibraryDisplayAsset } from '@shared/utils/librarySelectionState';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import { TileOverlays, type SensitivityBadge } from './TileOverlays';
 
 type TileProps = {
-    asset: Asset;
+    asset: LibraryDisplayAsset;
     intent?: TileIntent;
     debug?: boolean;
     selected?: boolean;
     activeFilter?: LibraryFilter;
     showFaces?: boolean;
     onUntagAsset?: (assetId: string, personId: string) => void;
-    onHoverAssetChange?: (asset: Asset | null) => void;
+    onHoverAssetChange?: (asset: LibraryDisplayAsset | null) => void;
     imageLoading?: 'eager' | 'lazy';
     imageFetchPriority?: 'high' | 'auto';
     isGroupRepresentative?: boolean;
@@ -49,7 +50,7 @@ const DEFAULT_TILE_PROPS = {
     hasSelection: false,
 };
 
-function getSensitivityDisplay(asset: Asset): SensitivityBadge | null {
+function getSensitivityDisplay(asset: LibraryDisplayAsset): SensitivityBadge | null {
     const manualStatus = asset.sensitivity_status;
     if (manualStatus === 'unsafe') {return { label: '🔞 Unsafe', tone: 'error' };}
     if (manualStatus === 'review') {return { label: '⚠ Review', tone: 'warning' };}
@@ -66,7 +67,7 @@ function getBorderClass(selected: boolean): string {
     return selected ? 'border-2 border-brand-accent' : 'border-2 border-surface-secondary';
 }
 
-function useTileHoverState(asset: Asset, onHoverAssetChange?: (asset: Asset | null) => void) {
+function useTileHoverState(asset: LibraryDisplayAsset, onHoverAssetChange?: (asset: LibraryDisplayAsset | null) => void) {
     const [isHovered, setIsHovered] = useState(false);
     const handleMouseEnter = useCallback(() => {
         setIsHovered(true);
@@ -100,16 +101,14 @@ const LoadedTileImage: React.FC<{
         onImageVisibleChange(true);
     }, [onImageVisibleChange]);
     const handleImageRef = useCallback((image: HTMLImageElement | null) => {
-        if (image && image.complete && image.naturalWidth > 0) {
+        if (image?.complete && image.naturalWidth > 0) {
             markLoaded();
         }
     }, [markLoaded]);
 
     return (
         <div className="w-full h-full relative bg-surface-secondary">
-            {!isLoaded && (
-                <div className="absolute inset-0 bg-gradient-to-br from-surface-secondary to-surface/85" />
-            )}
+            {!isLoaded && <div className="absolute inset-0 bg-gradient-to-br from-surface-secondary to-surface/85" />}
             <img
                 ref={handleImageRef}
                 src={imgSrc}
@@ -163,6 +162,7 @@ export const Tile: React.FC<TileProps> = (props) => {
         isScrollSettled,
         hasSelection,
     } = getTileProps(props);
+    const presentation = asset.libraryPresentation ?? null;
     const imgSrc = asset.preview_data_url ?? resolveImageUrl(asset.preview_path);
     const sensitivityBadge = getSensitivityDisplay(asset);
     const { isHovered, handleMouseEnter, handleMouseLeave } = useTileHoverState(asset, onHoverAssetChange);
@@ -179,9 +179,9 @@ export const Tile: React.FC<TileProps> = (props) => {
             <TileOverlays
                 selected={selected}
                 sensitivityBadge={sensitivityBadge}
-                stackCount={asset.stack_count}
+                stackCount={presentation?.stackCount}
                 isGroupRepresentative={isGroupRepresentative}
-                groupMemberships={asset.group_memberships}
+                presentation={presentation}
                 showGroupIds={showGroupIds}
                 hoveredGroupId={hoveredGroupId}
                 onHoveredGroupIdChange={onHoveredGroupIdChange}

@@ -1,5 +1,12 @@
 # TO DO List
 
+## 2026-09-12 - WP13d identity-review runtime acceptance
+
+- Complete the real-runtime keyboard and visual journey for every identity-review
+  response, including named ambiguous candidates, empty state, induced load/save
+  errors, and retry. Source, command, and UI characterization tests are present,
+  but the current local environment has no supported Chrome or Edge executable.
+
 ## 2026-07-25 - Plug-in compatibility layers
 
 - Registration adapters are removed and generated registries are checked by the
@@ -305,3 +312,16 @@ UI Improvements
 - Verify real EfficientSAM-Ti model execution against representative local photos before enabling it in any default ingest tier.
 - Build the optional Model Manager: installation UI, progress/cancellation/retry, disk-space checks, removal/update, trusted source manifests, version migration, and local-conversion guidance.
 - Obtain legal redistribution review and a legally cleared source or hosting route for the derived FastSAM-s FP32 ONNX file before any production download or bundle; consider FP16/INT8 only after calibrated FP32 comparison.
+
+## 2026-09-11 - Semantic relationships WP10e prerequisite conflict (resolved)
+
+- WP10d reconciliation regression gate is green at `756f7a9` / Actions run `34594221168`.
+- Before WP10e durable People actions, reconcile an execution-order conflict: `semantic-relationships-phase1-foundation.md` forbids cutting human actions to semantic tables until soft-reset preservation is implemented/tested, while the implementation plan currently places WP10e before WP10f reset preservation.
+- Predicate prerequisite resolved at `e3f074a6`: semantic predicate manifests, generated registry checking and persisted definition snapshots are now present and green.
+
+- Ordering clarification: generic semantic soft-reset preservation already exists in `semanticResetState.ts` and is covered by `semantic-soft-reset.test.cjs`; WP10e can proceed once that gate is green at the cutover head. WP10f still owns face-specific reset/reimport preservation.
+
+## 2026-09-11 - Legacy manual face reset compatibility
+
+- WP10e no longer writes new `manual_face_names` / `manual_face_isolations` records and WP10f makes stable Face/VisualRegion semantic state independently durable across reset/reimport.
+- Keep restoring old path/index manual rows temporarily so pre-cutover development/user data is not silently discarded. WP10h should remove that legacy reset/storage path only after its final search and replacement coverage are green.

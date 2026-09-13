@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import type { Person } from '@contracts/core';
 import type { LibraryFilter } from '../hooks/usePhotoLibrary';
 import { resolveImageUrl } from '@boundary/runtime/backend';
 import { globalRequest } from '@ui/hooks/usePhotoLibrary';
 import { parseGedcom } from '../../services/gedcom/gedcomParser';
-import { Trash2, Link2, Search } from 'lucide-react';
+import { Link2, Search } from 'lucide-react';
+import { AssignmentGrid, IdentityReviewSection } from './people/IdentityReviewSection';
+import { useFaceAssignmentActions, usePersonDetailData, type FamilyTreeInfo } from './people/identityReviewData';
 
 type PeopleViewProps = {
     readonly people: Person[];
@@ -373,15 +375,6 @@ function SelectionActionBar({
     );
 }
 
-type FaceAssignmentInfo = {
-    asset_id: string;
-    face_index: number;
-    confidence: number;
-    is_suggested: number;
-    original_path: string;
-    preview_path: string | null;
-};
-
 type PersonDetailModalProps = {
     readonly person: Person;
     readonly onClose: () => void;
@@ -389,57 +382,10 @@ type PersonDetailModalProps = {
     readonly onRename?: (personId: string, newName: string) => void;
 };
 
-type FamilyTreeInfo = { id: string; filename: string; version_label?: string };
-
-function usePersonDetailData(personId: string) {
-    const [assignments, setAssignments] = useState<FaceAssignmentInfo[]>([]);
-    const [trees, setTrees] = useState<FamilyTreeInfo[]>([]);
-    const loadAssignments = useCallback(() => {
-        if (!globalRequest) {return;}
-        void globalRequest<{ assignments: FaceAssignmentInfo[] }>({
-            idPrefix: 'get_person_face_assignments',
-            command: 'get_person_face_assignments',
-            payload: { personId },
-            select: (d) => d as { assignments: FaceAssignmentInfo[] }
-        }).then(res => {
-            setAssignments(res.assignments || []);
-        });
-    }, [personId]);
-    useEffect(() => {
-        loadAssignments();
-        if (!globalRequest) {return;}
-        void globalRequest<{ trees: FamilyTreeInfo[] }>({
-            idPrefix: 'get_family_trees',
-            command: 'get_family_trees',
-            payload: {},
-            select: (data) => data as { trees: FamilyTreeInfo[] }
-        }).then(result => setTrees(result.trees || []));
-    }, [loadAssignments]);
-    return { assignments, loadAssignments, trees };
+function selectGedcomContent(data: Record<string, unknown> | undefined) {
+    return { content: typeof data?.content === 'string' ? data.content : '' };
 }
 
-function useFaceAssignmentActions(personId: string, reload: () => void) {
-    const run = async (command: string, payload: Record<string, unknown>) => {
-        if (!globalRequest) {return;}
-        await globalRequest({
-            idPrefix: command,
-            command,
-            payload,
-            select: (d) => d
-        });
-        reload();
-        globalThis.dispatchEvent(new CustomEvent('refresh-people-list'));
-    };
-    const confirm = (assetId: string, faceIndex: number) =>
-        run('confirm_face_assignment', { assetId, faceIndex });
-    const reject = (assetId: string, faceIndex: number) =>
-        run('reject_face_assignment', { assetId, faceIndex, personId });
-    const unmatch = async (assetId: string, faceIndex: number) => {
-        if (!globalThis.confirm('Are you sure you want to isolate/unmatch this photo from this person?')) {return;}
-        await run('isolate_face', { assetId, faceIndex });
-    };
-    return { confirm, reject, unmatch };
-}
 
 function PersonDetailHeader(props: {
     readonly person: Person;
@@ -489,37 +435,6 @@ function PersonDetailHeader(props: {
     );
 }
 
-function AssignmentGrid(props: {
-    readonly assignments: FaceAssignmentInfo[];
-    readonly suggested: boolean;
-    readonly actions: ReturnType<typeof useFaceAssignmentActions>;
-}) {
-    if (props.assignments.length === 0) {
-        return <div className="p-6 bg-content/5 rounded-xl text-center text-sm text-content-secondary">No {props.suggested ? 'suggested matches' : 'confirmed photos'}.</div>;
-    }
-    return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {props.assignments.map(assignment => (
-                <div key={`${assignment.asset_id}-${assignment.face_index}`} className="relative group rounded-lg overflow-hidden border border-content/10 bg-surface-secondary aspect-square">
-                    <img src={resolveImageUrl(assignment.preview_path || assignment.original_path) || undefined}
-                        alt={props.suggested ? 'Suggested person match' : 'Confirmed person match'} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
-                        {props.suggested ? (
-                            <><button onClick={() => props.actions.confirm(assignment.asset_id, assignment.face_index)}>Approve</button>
-                            <button onClick={() => props.actions.reject(assignment.asset_id, assignment.face_index)}>Reject</button></>
-                        ) : (
-                            <button onClick={() => props.actions.unmatch(assignment.asset_id, assignment.face_index)} title="Unmatch / Isolate Face"><Trash2 className="w-4 h-4" /></button>
-                        )}
-                    </div>
-                    <div className="absolute bottom-1 right-1 bg-black/60 px-1 text-[9px] text-white">
-                        {(assignment.confidence * 100).toFixed(0)}%
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
 function PersonDetailModal({ person, onClose, onFilter, onRename }: PersonDetailModalProps) {
     const [showLinker, setShowLinker] = useState(false);
     const data = usePersonDetailData(person.id);
@@ -536,8 +451,8 @@ function PersonDetailModal({ person, onClose, onFilter, onRename }: PersonDetail
             <dialog className="w-full max-w-4xl rounded-xl border bg-surface p-6 text-content flex flex-col max-h-[90vh]" open>
                 <PersonDetailHeader person={person} trees={data.trees} onClose={onClose} onRename={onRename} onViewPhotos={viewPhotos} />
                 <div className="flex-1 overflow-y-auto space-y-6 pr-2">
-                    <section><h3>Confirmed Photos</h3><AssignmentGrid assignments={data.assignments.filter(item => item.is_suggested === 0)} suggested={false} actions={actions} /></section>
-                    <section><h3>Suggested Matches</h3><AssignmentGrid assignments={data.assignments.filter(item => item.is_suggested === 1)} suggested actions={actions} /></section>
+                    <section><h3>Confirmed Photos</h3><AssignmentGrid assignments={data.assignments.filter(item => item.is_suggested === 0)} personName={person.name || 'Unknown'} suggested={false} actions={actions} /></section>
+                    <IdentityReviewSection actions={actions} data={data} personName={person.name || 'Unknown'} />
                 </div>
                 <div className="mt-4 border-t border-content/10 pt-4 flex justify-between">
                     <button onClick={() => setShowLinker(true)}><Link2 className="w-3.5 h-3.5" /> Link to Family Tree</button>
@@ -545,7 +460,7 @@ function PersonDetailModal({ person, onClose, onFilter, onRename }: PersonDetail
                 </div>
             </dialog>
             {showLinker && <TreeLinkerDialog person={person} trees={data.trees} onClose={closeLinker}
-                onLinkComplete={() => { closeLinker(); data.loadAssignments(); }} />}
+                onLinkComplete={() => { closeLinker(); void data.loadAssignments(); }} />}
         </div>
     );
 }
@@ -582,7 +497,7 @@ function useGedcomCandidates(treeId: string, personName: string, search: string)
         }
         void globalRequest<{ content: string }>({
             idPrefix: 'get_linker_content', command: 'get_family_tree_content',
-            payload: { treeId }, select: (data) => data as { content: string }
+            payload: { treeId }, select: selectGedcomContent
         }).then(result => setPeople(Object.values(parseGedcom(result.content).people)));
     }, [treeId]);
     return useMemo(() => {
@@ -602,7 +517,7 @@ function TreeCandidatePicker(props: {
     readonly selectedTreeId: string;
     readonly trees: FamilyTreeInfo[];
     readonly onSearchChange: (search: string) => void;
-    readonly onSelectCandidate: (id: string) => void;
+    readonly onSelectCandidate: (id: string) => Promise<void>;
     readonly onTreeChange: (id: string) => void;
 }) {
     return (
@@ -624,7 +539,7 @@ function TreeCandidatePicker(props: {
             </div>
             {props.selectedTreeId && <div className="max-h-60 overflow-y-auto space-y-1 mb-4">
                 {props.candidates.map(candidate => (
-                    <button key={candidate.id} type="button" onClick={() => props.onSelectCandidate(candidate.id)}>
+                    <button key={candidate.id} type="button" onClick={() => { void props.onSelectCandidate(candidate.id); }}>
                         <span>{candidate.name}</span>
                         <span>{candidate.birthDate ? `* ${candidate.birthDate}` : ''} {candidate.deathDate ? `† ${candidate.deathDate}` : ''}</span>
                         {candidate.score > 0 && <span>Match: {candidate.score}%</span>}
