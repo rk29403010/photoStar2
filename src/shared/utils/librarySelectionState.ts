@@ -188,9 +188,17 @@ function toggleLibrarySelectionItem(items: LibrarySelectableItem[], selection: L
 
     const nextSelection = cloneLibrarySelection(selection);
     if (isItemSelected(nextSelection, item)) {
-        removeItemFromSelection(nextSelection, item);
+        if (nextSelection.selectionSnapshot) {
+            nextSelection.excludedKeys.add(item.selectionKey);
+        } else {
+            removeItemFromSelection(nextSelection, item);
+        }
     } else {
-        addItemToSelection(nextSelection, item);
+        if (nextSelection.selectionSnapshot) {
+            nextSelection.excludedKeys.delete(item.selectionKey);
+        } else {
+            addItemToSelection(nextSelection, item);
+        }
     }
     nextSelection.anchorKey = item.selectionKey;
     nextSelection.mostRecentSelectionKey = item.selectionKey;
@@ -215,7 +223,7 @@ function rangeSelectLibraryItems(items: LibrarySelectableItem[], selection: Libr
     const rangeStart = Math.min(anchorIndex, index), rangeEnd = Math.max(anchorIndex, index);
     if (items.length >= 1000) {
         nextSelection.selectionSnapshot = items;
-        nextSelection.selectedRanges = [{ start: rangeStart, end: rangeEnd }];
+        nextSelection.selectedRanges = [...nextSelection.selectedRanges, { start: rangeStart, end: rangeEnd }];
         nextSelection.selectedItemsByKey.clear();
         nextSelection.excludedKeys = new Set();
         nextSelection.mostRecentSelectionKey = item.selectionKey;
