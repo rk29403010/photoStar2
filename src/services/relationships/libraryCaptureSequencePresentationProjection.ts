@@ -234,6 +234,12 @@ export function rebuildCaptureSequencePresentationProjection(
 function refreshCaptureSequencePresentationCache(db: DbHandle, order: LibraryPresentationOrder): void {
     const state = db.prepare(`SELECT is_dirty FROM capture_sequence_presentation_cache_state WHERE id = ?`).get(order) as { is_dirty: number } | undefined;
     if (state && state.is_dirty === 0) { return; }
+    const cached = db.prepare(`
+        SELECT 1 FROM capture_sequence_presentation_cache
+        WHERE presentation_order = ? LIMIT 1
+    `).get(order);
+    if (cached) { return; }
+    rebuildCaptureSequencePresentationProjection(db, order);
 }
 
 export function getAllCaptureSequencePresentationItems(
