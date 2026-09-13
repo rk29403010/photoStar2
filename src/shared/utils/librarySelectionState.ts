@@ -76,19 +76,19 @@ export function isItemSelected(selection: LibrarySelectionState, item: LibrarySe
 }
 
 export function getLibrarySelectionPhotoIds(selection: LibrarySelectionState): string[] {
-    return [...selection.selectedItemsByKey.values()]
+    return getSelectedItems(selection)
         .filter((item) => item.kind === 'photo')
         .map((item) => item.representativeAssetId);
 }
 
 export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, _assets: Asset[]): string[] {
     const assetIds = new Set<string>();
-    for (const item of selection.selectedItemsByKey.values()) {
+    for (const item of getSelectedItems(selection)) {
         if (item.kind === 'photo') {
             assetIds.add(item.representativeAssetId);
         }
     }
-    for (const item of selection.selectedItemsByKey.values()) {
+    for (const item of getSelectedItems(selection)) {
         if (item.kind === 'presentation') {
             for (const assetId of item.assetIds) {
                 assetIds.add(assetId);
@@ -96,6 +96,14 @@ export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, _a
         }
     }
     return [...assetIds];
+}
+
+function getSelectedItems(selection: LibrarySelectionState): LibrarySelectedItem[] {
+    const items = new Map(selection.selectedItemsByKey);
+    for (const item of selection.selectionSnapshot ?? []) {
+        if (isItemSelected(selection, item)) { items.set(item.selectionKey, toSelectedItem(item)); }
+    }
+    return [...items.values()];
 }
 
 export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: LibrarySelectionKey, targetKey: LibrarySelectionKey): LibrarySelectionKey[] {
