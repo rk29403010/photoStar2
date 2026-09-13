@@ -19,6 +19,9 @@ async function main() {
         samples.push(performance.now() - started);
     }
     samples.sort((left, right) => left - right);
-    console.log(`LIBRARY_SELECTION_BENCHMARK_RESULT ${JSON.stringify({ tier, itemCount: count, selectedCount: selection.getLibrarySelectionCount(state), p50Ms: Number(samples[3].toFixed(1)), p95Ms: Number(samples[7].toFixed(1)), targetP95Ms: 150 })}`);
+    const expansionStarted = performance.now();
+    const expandedAssetCount = selection.getLibrarySelectionAssetIds(state, []).length;
+    const expansionMs = performance.now() - expansionStarted;
+    console.log(`LIBRARY_SELECTION_BENCHMARK_RESULT ${JSON.stringify({ tier, itemCount: count, selectedCount: selection.getLibrarySelectionCount(state), expandedAssetCount, expansionMs: Number(expansionMs.toFixed(1)), p50Ms: Number(samples[3].toFixed(1)), p95Ms: Number(samples[7].toFixed(1)), targetP95Ms: 150 })}`);
 }
 main();

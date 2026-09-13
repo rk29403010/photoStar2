@@ -26,6 +26,7 @@ export type LibrarySelectedItem = {
 export type LibrarySelectionState = {
     selectedItemsByKey: Map<LibrarySelectionKey, LibrarySelectedItem>;
     selectionSnapshot: readonly LibrarySelectableItem[] | null;
+    selectionSnapshotIndices: ReadonlyMap<LibrarySelectionKey, number>;
     selectedRanges: { start: number; end: number }[];
     excludedKeys: Set<LibrarySelectionKey>;
     anchorKey: LibrarySelectionKey | null;
@@ -42,6 +43,7 @@ export function createEmptyLibrarySelectionState(): LibrarySelectionState {
     return {
         selectedItemsByKey: new Map(),
         selectionSnapshot: null,
+        selectionSnapshotIndices: new Map(),
         selectedRanges: [],
         excludedKeys: new Set(),
         anchorKey: null,
@@ -70,7 +72,7 @@ export function clearLibrarySelection(): LibrarySelectionState {
 
 export function isItemSelected(selection: LibrarySelectionState, item: LibrarySelectableItem): boolean {
     if (selection.selectedItemsByKey.has(item.selectionKey)) { return true; }
-    const index = selection.selectionSnapshot?.findIndex((entry) => entry.selectionKey === item.selectionKey) ?? -1;
+    const index = selection.selectionSnapshotIndices.get(item.selectionKey) ?? -1;
     return index >= 0 && !selection.excludedKeys.has(item.selectionKey)
         && selection.selectedRanges.some((range) => index >= range.start && index <= range.end);
 }
@@ -83,17 +85,13 @@ export function getLibrarySelectionPhotoIds(selection: LibrarySelectionState): s
 
 export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, _assets: Asset[]): string[] {
     const assetIds = new Set<string>();
-    for (const item of getSelectedItems(selection)) {
-        if (item.kind === 'photo') {
-            assetIds.add(item.representativeAssetId);
+    for (const item of selection.selectionSnapshot ?? []) {
+        if (isItemSelected(selection, item)) {
+            for (const assetId of toSelectedItem(item).assetIds) { assetIds.add(assetId); }
         }
     }
-    for (const item of getSelectedItems(selection)) {
-        if (item.kind === 'presentation') {
-            for (const assetId of item.assetIds) {
-                assetIds.add(assetId);
-            }
-        }
+    for (const item of selection.selectedItemsByKey.values()) {
+        for (const assetId of item.assetIds) { assetIds.add(assetId); }
     }
     return [...assetIds];
 }
@@ -143,6 +141,7 @@ function cloneLibrarySelection(selection: LibrarySelectionState): LibrarySelecti
     return {
         selectedItemsByKey: new Map(selection.selectedItemsByKey),
         selectionSnapshot: selection.selectionSnapshot,
+        selectionSnapshotIndices: selection.selectionSnapshotIndices,
         selectedRanges: [...selection.selectedRanges],
         excludedKeys: new Set(selection.excludedKeys),
         anchorKey: selection.anchorKey,
@@ -237,6 +236,7 @@ function rangeSelectLibraryItems(items: LibrarySelectableItem[], selection: Libr
     const rangeStart = Math.min(anchorIndex, index), rangeEnd = Math.max(anchorIndex, index);
     if (items.length >= 1000) {
         nextSelection.selectionSnapshot = items;
+        nextSelection.selectionSnapshotIndices = new Map(items.map((entry, entryIndex) => [entry.selectionKey, entryIndex]));
         nextSelection.selectedRanges = [...nextSelection.selectedRanges, { start: rangeStart, end: rangeEnd }];
         nextSelection.selectedItemsByKey.clear();
         nextSelection.excludedKeys = new Set();
@@ -257,7 +257,7 @@ export function updateLibrarySelection(
 ): LibrarySelectionState {
     if (action.mode === 'select_all') {
         if (items.length >= 1000) {
-            return { selectedItemsByKey: new Map(), selectionSnapshot: items, selectedRanges: [{ start: 0, end: items.length - 1 }], excludedKeys: new Set(), anchorKey: items[0]?.selectionKey ?? null, mostRecentSelectionKey: items.at(-1)?.selectionKey ?? null };
+            return { selectedItemsByKey: new Map(), selectionSnapshot: items, selectionSnapshotIndices: new Map(items.map((entry, entryIndex) => [entry.selectionKey, entryIndex])), selectedRanges: [{ start: 0, end: items.length - 1 }], excludedKeys: new Set(), anchorKey: items[0]?.selectionKey ?? null, mostRecentSelectionKey: items.at(-1)?.selectionKey ?? null };
         }
         const nextSelection = addLibraryItemsToSelection(createEmptyLibrarySelectionState(), items);
         nextSelection.anchorKey = items[0]?.selectionKey ?? null;
