@@ -12,7 +12,7 @@
 - Last integrated WP15 checkpoint: `06d7c443c10d0e29a377456863d32a9e23666957`
 - Canonical local merge gate: **GREEN** at `06d7c44` — 392 passed, 1 skipped core tests and affected UI smoke passed.
 - Published PR head: `06d7c44`; remote quality-gate/benchmark/CodeQL are in progress as of 2026-09-13.
-- Current package: **WP16b — Library/presentation performance**
+- Current package: **WP16c — Face candidate/clustering/vector performance**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -35,22 +35,22 @@ Always verify actual HEAD/Actions before continuing.
 - WP14 complete through a-e: whole-Asset and VisualRegion Photograph membership now resolve through `photographMembershipRepository.ts`; exact copies inherit unique Photograph membership without legacy groups; disputed evidence is not guessed; restoration/crop/ordinary edit lineage preserves Photograph identity while explicit authored composites create a stable new Photograph. `photo_edit_documents` remains authoritative for edit recipes and branch lineage. PR `#43` merged at `43208c04ef1edabe268a8adc61ea28f8faf319ab`; post-merge canonical run `34699825589` (job `103569488019`) is green.
 - WP15 complete at `06d7c44`: authoritative reset matrix, WP13 testimony snapshot, durable library snapshot, replacement-then-swap soft reset recovery, face-analysis reset invalidation, relationship publication rollback, strict legacy migration compatibility, and fingerprint-safe asset binding. `qa:ready` passed (147 UI tests plus UI smoke) and `qa:merge` passed (392 core tests, one intentional skip, plus UI smoke). The checkpoint is published to PR #42; assess Sonar only after it analyzes this head.
 - WP16a initial measurement: the repeatable development tier seeded 20k 512-d vectors in 1729.6 ms and measured 1059.5 ms p95 active-vector lookup (0.8 MiB observed heap growth). This misses the 150 ms interaction target before target-tier execution, confirming the existing WP11d index-evaluation blocker rather than a new WP15 regression.
-- WP16b: the initial 10k-asset exact-copy page measured 291.2 ms p95. Numbered migration `20260913_002_exact_copy_presentation_hash_index` adds the existing query's `assets(file_hash)` access path. A rebuildable exact-copy cache, invalidated by relevant Asset changes and atomically refreshed on the next read, replaces full-table window ranking for normal pages. Numbered migration `20260913_004_exact_copy_presentation_cache_order` indexes cached default chronology: target tier page offset 10,000 measures 18.2 ms p95 for 100k Assets (24.7 MiB SQLite), and stretch tier offset 50,000 measures 62.3 ms p95 for 500k Assets (125.0 MiB SQLite), both below the 150 ms target. Cache materialization remains an explicit rebuild cost (6745.4 ms at stretch). Migration `20260913_005_capture_sequence_presentation_cache` stores the full existing composed capture projection and pages it from SQLite; Asset and CaptureSequence/member changes invalidate it. The real-proposal benchmark measured 0.8 ms p95 at development (10k Assets/2.5k sequences) and 1.2 ms p95 at target (100k Assets/25k sequences); rebuild cost is 1025.6 ms and 11395.1 ms respectively. Lazy selection ranges now measure 68.0 ms p95 at target (100k visible items) and deferred bulk Asset expansion measures 84.8 ms. `syncBurstCaptureSequenceProposals` rebuilds the capture projection inside the tracked grouping workflow after a successful proposal replacement; normal reads retain the last successful projection while dirty, so the 11.4-second target rebuild is no longer an interaction-path cost. WP16 acceptance still needs the documented handoff gate and the WP13d runtime obligation.
+- WP16b complete: the initial 10k-asset exact-copy page measured 291.2 ms p95. Numbered migration `20260913_002_exact_copy_presentation_hash_index` adds the existing query's `assets(file_hash)` access path. A rebuildable exact-copy cache, invalidated by relevant Asset changes and atomically refreshed on the next read, replaces full-table window ranking for normal pages. Numbered migration `20260913_004_exact_copy_presentation_cache_order` indexes cached default chronology: target tier page offset 10,000 measures 18.2 ms p95 for 100k Assets (24.7 MiB SQLite), and stretch tier offset 50,000 measures 62.3 ms p95 for 500k Assets (125.0 MiB SQLite), both below the 150 ms target. Cache materialization remains an explicit rebuild cost (6745.4 ms at stretch). Migration `20260913_005_capture_sequence_presentation_cache` stores the full existing composed capture projection and pages it from SQLite; Asset and CaptureSequence/member changes invalidate it. The real-proposal benchmark measured 0.8 ms p95 at development (10k Assets/2.5k sequences) and 1.2 ms p95 at target (100k Assets/25k sequences); rebuild cost is 1025.6 ms and 11395.1 ms respectively. Lazy range selection now measures 65.4 ms p95 at target (100k visible items) and deferred bulk Asset expansion measures 73.9 ms while preserving legacy selection-state compatibility and photo-before-presentation expansion order. `syncBurstCaptureSequenceProposals` rebuilds the capture projection inside the tracked grouping workflow after a successful proposal replacement; normal reads retain the last successful projection while dirty, so the 11.4-second target rebuild is no longer an interaction-path cost. WP16 acceptance still needs the documented handoff gate and the WP13d runtime obligation.
 
-## 3. Current package — WP16b
+## 3. Current package — WP16c
 
 ### Goal
 
-Measure existing presentation queries and document the evidence needed for a deliberate indexing or query-shape decision.
+Measure face candidate lookup, clustering/reconciliation throughput and active vector retrieval at representative scale.
 
 ### Gate
 
-Presentation paging, expansion and bulk-action paths have representative measurements and an explicit remediation decision for any missed target.
+Measurements justify the current storage/query strategy or record an explicit index/architecture remediation.
 
 ### Exact next action
 
-1. Replace capture-sequence full materialization before pagination with a measured paged projection, then measure expansion at the same tiers.
-2. Measure bulk selection at the same tiers.
+1. Extend the repeatable benchmark harness to cover candidate lookup and clustering/reconciliation throughput at development and target tiers.
+2. Rerun active vector retrieval at the target tier and record the already-evidenced local-index decision when it misses the 150 ms target.
 3. Keep the existing WP13d real-runtime acceptance obligation in the WP16 acceptance ledger.
 
 ## 4. Phase status
@@ -67,7 +67,7 @@ Presentation paging, expansion and bulk-action paths have representative measure
 | WP13 | **In progress — WP13d current** |
 | WP14 | **Complete** |
 | WP15 | **Complete — published checkpoint `06d7c44`; remote CI pending** |
-| WP16 | **In progress — WP16b current** |
+| WP16 | **In progress — WP16c current** |
 
 ## 5. Deferred ledger
 

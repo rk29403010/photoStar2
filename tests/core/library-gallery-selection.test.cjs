@@ -138,6 +138,33 @@ test('addLibraryItemsToSelection preserves an existing selection while adding dr
     assert.deepEqual([...original.selectedItemsByKey.keys()], ['photo:a1']);
 });
 
+test('selection helpers remain compatible with state created before lazy ranges existed', async () => {
+    const {
+        getLibrarySelectionAssetIds,
+        getLibrarySelectionCount,
+        updateLibrarySelection,
+    } = await import('../../dist/core/src/shared/utils/librarySelectionState.js');
+    const legacySelection = {
+        selectedItemsByKey: new Map([['photo:a1', {
+            selectionKey: 'photo:a1',
+            kind: 'photo',
+            representativeAssetId: 'a1',
+            assetIds: ['a1'],
+        }]]),
+        anchorKey: 'photo:a1',
+        mostRecentSelectionKey: 'photo:a1',
+    };
+    const items = [
+        { selectionKey: 'photo:a1', entityType: 'photo', photoId: 'a1', groupId: null, asset: { id: 'a1', original_path: 'a1.jpg' } },
+        { selectionKey: 'photo:a2', entityType: 'photo', photoId: 'a2', groupId: null, asset: { id: 'a2', original_path: 'a2.jpg' } },
+    ];
+
+    const rangedSelection = updateLibrarySelection(items, legacySelection, { mode: 'range', index: 1 });
+
+    assert.equal(getLibrarySelectionCount(rangedSelection), 2);
+    assert.deepEqual(getLibrarySelectionAssetIds(rangedSelection, []), ['a1', 'a2']);
+});
+
 test('setLibraryItemsSelected selects and deselects a timeline section without touching other selections', async () => {
     const {
         createEmptyLibrarySelectionState,

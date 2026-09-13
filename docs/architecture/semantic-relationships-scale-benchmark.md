@@ -58,3 +58,18 @@ target offset-10,000 page to 18.2 ms p95 and the stretch offset-50,000 page to
 62.3 ms p95. The 500k-Asset cache materialization cost is 6745.4 ms at 125.0
 MiB SQLite; retain it as an explicit rebuild operation rather than an interaction
 path.
+
+The capture-sequence projection benchmark measures the complete composed
+presentation rather than a synthetic read shortcut. At development tier (10k
+Assets / 2.5k sequences), warmed paging measured 0.8 ms p95 and rebuild took
+1025.6 ms. At target tier (100k Assets / 25k sequences), warmed paging measured
+1.2 ms p95 and rebuild took 11395.1 ms. The tracked grouping workflow now owns
+that rebuild after successful proposal replacement, while reads retain the last
+successful projection during invalidation.
+
+The target-tier selection benchmark uses 100k visible presentation items. Lazy
+range selection previously measured 68.0 ms p95 and deferred bulk expansion
+84.8 ms. A compatibility/order correction retained the established contract
+that individual photo IDs precede expanded presentation members; the rerun on
+2026-09-14 measured 65.4 ms p95 selection and 73.9 ms expansion. Both paths
+remain below the 150 ms interaction target.
