@@ -197,12 +197,14 @@ function rangeSelectLibraryItems(items: LibrarySelectableItem[], selection: Libr
     }
 
     const nextSelection = cloneLibrarySelection(selection);
-    const selectionKeys = items.map((currentItem) => currentItem.selectionKey);
-    for (const key of getSelectionRangeKeys(selectionKeys, selection.anchorKey, item.selectionKey)) {
-        const rangedItem = items.find((currentItem) => currentItem.selectionKey === key);
-        if (rangedItem) {
-            addItemToSelection(nextSelection, rangedItem);
-        }
+    const anchorIndex = items.findIndex((currentItem) => currentItem.selectionKey === selection.anchorKey);
+    if (anchorIndex === -1) {
+        return replaceLibrarySelection(items, index);
+    }
+    const rangeStart = Math.min(anchorIndex, index);
+    const rangeEnd = Math.max(anchorIndex, index);
+    for (const rangedItem of items.slice(rangeStart, rangeEnd + 1)) {
+        addItemToSelection(nextSelection, rangedItem);
     }
     nextSelection.mostRecentSelectionKey = item.selectionKey;
     return nextSelection;
