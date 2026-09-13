@@ -54,5 +54,7 @@ requirement.
 The stretch fixture (500k Assets, page offset 50,000) measured 993.8 ms p95 and
 6187.4 ms first materialization at 115.2 MiB SQLite before the cached chronology
 index. Migration `20260913_004_exact_copy_presentation_cache_order` reduced the
-target offset-10,000 page to 18.2 ms p95. Re-run the stretch fixture before
-treating the stretch requirement as met.
+target offset-10,000 page to 18.2 ms p95 and the stretch offset-50,000 page to
+62.3 ms p95. The 500k-Asset cache materialization cost is 6745.4 ms at 125.0
+MiB SQLite; retain it as an explicit rebuild operation rather than an interaction
+path.
