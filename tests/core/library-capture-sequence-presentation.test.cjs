@@ -53,6 +53,12 @@ test('overlapping active CaptureSequences stay expanded instead of hiding an amb
         });
 
         const items = presentation.getCaptureSequencePresentationPage(db, { limit: 20, offset: 0 });
+        const pagedItems = [
+            ...presentation.getCaptureSequencePresentationPage(db, { limit: 1, offset: 0 }),
+            ...presentation.getCaptureSequencePresentationPage(db, { limit: 1, offset: 1 }),
+            ...presentation.getCaptureSequencePresentationPage(db, { limit: 1, offset: 2 }),
+        ];
+        assert.deepEqual(pagedItems, presentation.getAllCaptureSequencePresentationItems(db));
         assert.equal(presentation.countCaptureSequencePresentationItems(db), 3);
         assert.deepEqual(
             items.map((item) => item.representativeAssetId),
