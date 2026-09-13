@@ -50,7 +50,13 @@ export function createEmptyLibrarySelectionState(): LibrarySelectionState {
 }
 
 export function getLibrarySelectionCount(selection: LibrarySelectionState): number {
-    const rangeCount = selection.selectedRanges.reduce((total, range) => total + range.end - range.start + 1, 0);
+    const orderedRanges = [...selection.selectedRanges].sort((left, right) => left.start - right.start);
+    let rangeCount = 0;
+    let coveredEnd = -1;
+    for (const range of orderedRanges) {
+        rangeCount += Math.max(0, range.end - Math.max(range.start, coveredEnd + 1) + 1);
+        coveredEnd = Math.max(coveredEnd, range.end);
+    }
     return rangeCount + selection.selectedItemsByKey.size - selection.excludedKeys.size;
 }
 
