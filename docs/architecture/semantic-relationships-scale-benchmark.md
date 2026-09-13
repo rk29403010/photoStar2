@@ -52,6 +52,7 @@ took 1131.0 ms. Measure stretch paging before closing the presentation paging
 requirement.
 
 The stretch fixture (500k Assets, page offset 50,000) measured 993.8 ms p95 and
-6187.4 ms first materialization at 115.2 MiB SQLite. The target-scale cache is
-therefore accepted only as an interim WP16b result; redesign later-page access
-before treating the stretch requirement as met.
+6187.4 ms first materialization at 115.2 MiB SQLite before the cached chronology
+index. Migration `20260913_004_exact_copy_presentation_cache_order` reduced the
+target offset-10,000 page to 18.2 ms p95. Re-run the stretch fixture before
+treating the stretch requirement as met.

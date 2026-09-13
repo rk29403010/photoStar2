@@ -308,7 +308,9 @@ function refreshExactCopyPresentationCache(db: DbHandle): void {
                 relationship_kind,
                 stack_count,
                 file_hash,
-                asset_ids_json
+                asset_ids_json,
+                photo_created_at,
+                created_at
             )
             SELECT
                 pa.presentation_key,
@@ -323,7 +325,9 @@ function refreshExactCopyPresentationCache(db: DbHandle): void {
                         WHERE member.file_hash = pa.file_hash
                     )
                     ELSE json_array(pa.representative_asset_id)
-                END
+                END,
+                a.photo_created_at,
+                a.created_at
             FROM PresentationAssets pa
             JOIN assets a ON a.id = pa.representative_asset_id
             WHERE a.binned_at IS NULL
@@ -343,6 +347,13 @@ function buildPresentationOrderClause(order: LibraryPresentationOrder): string {
         return `CASE WHEN p.path IS NULL THEN 1 ELSE 0 END ASC, a.created_at ASC, ${photoDateOrder}, a.id ASC`;
     }
     return photoDateOrder;
+}
+
+function buildExactCopyCacheOrderClause(order: LibraryPresentationOrder): string {
+    if (order === 'default') {
+        return 'cache.photo_created_at DESC, cache.created_at DESC, cache.representative_asset_id ASC';
+    }
+    return buildPresentationOrderClause(order);
 }
 
 function toPresentationItem(row: PresentationRow): LibraryPresentationItem {
@@ -383,7 +394,7 @@ export function getExactCopyPresentationPage(
         FROM exact_copy_presentation_cache cache
         JOIN assets a ON a.id = cache.representative_asset_id
         LEFT JOIN previews p ON p.asset_id = a.id AND p.size = 'thumbnail'
-        ORDER BY ${buildPresentationOrderClause(order)}
+        ORDER BY ${buildExactCopyCacheOrderClause(order)}
         LIMIT ? OFFSET ?
     `).all(limit, offset) as PresentationRow[];
     return rows.map(toPresentationItem);
