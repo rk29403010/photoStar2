@@ -288,6 +288,54 @@ const RELATIONSHIP_PRESENTATION_CTE = `
     )
 `;
 
+function refreshExactCopyPresentationCache(db: DbHandle): void {
+    const state = db.prepare(`
+        SELECT is_dirty
+        FROM exact_copy_presentation_cache_state
+        WHERE id = 1
+    `).get() as { is_dirty: number } | undefined;
+    if (!state || state.is_dirty === 0) {
+        return;
+    }
+
+    db.transaction(() => {
+        db.prepare('DELETE FROM exact_copy_presentation_cache').run();
+        db.prepare(`
+            ${EXACT_COPY_PRESENTATION_CTE}
+            INSERT INTO exact_copy_presentation_cache (
+                presentation_key,
+                representative_asset_id,
+                relationship_kind,
+                stack_count,
+                file_hash,
+                asset_ids_json
+            )
+            SELECT
+                pa.presentation_key,
+                pa.representative_asset_id,
+                pa.relationship_kind,
+                pa.stack_count,
+                pa.file_hash,
+                CASE
+                    WHEN pa.relationship_kind = 'exact_copy' THEN (
+                        SELECT json_group_array(member.id)
+                        FROM assets member
+                        WHERE member.file_hash = pa.file_hash
+                    )
+                    ELSE json_array(pa.representative_asset_id)
+                END
+            FROM PresentationAssets pa
+            JOIN assets a ON a.id = pa.representative_asset_id
+            WHERE a.binned_at IS NULL
+        `).run();
+        db.prepare(`
+            UPDATE exact_copy_presentation_cache_state
+            SET is_dirty = 0
+            WHERE id = 1
+        `).run();
+    })();
+}
+
 function buildPresentationOrderClause(order: LibraryPresentationOrder): string {
     const chronologicalDirection = order === 'oldest_first' ? 'ASC' : 'DESC';
     const photoDateOrder = `CASE WHEN a.photo_created_at IS NULL THEN 1 ELSE 0 END ASC, a.photo_created_at ${chronologicalDirection}, a.created_at ${chronologicalDirection}`;
@@ -320,29 +368,21 @@ export function getExactCopyPresentationPage(
     const limit = Math.max(0, Math.trunc(options.limit));
     const offset = Math.max(0, Math.trunc(options.offset));
     const order = options.order ?? 'default';
+    refreshExactCopyPresentationCache(db);
     const rows = db.prepare(`
-        ${EXACT_COPY_PRESENTATION_CTE}
         SELECT
-            pa.presentation_key,
-            pa.representative_asset_id,
-            pa.relationship_kind,
-            pa.stack_count,
-            CASE
-                WHEN pa.relationship_kind = 'exact_copy' THEN (
-                    SELECT json_group_array(member.id)
-                    FROM assets member
-                    WHERE member.file_hash = pa.file_hash
-                )
-                ELSE json_array(a.id)
-            END AS asset_ids_json,
+            cache.presentation_key,
+            cache.representative_asset_id,
+            cache.relationship_kind,
+            cache.stack_count,
+            cache.asset_ids_json,
             a.original_path,
             a.photo_created_at,
             a.created_at,
             p.path AS preview_path
-        FROM PresentationAssets pa
-        JOIN assets a ON a.id = pa.representative_asset_id
+        FROM exact_copy_presentation_cache cache
+        JOIN assets a ON a.id = cache.representative_asset_id
         LEFT JOIN previews p ON p.asset_id = a.id AND p.size = 'thumbnail'
-        WHERE a.binned_at IS NULL
         ORDER BY ${buildPresentationOrderClause(order)}
         LIMIT ? OFFSET ?
     `).all(limit, offset) as PresentationRow[];
@@ -350,12 +390,10 @@ export function getExactCopyPresentationPage(
 }
 
 export function countExactCopyPresentationItems(db: DbHandle): number {
+    refreshExactCopyPresentationCache(db);
     const row = db.prepare(`
-        ${EXACT_COPY_PRESENTATION_CTE}
         SELECT COUNT(*) AS count
-        FROM PresentationAssets pa
-        JOIN assets a ON a.id = pa.representative_asset_id
-        WHERE a.binned_at IS NULL
+        FROM exact_copy_presentation_cache
     `).get() as { count: number };
     return row.count;
 }

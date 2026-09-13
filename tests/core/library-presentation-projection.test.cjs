@@ -126,6 +126,32 @@ test('exact-copy presentation collapses before pagination without persisted grou
     }
 });
 
+test('exact-copy presentation refreshes its rebuildable cache after relevant asset changes', async () => {
+    const tempDir = createTempDir();
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const presentation = await import('../../dist/core/src/services/relationships/libraryPresentationProjection.js');
+    const dbManager = new DatabaseManager(tempDir);
+
+    try {
+        const db = dbManager.getDb();
+        seedAssets(db);
+        assert.equal(presentation.countExactCopyPresentationItems(db), 3);
+
+        db.prepare(`
+            INSERT INTO assets (id, original_path, file_hash, file_size, width, height, created_at)
+            VALUES ('another-copy', 'C:/photos/another-copy.jpg', 'same-content', 3000, 1600, 1000, '2025-03-01T00:00:00.000Z')
+        `).run();
+        const refreshed = presentation.getExactCopyPresentationPage(db, { limit: 10, offset: 0 });
+        const exactCopies = refreshed.find((item) => item.presentationKey === 'exact:same-content');
+        assert.ok(exactCopies);
+        assert.equal(exactCopies.stackCount, 4);
+        assert.deepEqual(exactCopies.assetIds, ['another-copy', 'jpeg-copy', 'png-copy', 'small-copy']);
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
 test('relationship presentation collapses edit lineage without collapsing an independent scan of the same Photograph', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');

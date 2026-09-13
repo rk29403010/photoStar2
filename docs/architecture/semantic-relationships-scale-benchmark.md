@@ -43,6 +43,9 @@ sequence expansion and bulk selection separately before declaring WP16b
 complete.
 
 On 2026-09-13, the `assets(file_hash)` index brought the development fixture to
-119.0 ms p95, but target tier remained 1123.6 ms p95. WP16b therefore requires
-a rebuildable paged exact-copy presentation projection; do not treat the index
-as the target-tier solution.
+119.0 ms p95, but target tier remained 1123.6 ms p95. Numbered migration
+`20260913_003_exact_copy_presentation_cache` adds a rebuildable cache with an
+Asset-change dirty marker and transactional refresh on the next read. The warmed
+target fixture then measured 54.1 ms p95 at 100k Assets (22.9 MiB SQLite), below
+the 150 ms target. Measure later pages and cache rebuild cost before closing the
+presentation paging requirement.
