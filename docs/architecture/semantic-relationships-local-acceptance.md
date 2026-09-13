@@ -52,6 +52,33 @@ targeted failures then passed, followed by the complete suite: 394 passed, one
 intentional skip, zero failures. All 147 UI tests passed. Isolated desktop
 `ui:smoke --force` rendered a visible root without browser/runtime errors.
 
+## WP16f current-branch runtime acceptance — 2026-09-14
+
+The registered task runtime remained healthy at web port 5913 and backend port
+5914. Process inspection tied both listeners to this worktree; the app shell and
+source endpoint returned HTTP 200, and a traced WebSocket initial sync returned
+the fixture Asset plus its semantic presentation item.
+
+Using the disposable acceptance profile, the runtime generated the missing
+fixture preview through the tracked workflow and displayed its completion. The
+library then rendered the unknown-date timeline and preview, the single-photo
+viewer opened the real image, and the non-destructive editor rendered its full
+tool registry with a ready preview and Save draft / Render version controls.
+Returning to the photo and library preserved navigation state.
+
+People rendered Alice and Mary. Restoring the disposable candidate's review
+eligibility and reopening Alice displayed the real candidate image, raw
+`Similarity 0.81`, all eight certainty choices, named ambiguity `Unsure between
+Alice or Mary`, and an unclipped Save response control. Closing person details
+left it closed. The already-recorded runtime response evidence in this document
+covers keyboard save, original wording and non-decision semantics; the current
+pass deliberately did not add another durable response.
+
+The fixture has only one Asset and no confirmed assignment, so it cannot
+visually demonstrate multi-item scrolling, merge, or isolation. Those paths are
+covered by the complete core/UI suites and the target-tier benchmark fixtures;
+the limitation does not replace that executable evidence.
+
 ## CI diagnostics integration
 
 PR #44 merges cleanly locally; its workflow-policy tests pass. Its recorded CI

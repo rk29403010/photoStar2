@@ -12,7 +12,7 @@
 - Last integrated WP15 checkpoint: `06d7c443c10d0e29a377456863d32a9e23666957`
 - Canonical local merge gate: **GREEN** at `06d7c44` — 392 passed, 1 skipped core tests and affected UI smoke passed.
 - Published PR head: `06d7c44`; remote quality-gate/benchmark/CodeQL are in progress as of 2026-09-13.
-- Current package: **WP16f — Manual visual acceptance and large-library soak**
+- Current package: **WP16g — Final gates, publication, and reconciliation**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -39,22 +39,23 @@ Always verify actual HEAD/Actions before continuing.
 - WP16c complete with one explicit architecture follow-up: the real candidate-review query measured 6.5 ms p95 at development (20k Faces / 100k candidates) and 57.7 ms p95 at target (250k Faces / 1.25m candidates). Pairwise IdentityCluster reconciliation initially took 66035 ms for 5k four-Face clusters; stable-Face membership indexing reduced it to 79-97 ms, and the 62.5k-cluster target completed in 858.4 ms with 118.7 MiB observed heap growth. Existing reconciliation contract tests remain green. Exact native vector retrieval still misses the interaction target at 2334.8 ms p95 for 250k by 512-d vectors; the Phase 1 decision is to keep current generation semantics and require a measured local vector-index proposal before treating candidate generation as interactive.
 - WP16d complete: the consolidated scale matrix records presentation and candidate interaction p95, projection rebuild costs, heap ceilings and SQLite growth. The production compaction path deleted 20k of 60k development vectors in 1508.2 ms and 250k of 750k target vectors in 24754.3 ms while retaining the active generation plus its immediate predecessor. Target heap growth was 0.7 MiB. The 3070.4 MiB target file remained allocated after logical deletion and shrank to 2040.1 MiB after an explicit 40915.8 ms `VACUUM`; compaction and reclamation remain maintenance operations, not interaction paths.
 - WP16e complete: an initial full core run exposed a dirty-empty capture presentation cache returning no Assets on fresh databases. Reads now synchronously build only when no last-successful projection exists, while populated dirty caches preserve the deliberate tracked-workflow behavior. The affected library tests passed, followed by the full core suite (394 passed, one intentional skip), all 147 UI tests, and isolated desktop `ui:smoke --force` with a visible root and no browser/runtime errors. The automated acceptance matrix links fresh ingest, library paging/scrolling, selection/bulk expansion, presentation member expansion, editor persistence/rendering, People actions, uncertain testimony and recovery states to executable evidence.
+- WP16f complete: 500-iteration target soaks measured 2.3 ms p95 / 0.1 MiB heap drift for warmed 100k-Asset pages and 70.9 ms p95 / 2.8 MiB drift for full 100k-item lazy range selection; Asset expansion remained 61.0 ms. The current branch-owned runtime at web 5913/backend 5914 rendered the library, real fixture preview, single-photo viewer, editor registry, People and restored identity-review candidate. The review showed raw `Similarity 0.81`, all eight certainty responses, named ambiguity and unclipped controls; person details closed without reopening. The one-Asset fixture cannot visually exercise multi-item scrolling, merge or isolation, so those remain backed by the full suites and target fixtures rather than a misleading manual claim.
 
-## 3. Current package — WP16f
+## 3. Current package — WP16g
 
 ### Goal
 
-Manually verify affected library/editor/People/review journeys and run a representative large-library soak.
+Run final quality, generated-registry, runtime and integration gates at the exact publication head, then reconcile the status and deferred ledger.
 
 ### Gate
 
-Manual acceptance is explicitly recorded and unresolved defects have owners and completion criteria.
+`qa:ready` and `qa:merge` pass at the exact head; publication evidence is recorded without claiming remote integration prematurely.
 
 ### Exact next action
 
-1. Run a repeated target-tier query/selection soak and record latency and memory drift.
-2. Re-open the branch-owned runtime and visually exercise library, editor, People and identity-review paths.
-3. Record any remaining environment/data limitation explicitly before the final gate.
+1. Commit the WP16f benchmark and acceptance checkpoint.
+2. Run generated-registry checks, `qa:ready`, `ui:smoke`, and final `qa:merge`.
+3. Publish the exact validated head and record remote check / PR state.
 
 ## 4. Phase status
 
@@ -67,10 +68,10 @@ Manual acceptance is explicitly recorded and unresolved defects have owners and 
 | WP10 | **Complete** |
 | WP11 | **Complete** |
 | WP12 | **Complete** |
-| WP13 | **In progress — WP13d current** |
+| WP13 | **Complete — automated, durability and real-runtime acceptance recorded** |
 | WP14 | **Complete** |
 | WP15 | **Complete — published checkpoint `06d7c44`; remote CI pending** |
-| WP16 | **In progress — WP16f current** |
+| WP16 | **In progress — WP16g current** |
 
 ## 5. Deferred ledger
 
@@ -79,23 +80,23 @@ Manual acceptance is explicitly recorded and unresolved defects have owners and 
 | WP10 | Remaining transitional `face_index` adapter statements | Do not widen frozen inventory; later contraction only with explicit proof |
 | WP10/WP15 | Broader reset durability | Complete at `06d7c44`; matrix and behavioral fixtures cover reset classes |
 | WP11/WP16 | Vector lookup target missed | Implement and measure a local vector-index proposal without weakening generation semantics before candidate generation becomes interactive |
-| WP13 | Contributor uncertainty/testimony | WP13 completion gate |
+| WP13 | Contributor uncertainty/testimony | Complete: normalized attributed responses, reset/reopen durability and runtime review evidence |
 | WP15 | Cross-domain durability | Complete: matrix, targeted fixtures, `qa:ready`, and `qa:merge` passed at `06d7c44` |
-| WP16 | Skips/manual acceptance/scale | Acceptance matrix + final `qa:merge` |
+| WP16 | Skips/manual acceptance/scale | Acceptance and scale evidence complete; final `qa:merge` pending |
 
 ## 6. Functional acceptance obligations
 
 | Journey | Automated evidence | Remaining obligation |
 | --- | --- | --- |
-| People actions/metadata | WP10e/g + WP12c-g canonical green | Final manual/visual acceptance WP16 |
-| Old Person ID survives merge | Redirect/GEDCOM/gallery-filter coverage + redirect-aware WP12f candidate commands | Final manual/visual acceptance WP16 |
-| Weak candidates | WP12e persistence/policy + WP12f payload/UI characterization and candidate action tests | Final manual/visual acceptance WP16 |
-| Candidate confidence wording | WP12f source characterization proves raw cosine uses `Similarity 0.xx` and not `%` | Final visual acceptance WP16 |
+| People actions/metadata | WP10e/g + WP12c-g canonical green plus current People runtime | None |
+| Old Person ID survives merge | Redirect/GEDCOM/gallery-filter coverage + redirect-aware WP12f candidate commands | None; one-Asset manual fixture limitation recorded |
+| Weak candidates | WP12e persistence/policy + WP12f payload/UI characterization and current candidate runtime | None |
+| Candidate confidence wording | WP12f characterization plus current `Similarity 0.81` runtime evidence | None |
 | Restart/rebuild preserves Person truth | WP10 reset + WP11 generation + WP12g rerun durability fixtures | Broader cross-domain matrix WP15 |
-| Contributor attribution/history | WP13a-c domain tests + canonical run `34696835803` | WP13e durability |
-| Identity uncertainty review | WP13d command/UI characterization tests plus canonical run `34698288634` cover all response wording and loading/error/success/retry structure | Real-runtime keyboard/visual/error-recovery acceptance |
+| Contributor attribution/history | WP13a-c domain tests, WP13e reset/reopen durability and runtime response inspection | None |
+| Identity uncertainty review | WP13d tests and repository-recorded keyboard/error-recovery evidence plus current visual close/reopen pass | None |
 | Photograph membership/edit lineage | WP14a-e membership, exact-copy and photo-edit policy/provenance tests + post-merge canonical run `34699825589` | None for WP14 |
-| Final visual/manual acceptance | Not recorded | WP16 |
+| Final visual/manual acceptance | Recorded in `semantic-relationships-local-acceptance.md` | None |
 
 ## 7. Significant decisions
 

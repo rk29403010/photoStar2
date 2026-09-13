@@ -74,6 +74,19 @@ that individual photo IDs precede expanded presentation members; the rerun on
 2026-09-14 measured 65.4 ms p95 selection and 73.9 ms expansion. Both paths
 remain below the 150 ms interaction target.
 
+The WP16f target soak repeated each interaction 500 times under
+`node.exe --expose-gc`. Warmed 100k-Asset exact-copy pages measured 2.3 ms p95,
+3.0 ms maximum and 0.1 MiB retained heap drift. Full 100k-item lazy range
+selection measured 70.9 ms p95, 165.0 ms maximum and 2.8 MiB retained heap
+drift; final Asset expansion took 61.0 ms. The isolated maximum outlier does not
+change the p95 interaction gate, and neither path showed progressive memory
+growth.
+
+```powershell
+node.exe --expose-gc tooling/scripts/repo/semantic-library-presentation-benchmark.cjs --tier=target --samples=500
+node.exe --expose-gc tooling/scripts/repo/semantic-library-selection-benchmark.cjs --tier=target --samples=500
+```
+
 ## Face candidates and cluster reconciliation
 
 The WP16c harness seeds five candidate rows per face, exercises the real
