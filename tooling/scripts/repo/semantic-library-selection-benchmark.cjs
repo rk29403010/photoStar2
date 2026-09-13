@@ -14,7 +14,7 @@ async function main() {
         asset: { id: String(index), original_path: `C:/benchmark/${index}.jpg` },
     }));
     let state = selection.updateLibrarySelection(items, selection.createEmptyLibrarySelectionState(), { mode: 'replace', index: 0 });
-    global.gc?.();
+    globalThis.gc?.();
     const heapBefore = process.memoryUsage().heapUsed;
     const durations = [];
     for (let sample = 0; sample < samples; sample += 1) {
@@ -26,7 +26,7 @@ async function main() {
     const expansionStarted = performance.now();
     const expandedAssetCount = selection.getLibrarySelectionAssetIds(state, []).length;
     const expansionMs = performance.now() - expansionStarted;
-    global.gc?.();
+    globalThis.gc?.();
     const heapAfter = process.memoryUsage().heapUsed;
     console.log(`LIBRARY_SELECTION_BENCHMARK_RESULT ${JSON.stringify({ tier, itemCount: count, sampleCount: samples, selectedCount: selection.getLibrarySelectionCount(state), expandedAssetCount, expansionMs: Number(expansionMs.toFixed(1)), p50Ms: Number(percentile(durations, 0.5).toFixed(1)), p95Ms: Number(percentile(durations, 0.95).toFixed(1)), maxMs: Number(Math.max(...durations).toFixed(1)), heapDriftMiB: Number(((heapAfter - heapBefore) / (1024 * 1024)).toFixed(1)), targetP95Ms: 150 })}`);
 }

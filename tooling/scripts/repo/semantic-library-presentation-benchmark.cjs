@@ -82,7 +82,7 @@ async function main() {
         const cacheRebuildMs = performance.now() - cacheRebuildStarted;
         presentation.getExactCopyPresentationPage(db, { limit: PAGE_SIZE, offset });
 
-        global.gc?.();
+        globalThis.gc?.();
         const heapBefore = process.memoryUsage().heapUsed;
         const measurements = [];
         for (let sample = 0; sample < samples; sample += 1) {
@@ -93,7 +93,7 @@ async function main() {
                 throw new Error(`Expected ${PAGE_SIZE} presentation items, received ${page.length}.`);
             }
         }
-        global.gc?.();
+        globalThis.gc?.();
         const heapAfter = process.memoryUsage().heapUsed;
         const pageCount = db.pragma('page_count', { simple: true });
         const databaseBytes = pageCount * db.pragma('page_size', { simple: true });
