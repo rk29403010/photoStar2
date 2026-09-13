@@ -57,7 +57,9 @@ export function AssignmentGrid(props: {
         return <div className="p-6 bg-content/5 rounded-xl text-center text-sm text-content-secondary">No {props.suggested ? 'suggested matches' : 'confirmed photos'}.</div>;
     }
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className={props.suggested
+            ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'
+            : 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5'}>
             {props.assignments.map((assignment) => props.suggested
                 ? <SuggestedAssignmentCard key={assignment.face_id} assignment={assignment}
                     personName={props.personName} onReview={props.actions.review} />

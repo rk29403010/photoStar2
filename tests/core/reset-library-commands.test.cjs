@@ -172,7 +172,7 @@ test('factory reset recreates schema with only built-in defaults remaining', asy
     }
 });
 
-test('reset faces clears rebuildable derived face results and people assignments', async () => {
+test('reset faces clears legacy face results, assignments, and the machine-only provisional Person', async () => {
     const tempDir = createTempDir();
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
@@ -181,6 +181,10 @@ test('reset faces clears rebuildable derived face results and people assignments
 
     try {
         seedFaceResetFixture(dbManager.getDb());
+        assert.equal(
+            dbManager.getDb().prepare("SELECT lifecycle_status FROM people WHERE id = 'person-1'").get().lifecycle_status,
+            'provisional',
+        );
 
         await handleSystemCommand({
             ...createResetContext({

@@ -99,7 +99,7 @@ const RELATIONSHIP_PRESENTATION_CTE = `
             (
                 SELECT current_asset.id
                 FROM assets current_asset
-                WHERE current_asset.original_path = ai.original_path
+                WHERE current_asset.asset_identity_guid = ai.guid
                 ORDER BY current_asset.created_at DESC, current_asset.id DESC
                 LIMIT 1
             ) AS asset_id

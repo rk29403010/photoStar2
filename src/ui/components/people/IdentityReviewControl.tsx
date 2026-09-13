@@ -31,7 +31,7 @@ export function IdentityReviewControl(props: {
                 <span>Is this {props.candidateName}?</span>
                 <select
                     aria-label={`Identity certainty for ${props.candidateName}`}
-                    className="rounded-md border border-content/20 bg-surface p-2 text-content"
+                    className="min-h-8 w-full rounded-md border-content/20 bg-surface p-2 text-content"
                     disabled={busy}
                     value={kind}
                     onChange={(event) => {

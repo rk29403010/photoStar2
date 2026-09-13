@@ -62,16 +62,14 @@ function loadObservations(db: DbHandle): ObservationRow[] {
             (
                 SELECT asset.id
                 FROM assets asset
-                JOIN asset_identities identity_a ON identity_a.original_path = asset.original_path
-                WHERE identity_a.guid = observation.asset_identity_guid_a
+                WHERE asset.asset_identity_guid = observation.asset_identity_guid_a
                 ORDER BY asset.created_at DESC, asset.id DESC
                 LIMIT 1
             ) AS current_asset_id_a,
             (
                 SELECT asset.id
                 FROM assets asset
-                JOIN asset_identities identity_b ON identity_b.original_path = asset.original_path
-                WHERE identity_b.guid = observation.asset_identity_guid_b
+                WHERE asset.asset_identity_guid = observation.asset_identity_guid_b
                 ORDER BY asset.created_at DESC, asset.id DESC
                 LIMIT 1
             ) AS current_asset_id_b,

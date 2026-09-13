@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
+import { ensureAssetIdentityForAsset } from '../../data/assetIdentityRepository';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -79,33 +80,8 @@ type CaptureSequenceMemberRow = {
     evidence_json: string | null;
 };
 
-function loadAssetPath(db: DbHandle, assetId: string): string {
-    const row = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(assetId) as
-        | { original_path: string }
-        | undefined;
-    if (!row) {
-        throw new Error(`Unknown capture-sequence asset '${assetId}'.`);
-    }
-    return row.original_path;
-}
-
 function ensureAssetIdentity(db: DbHandle, assetId: string): AssetIdentity {
-    const originalPath = loadAssetPath(db, assetId);
-    const existing = db.prepare(`
-        SELECT guid, original_path
-        FROM asset_identities
-        WHERE original_path = ?
-    `).get(originalPath) as { guid: string; original_path: string } | undefined;
-    if (existing) {
-        return { guid: existing.guid, originalPath: existing.original_path };
-    }
-
-    const guid = uuidv4();
-    db.prepare(`
-        INSERT INTO asset_identities (guid, original_path)
-        VALUES (?, ?)
-    `).run(guid, originalPath);
-    return { guid, originalPath };
+    return ensureAssetIdentityForAsset(db, assetId);
 }
 
 function deleteOverlappingSystemProposals(
@@ -241,18 +217,20 @@ export function replaceSystemCaptureSequenceProposals(
         throw new Error('Capture-sequence sourceIdentity is required.');
     }
 
-    const impactedIdentityGuids = [...new Set(input.impactedAssetIds)]
-        .map((assetId) => ensureAssetIdentity(db, assetId).guid);
-    deleteOverlappingSystemProposals(db, impactedIdentityGuids, input.sourceIdentity);
+    return db.transaction(() => {
+        const impactedIdentityGuids = [...new Set(input.impactedAssetIds)]
+            .map((assetId) => ensureAssetIdentity(db, assetId).guid);
+        deleteOverlappingSystemProposals(db, impactedIdentityGuids, input.sourceIdentity);
 
-    const insertedIds: string[] = [];
-    for (const proposal of input.sequences) {
-        const sequenceId = insertProposal(db, input, proposal);
-        if (sequenceId) {
-            insertedIds.push(sequenceId);
+        const insertedIds: string[] = [];
+        for (const proposal of input.sequences) {
+            const sequenceId = insertProposal(db, input, proposal);
+            if (sequenceId) {
+                insertedIds.push(sequenceId);
+            }
         }
-    }
-    return insertedIds;
+        return insertedIds;
+    })();
 }
 
 function loadMembers(db: DbHandle, sequenceId: string): CaptureSequenceMember[] {
@@ -262,7 +240,7 @@ function loadMembers(db: DbHandle, sequenceId: string): CaptureSequenceMember[] 
             (
                 SELECT current_asset.id
                 FROM assets current_asset
-                WHERE current_asset.original_path = identity.original_path
+                WHERE current_asset.asset_identity_guid = identity.guid
                 ORDER BY current_asset.created_at DESC, current_asset.id DESC
                 LIMIT 1
             ) AS current_asset_id,
@@ -304,7 +282,7 @@ function toCaptureSequence(db: DbHandle, row: CaptureSequenceRow): CaptureSequen
 }
 
 export function getCaptureSequencesForAsset(db: DbHandle, assetId: string): CaptureSequence[] {
-    const originalPath = loadAssetPath(db, assetId);
+    const identity = ensureAssetIdentity(db, assetId);
     const rows = db.prepare(`
         SELECT DISTINCT
             sequence.id,
@@ -319,9 +297,8 @@ export function getCaptureSequencesForAsset(db: DbHandle, assetId: string): Capt
             sequence.updated_at
         FROM capture_sequences sequence
         JOIN capture_sequence_members member ON member.sequence_id = sequence.id
-        JOIN asset_identities identity ON identity.guid = member.asset_identity_guid
-        WHERE identity.original_path = ?
+        WHERE member.asset_identity_guid = ?
         ORDER BY sequence.created_at DESC, sequence.id DESC
-    `).all(originalPath) as CaptureSequenceRow[];
+    `).all(identity.guid) as CaptureSequenceRow[];
     return rows.map((row) => toCaptureSequence(db, row));
 }

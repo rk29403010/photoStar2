@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
+import { ensureAssetIdentityForAsset } from '../../data/assetIdentityRepository';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -66,29 +66,8 @@ function assertScore(value: number): void {
     }
 }
 
-function loadAssetPath(db: DbHandle, assetId: string): string {
-    const row = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(assetId) as
-        | { original_path: string }
-        | undefined;
-    if (!row) {
-        throw new Error(`Unknown visual-similarity asset '${assetId}'.`);
-    }
-    return row.original_path;
-}
-
 function ensureAssetIdentity(db: DbHandle, assetId: string): AssetIdentity {
-    const originalPath = loadAssetPath(db, assetId);
-    const existing = db.prepare(`
-        SELECT guid, original_path
-        FROM asset_identities
-        WHERE original_path = ?
-    `).get(originalPath) as { guid: string; original_path: string } | undefined;
-    if (existing) {
-        return { guid: existing.guid, originalPath: existing.original_path };
-    }
-    const guid = uuidv4();
-    db.prepare('INSERT INTO asset_identities (guid, original_path) VALUES (?, ?)').run(guid, originalPath);
-    return { guid, originalPath };
+    return ensureAssetIdentityForAsset(db, assetId);
 }
 
 function canonicalizePair(left: AssetIdentity, right: AssetIdentity): [AssetIdentity, AssetIdentity] {
@@ -219,14 +198,12 @@ export function getVisualSimilarityObservationsForAsset(
             observation.asset_identity_guid_b,
             (
                 SELECT asset.id FROM assets asset
-                JOIN asset_identities identity_a ON identity_a.original_path = asset.original_path
-                WHERE identity_a.guid = observation.asset_identity_guid_a
+                WHERE asset.asset_identity_guid = observation.asset_identity_guid_a
                 ORDER BY asset.created_at DESC, asset.id DESC LIMIT 1
             ) AS current_asset_id_a,
             (
                 SELECT asset.id FROM assets asset
-                JOIN asset_identities identity_b ON identity_b.original_path = asset.original_path
-                WHERE identity_b.guid = observation.asset_identity_guid_b
+                WHERE asset.asset_identity_guid = observation.asset_identity_guid_b
                 ORDER BY asset.created_at DESC, asset.id DESC LIMIT 1
             ) AS current_asset_id_b,
             observation.policy,

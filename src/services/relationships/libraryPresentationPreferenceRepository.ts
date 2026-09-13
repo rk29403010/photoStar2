@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { v4 as uuidv4 } from 'uuid';
 import type { LibraryPresentationItem } from '../../boundary/contracts/libraryPresentation';
 import type { DatabaseManager } from '../../data/db';
+import { ensureAssetIdentityForAsset } from '../../data/assetIdentityRepository';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -25,10 +25,8 @@ function loadAssetIdentityRows(db: DbHandle, assetIds: readonly string[]): Asset
     return db.prepare(`
         SELECT
             asset.id AS asset_id,
-            asset.original_path,
-            identity.guid AS identity_guid
+            asset.original_path, asset.asset_identity_guid AS identity_guid
         FROM assets asset
-        LEFT JOIN asset_identities identity ON identity.original_path = asset.original_path
         WHERE asset.id IN (${placeholders})
     `).all(...assetIds) as AssetIdentityRow[];
 }
@@ -38,17 +36,9 @@ function ensureAssetIdentityGuids(db: DbHandle, assetIds: readonly string[]): Ma
     if (rows.length !== assetIds.length) {
         throw new Error('Cannot persist a presentation preference for missing assets.');
     }
-    const insert = db.prepare(`
-        INSERT INTO asset_identities (guid, original_path)
-        VALUES (?, ?)
-    `);
     const byAssetId = new Map<string, string>();
     for (const row of rows) {
-        const guid = row.identity_guid ?? uuidv4();
-        if (!row.identity_guid) {
-            insert.run(guid, row.original_path);
-        }
-        byAssetId.set(row.asset_id, guid);
+        byAssetId.set(row.asset_id, row.identity_guid ?? ensureAssetIdentityForAsset(db, row.asset_id).guid);
     }
     return byAssetId;
 }
@@ -97,9 +87,8 @@ function loadPreference(db: DbHandle, fingerprint: string): PreferenceRow | unde
 function resolveCurrentAssetId(db: DbHandle, identityGuid: string): string | null {
     const row = db.prepare(`
         SELECT asset.id
-        FROM asset_identities identity
-        JOIN assets asset ON asset.original_path = identity.original_path
-        WHERE identity.guid = ?
+        FROM assets asset
+        WHERE asset.asset_identity_guid = ?
         ORDER BY asset.created_at DESC, asset.id DESC
         LIMIT 1
     `).get(identityGuid) as { id: string } | undefined;

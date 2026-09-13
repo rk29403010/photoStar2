@@ -9,9 +9,9 @@
 - Repository: `rk29403010/photoStar2`
 - Branch: `task/semantic-relationships-phase1-foundation`
 - Pull request: `#42`
-- Last material implementation HEAD assessed: `43208c04ef1edabe268a8adc61ea28f8faf319ab`
+- Last integrated base assessed: `43208c04ef1edabe268a8adc61ea28f8faf319ab`; WP15 is active uncommitted integration work.
 - Canonical quality gate: **GREEN**, run `34699825589`, job `103569488019`
-- Current package: **WP13d — Review UI uncertainty and recovery states**
+- Current package: **WP15 — Reset, durability and migration hardening**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -32,22 +32,23 @@ Always verify actual HEAD/Actions before continuing.
 - WP13c complete: competing attributed testimony remains side-by-side; disputed/deferred/accepted decisions supersede append-only. Decision history ordering follows the supersession chain rather than second-resolution timestamps and random UUIDs. Canonical run `34696835803`.
 - WP13d implementation canonical-green: People candidate cards expose all WP13b response kinds with named ambiguous candidates; the command path records normalized attributed responses and preserves accepted/rejected projection behaviour. The review region declares inline loading/error/success/retry feedback and a local error boundary. Targeted WP12f/WP13a-d tests pass and canonical run `34698288634` (job `103565454011`) is green; runtime/manual acceptance remains outstanding.
 - WP14 complete through a-e: whole-Asset and VisualRegion Photograph membership now resolve through `photographMembershipRepository.ts`; exact copies inherit unique Photograph membership without legacy groups; disputed evidence is not guessed; restoration/crop/ordinary edit lineage preserves Photograph identity while explicit authored composites create a stable new Photograph. `photo_edit_documents` remains authoritative for edit recipes and branch lineage. PR `#43` merged at `43208c04ef1edabe268a8adc61ea28f8faf319ab`; post-merge canonical run `34699825589` (job `103569488019`) is green.
+- WP15 local integration: the authoritative reset matrix, WP13 testimony snapshot, durable library snapshot, replacement-then-swap soft reset recovery, face-analysis reset invalidation, relationship publication rollback, strict legacy migration compatibility, and fingerprint-safe asset binding are implemented with targeted core fixtures. Canonical readiness/merge evidence is still required at the committed integration head.
 
-## 3. Current package — WP13d
+## 3. Current package — WP15
 
 ### Goal
 
-Expose the supported identity-review uncertainty choices through an accessible review journey with explicit loading, empty, error, success and retry behaviour.
+Make reset and analysis replacement behavior durable by contract: preserve human/archive state, rebuild machine state, and avoid path-only identity transfer.
 
 ### Gate
 
-UI smoke/manual acceptance covers the supported uncertainty choices plus loading, empty, error and retry states.
+Targeted WP15 behavioral fixtures and the canonical `qa:ready` then `qa:merge` gates pass at the committed integration head.
 
 ### Exact next action
 
-1. Exercise the People candidate-review journey in a real runtime: keyboard-labelled certainty selection, every uncertainty choice, named ambiguous candidates, empty state, save success, induced load/save error and retry.
-2. Record runtime/manual evidence or any concrete blocker; do not mark WP13d complete from source-characterization tests alone.
-3. Once the WP13d gate is demonstrated, advance the handoff to WP13e durability and acceptance closeout.
+1. Review the uncommitted WP15 file set and run `pnpm.cmd run qa:quick` while iterating.
+2. Run `pnpm.cmd run qa:ready`, commit only the WP15-owned changes, then run `pnpm.cmd run qa:merge` at that exact head.
+3. Recheck PR/CI state before publication and retain the existing WP13d real-runtime acceptance obligation for WP16.
 
 ## 4. Phase status
 
@@ -62,7 +63,7 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 | WP12 | **Complete** |
 | WP13 | **In progress — WP13d current** |
 | WP14 | **Complete** |
-| WP15 | Mostly not started |
+| WP15 | **Implemented locally — pending committed readiness/merge gates** |
 | WP16 | Not started |
 
 ## 5. Deferred ledger
@@ -73,7 +74,7 @@ UI smoke/manual acceptance covers the supported uncertainty choices plus loading
 | WP10/WP15 | Broader reset durability | WP15 durability matrix |
 | WP11/WP16 | Vector lookup target missed | Indexed retrieval implemented/measured without weakening generation semantics |
 | WP13 | Contributor uncertainty/testimony | WP13 completion gate |
-| WP15 | Cross-domain durability | Explicit matrix + executable tests |
+| WP15 | Cross-domain durability | Local matrix/tests complete; canonical committed-head gates pending |
 | WP16 | Skips/manual acceptance/scale | Acceptance matrix + final `qa:merge` |
 
 ## 6. Functional acceptance obligations

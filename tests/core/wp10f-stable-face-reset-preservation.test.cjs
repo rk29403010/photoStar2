@@ -31,7 +31,10 @@ function geometryInput(sourceAnalysisGenerationId) {
 }
 
 function seedAsset(db, id, originalPath) {
-    db.prepare('INSERT INTO assets (id, original_path) VALUES (?, ?)').run(id, originalPath);
+    db.prepare(`
+        INSERT INTO assets (id, original_path, file_hash, file_size)
+        VALUES (?, ?, 'stable-test-content', 100)
+    `).run(id, originalPath);
 }
 
 function saveFaceMask(db, assetId, visualRegionId) {
@@ -148,7 +151,7 @@ test('WP10f face-analysis reset keeps stable identity, durable Person and human 
         `).run();
 
         let response;
-        handleSystemCommand({
+        await handleSystemCommand({
             id: 'reset-faces',
             command: 'reset_faces',
             payload: {},

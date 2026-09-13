@@ -325,3 +325,10 @@ UI Improvements
 
 - WP10e no longer writes new `manual_face_names` / `manual_face_isolations` records and WP10f makes stable Face/VisualRegion semantic state independently durable across reset/reimport.
 - Keep restoring old path/index manual rows temporarily so pre-cutover development/user data is not silently discarded. WP10h should remove that legacy reset/storage path only after its final search and replacement coverage are green.
+
+## 2026-09-12 - Semantic integration local acceptance
+
+- Complete WP13 runtime recovery journeys, WP15 cross-domain durability and WP16
+  scale/visual acceptance; evidence is in
+  `docs/architecture/semantic-relationships-local-acceptance.md`. Integration owner
+  must close these gates and review the current SonarCloud failure before delivery.

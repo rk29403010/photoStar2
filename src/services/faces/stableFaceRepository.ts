@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
+import { ensureAssetIdentityForAsset } from '../../data/assetIdentityRepository';
 import type { NormalizedBox } from '../../boundary/contracts/photoEditor';
 import { ensureSemanticEntity } from '../relationships/semanticRepository';
 
@@ -98,31 +99,7 @@ function assertNormalizedBox(box: NormalizedBox): void {
 
 function ensureAssetIdentity(db: DbHandle, assetId: string): string {
     assertNonEmpty(assetId, 'Stable face assetId');
-    const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?')
-        .get(assetId) as { original_path: string } | undefined;
-    if (!asset) {
-        throw new Error(`Unknown asset '${assetId}'.`);
-    }
-
-    const existing = db.prepare('SELECT guid FROM asset_identities WHERE original_path = ?')
-        .get(asset.original_path) as { guid: string } | undefined;
-    if (existing) {
-        return existing.guid;
-    }
-
-    const proposedGuid = uuidv4();
-    db.prepare(`
-        INSERT INTO asset_identities (guid, original_path, created_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(original_path) DO NOTHING
-    `).run(proposedGuid, asset.original_path);
-
-    const persisted = db.prepare('SELECT guid FROM asset_identities WHERE original_path = ?')
-        .get(asset.original_path) as { guid: string } | undefined;
-    if (!persisted) {
-        throw new Error(`Unable to establish durable identity for asset '${assetId}'.`);
-    }
-    return persisted.guid;
+    return ensureAssetIdentityForAsset(db, assetId).guid;
 }
 
 function latestGeometryForRegion(db: DbHandle, visualRegionId: string): LatestGeometryRow {

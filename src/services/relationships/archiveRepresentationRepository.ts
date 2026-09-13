@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../data/db';
+import { ensureAssetIdentityForAsset } from '../../data/assetIdentityRepository';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -66,7 +66,7 @@ const REPRESENTATION_SELECT = `
         (
             SELECT current_asset.id
             FROM assets current_asset
-            WHERE current_asset.original_path = ai.original_path
+            WHERE current_asset.asset_identity_guid = ai.guid
             ORDER BY current_asset.created_at DESC, current_asset.id DESC
             LIMIT 1
         ) AS current_asset_id,
@@ -119,39 +119,8 @@ function representationId(
     return `representation:${digest}`;
 }
 
-function loadAssetPath(db: DbHandle, assetId: string): string {
-    const asset = db.prepare(`
-        SELECT original_path
-        FROM assets
-        WHERE id = ?
-    `).get(assetId) as { original_path: string } | undefined;
-    if (!asset) {
-        throw new Error(`Unknown representation asset '${assetId}'.`);
-    }
-    return asset.original_path;
-}
-
-function findAssetIdentityByPath(db: DbHandle, originalPath: string): AssetIdentity | undefined {
-    const row = db.prepare(`
-        SELECT guid, original_path
-        FROM asset_identities
-        WHERE original_path = ?
-    `).get(originalPath) as { guid: string; original_path: string } | undefined;
-    return row ? { guid: row.guid, originalPath: row.original_path } : undefined;
-}
-
 function ensureAssetIdentity(db: DbHandle, assetId: string): AssetIdentity {
-    const originalPath = loadAssetPath(db, assetId);
-    const existing = findAssetIdentityByPath(db, originalPath);
-    if (existing) {
-        return existing;
-    }
-    const guid = uuidv4();
-    db.prepare(`
-        INSERT INTO asset_identities (guid, original_path)
-        VALUES (?, ?)
-    `).run(guid, originalPath);
-    return { guid, originalPath };
+    return ensureAssetIdentityForAsset(db, assetId);
 }
 
 function loadSubjectKind(db: DbHandle, subjectEntityId: string): 'photograph' | 'artefact' {
@@ -286,11 +255,7 @@ export function getArchiveRepresentationsForAsset(
     db: DbHandle,
     assetId: string,
 ): ArchiveRepresentation[] {
-    const originalPath = loadAssetPath(db, assetId);
-    const identity = findAssetIdentityByPath(db, originalPath);
-    if (!identity) {
-        return [];
-    }
+    const identity = ensureAssetIdentity(db, assetId);
     const rows = db.prepare(`
         ${REPRESENTATION_SELECT}
         WHERE r.asset_identity_guid = ?

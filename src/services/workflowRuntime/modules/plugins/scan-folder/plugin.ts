@@ -2,6 +2,8 @@ import { extname, join } from 'node:path';
 import { readdirSync, statSync } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
 import type { DatabaseManager } from '../../../../../data/db';
+import { ensureAssetIdentityForAsset } from '../../../../../data/assetIdentityRepository';
+import { hashFile } from '../../../../file-utils';
 import type { WorkflowModulePlugin } from '../../../contracts';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic']);
@@ -30,14 +32,23 @@ function collectFolderFiles(rootPath: string, recursive: boolean): string[] {
 }
 
 async function upsertAsset(db: ReturnType<DatabaseManager['getDb']>, originalPath: string): Promise<string> {
-    const existing = db.prepare('SELECT id FROM assets WHERE original_path = ?').get(originalPath) as { id: string } | undefined;
-    if (existing) {
+    const fileStats = statSync(originalPath);
+    const fileHash = await hashFile(originalPath);
+    const existing = db.prepare(`
+        SELECT id, file_hash, file_size
+        FROM assets
+        WHERE original_path = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+    `).get(originalPath) as { id: string; file_hash: string | null; file_size: number | null } | undefined;
+    if (existing && existing.file_hash === fileHash && existing.file_size === fileStats.size) {
+        ensureAssetIdentityForAsset(db, existing.id);
         return existing.id;
     }
-    const fileStats = statSync(originalPath);
     const assetId = uuidv4();
     db.prepare('INSERT INTO assets (id, original_path, file_hash, file_size, width, height, exif_datetime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(assetId, originalPath, null, fileStats.size, 0, 0, null, new Date().toISOString());
+        .run(assetId, originalPath, fileHash, fileStats.size, 0, 0, null, new Date().toISOString());
+    ensureAssetIdentityForAsset(db, assetId);
     return assetId;
 }
 

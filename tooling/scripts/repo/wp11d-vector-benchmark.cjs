@@ -99,28 +99,28 @@ async function main() {
 
         const heapBefore = process.memoryUsage().heapUsed;
         let peakHeap = heapBefore;
-        const samples = [];
+        const latencyMeasurements = [];
         for (let sample = 0; sample < SAMPLE_COUNT; sample += 1) {
             const started = performance.now();
             const candidates = retrieval.findActiveFeatureVectorCandidates(db, {
                 subjectEntityId: 'face:0', featureKey: 'face_embedding', limit: LIMIT,
             });
-            samples.push(performance.now() - started);
+            latencyMeasurements.push(performance.now() - started);
             if (candidates.length !== LIMIT) {
                 throw new Error(`Expected ${LIMIT} candidates, received ${candidates.length}.`);
             }
             peakHeap = Math.max(peakHeap, process.memoryUsage().heapUsed);
         }
 
-        const p95Ms = percentile95(samples);
+        const p95Ms = percentile95(latencyMeasurements);
         const result = {
             vectorCount: VECTOR_COUNT,
             dimensions: DIMENSIONS,
             rawVectorMiB: (VECTOR_COUNT * DIMENSIONS * 4) / (1024 * 1024),
             setupMs: Number(setupMs.toFixed(1)),
             p95Ms: Number(p95Ms.toFixed(1)),
-            minMs: Number(Math.min(...samples).toFixed(1)),
-            maxMs: Number(Math.max(...samples).toFixed(1)),
+            minMs: Number(Math.min(...latencyMeasurements).toFixed(1)),
+            maxMs: Number(Math.max(...latencyMeasurements).toFixed(1)),
             heapGrowthMiB: Number(((peakHeap - heapBefore) / (1024 * 1024)).toFixed(1)),
             targetP95Ms: 150,
             decision: p95Ms < 150 ? 'native-scan-meets-target' : 'promote-vector-index-proposal',

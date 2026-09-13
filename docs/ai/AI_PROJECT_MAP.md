@@ -119,8 +119,8 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 
 | Table | Purpose | Keys / Links |
 | --- | --- | --- |
-| `assets` | Primary catalog of imported media files | PK: `id`, Links: `asset_identities.guid` via logic |
-| `asset_identities` | Tracks canonical paths uniquely | PK: `guid`, Unique: `original_path` |
+| `assets` | Primary catalog of imported media files | PK: `id`, nullable `asset_identity_guid` binds a live file to durable archive identity |
+| `asset_identities` | Durable archive identity with its last known path and content fingerprint | PK: `guid`; path is a locator, while `content_hash` + `content_size` authorize safe reattachment |
 | `assets_manual` | Manual overrides (e.g., sensitivity) | PK: `identity_guid` -> `asset_identities.guid` |
 | `previews` | Generated thumbnail/preview paths | PK: `asset_id, size` -> `assets.id` |
 | `derived_results` | ML inferences (faces, AI metadata) | PK: `id`, FK: `asset_id` -> `assets.id` |
@@ -150,6 +150,18 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 For face identity, keep durable truth and rebuildable machine state separate: stable `Face` semantic decisions and Person lifecycle/redirects are durable; `IdentityCluster` and `face_person_candidates` are machine-rebuildable; `face_assignments` remains only a transitional projection for legacy consumers. Candidate review is sourced through `peopleCandidateCommands.ts`, and raw cosine must not be presented as calibrated probability.
 
 Human semantic attribution is durable identity, not a display string: Contributor-aware attestations store `source_actor_entity_id` and decisions store `decider_entity_id`. Pre-WP13 rows may legitimately have null actor IDs; new review/testimony paths should use `contributorRepository.ts` so later profile changes or contributor switching do not rewrite historical attribution.
+
+`testimonyResetState.ts` preserves Contributor profiles, review responses and their
+proposition links during soft rebuild. `semanticResetState.ts` preserves actor IDs,
+subjective certainty, original wording and decision authors together with history.
+`wp13e-testimony-durability.test.cjs` verifies these records across rebuild/reopen.
+
+WP15 reset ownership is defined in
+`docs/architecture/semantic-relationships-reset-durability-matrix.md`.
+`assetIdentityRepository.ts` is the only safe path for binding a live Asset to
+durable archive identity: it requires matching hash and size at the same path,
+permits one detached fingerprint match after a move, and creates a replacement
+identity when a path changes content or a fingerprint is ambiguous.
 
 Identity testimony normalization lives in `reviewResponseRepository.ts`. It preserves the original attributed response separately from any generated proposition/attestation: certainty responses add supporting testimony, rejection adds opposition, ambiguous choices retain candidate propositions, and unknown/recognise/abstain do not manufacture negative evidence. Decision chronology must be read from the explicit `supersedes_decision_id` chain, not inferred from second-resolution timestamps or UUID order.
 

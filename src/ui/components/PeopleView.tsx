@@ -448,7 +448,7 @@ function PersonDetailModal({ person, onClose, onFilter, onRename }: PersonDetail
     const closeLinker = () => setShowLinker(false);
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-4 overflow-y-auto">
-            <dialog className="w-full max-w-4xl rounded-xl border bg-surface p-6 text-content flex flex-col max-h-[90vh]" open>
+            <dialog aria-label="Person details" className="static m-auto flex max-h-full w-full max-w-4xl flex-col rounded-xl border border-content/10 bg-surface p-6 text-content shadow-xl" open>
                 <PersonDetailHeader person={person} trees={data.trees} onClose={onClose} onRename={onRename} onViewPhotos={viewPhotos} />
                 <div className="flex-1 overflow-y-auto space-y-6 pr-2">
                     <section><h3>Confirmed Photos</h3><AssignmentGrid assignments={data.assignments.filter(item => item.is_suggested === 0)} personName={person.name || 'Unknown'} suggested={false} actions={actions} /></section>
@@ -672,7 +672,6 @@ export function PeopleView({ people, onFilter, onSelectionChange, onRename, onMe
                     person={selectedPersonForDetail}
                     onClose={() => {
                         setSelectedPersonForDetail(null);
-                        globalThis.dispatchEvent(new CustomEvent('refresh-people-list'));
                     }}
                     onFilter={onFilter}
                     onRename={onRename}

@@ -1,14 +1,18 @@
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import {
   LEGACY_QUEUE_TABLE_NAME,
   LEGACY_WORKFLOW_SETTINGS,
-  MIGRATIONS,
   SCHEMA_SQL,
 } from './dbSchema';
 import { NUMBERED_MIGRATIONS } from './dbMigrations';
 import { applyNumberedMigrations } from './migrationLedger';
+import { applyLegacyMigrations } from './legacyMigrationCompatibility';
+import {
+  restoreDurableLibraryResetState,
+  snapshotDurableLibraryResetState,
+} from './durableLibraryResetState';
 import {
   restoreDurableSemanticResetState,
   snapshotDurableSemanticResetState,
@@ -16,50 +20,44 @@ import {
 import { WP11_MIGRATIONS } from './wp11Migrations';
 import { WP12_MIGRATIONS } from './wp12Migrations';
 import { WP13_MIGRATIONS } from './wp13Migrations';
+import { WP15_MIGRATIONS } from './wp15Migrations';
 import { WP9_CONTRACTION_MIGRATIONS } from './wp9ContractionMigrations';
 import { snapshotSemanticPredicateDefinitions } from '../services/relationships/predicates/registry';
 
-
-function runMigration(db: Database.Database, sql: string): void {
-  try {
-    db.prepare(sql).run();
-  } catch {
-     
-  }
-}
 
 const INTERRUPTED_WORKFLOW_MESSAGE = 'Workflow execution was interrupted before this step finished. Retry the remaining work from the workflow view.';
 
 function reconcileStaleWorkflowRuns(db: Database.Database): void {
     const now = new Date().toISOString();
+    db.transaction(() => {
+        db.prepare(`
+            UPDATE analysis_generations
+            SET status = 'failed', updated_at = ?, finished_at = COALESCE(finished_at, ?)
+            WHERE status = 'running'
+        `).run(now, now);
 
-    try {
-        db.transaction(() => {
-            db.prepare(`
-                UPDATE step_runs
-                SET status = 'failed',
-                    error_message = COALESCE(error_message, ?),
-                    updated_at = ?
-                WHERE status = 'running'
-            `).run(INTERRUPTED_WORKFLOW_MESSAGE, now);
+        db.prepare(`
+            UPDATE step_runs
+            SET status = 'failed',
+                error_message = COALESCE(error_message, ?),
+                updated_at = ?
+            WHERE status = 'running'
+        `).run(INTERRUPTED_WORKFLOW_MESSAGE, now);
 
-            db.prepare(`
-                UPDATE subject_executions
-                SET status = 'failed',
-                    updated_at = ?
-                WHERE status = 'running'
-            `).run(now);
+        db.prepare(`
+            UPDATE subject_executions
+            SET status = 'failed',
+                updated_at = ?
+            WHERE status = 'running'
+        `).run(now);
 
-            db.prepare(`
-                UPDATE workflow_runs
-                SET status = 'failed',
-                    finished_at = COALESCE(finished_at, ?)
-                WHERE status = 'running'
-            `).run(now);
-        })();
-    } catch {
-         
-    }
+        db.prepare(`
+            UPDATE workflow_runs
+            SET status = 'failed',
+                finished_at = COALESCE(finished_at, ?)
+            WHERE status = 'running'
+        `).run(now);
+    })();
 }
 
 
@@ -69,6 +67,8 @@ export class DatabaseManager {
   private readonly dbPath: string;
   private diagnosticsDb: Database.Database | null = null;
   private readonly diagnosticsDbPath: string;
+  private readonly softResetBackupPath: string;
+  private readonly softResetReplacementPath: string;
 
   constructor(storagePath: string) {
     if (!existsSync(storagePath)) {
@@ -76,14 +76,37 @@ export class DatabaseManager {
     }
     this.dbPath = join(storagePath, 'library.db');
     this.diagnosticsDbPath = join(storagePath, 'ai_diagnostics.db');
+    this.softResetBackupPath = join(storagePath, 'library.db.soft-reset-backup');
+    this.softResetReplacementPath = join(storagePath, 'library.db.soft-reset-replacement');
+    this.recoverInterruptedSoftReset();
     this.db = this.openDatabase();
     this.initSchema();
   }
 
-  private openDatabase(): Database.Database {
-    const db = new Database(this.dbPath);
+  private removeDatabaseFiles(databasePath: string): void {
+    for (const pathToDelete of [databasePath, `${databasePath}-wal`, `${databasePath}-shm`]) {
+      if (existsSync(pathToDelete)) {
+        rmSync(pathToDelete, { force: true });
+      }
+    }
+  }
+
+  private recoverInterruptedSoftReset(): void {
+    if (existsSync(this.softResetBackupPath)) {
+      this.removeDatabaseFiles(this.dbPath);
+      renameSync(this.softResetBackupPath, this.dbPath);
+    }
+    this.removeDatabaseFiles(this.softResetReplacementPath);
+  }
+
+  private openDatabaseAt(databasePath: string): Database.Database {
+    const db = new Database(databasePath);
     db.pragma('journal_mode = WAL');
     return db;
+  }
+
+  private openDatabase(): Database.Database {
+    return this.openDatabaseAt(this.dbPath);
   }
 
   private initDiagnosticsSchema(): void {
@@ -135,42 +158,36 @@ export class DatabaseManager {
     this.initSchema();
   }
 
-  private initSchema() {
-    this.db.exec(SCHEMA_SQL);
-    for (const migration of MIGRATIONS) {runMigration(this.db, migration);}
-    applyNumberedMigrations(this.db, [
+  private initSchema(db: Database.Database = this.db) {
+    db.exec(SCHEMA_SQL);
+    applyLegacyMigrations(db);
+    applyNumberedMigrations(db, [
       ...NUMBERED_MIGRATIONS,
       ...WP9_CONTRACTION_MIGRATIONS,
       ...WP11_MIGRATIONS,
       ...WP12_MIGRATIONS,
       ...WP13_MIGRATIONS,
+      ...WP15_MIGRATIONS,
     ]);
-    snapshotSemanticPredicateDefinitions(this.db);
-    this.removeLegacyWorkflowState();
-    reconcileStaleWorkflowRuns(this.db);
+    snapshotSemanticPredicateDefinitions(db);
+    this.removeLegacyWorkflowState(db);
+    reconcileStaleWorkflowRuns(db);
 
     // Jobs cannot resume after process restart; mark stale "running" rows as failed.
-    try {
-      this.db.prepare(
-        "UPDATE jobs SET status = 'failed', finished_at = COALESCE(finished_at, ?) WHERE status = 'running'"
-      ).run(new Date().toISOString());
-    } catch {
-       
-    }
+    db.prepare(
+      "UPDATE jobs SET status = 'failed', finished_at = COALESCE(finished_at, ?) WHERE status = 'running'"
+    ).run(new Date().toISOString());
+    db.pragma('foreign_keys = ON');
   }
 
-  private removeLegacyWorkflowState() {
-    try {
-      this.db.transaction(() => {
-        this.db.exec(`DROP TABLE IF EXISTS ${LEGACY_QUEUE_TABLE_NAME}`);
-        this.db.prepare(`
-          DELETE FROM settings
-          WHERE id IN (${LEGACY_WORKFLOW_SETTINGS.map(() => '?').join(', ')})
-        `).run(...LEGACY_WORKFLOW_SETTINGS);
-      })();
-    } catch {
-       
-    }
+  private removeLegacyWorkflowState(db: Database.Database) {
+    db.transaction(() => {
+      db.exec(`DROP TABLE IF EXISTS ${LEGACY_QUEUE_TABLE_NAME}`);
+      db.prepare(`
+        DELETE FROM settings
+        WHERE id IN (${LEGACY_WORKFLOW_SETTINGS.map(() => '?').join(', ')})
+      `).run(...LEGACY_WORKFLOW_SETTINGS);
+    })();
   }
 
   public getDb() {
@@ -184,15 +201,8 @@ export class DatabaseManager {
       this.diagnosticsDb.close();
       this.diagnosticsDb = null;
     }
-    for (const pathToDelete of [
-      this.dbPath, `${this.dbPath}-wal`, `${this.dbPath}-shm`,
-      this.diagnosticsDbPath, `${this.diagnosticsDbPath}-wal`, `${this.diagnosticsDbPath}-shm`
-    ]) {
-      if (!existsSync(pathToDelete)) {
-        continue;
-      }
-      rmSync(pathToDelete, { force: true });
-    }
+    this.removeDatabaseFiles(this.dbPath);
+    this.removeDatabaseFiles(this.diagnosticsDbPath);
 
     this.db = this.openDatabase();
     this.initSchema();
@@ -204,8 +214,8 @@ export class DatabaseManager {
 
   private snapshotSoftResetState() {
     return {
-      assetIdentities: this.loadRows<{ guid: string; original_path: string; created_at: string }>(
-        'SELECT guid, original_path, created_at FROM asset_identities ORDER BY created_at ASC, guid ASC'
+      assetIdentities: this.loadRows<{ guid: string; original_path: string; content_hash: string | null; content_size: number | null; last_known_path: string | null; created_at: string }>(
+        'SELECT guid, original_path, content_hash, content_size, last_known_path, created_at FROM asset_identities ORDER BY created_at ASC, guid ASC'
       ),
       assetsManual: this.loadRows<{ identity_guid: string; sensitivity_status: string | null; updated_at: string }>(
         'SELECT identity_guid, sensitivity_status, updated_at FROM assets_manual ORDER BY identity_guid ASC'
@@ -217,20 +227,24 @@ export class DatabaseManager {
         'SELECT id, value FROM settings ORDER BY id ASC'
       ),
       semantic: snapshotDurableSemanticResetState(this.db),
+      durableLibrary: snapshotDurableLibraryResetState(this.db),
     };
   }
 
-  private restoreSoftResetState(snapshot: ReturnType<DatabaseManager['snapshotSoftResetState']>): void {
-    const restore = this.db.transaction(() => {
-      const insertAssetIdentity = this.db.prepare(`
-        INSERT INTO asset_identities (guid, original_path, created_at)
-        VALUES (?, ?, ?)
+  private restoreSoftResetState(
+    db: Database.Database,
+    snapshot: ReturnType<DatabaseManager['snapshotSoftResetState']>,
+  ): void {
+    const restore = db.transaction(() => {
+      const insertAssetIdentity = db.prepare(`
+        INSERT INTO asset_identities (guid, original_path, content_hash, content_size, last_known_path, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
       `);
       for (const row of snapshot.assetIdentities) {
-        insertAssetIdentity.run(row.guid, row.original_path, row.created_at);
+        insertAssetIdentity.run(row.guid, row.original_path, row.content_hash, row.content_size, row.last_known_path, row.created_at);
       }
 
-      const insertAssetManual = this.db.prepare(`
+      const insertAssetManual = db.prepare(`
         INSERT INTO assets_manual (identity_guid, sensitivity_status, updated_at)
         VALUES (?, ?, ?)
       `);
@@ -238,7 +252,7 @@ export class DatabaseManager {
         insertAssetManual.run(row.identity_guid, row.sensitivity_status, row.updated_at);
       }
 
-      const insertFolderHistory = this.db.prepare(`
+      const insertFolderHistory = db.prepare(`
         INSERT INTO folder_history (path, last_scanned_at)
         VALUES (?, ?)
       `);
@@ -246,7 +260,7 @@ export class DatabaseManager {
         insertFolderHistory.run(row.path, row.last_scanned_at);
       }
 
-      const insertSetting = this.db.prepare(`
+      const insertSetting = db.prepare(`
         INSERT OR REPLACE INTO settings (id, value)
         VALUES (?, ?)
       `);
@@ -254,10 +268,80 @@ export class DatabaseManager {
         insertSetting.run(row.id, row.value);
       }
 
-      restoreDurableSemanticResetState(this.db, snapshot.semantic);
+      restoreDurableSemanticResetState(db, snapshot.semantic);
+      restoreDurableLibraryResetState(db, snapshot.durableLibrary);
     });
 
     restore();
+  }
+
+  private assertValidReplacement(db: Database.Database): void {
+    const integrity = db.pragma('integrity_check') as Array<{ integrity_check: string }>;
+    if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') {
+      throw new Error(`Soft reset replacement failed integrity_check: ${JSON.stringify(integrity)}`);
+    }
+    const foreignKeyErrors = db.pragma('foreign_key_check') as unknown[];
+    if (foreignKeyErrors.length > 0) {
+      throw new Error(`Soft reset replacement failed foreign_key_check: ${JSON.stringify(foreignKeyErrors)}`);
+    }
+  }
+
+  private buildSoftResetReplacement(
+    snapshot: ReturnType<DatabaseManager['snapshotSoftResetState']>,
+  ): void {
+    this.removeDatabaseFiles(this.softResetReplacementPath);
+    const replacement = this.openDatabaseAt(this.softResetReplacementPath);
+    let completed = false;
+    try {
+      this.initSchema(replacement);
+      this.restoreSoftResetState(replacement, snapshot);
+      this.assertValidReplacement(replacement);
+      replacement.pragma('wal_checkpoint(TRUNCATE)');
+      completed = true;
+    } finally {
+      replacement.close();
+      if (!completed) {
+        this.removeDatabaseFiles(this.softResetReplacementPath);
+      }
+    }
+  }
+
+  private restoreSoftResetBackup(): void {
+    try {
+      this.db.close();
+    } catch {
+      // The previous connection may already be closed at the swap boundary.
+    }
+    this.removeDatabaseFiles(this.dbPath);
+    if (!existsSync(this.softResetBackupPath)) {
+      throw new Error('Soft reset failed before a recoverable database backup was created.');
+    }
+    renameSync(this.softResetBackupPath, this.dbPath);
+    this.db = this.openDatabase();
+    this.db.pragma('foreign_keys = ON');
+  }
+
+  private installSoftResetReplacement(): void {
+    this.db.pragma('wal_checkpoint(TRUNCATE)');
+    this.db.close();
+    try {
+      renameSync(this.dbPath, this.softResetBackupPath);
+      renameSync(this.softResetReplacementPath, this.dbPath);
+      this.db = this.openDatabase();
+      this.db.pragma('foreign_keys = ON');
+      this.assertValidReplacement(this.db);
+      rmSync(this.softResetBackupPath, { force: true });
+    } catch (error) {
+      if (existsSync(this.softResetBackupPath)) {
+        this.restoreSoftResetBackup();
+      } else {
+        this.db = this.openDatabase();
+        this.db.pragma('foreign_keys = ON');
+      }
+      throw error;
+    } finally {
+      this.removeDatabaseFiles(this.softResetReplacementPath);
+    }
   }
 
   public resetToFactorySchema(): void {
@@ -267,8 +351,8 @@ export class DatabaseManager {
 
   public resetPreservingManualData(): void {
     const snapshot = this.snapshotSoftResetState();
-    this.recreateFromSchema();
-    this.restoreSoftResetState(snapshot);
+    this.buildSoftResetReplacement(snapshot);
+    this.installSoftResetReplacement();
   }
 
   public close(): void {

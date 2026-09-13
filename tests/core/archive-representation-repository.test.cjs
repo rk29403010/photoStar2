@@ -12,7 +12,7 @@ function seedAsset(db, id, filePath) {
     db.prepare(`
         INSERT INTO assets (id, original_path, file_hash, file_size, width, height)
         VALUES (?, ?, ?, 1000, 1000, 800)
-    `).run(id, filePath, `hash-${id}`);
+    `).run(id, filePath, `hash-${filePath}`);
 }
 
 test('archive representations separate files from photographs and physical artefacts', async () => {
@@ -110,6 +110,7 @@ test('representation identity survives asset id replacement at the same managed 
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const semantic = await import('../../dist/core/src/services/relationships/semanticRepository.js');
     const representations = await import('../../dist/core/src/services/relationships/archiveRepresentationRepository.js');
+    const identities = await import('../../dist/core/src/data/assetIdentityRepository.js');
     const dbManager = new DatabaseManager(tempDir);
 
     try {
@@ -133,6 +134,7 @@ test('representation identity survives asset id replacement at the same managed 
         assert.equal(detached.originalPath, managedPath);
 
         seedAsset(db, 'asset-after-rebuild', managedPath);
+        identities.ensureAssetIdentityForAsset(db, 'asset-after-rebuild');
         const reattached = representations.getArchiveRepresentationsForSubject(db, photograph)[0];
         assert.equal(reattached.currentAssetId, 'asset-after-rebuild');
         assert.equal(reattached.assetIdentityGuid, identityBefore);

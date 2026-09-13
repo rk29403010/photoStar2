@@ -12,7 +12,7 @@ function seedAsset(db, id, filePath) {
     db.prepare(`
         INSERT INTO assets (id, original_path, file_hash, file_size, width, height)
         VALUES (?, ?, ?, 1000, 1000, 800)
-    `).run(id, filePath, `hash-${id}`);
+    `).run(id, filePath, `hash-${filePath}`);
 }
 
 test('soft reset preserves human semantic work and discards rebuildable machine-only state', async () => {
@@ -20,6 +20,7 @@ test('soft reset preserves human semantic work and discards rebuildable machine-
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const semantic = await import('../../dist/core/src/services/relationships/semanticRepository.js');
     const representations = await import('../../dist/core/src/services/relationships/archiveRepresentationRepository.js');
+    const identities = await import('../../dist/core/src/data/assetIdentityRepository.js');
     const dbManager = new DatabaseManager(tempDir);
 
     try {
@@ -131,6 +132,8 @@ test('soft reset preserves human semantic work and discards rebuildable machine-
 
         seedAsset(db, 'source-after-reset', sourcePath);
         seedAsset(db, 'crop-after-reset', cropPath);
+        identities.ensureAssetIdentityForAsset(db, 'source-after-reset');
+        identities.ensureAssetIdentityForAsset(db, 'crop-after-reset');
         const reattachedRepresentations = representations.getArchiveRepresentationsForSubject(db, photograph);
         const sourceAfter = reattachedRepresentations.find((representation) => representation.id === sourceRepresentation.id);
         const cropAfter = reattachedRepresentations.find((representation) => representation.id === humanCropRepresentation.id);

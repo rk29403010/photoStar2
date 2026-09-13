@@ -49,7 +49,7 @@ function loadSequenceMembers(db: DbHandle): SequenceMemberRow[] {
             (
                 SELECT current_asset.id
                 FROM assets current_asset
-                WHERE current_asset.original_path = identity.original_path
+                WHERE current_asset.asset_identity_guid = identity.guid
                 ORDER BY current_asset.created_at DESC, current_asset.id DESC
                 LIMIT 1
             ) AS current_asset_id

@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { restoreTestimony, snapshotTestimony } from './testimonyResetState';
 
 type SemanticEntityRow = {
     id: string;
@@ -22,6 +23,9 @@ type SemanticPropositionRow = {
 };
 
 type SemanticAttestationRow = {
+    source_actor_entity_id: string | null;
+    subjective_certainty: string | null;
+    raw_wording: string | null;
     id: string;
     proposition_id: string;
     stance: string;
@@ -44,6 +48,7 @@ type SemanticEvidenceRow = {
 };
 
 type SemanticDecisionRow = {
+    decider_entity_id: string | null;
     id: string;
     scope_key: string;
     status: string;
@@ -131,6 +136,7 @@ type VisualRegionGeometryRow = {
 };
 
 export type DurableSemanticResetState = {
+    testimony: ReturnType<typeof snapshotTestimony>;
     entities: SemanticEntityRow[];
     propositions: SemanticPropositionRow[];
     attestations: SemanticAttestationRow[];
@@ -211,6 +217,10 @@ function snapshotPropositions(db: Database.Database): SemanticPropositionRow[] {
             JOIN durable_decision_ids durable ON durable.id = decision.id
             WHERE decision.proposition_id = proposition.id
         )
+        OR EXISTS (
+            SELECT 1 FROM review_response_propositions response
+            WHERE response.proposition_id = proposition.id
+        )
         ORDER BY proposition.created_at ASC, proposition.id ASC
     `).all() as SemanticPropositionRow[];
 }
@@ -252,8 +262,10 @@ function snapshotDurableFaceState(
     faces: FaceRow[];
     visualRegionGeometry: VisualRegionGeometryRow[];
 } {
-    const durableFaceIds = propositions
-        .map((proposition) => proposition.subject_entity_id)
+    const responseSubjects = db.prepare('SELECT DISTINCT subject_entity_id FROM review_responses')
+        .all() as Array<{ subject_entity_id: string }>;
+    const durableSubjects = [...propositions, ...responseSubjects];
+    const durableFaceIds = [...new Set(durableSubjects.map((subject) => subject.subject_entity_id))]
         .filter((entityId) => {
             const row = db.prepare("SELECT kind FROM semantic_entities WHERE id = ?")
                 .get(entityId) as { kind: string } | undefined;
@@ -337,6 +349,7 @@ export function snapshotDurableSemanticResetState(db: Database.Database): Durabl
     const durableFaceState = snapshotDurableFaceState(db, propositions);
 
     return {
+        testimony: snapshotTestimony(db),
         entities,
         propositions,
         attestations,
@@ -387,9 +400,10 @@ function restoreAttestations(db: Database.Database, rows: readonly SemanticAttes
     const insert = db.prepare(`
         INSERT INTO semantic_attestations (
             id, proposition_id, stance, source_kind, source_identity, source_ref, confidence,
-            rationale, supersedes_attestation_id, created_at
+            rationale, supersedes_attestation_id, created_at,
+            source_actor_entity_id, subjective_certainty, raw_wording
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
     `);
     for (const row of rows) {
         insert.run(
@@ -402,6 +416,9 @@ function restoreAttestations(db: Database.Database, rows: readonly SemanticAttes
             row.confidence,
             row.rationale,
             row.created_at,
+            row.source_actor_entity_id,
+            row.subjective_certainty,
+            row.raw_wording,
         );
     }
 
@@ -431,9 +448,9 @@ function restoreDecisions(db: Database.Database, rows: readonly SemanticDecision
     const insert = db.prepare(`
         INSERT INTO semantic_decisions (
             id, scope_key, status, proposition_id, source_kind, source_ref,
-            rationale, supersedes_decision_id, is_current, created_at
+            rationale, supersedes_decision_id, is_current, created_at, decider_entity_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
     `);
     for (const row of rows) {
         insert.run(
@@ -446,6 +463,7 @@ function restoreDecisions(db: Database.Database, rows: readonly SemanticDecision
             row.rationale,
             row.is_current,
             row.created_at,
+            row.decider_entity_id,
         );
     }
 
@@ -624,6 +642,7 @@ export function restoreDurableSemanticResetState(
     restoreEntities(db, state.entities);
     restoreDurableFaceState(db, state);
     restorePropositions(db, state.propositions);
+    restoreTestimony(db, state.testimony);
     restoreAttestations(db, state.attestations);
     restoreEvidence(db, state.evidence);
     restoreDecisions(db, state.decisions);
