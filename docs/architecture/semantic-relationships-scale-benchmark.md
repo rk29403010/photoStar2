@@ -47,5 +47,6 @@ On 2026-09-13, the `assets(file_hash)` index brought the development fixture to
 `20260913_003_exact_copy_presentation_cache` adds a rebuildable cache with an
 Asset-change dirty marker and transactional refresh on the next read. The warmed
 target fixture then measured 54.1 ms p95 at 100k Assets (22.9 MiB SQLite), below
-the 150 ms target. Measure later pages and cache rebuild cost before closing the
-presentation paging requirement.
+the 150 ms target. Offset 10,000 measured 91.9 ms p95; first materialization
+took 1131.0 ms. Measure stretch paging before closing the presentation paging
+requirement.

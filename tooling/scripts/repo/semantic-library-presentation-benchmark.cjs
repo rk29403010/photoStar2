@@ -11,6 +11,15 @@ const TIERS = {
 const PAGE_SIZE = 100;
 const SAMPLE_COUNT = 12;
 
+function pageOffset() {
+    const argument = process.argv.find((value) => value.startsWith('--offset='));
+    const value = Number(argument?.slice('--offset='.length) || '0');
+    if (!Number.isInteger(value) || value < 0) {
+        throw new Error('Expected a non-negative integer --offset.');
+    }
+    return value;
+}
+
 function tier() {
     const argument = process.argv.find((value) => value.startsWith('--tier='));
     const name = argument?.slice('--tier='.length) || process.env.PHOTOSTAR_BENCHMARK_TIER || 'target';
@@ -45,6 +54,7 @@ function seedAssets(db, assetCount) {
 
 async function main() {
     const selectedTier = tier();
+    const offset = pageOffset();
     const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-presentation-benchmark-'));
     const { DatabaseManager } = require('../../../dist/core/src/data/db.js');
     const presentation = await import('../../../dist/core/src/services/relationships/libraryPresentationProjection.js');
@@ -55,15 +65,17 @@ async function main() {
         seedAssets(db, selectedTier.assetCount);
         const setupMs = performance.now() - setupStarted;
         const expectedItems = selectedTier.assetCount / 4;
+        const cacheRebuildStarted = performance.now();
         if (presentation.countExactCopyPresentationItems(db) !== expectedItems) {
             throw new Error('Benchmark seed did not create the expected exact-copy presentation items.');
         }
-        presentation.getExactCopyPresentationPage(db, { limit: PAGE_SIZE, offset: 0 });
+        const cacheRebuildMs = performance.now() - cacheRebuildStarted;
+        presentation.getExactCopyPresentationPage(db, { limit: PAGE_SIZE, offset });
 
         const measurements = [];
         for (let sample = 0; sample < SAMPLE_COUNT; sample += 1) {
             const started = performance.now();
-            const page = presentation.getExactCopyPresentationPage(db, { limit: PAGE_SIZE, offset: 0 });
+            const page = presentation.getExactCopyPresentationPage(db, { limit: PAGE_SIZE, offset });
             measurements.push(performance.now() - started);
             if (page.length !== PAGE_SIZE) {
                 throw new Error(`Expected ${PAGE_SIZE} presentation items, received ${page.length}.`);
@@ -75,7 +87,9 @@ async function main() {
             tier: selectedTier.name,
             assetCount: selectedTier.assetCount,
             exactCopyPresentationItems: expectedItems,
+            pageOffset: offset,
             setupMs: Number(setupMs.toFixed(1)),
+            cacheRebuildMs: Number(cacheRebuildMs.toFixed(1)),
             p50Ms: Number(percentile(measurements, 0.5).toFixed(1)),
             p95Ms: Number(percentile(measurements, 0.95).toFixed(1)),
             databaseMiB: Number((databaseBytes / (1024 * 1024)).toFixed(1)),

@@ -2,8 +2,8 @@
 
 ## 2026-09-13 - WP16 presentation scale closeout
 
-- Measure exact-copy later-page and rebuild latency at target/stretch tiers, then
-  measure capture-sequence expansion and bulk selection before closing the WP16
+- Measure exact-copy later-page latency at the stretch tier, then measure
+  capture-sequence expansion and bulk selection before closing the WP16
   presentation-performance package.
 
 ## 2026-09-12 - WP13d identity-review runtime acceptance
