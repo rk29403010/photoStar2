@@ -2,8 +2,9 @@
 
 ## 2026-09-13 - WP16 presentation scale closeout
 
-- Measure capture-sequence expansion and bulk selection before closing the WP16
-  presentation-performance package.
+- Replace capture-sequence full materialization before paging, then measure
+  expansion and bulk selection before closing the WP16 presentation-performance
+  package.
 
 ## 2026-09-12 - WP13d identity-review runtime acceptance
 

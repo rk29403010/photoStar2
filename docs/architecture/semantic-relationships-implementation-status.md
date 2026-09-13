@@ -49,8 +49,8 @@ Presentation paging, expansion and bulk-action paths have representative measure
 
 ### Exact next action
 
-1. Measure capture-sequence expansion and bulk selection at the same tiers.
-2. Diagnose and optimize stretch-tier exact-copy paging without weakening the durable projection contract.
+1. Replace capture-sequence full materialization before pagination with a measured paged projection, then measure expansion at the same tiers.
+2. Measure bulk selection at the same tiers.
 3. Keep the existing WP13d real-runtime acceptance obligation in the WP16 acceptance ledger.
 
 ## 4. Phase status
