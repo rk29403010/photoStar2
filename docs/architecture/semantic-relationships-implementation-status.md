@@ -9,9 +9,10 @@
 - Repository: `rk29403010/photoStar2`
 - Branch: `task/semantic-relationships-phase1-foundation`
 - Pull request: `#42`
-- Last integrated base assessed: `43208c04ef1edabe268a8adc61ea28f8faf319ab`; WP15 is active uncommitted integration work.
-- Canonical quality gate: **GREEN**, run `34699825589`, job `103569488019`
-- Current package: **WP15 — Reset, durability and migration hardening**
+- Last integrated WP15 checkpoint: `06d7c443c10d0e29a377456863d32a9e23666957`
+- Canonical local merge gate: **GREEN** at `06d7c44` — 392 passed, 1 skipped core tests and affected UI smoke passed.
+- Published PR head: `06d7c44`; remote quality-gate/benchmark/CodeQL are in progress as of 2026-09-13.
+- Current package: **WP16a — Benchmark harness and representative data tiers**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -32,23 +33,24 @@ Always verify actual HEAD/Actions before continuing.
 - WP13c complete: competing attributed testimony remains side-by-side; disputed/deferred/accepted decisions supersede append-only. Decision history ordering follows the supersession chain rather than second-resolution timestamps and random UUIDs. Canonical run `34696835803`.
 - WP13d implementation canonical-green: People candidate cards expose all WP13b response kinds with named ambiguous candidates; the command path records normalized attributed responses and preserves accepted/rejected projection behaviour. The review region declares inline loading/error/success/retry feedback and a local error boundary. Targeted WP12f/WP13a-d tests pass and canonical run `34698288634` (job `103565454011`) is green; runtime/manual acceptance remains outstanding.
 - WP14 complete through a-e: whole-Asset and VisualRegion Photograph membership now resolve through `photographMembershipRepository.ts`; exact copies inherit unique Photograph membership without legacy groups; disputed evidence is not guessed; restoration/crop/ordinary edit lineage preserves Photograph identity while explicit authored composites create a stable new Photograph. `photo_edit_documents` remains authoritative for edit recipes and branch lineage. PR `#43` merged at `43208c04ef1edabe268a8adc61ea28f8faf319ab`; post-merge canonical run `34699825589` (job `103569488019`) is green.
-- WP15 local integration: the authoritative reset matrix, WP13 testimony snapshot, durable library snapshot, replacement-then-swap soft reset recovery, face-analysis reset invalidation, relationship publication rollback, strict legacy migration compatibility, and fingerprint-safe asset binding are implemented with targeted core fixtures. Canonical readiness/merge evidence is still required at the committed integration head.
+- WP15 complete at `06d7c44`: authoritative reset matrix, WP13 testimony snapshot, durable library snapshot, replacement-then-swap soft reset recovery, face-analysis reset invalidation, relationship publication rollback, strict legacy migration compatibility, and fingerprint-safe asset binding. `qa:ready` passed (147 UI tests plus UI smoke) and `qa:merge` passed (392 core tests, one intentional skip, plus UI smoke). The checkpoint is published to PR #42; assess Sonar only after it analyzes this head.
+- WP16a initial measurement: the repeatable development tier seeded 20k 512-d vectors in 1729.6 ms and measured 1059.5 ms p95 active-vector lookup (0.8 MiB observed heap growth). This misses the 150 ms interaction target before target-tier execution, confirming the existing WP11d index-evaluation blocker rather than a new WP15 regression.
 
-## 3. Current package — WP15
+## 3. Current package — WP16a
 
 ### Goal
 
-Make reset and analysis replacement behavior durable by contract: preserve human/archive state, rebuild machine state, and avoid path-only identity transfer.
+Document repeatable representative-data generation/loading and measurement tiers, reusing the existing benchmark harness where it supplies evidence.
 
 ### Gate
 
-Targeted WP15 behavioral fixtures and the canonical `qa:ready` then `qa:merge` gates pass at the committed integration head.
+The benchmark procedure explicitly covers development, target and stretch tiers, records machine and database measurements, and identifies existing vector-performance constraints.
 
 ### Exact next action
 
-1. Review the uncommitted WP15 file set and run `pnpm.cmd run qa:quick` while iterating.
-2. Run `pnpm.cmd run qa:ready`, commit only the WP15-owned changes, then run `pnpm.cmd run qa:merge` at that exact head.
-3. Recheck PR/CI state before publication and retain the existing WP13d real-runtime acceptance obligation for WP16.
+1. Inspect the WP11d vector benchmark and current library/projection query paths.
+2. Add a documented, repeatable tiered procedure without claiming unmeasured targets.
+3. Keep the existing WP13d real-runtime acceptance obligation in the WP16 acceptance ledger.
 
 ## 4. Phase status
 
@@ -63,18 +65,18 @@ Targeted WP15 behavioral fixtures and the canonical `qa:ready` then `qa:merge` g
 | WP12 | **Complete** |
 | WP13 | **In progress — WP13d current** |
 | WP14 | **Complete** |
-| WP15 | **Implemented locally — pending committed readiness/merge gates** |
-| WP16 | Not started |
+| WP15 | **Complete — published checkpoint `06d7c44`; remote CI pending** |
+| WP16 | **In progress — WP16a current** |
 
 ## 5. Deferred ledger
 
 | WP | Item | Completion criterion |
 | --- | --- | --- |
 | WP10 | Remaining transitional `face_index` adapter statements | Do not widen frozen inventory; later contraction only with explicit proof |
-| WP10/WP15 | Broader reset durability | WP15 durability matrix |
+| WP10/WP15 | Broader reset durability | Complete at `06d7c44`; matrix and behavioral fixtures cover reset classes |
 | WP11/WP16 | Vector lookup target missed | Indexed retrieval implemented/measured without weakening generation semantics |
 | WP13 | Contributor uncertainty/testimony | WP13 completion gate |
-| WP15 | Cross-domain durability | Local matrix/tests complete; canonical committed-head gates pending |
+| WP15 | Cross-domain durability | Complete: matrix, targeted fixtures, `qa:ready`, and `qa:merge` passed at `06d7c44` |
 | WP16 | Skips/manual acceptance/scale | Acceptance matrix + final `qa:merge` |
 
 ## 6. Functional acceptance obligations

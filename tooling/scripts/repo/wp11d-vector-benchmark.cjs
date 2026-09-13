@@ -3,11 +3,25 @@ const os = require('node:os');
 const path = require('node:path');
 const { performance } = require('node:perf_hooks');
 
-const VECTOR_COUNT = 250_000;
-const GENERATION_COUNT = 100_000;
 const DIMENSIONS = 512;
 const SAMPLE_COUNT = 20;
 const LIMIT = 20;
+
+const TIERS = {
+    development: { vectorCount: 20_000, generationCount: 10_000 },
+    target: { vectorCount: 250_000, generationCount: 100_000 },
+    stretch: { vectorCount: 1_000_000, generationCount: 400_000 },
+};
+
+function benchmarkTier() {
+    const tierArgument = process.argv.find((argument) => argument.startsWith('--tier='));
+    const tierName = tierArgument?.slice('--tier='.length) || process.env.PHOTOSTAR_BENCHMARK_TIER || 'target';
+    const tier = TIERS[tierName];
+    if (!tier) {
+        throw new Error(`Unknown benchmark tier '${tierName}'. Expected development, target, or stretch.`);
+    }
+    return { name: tierName, ...tier };
+}
 
 function vectorBlob() {
     const buffer = Buffer.allocUnsafe(DIMENSIONS * Float32Array.BYTES_PER_ELEMENT);
@@ -17,7 +31,7 @@ function vectorBlob() {
     return buffer;
 }
 
-function seedTargetTier(db) {
+function seedTier(db, tier) {
     db.exec('PRAGMA synchronous = OFF; PRAGMA journal_mode = MEMORY;');
     db.prepare(`
         INSERT INTO workflow_runs (id, workflow_id, trigger_type, status, input_subjects_json, parameters_json)
@@ -59,15 +73,15 @@ function seedTargetTier(db) {
     const blob = vectorBlob();
 
     db.transaction(() => {
-        for (let generationIndex = 0; generationIndex < GENERATION_COUNT; generationIndex += 1) {
+        for (let generationIndex = 0; generationIndex < tier.generationCount; generationIndex += 1) {
             const generationId = `generation:${generationIndex}`;
             const scopeKey = `face-vectors:asset:${generationIndex}`;
             insertGeneration.run(generationId, scopeKey, `input:${generationIndex}`, `key:${generationIndex}`);
             insertHead.run(scopeKey, generationId);
         }
-        for (let vectorIndex = 0; vectorIndex < VECTOR_COUNT; vectorIndex += 1) {
+        for (let vectorIndex = 0; vectorIndex < tier.vectorCount; vectorIndex += 1) {
             const entityId = `face:${vectorIndex}`;
-            const generationIndex = Math.floor((vectorIndex * GENERATION_COUNT) / VECTOR_COUNT);
+            const generationIndex = Math.floor((vectorIndex * tier.generationCount) / tier.vectorCount);
             insertEntity.run(entityId, entityId);
             insertVector.run(`vector:${vectorIndex}`, entityId, `generation:${generationIndex}`, DIMENSIONS, blob);
         }
@@ -81,6 +95,7 @@ function percentile95(values) {
 }
 
 async function main() {
+    const tier = benchmarkTier();
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'photo-star-wp11d-benchmark-'));
     const { DatabaseManager } = require('../../../dist/core/src/data/db.js');
     const retrieval = await import('../../../dist/core/src/services/machineAnalysis/featureVectorRetrieval.js');
@@ -88,7 +103,7 @@ async function main() {
     try {
         const db = dbManager.getDb();
         const setupStarted = performance.now();
-        seedTargetTier(db);
+        seedTier(db, tier);
         const setupMs = performance.now() - setupStarted;
 
         for (let warmup = 0; warmup < 3; warmup += 1) {
@@ -114,9 +129,10 @@ async function main() {
 
         const p95Ms = percentile95(latencyMeasurements);
         const result = {
-            vectorCount: VECTOR_COUNT,
+            tier: tier.name,
+            vectorCount: tier.vectorCount,
             dimensions: DIMENSIONS,
-            rawVectorMiB: (VECTOR_COUNT * DIMENSIONS * 4) / (1024 * 1024),
+            rawVectorMiB: (tier.vectorCount * DIMENSIONS * 4) / (1024 * 1024),
             setupMs: Number(setupMs.toFixed(1)),
             p95Ms: Number(p95Ms.toFixed(1)),
             minMs: Number(Math.min(...latencyMeasurements).toFixed(1)),
