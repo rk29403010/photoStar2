@@ -26,3 +26,18 @@ vector index; it is not permission to weaken the latency or memory contract.
 The harness is intentionally vector-only. WP16b and WP16d must add the
 corresponding library-presentation, projection-rebuild and SQLite-growth
 measurements before Phase 1 can close.
+
+## Library presentation page
+
+The exact-copy presentation benchmark seeds four copies per item and measures
+the existing first-page query, including its full-table grouping work:
+
+```powershell
+node.exe tooling/scripts/repo/semantic-library-presentation-benchmark.cjs --tier=development
+node.exe tooling/scripts/repo/semantic-library-presentation-benchmark.cjs --tier=target
+node.exe tooling/scripts/repo/semantic-library-presentation-benchmark.cjs --tier=stretch
+```
+
+Its JSON record includes p50/p95, seed time and SQLite size. Measure capture
+sequence expansion and bulk selection separately before declaring WP16b
+complete.

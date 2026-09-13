@@ -12,7 +12,7 @@
 - Last integrated WP15 checkpoint: `06d7c443c10d0e29a377456863d32a9e23666957`
 - Canonical local merge gate: **GREEN** at `06d7c44` — 392 passed, 1 skipped core tests and affected UI smoke passed.
 - Published PR head: `06d7c44`; remote quality-gate/benchmark/CodeQL are in progress as of 2026-09-13.
-- Current package: **WP16a — Benchmark harness and representative data tiers**
+- Current package: **WP16b — Library/presentation performance**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -35,21 +35,22 @@ Always verify actual HEAD/Actions before continuing.
 - WP14 complete through a-e: whole-Asset and VisualRegion Photograph membership now resolve through `photographMembershipRepository.ts`; exact copies inherit unique Photograph membership without legacy groups; disputed evidence is not guessed; restoration/crop/ordinary edit lineage preserves Photograph identity while explicit authored composites create a stable new Photograph. `photo_edit_documents` remains authoritative for edit recipes and branch lineage. PR `#43` merged at `43208c04ef1edabe268a8adc61ea28f8faf319ab`; post-merge canonical run `34699825589` (job `103569488019`) is green.
 - WP15 complete at `06d7c44`: authoritative reset matrix, WP13 testimony snapshot, durable library snapshot, replacement-then-swap soft reset recovery, face-analysis reset invalidation, relationship publication rollback, strict legacy migration compatibility, and fingerprint-safe asset binding. `qa:ready` passed (147 UI tests plus UI smoke) and `qa:merge` passed (392 core tests, one intentional skip, plus UI smoke). The checkpoint is published to PR #42; assess Sonar only after it analyzes this head.
 - WP16a initial measurement: the repeatable development tier seeded 20k 512-d vectors in 1729.6 ms and measured 1059.5 ms p95 active-vector lookup (0.8 MiB observed heap growth). This misses the 150 ms interaction target before target-tier execution, confirming the existing WP11d index-evaluation blocker rather than a new WP15 regression.
+- WP16b initial measurement: a 10k-asset, four-copies-per-item disposable library measured 291.2 ms p95 for the existing first exact-copy presentation page (2.4 MiB SQLite). This also misses the 150 ms target at development scale; capture-sequence expansion and bulk-selection measurements remain open.
 
-## 3. Current package — WP16a
+## 3. Current package — WP16b
 
 ### Goal
 
-Document repeatable representative-data generation/loading and measurement tiers, reusing the existing benchmark harness where it supplies evidence.
+Measure existing presentation queries and document the evidence needed for a deliberate indexing or query-shape decision.
 
 ### Gate
 
-The benchmark procedure explicitly covers development, target and stretch tiers, records machine and database measurements, and identifies existing vector-performance constraints.
+Presentation paging, expansion and bulk-action paths have representative measurements and an explicit remediation decision for any missed target.
 
 ### Exact next action
 
-1. Inspect the WP11d vector benchmark and current library/projection query paths.
-2. Add a documented, repeatable tiered procedure without claiming unmeasured targets.
+1. Diagnose the exact-copy presentation p95 miss before adding indexes or changing query shape.
+2. Measure capture-sequence expansion and bulk selection at the same tiers.
 3. Keep the existing WP13d real-runtime acceptance obligation in the WP16 acceptance ledger.
 
 ## 4. Phase status
@@ -66,7 +67,7 @@ The benchmark procedure explicitly covers development, target and stretch tiers,
 | WP13 | **In progress — WP13d current** |
 | WP14 | **Complete** |
 | WP15 | **Complete — published checkpoint `06d7c44`; remote CI pending** |
-| WP16 | **In progress — WP16a current** |
+| WP16 | **In progress — WP16b current** |
 
 ## 5. Deferred ledger
 
