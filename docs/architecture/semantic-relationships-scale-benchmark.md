@@ -103,3 +103,33 @@ interaction target and therefore requires a local vector-index proposal before
 candidate generation can be treated as interactive. Candidate review lookup
 and cluster reconciliation do not require that index and meet their respective
 read/whole-rebuild expectations.
+
+## Projection, storage and compaction matrix
+
+| Target-tier path | Result | Memory / SQLite evidence | Execution class |
+| --- | ---: | ---: | --- |
+| Exact-copy page, offset 10k | 18.2 ms p95 | 24.7 MiB SQLite | Interaction |
+| Exact-copy cache rebuild, 500k stretch | 6745.4 ms | 125.0 MiB SQLite | Tracked rebuild |
+| Capture page, 25k sequences | 1.2 ms p95 | Included in target fixture | Interaction |
+| Capture projection rebuild, 25k sequences | 11395.1 ms | Included in target fixture | Tracked workflow rebuild |
+| Candidate review, 1.25m candidates | 57.7 ms p95 | 541.6 MiB SQLite | Interaction |
+| IdentityCluster reconcile, 62.5k clusters | 858.4 ms | 118.7 MiB heap growth | Whole projection rebuild |
+| Exact vector lookup, 250k by 512-d | 2334.8 ms p95 | About 488 MiB raw vectors | Index follow-up; not interactive |
+
+The generation-compaction harness creates three complete 512-d vector
+generations per scope, protects the active generation and its immediate
+predecessor, compacts the oldest BLOBs through the production maintenance path,
+then measures explicit SQLite reclamation:
+
+```powershell
+node.exe tooling/scripts/repo/semantic-generation-compaction-benchmark.cjs --tier=development
+node.exe tooling/scripts/repo/semantic-generation-compaction-benchmark.cjs --tier=target
+```
+
+On 2026-09-14, development tier started with 60k vectors / 247.2 MiB, deleted
+20k vectors in 1508.2 ms, retained 40k, and reclaimed the file to 164.9 MiB in
+2162.6 ms. Target tier started with 750k vectors / 3070.4 MiB, deleted 250k
+vectors in 24754.3 ms, retained the required active-plus-predecessor 500k, and
+reclaimed the file to 2040.1 MiB in 40915.8 ms. Compaction heap growth was 0.7
+MiB at target. SQLite does not return deleted pages to the filesystem until the
+explicit `VACUUM`; both operations are maintenance work, not interaction paths.
