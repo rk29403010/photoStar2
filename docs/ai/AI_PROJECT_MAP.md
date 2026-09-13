@@ -149,6 +149,8 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 
 For face identity, keep durable truth and rebuildable machine state separate: stable `Face` semantic decisions and Person lifecycle/redirects are durable; `IdentityCluster` and `face_person_candidates` are machine-rebuildable; `face_assignments` remains only a transitional projection for legacy consumers. Candidate review is sourced through `peopleCandidateCommands.ts`, and raw cosine must not be presented as calibrated probability.
 
+`identityClusterReconciliation.ts` indexes candidate clusters by stable Face membership before applying the mutual unique-best overlap contract; do not restore pairwise all-cluster comparison. `semantic-face-performance-benchmark.cjs` measures candidate-review lookup and reconciliation at the WP16 development/target tiers. Exact active-vector retrieval remains a separate measured index follow-up.
+
 Human semantic attribution is durable identity, not a display string: Contributor-aware attestations store `source_actor_entity_id` and decisions store `decider_entity_id`. Pre-WP13 rows may legitimately have null actor IDs; new review/testimony paths should use `contributorRepository.ts` so later profile changes or contributor switching do not rewrite historical attribution.
 
 `testimonyResetState.ts` preserves Contributor profiles, review responses and their

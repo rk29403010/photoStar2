@@ -1,10 +1,11 @@
 # TO DO List
 
-## 2026-09-13 - WP16 presentation scale closeout
+## 2026-09-14 - WP16 vector-index follow-up
 
-- Replace capture-sequence full materialization before paging, then measure
-  expansion and bulk selection before closing the WP16 presentation-performance
-  package.
+- Implement and measure a local vector-index proposal for 250k 512-d active
+  Face vectors. Preserve analysis-generation heads and model/preprocessing space
+  isolation; do not make candidate generation interactive until p95 is below
+  the 150 ms target with bounded memory and durable rebuild behaviour.
 
 ## 2026-09-12 - WP13d identity-review runtime acceptance
 

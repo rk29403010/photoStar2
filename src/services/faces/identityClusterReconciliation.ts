@@ -8,19 +8,22 @@ type OverlapScore = {
     jaccard: number;
 };
 
-function scoreOverlap(left: ReconcileableIdentityCluster, right: ReconcileableIdentityCluster): OverlapScore {
-    const leftIds = new Set(left.faceIds);
-    let sharedCount = 0;
-    for (const faceId of right.faceIds) {
-        if (leftIds.has(faceId)) {
-            sharedCount += 1;
+type ClusterMembershipIndex = {
+    candidateIndicesByFaceId: Map<string, number[]>;
+    uniqueFaceCounts: number[];
+};
+
+function buildMembershipIndex(clusters: ReconcileableIdentityCluster[]): ClusterMembershipIndex {
+    const candidateIndicesByFaceId = new Map<string, number[]>();
+    const uniqueFaceCounts = clusters.map((cluster, candidateIndex) => {
+        for (const faceId of cluster.faceIds) {
+            const candidateIndices = candidateIndicesByFaceId.get(faceId) ?? [];
+            candidateIndices.push(candidateIndex);
+            candidateIndicesByFaceId.set(faceId, candidateIndices);
         }
-    }
-    const unionCount = leftIds.size + new Set(right.faceIds).size - sharedCount;
-    return {
-        sharedCount,
-        jaccard: unionCount === 0 ? 0 : sharedCount / unionCount,
-    };
+        return new Set(cluster.faceIds).size;
+    });
+    return { candidateIndicesByFaceId, uniqueFaceCounts };
 }
 
 function compareScores(left: OverlapScore, right: OverlapScore): number {
@@ -30,19 +33,39 @@ function compareScores(left: OverlapScore, right: OverlapScore): number {
     return left.jaccard - right.jaccard;
 }
 
+function countCandidateOverlaps(
+    targetFaceIds: Set<string>,
+    membershipIndex: ClusterMembershipIndex,
+): Map<number, number> {
+    const sharedCounts = new Map<number, number>();
+    for (const faceId of targetFaceIds) {
+        for (const candidateIndex of membershipIndex.candidateIndicesByFaceId.get(faceId) ?? []) {
+            sharedCounts.set(candidateIndex, (sharedCounts.get(candidateIndex) ?? 0) + 1);
+        }
+    }
+    return sharedCounts;
+}
+
+function makeOverlapScore(
+    targetFaceCount: number,
+    candidateFaceCount: number,
+    sharedCount: number,
+): OverlapScore {
+    const unionCount = targetFaceCount + candidateFaceCount - sharedCount;
+    return { sharedCount, jaccard: unionCount === 0 ? 0 : sharedCount / unionCount };
+}
+
 function findUniqueBestIndex(
     target: ReconcileableIdentityCluster,
-    candidates: ReconcileableIdentityCluster[],
+    membershipIndex: ClusterMembershipIndex,
 ): number | null {
     let bestIndex: number | null = null;
     let bestScore: OverlapScore = { sharedCount: 0, jaccard: 0 };
     let tied = false;
-
-    for (let index = 0; index < candidates.length; index += 1) {
-        const score = scoreOverlap(target, candidates[index]);
-        if (score.sharedCount === 0) {
-            continue;
-        }
+    const targetFaceIds = new Set(target.faceIds);
+    const sharedCounts = countCandidateOverlaps(targetFaceIds, membershipIndex);
+    for (const [index, sharedCount] of sharedCounts) {
+        const score = makeOverlapScore(targetFaceIds.size, membershipIndex.uniqueFaceCounts[index], sharedCount);
         const comparison = compareScores(score, bestScore);
         if (comparison > 0) {
             bestIndex = index;
@@ -65,8 +88,10 @@ export function reconcileIdentityClusterIds(
     previous: ReconcileableIdentityCluster[],
     proposed: ReconcileableIdentityCluster[],
 ): ReconcileableIdentityCluster[] {
-    const previousBestNew = previous.map((cluster) => findUniqueBestIndex(cluster, proposed));
-    const proposedBestPrevious = proposed.map((cluster) => findUniqueBestIndex(cluster, previous));
+    const proposedMembership = buildMembershipIndex(proposed);
+    const previousMembership = buildMembershipIndex(previous);
+    const previousBestNew = previous.map((cluster) => findUniqueBestIndex(cluster, proposedMembership));
+    const proposedBestPrevious = proposed.map((cluster) => findUniqueBestIndex(cluster, previousMembership));
 
     return proposed.map((cluster, newIndex) => {
         const previousIndex = proposedBestPrevious[newIndex];

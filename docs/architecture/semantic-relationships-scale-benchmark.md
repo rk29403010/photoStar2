@@ -73,3 +73,33 @@ range selection previously measured 68.0 ms p95 and deferred bulk expansion
 that individual photo IDs precede expanded presentation members; the rerun on
 2026-09-14 measured 65.4 ms p95 selection and 73.9 ms expansion. Both paths
 remain below the 150 ms interaction target.
+
+## Face candidates and cluster reconciliation
+
+The WP16c harness seeds five candidate rows per face, exercises the real
+`get_person_face_candidates` command query, and reconciles four-face machine
+clusters at development and target scale:
+
+```powershell
+node.exe tooling/scripts/repo/semantic-face-performance-benchmark.cjs --tier=development
+node.exe tooling/scripts/repo/semantic-face-performance-benchmark.cjs --tier=target
+```
+
+On 2026-09-14, the development fixture (20k faces / 100k candidates / 5k
+clusters) measured 6.5 ms p95 candidate lookup and 97.2 ms whole-cluster
+reconciliation. The target fixture (250k faces / 1.25m candidates / 62.5k
+clusters) measured 57.7 ms p95 candidate lookup and 858.4 ms whole-cluster
+reconciliation, with a 541.6 MiB SQLite fixture. Target reconciliation used
+118.7 MiB observed heap growth.
+
+The prior pairwise reconciliation algorithm took 66035 ms for only 5k
+four-face clusters. Indexing candidate clusters by stable Face membership
+reduced that same development-scale operation to 79-97 ms without changing the
+mutual unique-best overlap contract. This removes the quadratic scale blocker.
+
+The separate active-vector benchmark remains authoritative for exact vector
+retrieval. Its 250k by 512-d target result (2334.8 ms p95) misses the 150 ms
+interaction target and therefore requires a local vector-index proposal before
+candidate generation can be treated as interactive. Candidate review lookup
+and cluster reconciliation do not require that index and meet their respective
+read/whole-rebuild expectations.

@@ -12,7 +12,7 @@
 - Last integrated WP15 checkpoint: `06d7c443c10d0e29a377456863d32a9e23666957`
 - Canonical local merge gate: **GREEN** at `06d7c44` — 392 passed, 1 skipped core tests and affected UI smoke passed.
 - Published PR head: `06d7c44`; remote quality-gate/benchmark/CodeQL are in progress as of 2026-09-13.
-- Current package: **WP16c — Face candidate/clustering/vector performance**
+- Current package: **WP16d — Projection, memory and SQLite growth**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -36,21 +36,22 @@ Always verify actual HEAD/Actions before continuing.
 - WP15 complete at `06d7c44`: authoritative reset matrix, WP13 testimony snapshot, durable library snapshot, replacement-then-swap soft reset recovery, face-analysis reset invalidation, relationship publication rollback, strict legacy migration compatibility, and fingerprint-safe asset binding. `qa:ready` passed (147 UI tests plus UI smoke) and `qa:merge` passed (392 core tests, one intentional skip, plus UI smoke). The checkpoint is published to PR #42; assess Sonar only after it analyzes this head.
 - WP16a initial measurement: the repeatable development tier seeded 20k 512-d vectors in 1729.6 ms and measured 1059.5 ms p95 active-vector lookup (0.8 MiB observed heap growth). This misses the 150 ms interaction target before target-tier execution, confirming the existing WP11d index-evaluation blocker rather than a new WP15 regression.
 - WP16b complete: the initial 10k-asset exact-copy page measured 291.2 ms p95. Numbered migration `20260913_002_exact_copy_presentation_hash_index` adds the existing query's `assets(file_hash)` access path. A rebuildable exact-copy cache, invalidated by relevant Asset changes and atomically refreshed on the next read, replaces full-table window ranking for normal pages. Numbered migration `20260913_004_exact_copy_presentation_cache_order` indexes cached default chronology: target tier page offset 10,000 measures 18.2 ms p95 for 100k Assets (24.7 MiB SQLite), and stretch tier offset 50,000 measures 62.3 ms p95 for 500k Assets (125.0 MiB SQLite), both below the 150 ms target. Cache materialization remains an explicit rebuild cost (6745.4 ms at stretch). Migration `20260913_005_capture_sequence_presentation_cache` stores the full existing composed capture projection and pages it from SQLite; Asset and CaptureSequence/member changes invalidate it. The real-proposal benchmark measured 0.8 ms p95 at development (10k Assets/2.5k sequences) and 1.2 ms p95 at target (100k Assets/25k sequences); rebuild cost is 1025.6 ms and 11395.1 ms respectively. Lazy range selection now measures 65.4 ms p95 at target (100k visible items) and deferred bulk Asset expansion measures 73.9 ms while preserving legacy selection-state compatibility and photo-before-presentation expansion order. `syncBurstCaptureSequenceProposals` rebuilds the capture projection inside the tracked grouping workflow after a successful proposal replacement; normal reads retain the last successful projection while dirty, so the 11.4-second target rebuild is no longer an interaction-path cost. WP16 acceptance still needs the documented handoff gate and the WP13d runtime obligation.
+- WP16c complete with one explicit architecture follow-up: the real candidate-review query measured 6.5 ms p95 at development (20k Faces / 100k candidates) and 57.7 ms p95 at target (250k Faces / 1.25m candidates). Pairwise IdentityCluster reconciliation initially took 66035 ms for 5k four-Face clusters; stable-Face membership indexing reduced it to 79-97 ms, and the 62.5k-cluster target completed in 858.4 ms with 118.7 MiB observed heap growth. Existing reconciliation contract tests remain green. Exact native vector retrieval still misses the interaction target at 2334.8 ms p95 for 250k by 512-d vectors; the Phase 1 decision is to keep current generation semantics and require a measured local vector-index proposal before treating candidate generation as interactive.
 
-## 3. Current package — WP16c
+## 3. Current package — WP16d
 
 ### Goal
 
-Measure face candidate lookup, clustering/reconciliation throughput and active vector retrieval at representative scale.
+Measure projection rebuild throughput, memory ceiling, SQLite growth and large-generation replacement/compaction behaviour.
 
 ### Gate
 
-Measurements justify the current storage/query strategy or record an explicit index/architecture remediation.
+No unrecorded scale blocker remains for the accepted Phase 1 target tier.
 
 ### Exact next action
 
-1. Extend the repeatable benchmark harness to cover candidate lookup and clustering/reconciliation throughput at development and target tiers.
-2. Rerun active vector retrieval at the target tier and record the already-evidenced local-index decision when it misses the 150 ms target.
+1. Consolidate existing WP16a-c database, heap and projection rebuild evidence into the WP16d matrix.
+2. Add and run a representative large-generation replacement/compaction measurement.
 3. Keep the existing WP13d real-runtime acceptance obligation in the WP16 acceptance ledger.
 
 ## 4. Phase status
@@ -67,7 +68,7 @@ Measurements justify the current storage/query strategy or record an explicit in
 | WP13 | **In progress — WP13d current** |
 | WP14 | **Complete** |
 | WP15 | **Complete — published checkpoint `06d7c44`; remote CI pending** |
-| WP16 | **In progress — WP16c current** |
+| WP16 | **In progress — WP16d current** |
 
 ## 5. Deferred ledger
 
@@ -75,7 +76,7 @@ Measurements justify the current storage/query strategy or record an explicit in
 | --- | --- | --- |
 | WP10 | Remaining transitional `face_index` adapter statements | Do not widen frozen inventory; later contraction only with explicit proof |
 | WP10/WP15 | Broader reset durability | Complete at `06d7c44`; matrix and behavioral fixtures cover reset classes |
-| WP11/WP16 | Vector lookup target missed | Indexed retrieval implemented/measured without weakening generation semantics |
+| WP11/WP16 | Vector lookup target missed | Implement and measure a local vector-index proposal without weakening generation semantics before candidate generation becomes interactive |
 | WP13 | Contributor uncertainty/testimony | WP13 completion gate |
 | WP15 | Cross-domain durability | Complete: matrix, targeted fixtures, `qa:ready`, and `qa:merge` passed at `06d7c44` |
 | WP16 | Skips/manual acceptance/scale | Acceptance matrix + final `qa:merge` |
