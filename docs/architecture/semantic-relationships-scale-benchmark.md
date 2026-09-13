@@ -41,3 +41,8 @@ node.exe tooling/scripts/repo/semantic-library-presentation-benchmark.cjs --tier
 Its JSON record includes p50/p95, seed time and SQLite size. Measure capture
 sequence expansion and bulk selection separately before declaring WP16b
 complete.
+
+On 2026-09-13, the `assets(file_hash)` index brought the development fixture to
+119.0 ms p95, but target tier remained 1123.6 ms p95. WP16b therefore requires
+a rebuildable paged exact-copy presentation projection; do not treat the index
+as the target-tier solution.
