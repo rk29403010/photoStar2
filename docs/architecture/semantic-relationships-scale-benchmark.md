@@ -50,3 +50,8 @@ target fixture then measured 54.1 ms p95 at 100k Assets (22.9 MiB SQLite), below
 the 150 ms target. Offset 10,000 measured 91.9 ms p95; first materialization
 took 1131.0 ms. Measure stretch paging before closing the presentation paging
 requirement.
+
+The stretch fixture (500k Assets, page offset 50,000) measured 993.8 ms p95 and
+6187.4 ms first materialization at 115.2 MiB SQLite. The target-scale cache is
+therefore accepted only as an interim WP16b result; redesign later-page access
+before treating the stretch requirement as met.

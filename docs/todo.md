@@ -2,7 +2,7 @@
 
 ## 2026-09-13 - WP16 presentation scale closeout
 
-- Measure exact-copy later-page latency at the stretch tier, then measure
+- Optimize stretch-tier exact-copy later-page latency, then measure
   capture-sequence expansion and bulk selection before closing the WP16
   presentation-performance package.
 
