@@ -21,6 +21,7 @@ import { WP11_MIGRATIONS } from './wp11Migrations';
 import { WP12_MIGRATIONS } from './wp12Migrations';
 import { WP13_MIGRATIONS } from './wp13Migrations';
 import { WP15_MIGRATIONS } from './wp15Migrations';
+import { WP16_MIGRATIONS } from './wp16Migrations';
 import { WP9_CONTRACTION_MIGRATIONS } from './wp9ContractionMigrations';
 import { snapshotSemanticPredicateDefinitions } from '../services/relationships/predicates/registry';
 
@@ -168,6 +169,7 @@ export class DatabaseManager {
       ...WP12_MIGRATIONS,
       ...WP13_MIGRATIONS,
       ...WP15_MIGRATIONS,
+      ...WP16_MIGRATIONS,
     ]);
     snapshotSemanticPredicateDefinitions(db);
     this.removeLegacyWorkflowState(db);

@@ -293,6 +293,7 @@ export const SCHEMA_SQL = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_assets_path ON assets(original_path);
+  CREATE INDEX IF NOT EXISTS idx_assets_file_hash ON assets(file_hash);
   CREATE INDEX IF NOT EXISTS idx_assets_photo_created_at ON assets(photo_created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_derived_task ON derived_results(task);
   CREATE INDEX IF NOT EXISTS idx_derived_task_asset ON derived_results(task, asset_id);
