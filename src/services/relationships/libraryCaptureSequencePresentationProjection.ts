@@ -209,16 +209,10 @@ function buildAllCaptureSequencePresentationItems(
     return collapseSequences(baseItems, candidates);
 }
 
-function refreshCaptureSequencePresentationCache(
+export function rebuildCaptureSequencePresentationProjection(
     db: DbHandle,
     order: LibraryPresentationOrder,
 ): void {
-    const state = db.prepare(`
-        SELECT is_dirty FROM capture_sequence_presentation_cache_state WHERE id = ?
-    `).get(order) as { is_dirty: number } | undefined;
-    if (state && state.is_dirty === 0) {
-        return;
-    }
     const items = buildAllCaptureSequencePresentationItems(db, order);
     db.transaction(() => {
         db.prepare('DELETE FROM capture_sequence_presentation_cache WHERE presentation_order = ?').run(order);
@@ -235,6 +229,11 @@ function refreshCaptureSequencePresentationCache(
             ON CONFLICT(id) DO UPDATE SET is_dirty = excluded.is_dirty
         `).run(order);
     })();
+}
+
+function refreshCaptureSequencePresentationCache(db: DbHandle, order: LibraryPresentationOrder): void {
+    const state = db.prepare(`SELECT is_dirty FROM capture_sequence_presentation_cache_state WHERE id = ?`).get(order) as { is_dirty: number } | undefined;
+    if (state && state.is_dirty === 0) { return; }
 }
 
 export function getAllCaptureSequencePresentationItems(

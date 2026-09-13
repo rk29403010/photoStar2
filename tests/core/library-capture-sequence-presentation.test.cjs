@@ -52,6 +52,8 @@ test('overlapping active CaptureSequences stay expanded instead of hiding an amb
             }],
         });
 
+        presentation.rebuildCaptureSequencePresentationProjection(db, 'default');
+
         const items = presentation.getCaptureSequencePresentationPage(db, { limit: 20, offset: 0 });
         const pagedItems = [
             ...presentation.getCaptureSequencePresentationPage(db, { limit: 1, offset: 0 }),

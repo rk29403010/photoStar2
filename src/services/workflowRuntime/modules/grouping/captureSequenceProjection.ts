@@ -4,6 +4,7 @@ import {
     type CaptureSequenceProposalInput,
     type CaptureSequenceProposalMemberInput,
 } from '../../../relationships/captureSequenceRepository';
+import { rebuildCaptureSequencePresentationProjection } from '../../../relationships/libraryCaptureSequencePresentationProjection';
 import type { GroupingSimilarityEdge } from './groupingQueries';
 import type { SimilarityGroupingUnit } from './groupingUnits';
 
@@ -130,7 +131,7 @@ export function syncBurstCaptureSequenceProposals(params: {
         .map((component) => buildProposal(component, unitById, params.edges, assetCaptureTimes))
         .filter((proposal): proposal is CaptureSequenceProposalInput => Boolean(proposal));
 
-    return replaceSystemCaptureSequenceProposals(params.db, {
+    const sequenceIds = replaceSystemCaptureSequenceProposals(params.db, {
         impactedAssetIds: params.changedAssetIds,
         sourceIdentity: BURST_SEQUENCE_SOURCE_IDENTITY,
         sourceRef: BURST_SEQUENCE_SOURCE_REF,
@@ -141,4 +142,6 @@ export function syncBurstCaptureSequenceProposals(params: {
         },
         sequences,
     });
+    rebuildCaptureSequencePresentationProjection(params.db, 'default');
+    return sequenceIds;
 }
