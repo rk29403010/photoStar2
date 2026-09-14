@@ -1,5 +1,11 @@
 # TO DO List
 
+## 2026-09-14 - Merge-gate Markdown hygiene
+
+- Resolve the user-owned `AGENTS.md` Markdown lint findings (duplicate blank
+  lines and a missing final newline), then rerun `pnpm.cmd run qa:merge` before
+  publishing the semantic-relationships Phase 1 branch.
+
 ## 2026-09-14 - WP16 vector-index follow-up
 
 - Implement and measure a local vector-index proposal for 250k 512-d active
