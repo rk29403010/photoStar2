@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { EventBus } from '../events/bus';
 import { waitIfPaused } from '../state';
 import { persistAssetEmbeddedMetadata } from '../embeddedMetadata';
+import { ensureAssetIdentityForAsset } from '../../data/assetIdentityRepository';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic']);
 
@@ -100,6 +101,7 @@ async function ingestNewAsset(
             id, original_path, file_hash, file_size, width, height, exif_datetime, metadata_timestamp_source, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(mediaId, fullPath, hash, stats.size, 0, 0, null, null, new Date().toISOString());
+    ensureAssetIdentityForAsset(db, mediaId);
     const snapshot = await persistAssetEmbeddedMetadata({
         db,
         assetId: mediaId,
@@ -131,13 +133,19 @@ async function processImageFile(
     fullPath: string,
     stats: Stats
 ): Promise<boolean> {
-    const exists = db.prepare('SELECT id FROM assets WHERE original_path = ?').get(fullPath) as { id: string } | undefined;
-    if (!exists) {
+    const fileHash = await hashFile(fullPath);
+    const exists = db.prepare(`
+        SELECT id, file_hash, file_size FROM assets
+        WHERE original_path = ?
+        ORDER BY created_at DESC, id DESC LIMIT 1
+    `).get(fullPath) as { id: string; file_hash: string | null; file_size: number | null } | undefined;
+    if (!exists || exists.file_hash !== fileHash || exists.file_size !== stats.size) {
         await ingestNewAsset(db, eventBus, jobId, fullPath, stats);
         return true;
     }
 
     const mediaId = exists.id;
+    ensureAssetIdentityForAsset(db, mediaId);
     if (shouldSkipDueToFatalIssue(db, mediaId)) {
         console.warn(`[Scanner] Skipping ${fullPath} due to recorded fatal processing issue.`);
         return true;

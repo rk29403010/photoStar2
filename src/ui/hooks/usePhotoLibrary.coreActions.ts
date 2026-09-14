@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { Asset, GalleryTimelineSeek } from '@contracts/core';
 import type { DevRuntimeImpact } from '@contracts/devRuntime';
 import type { WorkflowModuleRepositoryModel, WorkflowVisualiserModel } from '@contracts/workflowVisualiser';
+import { createLibraryPresentationActions } from '@boundary/runtime/usePhotoLibrary.presentationActions';
 import { writeCommand } from '@boundary/transport/usePhotoLibrary.transport';
 import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import type { LibraryGalleryDataMode } from '@shared/utils/libraryGallery';
@@ -195,6 +196,10 @@ export function useCoreActions(params: {
         transport,
     });
 
+    const presentationActions = useMemo(
+        () => createLibraryPresentationActions({ request, refreshLibrary }),
+        [refreshLibrary, request],
+    );
     const devActions = useDevActions({ request });
 
     return useMemo(() => ({
@@ -209,8 +214,9 @@ export function useCoreActions(params: {
         restoreAssetsInState: (restoredAssets: Asset[], referenceAssets: Asset[]) => setAssets((previousAssets) => (
             restoreAssetsByReference(previousAssets, restoredAssets, referenceAssets)
         )),
+        ...presentationActions,
         ...devActions,
         ...filterStackActions,
         ...galleryPreferenceActions,
-    }), [devActions, filterStackActions, galleryPreferenceActions, getRejectedAssetsForPerson, sendCommand, setAssets]);
+    }), [devActions, filterStackActions, galleryPreferenceActions, getRejectedAssetsForPerson, presentationActions, sendCommand, setAssets]);
 }

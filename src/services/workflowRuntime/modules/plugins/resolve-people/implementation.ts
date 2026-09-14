@@ -1,5 +1,6 @@
 import type { DatabaseManager } from '../../../../../data/db';
 import type { DomainEvent } from '../../../../events/types';
+import { rebuildFacePersonCandidates } from '../../../../faces/facePersonCandidateRepository';
 import { resolvePeopleAssignments } from '../../../../faces/peopleResolution';
 import type { ModuleDefinition } from '../../../contracts';
 
@@ -22,6 +23,7 @@ export function createResolvePeopleModule(options: ResolvePeopleModuleOptions): 
                 dbManager: options.dbManager,
                 eventSink: options.eventBus,
             });
+            rebuildFacePersonCandidates(options.dbManager);
             return { outputs: [{ kind: 'artifact', artifactType: 'person_resolution', subjectType: 'asset' }] };
         },
     };

@@ -36,44 +36,6 @@ function seedAsset(dbManager, asset) {
     );
 }
 
-function seedDuplicateGroup(dbManager, params) {
-    dbManager.getDb().prepare(`
-        INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
-        VALUES (?, 'duplicate', ?, ?, '1.0', '{}')
-    `).run(params.groupId, params.status, params.canonicalAssetId);
-
-    const insertMember = dbManager.getDb().prepare(`
-        INSERT INTO asset_group_members (group_id, asset_id, role, rank)
-        VALUES (?, ?, ?, ?)
-    `);
-
-    params.assetIds.forEach((assetId, index) => {
-        insertMember.run(params.groupId, assetId, index === 0 ? 'canonical' : 'member', index);
-    });
-}
-
-function seedSimilarityGroup(dbManager, params) {
-    dbManager.getDb().prepare(`
-        INSERT INTO asset_groups (id, type, status, canonical_asset_id, algorithm_version, params_json)
-        VALUES (?, ?, ?, ?, '1.0', ?)
-    `).run(
-        params.groupId,
-        params.type,
-        params.status,
-        params.canonicalAssetId,
-        JSON.stringify(params.paramsJson ?? {}),
-    );
-
-    const insertMember = dbManager.getDb().prepare(`
-        INSERT INTO asset_group_members (group_id, asset_id, role, rank)
-        VALUES (?, ?, ?, ?)
-    `);
-
-    params.assetIds.forEach((assetId, index) => {
-        insertMember.run(params.groupId, assetId, index === 0 ? 'canonical' : 'member', index);
-    });
-}
-
 function seedAssetFeatures(dbManager, params) {
     dbManager.getDb().prepare(`
         INSERT INTO asset_features (asset_id, file_hash, phash64, dhash64)
@@ -138,6 +100,4 @@ module.exports = {
     runGroupingWorkflow,
     seedAsset,
     seedAssetFeatures,
-    seedDuplicateGroup,
-    seedSimilarityGroup,
 };

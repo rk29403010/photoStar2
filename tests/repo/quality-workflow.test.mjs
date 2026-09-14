@@ -10,7 +10,17 @@ const workspaceRoot = path.resolve(testDirectory, '..', '..');
 test('GitHub runs the canonical merge gate with an explicit event base', async () => {
     const workflow = await readFile(path.join(workspaceRoot, '.github', 'workflows', 'quality-gate.yml'), 'utf8');
     assert.match(workflow, /QA_BASE_SHA:.*github\.event\.pull_request\.base\.sha.*github\.event\.before/);
-    assert.match(workflow, /run: pnpm run qa:merge/);
+    assert.match(workflow, /id: qa_merge/);
+    assert.match(workflow, /set -o pipefail\s+pnpm run qa:merge 2>&1 \| tee qa-merge\.log/);
+    assert.equal(
+        [...workflow.matchAll(/if:.*failure\(\).*steps\.qa_merge\.outcome == 'failure'/g)].length,
+        2,
+    );
+    assert.match(workflow, /continue-on-error: true[\s\S]*## qa:merge failure[\s\S]*tail -n 200 qa-merge\.log/);
+    assert.match(
+        workflow,
+        /if:.*steps\.qa_merge\.outcome == 'failure'[\s\S]*uses: actions\/upload-artifact@v4[\s\S]*name: qa-merge-log[\s\S]*path: qa-merge\.log[\s\S]*if-no-files-found: error[\s\S]*retention-days: 14/,
+    );
     assert.match(workflow, /node-version-file: \.node-version/);
     assert.match(workflow, /apt-get install .*libsecret-1-0/);
     assert.match(workflow, /timeout-minutes: 30/);

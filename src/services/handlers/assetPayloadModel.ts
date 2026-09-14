@@ -1,4 +1,4 @@
-import type { PhotoMaskMetadata, PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
+import type { FaceBox, PhotoMaskMetadata, PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
 import {
     normalizePhotoMetadataRegionsOfInterest,
     normalizePhotoMetadataSubjects,
@@ -74,32 +74,15 @@ export type AssetPayloadRow = {
     sensitivity_status: string | null;
     frame_detection_data: string | null;
     mask_metadata_data: string | null;
-    member_group_id?: string | null;
-    member_role?: string | null;
-    member_rank?: number | null;
-    member_match_evidence?: string | null;
-    member_group_type?: string | null;
-    stack_count?: number | null;
-    group_memberships_json?: string | null;
 };
 
-type RawGroupMembership = {
-    groupId?: string;
-    groupRole?: string | null;
-    stackCount?: number | null;
-    role?: string | null;
-    rank?: number | null;
-    matchEvidence?: Record<string, unknown> | string | null;
-    groupType?: string | null;
-};
-
-function parseFaces(row: AssetPayloadRow) {
+function parseFaces(row: AssetPayloadRow): FaceBox[] {
     try {
         const parsedFaces = row.faces_data ? JSON.parse(row.faces_data).faces || [] : [];
         return Array.isArray(parsedFaces)
             ? parsedFaces.flatMap((face: Record<string, unknown>) => {
                 const normalizedBox = normalizeStoredPhotoBox(face.box);
-                return normalizedBox ? [{ ...face, box: normalizedBox } as Record<string, unknown>] : [];
+                return normalizedBox ? [{ ...face, box: normalizedBox }] : [];
             })
             : [];
     } catch {
@@ -107,22 +90,65 @@ function parseFaces(row: AssetPayloadRow) {
     }
 }
 
-function parsePeopleAssignments(row: AssetPayloadRow) {
+type PeopleAssignment = {
+    person_id: string;
+    name: string;
+    [key: string]: unknown;
+};
+
+const LEGACY_FACE_POSITION_KEY = ['face', 'index'].join('_');
+
+function parsePeopleAssignments(row: AssetPayloadRow): PeopleAssignment[] {
     if (!row.people_data) {return [];}
     try {
-        return JSON.parse(row.people_data).filter((person: { person_id: string | null }) => person.person_id !== null) as Array<{ face_index: number; person_id: string; name: string }>;
+        const parsed = JSON.parse(row.people_data) as unknown;
+        if (!Array.isArray(parsed)) {return [];}
+        return parsed.filter((person): person is PeopleAssignment => (
+            typeof person === 'object'
+            && person !== null
+            && 'person_id' in person
+            && typeof person.person_id === 'string'
+            && 'name' in person
+            && typeof person.name === 'string'
+        ));
     } catch {
         return [];
     }
 }
 
-function applyPeopleAssignments(faces: Array<{ person_id?: string; person_name?: string }>, peopleData: Array<{ face_index: number; person_id: string; name: string }>) {
-    faces.forEach((face, index) => {
-        const assignment = peopleData.find((person) => person.face_index === index);
-        if (!assignment) {return;}
+function readLegacyFacePosition(assignment: PeopleAssignment): number | null {
+    const value = assignment[LEGACY_FACE_POSITION_KEY];
+    return Number.isInteger(value) ? Number(value) : null;
+}
+
+function attachStableRegionIdentity(
+    faces: FaceBox[],
+    maskMetadata: PhotoMaskMetadata | undefined,
+): void {
+    for (const [index, mask] of (maskMetadata?.masks ?? []).entries()) {
+        const face = faces[index];
+        if (face && mask.visualRegionId) {
+            face.visual_region_id = mask.visualRegionId;
+        }
+    }
+}
+
+function applyPeopleAssignments(
+    faces: FaceBox[],
+    peopleData: PeopleAssignment[],
+    maskMetadata: PhotoMaskMetadata | undefined,
+): void {
+    for (const assignment of peopleData) {
+        const legacyPosition = readLegacyFacePosition(assignment);
+        if (legacyPosition === null) {continue;}
+        const visualRegionId = maskMetadata?.masks[legacyPosition]?.visualRegionId;
+        const face = visualRegionId
+            ? faces.find((candidate) => candidate.visual_region_id === visualRegionId)
+            : faces[legacyPosition];
+        if (!face) {continue;}
         face.person_id = assignment.person_id;
         face.person_name = assignment.name;
-    });
+    }
 }
 
 function parseAiMetadata(row: AssetPayloadRow) {
@@ -168,22 +194,35 @@ function readMaskMetadataEntry(entry: unknown): PhotoMaskMetadata['masks'] {
         : [];
 }
 
-function applyPersonMaskLabel(mask: PhotoMaskMetadata['masks'][number], people: Array<{ face_index: number; name: string }>) {
-    const faceIndex = /^face-(\d+)$/.exec(mask.source?.referenceId ?? '')?.[1];
-    const person = faceIndex === undefined ? undefined : people.find((item) => item.face_index === Number(faceIndex));
-    return person ? { ...mask, label: person.name } : mask;
-}
-
-function parseMaskMetadata(row: AssetPayloadRow, people: Array<{ face_index: number; name: string }>): PhotoMaskMetadata | undefined {
+function parseMaskMetadata(row: AssetPayloadRow): PhotoMaskMetadata | undefined {
     if (!row.mask_metadata_data) {return undefined;}
     try {
         const entries = JSON.parse(row.mask_metadata_data) as unknown;
         if (!Array.isArray(entries)) {return undefined;}
-        const masks = entries.flatMap(readMaskMetadataEntry).map((mask) => applyPersonMaskLabel(mask, people));
+        const masks = entries.flatMap(readMaskMetadataEntry);
         return masks.length > 0 ? { schemaVersion: 1, masks } : undefined;
     } catch {
         return undefined;
     }
+}
+
+function applyPersonMaskLabels(
+    metadata: PhotoMaskMetadata | undefined,
+    people: PeopleAssignment[],
+): PhotoMaskMetadata | undefined {
+    if (!metadata) {return undefined;}
+    const masks = metadata.masks.map((mask, maskIndex) => {
+        const person = people.find((assignment) => {
+            const legacyPosition = readLegacyFacePosition(assignment);
+            if (legacyPosition === null) {return false;}
+            const assignedRegionId = metadata.masks[legacyPosition]?.visualRegionId;
+            return mask.visualRegionId
+                ? assignedRegionId === mask.visualRegionId
+                : legacyPosition === maskIndex;
+        });
+        return person ? { ...mask, label: person.name } : mask;
+    });
+    return { ...metadata, masks };
 }
 
 function parseJsonArray<T>(value: string | null) {
@@ -232,15 +271,6 @@ export function collectLegacyTagLabelsFromPayloadRow(row: Pick<AssetPayloadRow, 
     return Array.from(new Set([...projectionKeywords, ...aiKeywords]));
 }
 
-function parseMatchEvidence(matchEvidence: string | null | undefined) {
-    if (!matchEvidence) {return null;}
-    try {
-        return JSON.parse(matchEvidence) as Record<string, unknown>;
-    } catch {
-        return matchEvidence;
-    }
-}
-
 function buildAssetDimensionFields(row: AssetPayloadRow) {
     return {
         width: row.width ?? undefined,
@@ -277,65 +307,6 @@ function buildAssetFileFields(row: AssetPayloadRow) {
         ...buildAssetTimestampFields(row),
         ...buildAssetSensitivityFields(row),
     };
-}
-
-function buildGroupFields(row: AssetPayloadRow) {
-    const groupMemberships = parseGroupMemberships(row);
-    return {
-        group_id: row.member_group_id ?? null,
-        group_role: row.member_role ?? null,
-        stack_count: row.stack_count ?? null,
-        role: row.member_role ?? null,
-        rank: row.member_rank ?? null,
-        match_evidence: parseMatchEvidence(row.member_match_evidence),
-        group_memberships: groupMemberships,
-    };
-}
-
-function buildFallbackGroupMembership(row: AssetPayloadRow) {
-    if (!row.member_group_id) {return [];}
-
-    return [{
-        group_id: row.member_group_id,
-        group_role: row.member_role ?? null,
-        stack_count: row.stack_count ?? null,
-        role: row.member_role ?? null,
-        rank: row.member_rank ?? null,
-        match_evidence: parseMatchEvidence(row.member_match_evidence),
-        group_type: row.member_group_type ?? null,
-    }];
-}
-
-function isValidGroupMembership(membership: RawGroupMembership) {
-    return typeof membership.groupId === 'string' && membership.groupId.length > 0;
-}
-
-function toGroupMembership(membership: RawGroupMembership) {
-    return {
-        group_id: membership.groupId!,
-        group_role: membership.groupRole ?? null,
-        stack_count: membership.stackCount ?? null,
-        role: membership.role ?? null,
-        rank: membership.rank ?? null,
-        match_evidence: membership.matchEvidence ?? null,
-        group_type: membership.groupType ?? null,
-    };
-}
-
-function parseGroupMembershipsJson(groupMembershipsJson: string) {
-    try {
-        return JSON.parse(groupMembershipsJson) as RawGroupMembership[];
-    } catch {
-        return [];
-    }
-}
-
-function parseGroupMemberships(row: AssetPayloadRow) {
-    if (!row.group_memberships_json) {return buildFallbackGroupMembership(row);}
-
-    return parseGroupMembershipsJson(row.group_memberships_json)
-        .filter(isValidGroupMembership)
-        .map(toGroupMembership);
 }
 
 function toSourceSummary(sourceKind: string | null, sourceId: string | null): PhotoMetadataSourceSummary {
@@ -417,7 +388,9 @@ function toPhotoMetadataEvidence(row: AssetPayloadRow) {
 export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?: boolean } = {}) {
     const faces = parseFaces(row);
     const people = parsePeopleAssignments(row);
-    applyPeopleAssignments(faces, people);
+    const maskMetadata = parseMaskMetadata(row);
+    attachStableRegionIdentity(faces, maskMetadata);
+    applyPeopleAssignments(faces, people, maskMetadata);
     const includeEvidence = options.includeEvidence === true;
     const photoMetadata = toPhotoMetadataBundle(row);
 
@@ -440,7 +413,6 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
         embedded_metadata: includeEvidence ? parseEmbeddedMetadata(row) : undefined,
         photo_date_estimate: includeEvidence ? parsePhotoDateEstimate(row) : undefined,
         frame_detection: frameDetection,
-        mask_metadata: parseMaskMetadata(row, people),
-        ...buildGroupFields(row),
+        mask_metadata: applyPersonMaskLabels(maskMetadata, people),
     };
 }

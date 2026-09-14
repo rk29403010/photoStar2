@@ -1,5 +1,16 @@
 # TO DO List
 
+## 2026-09-14 - WP16 vector-index follow-up
+
+- Select an approved, packageable ANN engine for 250k 512-d active Face vectors.
+  `sqlite-vec` 0.1.9 was measured at 507.9 ms p95 and so is not sufficient;
+  `hnswlib-node` 3.0.0 could not be reproducibly installed because its native
+  build is blocked by the repository pnpm policy, and the precompiled
+  `hnswlib-wasm` 0.8.2 package has no resolvable Node entry point. Preserve
+  analysis-generation heads and model/preprocessing space isolation; do not make
+  candidate generation interactive until p95 is below the 150 ms target with
+  bounded memory and durable rebuild/supersession behaviour.
+
 ## 2026-07-25 - Plug-in compatibility layers
 
 - Registration adapters are removed and generated registries are checked by the
@@ -305,3 +316,23 @@ UI Improvements
 - Verify real EfficientSAM-Ti model execution against representative local photos before enabling it in any default ingest tier.
 - Build the optional Model Manager: installation UI, progress/cancellation/retry, disk-space checks, removal/update, trusted source manifests, version migration, and local-conversion guidance.
 - Obtain legal redistribution review and a legally cleared source or hosting route for the derived FastSAM-s FP32 ONNX file before any production download or bundle; consider FP16/INT8 only after calibrated FP32 comparison.
+
+## 2026-09-11 - Semantic relationships WP10e prerequisite conflict (resolved)
+
+- WP10d reconciliation regression gate is green at `756f7a9` / Actions run `34594221168`.
+- Before WP10e durable People actions, reconcile an execution-order conflict: `semantic-relationships-phase1-foundation.md` forbids cutting human actions to semantic tables until soft-reset preservation is implemented/tested, while the implementation plan currently places WP10e before WP10f reset preservation.
+- Predicate prerequisite resolved at `e3f074a6`: semantic predicate manifests, generated registry checking and persisted definition snapshots are now present and green.
+
+- Ordering clarification: generic semantic soft-reset preservation already exists in `semanticResetState.ts` and is covered by `semantic-soft-reset.test.cjs`; WP10e can proceed once that gate is green at the cutover head. WP10f still owns face-specific reset/reimport preservation.
+
+## 2026-09-11 - Legacy manual face reset compatibility
+
+- WP10e no longer writes new `manual_face_names` / `manual_face_isolations` records and WP10f makes stable Face/VisualRegion semantic state independently durable across reset/reimport.
+- Keep restoring old path/index manual rows temporarily so pre-cutover development/user data is not silently discarded. WP10h should remove that legacy reset/storage path only after its final search and replacement coverage are green.
+
+## 2026-09-12 - Semantic integration local acceptance
+
+- Complete WP13 runtime recovery journeys, WP15 cross-domain durability and WP16
+  scale/visual acceptance; evidence is in
+  `docs/architecture/semantic-relationships-local-acceptance.md`. Integration owner
+  must close these gates and review the current SonarCloud failure before delivery.

@@ -1,3 +1,4 @@
+/* oxlint-disable typescript/no-unsafe-type-assertion -- command response selectors mirror typed backend contracts. */
 import type { Dispatch, SetStateAction } from 'react';
 import type {
     Asset,
@@ -9,7 +10,6 @@ import type {
     RenderPhotoEditInput,
     ReviewItemSummary,
     SavePhotoEditInput,
-    SimilarityOrbit,
     TagDefinitionSummary,
 } from '@contracts/core';
 import type { GroupDiagnosticsReport } from '@contracts/groupDiagnostics';
@@ -20,7 +20,6 @@ import type { LibraryFilter } from '@contracts/usePhotoLibrary.types';
 import type { RefreshLibraryOptions } from '@ui/hooks/usePhotoLibrary.gallery';
 import { createTagVocabularyActions } from '@boundary/runtime/tagVocabularyActions';
 import { scheduleWorkflowRunRefresh } from '@boundary/runtime/workflowOverlayJobs';
-import { replaceGroupRepresentative } from '@ui/components/single-photo/singlePhotoAssetModel';
 import { fetchAssetTagContext } from '@ui/hooks/assetTagContext';
 
 type SendCommand = (command: string, payload?: Record<string, unknown>) => Promise<void>;
@@ -79,7 +78,7 @@ export function createCoreActions(params: CoreActionParams) {
         prioritizeAsset: (_mediaId: string) => undefined,
         renamePerson: (personId: string, newName: string) => sendCommand('rename_person', { personId, newName }),
         mergePeople: (personIds: string[], targetName: string) => sendCommand('merge_people', { personIds, targetName }),
-        isolateFace: (assetId: string, faceIndex: number) => sendCommand('isolate_face', { assetId, faceIndex }),
+        isolateFace: (faceId: string) => sendCommand('isolate_face', { faceId }),
         isolatePersonAsset: (assetId: string, personId: string) => sendCommand('isolate_person_asset', { assetId, personId }),
         getRejectedAssetsForPerson,
         updateAsset: (id: string, partial: Partial<Asset>) => setAssets((prev) => prev.map((asset) => asset.id === id ? { ...asset, ...partial } : asset)),
@@ -148,40 +147,14 @@ export function createAlbumActions(params: AlbumActionParams) {
 }
 
 export function createGroupActions(params: GroupActionParams) {
-    const { request, refreshLibrary, setAssets } = params;
+    const { request } = params;
 
     return {
-        getGroupOrbit: (groupId: string): Promise<SimilarityOrbit> => request({
-            idPrefix: `get_orbit_${groupId}`,
-            command: 'get_group_orbit',
-            payload: { groupId },
-            select: (data) => data?.orbit as SimilarityOrbit,
-        }),
         getGroupDiagnosticsReport: (): Promise<GroupDiagnosticsReport> => request({
             idPrefix: 'get_group_diagnostics_report',
             command: 'get_group_diagnostics_report',
             payload: {},
             select: (data) => data?.report as GroupDiagnosticsReport,
-        }),
-        setCanonical: async (groupId: string, assetId: string, replacementAsset?: Asset): Promise<void> => {
-            await request<void>({
-                idPrefix: 'set_canonical',
-                command: 'set_canonical',
-                payload: { groupId, assetId },
-                select: () => undefined,
-            });
-
-            if (replacementAsset) {
-                setAssets((previousAssets) => replaceGroupRepresentative(previousAssets, groupId, replacementAsset));
-            }
-
-            refreshLibrary({ preservePagingState: true });
-        },
-        explodeGroup: (groupId: string): Promise<void> => request<void>({
-            idPrefix: 'explode_group',
-            command: 'explode_group',
-            payload: { groupId },
-            select: () => undefined,
         }),
     };
 }

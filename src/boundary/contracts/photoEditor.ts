@@ -56,6 +56,8 @@ export type PhotoMaskMetadataItem = {
     points?: NormalizedPoint[];
     raster?: PhotoMaskRaster;
     inverted?: boolean;
+    /** Durable semantic region identity when the analysis owns one. */
+    visualRegionId?: string;
     source: {
         moduleId: string;
         referenceId: string;

@@ -12,6 +12,7 @@ import type {
 } from '../../boundary/contracts/photoEditor';
 import { renderPhotoEdit } from '../photoEditing/editRenderer';
 import { resolvePhotoEditStyle, versionPhotoEditStyleOperations } from '../photoEditing/photoEditStyleRecipes';
+import { projectPhotoEditRepresentations, type PhotoEditPhotographIntent } from '../relationships/photoEditRepresentationProjection';
 import type { CommandContext, CommandHandlerMap } from './types';
 
 type EditRow = {
@@ -69,6 +70,13 @@ function validateDocumentInput(input: SavePhotoEditInput): void {
     }
 }
 
+function photographIntentFromRecipe(operations: PhotoEditOperation[]): PhotoEditPhotographIntent {
+    const enabledTools = new Set(operations.filter((operation) => operation.enabled).map((operation) => operation.tool));
+    if (enabledTools.has('crop')) {return 'crop';}
+    if (enabledTools.has('restore')) {return 'restoration';}
+    return 'ordinary_edit';
+}
+
 function saveDocument(db: Database.Database, input: SavePhotoEditInput): PhotoEditDocument {
     validateDocumentInput(input);
     requireAssetPath(db, input.sourceAssetId);
@@ -90,34 +98,6 @@ function saveDocument(db: Database.Database, input: SavePhotoEditInput): PhotoEd
 async function writePreview(sourcePath: string, input: SavePhotoEditInput): Promise<string> {
     const buffer = await renderPhotoEdit(sourcePath, input.operations, input.masks, { maxWidth: 900 });
     return `data:image/webp;base64,${(await sharp(buffer).webp({ quality: 82 }).toBuffer()).toString('base64')}`;
-}
-
-function findEditVersionGroup(db: Database.Database, assetId: string): string | null {
-    const row = db.prepare(`
-        SELECT m.group_id FROM asset_group_members m
-        JOIN asset_groups g ON g.id = m.group_id
-        WHERE m.asset_id = ? AND g.type = 'edit_version'
-        LIMIT 1
-    `).get(assetId) as { group_id: string } | undefined;
-    return row?.group_id ?? null;
-}
-
-function updateVersionGroup(db: Database.Database, groupId: string, sourceAssetId: string, renderedAssetId: string): void {
-    const groupExists = Boolean(db.prepare('SELECT 1 FROM asset_groups WHERE id = ?').get(groupId));
-    db.prepare(`
-        INSERT OR IGNORE INTO asset_groups (id, type, status, title, canonical_asset_id, algorithm_version)
-        VALUES (?, 'edit_version', 'locked', 'Photo edits', ?, 'photo_editor_v1')
-    `).run(groupId, renderedAssetId);
-    db.prepare('INSERT OR IGNORE INTO asset_group_members (group_id, asset_id, role, rank) VALUES (?, ?, ?, 1000)')
-        .run(groupId, sourceAssetId, groupExists ? 'member' : 'original');
-    db.prepare("UPDATE asset_group_members SET role = 'member' WHERE group_id = ? AND role = 'canonical'").run(groupId);
-    db.prepare('UPDATE asset_group_members SET rank = COALESCE(rank, 0) + 1 WHERE group_id = ?').run(groupId);
-    db.prepare(`
-        INSERT INTO asset_group_members (group_id, asset_id, role, rank)
-        VALUES (?, ?, 'canonical', -1)
-        ON CONFLICT(group_id, asset_id) DO UPDATE SET role = 'canonical', rank = -1
-    `).run(groupId, renderedAssetId);
-    db.prepare("UPDATE asset_groups SET canonical_asset_id = ?, status = 'locked', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(renderedAssetId, groupId);
 }
 
 async function generateRenderedPreviews(db: Database.Database, libraryDir: string, assetId: string, outputPath: string): Promise<void> {
@@ -145,7 +125,6 @@ async function renderDocument(ctx: CommandContext, input: RenderPhotoEditInput):
     await rename(temporaryPath, outputPath);
     const metadata = await sharp(outputPath).metadata();
     const file = await stat(outputPath);
-    const groupId = findEditVersionGroup(db, input.sourceAssetId) ?? uuidv4();
 
     db.transaction(() => {
         db.prepare(`
@@ -154,9 +133,14 @@ async function renderDocument(ctx: CommandContext, input: RenderPhotoEditInput):
             ON CONFLICT(id) DO UPDATE SET original_path = excluded.original_path, file_size = excluded.file_size,
                 width = excluded.width, height = excluded.height
         `).run(assetId, outputPath, file.size, metadata.width ?? null, metadata.height ?? null);
-        updateVersionGroup(db, groupId, input.sourceAssetId, assetId);
         db.prepare("UPDATE photo_edit_documents SET rendered_asset_id = ?, status = 'rendered', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             .run(assetId, input.id);
+        projectPhotoEditRepresentations(db, {
+            sourceAssetId: input.sourceAssetId,
+            renderedAssetId: assetId,
+            editId: input.id,
+            photographIntent: photographIntentFromRecipe(input.operations),
+        });
     })();
     await generateRenderedPreviews(db, dirname(db.name), assetId, outputPath);
     ctx.eventBus.emit({ type: 'AssetUpdated', assetId });

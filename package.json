@@ -114,7 +114,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "lint:md": "markdownlint \"**/*.md\" --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents",
-    "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents"
+    "fix:md": "markdownlint \"**/*.md\" --fix --ignore node_modules --ignore deployments/desktop/tauri/target --ignore artifacts --ignore scratch --ignore .agents",
+    "semantic-predicate:generate-registry": "node tooling/scripts/repo/generate-semantic-predicate-registry.mjs",
+    "semantic-predicate:check-registry": "node tooling/scripts/repo/generate-semantic-predicate-registry.mjs --check"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -51,4 +51,30 @@ jobs:
             eslint-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.js') }}-
 
       - name: Run canonical merge gate
-        run: pnpm run qa:merge
+        id: qa_merge
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm run qa:merge 2>&1 | tee qa-merge.log
+
+      - name: Add qa:merge failure summary
+        if: ${{ failure() && steps.qa_merge.outcome == 'failure' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          {
+            echo '## qa:merge failure'
+            echo
+            echo '```text'
+            tail -n 200 qa-merge.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload qa:merge failure log
+        if: ${{ failure() && steps.qa_merge.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-merge-log
+          path: qa-merge.log
+          if-no-files-found: error
+          retention-days: 14
