@@ -8,6 +8,10 @@ import type { TreeInfo } from "./familyTreeTypes";
 const FAMILY_TREE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const GEDCOM_PERSON_ID_PATTERN = /^@\w+@$/;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function safeFamilyTreeId(value: string): string | null {
   const normalized = value.trim();
   return FAMILY_TREE_ID_PATTERN.test(normalized) ? normalized.toLowerCase() : null;
@@ -18,6 +22,41 @@ function safeGedcomPersonId(value: string): string | null {
   return GEDCOM_PERSON_ID_PATTERN.test(normalized) ? normalized : null;
 }
 
+function isTreeInfo(value: unknown): value is TreeInfo {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return typeof value.id === "string"
+    && typeof value.filename === "string"
+    && typeof value.file_hash === "string"
+    && typeof value.tree_group_id === "string"
+    && typeof value.version_label === "string"
+    && typeof value.created_at === "string";
+}
+
+function selectTrees(data: Record<string, unknown> | undefined): { trees: TreeInfo[] } {
+  const trees = data?.trees;
+  return { trees: Array.isArray(trees) ? trees.filter(isTreeInfo) : [] };
+}
+
+function selectTreeContent(
+  data: Record<string, unknown> | undefined,
+): { content: string; filename: string } {
+  const content = data?.content;
+  const filename = data?.filename;
+  if (typeof content !== "string" || typeof filename !== "string") {
+    throw new Error("Invalid family tree content response");
+  }
+  return { content, filename };
+}
+
+function customEventDetail(event: Event): Record<string, unknown> | null {
+  if (!(event instanceof CustomEvent) || !isRecord(event.detail)) {
+    return null;
+  }
+  return event.detail;
+}
+
 async function requestTrees(): Promise<TreeInfo[]> {
   if (!globalRequest) {
     return [];
@@ -26,9 +65,9 @@ async function requestTrees(): Promise<TreeInfo[]> {
     idPrefix: "get_family_trees",
     command: "get_family_trees",
     payload: {},
-    select: (data) => data as { trees: TreeInfo[] },
+    select: selectTrees,
   });
-  return (response.trees ?? []).filter((tree) => safeFamilyTreeId(tree.id) !== null);
+  return response.trees.filter((tree) => safeFamilyTreeId(tree.id) !== null);
 }
 
 function defaultTreeId(trees: TreeInfo[]): string {
@@ -45,7 +84,7 @@ async function requestTreeContent(treeId: string): Promise<GedcomData> {
     idPrefix: "get_family_tree_content",
     command: "get_family_tree_content",
     payload: { treeId },
-    select: (data) => data as { content: string; filename: string },
+    select: selectTreeContent,
   });
   return parseGedcom(response.content);
 }
@@ -99,8 +138,10 @@ function useTreeContent(selectedTreeId: string) {
 
   useEffect(() => {
     const navigate = (event: Event) => {
-      const detail = (event as CustomEvent<{ treeId: string; personId: string }>).detail;
-      const personId = detail ? safeGedcomPersonId(detail.personId) : null;
+      const detail = customEventDetail(event);
+      const personId = typeof detail?.personId === "string"
+        ? safeGedcomPersonId(detail.personId)
+        : null;
       if (personId) {
         setHomePersonId(personId);
       }
@@ -171,8 +212,10 @@ export function useFamilyTreeData() {
   const setSelectedTreeId = list.setSelectedTreeId;
   useEffect(() => {
     const navigate = (event: Event) => {
-      const detail = (event as CustomEvent<{ treeId: string }>).detail;
-      const treeId = detail ? safeFamilyTreeId(detail.treeId) : null;
+      const detail = customEventDetail(event);
+      const treeId = typeof detail?.treeId === "string"
+        ? safeFamilyTreeId(detail.treeId)
+        : null;
       if (treeId) {
         setSelectedTreeId(treeId);
       }
@@ -395,7 +438,10 @@ export function useTreeViewport() {
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const mouseDown = (event: React.MouseEvent) => {
-    const target = event.target as HTMLElement;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
     if (target.tagName === "button" || target.closest("button")) {
       return;
     }
