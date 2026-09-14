@@ -278,37 +278,59 @@ function collectReachableBurstUnitIds(
     const visited = new Set<string>();
     const frontier: string[] = [];
 
-    for (const unitId of changedUnitIds) {
-        if (!byId.has(unitId)) {
-            continue;
-        }
-        visited.add(unitId);
-        frontier.push(unitId);
-    }
+    enqueueKnownBurstUnits({ unitIds: changedUnitIds, byId, visited, frontier });
 
     while (frontier.length > 0) {
-        const currentId = frontier.shift();
-        if (!currentId) {
-            continue;
-        }
-        const current = byId.get(currentId);
-        if (!current) {
-            continue;
-        }
-
-        for (const candidate of units) {
-            if (candidate.unitId === current.unitId || visited.has(candidate.unitId)) {
-                continue;
-            }
-            if (!matchBurstUnits(current, candidate, maxSeconds, maxDistance).matches) {
-                continue;
-            }
-            visited.add(candidate.unitId);
-            frontier.push(candidate.unitId);
+        const current = byId.get(frontier.shift() ?? '');
+        if (current) {
+            enqueueReachableBurstUnits({ current, units, visited, frontier, maxSeconds, maxDistance });
         }
     }
 
     return visited;
+}
+
+function enqueueKnownBurstUnits({
+    unitIds,
+    byId,
+    visited,
+    frontier,
+}: {
+    unitIds: string[];
+    byId: Map<string, SimilarityGroupingUnit>;
+    visited: Set<string>;
+    frontier: string[];
+}): void {
+    for (const unitId of unitIds) {
+        if (byId.has(unitId)) {
+            visited.add(unitId);
+            frontier.push(unitId);
+        }
+    }
+}
+
+function enqueueReachableBurstUnits({
+    current,
+    units,
+    visited,
+    frontier,
+    maxSeconds,
+    maxDistance,
+}: {
+    current: SimilarityGroupingUnit;
+    units: SimilarityGroupingUnit[];
+    visited: Set<string>;
+    frontier: string[];
+    maxSeconds: number;
+    maxDistance: number;
+}): void {
+    for (const candidate of units) {
+        const isUnvisitedCandidate = candidate.unitId !== current.unitId && !visited.has(candidate.unitId);
+        if (isUnvisitedCandidate && matchBurstUnits(current, candidate, maxSeconds, maxDistance).matches) {
+            visited.add(candidate.unitId);
+            frontier.push(candidate.unitId);
+        }
+    }
 }
 
 function buildBurstEdgesFromUnits(
