@@ -2,10 +2,13 @@
 
 ## 2026-09-14 - WP16 vector-index follow-up
 
-- Implement and measure a local vector-index proposal for 250k 512-d active
-  Face vectors. Preserve analysis-generation heads and model/preprocessing space
-  isolation; do not make candidate generation interactive until p95 is below
-  the 150 ms target with bounded memory and durable rebuild behaviour.
+- Select an approved, packageable ANN engine for 250k 512-d active Face vectors.
+  `sqlite-vec` 0.1.9 was measured at 507.9 ms p95 and so is not sufficient;
+  `hnswlib-node` 3.0.0 could not be reproducibly installed because its native
+  build is blocked by the repository pnpm policy. Preserve analysis-generation
+  heads and model/preprocessing space isolation; do not make candidate generation
+  interactive until p95 is below the 150 ms target with bounded memory and durable
+  rebuild/supersession behaviour.
 
 ## 2026-07-25 - Plug-in compatibility layers
 
