@@ -5,6 +5,19 @@ import { parseGedcom } from "../../../services/gedcom/gedcomParser";
 import type { GedcomData } from "../../../services/gedcom/kinshipTypes";
 import type { TreeInfo } from "./familyTreeTypes";
 
+const FAMILY_TREE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const GEDCOM_PERSON_ID_PATTERN = /^@\w+@$/;
+
+function safeFamilyTreeId(value: string): string | null {
+  const normalized = value.trim();
+  return FAMILY_TREE_ID_PATTERN.test(normalized) ? normalized.toLowerCase() : null;
+}
+
+function safeGedcomPersonId(value: string): string | null {
+  const normalized = value.trim();
+  return GEDCOM_PERSON_ID_PATTERN.test(normalized) ? normalized : null;
+}
+
 async function requestTrees(): Promise<TreeInfo[]> {
   if (!globalRequest) {
     return [];
@@ -15,12 +28,13 @@ async function requestTrees(): Promise<TreeInfo[]> {
     payload: {},
     select: (data) => data as { trees: TreeInfo[] },
   });
-  return response.trees ?? [];
+  return (response.trees ?? []).filter((tree) => safeFamilyTreeId(tree.id) !== null);
 }
 
 function defaultTreeId(trees: TreeInfo[]): string {
   const saved = localStorage.getItem("ps_default_gedcom_tree_id");
-  return trees.find((tree) => tree.id === saved)?.id ?? trees[0]?.id ?? "";
+  const safeSaved = saved ? safeFamilyTreeId(saved) : null;
+  return trees.find((tree) => tree.id === safeSaved)?.id ?? trees[0]?.id ?? "";
 }
 
 async function requestTreeContent(treeId: string): Promise<GedcomData> {
@@ -38,7 +52,10 @@ async function requestTreeContent(treeId: string): Promise<GedcomData> {
 
 function restoredHomePerson(treeId: string, data: GedcomData): string {
   const saved = localStorage.getItem(`ps_home_person_${treeId}`);
-  return saved && data.people[saved] ? saved : (Object.keys(data.people)[0] ?? "");
+  const safeSaved = saved ? safeGedcomPersonId(saved) : null;
+  return safeSaved && data.people[safeSaved]
+    ? safeSaved
+    : (Object.keys(data.people)[0] ?? "");
 }
 
 function useTreeList() {
@@ -66,15 +83,16 @@ function useTreeContent(selectedTreeId: string) {
   const [gedcomData, setGedcomData] = useState<GedcomData | null>(null);
   const [homePersonId, setHomePersonId] = useState("");
   useEffect(() => {
-    if (!selectedTreeId || !globalRequest) {
+    const treeId = safeFamilyTreeId(selectedTreeId);
+    if (!treeId || !globalRequest) {
       setGedcomData(null);
       return;
     }
-    void requestTreeContent(selectedTreeId)
+    void requestTreeContent(treeId)
       .then((data) => {
-        localStorage.setItem("ps_default_gedcom_tree_id", selectedTreeId);
+        localStorage.setItem("ps_default_gedcom_tree_id", treeId);
         setGedcomData(data);
-        setHomePersonId(restoredHomePerson(selectedTreeId, data));
+        setHomePersonId(restoredHomePerson(treeId, data));
       })
       .catch((error: unknown) => console.error("Failed to load tree content:", error));
   }, [selectedTreeId]);
@@ -82,8 +100,9 @@ function useTreeContent(selectedTreeId: string) {
   useEffect(() => {
     const navigate = (event: Event) => {
       const detail = (event as CustomEvent<{ treeId: string; personId: string }>).detail;
-      if (detail) {
-        setHomePersonId(detail.personId);
+      const personId = detail ? safeGedcomPersonId(detail.personId) : null;
+      if (personId) {
+        setHomePersonId(personId);
       }
     };
     globalThis.addEventListener("navigate-to-tree", navigate);
@@ -91,11 +110,13 @@ function useTreeContent(selectedTreeId: string) {
   }, []);
 
   const selectHome = async (id: string) => {
-    setHomePersonId(id);
-    if (!selectedTreeId) {
+    const treeId = safeFamilyTreeId(selectedTreeId);
+    const personId = safeGedcomPersonId(id);
+    if (!treeId || !personId) {
       return;
     }
-    localStorage.setItem(`ps_home_person_${selectedTreeId}`, id);
+    setHomePersonId(personId);
+    localStorage.setItem(`ps_home_person_${treeId}`, personId);
     if (!globalRequest) {
       return;
     }
@@ -103,7 +124,7 @@ function useTreeContent(selectedTreeId: string) {
       await globalRequest<void>({
         idPrefix: "set_home_person",
         command: "set_home_person",
-        payload: { treeId: selectedTreeId, homePersonId: id },
+        payload: { treeId, homePersonId: personId },
         select: (data) => data,
       });
     } catch (error) {
@@ -151,8 +172,9 @@ export function useFamilyTreeData() {
   useEffect(() => {
     const navigate = (event: Event) => {
       const detail = (event as CustomEvent<{ treeId: string }>).detail;
-      if (detail) {
-        setSelectedTreeId(detail.treeId);
+      const treeId = detail ? safeFamilyTreeId(detail.treeId) : null;
+      if (treeId) {
+        setSelectedTreeId(treeId);
       }
     };
     globalThis.addEventListener("navigate-to-tree", navigate);
