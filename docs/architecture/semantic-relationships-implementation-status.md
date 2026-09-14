@@ -11,8 +11,8 @@
 - Pull request: `#42`
 - Last integrated WP15 checkpoint: `06d7c443c10d0e29a377456863d32a9e23666957`
 - Canonical local merge gate: **GREEN** at the current published branch head — 394 passed, 1 skipped core test and affected UI smoke passed.
-- Published PR head: verify the current branch HEAD in PR `#42`; remote `quality-gate`, benchmark, and CodeQL must be observed for that exact head. The prior published semantic checkpoint `b489870` passed `quality-gate` on 2026-09-14.
-- Current package: **Phase 1 remote publication observation**
+- Remote validation evidence: PR `#42` head `f7523eaa93031bb2d9a0ece9c0509ba1193c6523` passed `quality-gate`, benchmark, and CodeQL on 2026-09-14. Before any later integration action, verify the then-current published branch head; Sonar is not part of this active package by explicit user direction.
+- Current package: **Phase 1 publication handoff**
 
 Always verify actual HEAD/Actions before continuing.
 
@@ -43,21 +43,24 @@ Always verify actual HEAD/Actions before continuing.
 - WP16g complete locally: generated registry checks, `qa:ready`, standalone `ui:smoke --force`, and `qa:merge` are green at the current published branch head. The user-owned `AGENTS.md` workflow-policy rewrite was committed standalone after its mechanical Markdown-lint fixes, leaving its intended content intact. Follow-up hardening pins benchmark-workflow Actions to verified commit SHAs, applies minimal token permission, and splits the unchanged burst-reachability traversal into small helpers; the grouping regression test and canonical gate remain green. No implementation, durability, scale, or runtime/visual acceptance gate remains open.
 - WP16 vector-index exploration: `sqlite-vec` 0.1.9 loaded against the production SQLite wrapper and preserved the Float32 BLOB contract, but its exact `vec0` search measured 507.9 ms p95 at 250k 512-d vectors, still above the 150 ms goal. The evaluated native ANN binding (`hnswlib-node` 3.0.0) was not reproducibly installable because this repository's pnpm build policy blocks its native build script. The evaluated precompiled fallback (`hnswlib-wasm` 0.8.2) published no resolvable Node entry point. No trial dependency remains in the branch. Candidate generation therefore remains non-interactive until an approved, packaged ANN engine has a durable rebuild/supersession design and target-tier measurement.
 
-## 3. Current package — Phase 1 remote publication observation
+## 3. Current package — Phase 1 publication handoff
 
 ### Goal
 
-Observe the published head's remote checks and record their result without treating an already-green local Phase 1 gate as remote integration.
+Retain the published, locally and remotely validated Phase 1 checkpoint until a
+human explicitly authorizes integration.
 
 ### Gate
 
-The Phase 1 implementation gate is complete locally; remote CI is observed for the current published head before any separate human-authorized publication or integration action.
+The Phase 1 implementation gate is complete locally. Recorded remote evidence:
+at `f7523eaa93031bb2d9a0ece9c0509ba1193c6523`, `quality-gate`, benchmark, and
+all CodeQL analyses passed on 2026-09-14. Verify the then-current published
+head again only before a later integration action.
 
 ### Exact next action
 
-1. Publish this updated completed handoff checkpoint after its exact-head local merge gate.
-2. Verify the remote `quality-gate`, benchmark, and CodeQL results for the published head.
-3. Do not run `task:finish`, merge, or reconcile this active task unless the user explicitly authorizes publication/integration.
+1. Do not reopen completed or deferred WP work on a bare continuation.
+2. Do not run `task:finish`, merge, or reconcile this active task unless the user explicitly authorizes publication/integration.
 
 ## 4. Phase status
 
@@ -73,7 +76,7 @@ The Phase 1 implementation gate is complete locally; remote CI is observed for t
 | WP13 | **Complete — automated, durability and real-runtime acceptance recorded** |
 | WP14 | **Complete** |
 | WP15 | **Complete — published checkpoint `06d7c44`; remote CI pending** |
-| WP16 | **Complete locally — WP16g gates and durable handoff recorded; remote CI observation pending** |
+| WP16 | **Complete — WP16g gates and required remote observation recorded** |
 
 ## 5. Deferred ledger
 
@@ -84,7 +87,7 @@ The Phase 1 implementation gate is complete locally; remote CI is observed for t
 | WP11/WP16 | Vector lookup target missed | Select an approved, packageable ANN engine; prove generation-aware rebuild/supersession, bounded memory, and p95 below 150 ms at 250k 512-d vectors before candidate generation becomes interactive |
 | WP13 | Contributor uncertainty/testimony | Complete: normalized attributed responses, reset/reopen durability and runtime review evidence |
 | WP15 | Cross-domain durability | Complete: matrix, targeted fixtures, `qa:ready`, and `qa:merge` passed at `06d7c44` |
-| WP16 | Skips/manual acceptance/scale | Complete locally: acceptance, scale, and exact-head `qa:merge` passed at `dabd356`; remote CI observation remains |
+| WP16 | Skips/manual acceptance/scale | Complete: acceptance, scale, exact-head `qa:merge`, and required remote observation recorded |
 
 ## 6. Functional acceptance obligations
 
