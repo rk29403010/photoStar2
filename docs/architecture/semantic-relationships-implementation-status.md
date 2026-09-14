@@ -10,8 +10,8 @@
 - Branch: `task/semantic-relationships-phase1-foundation`
 - Pull request: `#42`
 - Last integrated WP15 checkpoint: `06d7c443c10d0e29a377456863d32a9e23666957`
-- Canonical local merge gate: **GREEN** at `06d7c44` — 392 passed, 1 skipped core tests and affected UI smoke passed.
-- Published PR head: `b489870`; remote `quality-gate` passed at this head on 2026-09-14. Its benchmark and remaining CodeQL check are still in progress.
+- Canonical local merge gate: **GREEN** at `8d268be` — 394 passed, 1 skipped core test and affected UI smoke passed.
+- Published PR head: `8d268be`; its remote `quality-gate`, benchmark, and CodeQL checks are in progress. The prior published semantic checkpoint `b489870` passed `quality-gate` on 2026-09-14.
 - Current package: **WP16g — Final gates, publication, and reconciliation**
 
 Always verify actual HEAD/Actions before continuing.
@@ -40,7 +40,7 @@ Always verify actual HEAD/Actions before continuing.
 - WP16d complete: the consolidated scale matrix records presentation and candidate interaction p95, projection rebuild costs, heap ceilings and SQLite growth. The production compaction path deleted 20k of 60k development vectors in 1508.2 ms and 250k of 750k target vectors in 24754.3 ms while retaining the active generation plus its immediate predecessor. Target heap growth was 0.7 MiB. The 3070.4 MiB target file remained allocated after logical deletion and shrank to 2040.1 MiB after an explicit 40915.8 ms `VACUUM`; compaction and reclamation remain maintenance operations, not interaction paths.
 - WP16e complete: an initial full core run exposed a dirty-empty capture presentation cache returning no Assets on fresh databases. Reads now synchronously build only when no last-successful projection exists, while populated dirty caches preserve the deliberate tracked-workflow behavior. The affected library tests passed, followed by the full core suite (394 passed, one intentional skip), all 147 UI tests, and isolated desktop `ui:smoke --force` with a visible root and no browser/runtime errors. The automated acceptance matrix links fresh ingest, library paging/scrolling, selection/bulk expansion, presentation member expansion, editor persistence/rendering, People actions, uncertain testimony and recovery states to executable evidence.
 - WP16f complete: 500-iteration target soaks measured 2.3 ms p95 / 0.1 MiB heap drift for warmed 100k-Asset pages and 70.9 ms p95 / 2.8 MiB drift for full 100k-item lazy range selection; Asset expansion remained 61.0 ms. The current branch-owned runtime at web 5913/backend 5914 rendered the library, real fixture preview, single-photo viewer, editor registry, People and restored identity-review candidate. The review showed raw `Similarity 0.81`, all eight certainty responses, named ambiguity and unclipped controls; person details closed without reopening. The one-Asset fixture cannot visually exercise multi-item scrolling, merge or isolation, so those remain backed by the full suites and target fixtures rather than a misleading manual claim.
-- WP16g in progress: generated registry checks, `qa:ready`, standalone `ui:smoke --force`, and the code/test portions of `qa:merge` are green. The local final merge command stops at Markdown lint because the pre-existing, user-owned `AGENTS.md` has duplicate blank lines and lacks one final newline. This task will not rewrite that unrelated instruction file. The published GitHub `quality-gate` nevertheless passed its canonical merge gate at `b489870`; benchmark and final CodeQL completion remain external publication checks.
+- WP16g in progress: generated registry checks, `qa:ready`, standalone `ui:smoke --force`, and `qa:merge` are green at the published policy checkpoint `8d268be`. The user-owned `AGENTS.md` workflow-policy rewrite was committed standalone after its mechanical Markdown-lint fixes, leaving its intended content intact. This documentation closeout commit now needs the same exact-head local gate and publication evidence; remote CI remains an external publication check.
 
 ## 3. Current package — WP16g
 
@@ -54,9 +54,9 @@ Run final quality, generated-registry, runtime and integration gates at the exac
 
 ### Exact next action
 
-1. Commit the WP16f benchmark and acceptance checkpoint.
-2. Run generated-registry checks, `qa:ready`, `ui:smoke`, and final `qa:merge`.
-3. Publish the exact validated head and record remote check / PR state.
+1. Commit this WP16g documentation closeout.
+2. Run final `qa:quick` and `qa:merge` at its exact head.
+3. Publish that validated head, verify its remote checks, and mark WP16 complete only when the durable handoff state is unambiguous.
 
 ## 4. Phase status
 
@@ -72,7 +72,7 @@ Run final quality, generated-registry, runtime and integration gates at the exac
 | WP13 | **Complete — automated, durability and real-runtime acceptance recorded** |
 | WP14 | **Complete** |
 | WP15 | **Complete — published checkpoint `06d7c44`; remote CI pending** |
-| WP16 | **In progress — WP16g current** |
+| WP16 | **In progress — WP16g documentation closeout** |
 
 ## 5. Deferred ledger
 
@@ -83,7 +83,7 @@ Run final quality, generated-registry, runtime and integration gates at the exac
 | WP11/WP16 | Vector lookup target missed | Implement and measure a local vector-index proposal without weakening generation semantics before candidate generation becomes interactive |
 | WP13 | Contributor uncertainty/testimony | Complete: normalized attributed responses, reset/reopen durability and runtime review evidence |
 | WP15 | Cross-domain durability | Complete: matrix, targeted fixtures, `qa:ready`, and `qa:merge` passed at `06d7c44` |
-| WP16 | Skips/manual acceptance/scale | Acceptance and scale evidence complete; final `qa:merge` pending |
+| WP16 | Skips/manual acceptance/scale | Acceptance and scale evidence complete; final exact-head documentation gate and publication checks remain |
 
 ## 6. Functional acceptance obligations
 
