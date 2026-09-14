@@ -289,7 +289,9 @@ function selectRepresentative(
 }
 
 function clusterKey(kind: VisualPolicy, memberKeys: readonly string[]): string {
-    const digest = createHash('sha256').update([...memberKeys].sort().join('\n')).digest('hex');
+    const digest = createHash('sha256')
+        .update([...memberKeys].sort((left, right) => left.localeCompare(right)).join('\n'))
+        .digest('hex');
     return `${kind}:${digest}`;
 }
 

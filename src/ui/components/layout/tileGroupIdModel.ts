@@ -36,7 +36,7 @@ function getRelationshipSymbol(kind: LibraryPresentationRelationshipKind) {
 function hashPresentationKey(presentationKey: string) {
     let hash = 0;
     for (let index = 0; index < presentationKey.length; index += 1) {
-        hash = ((hash << 5) - hash + presentationKey.charCodeAt(index)) | 0;
+        hash = Math.trunc(Math.imul(hash, 31) + presentationKey.charCodeAt(index));
     }
 
     return Math.abs(hash);
