@@ -114,14 +114,20 @@ function updateTimelineBounds(params: {
     };
 }
 
-function appendTimelineBucket(buckets: LibraryTimelineBucket[], decadeStart: number) {
-    const currentBucket = buckets.at(-1);
-    if (currentBucket && currentBucket.startYear === decadeStart) {
-        currentBucket.count += 1;
+function appendTimelineBucket(
+    buckets: LibraryTimelineBucket[],
+    bucketsByDecade: Map<number, LibraryTimelineBucket>,
+    decadeStart: number,
+) {
+    const existingBucket = bucketsByDecade.get(decadeStart);
+    if (existingBucket) {
+        existingBucket.count += 1;
         return;
     }
 
-    buckets.push(createTimelineBucket(decadeStart, 1));
+    const bucket = createTimelineBucket(decadeStart, 1);
+    bucketsByDecade.set(decadeStart, bucket);
+    buckets.push(bucket);
 }
 
 function getVisibleTimelineItemState(item: LibrarySelectableItem) {
@@ -148,6 +154,7 @@ export function buildVisibleTimelineSummary(items: LibrarySelectableItem[]): Lib
     }
 
     const buckets: LibraryTimelineBucket[] = [];
+    const bucketsByDecade = new Map<number, LibraryTimelineBucket>();
     let unknownDateCount = 0;
     let firstPhotoDate: string | null = null;
     let lastPhotoDate: string | null = null;
@@ -164,7 +171,7 @@ export function buildVisibleTimelineSummary(items: LibrarySelectableItem[]): Lib
             firstPhotoDate,
             lastPhotoDate,
         }));
-        appendTimelineBucket(buckets, itemState.decadeStart);
+        appendTimelineBucket(buckets, bucketsByDecade, itemState.decadeStart);
     }
 
     if (buckets.length === 0 && unknownDateCount === 0) {
