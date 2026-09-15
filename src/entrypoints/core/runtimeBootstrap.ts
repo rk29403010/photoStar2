@@ -30,6 +30,23 @@ type WorkflowRuntimeBundle = {
     modules: ModuleRegistry;
 };
 
+const RETIRED_GLOBAL_SETTING_KEYS = [
+    'system_max_threads',
+    'workflow_auto_scan',
+    'gemini_csv_path',
+    'job_cluster_threshold',
+    'job_face_matching_mode',
+    'job_ai_model',
+    'job_ai_model_scout',
+    'job_ai_model_refine',
+] as const;
+
+function removeRetiredGlobalSettings(dbManager: DatabaseManager): void {
+    const placeholders = RETIRED_GLOBAL_SETTING_KEYS.map(() => '?').join(', ');
+    dbManager.getDb().prepare(`DELETE FROM settings WHERE id IN (${placeholders})`)
+        .run(...RETIRED_GLOBAL_SETTING_KEYS);
+}
+
 function createConsoleWorkflowTelemetry(): WorkflowRuntimeTelemetry {
     return new WorkflowRuntimeTelemetry({
         emit(event) {
@@ -112,6 +129,8 @@ function registerWorkflows(workflows: WorkflowRegistry) {
 }
 
 export function createWorkflowRuntimeBundle(dbManager: DatabaseManager, eventBus: EventBus): WorkflowRuntimeBundle {
+    removeRetiredGlobalSettings(dbManager);
+
     const store = new ExecutionStore(dbManager);
     const subjects = new SubjectRegistry();
     const modules = new ModuleRegistry();

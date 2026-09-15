@@ -23,3 +23,22 @@ test('settings surface exposes only system, local, and secret-key concerns', () 
     assert.doesNotMatch(source, /job_ai_model_refine/);
     assert.doesNotMatch(source, /gemini_csv_path/);
 });
+
+test('retired global module and workflow overrides are cleared before runtime registration', () => {
+    const source = fs.readFileSync('src/entrypoints/core/runtimeBootstrap.ts', 'utf8');
+
+    const retiredKeys = [
+        'system_max_threads',
+        'workflow_auto_scan',
+        'gemini_csv_path',
+        'job_cluster_threshold',
+        'job_face_matching_mode',
+        'job_ai_model',
+        'job_ai_model_scout',
+        'job_ai_model_refine',
+    ];
+    for (const key of retiredKeys) {
+        assert.match(source, new RegExp(`'${key}'`));
+    }
+    assert.match(source, /removeRetiredGlobalSettings\(dbManager\);[\s\S]*registerModules/);
+});
