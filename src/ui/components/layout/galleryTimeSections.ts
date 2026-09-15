@@ -33,27 +33,25 @@ export function buildGalleryTimeSections(
     }
 
     const sections: GalleryTimeSection[] = [];
-    let currentSection: GalleryTimeSection | null = null;
-    let currentDecadeStart: number | null = null;
+    const sectionsById = new Map<string, GalleryTimeSection>();
 
     for (const item of items) {
         const year = parseAssetYear(item);
         const decadeStart = year == null ? null : getDecadeStart(year);
-        const isNewSection = currentSection === null || decadeStart !== currentDecadeStart;
+        const sectionId = decadeStart == null ? 'unknown-date' : `decade-${decadeStart}`;
+        let section = sectionsById.get(sectionId);
 
-        if (isNewSection) {
-            currentDecadeStart = decadeStart;
-            currentSection = {
-                id: decadeStart == null ? `unknown-${sections.length}` : `decade-${decadeStart}`,
+        if (!section) {
+            section = {
+                id: sectionId,
                 label: decadeStart == null ? null : getDecadeLabel(decadeStart),
                 items: [],
             };
-            sections.push(currentSection);
+            sectionsById.set(sectionId, section);
+            sections.push(section);
         }
 
-        const activeSection = currentSection;
-        if (!activeSection) {continue;}
-        activeSection.items.push(item);
+        section.items.push(item);
     }
 
     return sections;
