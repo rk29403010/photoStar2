@@ -99,7 +99,13 @@ export function useAppUiState(getDevRuntimeImpact: () => Promise<DevRuntimeImpac
   const activeInfoTab = resolveInfoTab(activeInfoTabRaw);
   const [theme, setTheme] = usePersistedState<string>('ps_theme', 'dark');
   const [animationsEnabled, setAnimationsEnabled] = usePersistedState<boolean>('ps_animations', true);
-  const [aiMode, setAiMode] = usePersistedState<AiMode>('ps_ai_mode', 'live');
+  const [persistedAiMode, setAiMode] = usePersistedState<AiMode>('ps_ai_mode', 'live');
+  const aiMode: AiMode = persistedAiMode === 'mock' ? 'live' : persistedAiMode;
+  useEffect(() => {
+    if (persistedAiMode === 'mock') {
+      setAiMode('live');
+    }
+  }, [persistedAiMode, setAiMode]);
   const [showActions, setShowActions] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [peopleSelectionCount, setPeopleSelectionCount] = useState(0);

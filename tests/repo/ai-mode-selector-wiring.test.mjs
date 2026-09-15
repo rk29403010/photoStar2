@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-test('ai mode selector wiring defaults to live and flows through settings', () => {
+test('ai mode selector defaults to live, removes mock from user settings, and flows through settings', () => {
     const appUiStateSource = fs.readFileSync('src/ui/hooks/useAppRuntimeUi.ts', 'utf8');
     const appSource = fs.readFileSync('src/ui/App.tsx', 'utf8');
     const overlaysSource = fs.readFileSync('src/ui/components/app/AppOverlays.tsx', 'utf8');
     const settingsModalSource = fs.readFileSync('src/ui/components/SettingsModal.tsx', 'utf8');
 
     assert.match(appUiStateSource, /usePersistedState<[^>]+>\('ps_ai_mode', 'live'\)/);
+    assert.match(appUiStateSource, /persistedAiMode === 'mock' \? 'live' : persistedAiMode/);
     assert.match(appSource, /aiMode=\{uiState\.aiMode\}/);
     assert.match(appSource, /setAiMode=\{uiState\.setAiMode\}/);
     assert.match(overlaysSource, /aiMode=\{props\.aiMode\}/);
@@ -16,4 +17,5 @@ test('ai mode selector wiring defaults to live and flows through settings', () =
     assert.match(settingsModalSource, /AI Mode/);
     assert.match(settingsModalSource, /value=\{aiMode\}/);
     assert.match(settingsModalSource, /onChange=\{\(event\) => setAiMode\(event\.target\.value as AiMode\)\}/);
+    assert.doesNotMatch(settingsModalSource, /<option value="mock">/);
 });

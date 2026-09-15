@@ -126,7 +126,17 @@ function FamilyTreeScreen({ controller }: { readonly controller: Controller }) {
         viewport={controller.viewport}
       />
       <LinkPersonDialog candidates={linking.candidates} data={tree.gedcomData} linkingPersonId={linking.linkingGedcomId} onClose={linking.close} onLink={linking.link} onSearch={linking.setSearch} search={linking.search} />
-      <UploadTreeDialog content={upload.uploadContent} errorMessage={upload.errorMessage} filename={upload.uploadFilename} onClose={upload.close} onSelectFile={upload.selectFile} onSelectGroup={upload.setSelectedGroup} onUpload={upload.upload} open={upload.showUploadModal} selectedGroup={upload.selectedGroup} trees={tree.trees} />
+      <UploadTreeDialog
+        errorMessage={upload.errorMessage}
+        filenames={upload.uploadFilenames}
+        onClose={upload.close}
+        onSelectFiles={upload.selectFiles}
+        onSelectGroup={upload.setSelectedGroup}
+        onUpload={upload.upload}
+        open={upload.showUploadModal}
+        selectedGroup={upload.selectedGroup}
+        trees={tree.trees}
+      />
     </div>
   );
 }

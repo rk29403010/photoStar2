@@ -120,28 +120,28 @@ async function deleteTree(params: {
   readonly setSelectedTreeId: (id: string) => void;
 }): Promise<void> {
   const { selectedTreeId } = params;
-    if (!selectedTreeId || !globalRequest) {
-      return;
-    }
-    const confirmed = globalThis.confirm(
-      "Are you sure you want to delete this family tree? This will also remove links to PhotoStar people.",
-    );
-    if (!confirmed) {
-      return;
-    }
-    try {
-      await globalRequest({
-        idPrefix: "delete_family_tree",
-        command: "delete_family_tree",
-        payload: { treeId: selectedTreeId },
-        select: (data) => data,
-      });
-      params.setSelectedTreeId("");
-      params.setGedcomData(null);
-      await params.loadTrees();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : String(error));
-    }
+  if (!selectedTreeId || !globalRequest) {
+    return;
+  }
+  const confirmed = globalThis.confirm(
+    "Are you sure you want to delete this family tree? This will also remove links to PhotoStar people.",
+  );
+  if (!confirmed) {
+    return;
+  }
+  try {
+    await globalRequest({
+      idPrefix: "delete_family_tree",
+      command: "delete_family_tree",
+      payload: { treeId: selectedTreeId },
+      select: (data) => data,
+    });
+    params.setSelectedTreeId("");
+    params.setGedcomData(null);
+    await params.loadTrees();
+  } catch (error) {
+    alert(error instanceof Error ? error.message : String(error));
+  }
 }
 
 export function useFamilyTreeData() {
@@ -175,67 +175,120 @@ export function useFamilyTreeData() {
   };
 }
 
+type PendingGedcomUpload = {
+  filename: string;
+  content: string;
+};
+
+type FailedGedcomUpload = {
+  upload: PendingGedcomUpload;
+  message: string;
+};
+
+async function readGedcomFiles(files: FileList | null): Promise<PendingGedcomUpload[]> {
+  if (!files) {
+    return [];
+  }
+  return Promise.all(Array.from(files).map(async (file) => ({
+    filename: file.name,
+    content: await file.text(),
+  })));
+}
+
+async function uploadGedcomFile(upload: PendingGedcomUpload, treeGroupId?: string): Promise<void> {
+  if (!globalRequest) {
+    return;
+  }
+  await globalRequest({
+    idPrefix: "upload_family_tree",
+    command: "upload_family_tree",
+    payload: {
+      filename: upload.filename,
+      content: upload.content,
+      treeGroupId,
+    },
+    select: (data) => data,
+  });
+}
+
+function batchFailureMessage(total: number, failures: FailedGedcomUpload[]): string {
+  const imported = total - failures.length;
+  const detail = failures.map((failure) => `${failure.upload.filename}: ${failure.message}`).join("; ");
+  return imported > 0
+    ? `Imported ${imported} of ${total} files. ${detail}`
+    : detail;
+}
+
 export function useFamilyTreeUpload(loadTrees: () => Promise<void>) {
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadFilename, setUploadFilename] = useState("");
-  const [uploadContent, setUploadContent] = useState("");
+  const [uploadFiles, setUploadFiles] = useState<PendingGedcomUpload[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const reset = () => {
-    setUploadFilename("");
-    setUploadContent("");
+    setUploadFiles([]);
+    setSelectedGroup("");
     setErrorMessage(null);
   };
   const close = () => {
     setShowUploadModal(false);
     reset();
   };
-  const selectFile = (file: File | undefined) => {
-    if (!file) {
-      return;
-    }
-    void file.text()
-      .then((content) => {
-        setUploadFilename(file.name);
-        setUploadContent(content);
+  const selectFiles = (files: FileList | null) => {
+    void readGedcomFiles(files)
+      .then((selectedFiles) => {
+        setUploadFiles(selectedFiles);
+        setErrorMessage(null);
+        if (selectedFiles.length !== 1) {
+          setSelectedGroup("");
+        }
       })
-      .catch((error: unknown) => console.error(error));
+      .catch((error: unknown) => {
+        setUploadFiles([]);
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+      });
   };
   const upload = async () => {
-    if (!uploadContent || !uploadFilename || !globalRequest) {
+    if (uploadFiles.length === 0 || !globalRequest) {
       return;
     }
-    try {
-      setErrorMessage(null);
-      await globalRequest({
-        idPrefix: "upload_family_tree",
-        command: "upload_family_tree",
-        payload: {
-          filename: uploadFilename,
-          content: uploadContent,
-          treeGroupId: selectedGroup || undefined,
-        },
-        select: (data) => data,
-      });
-      close();
-      setSelectedGroup("");
-      await loadTrees();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : String(error));
+
+    setErrorMessage(null);
+    const total = uploadFiles.length;
+    const failures: FailedGedcomUpload[] = [];
+    const treeGroupId = total === 1 && selectedGroup ? selectedGroup : undefined;
+
+    for (const pendingUpload of uploadFiles) {
+      try {
+        await uploadGedcomFile(pendingUpload, treeGroupId);
+      } catch (error) {
+        failures.push({
+          upload: pendingUpload,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
+
+    await loadTrees();
+    if (failures.length === 0) {
+      close();
+      return;
+    }
+
+    setUploadFiles(failures.map((failure) => failure.upload));
+    setSelectedGroup("");
+    setErrorMessage(batchFailureMessage(total, failures));
   };
   return {
     close,
     errorMessage,
     open: () => setShowUploadModal(true),
-    selectFile,
+    selectFiles,
     selectedGroup,
     setSelectedGroup,
     showUploadModal,
     upload,
-    uploadContent,
-    uploadFilename,
+    uploadFilenames: uploadFiles.map((file) => file.filename),
   };
 }
 

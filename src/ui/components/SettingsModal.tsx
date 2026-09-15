@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { AiMode } from '@ui/hooks/useAppRuntimeUi';
 import { Button, Input, Select, Checkbox, Card } from './Primitives';
 
@@ -17,30 +17,17 @@ type SettingsModalProps = {
     readonly saveProviderKey: (provider: string, key: string) => Promise<{ success: boolean; error?: string }>;
     readonly deleteProviderKey: (provider: string) => Promise<{ success: boolean; error?: string }>;
     readonly getRedactedProviderKey: (provider: string) => Promise<{ redactedKey: string | null; error?: string }>;
-}
+};
 
-type Tab = 'system' | 'ui' | 'providers' | 'workflows' | 'jobs';
-type FaceMatchingMode = 'strict' | 'balanced' | 'loose';
+type Tab = 'system' | 'local' | 'secrets';
 type SettingsMap = { [key: string]: string };
 
-const dbKeys = [
-    'system_log_level', 'system_max_threads', 'workflow_auto_scan',
-    'gemini_csv_path', 'job_cluster_threshold', 'job_face_matching_mode',
-    'job_ai_model_scout', 'job_ai_model_refine',
-];
-
-const FACE_MATCHING_MODE_OPTIONS: Array<{ value: FaceMatchingMode; label: string; description: string }> = [
-    { value: 'strict', label: 'Strict', description: 'Prioritizes fewer false matches.' },
-    { value: 'balanced', label: 'Balanced', description: 'Default blend of precision and recall.' },
-    { value: 'loose', label: 'Loose', description: 'Allows broader grouping when needed.' },
-];
+const dbKeys = ['system_log_level'] as const;
 
 const tabs: Array<{ id: Tab; label: string }> = [
-    { id: 'system', label: 'System Settings' },
-    { id: 'ui', label: 'UI Settings' },
-    { id: 'providers', label: 'AI API Keys' },
-    { id: 'workflows', label: 'Workflows' },
-    { id: 'jobs', label: 'Registered Jobs' },
+    { id: 'system', label: 'System' },
+    { id: 'local', label: 'Local' },
+    { id: 'secrets', label: 'Secret Keys' },
 ];
 
 function TabButton({ activeTab, tab, label, onClick }: { readonly activeTab: Tab; readonly tab: Tab; readonly label: string; readonly onClick: (tab: Tab) => void }) {
@@ -49,8 +36,8 @@ function TabButton({ activeTab, tab, label, onClick }: { readonly activeTab: Tab
         <button
             onClick={() => onClick(tab)}
             className={`w-full px-6 py-3 text-left font-medium transition-colors ${
-                isActive 
-                    ? 'bg-brand-accent text-white font-semibold' 
+                isActive
+                    ? 'bg-brand-accent text-white font-semibold'
                     : 'text-content-secondary hover:bg-surface-secondary hover:text-content'
             }`}
         >
@@ -59,33 +46,29 @@ function TabButton({ activeTab, tab, label, onClick }: { readonly activeTab: Tab
     );
 }
 
-function SystemTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
+function SystemTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (key: string, value: string) => void }) {
     return (
         <div className="flex flex-col gap-6">
             <div className="border-b border-content/10 pb-2">
-                <h3 className="text-lg font-semibold text-brand-accent">System Settings</h3>
-                <p className="mt-1 text-xs text-content-secondary">Stored securely in the underlying database.</p>
+                <h3 className="text-lg font-semibold text-brand-accent">System</h3>
+                <p className="mt-1 text-xs text-content-secondary">Stored securely in the database.</p>
             </div>
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                     <label htmlFor="setting-system-log-level" className="text-xs font-medium text-content-secondary">Log Level</label>
-                    <Select id="setting-system-log-level" value={dbSettings.system_log_level || 'info'} onChange={(e) => onChange('system_log_level', e.target.value)}>
+                    <Select id="setting-system-log-level" value={dbSettings.system_log_level || 'info'} onChange={(event) => onChange('system_log_level', event.target.value)}>
                         <option value="debug">Debug</option>
                         <option value="info">Info</option>
                         <option value="warn">Warn</option>
                         <option value="error">Error</option>
                     </Select>
                 </div>
-                <div className="flex flex-col gap-1">
-                    <label htmlFor="setting-system-max-threads" className="text-xs font-medium text-content-secondary">Maximum Worker Threads (Example)</label>
-                    <Input id="setting-system-max-threads" type="number" value={dbSettings.system_max_threads || '4'} onChange={(e) => onChange('system_max_threads', e.target.value)} />
-                </div>
             </div>
         </div>
     );
 }
 
-function UiTab({
+function LocalTab({
     theme,
     setTheme,
     animationsEnabled,
@@ -96,124 +79,34 @@ function UiTab({
     return (
         <div className="flex flex-col gap-6">
             <div className="border-b border-content/10 pb-2">
-                <h3 className="text-lg font-semibold text-brand-accent">UI Settings</h3>
-                <p className="mt-1 text-xs text-content-secondary">Persisted locally in the browser/client storage.</p>
+                <h3 className="text-lg font-semibold text-brand-accent">Local</h3>
+                <p className="mt-1 text-xs text-content-secondary">Saved locally - only applies to your device.</p>
             </div>
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
-                    <label htmlFor="setting-ai-mode" className="text-xs font-medium text-content-secondary">AI Mode</label>
+                    <label htmlFor="setting-ai-mode" className="text-xs font-medium text-content-secondary">AI</label>
                     <Select
                         id="setting-ai-mode"
                         aria-label="AI Mode"
                         value={aiMode}
                         onChange={(event) => setAiMode(event.target.value as AiMode)}
                     >
-                        <option value="live">Live</option>
-                        <option value="mock">Mock</option>
+                        <option value="live">On</option>
                         <option value="off">Off</option>
                     </Select>
-                    <p className="text-xs text-content-secondary">Folder ingest and AI metadata actions will use this mode.</p>
+                    <p className="text-xs text-content-secondary">Controls whether PhotoStar may make AI API calls from this device.</p>
                 </div>
                 <div className="flex flex-col gap-1">
-                    <label htmlFor="setting-color-theme" className="text-xs font-medium text-content-secondary">Color Theme</label>
-                    <Select id="setting-color-theme" value={theme} onChange={(e) => setTheme(e.target.value)}>
-                        <option value="dark">Dark Theme (Default)</option>
-                        <option value="light">Light Theme (Preview)</option>
+                    <label htmlFor="setting-color-theme" className="text-xs font-medium text-content-secondary">Colour Theme</label>
+                    <Select id="setting-color-theme" value={theme} onChange={(event) => setTheme(event.target.value)}>
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
                     </Select>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Checkbox id="ui_anim" checked={animationsEnabled} onChange={(e) => setAnimationsEnabled(e.target.checked)} />
+                    <Checkbox id="ui_anim" checked={animationsEnabled} onChange={(event) => setAnimationsEnabled(event.target.checked)} />
                     <label htmlFor="ui_anim" className="text-sm font-medium text-content-secondary select-none cursor-pointer">Enable smooth UI animations</label>
                 </div>
-            </div>
-        </div>
-    );
-}
-
-function WorkflowsTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
-    return (
-        <div className="flex flex-col gap-6">
-            <div className="border-b border-content/10 pb-2">
-                <h3 className="text-lg font-semibold text-brand-accent">Workflows</h3>
-                <p className="mt-1 text-xs text-content-secondary">Runtime workflow settings.</p>
-            </div>
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                    <label htmlFor="setting-workflow-auto-scan" className="text-xs font-medium text-content-secondary">Auto-Scan Strategy</label>
-                    <Select id="setting-workflow-auto-scan" value={dbSettings.workflow_auto_scan || 'manual'} onChange={(e) => onChange('workflow_auto_scan', e.target.value)}>
-                        <option value="manual">Manual Only</option>
-                        <option value="startup">Scan watched folders on Startup</option>
-                    </Select>
-                </div>
-                <Card className="text-xs text-content-secondary">
-                    Library processing now runs entirely through workflow-runtime definitions. Legacy module toggles and stage override JSON settings have been removed.
-                </Card>
-            </div>
-        </div>
-    );
-}
-
-function AiJobSection({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
-    return (
-        <Card className="gap-4">
-            <div className="flex flex-col gap-1">
-                <label htmlFor="setting-gemini-csv-path" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Kinship Explorer CSV Path</label>
-                <Input id="setting-gemini-csv-path" type="text" value={dbSettings.gemini_csv_path || ''} onChange={(e) => onChange('gemini_csv_path', e.target.value)} placeholder="C:/Path/To/Names.csv" />
-                <p className="text-xs text-content-secondary">Used to identify people across generations</p>
-            </div>
-            <div className="flex flex-col gap-1">
-                <label htmlFor="setting-job-ai-model-scout" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Scout Model</label>
-                <Input id="setting-job-ai-model-scout" type="text" value={dbSettings.job_ai_model_scout || 'gemini-2.5-flash'} onChange={(e) => onChange('job_ai_model_scout', e.target.value)} placeholder="gemini-2.5-flash" />
-                <p className="text-xs text-content-secondary">Cheap first-pass ingest model. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-2.5-flash</code>.</p>
-            </div>
-            <div className="flex flex-col gap-1">
-                <label htmlFor="setting-job-ai-model-refine" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Refine Model</label>
-                <Input id="setting-job-ai-model-refine" type="text" value={dbSettings.job_ai_model_refine || 'gemini-3.1-pro-preview'} onChange={(e) => onChange('job_ai_model_refine', e.target.value)} placeholder="gemini-3.1-pro-preview" />
-                <p className="text-xs text-content-secondary">Optional higher-quality second-pass model for refine treatment. Default is <code className="rounded bg-black/30 px-1 py-0.5 font-mono">gemini-3.1-pro-preview</code>.</p>
-            </div>
-        </Card>
-    );
-}
-
-function ClusterJobSection({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
-    const faceMatchingMode = (dbSettings.job_face_matching_mode || 'balanced') as FaceMatchingMode;
-
-    return (
-        <Card className="gap-4">
-            <div className="flex flex-col gap-1">
-                <label htmlFor="setting-job-face-matching-mode" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Face Matching Mode</label>
-                <Select
-                    id="setting-job-face-matching-mode"
-                    value={faceMatchingMode}
-                    onChange={(e) => onChange('job_face_matching_mode', e.target.value)}
-                >
-                    {FACE_MATCHING_MODE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                </Select>
-                <p className="text-xs text-content-secondary">
-                    {FACE_MATCHING_MODE_OPTIONS.find((option) => option.value === faceMatchingMode)?.description || 'Default blend of precision and recall.'}
-                </p>
-            </div>
-            <div className="flex flex-col gap-1">
-                <label htmlFor="setting-job-cluster-threshold" className="text-xs font-medium uppercase tracking-wider text-content-secondary">Cluster Distance Threshold</label>
-                <Input id="setting-job-cluster-threshold" type="number" step="0.01" value={dbSettings.job_cluster_threshold || '0.55'} onChange={(e) => onChange('job_cluster_threshold', e.target.value)} />
-                <p className="text-xs text-content-secondary">Lower values mean stricter clustering. Default is usually ~0.55.</p>
-            </div>
-        </Card>
-    );
-}
-
-function JobsTab({ dbSettings, onChange }: { readonly dbSettings: SettingsMap; readonly onChange: (k: string, v: string) => void }) {
-    return (
-        <div className="flex flex-col gap-8">
-            <div className="flex flex-col gap-4">
-                <h3 className="border-b border-content/10 pb-2 text-lg font-semibold text-brand-accent">Workflow: library_ai_metadata_v1</h3>
-                <AiJobSection dbSettings={dbSettings} onChange={onChange} />
-            </div>
-            <div className="flex flex-col gap-4">
-                <h3 className="border-b border-content/10 pb-2 text-lg font-semibold text-brand-accent">Workflow: library_grouping_v1</h3>
-                <ClusterJobSection dbSettings={dbSettings} onChange={onChange} />
             </div>
         </div>
     );
@@ -246,9 +139,9 @@ function useProviderKeyState(getRedactedProviderKey: ApiProviderSettingsProps['g
             const nextKeys: Record<string, string | null> = {};
             for (const provider of API_PROVIDERS) {
                 try {
-                    const res = await getRedactedProviderKey(provider.id);
+                    const result = await getRedactedProviderKey(provider.id);
                     if (active) {
-                        nextKeys[provider.id] = res.redactedKey;
+                        nextKeys[provider.id] = result.redactedKey;
                     }
                 } catch {
                     if (active) {
@@ -385,16 +278,16 @@ function ProviderKeyCard(props: {
     );
 }
 
-function ApiProviderSettings(props: ApiProviderSettingsProps) {
+function SecretKeysTab(props: ApiProviderSettingsProps) {
     const state = useProviderKeyState(props.getRedactedProviderKey);
     const actions = useProviderKeyActions(props, state);
 
     return (
         <div className="flex flex-col gap-6">
             <div className="border-b border-content/10 pb-2">
-                <h3 className="text-lg font-semibold text-brand-accent">Secure API Keys</h3>
+                <h3 className="text-lg font-semibold text-brand-accent">Secret Keys</h3>
                 <p className="mt-1 text-xs text-content-secondary">
-                    All API keys are verified on-the-fly and stored securely in your operating system&apos;s credential vault.
+                    API keys are verified before being stored in your operating system&apos;s credential vault.
                 </p>
             </div>
             <div className="flex flex-col gap-6">
@@ -408,11 +301,11 @@ function ApiProviderSettings(props: ApiProviderSettingsProps) {
 
 function loadDbSettings(getSetting: SettingsModalProps['getSetting']): Promise<SettingsMap> {
     return Promise.all(
-        dbKeys.map((key) => getSetting(key).then((val) => ({ key, val })).catch(() => ({ key, val: '' })))
+        dbKeys.map((key) => getSetting(key).then((value) => ({ key, value })).catch(() => ({ key, value: '' })))
     ).then((results) => {
         const next: SettingsMap = {};
         results.forEach((result) => {
-            next[result.key] = result.val;
+            next[result.key] = result.value;
         });
         return next;
     });
@@ -499,7 +392,7 @@ function SettingsContent({
 }: {
     readonly activeTab: Tab;
     readonly dbSettings: SettingsMap;
-    readonly onDbChange: (k: string, v: string) => void;
+    readonly onDbChange: (key: string, value: string) => void;
     readonly theme: string;
     readonly setTheme: (v: string) => void;
     readonly animationsEnabled: boolean;
@@ -515,9 +408,9 @@ function SettingsContent({
         return <SystemTab dbSettings={dbSettings} onChange={onDbChange} />;
     }
 
-    if (activeTab === 'ui') {
+    if (activeTab === 'local') {
         return (
-            <UiTab
+            <LocalTab
                 theme={theme}
                 setTheme={setTheme}
                 animationsEnabled={animationsEnabled}
@@ -528,22 +421,14 @@ function SettingsContent({
         );
     }
 
-    if (activeTab === 'providers') {
-        return (
-            <ApiProviderSettings
-                testProviderKeyCommand={testProviderKeyCommand}
-                saveProviderKey={saveProviderKey}
-                deleteProviderKey={deleteProviderKey}
-                getRedactedProviderKey={getRedactedProviderKey}
-            />
-        );
-    }
-
-    if (activeTab === 'workflows') {
-        return <WorkflowsTab dbSettings={dbSettings} onChange={onDbChange} />;
-    }
-
-    return <JobsTab dbSettings={dbSettings} onChange={onDbChange} />;
+    return (
+        <SecretKeysTab
+            testProviderKeyCommand={testProviderKeyCommand}
+            saveProviderKey={saveProviderKey}
+            deleteProviderKey={deleteProviderKey}
+            getRedactedProviderKey={getRedactedProviderKey}
+        />
+    );
 }
 
 function SettingsFooter({
@@ -555,14 +440,14 @@ function SettingsFooter({
     readonly saveStatus: string | null;
     readonly onSave: () => void;
 }) {
-    if (activeTab === 'ui' || activeTab === 'providers') {
+    if (activeTab !== 'system') {
         return null;
     }
 
     return (
         <div className="flex items-center justify-end border-t border-content/10 bg-surface-secondary px-6 py-4">
             {saveStatus && <span className={`mr-4 text-sm ${saveStatus.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>{saveStatus}</span>}
-            <Button onClick={onSave}>Save DB Settings</Button>
+            <Button onClick={onSave}>Save</Button>
         </div>
     );
 }
@@ -578,17 +463,14 @@ export function SettingsModal({
 
     useDbSettingsLoader(isOpen, getSetting, setDbSettings, setSaveStatus);
 
-    const handleDbChange = (key: string, value: string) => setDbSettings((prev) => ({ ...prev, [key]: value }));
+    const handleDbChange = (key: string, value: string) => setDbSettings((previous) => ({ ...previous, [key]: value }));
     const handleSaveDbSettings = useDbSettingsSaver(dbSettings, setSetting, setSaveStatus);
 
     if (!isOpen) {return null;}
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-            <div
-                className="flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-content/10 bg-surface text-content shadow-2xl"
-                style={{ height: '720px', maxHeight: '90vh' }}
-            >
+            <div className="flex h-5/6 w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-content/10 bg-surface text-content shadow-2xl">
                 <div className="flex items-center justify-between border-b border-content/10 bg-surface-secondary px-6 py-4">
                     <div className="flex items-center gap-3"><span className="text-xl">⚙️</span><h2 className="text-xl font-bold">Settings</h2></div>
                     <button onClick={onClose} className="text-content-secondary hover:text-content transition-colors" aria-label="Close Settings">

@@ -63,12 +63,28 @@ function TreeGroupOptions({ trees }: { readonly trees: TreeInfo[] }) {
   );
 }
 
+function SelectedGedcomFiles({ filenames }: { readonly filenames: string[] }) {
+  if (filenames.length === 0) {
+    return null;
+  }
+  if (filenames.length === 1) {
+    return <div className="text-sm text-content-secondary">Selected file: <span className="font-medium">{filenames[0]}</span></div>;
+  }
+  return (
+    <div className="text-sm text-content-secondary">
+      <div className="mb-1 font-medium">Selected files ({filenames.length})</div>
+      <ul className="max-h-32 list-disc overflow-y-auto pl-5">
+        {filenames.map((filename) => <li key={filename}>{filename}</li>)}
+      </ul>
+    </div>
+  );
+}
+
 export function UploadTreeDialog(props: {
-  readonly content: string;
   readonly errorMessage: string | null;
-  readonly filename: string;
+  readonly filenames: string[];
   readonly onClose: () => void;
-  readonly onSelectFile: (file: File | undefined) => void;
+  readonly onSelectFiles: (files: FileList | null) => void;
   readonly onSelectGroup: (groupId: string) => void;
   readonly onUpload: () => void;
   readonly open: boolean;
@@ -78,27 +94,38 @@ export function UploadTreeDialog(props: {
   if (!props.open) {
     return null;
   }
+  const isBatch = props.filenames.length > 1;
+  const canVersion = props.filenames.length === 1;
+  const uploadLabel = isBatch ? `Import ${props.filenames.length} Family Trees` : "Import Family Tree";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <dialog className="w-full max-w-lg rounded-xl border border-content/10 bg-surface p-6 text-content shadow-2xl" open>
-        <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Upload className="w-5 h-5 text-brand-accent" /> Upload GEDCOM Family Tree</h3>
+        <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Upload className="w-5 h-5 text-brand-accent" /> Import GEDCOM Family Tree</h3>
         {props.errorMessage && <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-xs p-3 rounded-lg mb-3">{props.errorMessage}</div>}
         <div className="space-y-4">
           <div>
-            <label htmlFor="gedcom-file" className="block text-xs font-semibold uppercase tracking-wider mb-1">Select GEDCOM File</label>
-            <input id="gedcom-file" type="file" accept=".ged" onChange={(event) => props.onSelectFile(event.target.files?.[0])} className="w-full p-2 bg-surface-secondary text-sm border border-content/10 rounded-lg outline-none" />
+            <label htmlFor="gedcom-file" className="block text-xs font-semibold uppercase tracking-wider mb-1">Select GEDCOM Files</label>
+            <input id="gedcom-file" type="file" accept=".ged,.gedcom" multiple onChange={(event) => props.onSelectFiles(event.target.files)} className="w-full p-2 bg-surface-secondary text-sm border border-content/10 rounded-lg outline-none" />
           </div>
           <div>
             <label htmlFor="tree-group-select" className="block text-xs font-semibold uppercase tracking-wider mb-1">Tree Group (optional versioning)</label>
-            <select id="tree-group-select" value={props.selectedGroup} onChange={(event) => props.onSelectGroup(event.target.value)} className="w-full p-2 bg-surface-secondary text-sm border border-content/10 rounded-lg outline-none">
+            <select
+              id="tree-group-select"
+              value={props.selectedGroup}
+              onChange={(event) => props.onSelectGroup(event.target.value)}
+              disabled={!canVersion}
+              className="w-full p-2 bg-surface-secondary text-sm border border-content/10 rounded-lg outline-none disabled:opacity-50"
+            >
               <option value="">Start a new tree group</option><TreeGroupOptions trees={props.trees} />
             </select>
+            {isBatch && <p className="mt-1 text-xs text-content-secondary">Multiple files are imported as separate family trees. Select one file at a time to add a version to an existing tree.</p>}
           </div>
-          {props.filename && <div className="text-sm text-content-secondary">Selected file: <span className="font-medium">{props.filename}</span></div>}
+          <SelectedGedcomFiles filenames={props.filenames} />
         </div>
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={props.onClose} className="px-4 py-2 text-sm bg-surface-secondary hover:bg-content/5 rounded-lg border-none cursor-pointer">Cancel</button>
-          <button onClick={props.onUpload} disabled={!props.content || !props.filename} className="px-4 py-2 text-sm bg-brand-accent hover:bg-brand-accent-hover text-white rounded-lg border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-bold">Upload & Parse</button>
+          <button onClick={props.onUpload} disabled={props.filenames.length === 0} className="px-4 py-2 text-sm bg-brand-accent hover:bg-brand-accent-hover text-white rounded-lg border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-bold">{uploadLabel}</button>
         </div>
       </dialog>
     </div>
