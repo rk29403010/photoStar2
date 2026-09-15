@@ -47,15 +47,20 @@ export function useDateTimelineJustifiedSections(params: {
     displayItems: LibrarySelectableItem[];
     timeSectionMode: GalleryTimeSectionMode;
     timelineGallery: TimelineGalleryStateSlice;
+    sortMode: LibrarySortMode;
 }) {
-    const { displayItems, timeSectionMode, timelineGallery } = params;
+    const { displayItems, timeSectionMode, timelineGallery, sortMode } = params;
 
     return useMemo<GalleryTimeSection[] | undefined>(() => {
         if (timeSectionMode !== 'decade') {
             return undefined;
         }
-        return buildDateTimelineJustifiedSections(displayItems, timelineGallery.groupSummaries);
-    }, [displayItems, timeSectionMode, timelineGallery.groupSummaries]);
+        return buildDateTimelineJustifiedSections(
+            displayItems,
+            timelineGallery.groupSummaries,
+            sortMode === 'reverse-date' ? 'reverse-date' : 'date',
+        );
+    }, [displayItems, sortMode, timeSectionMode, timelineGallery.groupSummaries]);
 }
 
 export function useDateTimelineJumpModel(params: {
