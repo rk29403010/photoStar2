@@ -43,11 +43,23 @@ function useTimelineGroupIndexBySectionId(sections: GalleryTimeSection[] | undef
     ), [sections]);
 }
 
+function inferDateTimelineSortMode(displayItems: LibrarySelectableItem[]): 'date' | 'reverse-date' {
+    const datedTimestamps = displayItems
+        .map((item) => item.asset.photo_created_at ?? item.asset.created_at ?? null)
+        .filter((timestamp): timestamp is string => typeof timestamp === 'string' && timestamp.length > 0);
+    if (datedTimestamps.length < 2) {
+        return 'date';
+    }
+    return datedTimestamps[0] <= datedTimestamps[datedTimestamps.length - 1]
+        ? 'reverse-date'
+        : 'date';
+}
+
 export function useDateTimelineJustifiedSections(params: {
     displayItems: LibrarySelectableItem[];
     timeSectionMode: GalleryTimeSectionMode;
     timelineGallery: TimelineGalleryStateSlice;
-    sortMode: LibrarySortMode;
+    sortMode?: LibrarySortMode;
 }) {
     const { displayItems, timeSectionMode, timelineGallery, sortMode } = params;
 
@@ -55,10 +67,15 @@ export function useDateTimelineJustifiedSections(params: {
         if (timeSectionMode !== 'decade') {
             return undefined;
         }
+        const dateSortMode = sortMode === 'reverse-date'
+            ? 'reverse-date'
+            : sortMode === 'date'
+                ? 'date'
+                : inferDateTimelineSortMode(displayItems);
         return buildDateTimelineJustifiedSections(
             displayItems,
             timelineGallery.groupSummaries,
-            sortMode === 'reverse-date' ? 'reverse-date' : 'date',
+            dateSortMode,
         );
     }, [displayItems, sortMode, timeSectionMode, timelineGallery.groupSummaries]);
 }
