@@ -33,6 +33,25 @@ test('gallery time sections group dated assets into non-empty decade blocks', as
     );
 });
 
+test('gallery time sections coalesce non-adjacent assets from the same decade', async () => {
+    const { buildGalleryTimeSections } = await import('../../src/ui/components/layout/galleryTimeSections.ts');
+
+    const sections = buildGalleryTimeSections([
+        buildItem('a', '2021-01-03T00:00:00.000Z'),
+        buildItem('b', '1998-05-09T00:00:00.000Z'),
+        buildItem('c', '2024-07-10T00:00:00.000Z'),
+    ], 'decade');
+
+    assert.deepEqual(
+        sections.map((section) => ({ id: section.id, ids: section.items.map((item) => item.asset.id) })),
+        [
+            { id: 'decade-2020', ids: ['a', 'c'] },
+            { id: 'decade-1990', ids: ['b'] },
+        ],
+    );
+    assert.equal(new Set(sections.map((section) => section.id)).size, sections.length);
+});
+
 test('gallery time sections keep unknown dates in an unlabeled trailing section', async () => {
     const { buildGalleryTimeSections } = await import('../../src/ui/components/layout/galleryTimeSections.ts');
 
