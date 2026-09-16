@@ -43,36 +43,15 @@ function useTimelineGroupIndexBySectionId(sections: GalleryTimeSection[] | undef
     ), [sections]);
 }
 
-function inferDateTimelineSortMode(displayItems: LibrarySelectableItem[]): 'date' | 'reverse-date' {
-    const datedTimestamps = displayItems
-        .map((item) => item.asset.photo_created_at ?? item.asset.created_at ?? null)
-        .filter((timestamp): timestamp is string => typeof timestamp === 'string' && timestamp.length > 0);
-    if (datedTimestamps.length < 2) {
-        return 'date';
-    }
-    return datedTimestamps[0] <= datedTimestamps[datedTimestamps.length - 1]
-        ? 'reverse-date'
-        : 'date';
-}
-
-function resolveDateTimelineSortMode(
-    sortMode: LibrarySortMode | undefined,
-    displayItems: LibrarySelectableItem[],
-): 'date' | 'reverse-date' {
-    if (sortMode === 'reverse-date') {
-        return 'reverse-date';
-    }
-    if (sortMode === 'date') {
-        return 'date';
-    }
-    return inferDateTimelineSortMode(displayItems);
+function getDateTimelineSortMode(sortMode: LibrarySortMode): 'date' | 'reverse-date' {
+    return sortMode === 'reverse-date' ? 'reverse-date' : 'date';
 }
 
 export function useDateTimelineJustifiedSections(params: {
     displayItems: LibrarySelectableItem[];
     timeSectionMode: GalleryTimeSectionMode;
     timelineGallery: TimelineGalleryStateSlice;
-    sortMode?: LibrarySortMode;
+    sortMode: LibrarySortMode;
 }) {
     const { displayItems, timeSectionMode, timelineGallery, sortMode } = params;
 
@@ -80,11 +59,10 @@ export function useDateTimelineJustifiedSections(params: {
         if (timeSectionMode !== 'decade') {
             return undefined;
         }
-        const dateSortMode = resolveDateTimelineSortMode(sortMode, displayItems);
         return buildDateTimelineJustifiedSections(
             displayItems,
             timelineGallery.groupSummaries,
-            dateSortMode,
+            getDateTimelineSortMode(sortMode),
         );
     }, [displayItems, sortMode, timeSectionMode, timelineGallery.groupSummaries]);
 }

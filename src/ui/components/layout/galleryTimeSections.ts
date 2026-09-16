@@ -9,7 +9,7 @@ export type GalleryTimeSection = {
 }
 
 function parseAssetYear(item: LibrarySelectableItem) {
-    const timestamp = item.asset.photo_created_at ?? item.asset.created_at ?? null;
+    const timestamp = item.asset.photo_created_at ?? null;
     if (!timestamp) {return null;}
 
     const year = new Date(timestamp).getUTCFullYear();

@@ -488,6 +488,7 @@ export function LibraryView(props: LibraryViewProps) {
         displayItems,
         timeSectionMode,
         timelineGallery: props.timelineGallery,
+        sortMode,
     });
     const { handleTimelineJump, handleTimelineBucketJump, timelineJumpRequest } = useDateTimelineJumpModel({
         displayItems,

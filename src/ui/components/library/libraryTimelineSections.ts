@@ -3,7 +3,7 @@ import type { LibrarySelectableItem } from '@shared/utils/librarySelectionState'
 import { buildGalleryTimeSections, type GalleryTimeSection } from '../layout/galleryTimeSections.ts';
 
 function getTimelineGroupIdForItem(item: LibrarySelectableItem): TimelineGroupId {
-    const timestamp = item.asset.photo_created_at ?? item.asset.created_at ?? null;
+    const timestamp = item.asset.photo_created_at ?? null;
     if (!timestamp) {
         return 'unknown-date';
     }

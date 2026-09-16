@@ -84,7 +84,7 @@ function TimelineRailTrack(props: {
     const orderedIndexes = useMemo(() => getTimelineRailOrderedIndexes(props.timeline.buckets.length), [props.timeline.buckets.length]);
 
     return (
-        <div className="grid min-h-0 flex-1 auto-rows-[36px] content-start gap-1 overflow-y-auto pr-0.5">
+        <div className="grid min-h-0 flex-1 auto-rows-9 content-start gap-1 overflow-y-auto pr-0.5">
             {orderedIndexes.map((bucketIndex) => {
                 const bucket = props.timeline.buckets[bucketIndex];
                 if (!bucket) {
