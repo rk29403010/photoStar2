@@ -52,7 +52,7 @@ test('gallery time sections coalesce non-adjacent assets from the same decade', 
     assert.equal(new Set(sections.map((section) => section.id)).size, sections.length);
 });
 
-test('gallery time sections keep unknown dates in an unlabeled trailing section', async () => {
+test('gallery time sections keep undated assets in a labeled trailing section', async () => {
     const { buildGalleryTimeSections } = await import('../../src/ui/components/layout/galleryTimeSections.ts');
 
     const sections = buildGalleryTimeSections([
@@ -65,7 +65,7 @@ test('gallery time sections keep unknown dates in an unlabeled trailing section'
         sections.map((section) => ({ label: section.label, ids: section.items.map((item) => item.asset.id) })),
         [
             { label: '1960s', ids: ['a'] },
-            { label: null, ids: ['b', 'c'] },
+            { label: 'Undated', ids: ['b', 'c'] },
         ],
     );
 });

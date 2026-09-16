@@ -66,7 +66,7 @@ const DashboardHeader: React.FC<{
     readonly errorCount: number;
     readonly uiCount: number;
     readonly onSelectTab: (tab: DashboardTab) => void;
-}> = ({ loading, activeTab, workflowCount, dataCount: _dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
+}> = ({ loading, activeTab, workflowCount, dataCount, eventCount, errorCount, uiCount, onSelectTab }) => (
     <div className="flex flex-col gap-4 border-b border-content/10 pb-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-4">
@@ -82,7 +82,7 @@ const DashboardHeader: React.FC<{
             </div>
         </div>
         <div className="font-mono text-xs tracking-widest text-content-secondary">
-            {getActiveTabCount({ activeTab, workflowCount, eventCount, errorCount, uiCount })} RUNTIME
+            {getActiveTabCount({ activeTab, workflowCount, activeMetricCount: dataCount, eventCount, errorCount, uiCount })} RUNTIME
         </div>
     </div>
 );
@@ -174,7 +174,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
     const [activeTab, setActiveTab] = useState<DashboardTab>('workflows');
     const errorsState = useDashboardErrors(activeTab, onGetJobErrors);
-    const dataMetricCount = 10;
+    const dataMetricCount = 11;
     const eventCount = recentEvents.length;
     const errorCount = errorsState.snapshot?.total ?? 0;
     const uiCount = uiFeedEntries.length;

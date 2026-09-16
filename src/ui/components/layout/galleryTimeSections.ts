@@ -44,7 +44,7 @@ export function buildGalleryTimeSections(
         if (!section) {
             section = {
                 id: sectionId,
-                label: decadeStart == null ? null : getDecadeLabel(decadeStart),
+                label: decadeStart == null ? 'Undated' : getDecadeLabel(decadeStart),
                 items: [],
             };
             sectionsById.set(sectionId, section);

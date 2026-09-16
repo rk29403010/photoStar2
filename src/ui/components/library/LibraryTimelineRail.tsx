@@ -113,7 +113,7 @@ function TimelineRailTrack(props: {
     );
 }
 
-function UnknownDateButton(props: {
+function UndatedButton(props: {
     readonly unknownDateCount: number;
     readonly activeSeek: GalleryTimelineSeek | null;
     readonly onClick: () => void;
@@ -125,14 +125,17 @@ function UnknownDateButton(props: {
     const activeClass = props.activeSeek?.kind === 'unknown'
         ? 'bg-brand-accent text-white border-brand-accent'
         : 'bg-content/5 text-content-secondary border-content/10 hover:bg-content/10';
+    const tooltip = `${props.unknownDateCount.toLocaleString()} photo${props.unknownDateCount === 1 ? '' : 's'} without a date`;
 
     return (
         <button
             type="button"
+            title={tooltip}
+            aria-label={`Undated: ${tooltip}`}
             onClick={props.onClick}
             className={`border rounded-full py-1 px-2.5 text-xs whitespace-nowrap cursor-pointer transition-colors ${activeClass}`}
         >
-            Unknown ({props.unknownDateCount})
+            Undated
         </button>
     );
 }
@@ -164,7 +167,7 @@ export function LibraryTimelineRail(props: LibraryTimelineRailProps) {
                 onBucketJump={props.onBucketJump}
             />
             <div className="flex flex-col gap-1.5">
-                <UnknownDateButton
+                <UndatedButton
                     unknownDateCount={props.timeline.unknownDateCount}
                     activeSeek={props.activeSeek}
                     onClick={() => {

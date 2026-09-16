@@ -20,10 +20,14 @@ function buildTimelineGroupSectionOrder(groupSummaries: TimelineGroupSummary[]) 
     return new Map(groupSummaries.map((groupSummary, groupIndex) => [groupSummary.id, groupIndex] as const));
 }
 
+function getTimelineSectionLabel(groupId: TimelineGroupId, label: string | null) {
+    return groupId === 'unknown-date' ? 'Undated' : label;
+}
+
 function createTimelineSectionFromSummary(groupSummary: TimelineGroupSummary, items: LibrarySelectableItem[]): GalleryTimeSection {
     return {
         id: groupSummary.id,
-        label: groupSummary.label,
+        label: getTimelineSectionLabel(groupSummary.id, groupSummary.label),
         items,
     };
 }
@@ -64,9 +68,9 @@ function buildRemainingTimelineSectionLabel(
 ) {
     const matchingSummary = groupSummaries.find((groupSummary) => groupSummary.id === groupId);
     if (matchingSummary?.label != null) {
-        return matchingSummary.label;
+        return getTimelineSectionLabel(groupId, matchingSummary.label);
     }
-    return groupId === 'unknown-date' ? null : `${groupId.replace('decade-', '')}s`;
+    return groupId === 'unknown-date' ? 'Undated' : `${groupId.replace('decade-', '')}s`;
 }
 
 function buildRemainingTimelineSections(
