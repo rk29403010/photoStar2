@@ -1,38 +1,49 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('buildGroupIdPills formats the trailing four characters for every group membership', async () => {
+function presentation(presentationKey, relationshipKind) {
+    return {
+        presentationKey,
+        representativeAssetId: 'asset-representative',
+        relationshipKind,
+        stackCount: 2,
+        assetIds: ['asset-representative', 'asset-member'],
+        momentCount: 1,
+    };
+}
+
+test('buildGroupIdPills formats the trailing four characters for presentation keys', async () => {
     const { buildGroupIdPills } = await import('../../src/ui/components/layout/tileGroupIdModel.ts');
 
     const pills = buildGroupIdPills([
-        { group_id: 'group-burst-1234' },
-        { group_id: 'group-variant-9abc' },
-        { group_id: 'xy' },
+        presentation('sequence:1234', 'capture_sequence'),
+        presentation('variant:9abc', 'variant'),
+        presentation('xy', null),
     ]);
 
     assert.deepEqual(pills, ['1234', '9abc', 'xy']);
 });
 
-test('buildGroupIdPills de-duplicates repeated group ids and ignores empty entries', async () => {
+test('buildGroupIdPills de-duplicates repeated presentation keys and ignores empty entries', async () => {
     const { buildGroupIdPills } = await import('../../src/ui/components/layout/tileGroupIdModel.ts');
 
     const pills = buildGroupIdPills([
-        { group_id: 'group-1-ffff' },
-        { group_id: 'group-1-ffff' },
-        { group_id: '' },
-        { group_id: null },
+        presentation('variant:ffff', 'variant'),
+        presentation('variant:ffff', 'near_duplicate'),
+        null,
+        undefined,
     ]);
 
     assert.deepEqual(pills, ['ffff']);
 });
 
-test('buildGroupIdPillModels assigns stable symbols and stable per-group colors', async () => {
+test('buildGroupIdPillModels assigns stable relationship symbols and per-presentation colors', async () => {
     const { buildGroupIdPillModels } = await import('../../src/ui/components/layout/tileGroupIdModel.ts');
 
     const pills = buildGroupIdPillModels([
-        { group_id: 'group-burst-1234', group_type: 'burst' },
-        { group_id: 'group-variant-9abc', group_type: 'variant_set' },
-        { group_id: 'group-duplicate-ffff', group_type: 'duplicate' },
+        presentation('sequence:1234', 'capture_sequence'),
+        presentation('variant:9abc', 'variant'),
+        presentation('exact:ffff', 'exact_copy'),
     ]);
 
     assert.deepEqual(
@@ -41,7 +52,7 @@ test('buildGroupIdPillModels assigns stable symbols and stable per-group colors'
             { label: '1234', symbol: '*' },
             { label: '9abc', symbol: '~' },
             { label: 'ffff', symbol: '≡' },
-        ]
+        ],
     );
     assert.match(pills[0].background, /^hsla\(/);
     assert.match(pills[1].background, /^hsla\(/);
@@ -49,7 +60,7 @@ test('buildGroupIdPillModels assigns stable symbols and stable per-group colors'
     assert.notEqual(pills[1].background, pills[2].background);
 
     const repeated = buildGroupIdPillModels([
-        { group_id: 'group-burst-1234', group_type: 'duplicate' },
+        presentation('sequence:1234', 'exact_copy'),
     ]);
     assert.equal(repeated[0].background, pills[0].background);
 });

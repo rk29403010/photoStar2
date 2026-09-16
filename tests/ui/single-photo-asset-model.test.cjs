@@ -38,15 +38,13 @@ function createProjection(params = {}) {
     };
 }
 
-test('mergeSinglePhotoAssets preserves richer gallery metadata when orbit assets are sparse', async () => {
+test('mergeSinglePhotoAssets preserves richer gallery metadata when expanded assets are sparse', async () => {
     const { mergeSinglePhotoAssets } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
 
     const merged = mergeSinglePhotoAssets(
         [{
             id: 'asset-1',
             original_path: 'one.jpg',
-            group_id: 'group-1',
-            group_role: 'member',
             ai_metadata: { caption: 'Rich AI caption' },
             photo_metadata: {
                 projection: createProjection({
@@ -68,8 +66,6 @@ test('mergeSinglePhotoAssets preserves richer gallery metadata when orbit assets
         [{
             id: 'asset-1',
             original_path: 'one.jpg',
-            group_id: 'group-1',
-            group_role: 'member',
             photo_metadata: {
                 projection: createProjection(),
                 provenance: {},
@@ -86,7 +82,7 @@ test('mergeSinglePhotoAssets preserves richer gallery metadata when orbit assets
     assert.equal(merged[0].ai_metadata?.caption, 'Rich AI caption');
 });
 
-test('mergeSinglePhotoAssets keeps refreshed gallery metadata when orbit copies are stale', async () => {
+test('mergeSinglePhotoAssets keeps refreshed gallery metadata when expanded copies are stale', async () => {
     const { mergeSinglePhotoAssets } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
 
     const merged = mergeSinglePhotoAssets(
@@ -136,7 +132,7 @@ test('mergeSinglePhotoAssets keeps refreshed gallery metadata when orbit copies 
     assert.equal(merged[0].photo_metadata?.projection.description, 'Fresh projection description');
 });
 
-test('isLibrarySelectionAnchorAsset excludes orbit-only duplicate assets from replacing the library anchor', async () => {
+test('isLibrarySelectionAnchorAsset excludes expansion-only assets from replacing the library anchor', async () => {
     const { isLibrarySelectionAnchorAsset } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
 
     const libraryAssets = [
@@ -145,41 +141,24 @@ test('isLibrarySelectionAnchorAsset excludes orbit-only duplicate assets from re
     ];
 
     assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, 'asset-1'), true);
-    assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, 'orbit-duplicate'), false);
+    assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, 'expanded-member'), false);
     assert.equal(isLibrarySelectionAnchorAsset(libraryAssets, undefined), false);
 });
 
-test('resolveActiveSinglePhotoGroupId preserves the active child group while the selected asset still belongs to it', async () => {
-    const { resolveActiveSinglePhotoGroupId } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
+test('single-photo asset indexes resolve presentation expansion members without group state', async () => {
+    const { mergeSinglePhotoAssets, resolveSinglePhotoAssetIndex } = await import('../../src/ui/components/single-photo/singlePhotoAssetModel.ts');
 
-    assert.equal(
-        resolveActiveSinglePhotoGroupId(
-            {
-                id: 'asset-3',
-                original_path: 'three.jpg',
-                group_id: 'group-parent',
-                group_memberships: [
-                    { group_id: 'group-parent', group_role: 'member', stack_count: 3, role: 'member', rank: null, match_evidence: null, group_type: 'variant_set' },
-                    { group_id: 'group-child', group_role: 'canonical', stack_count: 2, role: 'canonical', rank: -1, match_evidence: null, group_type: 'burst' },
-                ],
-            },
-            'group-child',
-        ),
-        'group-child',
+    const merged = mergeSinglePhotoAssets(
+        [{ id: 'representative', original_path: 'representative.jpg' }],
+        [
+            { id: 'member', original_path: 'member.jpg' },
+            { id: 'member', original_path: 'member-better.jpg', preview_path: 'member.webp' },
+        ],
     );
 
-    assert.equal(
-        resolveActiveSinglePhotoGroupId(
-            {
-                id: 'asset-4',
-                original_path: 'four.jpg',
-                group_id: 'group-parent',
-                group_memberships: [
-                    { group_id: 'group-parent', group_role: 'member', stack_count: 3, role: 'member', rank: null, match_evidence: null, group_type: 'variant_set' },
-                ],
-            },
-            'group-child',
-        ),
-        'group-parent',
-    );
+    assert.deepEqual(merged.map((asset) => asset.id), ['representative', 'member']);
+    assert.equal(merged[1].original_path, 'member-better.jpg');
+    assert.equal(merged[1].preview_path, 'member.webp');
+    assert.equal(resolveSinglePhotoAssetIndex(merged, 'member'), 1);
+    assert.equal(resolveSinglePhotoAssetIndex(merged, 'missing'), -1);
 });

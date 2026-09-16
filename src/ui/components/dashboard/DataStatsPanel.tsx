@@ -28,6 +28,7 @@ function getEmptyStats(): DataStatsSnapshot {
             photosWithAiMetadata: 0,
             photosWithDetectedFaces: 0,
             photosWithMatchedFaces: 0,
+            photosWithoutDate: 0,
         },
         coverage: {
             aiMetadataPercent: 0,
@@ -59,6 +60,7 @@ export const DataStatsPanel: React.FC<{ readonly stats: DataStatsSnapshot | null
             </div>
             <div className="grid gap-4" style={METRICS_GRID_STYLE}>
                 <MetricCard title="Photos" value={values.totals.assets.toLocaleString()} />
+                <MetricCard title="Undated Photos" value={values.totals.photosWithoutDate.toLocaleString()} hint="active library photos without a photo date" />
                 <MetricCard title="People" value={values.totals.people.toLocaleString()} />
                 <MetricCard title="AI Metadata Coverage" value={`${values.totals.photosWithAiMetadata.toLocaleString()} (${formatPercent(values.coverage.aiMetadataPercent)})`} hint="photos with extended metadata" />
                 <MetricCard title="Face Match Coverage" value={`${values.totals.photosWithMatchedFaces.toLocaleString()} (${formatPercent(values.coverage.faceMatchedPercent)})`} hint={`of ${values.totals.photosWithDetectedFaces.toLocaleString()} photos with detected faces`} />

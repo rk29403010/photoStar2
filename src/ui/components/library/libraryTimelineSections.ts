@@ -3,7 +3,7 @@ import type { LibrarySelectableItem } from '@shared/utils/librarySelectionState'
 import { buildGalleryTimeSections, type GalleryTimeSection } from '../layout/galleryTimeSections.ts';
 
 function getTimelineGroupIdForItem(item: LibrarySelectableItem): TimelineGroupId {
-    const timestamp = item.asset.photo_created_at ?? item.asset.created_at ?? null;
+    const timestamp = item.asset.photo_created_at ?? null;
     if (!timestamp) {
         return 'unknown-date';
     }
@@ -20,10 +20,14 @@ function buildTimelineGroupSectionOrder(groupSummaries: TimelineGroupSummary[]) 
     return new Map(groupSummaries.map((groupSummary, groupIndex) => [groupSummary.id, groupIndex] as const));
 }
 
+function getTimelineSectionLabel(groupId: TimelineGroupId, label: string | null) {
+    return groupId === 'unknown-date' ? 'Undated' : label;
+}
+
 function createTimelineSectionFromSummary(groupSummary: TimelineGroupSummary, items: LibrarySelectableItem[]): GalleryTimeSection {
     return {
         id: groupSummary.id,
-        label: groupSummary.label,
+        label: getTimelineSectionLabel(groupSummary.id, groupSummary.label),
         items,
     };
 }
@@ -64,9 +68,9 @@ function buildRemainingTimelineSectionLabel(
 ) {
     const matchingSummary = groupSummaries.find((groupSummary) => groupSummary.id === groupId);
     if (matchingSummary?.label != null) {
-        return matchingSummary.label;
+        return getTimelineSectionLabel(groupId, matchingSummary.label);
     }
-    return groupId === 'unknown-date' ? null : `${groupId.replace('decade-', '')}s`;
+    return groupId === 'unknown-date' ? 'Undated' : `${groupId.replace('decade-', '')}s`;
 }
 
 function buildRemainingTimelineSections(
@@ -92,16 +96,44 @@ function buildRemainingTimelineSections(
         }));
 }
 
+function getSectionDecadeStart(section: GalleryTimeSection) {
+    if (!section.id.startsWith('decade-')) {
+        return null;
+    }
+    const decadeStart = Number.parseInt(section.id.slice('decade-'.length), 10);
+    return Number.isNaN(decadeStart) ? null : decadeStart;
+}
+
+function sortTimelineSections(
+    sections: GalleryTimeSection[],
+    sortMode: 'date' | 'reverse-date',
+) {
+    return [...sections].sort((left, right) => {
+        const leftDecade = getSectionDecadeStart(left);
+        const rightDecade = getSectionDecadeStart(right);
+        if (leftDecade == null) {
+            return rightDecade == null ? 0 : 1;
+        }
+        if (rightDecade == null) {
+            return -1;
+        }
+        return sortMode === 'reverse-date'
+            ? leftDecade - rightDecade
+            : rightDecade - leftDecade;
+    });
+}
+
 export function buildDateTimelineJustifiedSections(
     displayItems: LibrarySelectableItem[],
     groupSummaries: TimelineGroupSummary[],
+    sortMode: 'date' | 'reverse-date' = 'date',
 ): GalleryTimeSection[] {
     if (displayItems.length === 0) {
         return [];
     }
 
     if (groupSummaries.length === 0) {
-        return buildGalleryTimeSections(displayItems, 'decade');
+        return sortTimelineSections(buildGalleryTimeSections(displayItems, 'decade'), sortMode);
     }
 
     const sectionOrderById = buildTimelineGroupSectionOrder(groupSummaries);
@@ -109,10 +141,10 @@ export function buildDateTimelineJustifiedSections(
     const summarySections = buildSummaryTimelineSections(groupSummaries, itemsByGroupId);
 
     if (itemsByGroupId.size === 0) {
-        return summarySections;
+        return sortTimelineSections(summarySections, sortMode);
     }
 
     const remainingSections = buildRemainingTimelineSections(itemsByGroupId, groupSummaries, sectionOrderById);
 
-    return [...summarySections, ...remainingSections];
+    return sortTimelineSections([...summarySections, ...remainingSections], sortMode);
 }

@@ -17,7 +17,7 @@ test('single-photo face refresh action resets and reruns face detection for the 
     assert.match(actionMenuSource, /onRerunFaceDetection/);
     assert.match(actionOverlaysSource, /onRerunFaceDetection/);
     assert.match(photoViewportSource, /onRerunFaceDetection/);
-    assert.match(photoViewportSource, /ViewportDecorations: FC<Pick<PhotoViewportFrameProps,[^>]+onRerunFaceDetection/s);
+    assert.match(photoViewportSource, /function ViewportActions\(props: \{[\s\S]*onRerunFaceDetection\?: \(assetId: string\)/s);
     assert.match(photoViewportSource, /onRerunFaceDetection=\{props\.onRerunFaceDetection\}/);
     assert.match(overlaySource, /onRerunFaceDetection/);
     assert.match(viewSource, /onRerunFaceDetection/);

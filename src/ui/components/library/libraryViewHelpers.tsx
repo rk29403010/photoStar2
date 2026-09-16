@@ -43,19 +43,28 @@ function useTimelineGroupIndexBySectionId(sections: GalleryTimeSection[] | undef
     ), [sections]);
 }
 
+function getDateTimelineSortMode(sortMode: LibrarySortMode): 'date' | 'reverse-date' {
+    return sortMode === 'reverse-date' ? 'reverse-date' : 'date';
+}
+
 export function useDateTimelineJustifiedSections(params: {
     displayItems: LibrarySelectableItem[];
     timeSectionMode: GalleryTimeSectionMode;
     timelineGallery: TimelineGalleryStateSlice;
+    sortMode: LibrarySortMode;
 }) {
-    const { displayItems, timeSectionMode, timelineGallery } = params;
+    const { displayItems, timeSectionMode, timelineGallery, sortMode } = params;
 
     return useMemo<GalleryTimeSection[] | undefined>(() => {
         if (timeSectionMode !== 'decade') {
             return undefined;
         }
-        return buildDateTimelineJustifiedSections(displayItems, timelineGallery.groupSummaries);
-    }, [displayItems, timeSectionMode, timelineGallery.groupSummaries]);
+        return buildDateTimelineJustifiedSections(
+            displayItems,
+            timelineGallery.groupSummaries,
+            getDateTimelineSortMode(sortMode),
+        );
+    }, [displayItems, sortMode, timeSectionMode, timelineGallery.groupSummaries]);
 }
 
 export function useDateTimelineJumpModel(params: {

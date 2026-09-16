@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type
 import { buildJustifiedLayoutRows } from '@shared/utils/libraryJustifiedLayout';
 import type { TimelineJumpRequest } from '../library/libraryTimelineJump';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
-import { isItemSelected, type LibrarySelectableItem, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import {
+    hasLibrarySelection,
+    isItemSelected,
+    setLibraryItemsSelected,
+    type LibrarySelectableItem,
+    type LibrarySelectionState,
+} from '@shared/utils/librarySelectionState';
 
 type GroupedTimelineLayoutProps = {
     readonly sections: Array<{
@@ -49,7 +55,7 @@ function useContainerWidth() {
 
     useEffect(() => {
         const element = containerRef.current;
-        if (!element) {return;}
+        if (!element) {return undefined;}
 
         const updateWidth = () => {
             setContainerWidth(element.getBoundingClientRect().width);
@@ -120,33 +126,26 @@ function toggleSectionSelection(
     onLibrarySelectionChange: (selection: LibrarySelectionState) => void,
     allSelected: boolean
 ) {
-    const nextSelection = {
-        photoIds: new Set(librarySelection.photoIds),
-        groupIds: new Set(librarySelection.groupIds),
-        anchorKey: librarySelection.anchorKey,
-        mostRecentSelectionKey: librarySelection.mostRecentSelectionKey,
-    };
-
-    validItems.forEach(item => {
-        if (!item.selectableItem) {return;}
-        const key = item.selectableItem.entityType === 'group' && item.selectableItem.groupId ? 'groupIds' : 'photoIds';
-        const val = item.selectableItem.entityType === 'group' && item.selectableItem.groupId ? item.selectableItem.groupId : item.selectableItem.photoId;
-        if (allSelected) {
-            nextSelection[key].delete(val);
-        } else {
-            nextSelection[key].add(val);
-        }
-    });
-
-    onLibrarySelectionChange(nextSelection);
+    const sectionItems = validItems.flatMap((item) => item.selectableItem ? [item.selectableItem] : []);
+    onLibrarySelectionChange(setLibraryItemsSelected(librarySelection, sectionItems, !allSelected));
 }
 
-const DecadeHeaderLabel: React.FC<{ label: string }> = ({ label }) => (
-    <div className="text-sm font-bold tracking-wider uppercase text-content-secondary flex items-baseline gap-0.5">
-        <span>{label.slice(0, -1)}</span>
-        <span className="text-xs tracking-normal">{label.slice(-1)}</span>
-    </div>
-);
+const TimelineHeaderLabel: React.FC<{ label: string }> = ({ label }) => {
+    if (/^\d{4}s$/.test(label)) {
+        return (
+            <div className="text-sm font-bold tracking-wider uppercase text-content-secondary flex items-baseline gap-0.5">
+                <span>{label.slice(0, -1)}</span>
+                <span className="text-xs tracking-normal">{label.slice(-1)}</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="text-sm font-bold tracking-wider uppercase text-content-secondary">
+            {label}
+        </div>
+    );
+};
 
 const DecadeHeaderCheckbox: React.FC<{
     hasSelection: boolean;
@@ -190,7 +189,7 @@ function renderGroupHeader(
         return <div className="w-full min-h-11" />;
     }
 
-    const hasSelection = librarySelection ? (librarySelection.photoIds.size > 0 || librarySelection.groupIds.size > 0) : false;
+    const hasSelection = librarySelection ? hasLibrarySelection(librarySelection) : false;
     const sectionItems = section?.items ?? [];
     const validItems = sectionItems.filter(item => item.selectableItem);
     const { allSelected, someSelected } = calculateSectionSelectionState(validItems, librarySelection);
@@ -200,7 +199,7 @@ function renderGroupHeader(
             data-time-section-id={group.id}
             className="w-full max-w-screen-2xl min-h-11 mx-auto pt-4 pb-2 px-0 box-border bg-surface border-b border-content/5 flex items-center justify-between group/header"
         >
-            <DecadeHeaderLabel label={group.label} />
+            <TimelineHeaderLabel label={group.label} />
             {validItems.length > 0 && (
                 <DecadeHeaderCheckbox
                     hasSelection={hasSelection}
@@ -308,7 +307,7 @@ function useTimelineJumpHandler(
                 behavior: 'auto',
             });
             const headerItem = virtualItems[targetIndex];
-            if (headerItem && headerItem.type === 'header') {
+            if (headerItem?.type === 'header') {
                 onVisibleGroupChangeRef.current?.(headerItem.group.id, headerItem.groupIndex);
                 onTopVisibleSelectionKeyChangeRef.current?.(headerItem.group.firstSelectionKey ?? null);
             }
@@ -417,6 +416,7 @@ export function GroupedTimelineLayout(props: GroupedTimelineLayoutProps) {
                 computeItemKey={(_index, item) => item.id}
                 rangeChanged={handleRangeChanged}
                 useWindowScroll={!customScrollParent}
+                increaseViewportBy={{ top: 900, bottom: 600 }}
                 itemContent={(_index, item) => {
                     if (item.type === 'header') {
                         return renderGroupHeader(item.group, props.sections[item.groupIndex], props.librarySelection, props.onLibrarySelectionChange);

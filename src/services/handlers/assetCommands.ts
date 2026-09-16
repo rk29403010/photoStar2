@@ -5,11 +5,6 @@ import type { CommandHandlerMap } from './types';
 import { toAssetPayload } from './assetPayloadModel';
 import { buildOrderClause, getGalleryOrder, type AssetGalleryOrder } from './assetGalleryOrder';
 import { buildAssetTimelineSeekClause, getAssetTimelineSeek, type AssetTimelineSeekClause } from './assetTimelineSeek';
-import {
-    buildGroupFieldFragments,
-    GROUP_HIERARCHY_CTE,
-    buildPrimaryGroupVisibilityPredicate,
-} from './assetGroupingQueryFragments';
 import { buildFilterSubquery } from './assetQueryFilters';
 import { buildAssetDetailFragments, buildLatestDerivedResultJoin, type AssetDetailLevel } from '../../shared/sql/derivedResults';
 import { attachInlinePreviewDataUrls } from './galleryInlinePreview';
@@ -81,13 +76,6 @@ type AssetRow = {
     regions_of_interest_source_id: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
-    member_group_id?: string | null;
-    member_role?: string | null;
-    member_rank?: number | null;
-    member_match_evidence?: string | null;
-    member_group_type?: string | null;
-    stack_count?: number | null;
-    group_memberships_json?: string | null;
 };
 
 type AssetFilter = { personIds?: string[]; type?: string; albumId?: string; tag?: string };
@@ -140,13 +128,11 @@ function buildFilteredAssetsQuery(options: {
         projectionAlias: 'pm',
         photoDateEstimateAlias: 'r_date',
     });
-    const groupFields = buildGroupFieldFragments('a');
     const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
     params.push(...timelineSeekClause.params, limit, offset);
 
     return {
         sql: `
-            ${GROUP_HIERARCHY_CTE}
             SELECT a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence,
                 ${detail.projectionSelect}
                 a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
@@ -165,13 +151,6 @@ function buildFilteredAssetsQuery(options: {
                     JOIN people per ON fa.person_id = per.id
                     WHERE fa.asset_id = a.id
                 ) as people_data,
-                ${groupFields.memberGroupIdSelect}
-                ${groupFields.memberRoleSelect}
-                ${groupFields.memberRankSelect}
-                ${groupFields.memberMatchEvidenceSelect}
-                ${groupFields.memberGroupTypeSelect}
-                ${groupFields.stackCountSelect}
-                ${groupFields.groupMembershipsSelect}
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
@@ -192,72 +171,6 @@ function buildFilteredAssetsQuery(options: {
     };
 }
 
-function buildGroupedAssetsQuery(
-    limit: number,
-    offset: number,
-    timelineSeekClause: AssetTimelineSeekClause,
-    detailLevel: AssetDetailLevel,
-    galleryOrder: AssetGalleryOrder,
-    includeEvidence: boolean,
-): AssetQueryParts {
-    const detail = buildAssetDetailFragments({
-        detailLevel,
-        includeEvidence,
-        recAlias: 'r_rec',
-        aiNewAlias: 'r_ai_new',
-        aiLegacyAlias: 'r_ai_legacy',
-        projectionAlias: 'pm',
-        photoDateEstimateAlias: 'r_date',
-    });
-    const groupFields = buildGroupFieldFragments('a');
-    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_date.data, r_meta.data' : '';
-    const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
-
-    return {
-        sql: `
-            ${GROUP_HIERARCHY_CTE}
-            SELECT
-                a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence,
-                ${detail.projectionSelect}
-                a.sensitivity_score, a.exif_datetime, a.metadata_timestamp_source,
-                null as sensitivity_status,
-                (SELECT data FROM derived_results WHERE asset_id = a.id AND task = 'frame_detection' LIMIT 1) as frame_detection_data,
-                (SELECT json_group_array(data) FROM asset_mask_metadata WHERE asset_id = a.id) as mask_metadata_data,
-                p.path as preview_path,
-                COALESCE(r_faces_new.data, r_faces_legacy.data) as faces_data,
-                ${detail.recSelect}
-                ${detail.aiSelect}
-                ${detail.photoDateEstimateSelect}
-                ${detail.embeddedMetadataSelect}
-                json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name, 'is_suggested', fa.is_suggested)) as people_data,
-                ${groupFields.memberGroupIdSelect}
-                ${groupFields.memberRoleSelect}
-                ${groupFields.memberRankSelect}
-                ${groupFields.memberMatchEvidenceSelect}
-                ${groupFields.memberGroupTypeSelect}
-                ${groupFields.stackCountSelect}
-                ${groupFields.groupMembershipsSelect}
-                1 as _query_anchor
-            FROM assets a
-            LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
-            ${detail.projectionJoin}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_new', task: 'face_detection' })}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_faces_legacy', task: 'face_landmarks' })}
-            ${detail.recJoin}
-            ${detail.aiJoin}
-            ${detail.photoDateEstimateJoin}
-            ${detail.embeddedMetadataJoin}
-            LEFT JOIN face_assignments fa ON a.id = fa.asset_id
-            LEFT JOIN people ppl ON fa.person_id = ppl.id
-            WHERE ${buildPrimaryGroupVisibilityPredicate('a')} AND a.binned_at IS NULL${timelineSeekSql}
-            GROUP BY a.id, p.path, r_faces_new.data, r_faces_legacy.data${evidenceGroupBy}
-            ORDER BY ${buildOrderClause({ galleryOrder, defaultDirection: 'DESC' })}
-            LIMIT ? OFFSET ?
-        `,
-        params: [...timelineSeekClause.params, limit, offset],
-    };
-}
-
 function buildUngroupedAssetsQuery(
     limit: number,
     offset: number,
@@ -275,13 +188,11 @@ function buildUngroupedAssetsQuery(
         projectionAlias: 'pm',
         photoDateEstimateAlias: 'r_date',
     });
-    const groupFields = buildGroupFieldFragments('a');
     const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_date.data, r_meta.data' : '';
     const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
 
     return {
         sql: `
-            ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence,
                 ${detail.projectionSelect}
@@ -296,13 +207,6 @@ function buildUngroupedAssetsQuery(
                 ${detail.photoDateEstimateSelect}
                 ${detail.embeddedMetadataSelect}
                 json_group_array(json_object('face_index', fa.face_index, 'person_id', ppl.id, 'name', ppl.name)) as people_data,
-                ${groupFields.memberGroupIdSelect}
-                ${groupFields.memberRoleSelect}
-                ${groupFields.memberRankSelect}
-                ${groupFields.memberMatchEvidenceSelect}
-                ${groupFields.memberGroupTypeSelect}
-                ${groupFields.stackCountSelect}
-                ${groupFields.groupMembershipsSelect}
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
@@ -325,7 +229,6 @@ function buildUngroupedAssetsQuery(
 }
 
 function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): AssetQueryParts {
-    const groupFields = buildGroupFieldFragments('a');
     const detail = buildAssetDetailFragments({
         detailLevel: 'full',
         includeEvidence,
@@ -338,7 +241,6 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
 
     return {
         sql: `
-            ${GROUP_HIERARCHY_CTE}
             SELECT
                 a.id, a.original_path, a.width, a.height, a.file_size, a.created_at, a.binned_at, a.photo_created_at, a.photo_created_at_confidence, a.exif_datetime, a.metadata_timestamp_source,
                 ${detail.projectionSelect}
@@ -358,13 +260,6 @@ function buildAssetDetailQuery(assetId: string, includeEvidence: boolean): Asset
                     JOIN people per ON fa.person_id = per.id
                     WHERE fa.asset_id = a.id
                 ) as people_data,
-                ${groupFields.memberGroupIdSelect}
-                ${groupFields.memberRoleSelect}
-                ${groupFields.memberRankSelect}
-                ${groupFields.memberMatchEvidenceSelect}
-                ${groupFields.memberGroupTypeSelect}
-                ${groupFields.stackCountSelect}
-                ${groupFields.groupMembershipsSelect}
                 1 as _query_anchor
             FROM assets a
             LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
@@ -401,7 +296,6 @@ function dedupeAssetsById(assets: ReturnType<typeof toAsset>[]) {
 function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
     const offset = payload.offset || 0;
     const limit = payload.limit || 500;
-    const withGroupCounts = payload.withGroupCounts ?? true;
     const detailLevel = getDetailLevel(payload);
     const galleryOrder = getGalleryOrder(payload);
     const timelineSeekClause = buildAssetTimelineSeekClause('a', galleryOrder, getAssetTimelineSeek(payload));
@@ -421,7 +315,6 @@ function getAssetsQuery(payload: AssetQueryPayload): AssetQueryParts {
             includeEvidence,
         });
     }
-    if (withGroupCounts) { return buildGroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence); }
     return buildUngroupedAssetsQuery(limit, offset, timelineSeekClause, detailLevel, galleryOrder, includeEvidence);
 }
 

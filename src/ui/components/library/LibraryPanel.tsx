@@ -1,16 +1,19 @@
 import { useCallback, type ComponentProps, type CSSProperties, type ReactNode, type RefObject, type UIEvent } from 'react';
-import type { Asset, GalleryTimelineSeek, ReviewItemSummary, SimilarityOrbit } from '@contracts/core';
+import type { Asset, GalleryTimelineSeek, ReviewItemSummary } from '@contracts/core';
+import type { LibraryPresentationExpansion } from '@contracts/libraryPresentation';
 import type { InfoTab } from '@ui/hooks/useAppRuntimeUi';
 import type { PhotoDateCorrectionInput } from '@ui/hooks/usePhotoDateReviewHandler';
 import { GalleryInfoPanel } from './GalleryInfoPanel';
 import { LibraryGalleryPane } from './LibraryGalleryPane';
 import { LibraryToolbar } from './LibraryToolbar';
-import type { LibrarySelectionState } from '@shared/utils/librarySelectionState';
+import { createEmptyLibrarySelectionState, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
+
+type GalleryScrollStyle = CSSProperties & {
+    '--gallery-browse-row-height': string;
+};
 
 function getTimelineSeekLabel(seek: GalleryTimelineSeek | null) {
-    if (seek?.kind === 'unknown') {
-        return 'Unknown date';
-    }
+    if (seek?.kind === 'unknown') {return 'Unknown date';}
     if (seek?.kind === 'dated') {
         const year = new Date(seek.targetDate).getUTCFullYear();
         return Number.isNaN(year) ? 'timeline' : `${year}s`;
@@ -50,35 +53,25 @@ export type LibraryPanelProps = {
     }) => Promise<void>;
     readonly onFlagPhotoDateCorrection?: (input: PhotoDateCorrectionInput) => Promise<void>;
     readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
-    readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-    readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+    readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+    readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
     readonly browseRowHeight: number;
     readonly isScrollSettled: boolean;
 }
 
-function useContainerPointerDownHandler(
-    onLibrarySelectionChange: ((selection: LibrarySelectionState) => void) | undefined
-) {
+function useContainerPointerDownHandler(onLibrarySelectionChange: ((selection: LibrarySelectionState) => void) | undefined) {
     return useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        const target = event.target as HTMLElement;
+        const target = event.target;
+        if (!(target instanceof Element)) {return;}
         if (
-            target.closest('[data-selection-key]') ||
-            target.closest('[data-time-section-id]') ||
-            target.closest('button') ||
-            target.closest('a')
-        ) {
-            return;
-        }
+            target.closest('[data-selection-key]')
+            || target.closest('[data-time-section-id]')
+            || target.closest('button')
+            || target.closest('a')
+        ) {return;}
         const rect = event.currentTarget.getBoundingClientRect();
-        if (event.clientX > rect.left + event.currentTarget.clientWidth) {
-            return;
-        }
-        onLibrarySelectionChange?.({
-            photoIds: new Set(),
-            groupIds: new Set(),
-            anchorKey: null,
-            mostRecentSelectionKey: null,
-        });
+        if (event.clientX > rect.left + event.currentTarget.clientWidth) {return;}
+        onLibrarySelectionChange?.(createEmptyLibrarySelectionState());
     }, [onLibrarySelectionChange]);
 }
 
@@ -101,15 +94,14 @@ export function LibraryPanel({
     onSetReviewItemStatus,
     onFlagPhotoDateCorrection,
     onRecordPhotoMetadataAssertion,
-    onGetGroupOrbit,
-    onSetCanonical,
+    onGetPresentationExpansion,
+    onSetPresentationCover,
     browseRowHeight,
     isScrollSettled,
 }: LibraryPanelProps) {
-    const scrollContainerStyle = {
+    const scrollContainerStyle: GalleryScrollStyle = {
         '--gallery-browse-row-height': `${browseRowHeight}px`,
-    } as CSSProperties;
-
+    };
     const handleContainerPointerDown = useContainerPointerDownHandler(layout.onLibrarySelectionChange);
 
     return (
@@ -140,8 +132,8 @@ export function LibraryPanel({
                     onSetReviewItemStatus={onSetReviewItemStatus}
                     onFlagPhotoDateCorrection={onFlagPhotoDateCorrection}
                     onRecordPhotoMetadataAssertion={onRecordPhotoMetadataAssertion}
-                    onGetGroupOrbit={onGetGroupOrbit}
-                    onSetCanonical={onSetCanonical}
+                    onGetPresentationExpansion={onGetPresentationExpansion}
+                    onSetPresentationCover={onSetPresentationCover}
                 />
             )}
         </div>

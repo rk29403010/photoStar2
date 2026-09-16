@@ -1,7 +1,7 @@
 name: descreen-diagnostic
 
 on:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,19 +13,25 @@ jobs:
       QA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       LINT_DIFF_BASE: ${{ github.event.pull_request.base.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v6
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 11.3.0
           run_install: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .node-version
           cache: pnpm
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsecret-1-0
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies without implicit lifecycle scripts
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm rebuild @tensorflow/tfjs-node better-sqlite3 core-js keytar onnxruntime-node sharp
+          node tooling/scripts/core/fix_tfjs_binding.cjs
       - name: Workflow registry
         run: pnpm run module:check-registry
       - name: Photo tool registry

@@ -5,6 +5,58 @@ import { parseGedcom } from "../../../services/gedcom/gedcomParser";
 import type { GedcomData } from "../../../services/gedcom/kinshipTypes";
 import type { TreeInfo } from "./familyTreeTypes";
 
+const FAMILY_TREE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const GEDCOM_PERSON_ID_PATTERN = /^@\w+@$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function safeFamilyTreeId(value: string): string | null {
+  const normalized = value.trim();
+  return FAMILY_TREE_ID_PATTERN.test(normalized) ? normalized.toLowerCase() : null;
+}
+
+function safeGedcomPersonId(value: string): string | null {
+  const normalized = value.trim();
+  return GEDCOM_PERSON_ID_PATTERN.test(normalized) ? normalized : null;
+}
+
+function isTreeInfo(value: unknown): value is TreeInfo {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return typeof value.id === "string"
+    && typeof value.filename === "string"
+    && typeof value.file_hash === "string"
+    && typeof value.tree_group_id === "string"
+    && typeof value.version_label === "string"
+    && typeof value.created_at === "string";
+}
+
+function selectTrees(data: Record<string, unknown> | undefined): { trees: TreeInfo[] } {
+  const trees = data?.trees;
+  return { trees: Array.isArray(trees) ? trees.filter(isTreeInfo) : [] };
+}
+
+function selectTreeContent(
+  data: Record<string, unknown> | undefined,
+): { content: string; filename: string } {
+  const content = data?.content;
+  const filename = data?.filename;
+  if (typeof content !== "string" || typeof filename !== "string") {
+    throw new Error("Invalid family tree content response");
+  }
+  return { content, filename };
+}
+
+function customEventDetail(event: Event): Record<string, unknown> | null {
+  if (!(event instanceof CustomEvent) || !isRecord(event.detail)) {
+    return null;
+  }
+  return event.detail;
+}
+
 async function requestTrees(): Promise<TreeInfo[]> {
   if (!globalRequest) {
     return [];
@@ -13,14 +65,15 @@ async function requestTrees(): Promise<TreeInfo[]> {
     idPrefix: "get_family_trees",
     command: "get_family_trees",
     payload: {},
-    select: (data) => data as { trees: TreeInfo[] },
+    select: selectTrees,
   });
-  return response.trees ?? [];
+  return response.trees.filter((tree) => safeFamilyTreeId(tree.id) !== null);
 }
 
 function defaultTreeId(trees: TreeInfo[]): string {
   const saved = localStorage.getItem("ps_default_gedcom_tree_id");
-  return trees.find((tree) => tree.id === saved)?.id ?? trees[0]?.id ?? "";
+  const safeSaved = saved ? safeFamilyTreeId(saved) : null;
+  return trees.find((tree) => tree.id === safeSaved)?.id ?? trees[0]?.id ?? "";
 }
 
 async function requestTreeContent(treeId: string): Promise<GedcomData> {
@@ -31,14 +84,17 @@ async function requestTreeContent(treeId: string): Promise<GedcomData> {
     idPrefix: "get_family_tree_content",
     command: "get_family_tree_content",
     payload: { treeId },
-    select: (data) => data as { content: string; filename: string },
+    select: selectTreeContent,
   });
   return parseGedcom(response.content);
 }
 
 function restoredHomePerson(treeId: string, data: GedcomData): string {
   const saved = localStorage.getItem(`ps_home_person_${treeId}`);
-  return saved && data.people[saved] ? saved : (Object.keys(data.people)[0] ?? "");
+  const safeSaved = saved ? safeGedcomPersonId(saved) : null;
+  return safeSaved && data.people[safeSaved]
+    ? safeSaved
+    : (Object.keys(data.people)[0] ?? "");
 }
 
 function useTreeList() {
@@ -66,24 +122,28 @@ function useTreeContent(selectedTreeId: string) {
   const [gedcomData, setGedcomData] = useState<GedcomData | null>(null);
   const [homePersonId, setHomePersonId] = useState("");
   useEffect(() => {
-    if (!selectedTreeId || !globalRequest) {
+    const treeId = safeFamilyTreeId(selectedTreeId);
+    if (!treeId || !globalRequest) {
       setGedcomData(null);
       return;
     }
-    void requestTreeContent(selectedTreeId)
+    void requestTreeContent(treeId)
       .then((data) => {
-        localStorage.setItem("ps_default_gedcom_tree_id", selectedTreeId);
+        localStorage.setItem("ps_default_gedcom_tree_id", treeId);
         setGedcomData(data);
-        setHomePersonId(restoredHomePerson(selectedTreeId, data));
+        setHomePersonId(restoredHomePerson(treeId, data));
       })
       .catch((error: unknown) => console.error("Failed to load tree content:", error));
   }, [selectedTreeId]);
 
   useEffect(() => {
     const navigate = (event: Event) => {
-      const detail = (event as CustomEvent<{ treeId: string; personId: string }>).detail;
-      if (detail) {
-        setHomePersonId(detail.personId);
+      const detail = customEventDetail(event);
+      const personId = typeof detail?.personId === "string"
+        ? safeGedcomPersonId(detail.personId)
+        : null;
+      if (personId) {
+        setHomePersonId(personId);
       }
     };
     globalThis.addEventListener("navigate-to-tree", navigate);
@@ -91,11 +151,13 @@ function useTreeContent(selectedTreeId: string) {
   }, []);
 
   const selectHome = async (id: string) => {
-    setHomePersonId(id);
-    if (!selectedTreeId) {
+    const treeId = safeFamilyTreeId(selectedTreeId);
+    const personId = safeGedcomPersonId(id);
+    if (!treeId || !personId) {
       return;
     }
-    localStorage.setItem(`ps_home_person_${selectedTreeId}`, id);
+    setHomePersonId(personId);
+    localStorage.setItem(`ps_home_person_${treeId}`, personId);
     if (!globalRequest) {
       return;
     }
@@ -103,7 +165,7 @@ function useTreeContent(selectedTreeId: string) {
       await globalRequest<void>({
         idPrefix: "set_home_person",
         command: "set_home_person",
-        payload: { treeId: selectedTreeId, homePersonId: id },
+        payload: { treeId, homePersonId: personId },
         select: (data) => data,
       });
     } catch (error) {
@@ -150,9 +212,12 @@ export function useFamilyTreeData() {
   const setSelectedTreeId = list.setSelectedTreeId;
   useEffect(() => {
     const navigate = (event: Event) => {
-      const detail = (event as CustomEvent<{ treeId: string }>).detail;
-      if (detail) {
-        setSelectedTreeId(detail.treeId);
+      const detail = customEventDetail(event);
+      const treeId = typeof detail?.treeId === "string"
+        ? safeFamilyTreeId(detail.treeId)
+        : null;
+      if (treeId) {
+        setSelectedTreeId(treeId);
       }
     };
     globalThis.addEventListener("navigate-to-tree", navigate);
@@ -373,7 +438,10 @@ export function useTreeViewport() {
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const mouseDown = (event: React.MouseEvent) => {
-    const target = event.target as HTMLElement;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
     if (target.tagName === "button" || target.closest("button")) {
       return;
     }
