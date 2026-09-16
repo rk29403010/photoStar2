@@ -55,6 +55,19 @@ function inferDateTimelineSortMode(displayItems: LibrarySelectableItem[]): 'date
         : 'date';
 }
 
+function resolveDateTimelineSortMode(
+    sortMode: LibrarySortMode | undefined,
+    displayItems: LibrarySelectableItem[],
+): 'date' | 'reverse-date' {
+    if (sortMode === 'reverse-date') {
+        return 'reverse-date';
+    }
+    if (sortMode === 'date') {
+        return 'date';
+    }
+    return inferDateTimelineSortMode(displayItems);
+}
+
 export function useDateTimelineJustifiedSections(params: {
     displayItems: LibrarySelectableItem[];
     timeSectionMode: GalleryTimeSectionMode;
@@ -67,11 +80,7 @@ export function useDateTimelineJustifiedSections(params: {
         if (timeSectionMode !== 'decade') {
             return undefined;
         }
-        const dateSortMode = sortMode === 'reverse-date'
-            ? 'reverse-date'
-            : sortMode === 'date'
-                ? 'date'
-                : inferDateTimelineSortMode(displayItems);
+        const dateSortMode = resolveDateTimelineSortMode(sortMode, displayItems);
         return buildDateTimelineJustifiedSections(
             displayItems,
             timelineGallery.groupSummaries,
