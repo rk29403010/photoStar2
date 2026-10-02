@@ -14,6 +14,9 @@ function formatAggregateCount(entry: WorkflowVisualiserAggregateCount): string {
 }
 
 function buildRuntimeDetailRows(detail: WorkflowVisualiserDetail): string[] {
+    if (detail.kind === 'control' && detail.status === 'idle') {
+        return ['Progress not recorded'];
+    }
     const rows = [
         `Status: ${detail.status}`,
         `Counts: ${detail.aggregateCounts.map(formatAggregateCount).join(', ')}`,

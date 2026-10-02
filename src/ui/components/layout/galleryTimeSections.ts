@@ -9,7 +9,7 @@ export type GalleryTimeSection = {
 }
 
 function parseAssetYear(item: LibrarySelectableItem) {
-    const timestamp = item.asset.photo_created_at ?? item.asset.created_at ?? null;
+    const timestamp = item.asset.photo_created_at ?? null;
     if (!timestamp) {return null;}
 
     const year = new Date(timestamp).getUTCFullYear();
@@ -33,27 +33,25 @@ export function buildGalleryTimeSections(
     }
 
     const sections: GalleryTimeSection[] = [];
-    let currentSection: GalleryTimeSection | null = null;
-    let currentDecadeStart: number | null = null;
+    const sectionsById = new Map<string, GalleryTimeSection>();
 
     for (const item of items) {
         const year = parseAssetYear(item);
         const decadeStart = year == null ? null : getDecadeStart(year);
-        const isNewSection = currentSection === null || decadeStart !== currentDecadeStart;
+        const sectionId = decadeStart == null ? 'unknown-date' : `decade-${decadeStart}`;
+        let section = sectionsById.get(sectionId);
 
-        if (isNewSection) {
-            currentDecadeStart = decadeStart;
-            currentSection = {
-                id: decadeStart == null ? `unknown-${sections.length}` : `decade-${decadeStart}`,
-                label: decadeStart == null ? null : getDecadeLabel(decadeStart),
+        if (!section) {
+            section = {
+                id: sectionId,
+                label: decadeStart == null ? 'Undated' : getDecadeLabel(decadeStart),
                 items: [],
             };
-            sections.push(currentSection);
+            sectionsById.set(sectionId, section);
+            sections.push(section);
         }
 
-        const activeSection = currentSection;
-        if (!activeSection) {continue;}
-        activeSection.items.push(item);
+        section.items.push(item);
     }
 
     return sections;

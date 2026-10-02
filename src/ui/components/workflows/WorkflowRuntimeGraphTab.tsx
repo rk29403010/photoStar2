@@ -16,6 +16,7 @@ function getNodeTone(status: WorkflowVisualiserGraphNode['status']): string {
 }
 
 function formatNodeCounts(node: WorkflowVisualiserGraphNode): string {
+    if (node.kind === 'control' && node.status === 'idle') {return 'Progress not recorded';}
     const noun = node.totalItems === 1 ? node.countNoun.singular : node.countNoun.plural;
     return `${node.completedItems}/${node.totalItems} ${noun}`;
 }

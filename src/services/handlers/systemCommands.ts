@@ -8,6 +8,7 @@ import type { CommandContext, CommandHandlerMap } from './types';
 import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
 import { buildLibraryTimelineStats } from './libraryTimelineStats';
 import { ApiKeyManager } from '../security/ApiKeyManager';
+import { resetFaceAnalysisState } from '../../data/faceResetState';
 
 function respondError(ctx: CommandContext, error: unknown) {
     ctx.respond(ctx.id, 'error', null, error instanceof Error ? error.message : String(error), ctx.originWs);
@@ -66,19 +67,13 @@ type ResetMode = 'soft' | 'factory';
 
 function vacuumDatabase(ctx: CommandContext) {
     const db = ctx.dbManager.getDb();
-    try {
-        db.pragma('wal_checkpoint(TRUNCATE)');
-        db.exec('VACUUM');
-    } catch {
-        // ignore vacuum failures during reset
-    }
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    db.exec('VACUUM');
 }
 
 async function resetLibrary(ctx: CommandContext, mode: ResetMode) {
-    if (mode === 'factory') {
-        ctx.workflowRuntime?.orchestrator.invalidateRunningRuns('Factory reset requested');
-        await ctx.workflowRuntime?.orchestrator.waitForIdle(5000);
-    }
+    ctx.workflowRuntime?.orchestrator.invalidateRunningRuns(`${mode === 'factory' ? 'Factory' : 'Soft'} reset requested`);
+    await ctx.workflowRuntime?.orchestrator.waitForIdle(5000);
 
     for (const [jobId, controller] of ctx.activeJobs.entries()) {
         controller.abort();
@@ -87,11 +82,7 @@ async function resetLibrary(ctx: CommandContext, mode: ResetMode) {
 
     const previewsDir = join(ctx.LIB_DIR, 'previews');
     if (existsSync(previewsDir)) {
-        try {
-            rmSync(previewsDir, { recursive: true, force: true });
-        } catch {
-            // ignore
-        }
+        rmSync(previewsDir, { recursive: true, force: true });
     }
 
     if (mode === 'factory') {
@@ -110,43 +101,25 @@ async function resetLibrary(ctx: CommandContext, mode: ResetMode) {
 function resetGroupingData(ctx: CommandContext) {
     const db = ctx.dbManager.getDb();
     db.transaction(() => {
-        db.prepare('DELETE FROM asset_group_members').run();
-        db.prepare('DELETE FROM asset_groups').run();
         db.prepare("DELETE FROM asset_similarity_edges WHERE kind IN ('visual', 'time', 'metadata', 'hybrid')").run();
+        db.prepare(`
+            DELETE FROM visual_similarity_observations
+            WHERE source_identity = 'runtime.group_similar_photos:visual_hash'
+        `).run();
+        db.prepare(`
+            DELETE FROM capture_sequences
+            WHERE status = 'proposed'
+              AND source_kind = 'system'
+              AND source_identity = 'runtime.group_similar_photos:burst'
+        `).run();
     })();
     ctx.respond(ctx.id, 'ok', { message: 'Grouping data reset.' }, null, ctx.originWs);
 }
 
-function resetFaceData(ctx: CommandContext, mediaId?: string) {
-    const db = ctx.dbManager.getDb();
-    db.transaction(() => {
-        if (!mediaId) {
-            db.prepare("DELETE FROM derived_results WHERE task IN ('face_detection', 'face_recognition')").run();
-            db.prepare('DELETE FROM face_assignments').run();
-            db.prepare('DELETE FROM people').run();
-            db.prepare('DELETE FROM manual_face_names').run();
-            db.prepare('DELETE FROM manual_face_isolations').run();
-            return;
-        }
-
-        const asset = db.prepare('SELECT original_path FROM assets WHERE id = ?').get(mediaId) as { original_path?: string } | undefined;
-        db.prepare("DELETE FROM derived_results WHERE asset_id = ? AND task IN ('face_detection', 'face_recognition')").run(mediaId);
-        db.prepare('DELETE FROM face_assignments WHERE asset_id = ?').run(mediaId);
-
-        if (asset?.original_path) {
-            db.prepare('DELETE FROM manual_face_names WHERE original_path = ?').run(asset.original_path);
-            db.prepare('DELETE FROM manual_face_isolations WHERE original_path = ?').run(asset.original_path);
-        }
-
-        db.prepare(`
-            DELETE FROM people
-            WHERE id NOT IN (
-                SELECT DISTINCT person_id
-                FROM face_assignments
-                WHERE person_id IS NOT NULL
-            )
-        `).run();
-    })();
+async function resetFaceData(ctx: CommandContext, mediaId?: string) {
+    ctx.workflowRuntime?.orchestrator.invalidateRunningRuns('Face-analysis reset requested');
+    await ctx.workflowRuntime?.orchestrator.waitForIdle(5000);
+    resetFaceAnalysisState(ctx.dbManager.getDb(), mediaId);
     ctx.respond(ctx.id, 'ok', { message: mediaId ? 'Face data reset for asset.' : 'Face data reset.' }, null, ctx.originWs);
 }
 
@@ -290,10 +263,10 @@ export const systemCommandHandlers: CommandHandlerMap = {
         }
     },
 
-    reset_faces: (ctx) => {
+    reset_faces: async (ctx) => {
         try {
             const payload = ctx.payload as { mediaId?: string } | undefined;
-            resetFaceData(ctx, payload?.mediaId);
+            await resetFaceData(ctx, payload?.mediaId);
         } catch (error) {
             respondError(ctx, error);
         }

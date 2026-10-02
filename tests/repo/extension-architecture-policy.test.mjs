@@ -13,9 +13,12 @@ function writeFixtureFile(root, file, source = '') {
 }
 
 function addPlugin(root, family, name, id, source = '') {
-    const directory = family === 'workflow'
-        ? `src/services/workflowRuntime/modules/plugins/${name}`
-        : `src/services/photoEditing/tools/plugins/${name}`;
+    let directory = `src/services/relationships/predicates/plugins/${name}`;
+    if (family === 'workflow') {
+        directory = `src/services/workflowRuntime/modules/plugins/${name}`;
+    } else if (family === 'photo') {
+        directory = `src/services/photoEditing/tools/plugins/${name}`;
+    }
     writeFixtureFile(root, `${directory}/manifest.ts`, "export { default } from './plugin';\n");
     writeFixtureFile(root, `${directory}/plugin.ts`, source || `export default { id: '${id}', label: '${name}', icon: 'Icon', group: 'group', defaults: {} };\n`);
 }
@@ -23,6 +26,7 @@ function addPlugin(root, family, name, id, source = '') {
 function addContractTests(root) {
     writeFixtureFile(root, 'tests/core/workflow-module-plugin-contract.test.cjs');
     writeFixtureFile(root, 'tests/core/photo-edit-tool-plugin-contract.test.cjs');
+    writeFixtureFile(root, 'tests/core/semantic-predicate-plugin-contract.test.cjs');
 }
 
 function withFixture(callback) {
@@ -34,6 +38,7 @@ test('extension policy accepts generic hosts and stable IDs in workflow definiti
     addContractTests(root);
     addPlugin(root, 'workflow', 'alpha', 'runtime.alpha');
     addPlugin(root, 'photo', 'beta', 'beta');
+    addPlugin(root, 'semantic', 'depicts', 'semantic.depicts');
     writeFixtureFile(root, 'src/services/workflowRuntime/workflows/example.ts', "export const moduleId = 'runtime.alpha';\n");
     writeFixtureFile(root, 'src/services/workflowRuntime/modulePluginHost.ts', 'export function register(plugins) { return plugins; }\n');
     writeFixtureFile(root, 'src/services/photoEditing/photoEditToolRegistry.ts', 'export function register(plugins) { return plugins; }\n');
@@ -45,6 +50,7 @@ test('extension policy reports AST import, ID, catalogue, metadata, duplicate, a
     addPlugin(root, 'workflow', 'alpha', 'runtime.alpha', "import beta from '../beta/plugin';\nexport default { id: 'runtime.alpha', label: 'Alpha', icon: 'Icon', group: 'group', defaults: {} };\n");
     addPlugin(root, 'workflow', 'beta', 'runtime.alpha');
     addPlugin(root, 'photo', 'photo-alpha', 'photo_alpha', "export default { id: 'photo_alpha', label: 'Alpha', icon: 'Icon', group: 'group', defaults: {} };\n");
+    addPlugin(root, 'semantic', 'depicts', 'semantic.depicts');
     writeFixtureFile(root, 'src/services/workflowRuntime/host.ts', [
         "import alpha from './modules/plugins/alpha/plugin';",
         "const id = 'runtime.alpha';",

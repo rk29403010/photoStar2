@@ -38,31 +38,47 @@ function buildTagFilterSubquery(filter: AssetQueryFilter, params: (string | numb
     `;
 }
 
+function buildResolvedPersonIdsSubquery(personIds: string[], params: (string | number)[]): string {
+    const values = personIds.map(() => '(?)').join(',');
+    params.push(...personIds);
+    return `
+        WITH RECURSIVE requested_person(id) AS (VALUES ${values}),
+        resolved_person(id) AS (
+            SELECT id FROM requested_person
+            UNION
+            SELECT redirects.current_person_id
+            FROM person_redirects redirects
+            JOIN resolved_person resolved ON redirects.old_person_id = resolved.id
+        )
+        SELECT id FROM resolved_person
+    `;
+}
+
 function buildPersonFilterSubquery(filter: AssetQueryFilter, params: (string | number)[]) {
     const personIds = filter.personIds || [];
     if (personIds.length === 0) {return null;}
 
-    const placeholders = personIds.map(() => '?').join(',');
     if (filter.type === 'person_any') {
-        params.push(...personIds);
-        return `AND a.id IN (SELECT asset_id FROM face_assignments WHERE person_id IN (${placeholders}))`;
+        const resolvedIds = buildResolvedPersonIdsSubquery(personIds, params);
+        return `AND a.id IN (SELECT asset_id FROM face_assignments WHERE person_id IN (${resolvedIds}))`;
     }
     if (filter.type === 'person_all') {
-        params.push(...personIds);
+        const resolvedIds = buildResolvedPersonIdsSubquery(personIds, params);
         return `AND a.id IN (
             SELECT asset_id FROM face_assignments
-            WHERE person_id IN (${placeholders})
+            WHERE person_id IN (${resolvedIds})
             GROUP BY asset_id
             HAVING COUNT(DISTINCT person_id) = ${personIds.length}
         )`;
     }
     if (filter.type === 'person_only') {
-        params.push(...personIds, ...personIds);
+        const includedIds = buildResolvedPersonIdsSubquery(personIds, params);
+        const excludedIds = buildResolvedPersonIdsSubquery(personIds, params);
         return `AND a.id IN (
             SELECT asset_id FROM face_assignments
             GROUP BY asset_id
-            HAVING COUNT(DISTINCT CASE WHEN person_id IN (${placeholders}) THEN person_id END) = ${personIds.length}
-            AND COUNT(DISTINCT CASE WHEN person_id NOT IN (${placeholders}) THEN person_id END) = 0
+            HAVING COUNT(DISTINCT CASE WHEN person_id IN (${includedIds}) THEN person_id END) = ${personIds.length}
+            AND COUNT(DISTINCT CASE WHEN person_id NOT IN (${excludedIds}) THEN person_id END) = 0
         )`;
     }
 

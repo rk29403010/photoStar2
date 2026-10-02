@@ -23,7 +23,6 @@ async function removeDirWithRetry(targetPath) {
     }
 }
 
-
 function createResponseCollector() {
     const responses = [];
     return {
@@ -283,7 +282,7 @@ test('get_system_jobs includes step-level workflow run counts for ingest-centric
     }
 });
 
-test('completed folder ingest still returns gallery assets and does not hide them behind synthetic groups', async () => {
+test('completed folder ingest returns gallery assets without legacy group payload fields', async () => {
     const tempDir = createTempDir();
     const folderPath = createFixtureFolder(tempDir);
     const { handleSystemCommand } = await import('../../dist/core/src/services/handlers.js');
@@ -323,12 +322,8 @@ test('completed folder ingest still returns gallery assets and does not hide the
         assert.equal(assetsResponse.status, 'ok');
         assert.equal(assetsResponse.data.assets.length, 1);
         assert.equal(assetsResponse.data.assets[0].preview_path.endsWith('-thumbnail.webp'), true);
-
-        const syntheticPeopleGroupCount = harness.dbManager.getDb()
-            .prepare("SELECT COUNT(*) AS count FROM asset_groups WHERE type = 'people'")
-            .get()
-            .count;
-        assert.equal(syntheticPeopleGroupCount, 0);
+        assert.equal('group_id' in assetsResponse.data.assets[0], false);
+        assert.equal('group_role' in assetsResponse.data.assets[0], false);
     } finally {
         harness?.dbManager.close();
         await removeDirWithRetry(tempDir);

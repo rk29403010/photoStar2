@@ -53,6 +53,7 @@ export function getDataStats(db: unknown) {
             photosWithAiMetadata: getCount(db, "SELECT COUNT(DISTINCT asset_id) as count FROM derived_results WHERE task = 'ai_metadata'"),
             photosWithDetectedFaces: photosWithDetectedFacesAndCounts.photosWithDetectedFaces,
             photosWithMatchedFaces,
+            photosWithoutDate: getCount(db, 'SELECT COUNT(*) as count FROM assets WHERE binned_at IS NULL AND photo_created_at IS NULL'),
         },
         coverage: {
             aiMetadataPercent: toPercent(getCount(db, "SELECT COUNT(DISTINCT asset_id) as count FROM derived_results WHERE task = 'ai_metadata'"), totalAssets),

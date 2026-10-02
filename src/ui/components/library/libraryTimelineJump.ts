@@ -10,8 +10,11 @@ export type TimelineJumpRequest = {
 };
 
 function getTimelineSectionIdForSeek(seek: GalleryTimelineSeek | null) {
-    if (!seek || seek.kind !== 'dated') {
+    if (!seek) {
         return null;
+    }
+    if (seek.kind === 'unknown') {
+        return 'unknown-date';
     }
 
     const year = new Date(seek.targetDate).getUTCFullYear();

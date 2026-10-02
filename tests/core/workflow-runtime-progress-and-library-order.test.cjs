@@ -24,6 +24,47 @@ function createResponseCollector() {
     };
 }
 
+test('step progress reports completed batch scope and controls without inventing partial success', async () => {
+    const tempDir = createTempDir();
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const { ExecutionStore } = await import('../../dist/core/src/services/workflowRuntime/executionStore.js');
+    const { getWorkflowRunsSnapshot } = await import('../../dist/core/src/services/handlers/systemWorkflowRunSnapshot.js');
+    const dbManager = new DatabaseManager(tempDir);
+    try {
+        const store = new ExecutionStore(dbManager);
+        const runId = store.createWorkflowRun({ workflowId: 'face-progress', triggerType: 'manual', inputSubjects: [] });
+        for (const [nodeId, status, expectedItems, executionStatus] of [
+            ['collect-people', 'completed', 36, null],
+            ['resolve-people', 'completed', 36, 'completed'],
+            ['failed-batch', 'failed', 36, 'failed'],
+            ['running-batch', 'running', 36, null],
+            ['empty-batch', 'completed', 0, 'completed'],
+        ]) {
+            const stepRunId = store.recordStepRun({ workflowRunId: runId, nodeId, status, expectedItems });
+            if (executionStatus) {
+                store.recordSubjectExecution({
+                    workflowRunId: runId, stepRunId, subjectType: 'asset', subjectId: 'primary-asset', status: executionStatus,
+                });
+            }
+        }
+        const detail = store.getRunDetail(runId);
+        const [snapshot] = getWorkflowRunsSnapshot(dbManager.getDb());
+        for (const steps of [detail.steps, snapshot.stepSummaries]) {
+            const counts = Object.fromEntries(steps.map((step) => [step.nodeId, [step.completedItems, step.totalItems]]));
+            assert.deepEqual(counts, {
+                'collect-people': [36, 36],
+                'resolve-people': [36, 36],
+                'failed-batch': [0, 36],
+                'running-batch': [0, 36],
+                'empty-batch': [0, 0],
+            });
+        }
+    } finally {
+        dbManager.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
 test('workflow run snapshot keeps preview total fixed while completed count advances', async () => {
     const tempDir = createTempDir();
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');

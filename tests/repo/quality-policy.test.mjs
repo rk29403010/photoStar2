@@ -88,13 +88,13 @@ test('all lint configurations use the canonical ignore policy', async () => {
     }
 });
 
-test('markdownlint ignores every generated and isolated quality-policy path', async () => {
+test('markdownlint ignores the canonical markdown policy', async () => {
     const markdownIgnores = (await readFile('.markdownlintignore', 'utf8'))
         .split(/\r?\n/u)
         .map((line) => line.trim())
         .filter(Boolean);
 
-    assert.deepEqual(markdownIgnores, [...qualityPolicy.lintIgnores]);
+    assert.deepEqual(markdownIgnores, [...qualityPolicy.markdownIgnores]);
 });
 
 test('Oxlint reviewability limits match the canonical policy', async () => {

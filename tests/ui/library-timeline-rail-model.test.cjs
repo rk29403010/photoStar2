@@ -73,6 +73,40 @@ test('visible timeline summary follows visible item order instead of hidden glob
     assert.equal(summary?.lastPhotoDate, '2018-10-15T00:00:00.000Z');
 });
 
+test('visible timeline summary coalesces a decade that reappears later in presentation order', async () => {
+    const { buildVisibleTimelineSummary } = await import('../../src/ui/components/library/libraryTimelineModel.ts');
+
+    const items = [
+        {
+            selectionKey: 'photo:a',
+            entityType: 'photo',
+            photoId: 'a',
+            groupId: null,
+            asset: { id: 'a', original_path: 'a.jpg', photo_created_at: '2024-01-01T00:00:00.000Z' },
+        },
+        {
+            selectionKey: 'photo:b',
+            entityType: 'photo',
+            photoId: 'b',
+            groupId: null,
+            asset: { id: 'b', original_path: 'b.jpg', photo_created_at: '1998-01-01T00:00:00.000Z' },
+        },
+        {
+            selectionKey: 'photo:c',
+            entityType: 'photo',
+            photoId: 'c',
+            groupId: null,
+            asset: { id: 'c', original_path: 'c.jpg', photo_created_at: '2021-01-01T00:00:00.000Z' },
+        },
+    ];
+
+    const summary = buildVisibleTimelineSummary(items);
+    assert.deepEqual(summary?.buckets.map((bucket) => [bucket.label, bucket.count]), [
+        ['2020s', 2],
+        ['1990s', 1],
+    ]);
+});
+
 test('gallery mode picks grouped and ungrouped timeline stats without using loaded tiles', async () => {
     const { getTimelineSummaryForGalleryMode } = await import('../../src/ui/components/library/libraryTimelineModel.ts');
 

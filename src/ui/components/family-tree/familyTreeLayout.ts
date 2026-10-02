@@ -90,10 +90,14 @@ function buildVerticalHierarchy(
   };
 }
 
-function balancedPerson(data: GedcomData, rootId: string | null, depth: number): BalancedTreeNode {
+function balancedPerson(
+  data: GedcomData,
+  rootId: string | null,
+  placeholderPath: string,
+): BalancedTreeNode {
   const person = rootId ? data.people[rootId] : undefined;
   if (!person) {
-    return { id: `empty-${depth}-${Math.random()}`, name: "", gender: "U", isEmpty: true };
+    return { id: `empty-${placeholderPath}`, name: "", gender: "U", isEmpty: true };
   }
   return {
     id: person.id,
@@ -116,13 +120,14 @@ function buildBalancedHierarchy(
   rootId: string | null,
   depth = 0,
   maxDepth = 6,
+  nodePath = "root",
 ): BalancedTreeNode {
-  const node = balancedPerson(data, rootId, depth);
+  const node = balancedPerson(data, rootId, nodePath);
   if (depth >= maxDepth) {
     return node;
   }
-  node.children = balancedParentIds(data, node).map((parentId) =>
-    buildBalancedHierarchy(data, parentId, depth + 1, maxDepth),
+  node.children = balancedParentIds(data, node).map((parentId, parentIndex) =>
+    buildBalancedHierarchy(data, parentId, depth + 1, maxDepth, `${nodePath}-${parentIndex}`),
   );
   return node;
 }

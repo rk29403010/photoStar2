@@ -6,10 +6,10 @@ import type {
   LibraryStats,
   Person,
   ReviewItemSummary,
-  SimilarityOrbit,
   TagAliasSummary,
   TagDefinitionSummary,
 } from '@contracts/core';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import type {
   DataStatsSnapshot,
   JobErrorSnapshot,
@@ -55,6 +55,7 @@ type AppMainContentProps = {
   readonly stats: LibraryStats | null;
   readonly timelineGallery: TimelineGalleryStateSlice;
   readonly assets: Asset[];
+  readonly presentationItems: LibraryPresentationItem[];
   readonly galleryTimelineSeek: GalleryTimelineSeek | null;
   readonly isSeekingTimeline: boolean;
   readonly people: Person[];
@@ -138,8 +139,8 @@ type AppMainContentProps = {
   readonly onMergeTagDefinitions: (payload: { sourceTagDefinitionId: string; targetTagDefinitionId: string }) => Promise<TagDetailPayload>;
   readonly onFlagPhotoDateCorrection: (input: PhotoDateCorrectionInput) => Promise<void>;
   readonly onRecordPhotoMetadataAssertion?: (assetId: string, fieldPath: string, value: unknown, note?: string | null) => Promise<void>;
-  readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-  readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+  readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+  readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
   readonly onAddJob: (id: string, stage: string, title: string) => void;
   readonly onUpdateJobState: (id: string, state: JobState) => void;
   readonly onUpdateJobProgress: (id: string, payload: {
@@ -192,6 +193,7 @@ function LibraryContentView(props: AppMainContentProps & { readonly visibleLibra
         stats={props.stats}
         timelineGallery={props.timelineGallery}
         assets={props.visibleLibraryAssets}
+        presentationItems={props.presentationItems}
         galleryTimelineSeek={props.galleryTimelineSeek}
         isSeekingTimeline={props.isSeekingTimeline}
         availableTags={availableTags.map((tag) => tag.canonicalLabel)}
@@ -235,8 +237,8 @@ function LibraryContentView(props: AppMainContentProps & { readonly visibleLibra
         onSetReviewItemStatus={props.onSetReviewItemStatus}
         onFlagPhotoDateCorrection={props.onFlagPhotoDateCorrection}
         onRecordPhotoMetadataAssertion={props.onRecordPhotoMetadataAssertion}
-        onGetGroupOrbit={props.onGetGroupOrbit}
-        onSetCanonical={props.onSetCanonical}
+        onGetPresentationExpansion={props.onGetPresentationExpansion}
+        onSetPresentationCover={props.onSetPresentationCover}
         onDeclusterSelection={props.onDeclusterSelection}
         onBulkTagSelection={props.onBulkTagSelection}
         onBulkUntagSelection={props.onBulkUntagSelection}

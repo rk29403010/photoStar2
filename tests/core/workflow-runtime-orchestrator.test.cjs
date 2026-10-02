@@ -80,6 +80,10 @@ test('orchestrator expands for_each and records aggregate progress', async () =>
         assert.equal(summary.totalItems, 4);
         assert.equal(summary.completedItems, 4);
         assert.equal(summary.failedItems, 0);
+        const control = store.getRunDetail(runId).steps.find((step) => step.nodeId === 'expand-assets');
+        assert.equal(control.status, 'completed');
+        assert.equal(control.totalItems, 2);
+        assert.equal(control.completedItems, 2);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });

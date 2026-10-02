@@ -1,25 +1,39 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('buildGroupIdPillModels uses the configured symbols per group type', async () => {
+function presentationItem(presentationKey, relationshipKind) {
+    return {
+        presentationKey,
+        representativeAssetId: `asset-${presentationKey}`,
+        relationshipKind,
+        stackCount: 2,
+        assetIds: ['a', 'b'],
+        originalPath: 'C:/photos/a.jpg',
+        photoCreatedAt: null,
+        createdAt: '2026-09-07T00:00:00.000Z',
+        previewPath: null,
+    };
+}
+
+test('buildGroupIdPillModels uses semantic relationship symbols', async () => {
     const { buildGroupIdPillModels } = await import('../../src/ui/components/layout/tileGroupIdModel.ts');
 
     const pills = buildGroupIdPillModels([
-        { group_id: 'group-duplicate', group_type: 'duplicate' },
-        { group_id: 'group-near', group_type: 'near_duplicate' },
-        { group_id: 'group-variant', group_type: 'variant_set' },
-        { group_id: 'group-burst', group_type: 'burst' },
-        { group_id: 'group-people', group_type: 'people' },
+        presentationItem('exact:duplicate', 'exact_copy'),
+        presentationItem('near:family', 'near_duplicate'),
+        presentationItem('variant:family', 'variant'),
+        presentationItem('sequence:burst', 'capture_sequence'),
+        presentationItem('edit:lineage', 'edit_lineage'),
     ]);
 
     assert.deepEqual(
         pills.map((pill) => ({ key: pill.key, symbol: pill.symbol })),
         [
-            { key: 'group-duplicate', symbol: '≡' },
-            { key: 'group-near', symbol: '≈' },
-            { key: 'group-variant', symbol: '~' },
-            { key: 'group-burst', symbol: '*' },
-            { key: 'group-people', symbol: 'P' },
+            { key: 'exact:duplicate', symbol: '≡' },
+            { key: 'near:family', symbol: '≈' },
+            { key: 'variant:family', symbol: '~' },
+            { key: 'sequence:burst', symbol: '*' },
+            { key: 'edit:lineage', symbol: '↗' },
         ],
     );
 });

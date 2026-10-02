@@ -1,9 +1,7 @@
-import type { DatabaseManager } from '../../../../data/db';
 import { hammingDistance } from '../../../math-utils';
+import { isAcceptedVariantStructureEvidence, variantPairKey, type VariantStructureEvidence } from '../../../../shared/variantStructureEvidence';
 import { buildConnectedComponents, type SimilarityEdgeRef } from './groupingGraph';
-import { buildSimilarityUnits, type SimilarityGroupingUnit } from './groupingUnits';
-
-type DbHandle = ReturnType<DatabaseManager['getDb']>;
+import type { SimilarityGroupingUnit } from './groupingUnits';
 
 export type GroupingSimilarityAsset = {
     id: string;
@@ -13,14 +11,21 @@ export type GroupingSimilarityAsset = {
     width: number;
     height: number;
     exifDatetime: string | null;
-    phash64: string;
-    dhash64: string;
+    phash64: string | null;
+    dhash64: string | null;
 }
 
 export type GroupingSimilarityEdge = {
     score: number;
     distance: number;
+    evidence?: VariantStructureEvidence;
 } & SimilarityEdgeRef
+
+export type GroupingGraph = {
+    units: SimilarityGroupingUnit[];
+    edges: GroupingSimilarityEdge[];
+    components: string[][];
+};
 
 export type BurstGroupingAsset = {
     id: string;
@@ -34,11 +39,36 @@ export type BurstGroupingAsset = {
     dhash64: string | null;
 }
 
+type VisualFingerprint = Pick<GroupingSimilarityAsset, 'phash64' | 'dhash64'>;
+type BurstFingerprint = Pick<BurstGroupingAsset, 'exifDatetime' | 'phash64' | 'dhash64'>;
+type VisualMatch = { distance: number; matches: boolean; evidence?: VariantStructureEvidence };
+type VisualUnit = Pick<SimilarityGroupingUnit, 'unitId' | 'memberAssetIds' | 'representativeAssetId' | 'phash64' | 'dhash64'>;
+
+function matchVariant(
+    left: VisualUnit,
+    right: VisualUnit,
+    threshold: number,
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
+): VisualMatch {
+    const hashMatch = isVisualMatch(left, right, threshold);
+    if (hashMatch.matches) {
+        return hashMatch;
+    }
+    const evidence = structureMatches?.get(variantPairKey(left.representativeAssetId, right.representativeAssetId));
+    return isAcceptedVariantStructureEvidence(evidence)
+        ? { ...hashMatch, matches: true, evidence }
+        : hashMatch;
+}
+
 function isVisualMatch(
-    left: Pick<GroupingSimilarityAsset, 'phash64' | 'dhash64'>,
-    right: Pick<GroupingSimilarityAsset, 'phash64' | 'dhash64'>,
+    left: VisualFingerprint,
+    right: VisualFingerprint,
     threshold: number,
 ): { distance: number; matches: boolean } {
+    if (!left.phash64 || !right.phash64 || !left.dhash64 || !right.dhash64) {
+        return { distance: 64, matches: false };
+    }
+
     const perceptualDistance = hammingDistance(left.phash64, right.phash64);
     if (perceptualDistance > threshold) {
         return { distance: perceptualDistance, matches: false };
@@ -53,9 +83,10 @@ function isVisualMatch(
 }
 
 function collectReachableAssetIds(
-    assets: Array<Pick<SimilarityGroupingUnit, 'unitId' | 'memberAssetIds' | 'phash64' | 'dhash64'>>,
+    assets: VisualUnit[],
     changedAssetIds: string[],
     threshold: number,
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
 ): Set<string> {
     const byId = new Map(assets.map((asset) => [asset.unitId, asset]));
     const visited = new Set<string>();
@@ -83,11 +114,8 @@ function collectReachableAssetIds(
             if (candidate.unitId === current.unitId) {
                 continue;
             }
-            const match = isVisualMatch(current, candidate, threshold);
-            if (!match.matches) {
-                continue;
-            }
-            if (visited.has(candidate.unitId)) {
+            const match = matchVariant(current, candidate, threshold, structureMatches);
+            if (!match.matches || visited.has(candidate.unitId)) {
                 continue;
             }
             visited.add(candidate.unitId);
@@ -138,7 +166,11 @@ function sortAssetsForAnchoredClustering<T extends Pick<SimilarityGroupingUnit, 
     });
 }
 
-function buildAnchoredVariantGraph(assets: SimilarityGroupingUnit[], threshold: number): {
+function buildAnchoredVariantGraph(
+    assets: SimilarityGroupingUnit[],
+    threshold: number,
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
+): {
     edges: GroupingSimilarityEdge[];
     components: string[][];
 } {
@@ -158,7 +190,7 @@ function buildAnchoredVariantGraph(assets: SimilarityGroupingUnit[], threshold: 
             | undefined;
 
         for (const cluster of clusters) {
-            const match = isVisualMatch(cluster.anchor, asset, threshold);
+            const match = matchVariant(cluster.anchor, asset, threshold, structureMatches);
             if (!match.matches) {
                 continue;
             }
@@ -167,7 +199,8 @@ function buildAnchoredVariantGraph(assets: SimilarityGroupingUnit[], threshold: 
                 leftId: cluster.anchor.unitId,
                 rightId: asset.unitId,
                 distance: match.distance,
-                score: 1 - (match.distance / 64),
+                score: match.evidence?.gradientCosine ?? 1 - (match.distance / 64),
+                evidence: match.evidence,
             });
             break;
         }
@@ -192,8 +225,8 @@ function buildAnchoredVariantGraph(assets: SimilarityGroupingUnit[], threshold: 
 }
 
 function isBurstMatch(
-    left: BurstGroupingAsset,
-    right: BurstGroupingAsset,
+    left: BurstFingerprint,
+    right: BurstFingerprint,
     maxSeconds: number,
     maxDistance: number,
 ): boolean {
@@ -219,77 +252,136 @@ function isBurstMatch(
     return hammingDistance(left.dhash64, right.dhash64) <= maxDistance;
 }
 
-function collectReachableBurstAssetIds(
-    assets: BurstGroupingAsset[],
-    changedAssetIds: string[],
+function burstEvidenceForUnit(unit: SimilarityGroupingUnit): BurstFingerprint[] {
+    const evidence = unit.memberEvidence?.length
+        ? unit.memberEvidence
+        : [{
+            assetId: unit.representativeAssetId,
+            exifDatetime: unit.exifDatetime,
+            phash64: unit.phash64,
+            dhash64: unit.dhash64,
+        }];
+    return evidence
+        .filter((member): member is typeof member & { exifDatetime: string } => member.exifDatetime !== null)
+        .map((member) => ({
+            exifDatetime: member.exifDatetime,
+            phash64: member.phash64,
+            dhash64: member.dhash64,
+        }));
+}
+
+function matchBurstUnits(
+    left: SimilarityGroupingUnit,
+    right: SimilarityGroupingUnit,
+    maxSeconds: number,
+    maxDistance: number,
+): { matches: boolean; distance: number } {
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const leftEvidence of burstEvidenceForUnit(left)) {
+        for (const rightEvidence of burstEvidenceForUnit(right)) {
+            if (!isBurstMatch(leftEvidence, rightEvidence, maxSeconds, maxDistance)) {
+                continue;
+            }
+            const distance = leftEvidence.phash64 && rightEvidence.phash64
+                ? hammingDistance(leftEvidence.phash64, rightEvidence.phash64)
+                : 0;
+            bestDistance = Math.min(bestDistance, distance);
+        }
+    }
+    if (!Number.isFinite(bestDistance)) {
+        return { matches: false, distance: 64 };
+    }
+    return { matches: true, distance: bestDistance };
+}
+
+function collectReachableBurstUnitIds(
+    units: SimilarityGroupingUnit[],
+    changedUnitIds: string[],
     maxSeconds: number,
     maxDistance: number,
 ): Set<string> {
-    const byId = new Map(assets.map((asset) => [asset.id, asset]));
+    const byId = new Map(units.map((unit) => [unit.unitId, unit]));
     const visited = new Set<string>();
     const frontier: string[] = [];
 
-    for (const assetId of changedAssetIds) {
-        if (!byId.has(assetId)) {
-            continue;
-        }
-        visited.add(assetId);
-        frontier.push(assetId);
-    }
+    enqueueKnownBurstUnits({ unitIds: changedUnitIds, byId, visited, frontier });
 
     while (frontier.length > 0) {
-        const currentId = frontier.shift();
-        if (!currentId) {
-            continue;
-        }
-        const current = byId.get(currentId);
-        if (!current) {
-            continue;
-        }
-
-        for (const candidate of assets) {
-            if (candidate.id === current.id) {
-                continue;
-            }
-            if (!isBurstMatch(current, candidate, maxSeconds, maxDistance)) {
-                continue;
-            }
-            if (visited.has(candidate.id)) {
-                continue;
-            }
-            visited.add(candidate.id);
-            frontier.push(candidate.id);
+        const current = byId.get(frontier.shift() ?? '');
+        if (current) {
+            enqueueReachableBurstUnits({ current, units, visited, frontier, maxSeconds, maxDistance });
         }
     }
 
     return visited;
 }
 
-function buildBurstEdges(
-    assets: BurstGroupingAsset[],
+function enqueueKnownBurstUnits({
+    unitIds,
+    byId,
+    visited,
+    frontier,
+}: {
+    unitIds: string[];
+    byId: Map<string, SimilarityGroupingUnit>;
+    visited: Set<string>;
+    frontier: string[];
+}): void {
+    for (const unitId of unitIds) {
+        if (byId.has(unitId)) {
+            visited.add(unitId);
+            frontier.push(unitId);
+        }
+    }
+}
+
+function enqueueReachableBurstUnits({
+    current,
+    units,
+    visited,
+    frontier,
+    maxSeconds,
+    maxDistance,
+}: {
+    current: SimilarityGroupingUnit;
+    units: SimilarityGroupingUnit[];
+    visited: Set<string>;
+    frontier: string[];
+    maxSeconds: number;
+    maxDistance: number;
+}): void {
+    for (const candidate of units) {
+        const isUnvisitedCandidate = candidate.unitId !== current.unitId && !visited.has(candidate.unitId);
+        if (isUnvisitedCandidate && matchBurstUnits(current, candidate, maxSeconds, maxDistance).matches) {
+            visited.add(candidate.unitId);
+            frontier.push(candidate.unitId);
+        }
+    }
+}
+
+function buildBurstEdgesFromUnits(
+    units: SimilarityGroupingUnit[],
     maxSeconds: number,
     maxDistance: number,
 ): GroupingSimilarityEdge[] {
     const edges: GroupingSimilarityEdge[] = [];
 
-    for (let index = 0; index < assets.length; index += 1) {
-        const current = assets[index];
-        for (let candidateIndex = index + 1; candidateIndex < assets.length; candidateIndex += 1) {
-            const candidate = assets[candidateIndex];
-            if (!isBurstMatch(current, candidate, maxSeconds, maxDistance)) {
+    for (let index = 0; index < units.length; index += 1) {
+        const current = units[index];
+        for (let candidateIndex = index + 1; candidateIndex < units.length; candidateIndex += 1) {
+            const candidate = units[candidateIndex];
+            const match = matchBurstUnits(current, candidate, maxSeconds, maxDistance);
+            if (!match.matches) {
                 continue;
             }
-            const [leftId, rightId] = current.id.localeCompare(candidate.id) <= 0
-                ? [current.id, candidate.id]
-                : [candidate.id, current.id];
-            const distance = current.phash64 && candidate.phash64
-                ? hammingDistance(current.phash64, candidate.phash64)
-                : 0;
+            const [leftId, rightId] = current.unitId.localeCompare(candidate.unitId) <= 0
+                ? [current.unitId, candidate.unitId]
+                : [candidate.unitId, current.unitId];
             edges.push({
                 leftId,
                 rightId,
-                distance,
-                score: 1 - (distance / 64),
+                distance: match.distance,
+                score: 1 - (match.distance / 64),
             });
         }
     }
@@ -297,113 +389,70 @@ function buildBurstEdges(
     return edges;
 }
 
-export function buildVariantGroupingGraph(params: {
-    db: DbHandle;
+export function buildVariantGroupingGraphFromUnits(params: {
+    units: SimilarityGroupingUnit[];
     changedAssetIds: string[];
     threshold: number;
-}): {
-    units: SimilarityGroupingUnit[];
-    edges: GroupingSimilarityEdge[];
-    components: string[][];
-} {
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>;
+}): GroupingGraph {
     if (params.changedAssetIds.length === 0) {
         return { units: [], edges: [], components: [] };
     }
-
-    const units = buildSimilarityUnits(params.db, ['near_duplicate', 'duplicate']);
-    const reachableAssetIds = collectReachableAssetIds(
-        units,
+    const reachableUnitIds = collectReachableAssetIds(
+        params.units,
         params.changedAssetIds,
         params.threshold,
+        params.structureMatches,
     );
-    const impactedUnits = units.filter((unit) => reachableAssetIds.has(unit.unitId));
-    const { edges, components } = buildAnchoredVariantGraph(impactedUnits, params.threshold);
-
-    return {
-        units: impactedUnits,
-        edges,
-        components,
-    };
+    const impactedUnits = params.units.filter((unit) => reachableUnitIds.has(unit.unitId));
+    const { edges, components } = buildAnchoredVariantGraph(impactedUnits, params.threshold, params.structureMatches);
+    return { units: impactedUnits, edges, components };
 }
 
-export function buildNearDuplicateGroupingGraph(params: {
-    db: DbHandle;
+export function buildNearDuplicateGroupingGraphFromUnits(params: {
+    units: SimilarityGroupingUnit[];
     changedAssetIds: string[];
     threshold: number;
-}): {
-    units: SimilarityGroupingUnit[];
-    edges: GroupingSimilarityEdge[];
-    components: string[][];
-} {
+}): GroupingGraph {
     if (params.changedAssetIds.length === 0) {
         return { units: [], edges: [], components: [] };
     }
-
-    const units = buildSimilarityUnits(params.db, ['duplicate']);
-    const reachableAssetIds = collectReachableAssetIds(
-        units,
+    const reachableUnitIds = collectReachableAssetIds(
+        params.units,
         params.changedAssetIds,
         params.threshold,
     );
-    const impactedUnits = units.filter((unit) => reachableAssetIds.has(unit.unitId));
+    const impactedUnits = params.units.filter((unit) => reachableUnitIds.has(unit.unitId));
     const edges = buildPairwiseEdges(impactedUnits, params.threshold);
     const components = buildConnectedComponents(
         impactedUnits.map((unit) => unit.unitId),
         edges,
     ).filter((component) => component.length > 1);
-
-    return {
-        units: impactedUnits,
-        edges,
-        components,
-    };
+    return { units: impactedUnits, edges, components };
 }
 
-export function buildBurstGroupingGraph(params: {
-    db: DbHandle;
+export function buildBurstGroupingGraphFromUnits(params: {
+    units: SimilarityGroupingUnit[];
     changedAssetIds: string[];
     maxSeconds: number;
     maxDistance: number;
-}): {
-    units: SimilarityGroupingUnit[];
-    edges: GroupingSimilarityEdge[];
-    components: string[][];
-} {
+}): GroupingGraph {
     if (params.changedAssetIds.length === 0) {
         return { units: [], edges: [], components: [] };
     }
-
-    const units = buildSimilarityUnits(params.db, ['variant_set', 'near_duplicate', 'duplicate'])
-        .filter((unit) => unit.exifDatetime !== null);
-    const reachableAssetIds = collectReachableBurstAssetIds(
-        units.map((unit) => ({
-            id: unit.unitId,
-            originalPath: unit.originalPath,
-            fileHash: unit.fileHash,
-            fileSize: unit.fileSize,
-            width: unit.width,
-            height: unit.height,
-            exifDatetime: unit.exifDatetime!,
-            phash64: unit.phash64,
-            dhash64: unit.dhash64,
-        })),
-        units.filter((unit) => unit.memberAssetIds.some((assetId) => params.changedAssetIds.includes(assetId))).map((unit) => unit.unitId),
+    const unitsWithTime = params.units.filter((unit) => burstEvidenceForUnit(unit).length > 0);
+    const changedUnitIds = unitsWithTime
+        .filter((unit) => unit.memberAssetIds.some((assetId) => params.changedAssetIds.includes(assetId)))
+        .map((unit) => unit.unitId);
+    const reachableUnitIds = collectReachableBurstUnitIds(
+        unitsWithTime,
+        changedUnitIds,
         params.maxSeconds,
         params.maxDistance,
     );
-    const impactedUnits = units.filter((unit) => reachableAssetIds.has(unit.unitId));
-    const edges = buildBurstEdges(
-        impactedUnits.map((unit) => ({
-            id: unit.unitId,
-            originalPath: unit.originalPath,
-            fileHash: unit.fileHash,
-            fileSize: unit.fileSize,
-            width: unit.width,
-            height: unit.height,
-            exifDatetime: unit.exifDatetime!,
-            phash64: unit.phash64,
-            dhash64: unit.dhash64,
-        })),
+    const impactedUnits = unitsWithTime.filter((unit) => reachableUnitIds.has(unit.unitId));
+    const edges = buildBurstEdgesFromUnits(
+        impactedUnits,
         params.maxSeconds,
         params.maxDistance,
     );
@@ -411,10 +460,5 @@ export function buildBurstGroupingGraph(params: {
         impactedUnits.map((unit) => unit.unitId),
         edges,
     ).filter((component) => component.length > 1);
-
-    return {
-        units: impactedUnits,
-        edges,
-        components,
-    };
+    return { units: impactedUnits, edges, components };
 }

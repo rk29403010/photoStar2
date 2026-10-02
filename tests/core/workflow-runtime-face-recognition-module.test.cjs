@@ -32,9 +32,61 @@ function insertFaceDetection(db, assetId, faces) {
     `).run(`face-detect-${assetId}`, assetId, JSON.stringify({ faces }));
 }
 
-test('runtime.generate_face_vectors stores ArcFace embeddings and emits face events', async () => {
+function seedExecution(db, runId, assetId) {
+    const stepRunId = `step-${runId}`;
+    const subjectExecutionId = `subject-${runId}`;
+    db.prepare(`
+        INSERT INTO workflow_runs (
+            id, workflow_id, trigger_type, status, input_subjects_json, parameters_json
+        ) VALUES (?, 'face-recognition-test', 'manual', 'running', ?, '{}')
+    `).run(runId, JSON.stringify([{ subjectType: 'asset', subjectId: assetId }]));
+    db.prepare(`
+        INSERT INTO step_runs (id, workflow_run_id, node_id, status, expected_items)
+        VALUES (?, ?, 'generate-face-vectors', 'running', 1)
+    `).run(stepRunId, runId);
+    db.prepare(`
+        INSERT INTO subject_executions (
+            id, workflow_run_id, step_run_id, subject_type, subject_id, status
+        ) VALUES (?, ?, ?, 'asset', ?, 'running')
+    `).run(subjectExecutionId, runId, stepRunId, assetId);
+    return { stepRunId, subjectExecutionId };
+}
+
+async function seedStableFace(db, assetId, face) {
+    const stableFaces = await import('../../dist/core/src/services/faces/stableFaceRepository.js');
+    const maskMetadata = await import('../../dist/core/src/services/photoEditing/assetMaskMetadata.js');
+    const stable = stableFaces.createStableFaceDetection(db, {
+        assetId,
+        sourceAnalysisGenerationId: `face-detect-${assetId}`,
+        box: face.box,
+        sourceWidth: 100,
+        sourceHeight: 100,
+        sourceOrientation: 1,
+        sourceModuleId: 'runtime.detect_faces',
+        provider: 'onnx_retina_10g',
+        modelVersion: '1.0',
+    });
+    maskMetadata.saveAssetMaskMetadata(db, {
+        assetId,
+        sourceId: 'runtime.detect_faces',
+        masks: [{
+            id: face.id,
+            label: 'Face 1',
+            description: 'test face',
+            kind: 'ellipse',
+            box: face.box,
+            visualRegionId: stable.visualRegionId,
+            source: { moduleId: 'runtime.detect_faces', referenceId: face.id },
+        }],
+    });
+    return stable;
+}
+
+test('runtime.generate_face_vectors stores generation-owned ArcFace embeddings and emits face events', async () => {
     const tempDir = createTempDir();
     const imagePath = createFixtureImage(tempDir);
+    const modelPath = path.join(tempDir, 'arcface-test.onnx');
+    fs.writeFileSync(modelPath, Buffer.from('deterministic-model-artifact'));
     const emittedEvents = [];
     const { DatabaseManager } = require('../../dist/core/src/data/db.js');
     const { createGenerateFaceVectorsModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-face-vectors/implementation.js');
@@ -43,18 +95,17 @@ test('runtime.generate_face_vectors stores ArcFace embeddings and emits face eve
     try {
         dbManager = new DatabaseManager(tempDir);
         const db = dbManager.getDb();
-        insertAsset(db, 'asset-1', imagePath);
-        insertFaceDetection(db, 'asset-1', [
+        const faces = [
             {
                 id: 'face-1',
                 box: { x: 0.1, y: 0.1, width: 0.4, height: 0.4 },
                 landmarks: [{ x: 0.2, y: 0.2 }],
             },
-            {
-                id: 'face-2',
-                box: { x: 0.5, y: 0.5, width: 0.4, height: 0.4 },
-            },
-        ]);
+        ];
+        insertAsset(db, 'asset-1', imagePath);
+        insertFaceDetection(db, 'asset-1', faces);
+        const stable = await seedStableFace(db, 'asset-1', faces[0]);
+        const execution = seedExecution(db, 'run-1', 'asset-1');
 
         const moduleDefinition = createGenerateFaceVectorsModule({
             dbManager,
@@ -68,7 +119,7 @@ test('runtime.generate_face_vectors stores ArcFace embeddings and emits face eve
                     return true;
                 },
                 getModelPath() {
-                    return 'C:/models/w600k_r50.onnx';
+                    return modelPath;
                 },
                 async computeEmbedding() {
                     return [0.25, 0.5, 0.75];
@@ -78,6 +129,7 @@ test('runtime.generate_face_vectors stores ArcFace embeddings and emits face eve
 
         const result = await moduleDefinition.run({
             runId: 'run-1',
+            ...execution,
             subject: { subjectType: 'asset', subjectId: 'asset-1' },
             batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
             parameters: {},
@@ -85,21 +137,54 @@ test('runtime.generate_face_vectors stores ArcFace embeddings and emits face eve
 
         assert.deepEqual(result.outputs, [{ kind: 'artifact', artifactType: 'face_vector', subjectType: 'asset' }]);
 
-        const recognitionRow = db.prepare(`
-            SELECT provider, model_version, data
-            FROM derived_results
-            WHERE asset_id = 'asset-1' AND task = 'face_recognition'
+        const generation = db.prepare(`
+            SELECT id, status
+            FROM analysis_generations
+            WHERE scope_key = 'face-vectors:asset-1'
         `).get();
-        assert.equal(recognitionRow.provider, 'onnx_arcface_r50');
-        assert.equal(recognitionRow.model_version, '1.0');
-        assert.deepEqual(JSON.parse(recognitionRow.data), {
-            embeddings: [[0.25, 0.5, 0.75], null],
+        assert.equal(generation.status, 'successful');
+        const vector = db.prepare(`
+            SELECT subject_entity_id, dimensions, normalization, metric
+            FROM feature_vectors
+            WHERE analysis_generation_id = ?
+        `).get(generation.id);
+        assert.deepEqual(vector, {
+            subject_entity_id: stable.faceId,
+            dimensions: 3,
+            normalization: 'none',
+            metric: 'cosine',
         });
+        assert.equal(
+            db.prepare("SELECT COUNT(*) AS count FROM derived_results WHERE asset_id = 'asset-1' AND task = 'face_recognition'").get().count,
+            0,
+        );
         assert.deepEqual(emittedEvents, [{
             type: 'FaceEmbeddingGenerated',
             mediaId: 'asset-1',
             faceId: 'face-1',
         }]);
+
+        const retryExecution = seedExecution(db, 'run-failed', 'asset-1');
+        const failingModule = createGenerateFaceVectorsModule({
+            dbManager,
+            embeddingService: {
+                isAvailable: () => true,
+                getModelPath: () => modelPath,
+                computeEmbedding: async () => { throw new Error('Inference failed'); },
+            },
+        });
+        await assert.rejects(failingModule.run({
+            runId: 'run-failed',
+            ...retryExecution,
+            subject: { subjectType: 'asset', subjectId: 'asset-1' },
+            batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
+            parameters: {},
+        }), /recognition failed for 1 detected face/);
+        assert.equal(db.prepare(`SELECT active_generation_id FROM analysis_generation_heads
+            WHERE scope_key = 'face-vectors:asset-1'`).get().active_generation_id, generation.id);
+        assert.equal(db.prepare(`SELECT status FROM analysis_generations
+            WHERE workflow_run_id = 'run-failed'`).get().status, 'failed');
+        assert.equal(db.prepare('SELECT COUNT(*) AS count FROM feature_vectors').get().count, 1);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -126,6 +211,7 @@ test('runtime.generate_face_vectors keeps existing embeddings when ArcFace model
             INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
             VALUES ('existing-row', 'asset-1', 'face_recognition', 'onnx_arcface_r50', '1.0', ?)
         `).run(JSON.stringify({ embeddings: [[0.9, 0.8, 0.7]] }));
+        const execution = seedExecution(db, 'run-2', 'asset-1');
 
         const moduleDefinition = createGenerateFaceVectorsModule({
             dbManager,
@@ -142,12 +228,13 @@ test('runtime.generate_face_vectors keeps existing embeddings when ArcFace model
             },
         });
 
-        await moduleDefinition.run({
+        await assert.rejects(moduleDefinition.run({
             runId: 'run-2',
+            ...execution,
             subject: { subjectType: 'asset', subjectId: 'asset-1' },
             batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
             parameters: {},
-        });
+        }), /ArcFace model not found/i);
 
         const recognitionRow = db.prepare(`
             SELECT provider, model_version, data

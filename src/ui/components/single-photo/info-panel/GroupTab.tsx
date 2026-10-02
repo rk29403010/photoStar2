@@ -1,33 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import type { Asset, SimilarityOrbit, SimilarityOrbitItem } from '@contracts/core';
+import type { Asset } from '@contracts/core';
+import type { LibraryPresentationExpansion, LibraryPresentationItem } from '@contracts/libraryPresentation';
 import { Section } from './shared';
 
+type RelationshipMember = {
+  asset: Asset;
+  isRepresentative: boolean;
+};
+
 type GroupMembersListProps = {
-  readonly items: SimilarityOrbitItem[];
+  readonly items: RelationshipMember[];
   readonly currentAssetId: string;
   readonly loading: boolean;
   readonly onMakeCanonical: (assetId: string) => Promise<void>;
 };
 
-const GroupMembersList: React.FC<GroupMembersListProps> = ({
-  items,
-  currentAssetId,
-  loading,
-  onMakeCanonical,
-}) => {
+const GroupMembersList: React.FC<GroupMembersListProps> = ({ items, currentAssetId, loading, onMakeCanonical }) => {
   if (loading) {
-    return <div className="text-xs text-content-secondary py-4 text-center">Loading group assets...</div>;
+    return <div className="text-xs text-content-secondary py-4 text-center">Loading related photos...</div>;
   }
 
   return (
     <div className="flex flex-col gap-2">
       <div className="text-[11px] text-content-secondary mb-1">
-        All files in this duplicate/similar group ({items.length} files):
+        All files in this presentation ({items.length} files):
       </div>
       {items.map((item) => {
         const fileAsset = item.asset;
         const filename = fileAsset.original_path.split(/[/\\]/).pop() || '';
-        const isCanonical = fileAsset.group_role === 'canonical' || (fileAsset as unknown as Record<string, unknown>).role === 'canonical';
         const sizeMB = fileAsset.file_size ? `${(fileAsset.file_size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown size';
         const isCurrent = fileAsset.id === currentAssetId;
 
@@ -35,30 +35,24 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
           <div
             key={fileAsset.id}
             className={`p-2.5 rounded-lg border flex flex-col gap-1 motion-safe:transition-all ${
-              isCurrent
-                ? 'bg-brand-accent/5 border-brand-accent/30'
-                : 'bg-surface-secondary/40 border-content/5'
+              isCurrent ? 'bg-brand-accent/5 border-brand-accent/30' : 'bg-surface-secondary/40 border-content/5'
             }`}
           >
             <div className="flex justify-between items-start">
               <div className="flex flex-col min-w-0 pr-2">
-                <span className="font-semibold text-xs text-content truncate select-text" title={fileAsset.original_path}>
-                  {filename}
-                </span>
+                <span className="font-semibold text-xs text-content truncate select-text" title={fileAsset.original_path}>{filename}</span>
                 <span className="text-[10px] text-content-secondary">
                   {sizeMB} · {fileAsset.width && fileAsset.height ? `${fileAsset.width}×${fileAsset.height} px` : ''}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {isCanonical ? (
-                  <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[9px] font-bold uppercase tracking-wider">
-                    ⭐ Star
-                  </span>
+                {item.isRepresentative ? (
+                  <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[9px] font-bold uppercase tracking-wider">⭐ Star</span>
                 ) : (
                   <button
-                    onClick={() => onMakeCanonical(fileAsset.id)}
+                    onClick={() => { void onMakeCanonical(fileAsset.id); }}
                     className="px-1.5 py-0.5 bg-content/5 hover:bg-content/10 border border-content/10 rounded text-[9px] font-medium transition-colors cursor-pointer"
-                    title="Make this the star image for grouping"
+                    title="Make this the star image for this presentation"
                   >
                     Make Star
                   </button>
@@ -74,7 +68,7 @@ const GroupMembersList: React.FC<GroupMembersListProps> = ({
 
 type GroupExportSectionProps = {
   readonly isVariantGroup: boolean;
-  readonly items: SimilarityOrbitItem[];
+  readonly items: RelationshipMember[];
   readonly selectedVariantId: string;
   readonly setSelectedVariantId: (v: string) => void;
   readonly exporting: boolean;
@@ -82,121 +76,104 @@ type GroupExportSectionProps = {
   readonly exportSuccess: string | null;
 };
 
-const GroupExportSection: React.FC<GroupExportSectionProps> = ({
-  isVariantGroup,
-  items,
-  selectedVariantId,
-  setSelectedVariantId,
-  exporting,
-  handleExport,
-  exportSuccess,
-}) => {
-  return (
-    <div className="bg-surface-secondary/45 border border-content/5 rounded-lg p-3.5 flex flex-col gap-3">
-      {isVariantGroup ? (
-        <div className="flex flex-col gap-2.5">
-          <span className="text-xs text-content-secondary leading-relaxed">
-            ℹ️ This is a <strong>Variant Group</strong> (e.g. photos showing different years, different versions, or photos of the same person at different ages). Choose which file to use as the template for exporting the synthesised metadata:
-          </span>
-          <select
-            value={selectedVariantId}
-            onChange={(e) => setSelectedVariantId(e.target.value)}
-            disabled={exporting}
-            className="w-full bg-surface text-content border border-content/15 rounded px-2.5 py-1.5 text-xs outline-none cursor-pointer focus:border-brand-accent/40"
-          >
-            {items.map((item) => {
-              const filename = item.asset.original_path.split(/[/\\]/).pop() || '';
-              const isCanonical = item.asset.group_role === 'canonical' || (item.asset as unknown as Record<string, unknown>).role === 'canonical';
-              return (
-                <option key={item.asset.id} value={item.asset.id}>
-                  {filename} {isCanonical ? '(Star)' : ''}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-      ) : (
+const GroupExportSection: React.FC<GroupExportSectionProps> = ({ isVariantGroup, items, selectedVariantId, setSelectedVariantId, exporting, handleExport, exportSuccess }) => (
+  <div className="bg-surface-secondary/45 border border-content/5 rounded-lg p-3.5 flex flex-col gap-3">
+    {isVariantGroup ? (
+      <div className="flex flex-col gap-2.5">
         <span className="text-xs text-content-secondary leading-relaxed">
-          ℹ️ This is a <strong>Duplicate/Similar Group</strong>. Exporting will collapse these down and create a single new file embedded with the best synthesised metadata estimates (date, location, tags, and caption).
+          ℹ️ This is a <strong>Variant Group</strong>. Choose which file to use as the template for exporting the synthesised metadata:
         </span>
-      )}
+        <select
+          value={selectedVariantId}
+          onChange={(event) => setSelectedVariantId(event.target.value)}
+          disabled={exporting}
+          className="w-full bg-surface text-content border border-content/15 rounded px-2.5 py-1.5 text-xs outline-none cursor-pointer focus:border-brand-accent/40"
+        >
+          {items.map((item) => {
+            const filename = item.asset.original_path.split(/[/\\]/).pop() || '';
+            return <option key={item.asset.id} value={item.asset.id}>{filename} {item.isRepresentative ? '(Star)' : ''}</option>;
+          })}
+        </select>
+      </div>
+    ) : (
+      <span className="text-xs text-content-secondary leading-relaxed">
+        ℹ️ This presentation groups files that PhotoStar currently treats as related. Exporting will create a single new file using the best synthesised metadata estimates (date, location, tags, and caption).
+      </span>
+    )}
+    <button
+      onClick={handleExport}
+      disabled={exporting || items.length === 0}
+      className="w-full py-2 bg-brand-accent/20 hover:bg-brand-accent/35 text-brand-accent border border-brand-accent/35 rounded text-xs font-bold motion-safe:transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5"
+    >
+      {exporting ? 'Processing Export...' : 'Export Authoritative File'}
+    </button>
+    {exportSuccess && <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-emerald-400 text-[11px] leading-normal motion-safe:animate-fade-in">🎉 {exportSuccess}</div>}
+  </div>
+);
 
-      <button
-        onClick={handleExport}
-        disabled={exporting || items.length === 0}
-        className="w-full py-2 bg-brand-accent/20 hover:bg-brand-accent/35 text-brand-accent border border-brand-accent/35 rounded text-xs font-bold motion-safe:transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5"
-      >
-        {exporting ? 'Processing Export...' : 'Export Authoritative File'}
-      </button>
-
-      {exportSuccess && (
-        <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-emerald-400 text-[11px] leading-normal motion-safe:animate-fade-in">
-          🎉 {exportSuccess}
-        </div>
-      )}
-    </div>
-  );
-};
-
-function findStarAssetId(items: SimilarityOrbitItem[], defaultId: string): string {
-  const canonical = items.find((item) => {
-    const asset = item.asset;
-    const role = (asset as unknown as Record<string, unknown>).role;
-    return asset.group_role === 'canonical' || role === 'canonical';
-  });
-  return canonical?.asset.id ?? defaultId;
+function presentationMembers(expansion: LibraryPresentationExpansion): RelationshipMember[] {
+  return expansion.items.map((item) => ({ asset: item.asset, isRepresentative: item.isRepresentative }));
 }
 
-function getExportSuccessMessage(groupType: string, orbit: SimilarityOrbit | null, selectedVariantId: string): string {
+function getExportSuccessMessage(groupType: string, items: RelationshipMember[], selectedVariantId: string): string {
   if (groupType === 'variant') {
-    const selectedAsset = orbit?.items.find((i) => i.asset.id === selectedVariantId)?.asset;
+    const selectedAsset = items.find((item) => item.asset.id === selectedVariantId)?.asset;
     const filename = selectedAsset?.original_path.split(/[/\\]/).pop() || 'photo.jpg';
     return `Successfully exported variant "${filename}" as new authoritative file!`;
   }
-  return `Successfully collapsed and exported group as new authoritative file!`;
+  return 'Successfully exported presentation as a new authoritative file!';
 }
 
-function useGroupTabState(
-  asset: Asset,
-  onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>,
-  onSetCanonical?: (groupId: string, assetId: string) => Promise<void>
-) {
-  const [orbit, setOrbit] = useState<SimilarityOrbit | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState<string>('');
+type RelationshipLoadActions = {
+  readonly onGetPresentationExpansion?: (presentationKey: string) => Promise<LibraryPresentationExpansion>;
+  readonly onSetPresentationCover?: (presentationKey: string, assetId: string) => Promise<void>;
+};
 
-  const groupId = asset.group_id || asset.group_memberships?.[0]?.group_id;
-  const groupType = orbit?.group_type || asset.group_memberships?.[0]?.group_type || 'similar';
+function useRelationshipMembers(params: {
+  presentation?: LibraryPresentationItem | null;
+  actions: RelationshipLoadActions;
+  setSelectedVariantId: (assetId: string) => void;
+}) {
+  const { presentation, setSelectedVariantId } = params;
+  const { onGetPresentationExpansion } = params.actions;
+  const [items, setItems] = useState<RelationshipMember[]>([]);
+  const [loading, setLoading] = useState(false);
+  const presentationKey = presentation && presentation.stackCount > 1 ? presentation.presentationKey : null;
 
   useEffect(() => {
-    if (!groupId || !onGetGroupOrbit) {
-      setOrbit(null);
+    setItems([]);
+    if (!presentationKey || !onGetPresentationExpansion) {
+      setLoading(false);
       return;
     }
-
     setLoading(true);
-    setExportSuccess(null);
-    onGetGroupOrbit(groupId)
-      .then((data) => {
-        setOrbit(data);
-        setSelectedVariantId(findStarAssetId(data.items, asset.id));
+    void onGetPresentationExpansion(presentationKey)
+      .then((expansion) => {
+        setItems(presentationMembers(expansion));
+        setSelectedVariantId(expansion.representativeAssetId);
       })
-      .catch((err) => console.error('Failed to load group orbit:', err))
+      .catch((error: unknown) => console.error('Failed to load presentation:', error))
       .finally(() => setLoading(false));
-  }, [groupId, asset.id, onGetGroupOrbit]);
+  }, [onGetPresentationExpansion, presentationKey, setSelectedVariantId]);
+
+  return { items, setItems, loading, presentationKey };
+}
+
+function useGroupTabState(asset: Asset, presentation: LibraryPresentationItem | null | undefined, actions: RelationshipLoadActions) {
+  const [exporting, setExporting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(presentation?.representativeAssetId ?? asset.id);
+  const { items, setItems, loading, presentationKey } = useRelationshipMembers({ presentation, actions, setSelectedVariantId });
+  const groupType = presentation?.relationshipKind ?? 'similar';
 
   const handleMakeCanonical = async (assetId: string) => {
-    if (!groupId || !onSetCanonical) { return; }
+    if (!presentationKey || !actions.onSetPresentationCover) {return;}
     try {
-      await onSetCanonical(groupId, assetId);
-      if (onGetGroupOrbit) {
-        const data = await onGetGroupOrbit(groupId);
-        setOrbit(data);
-      }
-    } catch (err) {
-      console.error('Failed to set canonical asset:', err);
+      await actions.onSetPresentationCover(presentationKey, assetId);
+      setItems((currentItems) => currentItems.map((item) => ({ ...item, isRepresentative: item.asset.id === assetId })));
+      setSelectedVariantId(assetId);
+    } catch (error) {
+      console.error('Failed to set presentation cover:', error);
     }
   };
 
@@ -205,14 +182,14 @@ function useGroupTabState(
     setExportSuccess(null);
     setTimeout(() => {
       setExporting(false);
-      setExportSuccess(getExportSuccessMessage(groupType, orbit, selectedVariantId));
+      setExportSuccess(getExportSuccessMessage(groupType ?? 'similar', items, selectedVariantId));
     }, 2000);
   };
 
   return {
-    groupId,
-    groupType,
-    orbit,
+    relationshipId: presentationKey,
+    groupType: groupType ?? 'similar',
+    items,
     loading,
     exporting,
     exportSuccess,
@@ -223,63 +200,38 @@ function useGroupTabState(
   };
 }
 
-type GroupTabProps = {
+type GroupTabProps = RelationshipLoadActions & {
   readonly asset: Asset;
-  readonly onGetGroupOrbit?: (groupId: string) => Promise<SimilarityOrbit>;
-  readonly onSetCanonical?: (groupId: string, assetId: string) => Promise<void>;
+  readonly presentation?: LibraryPresentationItem | null;
 };
 
-export const GroupTab: React.FC<GroupTabProps> = ({
-  asset,
-  onGetGroupOrbit,
-  onSetCanonical,
-}) => {
-  const {
-    groupId,
-    groupType,
-    orbit,
-    loading,
-    exporting,
-    exportSuccess,
-    selectedVariantId,
-    setSelectedVariantId,
-    handleMakeCanonical,
-    handleExport,
-  } = useGroupTabState(asset, onGetGroupOrbit, onSetCanonical);
+export const GroupTab: React.FC<GroupTabProps> = ({ asset, presentation, onGetPresentationExpansion, onSetPresentationCover }) => {
+  const state = useGroupTabState(asset, presentation, { onGetPresentationExpansion, onSetPresentationCover });
 
-  if (!groupId) {
+  if (!state.relationshipId) {
     return (
       <div className="text-center py-10 px-5 text-content-secondary/60 select-none">
         <div className="text-3xl mb-2.5">📁</div>
         <div className="text-xs font-bold uppercase text-content-secondary/80">Single Photo</div>
-        <div className="text-[11px] text-content-secondary/70 mt-1">This photo is not part of any duplicate or similar photo group.</div>
+        <div className="text-[11px] text-content-secondary/70 mt-1">This photo is not currently part of a collapsed relationship presentation.</div>
       </div>
     );
   }
 
-  const items = orbit?.items ?? [];
-  const isVariantGroup = groupType === 'variant';
-
   return (
     <div className="flex flex-col gap-4 text-content select-none">
-      <Section emoji="📁" title={`Group: ${groupType.toUpperCase()}`}>
-        <GroupMembersList
-          items={items}
-          currentAssetId={asset.id}
-          loading={loading}
-          onMakeCanonical={handleMakeCanonical}
-        />
+      <Section emoji="📁" title={`Relationship: ${state.groupType.toUpperCase()}`}>
+        <GroupMembersList items={state.items} currentAssetId={asset.id} loading={state.loading} onMakeCanonical={state.handleMakeCanonical} />
       </Section>
-
       <Section emoji="📤" title="Authoritative Export">
         <GroupExportSection
-          isVariantGroup={isVariantGroup}
-          items={items}
-          selectedVariantId={selectedVariantId}
-          setSelectedVariantId={setSelectedVariantId}
-          exporting={exporting}
-          handleExport={handleExport}
-          exportSuccess={exportSuccess}
+          isVariantGroup={state.groupType === 'variant'}
+          items={state.items}
+          selectedVariantId={state.selectedVariantId}
+          setSelectedVariantId={state.setSelectedVariantId}
+          exporting={state.exporting}
+          handleExport={state.handleExport}
+          exportSuccess={state.exportSuccess}
         />
       </Section>
     </div>

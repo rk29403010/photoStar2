@@ -171,7 +171,9 @@ function loadStepRunRows(
             sr.node_id,
             sr.status,
             COALESCE(MAX(sr.expected_items), COUNT(se.id)) AS total_items,
-            SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) AS completed_items,
+            CASE WHEN sr.status = 'completed' THEN COALESCE(MAX(sr.expected_items), COUNT(se.id))
+                ELSE SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END)
+            END AS completed_items,
             SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) AS failed_items,
             MAX(sr.error_message) AS error_message
         FROM step_runs sr

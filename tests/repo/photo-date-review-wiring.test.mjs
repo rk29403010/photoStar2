@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 
-test('photo date review action is wired from App through the single-photo file tab', () => {
+test('photo date review action remains wired to the single-photo info-panel boundary', () => {
     const appSource = readFileSync(path.join(workspaceRoot, 'src/ui/App.tsx'), 'utf8');
     const loadedShellSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/app/LoadedAppShell.tsx'), 'utf8');
     const overlaysSource = readFileSync(path.join(workspaceRoot, 'src/ui/components/app/AppOverlays.tsx'), 'utf8');
@@ -22,6 +22,7 @@ test('photo date review action is wired from App through the single-photo file t
     assert.match(singlePhotoSource, /onFlagPhotoDateCorrection\?: \(input: PhotoDateCorrectionInput\) => Promise<void>;/);
     assert.match(singlePhotoSource, /onFlagPhotoDateCorrection=\{params\.props\.onFlagPhotoDateCorrection\}/);
     assert.match(overlaySource, /onFlagPhotoDateCorrection=\{props\.onFlagPhotoDateCorrection\}/);
-    assert.match(infoPanelSource, /onFlagPhotoDateCorrection=\{onFlagPhotoDateCorrection\}/);
+    assert.match(infoPanelSource, /readonly onFlagPhotoDateCorrection\?: \(input: PhotoDateCorrectionInput\) => Promise<void>;/);
     assert.match(fileTabSource, /onFlagPhotoDateCorrection\?: \(input: PhotoDateCorrectionInput\) => Promise<void>/);
+    assert.match(fileTabSource, /<PhotoDateReviewSection asset=\{asset\} onFlagPhotoDateCorrection=\{onFlagPhotoDateCorrection\} \/>/);
 });

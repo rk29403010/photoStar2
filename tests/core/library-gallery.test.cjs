@@ -37,17 +37,17 @@ test('sortAssetsForGallery sorts by photo_created_at ascending in reverse-date m
     assert.deepEqual(sorted.map((asset) => asset.id), ['1', '2', '3']);
 });
 
-test('sortAssetsForGallery sorts by group id then asset id in group mode', async () => {
+test('sortAssetsForGallery treats legacy group sort as deterministic filename order', async () => {
     const { sortAssetsForGallery } = await import('../../dist/core/src/shared/utils/libraryGallery.js');
 
     const sorted = sortAssetsForGallery([
-        { id: 'b2', original_path: 'C:/photos/b2.jpg', group_id: 'group-b' },
-        { id: 'a2', original_path: 'C:/photos/a2.jpg', group_id: 'group-a' },
-        { id: 'a1', original_path: 'C:/photos/a1.jpg', group_id: 'group-a' },
-        { id: 'u1', original_path: 'C:/photos/u1.jpg', group_id: null },
+        { id: 'b2', original_path: 'C:/photos/b2.jpg' },
+        { id: 'a2', original_path: 'C:/photos/a2.jpg' },
+        { id: 'a1', original_path: 'C:/photos/a1.jpg' },
+        { id: 'u1', original_path: 'C:/photos/u1.jpg' },
     ], 'group');
 
-    assert.deepEqual(sorted.map((asset) => asset.id), ['u1', 'a1', 'a2', 'b2']);
+    assert.deepEqual(sorted.map((asset) => asset.id), ['a1', 'a2', 'b2', 'u1']);
 });
 
 test('getEffectiveLibrarySortMode falls back to filename when grouped mode is enabled in group sort', async () => {

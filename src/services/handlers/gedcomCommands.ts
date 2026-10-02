@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { resolveCurrentPersonId } from '../faces/personLifecycleRepository';
 import type { CommandHandlerMap } from './types';
 
-// Helper to compute SHA-256 hash of tree content
 function computeHash(content: string): string {
     const hash = crypto.createHash('sha256');
     hash.update(content);
@@ -29,7 +29,6 @@ function applyHeaderLine(metadata: HeaderMetadata, line: string): void {
     }
 }
 
-// Helper to extract version/date label from GEDCOM header
 function readHeaderMetadata(content: string): HeaderMetadata {
     const lines = content.split(/\r?\n/).slice(0, 100);
     const metadata: HeaderMetadata = { date: '', time: '', version: '' };
@@ -51,6 +50,26 @@ function extractVersionLabel(content: string): string {
     return 'Unknown Version';
 }
 
+type GedcomLinkRow = {
+    person_id: string;
+    gedcom_tree_id: string;
+    gedcom_person_id: string;
+};
+
+function currentGedcomLinks(db: Parameters<typeof resolveCurrentPersonId>[0]): GedcomLinkRow[] {
+    const rows = db.prepare(`
+        SELECT person_id, gedcom_tree_id, gedcom_person_id
+        FROM people_gedcom_links
+    `).all() as GedcomLinkRow[];
+    const links = new Map<string, GedcomLinkRow>();
+    for (const row of rows) {
+        const personId = resolveCurrentPersonId(db, row.person_id);
+        const key = `${personId}\u0000${row.gedcom_tree_id}\u0000${row.gedcom_person_id}`;
+        links.set(key, { ...row, person_id: personId });
+    }
+    return Array.from(links.values());
+}
+
 export const gedcomCommandHandlers: CommandHandlerMap = {
     upload_family_tree: (ctx) => {
         const { id, payload, originWs, dbManager, respond } = ctx;
@@ -58,8 +77,6 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
             const { filename, content, treeGroupId } = payload as { filename: string; content: string; treeGroupId?: string };
             const fileHash = computeHash(content);
             const db = dbManager.getDb();
-
-            // Check for duplicate hash
             const duplicate = db.prepare('SELECT id, filename FROM family_trees WHERE file_hash = ?').get(fileHash) as { id: string; filename: string } | undefined;
             if (duplicate) {
                 respond(id, 'error', null, `A family tree with the exact same content has already been uploaded as "${duplicate.filename}".`, originWs);
@@ -69,19 +86,16 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
             const treeId = uuidv4();
             const groupId = treeGroupId || uuidv4();
             const versionLabel = extractVersionLabel(content);
-
             db.prepare(`
                 INSERT INTO family_trees (id, filename, file_hash, gedcom_content, tree_group_id, version_label)
                 VALUES (?, ?, ?, ?, ?, ?)
             `).run(treeId, filename, fileHash, content, groupId, versionLabel);
-
             respond(id, 'ok', { treeId, filename, treeGroupId: groupId, versionLabel }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
         }
     },
 
-    // New handler to persist home person selection
     set_home_person: (ctx) => {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
@@ -114,11 +128,9 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
             const tree = dbManager.getDb().prepare(`
                 SELECT filename, gedcom_content FROM family_trees WHERE id = ?
             `).get(treeId) as { filename: string; gedcom_content: string } | undefined;
-
             if (!tree) {
                 throw new Error('Family tree not found');
             }
-
             respond(id, 'ok', { content: tree.gedcom_content, filename: tree.filename }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
@@ -132,8 +144,6 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
             const db = dbManager.getDb();
             db.transaction(() => {
                 db.prepare('DELETE FROM family_trees WHERE id = ?').run(treeId);
-                // The people_gedcom_links rows will be deleted via ON DELETE CASCADE (foreign key is configured in schema)
-                // However, let's explicitly clean them up just in case SQLite foreign_keys pragma is not enabled:
                 db.prepare('DELETE FROM people_gedcom_links WHERE gedcom_tree_id = ?').run(treeId);
             })();
             respond(id, 'ok', { message: 'Family tree deleted successfully' }, null, originWs);
@@ -146,10 +156,12 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
             const { personId, gedcomTreeId, gedcomPersonId } = payload as { personId: string; gedcomTreeId: string; gedcomPersonId: string };
-            dbManager.getDb().prepare(`
+            const db = dbManager.getDb();
+            const currentPersonId = resolveCurrentPersonId(db, personId);
+            db.prepare(`
                 INSERT OR REPLACE INTO people_gedcom_links (person_id, gedcom_tree_id, gedcom_person_id)
                 VALUES (?, ?, ?)
-            `).run(personId, gedcomTreeId, gedcomPersonId);
+            `).run(currentPersonId, gedcomTreeId, gedcomPersonId);
             respond(id, 'ok', { message: 'Linked successfully' }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
@@ -160,10 +172,12 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
         const { id, payload, originWs, dbManager, respond } = ctx;
         try {
             const { personId, gedcomTreeId, gedcomPersonId } = payload as { personId: string; gedcomTreeId: string; gedcomPersonId: string };
-            dbManager.getDb().prepare(`
+            const db = dbManager.getDb();
+            const currentPersonId = resolveCurrentPersonId(db, personId);
+            db.prepare(`
                 DELETE FROM people_gedcom_links
                 WHERE person_id = ? AND gedcom_tree_id = ? AND gedcom_person_id = ?
-            `).run(personId, gedcomTreeId, gedcomPersonId);
+            `).run(currentPersonId, gedcomTreeId, gedcomPersonId);
             respond(id, 'ok', { message: 'Unlinked successfully' }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
@@ -173,9 +187,7 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
     get_people_gedcom_links: (ctx) => {
         const { id, originWs, dbManager, respond } = ctx;
         try {
-            const links = dbManager.getDb().prepare(`
-                SELECT person_id, gedcom_tree_id, gedcom_person_id FROM people_gedcom_links
-            `).all();
+            const links = currentGedcomLinks(dbManager.getDb());
             respond(id, 'ok', { links }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);

@@ -6,6 +6,7 @@ import { buildGalleryTileLayout, type GalleryLayoutMode } from '@shared/utils/li
 import { LayoutModeRenderer } from './LayoutModeRenderer';
 import { GALLERY_EAGER_PREVIEW_COUNT, GALLERY_ROW_GAP_PX, GALLERY_TILE_GAP_PX } from '../library/galleryBrowseRailModel';
 import {
+    addLibraryItemsToSelection,
     createEmptyLibrarySelectionState,
     hasLibrarySelection,
     isItemSelected,
@@ -136,7 +137,7 @@ function useDragAutoScroll(
                 clearInterval(scrollIntervalRef.current);
                 scrollIntervalRef.current = null;
             }
-            return;
+            return undefined;
         }
 
         const handlePointerMove = (e: PointerEvent) => {
@@ -206,7 +207,9 @@ function useSelectAllShortcut(
     setIsSelecting: (value: boolean) => void,
 ) {
     useEffect(() => {
-        const handlePointerUp = () => setIsSelecting(false);
+        const handlePointerUp = () => {
+            setIsSelecting(false);
+        };
         const handleKeyDown = (event: KeyboardEvent) => {
             if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') {return;}
             if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {return;}
@@ -251,8 +254,6 @@ function useSelectionInteractions(
         originalSelectionRef
     }), [isSelecting, dragRange, stopDragging]);
 }
-
-
 
 function applySelectionChange(
     layoutItems: LayoutItem[],
@@ -384,14 +385,6 @@ function handleTileClick(
     onAssetClick?.(layoutItem.item.asset.id);
 }
 
-function addItemToSet(item: LibrarySelectableItem, selection: { photoIds: Set<string>; groupIds: Set<string> }) {
-    if (item.entityType === 'group' && item.groupId) {
-        selection.groupIds.add(item.groupId);
-    } else {
-        selection.photoIds.add(item.photoId);
-    }
-}
-
 function commitDragSelection(
     dragRange: { anchorIndex: number; currentIndex: number },
     originalSelection: LibrarySelectionState,
@@ -399,21 +392,12 @@ function commitDragSelection(
     onLibrarySelectionChange?: (selection: LibrarySelectionState) => void,
 ) {
     const { anchorIndex, currentIndex } = dragRange;
-    const nextSelection = {
-        photoIds: new Set(originalSelection.photoIds),
-        groupIds: new Set(originalSelection.groupIds),
-        anchorKey: originalSelection.anchorKey,
-        mostRecentSelectionKey: originalSelection.mostRecentSelectionKey,
-    };
-
     const start = Math.min(anchorIndex, currentIndex);
     const end = Math.max(anchorIndex, currentIndex);
-    for (let i = start; i <= end; i++) {
-        const layoutItem = layoutItems[i];
-        if (layoutItem) {
-            addItemToSet(layoutItem.item, nextSelection);
-        }
-    }
+    const rangedItems = layoutItems
+        .slice(start, end + 1)
+        .map((layoutItem) => layoutItem.item);
+    const nextSelection = addLibraryItemsToSelection(originalSelection, rangedItems);
 
     const lastItem = layoutItems[currentIndex];
     if (lastItem) {
@@ -422,9 +406,7 @@ function commitDragSelection(
         nextSelection.mostRecentSelectionKey = lastItem.item.selectionKey;
     }
 
-    if (onLibrarySelectionChange) {
-        onLibrarySelectionChange(nextSelection);
-    }
+    onLibrarySelectionChange?.(nextSelection);
 }
 
 function handlePointerDownHelper(
@@ -613,7 +595,9 @@ function LayoutTile({
             onPointerEnter={onPointerEnter}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
-            onDragStart={(e) => e.preventDefault()}
+            onDragStart={(event) => {
+                event.preventDefault();
+            }}
             draggable={false}
         >
             <Tile

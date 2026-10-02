@@ -96,6 +96,7 @@ function getStatusTone(status: WorkflowVisualiserStatus, isSelected: boolean, sh
 }
 
 function formatNodeCounts(data: SequenceWorkflowNodeData): string {
+    if (data.kind === 'control' && data.status === 'idle') {return 'Progress not recorded';}
     const noun = data.totalItems === 1 ? data.countNoun.singular : data.countNoun.plural;
     return `${data.completedItems}/${data.totalItems} ${noun}`;
 }

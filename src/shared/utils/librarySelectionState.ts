@@ -1,18 +1,34 @@
 import type { Asset } from '@contracts/core';
+import type { LibraryPresentationItem } from '@contracts/libraryPresentation';
 
 export type LibrarySelectionKey = `photo:${string}` | `group:${string}`;
 
+export type LibraryDisplayAsset = Asset & {
+    libraryPresentation?: LibraryPresentationItem | null;
+};
+
 export type LibrarySelectableItem = {
-    asset: Asset;
+    asset: LibraryDisplayAsset;
     entityType: 'photo' | 'group';
     selectionKey: LibrarySelectionKey;
     photoId: string;
     groupId: string | null;
+    presentation?: LibraryPresentationItem | null;
+};
+
+export type LibrarySelectedItem = {
+    selectionKey: LibrarySelectionKey;
+    kind: 'photo' | 'presentation';
+    representativeAssetId: string;
+    assetIds: string[];
 };
 
 export type LibrarySelectionState = {
-    photoIds: Set<string>;
-    groupIds: Set<string>;
+    selectedItemsByKey: Map<LibrarySelectionKey, LibrarySelectedItem>;
+    selectionSnapshot?: readonly LibrarySelectableItem[] | null;
+    selectionSnapshotIndices?: ReadonlyMap<LibrarySelectionKey, number>;
+    selectedRanges?: { start: number; end: number }[];
+    excludedKeys?: Set<LibrarySelectionKey>;
     anchorKey: LibrarySelectionKey | null;
     mostRecentSelectionKey: LibrarySelectionKey | null;
 }
@@ -25,15 +41,25 @@ export type LibrarySelectionAction =
 
 export function createEmptyLibrarySelectionState(): LibrarySelectionState {
     return {
-        photoIds: new Set(),
-        groupIds: new Set(),
+        selectedItemsByKey: new Map(),
+        selectionSnapshot: null,
+        selectionSnapshotIndices: new Map(),
+        selectedRanges: [],
+        excludedKeys: new Set(),
         anchorKey: null,
         mostRecentSelectionKey: null,
     };
 }
 
 export function getLibrarySelectionCount(selection: LibrarySelectionState): number {
-    return selection.photoIds.size + selection.groupIds.size;
+    const orderedRanges = [...(selection.selectedRanges ?? [])].sort((left, right) => left.start - right.start);
+    let rangeCount = 0;
+    let coveredEnd = -1;
+    for (const range of orderedRanges) {
+        rangeCount += Math.max(0, range.end - Math.max(range.start, coveredEnd + 1) + 1);
+        coveredEnd = Math.max(coveredEnd, range.end);
+    }
+    return rangeCount + selection.selectedItemsByKey.size - (selection.excludedKeys?.size ?? 0);
 }
 
 export function hasLibrarySelection(selection: LibrarySelectionState): boolean {
@@ -45,29 +71,48 @@ export function clearLibrarySelection(): LibrarySelectionState {
 }
 
 export function isItemSelected(selection: LibrarySelectionState, item: LibrarySelectableItem): boolean {
-    return item.entityType === 'group'
-        ? selection.groupIds.has(item.groupId ?? '')
-        : selection.photoIds.has(item.photoId);
+    if (selection.selectedItemsByKey.has(item.selectionKey)) { return true; }
+    const index = selection.selectionSnapshotIndices?.get(item.selectionKey) ?? -1;
+    return index >= 0 && !selection.excludedKeys?.has(item.selectionKey)
+        && (selection.selectedRanges ?? []).some((range) => index >= range.start && index <= range.end);
 }
 
 export function getLibrarySelectionPhotoIds(selection: LibrarySelectionState): string[] {
-    return [...selection.photoIds];
+    return getSelectedItems(selection)
+        .filter((item) => item.kind === 'photo')
+        .map((item) => item.representativeAssetId);
 }
 
-export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, assets: Asset[]): string[] {
-    const assetIds = new Set(selection.photoIds);
-
-    if (selection.groupIds.size === 0) {
-        return [...assetIds];
-    }
-
-    for (const asset of assets) {
-        if (asset.group_id && selection.groupIds.has(asset.group_id)) {
-            assetIds.add(asset.id);
+export function getLibrarySelectionAssetIds(selection: LibrarySelectionState, _assets: Asset[]): string[] {
+    const assetIds = new Set<string>();
+    const presentations: LibrarySelectedItem[] = [];
+    const collectItem = (item: LibrarySelectedItem) => {
+        if (item.kind === 'photo') {
+            assetIds.add(item.representativeAssetId);
+        } else {
+            presentations.push(item);
+        }
+    };
+    for (const item of selection.selectionSnapshot ?? []) {
+        if (isItemSelected(selection, item)) {
+            collectItem(toSelectedItem(item));
         }
     }
-
+    for (const item of selection.selectedItemsByKey.values()) {
+        collectItem(item);
+    }
+    for (const item of presentations) {
+        for (const assetId of item.assetIds) { assetIds.add(assetId); }
+    }
     return [...assetIds];
+}
+
+function getSelectedItems(selection: LibrarySelectionState): LibrarySelectedItem[] {
+    const items = new Map(selection.selectedItemsByKey);
+    for (const item of selection.selectionSnapshot ?? []) {
+        if (isItemSelected(selection, item)) { items.set(item.selectionKey, toSelectedItem(item)); }
+    }
+    return [...items.values()];
 }
 
 export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: LibrarySelectionKey, targetKey: LibrarySelectionKey): LibrarySelectionKey[] {
@@ -82,31 +127,64 @@ export function getSelectionRangeKeys(keys: LibrarySelectionKey[], anchorKey: Li
     return keys.slice(rangeStart, rangeEnd + 1);
 }
 
-function addItemToSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
-    if (item.entityType === 'group' && item.groupId) {
-        selection.groupIds.add(item.groupId);
-        return;
-    }
+function toSelectedItem(item: LibrarySelectableItem): LibrarySelectedItem {
+    const isPresentation = item.entityType === 'group';
+    const presentationAssetIds = item.presentation?.assetIds ?? [];
+    return {
+        selectionKey: item.selectionKey,
+        kind: isPresentation ? 'presentation' : 'photo',
+        representativeAssetId: item.photoId,
+        assetIds: isPresentation && presentationAssetIds.length > 0
+            ? [...presentationAssetIds]
+            : [item.photoId],
+    };
+}
 
-    selection.photoIds.add(item.photoId);
+function addItemToSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
+    selection.selectedItemsByKey.set(item.selectionKey, toSelectedItem(item));
 }
 
 function removeItemFromSelection(selection: LibrarySelectionState, item: LibrarySelectableItem) {
-    if (item.entityType === 'group' && item.groupId) {
-        selection.groupIds.delete(item.groupId);
-        return;
-    }
-
-    selection.photoIds.delete(item.photoId);
+    selection.selectedItemsByKey.delete(item.selectionKey);
 }
 
 function cloneLibrarySelection(selection: LibrarySelectionState): LibrarySelectionState {
     return {
-        photoIds: new Set(selection.photoIds),
-        groupIds: new Set(selection.groupIds),
+        selectedItemsByKey: new Map(selection.selectedItemsByKey),
+        selectionSnapshot: selection.selectionSnapshot,
+        selectionSnapshotIndices: selection.selectionSnapshotIndices,
+        selectedRanges: [...(selection.selectedRanges ?? [])],
+        excludedKeys: new Set(selection.excludedKeys ?? []),
         anchorKey: selection.anchorKey,
         mostRecentSelectionKey: selection.mostRecentSelectionKey,
     };
+}
+
+export function addLibraryItemsToSelection(
+    selection: LibrarySelectionState,
+    items: readonly LibrarySelectableItem[],
+): LibrarySelectionState {
+    const nextSelection = cloneLibrarySelection(selection);
+    for (const item of items) {
+        addItemToSelection(nextSelection, item);
+    }
+    return nextSelection;
+}
+
+export function setLibraryItemsSelected(
+    selection: LibrarySelectionState,
+    items: readonly LibrarySelectableItem[],
+    selected: boolean,
+): LibrarySelectionState {
+    const nextSelection = cloneLibrarySelection(selection);
+    for (const item of items) {
+        if (selected) {
+            addItemToSelection(nextSelection, item);
+        } else {
+            removeItemFromSelection(nextSelection, item);
+        }
+    }
+    return nextSelection;
 }
 
 function getItemAtIndex(items: LibrarySelectableItem[], index: number): LibrarySelectableItem | null {
@@ -134,9 +212,17 @@ function toggleLibrarySelectionItem(items: LibrarySelectableItem[], selection: L
 
     const nextSelection = cloneLibrarySelection(selection);
     if (isItemSelected(nextSelection, item)) {
-        removeItemFromSelection(nextSelection, item);
+        if (nextSelection.selectionSnapshot) {
+            nextSelection.excludedKeys?.add(item.selectionKey);
+        } else {
+            removeItemFromSelection(nextSelection, item);
+        }
     } else {
-        addItemToSelection(nextSelection, item);
+        if (nextSelection.selectionSnapshot) {
+            nextSelection.excludedKeys?.delete(item.selectionKey);
+        } else {
+            addItemToSelection(nextSelection, item);
+        }
     }
     nextSelection.anchorKey = item.selectionKey;
     nextSelection.mostRecentSelectionKey = item.selectionKey;
@@ -154,12 +240,22 @@ function rangeSelectLibraryItems(items: LibrarySelectableItem[], selection: Libr
     }
 
     const nextSelection = cloneLibrarySelection(selection);
-    const selectionKeys = items.map((currentItem) => currentItem.selectionKey);
-    for (const key of getSelectionRangeKeys(selectionKeys, selection.anchorKey, item.selectionKey)) {
-        const rangedItem = items.find((currentItem) => currentItem.selectionKey === key);
-        if (rangedItem) {
-            addItemToSelection(nextSelection, rangedItem);
-        }
+    const anchorIndex = items.findIndex((currentItem) => currentItem.selectionKey === selection.anchorKey);
+    if (anchorIndex === -1) {
+        return replaceLibrarySelection(items, index);
+    }
+    const rangeStart = Math.min(anchorIndex, index), rangeEnd = Math.max(anchorIndex, index);
+    if (items.length >= 1000) {
+        nextSelection.selectionSnapshot = items;
+        nextSelection.selectionSnapshotIndices = new Map(items.map((entry, entryIndex) => [entry.selectionKey, entryIndex]));
+        nextSelection.selectedRanges = [...(nextSelection.selectedRanges ?? []), { start: rangeStart, end: rangeEnd }];
+        nextSelection.selectedItemsByKey.clear();
+        nextSelection.excludedKeys = new Set();
+        nextSelection.mostRecentSelectionKey = item.selectionKey;
+        return nextSelection;
+    }
+    for (const rangedItem of items.slice(rangeStart, rangeEnd + 1)) {
+        addItemToSelection(nextSelection, rangedItem);
     }
     nextSelection.mostRecentSelectionKey = item.selectionKey;
     return nextSelection;
@@ -171,10 +267,10 @@ export function updateLibrarySelection(
     action: LibrarySelectionAction,
 ): LibrarySelectionState {
     if (action.mode === 'select_all') {
-        const nextSelection = createEmptyLibrarySelectionState();
-        for (const item of items) {
-            addItemToSelection(nextSelection, item);
+        if (items.length >= 1000) {
+            return { selectedItemsByKey: new Map(), selectionSnapshot: items, selectionSnapshotIndices: new Map(items.map((entry, entryIndex) => [entry.selectionKey, entryIndex])), selectedRanges: [{ start: 0, end: items.length - 1 }], excludedKeys: new Set(), anchorKey: items[0]?.selectionKey ?? null, mostRecentSelectionKey: items.at(-1)?.selectionKey ?? null };
         }
+        const nextSelection = addLibraryItemsToSelection(createEmptyLibrarySelectionState(), items);
         nextSelection.anchorKey = items[0]?.selectionKey ?? null;
         nextSelection.mostRecentSelectionKey = items.at(-1)?.selectionKey ?? null;
         return nextSelection;

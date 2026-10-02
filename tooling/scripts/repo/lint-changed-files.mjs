@@ -134,15 +134,25 @@ if (fix) {
 }
 console.log(`[lint-changed] Running ${toolLabel} ${phaseLabel} on ${filesToLint.length} file(s).`);
 
-const result = runCommandSync({
-  command: getLocalLinterExecutable(),
-  args: linterArgs.slice(1),
-  stdio: "inherit",
-});
-
-if (result.error) {
-  console.error(`[lint-changed] Failed to run ${toolLabel}: ${result.error.message}`);
-  process.exit(1);
+// Windows rejects long argument lists before the linter starts. Batching keeps
+// the same file set and flags while making branch-wide readiness checks usable.
+const maximumFilesPerInvocation = 60;
+let result = { status: 0 };
+for (let index = 0; index < filesToLint.length; index += maximumFilesPerInvocation) {
+  const files = filesToLint.slice(index, index + maximumFilesPerInvocation);
+  const batchResult = runCommandSync({
+    command: getLocalLinterExecutable(),
+    args: [...linterArgs.slice(1, -filesToLint.length), ...files],
+    stdio: "inherit",
+  });
+  if (batchResult.error) {
+    console.error(`[lint-changed] Failed to run ${toolLabel}: ${batchResult.error.message}`);
+    process.exit(1);
+  }
+  if (batchResult.status !== 0) {
+    result = batchResult;
+    break;
+  }
 }
 
 if (fix && (mode === "staged" || restage) && result.status === 0) {

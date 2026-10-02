@@ -125,6 +125,7 @@ export type DataStatsSnapshot = {
         photosWithAiMetadata: number;
         photosWithDetectedFaces: number;
         photosWithMatchedFaces: number;
+        photosWithoutDate: number;
     };
     coverage: {
         aiMetadataPercent: number;
