@@ -1,4 +1,5 @@
 import { hammingDistance } from '../../../math-utils';
+import { isAcceptedVariantStructureEvidence, variantPairKey, type VariantStructureEvidence } from '../../../../shared/variantStructureEvidence';
 import { buildConnectedComponents, type SimilarityEdgeRef } from './groupingGraph';
 import type { SimilarityGroupingUnit } from './groupingUnits';
 
@@ -17,6 +18,7 @@ export type GroupingSimilarityAsset = {
 export type GroupingSimilarityEdge = {
     score: number;
     distance: number;
+    evidence?: VariantStructureEvidence;
 } & SimilarityEdgeRef
 
 export type GroupingGraph = {
@@ -39,6 +41,24 @@ export type BurstGroupingAsset = {
 
 type VisualFingerprint = Pick<GroupingSimilarityAsset, 'phash64' | 'dhash64'>;
 type BurstFingerprint = Pick<BurstGroupingAsset, 'exifDatetime' | 'phash64' | 'dhash64'>;
+type VisualMatch = { distance: number; matches: boolean; evidence?: VariantStructureEvidence };
+type VisualUnit = Pick<SimilarityGroupingUnit, 'unitId' | 'memberAssetIds' | 'representativeAssetId' | 'phash64' | 'dhash64'>;
+
+function matchVariant(
+    left: VisualUnit,
+    right: VisualUnit,
+    threshold: number,
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
+): VisualMatch {
+    const hashMatch = isVisualMatch(left, right, threshold);
+    if (hashMatch.matches) {
+        return hashMatch;
+    }
+    const evidence = structureMatches?.get(variantPairKey(left.representativeAssetId, right.representativeAssetId));
+    return isAcceptedVariantStructureEvidence(evidence)
+        ? { ...hashMatch, matches: true, evidence }
+        : hashMatch;
+}
 
 function isVisualMatch(
     left: VisualFingerprint,
@@ -63,9 +83,10 @@ function isVisualMatch(
 }
 
 function collectReachableAssetIds(
-    assets: Array<Pick<SimilarityGroupingUnit, 'unitId' | 'memberAssetIds' | 'phash64' | 'dhash64'>>,
+    assets: VisualUnit[],
     changedAssetIds: string[],
     threshold: number,
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
 ): Set<string> {
     const byId = new Map(assets.map((asset) => [asset.unitId, asset]));
     const visited = new Set<string>();
@@ -93,7 +114,7 @@ function collectReachableAssetIds(
             if (candidate.unitId === current.unitId) {
                 continue;
             }
-            const match = isVisualMatch(current, candidate, threshold);
+            const match = matchVariant(current, candidate, threshold, structureMatches);
             if (!match.matches || visited.has(candidate.unitId)) {
                 continue;
             }
@@ -145,7 +166,11 @@ function sortAssetsForAnchoredClustering<T extends Pick<SimilarityGroupingUnit, 
     });
 }
 
-function buildAnchoredVariantGraph(assets: SimilarityGroupingUnit[], threshold: number): {
+function buildAnchoredVariantGraph(
+    assets: SimilarityGroupingUnit[],
+    threshold: number,
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
+): {
     edges: GroupingSimilarityEdge[];
     components: string[][];
 } {
@@ -165,7 +190,7 @@ function buildAnchoredVariantGraph(assets: SimilarityGroupingUnit[], threshold: 
             | undefined;
 
         for (const cluster of clusters) {
-            const match = isVisualMatch(cluster.anchor, asset, threshold);
+            const match = matchVariant(cluster.anchor, asset, threshold, structureMatches);
             if (!match.matches) {
                 continue;
             }
@@ -174,7 +199,8 @@ function buildAnchoredVariantGraph(assets: SimilarityGroupingUnit[], threshold: 
                 leftId: cluster.anchor.unitId,
                 rightId: asset.unitId,
                 distance: match.distance,
-                score: 1 - (match.distance / 64),
+                score: match.evidence?.gradientCosine ?? 1 - (match.distance / 64),
+                evidence: match.evidence,
             });
             break;
         }
@@ -367,6 +393,7 @@ export function buildVariantGroupingGraphFromUnits(params: {
     units: SimilarityGroupingUnit[];
     changedAssetIds: string[];
     threshold: number;
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>;
 }): GroupingGraph {
     if (params.changedAssetIds.length === 0) {
         return { units: [], edges: [], components: [] };
@@ -375,9 +402,10 @@ export function buildVariantGroupingGraphFromUnits(params: {
         params.units,
         params.changedAssetIds,
         params.threshold,
+        params.structureMatches,
     );
     const impactedUnits = params.units.filter((unit) => reachableUnitIds.has(unit.unitId));
-    const { edges, components } = buildAnchoredVariantGraph(impactedUnits, params.threshold);
+    const { edges, components } = buildAnchoredVariantGraph(impactedUnits, params.threshold, params.structureMatches);
     return { units: impactedUnits, edges, components };
 }
 

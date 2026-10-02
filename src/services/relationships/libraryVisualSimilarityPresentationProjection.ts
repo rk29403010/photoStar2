@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseManager } from '../../data/db';
+import { isAcceptedVariantStructureEvidence } from '../../shared/variantStructureEvidence';
 import {
     countRelationshipPresentationItems,
     getRelationshipPresentationPage,
@@ -23,6 +24,7 @@ type ObservationRow = {
     policy: VisualPolicy;
     phash_distance: number;
     dhash_distance: number;
+    evidence_json: string | null;
 };
 
 type AssetMetadata = {
@@ -75,7 +77,8 @@ function loadObservations(db: DbHandle): ObservationRow[] {
             ) AS current_asset_id_b,
             observation.policy,
             observation.phash_distance,
-            observation.dhash_distance
+            observation.dhash_distance,
+            observation.evidence_json
         FROM visual_similarity_observations observation
         WHERE observation.source_identity = ?
         ORDER BY observation.asset_identity_guid_a, observation.asset_identity_guid_b, observation.policy
@@ -130,7 +133,8 @@ function projectObservationEdge(
     if (observation.policy !== stage.policy) {
         return null;
     }
-    if (observation.phash_distance > stage.threshold || observation.dhash_distance > stage.threshold) {
+    const hashMatches = observation.phash_distance <= stage.threshold && observation.dhash_distance <= stage.threshold;
+    if (!hashMatches && !acceptsStructuralVariant(observation)) {
         return null;
     }
 
@@ -140,6 +144,19 @@ function projectObservationEdge(
         return null;
     }
     return canonicalEdge(left.presentationKey, right.presentationKey);
+}
+
+function acceptsStructuralVariant(observation: ObservationRow): boolean {
+    if (observation.policy !== 'variant' || !observation.evidence_json) {
+        return false;
+    }
+    try {
+        const evidence: unknown = JSON.parse(observation.evidence_json);
+        return isAcceptedVariantStructureEvidence(evidence)
+            && evidence.dhashDistance === observation.dhash_distance;
+    } catch {
+        return false;
+    }
 }
 
 function buildPolicyEdges(

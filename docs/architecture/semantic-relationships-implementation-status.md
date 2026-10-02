@@ -18,6 +18,13 @@ Always verify actual HEAD/Actions before continuing.
 
 ## 2. Recent evidence
 
+- 2026-09-26 real 37-asset acceptance follow-up: missing ArcFace during the
+  original ingest, false-success vector reporting, collect/batch progress and
+  cosine roundoff during IdentityCluster persistence are diagnosed in
+  `acceptance-people-variants-debugging.md`. That follow-up records current
+  real-data evidence and the repaired three user-identified variant pairs;
+  the older small-fixture acceptance below does not settle those issues.
+
 - WP9 complete: legacy grouping tables removed; canonical run `34550734260`.
 - WP10 complete: stable VisualRegion/Face identity, reconciliation, stable-ID People actions/reset preservation and durable `face_index` contraction. Frozen WP10 transitional statement inventory remains a regression guard.
 - WP11 complete through `546e155`; canonical run `34683370717`. Native vector scan performance remains deferred to WP16 (250k×512 p95 2334.8 ms vs 150 ms target; bounded heap growth).

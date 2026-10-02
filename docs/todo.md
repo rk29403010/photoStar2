@@ -1,5 +1,13 @@
 # TO DO List
 
+## 2026-09-27 - Gallery filename-sort verification
+
+- During acceptance verification, switching the grouped Justified gallery from
+  Date to Filename showed a blank gallery; switching back to Date restored it.
+  Reproduce and isolate this separately; the cause and whether it predates the
+  variant repair have not been established. The four repaired variant stacks
+  are present in the runtime response and visible with Date sorting.
+
 ## 2026-09-14 - WP16 vector-index follow-up
 
 - Select an approved, packageable ANN engine for 250k 512-d active Face vectors.

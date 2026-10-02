@@ -461,6 +461,12 @@ export class WorkflowRuntimeOrchestrator {
 
         if (params.node.kind === 'control') {
             success = executeControlNode(params.node as WorkflowControlNodeDefinition, params.nodeSubjects);
+            this.deps.store.recordStepRun({
+                workflowRunId: params.runId,
+                nodeId: params.node.id,
+                status: 'completed',
+                expectedItems: params.nodeSubjects.length,
+            });
         } else {
             const result = await this.executeModuleNode(
                 params.runId,

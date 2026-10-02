@@ -237,6 +237,11 @@ settings in `WorkflowDetailPanel.tsx`.
 - `generateFaceVectorsModule`: Computes facial embeddings for detected faces.
 - `resolvePeopleModule`: Builds/rebuilds machine `IdentityCluster` output from stable Face-owned vectors, reconciles clear cluster continuations across reruns, maintains the transitional People compatibility projection, reapplies durable manual Face→Person decisions, then rebuilds weak Face→Person candidate evidence from explicit accepted anchors.
 - `groupSimilarPhotosModule`: Computes and compares image hashes/features to detect duplicates.
+- `grouping/variantStructure.ts` supplements strict variant hashes with measured
+  spatial-gradient evidence for tonal edits. Its shared versioned evidence
+  contract is validated by both detection and gallery projection; near-duplicate
+  thresholds and direct-anchor clustering remain unchanged. See
+  `docs/architecture/acceptance-people-variants-debugging.md` for real-image evidence.
 - `detectSensitiveContentModule`: Evaluates assets against NSFW classifiers.
 - `estimatePhotoDateModule`: Combines EXIF, file dates, and AI analysis to find best-guess photo dates.
 - `generateAiMetadataModule`: Generates captions and tags using a VLM/LLM.

@@ -107,6 +107,11 @@ function recordRecognitionIssue(db: DbHandle, assetId: string, message: string):
     `).run(uuidv4(), assetId, message);
 }
 
+function failRecognition(db: DbHandle, assetId: string, message: string): never {
+    recordRecognitionIssue(db, assetId, message);
+    throw new Error(message);
+}
+
 function deleteLegacyEmbeddings(db: DbHandle, assetId: string): void {
     db.prepare("DELETE FROM derived_results WHERE asset_id = ? AND task = 'face_recognition'").run(assetId);
 }
@@ -123,6 +128,7 @@ async function buildEmbeddings(params: {
     for (let index = 0; index < params.faces.length; index += 1) {
         const face = params.faces[index];
         if (!face.box || !face.landmarks) {
+            failedFaces += 1;
             embeddings.push(null);
             continue;
         }
@@ -229,6 +235,8 @@ function completeEmptyGeneration(db: DbHandle, assetId: string, execution: Execu
     });
     if (generation.status === 'running') {
         markAnalysisGenerationSuccessful(db, generation.id);
+    } else if (generation.status !== 'successful') {
+        failRecognition(db, assetId, `ArcFace generation '${generation.id}' is ${generation.status}; retry requires a new execution.`);
     }
     deleteLegacyEmbeddings(db, assetId);
     deleteRecognitionIssues(db, assetId);
@@ -245,8 +253,7 @@ async function produceFaceVectors(params: {
 }): Promise<void> {
     const modelPath = params.embeddingService.getModelPath();
     if (!params.embeddingService.isAvailable() || !modelPath || !existsSync(modelPath)) {
-        recordRecognitionIssue(params.db, params.assetId, getUnavailableMessage(params.embeddingService));
-        return;
+        failRecognition(params.db, params.assetId, getUnavailableMessage(params.embeddingService));
     }
     const [assetChecksum, modelArtifactChecksum] = await Promise.all([
         sha256File(params.assetPath),
@@ -269,12 +276,11 @@ async function produceFaceVectors(params: {
         return;
     }
     if (generation.status !== 'running') {
-        recordRecognitionIssue(
+        failRecognition(
             params.db,
             params.assetId,
             `ArcFace generation '${generation.id}' is ${generation.status}; retry requires a new execution.`,
         );
-        return;
     }
     const { embeddings, failedFaces: inferenceFailures } = await buildEmbeddings({
         assetId: params.assetId,
@@ -292,12 +298,11 @@ async function produceFaceVectors(params: {
     const failedFaces = inferenceFailures + persistenceFailures;
     if (failedFaces > 0) {
         markAnalysisGenerationFailed(params.db, generation.id);
-        recordRecognitionIssue(
+        failRecognition(
             params.db,
             params.assetId,
             `ArcFace recognition failed for ${failedFaces} detected face${failedFaces === 1 ? '' : 's'}; the previous successful vector generation remains active.`,
         );
-        return;
     }
     markAnalysisGenerationSuccessful(params.db, generation.id);
     deleteLegacyEmbeddings(params.db, params.assetId);
@@ -319,8 +324,7 @@ async function runFaceVectorModule(
         return outputResult();
     }
     if (!asset?.original_path || !existsSync(asset.original_path)) {
-        recordRecognitionIssue(db, assetId, 'Original asset file is missing; face recognition skipped.');
-        return outputResult();
+        failRecognition(db, assetId, 'Original asset file is missing; face recognition failed.');
     }
     await produceFaceVectors({
         db,

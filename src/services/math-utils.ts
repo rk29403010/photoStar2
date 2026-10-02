@@ -80,7 +80,9 @@ export function magnitude(a: number[]) {
 
 export function cosineSimilarity(a: number[], b: number[]) {
     if (a.length !== b.length) {throw new Error("Vector length mismatch");}
-    return dotProduct(a, b) / (magnitude(a) * magnitude(b));
+    const similarity = dotProduct(a, b) / (magnitude(a) * magnitude(b));
+    // Roundoff can put identical embeddings just above 1, outside storage bounds.
+    return Math.max(-1, Math.min(1, similarity));
 }
 
 // Custom blockhash / perceptual hashing routines

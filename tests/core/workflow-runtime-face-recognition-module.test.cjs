@@ -101,10 +101,6 @@ test('runtime.generate_face_vectors stores generation-owned ArcFace embeddings a
                 box: { x: 0.1, y: 0.1, width: 0.4, height: 0.4 },
                 landmarks: [{ x: 0.2, y: 0.2 }],
             },
-            {
-                id: 'face-2',
-                box: { x: 0.5, y: 0.5, width: 0.4, height: 0.4 },
-            },
         ];
         insertAsset(db, 'asset-1', imagePath);
         insertFaceDetection(db, 'asset-1', faces);
@@ -167,6 +163,28 @@ test('runtime.generate_face_vectors stores generation-owned ArcFace embeddings a
             mediaId: 'asset-1',
             faceId: 'face-1',
         }]);
+
+        const retryExecution = seedExecution(db, 'run-failed', 'asset-1');
+        const failingModule = createGenerateFaceVectorsModule({
+            dbManager,
+            embeddingService: {
+                isAvailable: () => true,
+                getModelPath: () => modelPath,
+                computeEmbedding: async () => { throw new Error('Inference failed'); },
+            },
+        });
+        await assert.rejects(failingModule.run({
+            runId: 'run-failed',
+            ...retryExecution,
+            subject: { subjectType: 'asset', subjectId: 'asset-1' },
+            batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
+            parameters: {},
+        }), /recognition failed for 1 detected face/);
+        assert.equal(db.prepare(`SELECT active_generation_id FROM analysis_generation_heads
+            WHERE scope_key = 'face-vectors:asset-1'`).get().active_generation_id, generation.id);
+        assert.equal(db.prepare(`SELECT status FROM analysis_generations
+            WHERE workflow_run_id = 'run-failed'`).get().status, 'failed');
+        assert.equal(db.prepare('SELECT COUNT(*) AS count FROM feature_vectors').get().count, 1);
     } finally {
         dbManager?.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -210,13 +228,13 @@ test('runtime.generate_face_vectors keeps existing embeddings when ArcFace model
             },
         });
 
-        await moduleDefinition.run({
+        await assert.rejects(moduleDefinition.run({
             runId: 'run-2',
             ...execution,
             subject: { subjectType: 'asset', subjectId: 'asset-1' },
             batchSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
             parameters: {},
-        });
+        }), /ArcFace model not found/i);
 
         const recognitionRow = db.prepare(`
             SELECT provider, model_version, data

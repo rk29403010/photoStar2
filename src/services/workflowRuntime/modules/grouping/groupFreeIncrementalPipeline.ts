@@ -1,4 +1,5 @@
 import type { DatabaseManager } from '../../../../data/db';
+import type { VariantStructureEvidence } from '../../../../shared/variantStructureEvidence';
 import { buildConnectedComponents } from './groupingGraph';
 import {
     buildBurstGroupingGraphFromUnits,
@@ -187,12 +188,14 @@ function buildEffectiveVariantStage(params: {
     nearUnits: SimilarityGroupingUnit[];
     observations: ObservationRow[];
     changedAssetIds: string[];
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>;
 }): { graph: GroupingGraph; units: SimilarityGroupingUnit[]; refresh: GroupFreeRefreshStage } {
     const storedEdges = buildStoredPolicyEdges(params.observations, params.nearUnits, 'variant');
     const freshGraph = buildVariantGroupingGraphFromUnits({
         units: params.nearUnits,
         changedAssetIds: params.changedAssetIds,
         threshold: 6,
+        structureMatches: params.structureMatches,
     });
     const graph = mergeFreshNeighbourhood(params.nearUnits, storedEdges, freshGraph);
     return {
@@ -214,6 +217,7 @@ function buildEffectiveVariantStage(params: {
 export function buildIncrementalGroupFreeGroupingPipeline(
     db: DbHandle,
     changedAssetIds: string[],
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
 ): IncrementalGroupFreeGroupingPipeline {
     const rawUnits = buildRawSimilarityUnits(db);
     const exactUnits = buildExactCopyUnits(rawUnits);
@@ -223,6 +227,7 @@ export function buildIncrementalGroupFreeGroupingPipeline(
         nearUnits: near.units,
         observations,
         changedAssetIds: near.refresh.impactedAssetIds,
+        structureMatches,
     });
     const burstGraph = buildBurstGroupingGraphFromUnits({
         units: variant.units,

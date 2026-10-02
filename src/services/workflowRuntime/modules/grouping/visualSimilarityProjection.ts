@@ -66,12 +66,13 @@ function buildGraphObservations(graph: VisualGraphInput): ObservationDraft[] {
             assetIdB: right.representativeAssetId,
             phashDistance,
             dhashDistance,
-            score: 1 - (Math.max(phashDistance, dhashDistance) / 64),
+            score: edge.evidence ? edge.score : 1 - (Math.max(phashDistance, dhashDistance) / 64),
             evidence: {
                 measurement: 'phash64+dhash64',
                 threshold: graph.threshold,
                 leftUnitId: edge.leftId,
                 rightUnitId: edge.rightId,
+                ...edge.evidence,
             },
         });
     }
@@ -89,7 +90,7 @@ function syncPolicy(params: {
         policy: params.policy,
         sourceIdentity: 'runtime.group_similar_photos:visual_hash',
         sourceRef: 'runtime.group_similar_photos@1',
-        algorithmVersion: '1.0',
+        algorithmVersion: params.graph.edges.some((edge) => edge.evidence) ? '2.0' : '1.0',
         observations: buildGraphObservations(params.graph),
     });
 }

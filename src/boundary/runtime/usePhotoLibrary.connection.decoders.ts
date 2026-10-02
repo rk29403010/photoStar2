@@ -81,6 +81,7 @@ const DataStatsSchema = z.object({
         photosWithAiMetadata: z.number(),
         photosWithDetectedFaces: z.number(),
         photosWithMatchedFaces: z.number(),
+        photosWithoutDate: z.number(),
     }),
     coverage: z.object({
         aiMetadataPercent: z.number(),

@@ -4,6 +4,8 @@ import { ensureGroupingPrerequisites } from '../../grouping/groupingAssetPrep';
 import { syncBurstCaptureSequenceProposals } from '../../grouping/captureSequenceProjection';
 import { buildIncrementalGroupFreeGroupingPipeline } from '../../grouping/groupFreeIncrementalPipeline';
 import { syncVisualSimilarityObservations } from '../../grouping/visualSimilarityProjection';
+import { prepareVariantStructureMatches } from '../../grouping/variantStructure';
+import type { VariantStructureEvidence } from '../../../../../shared/variantStructureEvidence';
 
 export type GroupSimilarPhotosModuleOptions = {
     dbManager: DatabaseManager;
@@ -16,8 +18,12 @@ const VARIANT_THRESHOLD = 6;
 const BURST_MAX_SECONDS = 3;
 const BURST_MAX_DISTANCE = 12;
 
-export function syncGroupFreeDetectorOutputs(db: DbHandle, changedAssetIds: string[]): void {
-    const semanticPipeline = buildIncrementalGroupFreeGroupingPipeline(db, changedAssetIds);
+export function syncGroupFreeDetectorOutputs(
+    db: DbHandle,
+    changedAssetIds: string[],
+    structureMatches?: ReadonlyMap<string, VariantStructureEvidence>,
+): void {
+    const semanticPipeline = buildIncrementalGroupFreeGroupingPipeline(db, changedAssetIds, structureMatches);
     db.transaction(() => {
         syncVisualSimilarityObservations({
             db,
@@ -67,7 +73,8 @@ export function createGroupSimilarPhotosModule(options: GroupSimilarPhotosModule
             const preparedAssets = await ensureGroupingPrerequisites({ db, assetIds });
             const changedAssetIds = preparedAssets.map((asset) => asset.id);
 
-            syncGroupFreeDetectorOutputs(db, changedAssetIds);
+            const structureMatches = await prepareVariantStructureMatches(db, changedAssetIds);
+            syncGroupFreeDetectorOutputs(db, changedAssetIds, structureMatches);
 
             return { outputs: [{ kind: 'artifact', artifactType: 'similar_group', subjectType: 'asset' }] };
         },

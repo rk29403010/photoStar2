@@ -164,7 +164,7 @@ export const folderIngestWorkflowDefinition: WorkflowDefinition = {
             controlType: 'collect',
             outputsTo: ['resolve-people'],
             presentation: {
-                label: 'Collect people candidates',
+                label: 'Collect analysed images',
                 countNoun: { singular: 'image', plural: 'images' },
             },
         },
