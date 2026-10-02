@@ -28,7 +28,7 @@ export function getTimelineSeekForBucket(bucket: LibraryTimelineBucket, sortMode
 }
 
 export function findTimelineBucketIndex(buckets: LibraryTimelineBucket[], seek: GalleryTimelineSeek | null) {
-    if (!seek || seek.kind !== 'dated') {
+    if (seek?.kind !== 'dated') {
         return -1;
     }
     return buckets.findIndex((bucket) => (

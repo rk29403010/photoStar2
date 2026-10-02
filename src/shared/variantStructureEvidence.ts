@@ -14,9 +14,13 @@ function isInRange(value: unknown, minimum: number, maximum: number): value is n
     return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
 export function isAcceptedVariantStructureEvidence(value: unknown): value is VariantStructureEvidence {
-    if (typeof value !== 'object' || value === null) {return false;}
-    const evidence = value as Record<string, unknown>;
+    if (!isRecord(value)) {return false;}
+    const evidence = value;
     return evidence.measurement === 'spatial-gradient-v1'
         && isInRange(evidence.gradientCosine, MIN_GRADIENT_COSINE, 1)
         && isInRange(evidence.dhashDistance, 0, VARIANT_STRUCTURE_MAX_DHASH)

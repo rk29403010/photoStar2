@@ -104,7 +104,7 @@ function useDashboardErrors(activeTab: DashboardTab, onGetJobErrors: DashboardVi
     }, [onGetJobErrors]);
 
     useEffect(() => {
-        if (activeTab !== 'errors') {return;}
+        if (activeTab !== 'errors') {return undefined;}
         void loadErrors(moduleFilter, page);
         const interval = globalThis.setInterval(() => {
             void loadErrors(moduleFilter, page);

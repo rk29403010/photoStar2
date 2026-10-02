@@ -12,6 +12,11 @@ import { getTimelineSeekForBucket } from './libraryTimelineModel';
 import type { LibraryViewProps } from '../LibraryView';
 import type { TimelineGalleryStateSlice } from '@ui/hooks/useTimelineGalleryState';
 import { buildDateTimelineJustifiedSections } from './libraryTimelineSections';
+import { isTimelineGroupId } from '@shared/utils/libraryTimelineGroupId';
+
+function getTimelineGroupIds(sections: GalleryTimeSection[]): Set<TimelineGroupId> {
+    return new Set(sections.map((section) => section.id).filter(isTimelineGroupId));
+}
 
 export function useLoadedTimelineGroupIds(params: {
     displayItems: LibrarySelectableItem[];
@@ -21,13 +26,10 @@ export function useLoadedTimelineGroupIds(params: {
 }) {
     return useMemo(() => {
         if (params.timeSectionMode === 'decade') {
-            return new Set((params.justifiedSections ?? []).map((section) => section.id as TimelineGroupId));
+            return getTimelineGroupIds(params.justifiedSections ?? []);
         }
 
-        return new Set(
-            buildGalleryTimeSections(params.displayItems, params.timeSectionMode)
-                .map((section) => section.id as TimelineGroupId),
-        );
+        return getTimelineGroupIds(buildGalleryTimeSections(params.displayItems, params.timeSectionMode));
     }, [params.displayItems, params.justifiedSections, params.timeSectionMode]);
 }
 
