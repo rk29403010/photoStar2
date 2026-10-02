@@ -60,7 +60,8 @@ test('date-mode wiring reads grouped timeline state from a dedicated slice', () 
     assert.match(helperSource, /justifiedSections\?: GalleryTimeSection\[\];/);
     assert.match(helperSource, /if \(params\.timeSectionMode === 'decade'\)/);
     assert.match(helperSource, /if \(params\.timeSectionMode === 'decade'\) \{[\s\S]*params\.justifiedSections \?\? \[\]/);
-    assert.match(helperSource, /return new Set\(\s*buildGalleryTimeSections\(params\.displayItems, params\.timeSectionMode\)/);
+    assert.match(helperSource, /function getTimelineGroupIds\(sections: GalleryTimeSection\[\]\): Set<TimelineGroupId>/);
+    assert.match(helperSource, /return getTimelineGroupIds\(buildGalleryTimeSections\(params\.displayItems, params\.timeSectionMode\)\)/);
     assert.match(helperSource, /justifiedSections: params\.justifiedSections,/);
     assert.match(helperSource, /export function useDateTimelineJustifiedSections\(/);
     assert.match(helperSource, /const \{ displayItems, timeSectionMode, timelineGallery, sortMode \} = params;/);
