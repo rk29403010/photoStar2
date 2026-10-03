@@ -2,15 +2,14 @@ import { statSync } from 'node:fs';
 import type { DatabaseManager } from '../../../../../data/db';
 import { buildLatestDerivedResultJoin } from '../../../../../shared/sql/derivedResults';
 import { estimatePhotoDate } from '../../../../photoDateEstimate';
-import { createPhotoMetadataRepository } from '../../../../photoMetadata/repository';
-import { resolvePhotoDateEvidence } from '../../../../photoMetadata/dateResolver';
+import { loadAnalysis } from '../../../../photoAnalysis/repository';
 import { generateDateTagLabels } from '../../../../tags/dateTagGenerator';
 import type { ModuleDefinition } from '../../../contracts';
 
 type EstimatePhotoDateRow = {
     id: string;
     original_path: string;
-    ai_metadata_data: string | null;
+
     embedded_metadata_data: string | null;
 };
 
@@ -44,14 +43,23 @@ function loadEstimateRow(
         SELECT
             a.id,
             a.original_path,
-            r_ai.data AS ai_metadata_data,
+
             r_meta.data AS embedded_metadata_data
         FROM assets a
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_ai', task: 'ai_metadata' })}
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' })}
         WHERE a.id = ?
         LIMIT 1
     `).get(assetId) as EstimatePhotoDateRow | undefined;
+}
+
+function clearUserRejectedDate(db: ReturnType<DatabaseManager['getDb']>, assetId: string): boolean {
+    const previous = db.prepare('SELECT photo_created_at FROM assets WHERE id = ?').get(assetId) as { photo_created_at: string | null };
+    db.transaction(() => {
+        db.prepare('UPDATE assets SET photo_created_at = NULL, photo_created_at_confidence = NULL WHERE id = ?').run(assetId);
+        db.prepare("DELETE FROM derived_results WHERE asset_id = ? AND task = 'photo_date_estimate'").run(assetId);
+        refreshSystemDateTags({ db, assetId, labels: [] });
+    })();
+    return previous.photo_created_at !== null;
 }
 
 function persistPhotoDateEstimate(params: {
@@ -140,7 +148,7 @@ function refreshSystemDateTags(params: {
     params.db.transaction(() => {
         params.db.prepare(`
             DELETE FROM asset_tag_assignments
-            WHERE asset_id = ? AND source_kind = 'system'
+            WHERE asset_id = ? AND source_kind = 'system' AND source_record_id = 'photo_date_estimate'
         `).run(params.assetId);
 
         for (const label of params.labels) {
@@ -155,62 +163,43 @@ function refreshSystemDateTags(params: {
     })();
 }
 
+function isUserRejectedDate(claim: ReturnType<typeof loadAnalysis>['winners'][number] | undefined): boolean {
+    return claim?.kind === 'user_confirmed' && claim.value === null;
+}
+
+async function runEstimatePhotoDate(options: EstimatePhotoDateModuleOptions, assetId: string) {
+    const db = options.dbManager.getDb();
+    const row = loadEstimateRow(db, assetId);
+    if (!row) { return { outputs: [] }; }
+    const claim = loadAnalysis(options.dbManager, row.id).winners.find(item => item.field === 'date');
+    if (isUserRejectedDate(claim)) {
+        if (clearUserRejectedDate(db, row.id)) { options.eventBus?.emit({ type: 'AssetUpdated', assetId: row.id }); }
+        return { outputs: [] };
+    }
+    const date = claim?.field === 'date' ? claim.value : null;
+    const estimate = estimatePhotoDate({
+        originalPath: row.original_path, fileBirthtime: statSync(row.original_path).birthtime.toISOString(),
+        embeddedMetadata: parseJsonRecord(row.embedded_metadata_data),
+        aiMetadata: date ? { estimated_date: { min_date: date.start, max_date: date.end, display_label: date.label } } : null,
+    });
+    if (claim?.kind === 'user_confirmed' && date?.start) {
+        estimate.photoCreatedAt = `${date.start}T00:00:00.000Z`;
+        estimate.range = { start: `${date.start}T00:00:00.000Z`, end: `${date.end ?? date.start}T23:59:59.999Z` };
+        estimate.confidence = { score: 1, reasons: ['User-confirmed date'] };
+    }
+    const didChange = persistPhotoDateEstimate({ db, assetId: row.id,
+        photoCreatedAt: estimate.photoCreatedAt, confidenceScore: estimate.confidence.score, estimateJson: JSON.stringify(estimate) });
+    refreshSystemDateTags({ db, assetId: row.id, labels: generateDateTagLabels({
+        photoCreatedAt: estimate.photoCreatedAt, rangeStart: estimate.range.start, rangeEnd: estimate.range.end,
+    }) });
+    if (didChange) { options.eventBus?.emit({ type: 'AssetUpdated', assetId: row.id }); }
+    return { outputs: [{ kind: 'artifact' as const, artifactType: 'photo_date_estimate' as const, subjectType: 'asset' as const }] };
+}
+
 export function createEstimatePhotoDateModule(options: EstimatePhotoDateModuleOptions): ModuleDefinition {
-    const photoMetadataRepository = createPhotoMetadataRepository({ dbManager: options.dbManager });
-
     return {
-        id: 'runtime.estimate_photo_date',
-        version: 1,
-        capability: 'derive',
-        accepts: ['asset'],
+        id: 'runtime.estimate_photo_date', version: 1, capability: 'derive', accepts: ['asset'],
         produces: [{ kind: 'artifact', artifactType: 'photo_date_estimate', subjectType: 'asset' }],
-        run: async (context) => {
-            const db = options.dbManager.getDb();
-            const row = loadEstimateRow(db, context.subject.subjectId);
-            if (!row) {
-                return { outputs: [] };
-            }
-
-            const stats = statSync(row.original_path);
-            const resolvedEvidence = resolvePhotoDateEvidence({
-                originalPath: row.original_path,
-                fileBirthtime: stats.birthtime.toISOString(),
-                embeddedMetadata: parseJsonRecord(row.embedded_metadata_data),
-                aiMetadata: parseJsonRecord(row.ai_metadata_data),
-                metadataEvidence: {
-                    machineBlocks: photoMetadataRepository.listBlocksForAsset(row.id),
-                    manualAssertions: photoMetadataRepository.listAssertionsForAsset(row.id),
-                },
-            });
-            const estimate = estimatePhotoDate(resolvedEvidence);
-
-            const didPhotoCreatedAtChange = persistPhotoDateEstimate({
-                db,
-                assetId: row.id,
-                photoCreatedAt: estimate.photoCreatedAt,
-                confidenceScore: estimate.confidence.score,
-                estimateJson: JSON.stringify(estimate),
-            });
-            refreshSystemDateTags({
-                db,
-                assetId: row.id,
-                labels: generateDateTagLabels({
-                    photoCreatedAt: estimate.photoCreatedAt,
-                    rangeStart: estimate.range.start,
-                    rangeEnd: estimate.range.end,
-                }),
-            });
-
-            if (didPhotoCreatedAtChange) {
-                options.eventBus?.emit({
-                    type: 'AssetUpdated',
-                    assetId: row.id,
-                });
-            }
-
-            return {
-                outputs: [{ kind: 'artifact', artifactType: 'photo_date_estimate', subjectType: 'asset' }],
-            };
-        },
+        run: context => runEstimatePhotoDate(options, context.subject.subjectId),
     };
 }

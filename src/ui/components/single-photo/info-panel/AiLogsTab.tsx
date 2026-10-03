@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { z } from 'zod';
 
 export type AiLogsTabProps = {
   readonly assetId: string;
@@ -25,6 +26,22 @@ export type AiCallDetail = {
   error_message: string | null;
   created_at: string;
 };
+
+const aiCallSummarySchema = z.strictObject({
+  id: z.string(), call_type: z.string(), model_name: z.string(), created_at: z.string(), has_error: z.boolean(),
+});
+const aiCallDetailSchema = z.strictObject({
+  id: z.string(), asset_id: z.string(), call_type: z.string(), model_name: z.string(), prompt: z.string(),
+  result: z.string().nullable(), error_message: z.string().nullable(), created_at: z.string(),
+});
+
+function isAiCallSummary(value: unknown): value is AiCallSummary {
+  return aiCallSummarySchema.safeParse(value).success;
+}
+
+function isAiCallDetail(value: unknown): value is AiCallDetail {
+  return aiCallDetailSchema.safeParse(value).success;
+}
 
 const formatTimestamp = (ts: string) => {
   try {
@@ -152,22 +169,14 @@ const ErrorBanner: React.FC<ErrorBannerProps> = ({ text }) => (
   </div>
 );
 
-import { buildGeminiResponseSchema } from '../../../../services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema';
-
 type LogDetailViewProps = {
   readonly detail: AiCallDetail;
   readonly copiedPrompt: boolean;
   readonly copiedResult: boolean;
-  readonly copiedSchema: boolean;
-  readonly onCopy: (text: string, type: 'prompt' | 'result' | 'schema') => void;
+  readonly onCopy: (text: string, type: 'prompt' | 'result') => void;
 };
 
-const LogDetailView: React.FC<LogDetailViewProps> = ({ detail, copiedPrompt, copiedResult, copiedSchema, onCopy }) => {
-  const strategy = detail.call_type === 'scout' ? 'overview_only' : 'overview_plus_tiles';
-  const schemaObj = buildGeminiResponseSchema(strategy);
-  const schemaString = JSON.stringify(schemaObj, null, 2);
-
-  return (
+const LogDetailView: React.FC<LogDetailViewProps> = ({ detail, copiedPrompt, copiedResult, onCopy }) => (
     <div className="flex flex-col gap-3 flex-1 min-h-0">
       <LogMetadataRow detail={detail} />
       <LogCopyablePanel
@@ -176,13 +185,6 @@ const LogDetailView: React.FC<LogDetailViewProps> = ({ detail, copiedPrompt, cop
         color="#a7f3d0"
         copied={copiedPrompt}
         onCopy={() => onCopy(detail.prompt, 'prompt')}
-      />
-      <LogCopyablePanel
-        label="Requested Response Schema"
-        content={schemaString}
-        color="#fef08a"
-        copied={copiedSchema}
-        onCopy={() => onCopy(schemaString, 'schema')}
       />
       {detail.error_message ? (
         <LogCopyablePanel
@@ -203,8 +205,7 @@ const LogDetailView: React.FC<LogDetailViewProps> = ({ detail, copiedPrompt, cop
         />
       )}
     </div>
-  );
-};
+);
 
 type LogEmptyStatesProps = {
   readonly loadingDetail: boolean;
@@ -249,7 +250,6 @@ function useAiLogsState(
 
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
   const [copiedResult, setCopiedResult] = useState<boolean>(false);
-  const [copiedSchema, setCopiedSchema] = useState<boolean>(false);
 
   useEffect(() => {
     if (!onGetAiCallsLog) {
@@ -262,7 +262,7 @@ function useAiLogsState(
     setErrorText(null);
 
     onGetAiCallsLog(assetId)
-      .then((data) => setLogs(data as AiCallSummary[]))
+      .then((data) => setLogs(data.filter(isAiCallSummary)))
       .catch((err) => setErrorText(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoadingList(false));
   }, [assetId, onGetAiCallsLog, analysisState]);
@@ -277,19 +277,16 @@ function useAiLogsState(
     setErrorText(null);
 
     onGetAiCallLogDetail(selectedLogId)
-      .then((data) => setDetail(data as AiCallDetail))
+      .then((data) => setDetail(isAiCallDetail(data) ? data : null))
       .catch((err) => setErrorText(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoadingDetail(false));
   }, [selectedLogId, onGetAiCallLogDetail]);
 
-  const handleCopy = (text: string, type: 'prompt' | 'result' | 'schema') => {
+  const handleCopy = (text: string, type: 'prompt' | 'result') => {
     void navigator.clipboard.writeText(text).then(() => {
       if (type === 'prompt') {
         setCopiedPrompt(true);
         setTimeout(() => setCopiedPrompt(false), 2000);
-      } else if (type === 'schema') {
-        setCopiedSchema(true);
-        setTimeout(() => setCopiedSchema(false), 2000);
       } else {
         setCopiedResult(true);
         setTimeout(() => setCopiedResult(false), 2000);
@@ -307,7 +304,6 @@ function useAiLogsState(
     errorText,
     copiedPrompt,
     copiedResult,
-    copiedSchema,
     handleCopy,
   };
 }
@@ -331,7 +327,6 @@ export const AiLogsTab: React.FC<AiLogsTabProps> = ({ assetId, onGetAiCallsLog, 
           detail={state.detail}
           copiedPrompt={state.copiedPrompt}
           copiedResult={state.copiedResult}
-          copiedSchema={state.copiedSchema}
           onCopy={state.handleCopy}
         />
       )}

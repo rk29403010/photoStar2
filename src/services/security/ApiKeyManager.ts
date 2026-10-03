@@ -12,37 +12,20 @@ export type ApiProvider = 'gemini' | 'openai' | (string & {});
 
 const SERVICE_NAME = 'PhotoStar2';
 
-type GeminiModelClient = {
-    listModels?: () => Promise<unknown>;
-    models?: { list?: () => Promise<unknown> };
-};
-
-async function listModelsWithClient(client: GeminiModelClient): Promise<boolean> {
-    if (client.models && typeof client.models.list === 'function') {
-        await client.models.list();
-        return true;
-    }
-    if (typeof client.listModels === 'function') {
-        await client.listModels();
-        return true;
-    }
-    return false;
-}
-
-async function listModelsWithFetch(proposedKey: string): Promise<void> {
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${proposedKey}`
-    );
-    if (response.ok) { return; }
-    const errBody = await response.json().catch(() => ({}));
-    throw new Error(errBody?.error?.message || `HTTP ${response.status} ${response.statusText}`);
-}
-
 async function verifyGeminiKey(proposedKey: string): Promise<void> {
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const client = new GoogleGenerativeAI(proposedKey) as GeminiModelClient;
-    if (await listModelsWithClient(client)) { return; }
-    await listModelsWithFetch(proposedKey);
+    const response = await globalThis.fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(proposedKey)}`,
+    );
+    if (response.ok) {return;}
+    const responseBody: unknown = await response.json().catch(() => null);
+    throw new Error(readGeminiErrorMessage(responseBody) ?? `HTTP ${response.status} ${response.statusText}`);
+}
+
+function readGeminiErrorMessage(value: unknown): string | null {
+    if (!value || typeof value !== 'object' || !('error' in value)) {return null;}
+    const error = value.error;
+    if (!error || typeof error !== 'object' || !('message' in error)) {return null;}
+    return typeof error.message === 'string' ? error.message : null;
 }
 
 function invalidKeyResult(error: unknown): { valid: false; error?: string } {

@@ -1,4 +1,5 @@
 import type { PhotoMaskMetadata } from './photoEditor';
+import type { AnalysisSnapshot } from '../../shared/photoAnalysis/contracts';
 
 export type {
     TimelineGroupId,
@@ -129,7 +130,7 @@ export type AssetTag = {
     description: string | null;
     status: 'active' | 'retired';
     category: string | null;
-    sourceKind: 'manual' | 'system' | 'ai' | 'legacy_ai';
+    sourceKind: 'manual' | 'system' | 'ai' | 'legacy_ai' | 'analysis';
     sourceRecordId: string | null;
     confidence: number | null;
     createdAt: string;
@@ -169,6 +170,7 @@ export type ReviewItemSummary = {
 }
 
 export type PhotoMetadataBundle = {
+    analysis?: AnalysisSnapshot;
     projection: PhotoMetadataProjection;
     provenance?: Partial<Record<keyof Omit<PhotoMetadataProjection, 'assetId' | 'estimatedDate' | 'quality' | 'authenticity' | 'subjects' | 'regionsOfInterest'>, PhotoMetadataSourceSummary>> & {
         estimatedDate?: PhotoMetadataEstimatedDateProvenance;

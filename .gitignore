@@ -47,6 +47,8 @@ vite.config.ts.timestamp-*.mjs
 .superpowers/
 *.tsbuildinfo
 artifacts/reports/
+artifacts/analysis-bundle-validation/
+artifacts/analysis-studio-validation/
 
 # AI model weights (large binaries — re-downloaded on first run or via postinstall)
 deployments/common/models/*.onnx

@@ -6,22 +6,16 @@ const workspaceRoot = path.resolve(import.meta.dirname, '..', '..', '..');
 const defaultOutputDir = path.join(workspaceRoot, 'artifacts', 'ai-metadata-studio-pack');
 
 const includedFiles = [
-    'src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseBoxes.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/geminiTypes.ts',
+    'src/shared/photoAnalysis/contracts.ts',
+    'src/services/photoAnalysis/prompts.ts',
+    'src/services/photoAnalysis/stageContracts.ts',
+    'src/services/photoAnalysis/geometry.ts',
+    'src/services/photoAnalysis/imageInputs.ts',
+    'src/services/photoAnalysis/geminiProvider.ts',
+    'src/services/photoAnalysis/pipeline.ts',
     'src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/liveRuntimeTagHelpers.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/tagVocabularyEnforcement.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/quotaManager.ts',
-    'src/services/photoMetadata/coordinateNormalization.ts',
-    'src/services/photoMetadata/types.ts',
-    'src/services/photoMetadata/validation.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/index.ts',
-    'src/services/workflowRuntime/modules/generateAiMetadata/schema.ts',
-    'src/boundary/contracts/core.ts',
-    'src/shared/aiMetadata/analysisOptions.ts',
     'tooling/scripts/repo/ai-metadata-debug.mjs',
+    'tooling/scripts/repo/photo-analysis-debug-support.mjs',
     'package.json',
     'tooling/config/tsconfig.core.json',
 ];
@@ -59,12 +53,12 @@ function buildReadme() {
 
     return `# AI Metadata Studio Pack
 
-This pack is a smaller, round-trip-safe subset of the AI metadata system intended for prompt tuning in Google AI Studio.
+This pack contains the evidence-oriented photo-analysis contracts and runtime preparation used for prompt tuning in Google AI Studio.
 
 ## Recommended edit targets
-- src/services/workflowRuntime/modules/generateAiMetadata/geminiPrompts.ts
-- src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseSchema.ts
-- src/services/workflowRuntime/modules/generateAiMetadata/geminiResponseBoxes.ts
+- src/services/photoAnalysis/prompts.ts
+- src/services/photoAnalysis/stageContracts.ts
+- src/shared/photoAnalysis/contracts.ts
 - src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.ts
 
 ## Included files
@@ -72,7 +66,7 @@ ${fileList}
 
 ## Existing single-photo runner
 \`\`\`bash
-npm.cmd run ai-metadata:debug -- --asset=<asset-id-or-path-fragment> --imageStrategy=overview_only --metadataPass=scout --showPrompt=true --showSchema=true
+npm.cmd run ai-metadata:debug -- --asset=<asset-id-or-path-fragment> --metadataPass=scout --dryRun=true --outDir=artifacts/analysis-request
 \`\`\`
 
 ## Suggested Repomix flow
@@ -86,6 +80,8 @@ repomix files
 
 ## Reintegration note
 Keep edits aligned to the copied repo paths under \`files/\`. That makes it much easier to apply AI Studio changes back into the real repo without path drift.
+
+The request export includes \`image-manifest.json\`, \`source-references.json\`, \`independent-observations.json\`, \`targets.json\`, \`response-schema.json\` and exact JPEG inputs. Refine requires explicit \`--targets=<JSON>\` or \`--targetsFile=<path>\`. Source IDs and Face IDs must remain unchanged when comparing model/prompt variants. Live debug reports actual usage and per-attempt latency/retry failures; it opens the database read-only.
 `;
 }
 
@@ -106,7 +102,6 @@ async function main() {
     const args = parseArgs(process.argv.slice(2));
     const outputDir = resolveOutputDir(args);
 
-    await fs.rm(outputDir, { recursive: true, force: true });
     await fs.mkdir(outputDir, { recursive: true });
     await copyIncludedFiles(outputDir);
     await writeMetadata(outputDir);

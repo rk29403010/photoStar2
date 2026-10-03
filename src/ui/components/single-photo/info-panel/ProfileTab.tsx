@@ -347,8 +347,7 @@ function useProfileFieldSaver(
       return;
     }
     if (fieldPath === 'estimated_date') {
-      await recordAssertion('estimated_date.display_label', newValue, 'Manual profile tab edit');
-      await recordAssertion('estimated_date.most_likely_date', newValue, 'Manual profile tab edit');
+      await recordAssertion('date', { start: null, end: null, label: newValue }, 'Manual profile tab edit');
       return;
     }
     await recordAssertion(fieldPath, newValue, 'Manual profile tab edit');

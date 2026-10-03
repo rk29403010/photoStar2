@@ -5,3 +5,5 @@ allowBuilds:
   keytar: true
   onnxruntime-node: true
   sharp: true
+minimumReleaseAgeExclude:
+  - '@google/genai@2.27.0'

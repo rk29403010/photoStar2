@@ -1,5 +1,7 @@
 import type { PhotoMetadataBundle } from '../contracts/core';
+import type { RefinementTarget } from '../../shared/photoAnalysis/contracts';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
+import { z } from 'zod';
 
 export type RecordPhotoMetadataAssertionInput = {
     assetId: string;
@@ -15,6 +17,29 @@ function requireResponseData(data: Record<string, unknown> | undefined, command:
     throw new Error(`Missing response data for ${command}`);
 }
 
+const responseRecordSchema = z.record(z.string(), z.unknown());
+const photoMetadataBundleResponseSchema = z.object({
+    projection: z.looseObject({}),
+    provenance: z.looseObject({}),
+}).loose();
+
+function isPhotoMetadataBundle(value: unknown): value is PhotoMetadataBundle {
+    return photoMetadataBundleResponseSchema.safeParse(value).success;
+}
+
+function isResponseRecord(value: unknown): value is Record<string, unknown> {
+    return responseRecordSchema.safeParse(value).success;
+}
+
+function requirePhotoMetadata(value: unknown, command: string): PhotoMetadataBundle {
+    if (isPhotoMetadataBundle(value)) {return value;}
+    throw new Error(`Missing photo metadata in ${command}`);
+}
+
+function readStringArray(value: unknown): string[] {
+    return Array.isArray(value) && value.every(item => typeof item === 'string') ? value : [];
+}
+
 export function createPhotoMetadataActions(params: { request: RequestFn }) {
     return {
         getAiCallsLog: (assetId: string): Promise<unknown[]> => params.request<unknown[]>({
@@ -22,7 +47,7 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
             command: 'get_ai_calls_log',
             payload: { assetId },
             timeoutMs: 10000,
-            select: (data) => (data?.logs || []) as unknown[],
+            select: (data) => Array.isArray(data?.logs) ? data.logs : [],
         }),
         getAiCallLogDetail: (logId: string): Promise<unknown> => params.request<unknown>({
             idPrefix: `get_ai_call_log_detail_${logId}`,
@@ -36,7 +61,10 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
             command: 'get_photo_metadata',
             payload: { assetId, includeEvidence },
             timeoutMs: 10000,
-            select: (data) => requireResponseData(data, 'get_photo_metadata').photo_metadata as PhotoMetadataBundle,
+            select: (data) => requirePhotoMetadata(
+                requireResponseData(data, 'get_photo_metadata').photo_metadata,
+                'get_photo_metadata',
+            ),
         }),
         recordPhotoMetadataAssertion: (input: RecordPhotoMetadataAssertionInput): Promise<{ manualAssertion: Record<string, unknown>; photo_metadata: PhotoMetadataBundle }> => params.request({
             idPrefix: `record_photo_metadata_assertion_${input.assetId}_${Date.now()}`,
@@ -53,8 +81,10 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
             select: (data) => {
                 const response = requireResponseData(data, 'record_photo_metadata_assertion');
                 return {
-                    manualAssertion: response.manualAssertion as Record<string, unknown>,
-                    photo_metadata: response.photo_metadata as PhotoMetadataBundle,
+                    manualAssertion: isResponseRecord(response.manualAssertion)
+                        ? response.manualAssertion
+                        : {},
+                    photo_metadata: requirePhotoMetadata(response.photo_metadata, 'record_photo_metadata_assertion'),
                 };
             },
         }),
@@ -62,14 +92,15 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
             assetId: string,
             options: {
                 aiMode?: 'mock' | 'live' | 'off';
-                imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+                targets?: RefinementTarget[];
             } = {},
         ): Promise<string> => params.request<string>({
             idPrefix: `refine_photo_metadata_${assetId}`,
             command: 'start_selected_subject_metadata_workflow',
             payload: {
                 aiMode: options.aiMode ?? 'live',
-                imageStrategy: options.imageStrategy ?? 'overview_plus_tiles',
+                metadataPass: 'refine',
+                targets: options.targets,
                 selectedSubjects: [{ subjectType: 'asset', subjectId: assetId }],
             },
             timeoutMs: 10000,
@@ -93,7 +124,7 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
             command: 'get_available_asset_types',
             payload: {},
             timeoutMs: 10000,
-            select: (data) => (data?.types || []) as string[],
+            select: (data) => readStringArray(data?.types),
         }),
     };
 }

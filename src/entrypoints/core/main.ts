@@ -11,9 +11,7 @@ import { startDevBridgeServer } from '../../boundary/transport/devBridgeServer';
 import type { WorkflowRuntimeFacade } from '../../services/handlers/types';
 import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
 import { formatAssetDiagnosticLabel } from '../../shared/utils/diagnosticFormatting';
-import { buildPhotoMetadataBundle } from '../../services/photoMetadata/bundle';
-import { createPhotoMetadataManualAssertionsService } from '../../services/photoMetadata/manualAssertions';
-import { createPhotoMetadataRepository } from '../../services/photoMetadata/repository';
+import { buildAnalysisDisplay } from '../../services/photoAnalysis/display';
 import { loadLocalEnvFile } from './loadLocalEnv';
 import { shouldForwardEventToFrontend } from './frontendEventForwarding';
 import {
@@ -204,7 +202,6 @@ type AssetUpdatedRow = {
     rec_data: string | null;
     people_data: string | null;
     mask_metadata_data: string | null;
-    ai_metadata_data: string | null;
     embedded_metadata_data: string | null;
     sensitivity_score: number | null;
     sensitivity_status: string | null;
@@ -220,7 +217,6 @@ function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
                p.path as preview_path,
                dr.data as faces_data,
                fr.data as rec_data,
-               aim.data as ai_metadata_data,
                meta.data as embedded_metadata_data,
                (
                    SELECT data
@@ -238,7 +234,6 @@ function loadUpdatedAssetRow(assetId: string): AssetUpdatedRow | undefined {
         LEFT JOIN previews p ON a.id = p.asset_id AND p.size = 'thumbnail'
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'dr', task: 'face_detection' })}
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'fr', task: 'face_recognition' })}
-        ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'aim', task: 'ai_metadata' })}
         ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'meta', task: 'embedded_metadata' })}
         LEFT JOIN asset_identities ai ON ai.original_path = a.original_path
         LEFT JOIN assets_manual am ON am.identity_guid = ai.guid
@@ -318,25 +313,18 @@ function mergeFaceAssignments(row: AssetUpdatedRow) {
 
 function buildUpdatedAsset(row: AssetUpdatedRow) {
     const faces = mergeFaceAssignments(row);
-    const aiMeta = row.ai_metadata_data ? JSON.parse(row.ai_metadata_data) : undefined;
     const embeddedMetadata = row.embedded_metadata_data ? JSON.parse(row.embedded_metadata_data) : undefined;
     const photoMetadata = dbManager
-        ? buildPhotoMetadataBundle({
-            repository: createPhotoMetadataRepository({ dbManager }),
-            manualAssertionsService: createPhotoMetadataManualAssertionsService({ dbManager }),
-            assetId: row.id,
-            includeEvidence: false,
-        })
+        ? buildAnalysisDisplay(dbManager, row.id)
         : undefined;
 
     return {
         ...row,
         faces,
         face_embeddings: row.rec_data ? JSON.parse(row.rec_data).embeddings : [],
-        ai_metadata: aiMeta,
         embedded_metadata: embeddedMetadata,
         photo_metadata: photoMetadata,
-        caption: photoMetadata?.projection.caption ?? aiMeta?.caption ?? undefined,
+        caption: photoMetadata?.projection.caption ?? undefined,
     };
 }
 

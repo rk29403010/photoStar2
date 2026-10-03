@@ -15,14 +15,11 @@ export type BoundingBox = {
  */
 export async function detectSimpleBorder(imagePath: string): Promise<BoundingBox | null> {
     try {
-        const image = sharp(imagePath);
-        const metadata = await image.metadata();
+        // Frame interiors use the same oriented full-photo coordinates as local faces.
+        const oriented = await sharp(imagePath).rotate().png().toBuffer({ resolveWithObject: true });
+        const dimensions = { width: oriented.info.width, height: oriented.info.height };
 
-        if (!metadata.width || !metadata.height) {
-            return null;
-        }
-
-        const { info } = await image
+        const { info } = await sharp(oriented.data)
             .trim()
             .toBuffer({ resolveWithObject: true });
 
@@ -30,7 +27,7 @@ export async function detectSimpleBorder(imagePath: string): Promise<BoundingBox
             return null;
         }
 
-        const originalArea = metadata.width * metadata.height;
+        const originalArea = dimensions.width * dimensions.height;
         const trimmedArea = info.width * info.height;
         const trimmedAwayArea = originalArea - trimmedArea;
 
@@ -43,10 +40,10 @@ export async function detectSimpleBorder(imagePath: string): Promise<BoundingBox
         const top = Math.abs(info.trimOffsetTop);
 
         return {
-            x: left / metadata.width,
-            y: top / metadata.height,
-            width: info.width / metadata.width,
-            height: info.height / metadata.height,
+            x: left / dimensions.width,
+            y: top / dimensions.height,
+            width: info.width / dimensions.width,
+            height: info.height / dimensions.height,
         };
     } catch (error) {
         console.error(`Error detecting simple border for ${imagePath}:`, error);

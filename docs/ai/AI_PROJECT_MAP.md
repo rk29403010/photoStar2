@@ -108,7 +108,8 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **semantic predicates / propositions** | `src/services/relationships/predicates/`, `src/services/relationships/semanticRepository.ts` | `src/data/dbMigrations.ts`, `src/data/semanticResetState.ts` | `tests/core/semantic-*.test.cjs` |
 | **contributors / testimony / review attribution** | `src/services/relationships/contributorRepository.ts`, `src/services/handlers/contributorCommands.ts` | `src/services/relationships/semanticRepository.ts`, `src/services/handlers/peopleCandidateCommands.ts` | `tests/core/wp13*.test.cjs` |
 | **background jobs / workflows** | `src/services/workflowRuntime/`, `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `src/data/dbSchema.ts` (workflow_runs) | `tests/core/` |
-| **AI / local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
+| **Evidence photo analysis / Gemini** | `src/services/photoAnalysis/`, `src/shared/photoAnalysis/contracts.ts` | `docs/architecture/evidence-photo-analysis.md` | `tests/core/photo-analysis-*.test.cjs` |
+| **Local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
 | **Segmentation providers** | `src/services/segmentation/`, `docs/architecture/segmentation-providers.md` | `tooling/scripts/core/export_fastsam_s_model.py` | `tests/core/fastsam-provider-contract.test.cjs` |
 | **settings / configuration** | `src/ui/components/SettingsModal.tsx`, `src/services/handlers/systemCommands.ts` | `src/entrypoints/core/main.ts` | `tests/ui/` |
 | **family tree / GEDCOM** | `src/ui/components/family-tree/FamilyTreeView.tsx`, `src/ui/components/family-tree/familyTreeHooks.ts` | `src/ui/components/family-tree/familyTreeLayout.ts`, `src/services/gedcom/` | `tests/core/`, `tests/ui/` |
@@ -123,7 +124,9 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 | `asset_identities` | Durable archive identity with its last known path and content fingerprint | PK: `guid`; path is a locator, while `content_hash` + `content_size` authorize safe reattachment |
 | `assets_manual` | Manual overrides (e.g., sensitivity) | PK: `identity_guid` -> `asset_identities.guid` |
 | `previews` | Generated thumbnail/preview paths | PK: `asset_id, size` -> `assets.id` |
-| `derived_results` | ML inferences (faces, AI metadata) | PK: `id`, FK: `asset_id` -> `assets.id` |
+| `derived_results` | Local ML artifacts and embedded metadata; AI claims use relational analysis tables | PK: `id`, FK: `asset_id` -> `assets.id` |
+| `analysis_runs`, `analysis_images`, `analysis_sources` | Immutable stage provenance, actual API telemetry and explicit oriented image/crop manifests | Run/source/image asset foreign keys |
+| `analysis_claims`, `analysis_claim_sources`, `analysis_regions` | Typed field evidence, contradictions, authority/supersession and precisely localized observations | Claim/source asset-scoped foreign keys |
 | `photo_metadata_projection` | Materialized view of aggregated photo metadata | PK: `asset_id` -> `assets.id` |
 | `workflow_runs` | Executions of asynchronous workflows | PK: `id` |
 | `workflow_run_milestones` | Checkpoints & progress for a workflow run | PK: `workflow_run_id, milestone_id` -> `workflow_runs.id` |

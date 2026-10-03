@@ -1,8 +1,5 @@
 import type { FaceBox, PhotoMaskMetadata, PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
-import {
-    normalizePhotoMetadataRegionsOfInterest,
-    normalizePhotoMetadataSubjects,
-} from '../photoMetadata/coordinateNormalization';
+
 import { normalizeStoredPhotoBox } from '../faces/faceImageGeometry';
 
 export type AssetPayloadRow = {
@@ -346,8 +343,8 @@ function toPhotoMetadataProjection(row: AssetPayloadRow): PhotoMetadataProjectio
             score: row.authenticity_score,
             reasons: parseJsonArray<string>(row.authenticity_reasons_json),
         },
-        subjects: normalizePhotoMetadataSubjects(parseJsonArray<unknown>(row.subjects_json)),
-        regionsOfInterest: normalizePhotoMetadataRegionsOfInterest(parseJsonArray<unknown>(row.regions_of_interest_json)),
+        subjects: parseJsonArray<unknown>(row.subjects_json),
+        regionsOfInterest: parseJsonArray<unknown>(row.regions_of_interest_json),
     };
 }
 

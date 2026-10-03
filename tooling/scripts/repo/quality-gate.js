@@ -162,18 +162,13 @@ function buildMergeSteps(base) {
         { label: 'Markdown lint', command: packageBinary('markdownlint'), args: markdownArgs },
         nativeAppTypecheckStep(),
         nativeCoreBuildStep(),
-        { label: 'repository tests', command: nodeExecutable, args: ['--test', 'tests/repo/*.test.mjs'] },
-        { label: 'UI tests', command: nodeExecutable, args: ['--test', 'tests/ui/*.test.cjs'] },
-        {
-            label: 'core build',
-            command: packageBinary('tsc'),
-            args: ['-p', 'tooling/config/tsconfig.core.json', '--pretty', 'false'],
-        },
         {
             label: 'core post-compile',
             command: nodeExecutable,
             args: ['tooling/scripts/core/post-compile.cjs'],
         },
+        { label: 'repository tests', command: nodeExecutable, args: ['--test', 'tests/repo/*.test.mjs'] },
+        { label: 'UI tests', command: nodeExecutable, args: ['--test', 'tests/ui/*.test.cjs'] },
         { label: 'core tests', command: nodeExecutable, args: ['--test', 'tests/core/*.test.cjs'] },
         uiSmokeStep(base),
     ];

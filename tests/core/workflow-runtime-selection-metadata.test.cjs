@@ -3,17 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-
-// Mock keytar for test execution
 require.cache[require.resolve('keytar')] = {
-    id: require.resolve('keytar'),
-    filename: require.resolve('keytar'),
-    loaded: true,
-    exports: {
-        getPassword: async () => 'AIzaSyDUMMYKEY12345678901234567890',
-        setPassword: async () => {},
-        deletePassword: async () => true,
-    }
+    id: require.resolve('keytar'), filename: require.resolve('keytar'), loaded: true,
+    exports: { getPassword: async () => null, setPassword: async () => {}, deletePassword: async () => true },
 };
 
 function createTempDir() {
@@ -45,7 +37,6 @@ async function createHarness(tempDir, options = {}) {
     const { selectedSubjectMetadataWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/selectedSubjectMetadataWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
-    dbManager.setSetting('ai_metadata_v2_api_key', 'AIzaSyDUMMYKEY12345678901234567890');
     const db = dbManager.getDb();
     const assetOnePath = createAssetFile(tempDir, 'asset-one.jpg');
     const assetTwoPath = createAssetFile(tempDir, 'asset-two.jpg');
@@ -127,9 +118,9 @@ test('selected subject metadata workflow expands selected assets and de-duplicat
         });
 
         const rows = harness.dbManager.getDb().prepare(`
-            SELECT asset_id, data
-            FROM derived_results
-            WHERE task = 'ai_metadata'
+            SELECT asset_id, value_json
+            FROM analysis_claims
+            WHERE field = 'caption'
             ORDER BY asset_id ASC
         `).all();
         assert.equal(rows.length, 2);
@@ -168,91 +159,37 @@ test('selected subject metadata workflow rejects unsupported non-asset subjects 
     }
 });
 
-test('selected subject metadata workflow persists photo metadata evidence and recalculates photo date', async () => {
-    const tempDir = createTempDir();
-    let harness = null;
-
+test('selected workflow forwards targeted Refine concerns and persists only requested stage fields', async () => {
+    const directory = createTempDir();
+    let harness;
+    const calls = [];
+    const targets = [{ field: 'date', subjectId: null, question: 'Investigate clothing date', concern: 'date' }];
     try {
-        const metadataBlock = {
-            type: 'Family portrait',
-            caption: 'A woman holding an infant',
-            description: 'An indoor family portrait with a woman holding a baby.',
-            location: 'Unknown',
-            estimated_date: {
-                most_likely_date: '1990',
-                min_date: '1985-01-01',
-                max_date: '1995-12-31',
-                display_label: 'circa 1990',
-                rationale: 'Hairstyle and glasses strongly suggest the late 1980s to early 1990s.',
-            },
-            subjects: [],
-            regions_of_interest: [],
-            keywords: ['family', 'baby'],
-            emotional_impact: 'Warm',
-            quality: { technical: 6, lighting: 7, composition: 7, emotional: 8, discard: false },
-            recommended_enhancements: [],
-            authenticity: { score: 9, reasons: ['period styling is consistent'] },
-        };
-        harness = await createHarness(tempDir, {
-            aiRuntime: {
-                async generateLiveMetadata() {
-                    return {
-                        provider: 'google',
-                        modelVersion: 'gemini-2.5-flash',
-                        data: { ...metadataBlock, _analysis_tier: 'flash' },
-                        metadataSourceKind: 'gemini_flash_scout',
-                        metadataBlock,
-                    };
-                },
-            },
-        });
-        const assetPath = createAssetFile(tempDir, 'family-photo.jpg');
-        const db = harness.dbManager.getDb();
-        db.prepare(`
-            UPDATE assets
-            SET original_path = ?,
-                photo_created_at = '2025-02-12T05:33:36.273Z',
-                photo_created_at_confidence = 0.431
-            WHERE id = 'asset-1'
-        `).run(assetPath);
-
-        await harness.orchestrator.start({
-            workflowId: 'selected_subject_metadata_v1',
-            triggerType: 'manual',
-            inputSubjects: [{ subjectType: 'selection', subjectId: 'selection-date-1' }],
-            parameters: {
-                aiMode: 'live',
-                selectedSubjects: [
-                    { subjectType: 'asset', subjectId: 'asset-1' },
-                ],
-            },
-        });
-
-        const projection = db.prepare(`
-            SELECT caption, estimated_date_display_label
-            FROM photo_metadata_projection
-            WHERE asset_id = 'asset-1'
-        `).get();
-        const blockCount = db.prepare(`
-            SELECT COUNT(*) AS count
-            FROM photo_metadata_blocks
-            WHERE asset_id = 'asset-1'
-        `).get();
-        const updatedAsset = db.prepare(`
-            SELECT photo_created_at, photo_created_at_confidence
-            FROM assets
-            WHERE id = 'asset-1'
-        `).get();
-        const updatedYear = new Date(updatedAsset.photo_created_at).getUTCFullYear();
-
-        assert.equal(blockCount.count, 1);
-        assert.equal(projection.caption, 'A woman holding an infant');
-        assert.equal(projection.estimated_date_display_label, 'circa 1990');
-        assert.notEqual(updatedAsset.photo_created_at, '2025-02-12T05:33:36.273Z');
-        assert.equal(updatedYear >= 1985 && updatedYear <= 1995, true);
-        assert.ok(updatedAsset.photo_created_at_confidence > 0.431);
-    } finally {
-        harness?.dbManager.close();
-        await removeDirWithRetry(tempDir);
-    }
+        const { persistAnalysisRun, loadAnalysis } = require('../../dist/core/src/services/photoAnalysis/repository.js');
+        harness = await createHarness(directory, { aiRuntime: { async generateLiveMetadata(params) {
+            calls.push({ pass: params.metadataPass, targets: params.targets, assetId: params.row.id });
+            const sourceId = require('node:crypto').randomUUID();
+            const result = { claims: [{ field: 'date', subjectId: null,
+                value: { label: 'Circa 1990', start: '1985-01-01', end: '1995-12-31' },
+                confidence: 'medium', kind: 'inferred_conclusion', sourceIds: [sourceId],
+                evidence: [{ text: 'Period clothing', sourceIds: [sourceId] }], contradictions: [], supersedesId: null }],
+                regions: [], refinementOpportunities: [] };
+            const runId = persistAnalysisRun(params.dbManager, { assetId: params.row.id, stage: 'refine', provider: 'gemini',
+                modelVersion: 'configurable-refine', promptVersion: 'evidence-1', targets: params.targets, result,
+                sources: [{ id: sourceId, assetId: params.row.id, kind: 'local', refId: params.row.id, text: 'Injected evidence' }] });
+            return { runId, result, analysis: loadAnalysis(params.dbManager, params.row.id), sources: [], images: [], faces: [] };
+        } } });
+        const runId = await harness.orchestrator.start({ workflowId: 'selected_subject_metadata_v1', triggerType: 'manual',
+            inputSubjects: [{ subjectType: 'selection', subjectId: 'targeted-selection' }], parameters: {
+                aiMode: 'live', metadataPass: 'refine', targets,
+                selectedSubjects: [{ subjectType: 'asset', subjectId: 'asset-1' }],
+            } });
+        assert.deepEqual(calls, [{ pass: 'refine', targets, assetId: 'asset-1' }]);
+        const analysis = loadAnalysis(harness.dbManager, 'asset-1');
+        assert.deepEqual(analysis.runs.map(run => run.stage), ['refine']);
+        assert.deepEqual(analysis.winners.map(claim => claim.field), ['date']);
+        assert.equal(analysis.winners[0].evidence[0].text, 'Period clothing');
+        assert.equal(harness.store.getRunDetail(runId).summary.status, 'completed');
+        assert.equal(loadAnalysis(harness.dbManager, 'asset-2').runs.length, 0);
+    } finally { harness?.dbManager.close(); await removeDirWithRetry(directory); }
 });

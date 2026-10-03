@@ -4,22 +4,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-// Mock keytar dynamically
-let mockApiKey = 'AIzaSyDUMMYKEY12345678901234567890';
 require.cache[require.resolve('keytar')] = {
-    id: require.resolve('keytar'),
-    filename: require.resolve('keytar'),
-    loaded: true,
-    exports: {
-        getPassword: async () => mockApiKey,
-        setPassword: async (service, account, password) => {
-            mockApiKey = password;
-        },
-        deletePassword: async () => {
-            mockApiKey = null;
-            return true;
-        },
-    }
+    id: require.resolve('keytar'), filename: require.resolve('keytar'), loaded: true,
+    exports: { getPassword: async () => null, setPassword: async () => {}, deletePassword: async () => true },
 };
 
 function createTempDir() {
@@ -66,13 +53,12 @@ async function createHarness(tempDir, options = {}) {
     const { resolvePeoplePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/resolve-people/plugin.js');
     const { groupSimilarPhotosPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/group-similar-photos/plugin.js');
     const { detectSensitiveContentPlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-sensitive-content/plugin.js');
-    const { createGenerateAiMetadataScoutTiledTestModule: createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
+    const { createGenerateAiMetadataScoutPluginModule: createGenerateAiMetadataModule } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
     const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
     const { detectPrintTexturePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/detect-print-texture/plugin.js');
     const { folderIngestWorkflowDefinition } = await import('../../dist/core/src/services/workflowRuntime/workflows/folderIngestWorkflow.js');
 
     const dbManager = new DatabaseManager(tempDir);
-    mockApiKey = options.apiKey || null;
     const subjects = new runtime.SubjectRegistry();
     const modules = new runtime.ModuleRegistry();
     const workflows = new runtime.WorkflowRegistry({ subjects, modules });
@@ -141,203 +127,101 @@ async function runFolderIngest(harness, folderPath, parameters = {}) {
     });
 }
 
-function readDerivedResultRow(dbManager, task) {
-    return dbManager.getDb().prepare(
-        `SELECT provider, model_version, data FROM derived_results WHERE task = ? LIMIT 1`
-    ).get(task);
+function analysisRuns(manager) {
+    return manager.getDb().prepare('SELECT asset_id, stage, provider FROM analysis_runs ORDER BY rowid').all();
 }
 
-function createLiveAiRuntime() {
-    return {
-        async generateLiveMetadata(params) {
-            assert.equal(params.imageStrategy, 'overview_plus_tiles');
-            return {
-                provider: 'google',
-                modelVersion: 'gemini-3.1-pro-preview',
-                data: {
-                    caption: 'Restored live caption',
-                    keywords: ['archive', 'family'],
-                    _analysis_tier: 'pro',
-                },
-            };
-        },
-    };
+function liveRuntime(calls = []) {
+    return { async generateLiveMetadata(params) {
+        calls.push(params);
+        const { persistAnalysisRun, loadAnalysis } = require('../../dist/core/src/services/photoAnalysis/repository.js');
+        const sourceId = require('node:crypto').randomUUID();
+        const result = { claims: [{ field: 'caption', subjectId: null, value: 'Live evidence caption', confidence: 'medium',
+            kind: 'hypothesis', evidence: [], contradictions: [], sourceIds: [sourceId], supersedesId: null }],
+            regions: [], refinementOpportunities: [] };
+        const runId = persistAnalysisRun(params.dbManager, { assetId: params.row.id, stage: 'scout', provider: 'gemini',
+            modelVersion: 'configurable-model', promptVersion: 'evidence-1', result,
+            sources: [{ id: sourceId, assetId: params.row.id, kind: 'local', refId: params.row.id, text: 'Injected test evidence' }] });
+        return { runId, result, analysis: loadAnalysis(params.dbManager, params.row.id), sources: [], images: [], faces: [] };
+    } };
 }
 
-async function cleanupHarnesses(harnesses, tempDir) {
-    for (const harness of harnesses) {
-        try {
-            harness.dbManager.close();
-        } catch {
-            // ignore close failures during cleanup
-        }
-    }
-    try {
-        await removeDirWithRetry(tempDir);
-    } catch {
-        // Windows can keep SQLite sidecar handles briefly; cleanup is best-effort here.
-    }
+async function cleanup(harnesses, directory) {
+    harnesses.forEach(harness => harness.dbManager.close());
+    await removeDirWithRetry(directory);
 }
 
-test('folder ingest supports mock, live, and off ai modes', async () => {
-    const tempDir = createTempDir();
-    const folderPath = createFixtureFolder(tempDir);
+test('folder ingest supports mock, live and off modes using stage claims', async () => {
+    const directory = createTempDir();
+    const folder = createFixtureFolder(directory);
     const harnesses = [];
-
     try {
-        const mockHarness = await createHarness(path.join(tempDir, 'mock'));
-        harnesses.push(mockHarness);
-        await runFolderIngest(mockHarness, folderPath, { aiMode: 'mock' });
+        for (const mode of ['mock', 'off', 'live']) {
+            const calls = [];
+            const harness = await createHarness(path.join(directory, mode), { aiRuntime: liveRuntime(calls) });
+            harnesses.push(harness);
+            await runFolderIngest(harness, folder, { aiMode: mode });
+            const runs = analysisRuns(harness.dbManager);
+            assert.equal(runs.length, mode === 'off' ? 0 : 1);
+            if (mode !== 'off') {assert.equal(runs[0].provider, mode === 'mock' ? 'runtime_stub' : 'gemini');}
+            assert.equal(calls.length, mode === 'live' ? 1 : 0);
+            assert.equal(harness.dbManager.getDb().prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'ai_metadata'").get().count, 0);
+        }
+    } finally { await cleanup(harnesses, directory); }
+});
 
-        const mockRow = readDerivedResultRow(mockHarness.dbManager, 'ai_metadata');
-        assert.ok(mockRow);
-        assert.equal(JSON.parse(mockRow.data).mode, 'mock');
-
-        const offHarness = await createHarness(path.join(tempDir, 'off'));
-        harnesses.push(offHarness);
-        await runFolderIngest(offHarness, folderPath, { aiMode: 'off' });
-
-        const offCount = offHarness.dbManager.getDb().prepare(
-            "SELECT COUNT(*) AS count FROM derived_results WHERE task = 'ai_metadata'"
-        ).get();
-        assert.equal(offCount.count, 0);
-
-        const liveHarness = await createHarness(path.join(tempDir, 'live'), {
-            apiKey: 'AIzaSyDUMMYKEY12345678901234567890',
-            aiRuntime: createLiveAiRuntime(),
-        });
-        harnesses.push(liveHarness);
-        await runFolderIngest(liveHarness, folderPath, {
-            aiMode: 'live',
-            imageStrategy: 'overview_plus_tiles',
-        });
-
-        const liveRow = readDerivedResultRow(liveHarness.dbManager, 'ai_metadata');
-        assert.ok(liveRow);
-        assert.equal(liveRow.provider, 'google');
-        assert.equal(liveRow.model_version, 'gemini-3.1-pro-preview');
-        assert.equal(JSON.parse(liveRow.data).caption, 'Restored live caption');
+test('live ingest reports missing configuration as a failed workflow without analysis writes', async () => {
+    const directory = createTempDir();
+    const previous = process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    const harnesses = [];
+    try {
+        const harness = await createHarness(path.join(directory, 'missing'));
+        harnesses.push(harness);
+        const folder = createFixtureFolder(directory, ['one.png', 'two.png']);
+        await assert.rejects(runFolderIngest(harness, folder, { aiMode: 'live' }), /configured Gemini API key/);
+        assert.equal(analysisRuns(harness.dbManager).length, 0);
+        const summary = harness.dbManager.getDb().prepare('SELECT status FROM workflow_runs ORDER BY rowid DESC LIMIT 1').get();
+        assert.equal(summary.status, 'failed');
+        const step = harness.dbManager.getDb().prepare("SELECT status, error_message FROM step_runs WHERE node_id = 'generate-ai-metadata'").get();
+        assert.equal(step.status, 'failed'); assert.match(step.error_message, /configured Gemini API key/);
     } finally {
-        await cleanupHarnesses(harnesses, tempDir);
+        if (previous === undefined) {delete process.env.GEMINI_API_KEY;} else {process.env.GEMINI_API_KEY = previous;}
+        await cleanup(harnesses, directory);
     }
 });
 
-test('live ai mode without an api key emits one configuration error and stops further metadata processing', async () => {
-    const tempDir = createTempDir();
-    const folderPath = createFixtureFolder(tempDir, ['one.png', 'two.png']);
-    const emittedEvents = [];
-    let harness = null;
-
+test('timeout cancellation reaches live runtime and leaves the workflow failed', async () => {
+    const directory = createTempDir();
+    const harnesses = [];
     try {
-        harness = await createHarness(path.join(tempDir, 'missing-key'), {
-            eventBus: {
-                emit(event) {
-                    emittedEvents.push(event);
-                },
-            },
-        });
-
-        await assert.rejects(
-            harness.orchestrator.start({
-                workflowId: 'folder_ingest_v1',
-                triggerType: 'manual',
-                inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
-                parameters: {
-                    folderPath,
-                    traversalMode: 'folder_only',
-                    aiMode: 'live',
-                },
-            }),
-            /workflow step 'generate-ai-metadata' failed/,
-        );
-
-        const metadataWrites = harness.dbManager.getDb().prepare(
-            "SELECT COUNT(*) AS count FROM derived_results WHERE task = 'ai_metadata'"
-        ).get();
-        assert.equal(metadataWrites.count, 0);
-
-        const detail = harness.store.getRunDetail(
-            harness.dbManager.getDb().prepare(
-                "SELECT id FROM workflow_runs ORDER BY created_at DESC, id DESC LIMIT 1"
-            ).get().id
-        );
-        const metadataStep = detail.steps.find((step) => step.nodeId === 'generate-ai-metadata');
-        assert.ok(metadataStep);
-        assert.equal(metadataStep.failedItems, 2);
-        assert.equal(metadataStep.completedItems, 0);
-        assert.equal(
-            metadataStep.errorMessage,
-            'Live AI metadata requires a configured Gemini API key. Add one in Settings before running live ingest.',
-        );
-
-        assert.deepEqual(
-            emittedEvents.filter((event) => event.type === 'AiMetadataConfigurationError').map((event) => event.message),
-            ['Live AI metadata requires a configured Gemini API key. Add one in Settings before running live ingest.'],
-        );
-    } finally {
-        try {
-            harness?.dbManager.close();
-        } catch {
-            // ignore close failures during cleanup
-        }
-        try {
-            await removeDirWithRetry(tempDir);
-        } catch {
-            // Windows can keep SQLite sidecar handles briefly; cleanup is best-effort here.
-        }
-    }
+        let receivedSignal;
+        const harness = await createHarness(path.join(directory, 'cancel'), { liveMetadataTimeoutMs: 20,
+            aiRuntime: { generateLiveMetadata: params => new Promise((resolve, reject) => {
+                receivedSignal = params.signal;
+                params.signal.addEventListener('abort', () => reject(params.signal.reason), { once: true });
+            }) } });
+        harnesses.push(harness);
+        await assert.rejects(runFolderIngest(harness, createFixtureFolder(directory), { aiMode: 'live' }), /timeout|timed out/i);
+        assert.equal(receivedSignal.aborted, true);
+        assert.equal(analysisRuns(harness.dbManager).length, 0);
+        assert.equal(harness.dbManager.getDb().prepare('SELECT status FROM workflow_runs ORDER BY rowid DESC LIMIT 1').get().status, 'failed');
+    } finally { await cleanup(harnesses, directory); }
 });
 
-test('hung live ai metadata fails the workflow with a timeout instead of leaving the run stuck', async () => {
-    const tempDir = createTempDir();
-    const folderPath = createFixtureFolder(tempDir, ['one.png']);
-    let harness = null;
-
+test('unsafe photos are skipped before external runtime invocation', async () => {
+    const directory = createTempDir();
+    const harnesses = [];
     try {
-        harness = await createHarness(path.join(tempDir, 'hung-live'), {
-            apiKey: 'AIzaSyDUMMYKEY12345678901234567890',
-            liveMetadataTimeoutMs: 20,
-            aiRuntime: {
-                async generateLiveMetadata() {
-                    return await new Promise(() => {});
-                },
-            },
-        });
-
-        await assert.rejects(
-            harness.orchestrator.start({
-                workflowId: 'folder_ingest_v1',
-                triggerType: 'manual',
-                inputSubjects: [{ subjectType: 'folder', subjectId: folderPath }],
-                parameters: {
-                    folderPath,
-                    traversalMode: 'folder_only',
-                    aiMode: 'live',
-                },
-            }),
-            /timed out/i,
-        );
-
-        const runId = harness.dbManager.getDb().prepare(
-            "SELECT id FROM workflow_runs ORDER BY created_at DESC, id DESC LIMIT 1"
-        ).get().id;
-        const detail = harness.store.getRunDetail(runId);
-        const metadataStep = detail.steps.find((step) => step.nodeId === 'generate-ai-metadata');
-
-        assert.equal(detail.summary.status, 'failed');
-        assert.ok(metadataStep);
-        assert.equal(metadataStep.status, 'failed');
-        assert.match(metadataStep.errorMessage, /timed out/i);
-    } finally {
-        try {
-            harness?.dbManager.close();
-        } catch {
-            // ignore close failures during cleanup
-        }
-        try {
-            await removeDirWithRetry(tempDir);
-        } catch {
-            // Windows can keep SQLite sidecar handles briefly; cleanup is best-effort here.
-        }
-    }
+        const harness = await createHarness(path.join(directory, 'unsafe'));
+        harnesses.push(harness);
+        const db = harness.dbManager.getDb();
+        db.prepare('INSERT INTO assets (id, original_path, sensitivity_score) VALUES (?, ?, ?)').run('unsafe', 'C:/unsafe.jpg', 90);
+        const { createGenerateAiMetadataScoutPluginModule } = require('../../dist/core/src/services/workflowRuntime/modules/plugins/generate-ai-metadata-scout/plugin.js');
+        let calls = 0;
+        const module = createGenerateAiMetadataScoutPluginModule({ dbManager: harness.dbManager,
+            aiRuntime: { generateLiveMetadata: async () => { calls += 1; throw new Error('Must not call'); } } });
+        assert.deepEqual(await module.run({ subject: { subjectType: 'asset', subjectId: 'unsafe' }, parameters: { aiMode: 'live' } }), { outputs: [] });
+        assert.equal(calls, 0); assert.equal(analysisRuns(harness.dbManager).length, 0);
+    } finally { await cleanup(harnesses, directory); }
 });
