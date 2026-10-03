@@ -13,8 +13,19 @@ export type ApiProvider = 'gemini' | 'openai' | (string & {});
 const SERVICE_NAME = 'PhotoStar2';
 
 async function verifyGeminiKey(proposedKey: string): Promise<void> {
-    const { GoogleGenAI } = await import('@google/genai');
-    await new GoogleGenAI({ apiKey: proposedKey }).models.list();
+    const response = await globalThis.fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(proposedKey)}`,
+    );
+    if (response.ok) {return;}
+    const responseBody: unknown = await response.json().catch(() => null);
+    throw new Error(readGeminiErrorMessage(responseBody) ?? `HTTP ${response.status} ${response.statusText}`);
+}
+
+function readGeminiErrorMessage(value: unknown): string | null {
+    if (!value || typeof value !== 'object' || !('error' in value)) {return null;}
+    const error = value.error;
+    if (!error || typeof error !== 'object' || !('message' in error)) {return null;}
+    return typeof error.message === 'string' ? error.message : null;
 }
 
 function invalidKeyResult(error: unknown): { valid: false; error?: string } {
