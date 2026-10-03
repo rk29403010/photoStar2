@@ -128,6 +128,7 @@ The application state is persisted in SQLite (`src/data/dbSchema.ts` plus number
 | `analysis_runs`, `analysis_images`, `analysis_sources` | Immutable stage provenance, actual API telemetry and explicit oriented image/crop manifests | Run/source/image asset foreign keys |
 | `analysis_claims`, `analysis_claim_sources`, `analysis_regions` | Typed field evidence, contradictions, authority/supersession and precisely localized observations | Claim/source asset-scoped foreign keys |
 | `photo_metadata_projection` | Materialized view of aggregated photo metadata | PK: `asset_id` -> `assets.id` |
+| `libraryReadiness` | Deterministic, presentation-only readiness model derived from resolved metadata, detected details and review state; it stores no new AI score | `src/shared/libraryReadiness.ts`, `get_stats.readiness` |
 | `workflow_runs` | Executions of asynchronous workflows | PK: `id` |
 | `workflow_run_milestones` | Checkpoints & progress for a workflow run | PK: `workflow_run_id, milestone_id` -> `workflow_runs.id` |
 | `step_runs` | Individual step/module execution tracking | PK: `id`, FK: `workflow_run_id` |

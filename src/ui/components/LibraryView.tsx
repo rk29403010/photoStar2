@@ -28,6 +28,7 @@ import { useGalleryBrowseRailState } from './library/libraryBrowseRailState';
 import type { GalleryTimeSection, GalleryTimeSectionMode } from './layout/galleryTimeSections';
 import type { TimelineGalleryStateSlice } from '@ui/hooks/useTimelineGalleryState';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { useLibraryReadinessFocus } from './library/libraryReadinessFocus';
 
 export type LibraryViewProps = {
     readonly stats: LibraryStats | null;
@@ -469,8 +470,7 @@ function buildPanelProps(params: {
 }
 
 export function LibraryView(props: LibraryViewProps) {
-    const [layoutMode, setLayoutMode] = usePersistedState<GalleryLayoutMode>('ps_library_layout_mode', getDefaultGalleryLayoutMode());
-    const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
+    const [layoutMode, setLayoutMode] = usePersistedState<GalleryLayoutMode>('ps_library_layout_mode', getDefaultGalleryLayoutMode()); const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const { browseRowHeight, isScrollSettled, markScrollActivity } = useGalleryBrowseRailState();
     const selection = props.librarySelection ?? EMPTY_LIBRARY_SELECTION;
@@ -482,7 +482,8 @@ export function LibraryView(props: LibraryViewProps) {
         onGalleryTimelineSeek: props.onGalleryTimelineSeek,
         scrollRef,
     });
-    const displayItems = useDisplayAssets(props.assets, props.presentationItems, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
+    const { readinessAssets, readinessView, setReadinessView } = useLibraryReadinessFocus(props.assets);
+    const displayItems = useDisplayAssets(readinessAssets, props.presentationItems, props.declusteredAssets, sortMode, props.groupSimilarPhotos);
     const timeSectionMode = useMemo(() => getTimeSectionMode(sortMode, layoutMode), [layoutMode, sortMode]);
     const justifiedSections = useDateTimelineJustifiedSections({
         displayItems,
@@ -530,10 +531,11 @@ export function LibraryView(props: LibraryViewProps) {
         handleTimelineBucketJump,
         timelineVisibleGroupId: props.timelineGallery.visibleGroupId,
         timelineVisibleGroupIndex: props.timelineGallery.visibleGroupIndex,
+        readinessView,
+        onReadinessViewChange: setReadinessView,
     });
     useTimelineSeekScrollReset(scrollRef, props.galleryTimelineSeek, props.isSeekingTimeline);
-    const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails);
-    const statusView = getLibraryViewStatusFromProps(props);
+    const selectedInfoAsset = useLibraryInfoAsset(displayItems, selection, props.showInfoPanel, props.onEnsureAssetDetails); const statusView = getLibraryViewStatusFromProps(props);
     if (statusView) {return statusView;}
     const panelProps = buildPanelProps({
         props,

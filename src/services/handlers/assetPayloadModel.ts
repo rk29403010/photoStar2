@@ -1,6 +1,7 @@
 import type { FaceBox, PhotoMaskMetadata, PhotoMetadataBundle, PhotoMetadataProjection, PhotoMetadataSourceSummary } from '../../boundary/contracts/core';
 
 import { normalizeStoredPhotoBox } from '../faces/faceImageGeometry';
+import { deriveLibraryReadiness } from '../../shared/libraryReadiness';
 
 export type AssetPayloadRow = {
     id: string;
@@ -398,7 +399,7 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
         } catch {}
     }
 
-    return {
+    const asset = {
         ...buildAssetFileFields(row),
         caption: row.caption ?? undefined,
         faces,
@@ -412,4 +413,5 @@ export function toAssetPayload(row: AssetPayloadRow, options: { includeEvidence?
         frame_detection: frameDetection,
         mask_metadata: applyPersonMaskLabels(maskMetadata, people),
     };
+    return { ...asset, library_readiness: deriveLibraryReadiness(asset) };
 }

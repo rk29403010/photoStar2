@@ -8,6 +8,7 @@ import type { LibrarySelectableItem } from '@shared/utils/librarySelectionState'
 import { getActiveTimelineSeek, getTimelineSummaryForGalleryMode } from './libraryTimelineModel';
 import { useLibraryChrome } from './libraryViewChrome';
 import { useLibraryTimelineSync } from './libraryViewTimelineSync';
+import type { LibraryReadinessView } from '@shared/libraryReadiness';
 
 export function useLibraryViewPresentation(params: {
     assets: Asset[];
@@ -39,6 +40,8 @@ export function useLibraryViewPresentation(params: {
     onMoveSelectionToBin?: () => Promise<void>;
     onRestoreSelectionFromBin?: () => Promise<void>;
     onClearSelection?: () => void;
+    readinessView: 'all' | LibraryReadinessView;
+    onReadinessViewChange: (view: 'all' | LibraryReadinessView) => void;
 }) {
     const timeline = useMemo(() => getTimelineSummaryForGalleryMode(params.stats, params.groupSimilarPhotos), [params.groupSimilarPhotos, params.stats]);
     const activeTimelineSeek = useMemo(() => getActiveTimelineSeek({
@@ -82,6 +85,9 @@ export function useLibraryViewPresentation(params: {
         onMoveSelectionToBin: params.onMoveSelectionToBin,
         onRestoreSelectionFromBin: params.onRestoreSelectionFromBin,
         onClearSelection: params.onClearSelection,
+        readinessView: params.readinessView,
+        readinessSummary: params.stats?.readiness,
+        onReadinessViewChange: params.onReadinessViewChange,
     });
 
     return {

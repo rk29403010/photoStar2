@@ -9,6 +9,7 @@ import type { GalleryTimeSection, GalleryTimeSectionMode } from '../layout/galle
 import type { RefObject, ReactNode, UIEvent } from 'react';
 import { LibraryPanel } from './LibraryPanel';
 import type { TimelineJumpRequest } from './libraryTimelineJump';
+import type { LibraryReadinessSummary, LibraryReadinessView } from '@shared/libraryReadiness';
 
 type LibraryPanelContentProps = {
     readonly scrollRef: RefObject<HTMLDivElement | null>;
@@ -34,6 +35,9 @@ type LibraryPanelContentProps = {
         onRestoreSelectionFromBin?: () => Promise<void>;
         onClearSelection?: () => void;
         activeFilter?: LibraryFilter;
+        readinessView: 'all' | LibraryReadinessView;
+        readinessSummary?: LibraryReadinessSummary;
+        onReadinessViewChange: (view: 'all' | LibraryReadinessView) => void;
     };
     readonly timelineRail?: ReactNode;
     readonly displayItems: LibrarySelectableItem[];

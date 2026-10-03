@@ -5,6 +5,7 @@ import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { LibraryTimelineRail } from './LibraryTimelineRail';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
+import type { LibraryReadinessSummary, LibraryReadinessView } from '@shared/libraryReadiness';
 import { createSelectionKeyTimelineBucketIndex, isTimelineSortMode } from './libraryTimelineModel';
 
 function getTimelineGroupIdForBucketStartYear(startYear: number): TimelineGroupId {
@@ -80,6 +81,9 @@ export function getLibraryToolbarProps(params: {
     onRestoreSelectionFromBin?: () => Promise<void>;
     onClearSelection?: () => void;
     activeFilter?: LibraryFilter;
+    readinessView: 'all' | LibraryReadinessView;
+    readinessSummary?: LibraryReadinessSummary;
+    onReadinessViewChange: (view: 'all' | LibraryReadinessView) => void;
 }) {
     return {
         sortMode: params.sortMode,
@@ -102,6 +106,9 @@ export function getLibraryToolbarProps(params: {
         onRestoreSelectionFromBin: params.onRestoreSelectionFromBin,
         onClearSelection: params.onClearSelection,
         activeFilter: params.activeFilter,
+        readinessView: params.readinessView,
+        readinessSummary: params.readinessSummary,
+        onReadinessViewChange: params.onReadinessViewChange,
     };
 }
 
