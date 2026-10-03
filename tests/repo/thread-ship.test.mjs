@@ -92,9 +92,10 @@ test('ship commit message prefers explicit task name', () => {
     );
 });
 
-test('ship mode supports main and dedicated worktree checkouts', () => {
+test('ship mode is branch-based so editor-native worktree paths are accepted', () => {
     assert.equal(getShipMode({ branch: 'main', worktreeName: 'main' }), 'main');
     assert.equal(getShipMode({ branch: 'codex/task', worktreeName: 'task' }), 'worktree');
+    assert.equal(getShipMode({ branch: 'codex/native-task', worktreeName: 'main' }), 'worktree');
 });
 
 test('ship ignore paths include generated artifacts', () => {

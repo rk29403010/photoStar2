@@ -114,7 +114,9 @@ function getCurrentThreadEntry(cwd) {
     return registry.entries.find((entry) => normalizePath(entry.cwd) === normalizePath(snapshot.cwd)) ?? null;
 }
 
-export function getShipMode(snapshot) { return snapshot.worktreeName === 'main' || snapshot.branch === 'main' ? 'main' : 'worktree'; }
+export function getShipMode(snapshot) {
+    return snapshot.branch === 'main' || snapshot.branch === 'master' ? 'main' : 'worktree';
+}
 
 function stageTaskChanges(cwd, ignorePaths) {
     git(['add', '-A', '--', '.'], cwd);
@@ -214,7 +216,7 @@ function main() {
     const cwd = process.cwd();
     const args = parseArgs(process.argv.slice(2));
     const snapshot = collectThreadSnapshot(cwd);
-    if (getShipMode(snapshot) === 'main') {throw new Error('Publishing from main is refused; use a registered non-main task worktree.');}
+    if (getShipMode(snapshot) === 'main') {throw new Error('Publishing from main is refused; use a non-main worktree.');}
     const entry = getCurrentThreadEntry(cwd);
     publishWorktree({
         cwd,
