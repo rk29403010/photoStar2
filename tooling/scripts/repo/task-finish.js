@@ -2,6 +2,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runTrackedCommand, recoverInterruptedRuns } from './task-command-records.js';
+import { runCommandSync } from './process-invocation.js';
 import { collectThreadSnapshot, findThreadEntry, readThreadRegistry, resolveThreadRegistryPath, upsertThreadEntry, writeThreadRegistry } from './thread-state.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -38,13 +39,47 @@ function refreshedEntryOrFallback(registryPath, cwd, fallback) {
 function withCurrentSnapshot(entry, snapshot) {
     return entry ? { ...entry, ...snapshot } : null;
 }
+export function deriveTaskNameFromBranch(branch) {
+    const withoutCommonPrefix = String(branch ?? '').replace(/^(?:task|codex|feature|fix|chore|docs)\//u, '');
+    const readable = withoutCommonPrefix.replaceAll('/', ' ').replaceAll('-', ' ').trim();
+    return readable || String(branch ?? '').trim() || 'task';
+}
+function registerOrdinaryWorktree({ cwd, snapshot, registryPath }) {
+    const workspaceScript = path.join(root, 'tooling', 'scripts', 'repo', 'task-workspace.js');
+    const taskName = deriveTaskNameFromBranch(snapshot.branch);
+    const result = runCommandSync({
+        command: process.execPath,
+        args: [workspaceScript, 'register', '--task', taskName, '--branch', snapshot.branch],
+        cwd,
+        stdio: 'inherit',
+    });
+    if (result.error || (result.status ?? 1) !== 0) {
+        const detail = result.error?.message ?? `exit ${result.status ?? 'unknown'}`;
+        throw new Error(`Unable to register the current worktree for publication (${detail}).`);
+    }
+    const latest = readThreadRegistry(registryPath);
+    const registered = findThreadEntry(latest, { cwd });
+    if (!registered) {
+        throw new Error('The current worktree was registered but its task record could not be reloaded.');
+    }
+    return withCurrentSnapshot(registered, snapshot);
+}
 function human(result, detail, json) { const payload = { result, detail, doYouNeedToDoAnything: result === 'ACTION NEEDED', reconstructed: true }; if (json) {console.log(JSON.stringify(payload, null, 2));} else {console.log(`${result}\n${detail}\nDo you need to do anything: ${payload.doYouNeedToDoAnything ? 'Yes' : 'No'}`);} }
 function isAuthError(error) { return /auth|login|credential/i.test(String(error)); }
 async function main() {
-    const cwd = process.cwd(); const registryPath = resolveThreadRegistryPath(cwd); const registry = readThreadRegistry(registryPath); const snapshot = collectThreadSnapshot(cwd);
+    const cwd = process.cwd();
+    const registryPath = resolveThreadRegistryPath(cwd);
+    const snapshot = collectThreadSnapshot(cwd);
+    if (snapshot.branch === 'main' || snapshot.branch === 'master' || snapshot.detached || !snapshot.branch) {
+        throw new Error('task:finish must run from a non-main attached task worktree.');
+    }
+
+    let registry = readThreadRegistry(registryPath);
     const registeredEntry = findThreadEntry(registry, { cwd });
-    const entry = withCurrentSnapshot(registeredEntry, snapshot);
-    if (!entry || snapshot.branch === 'main') {throw new Error('task:finish must run from a registered non-main task worktree.');}
+    const entry = withCurrentSnapshot(registeredEntry, snapshot)
+        ?? registerOrdinaryWorktree({ cwd, snapshot, registryPath });
+    registry = readThreadRegistry(registryPath);
+
     recoverInterruptedRuns(entry); const save = saveFactory(registry, registryPath); save(entry);
     const shipScript = path.join(root, 'tooling', 'scripts', 'repo', 'thread-ship.js');
     try {
@@ -54,8 +89,6 @@ async function main() {
         human('WAITING ON CI', `The code passed local checks and was handed to GitHub as PR #${refreshed.prNumber}.\nNo local processes remain. GitHub now owns the checks and will notify you. You do not need to do anything.\nLater status can be reconstructed after a restart.`, args.json);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        // The registry may have been rewritten by an interrupted command. Retain
-        // the original error even when no refreshed entry can be found.
         const current = findThreadEntry(registry, { cwd }) ?? entry;
         current.latestFailure = { message, at: new Date().toISOString(), candidateCommit: current.lastCommit ?? snapshot.lastCommit };
         save(current);

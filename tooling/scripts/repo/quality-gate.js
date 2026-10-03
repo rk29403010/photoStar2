@@ -109,42 +109,31 @@ function uiSmokeStep(base) {
     };
 }
 
-export function buildQualitySteps(mode, base = '') {
-    const quick = [
+function buildFixSteps() {
+    return [
+        changedStep('changed Oxlint autofix', 'lint-changed-files.mjs', ['--tool=oxlint', '--fix']),
+        changedStep('changed ESLint autofix', 'lint-changed-files.mjs', ['--fix']),
+    ];
+}
+
+function buildQuickSteps() {
+    return [
         { label: 'plug-in registry and boundary policy', command: nodeExecutable, args: [path.join(scriptDirectory, 'extension-architecture-policy.mjs')] },
         changedStep('changed Oxlint', 'lint-changed-files.mjs', ['--tool=oxlint']),
+        changedStep('changed ESLint', 'lint-changed-files.mjs'),
+        changedStep('changed reviewability', 'reviewability-changed-files.mjs'),
         changedStep('changed complexity', 'complexity-changed-files.mjs'),
         nativeAppTypecheckStep(),
         nativeCoreTypecheckStep(),
     ];
-    if (mode === 'quick') {
-        return quick;
-    }
+}
 
-    if (mode === 'typecheck:native') {
-        return [nativeAppTypecheckStep(), nativeNodeTypecheckStep(), nativeCoreTypecheckStep()];
-    }
-    if (mode === 'typecheck:native:app') {
-        return [nativeAppTypecheckStep()];
-    }
-    if (mode === 'typecheck:native:core') {
-        return [nativeCoreTypecheckStep()];
-    }
-    if (mode === 'typecheck:compat') {
-        return [{
-            label: 'API-consumer TypeScript check',
-            command: packageBinary('tsc'),
-            args: ['-b', '--pretty', 'false'],
-        }];
-    }
-    if (mode === 'build:native:core') {
-        return [nativeCoreBuildStep()];
-    }
-
-    const ready = [
+function buildReadySteps(base) {
+    return [
         { label: 'plug-in registry and boundary policy', command: nodeExecutable, args: [path.join(scriptDirectory, 'extension-architecture-policy.mjs')] },
         { label: 'full Oxlint', command: packageBinary('oxlint'), args: ['-c', '.oxlintrc.json', '.'] },
         changedStep('changed type-aware ESLint', 'lint-changed-files.mjs'),
+        changedStep('changed reviewability', 'reviewability-changed-files.mjs'),
         changedStep('changed complexity', 'complexity-changed-files.mjs'),
         nativeAppTypecheckStep(),
         nativeCoreTypecheckStep(),
@@ -152,13 +141,9 @@ export function buildQualitySteps(mode, base = '') {
         { label: 'UI tests', command: nodeExecutable, args: ['--test', 'tests/ui/*.test.cjs'] },
         uiSmokeStep(base),
     ];
-    if (mode === 'ready') {
-        return ready;
-    }
-    if (mode !== 'merge') {
-        throw new Error(`Unknown QA mode "${mode}". Expected quick, ready, or merge.`);
-    }
+}
 
+function buildMergeSteps(base) {
     return [
         { label: 'plug-in registry and boundary policy', command: nodeExecutable, args: [path.join(scriptDirectory, 'extension-architecture-policy.mjs')] },
         { label: 'full Oxlint', command: packageBinary('oxlint'), args: ['-c', '.oxlintrc.json', '.'] },
@@ -172,6 +157,7 @@ export function buildQualitySteps(mode, base = '') {
             command: packageBinary('eslint'),
             args: ['.', '--cache', '--cache-strategy', 'content', '--cache-location', 'node_modules/.cache/eslint'],
         },
+        changedStep('branch reviewability', 'reviewability-changed-files.mjs'),
         changedStep('branch complexity', 'complexity-changed-files.mjs'),
         { label: 'Markdown lint', command: packageBinary('markdownlint'), args: markdownArgs },
         nativeAppTypecheckStep(),
@@ -193,6 +179,41 @@ export function buildQualitySteps(mode, base = '') {
     ];
 }
 
+export function buildQualitySteps(mode, base = '') {
+    if (mode === 'fix') {
+        return buildFixSteps();
+    }
+    if (mode === 'quick') {
+        return buildQuickSteps();
+    }
+    if (mode === 'typecheck:native') {
+        return [nativeAppTypecheckStep(), nativeNodeTypecheckStep(), nativeCoreTypecheckStep()];
+    }
+    if (mode === 'typecheck:native:app') {
+        return [nativeAppTypecheckStep()];
+    }
+    if (mode === 'typecheck:native:core') {
+        return [nativeCoreTypecheckStep()];
+    }
+    if (mode === 'typecheck:compat') {
+        return [{
+            label: 'API-consumer TypeScript check',
+            command: packageBinary('tsc'),
+            args: ['-b', '--pretty', 'false'],
+        }];
+    }
+    if (mode === 'build:native:core') {
+        return [nativeCoreBuildStep()];
+    }
+    if (mode === 'ready') {
+        return buildReadySteps(base);
+    }
+    if (mode === 'merge') {
+        return buildMergeSteps(base);
+    }
+    throw new Error(`Unknown QA mode "${mode}". Expected fix, quick, ready, or merge.`);
+}
+
 function runStep(step, env) {
     const startedAt = Date.now();
     console.log(`[qa] Starting ${step.label}`);
@@ -212,7 +233,7 @@ function runStep(step, env) {
 }
 
 export function runQualityGate({ mode, base, env = process.env }) {
-    const resolvedBase = mode === 'quick'
+    const resolvedBase = mode === 'quick' || mode === 'fix'
         ? ''
         : resolveQualityBase({ explicitBase: base, env });
     const gateEnv = resolvedBase ? { ...env, LINT_DIFF_BASE: resolvedBase } : env;
