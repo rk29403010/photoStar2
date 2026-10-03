@@ -17,11 +17,6 @@ const MIGRATIONS = [
     description: 'Decode Microsoft EXIF XP tags (XPTitle, XPComment, etc.) from UTF-16LE byte arrays to strings',
     script: path.join(__dirname, 'migrate-exif-xp-tags.cjs'),
   },
-  {
-    name: 'migrate-stored-photo-coordinates',
-    description: 'Normalise stored photo coordinate boxes in face_detection results, photo_metadata_blocks, and photo_metadata_projection',
-    script: path.join(__dirname, 'migrate-stored-photo-coordinates.cjs'),
-  },
 ];
 
 let failed = 0;

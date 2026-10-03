@@ -188,7 +188,7 @@ function buildUngroupedAssetsQuery(
         projectionAlias: 'pm',
         photoDateEstimateAlias: 'r_date',
     });
-    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_ai_new.data, r_ai_legacy.data, r_date.data, r_meta.data' : '';
+    const evidenceGroupBy = detailLevel === 'full' && includeEvidence ? ', r_rec.data, r_date.data, r_meta.data' : '';
     const timelineSeekSql = timelineSeekClause.sql ? ` AND ${timelineSeekClause.sql}` : '';
 
     return {
