@@ -39,7 +39,11 @@ const fieldSchemas = {
     enhancements: z.array(enhancementRecommendationSchema).max(10),
     local_metadata: z.record(z.string(), z.json()),
 };
-export const analysisFieldSchema = z.enum(Object.keys(fieldSchemas) as [keyof typeof fieldSchemas, ...Array<keyof typeof fieldSchemas>]);
+const analysisFields = [
+    'caption', 'description', 'classification', 'tags', 'date', 'location', 'appearance',
+    'identity', 'archive_clue', 'text', 'clue_interpretation', 'quality', 'enhancements', 'local_metadata',
+] as const;
+export const analysisFieldSchema = z.enum(analysisFields);
 const claimCommon = {
     subjectId: id.nullable(), confidence: confidenceSchema,
     kind: z.enum(['observation', 'known_fact', 'hypothesis', 'inferred_conclusion', 'user_confirmed']),

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { z } from 'zod';
 
 export type AiLogsTabProps = {
   readonly assetId: string;
@@ -25,6 +26,22 @@ export type AiCallDetail = {
   error_message: string | null;
   created_at: string;
 };
+
+const aiCallSummarySchema = z.strictObject({
+  id: z.string(), call_type: z.string(), model_name: z.string(), created_at: z.string(), has_error: z.boolean(),
+});
+const aiCallDetailSchema = z.strictObject({
+  id: z.string(), asset_id: z.string(), call_type: z.string(), model_name: z.string(), prompt: z.string(),
+  result: z.string().nullable(), error_message: z.string().nullable(), created_at: z.string(),
+});
+
+function isAiCallSummary(value: unknown): value is AiCallSummary {
+  return aiCallSummarySchema.safeParse(value).success;
+}
+
+function isAiCallDetail(value: unknown): value is AiCallDetail {
+  return aiCallDetailSchema.safeParse(value).success;
+}
 
 const formatTimestamp = (ts: string) => {
   try {
@@ -245,7 +262,7 @@ function useAiLogsState(
     setErrorText(null);
 
     onGetAiCallsLog(assetId)
-      .then((data) => setLogs(data as AiCallSummary[]))
+      .then((data) => setLogs(data.filter(isAiCallSummary)))
       .catch((err) => setErrorText(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoadingList(false));
   }, [assetId, onGetAiCallsLog, analysisState]);
@@ -260,7 +277,7 @@ function useAiLogsState(
     setErrorText(null);
 
     onGetAiCallLogDetail(selectedLogId)
-      .then((data) => setDetail(data as AiCallDetail))
+      .then((data) => setDetail(isAiCallDetail(data) ? data : null))
       .catch((err) => setErrorText(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoadingDetail(false));
   }, [selectedLogId, onGetAiCallLogDetail]);
