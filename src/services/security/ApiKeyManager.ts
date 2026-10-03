@@ -12,37 +12,9 @@ export type ApiProvider = 'gemini' | 'openai' | (string & {});
 
 const SERVICE_NAME = 'PhotoStar2';
 
-type GeminiModelClient = {
-    listModels?: () => Promise<unknown>;
-    models?: { list?: () => Promise<unknown> };
-};
-
-async function listModelsWithClient(client: GeminiModelClient): Promise<boolean> {
-    if (client.models && typeof client.models.list === 'function') {
-        await client.models.list();
-        return true;
-    }
-    if (typeof client.listModels === 'function') {
-        await client.listModels();
-        return true;
-    }
-    return false;
-}
-
-async function listModelsWithFetch(proposedKey: string): Promise<void> {
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${proposedKey}`
-    );
-    if (response.ok) { return; }
-    const errBody = await response.json().catch(() => ({}));
-    throw new Error(errBody?.error?.message || `HTTP ${response.status} ${response.statusText}`);
-}
-
 async function verifyGeminiKey(proposedKey: string): Promise<void> {
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const client = new GoogleGenerativeAI(proposedKey) as GeminiModelClient;
-    if (await listModelsWithClient(client)) { return; }
-    await listModelsWithFetch(proposedKey);
+    const { GoogleGenAI } = await import('@google/genai');
+    await new GoogleGenAI({ apiKey: proposedKey }).models.list();
 }
 
 function invalidKeyResult(error: unknown): { valid: false; error?: string } {

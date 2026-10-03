@@ -14,7 +14,10 @@ const aliasRoots = new Map([
 ]);
 
 const defaultEntries = [
-    'src/services/workflowRuntime/modules/generateAiMetadata/index.ts',
+    'src/services/photoAnalysis/pipeline.ts',
+    'src/services/photoAnalysis/prompts.ts',
+    'src/services/photoAnalysis/stageContracts.ts',
+    'src/shared/photoAnalysis/contracts.ts',
     'src/services/workflowRuntime/modules/generateAiMetadata/liveRuntime.ts',
     'tooling/scripts/repo/ai-metadata-debug.mjs',
 ];
@@ -92,6 +95,7 @@ async function resolveLocalSpecifier(sourceFilePath, specifier) {
 
     const candidates = [
         basePath,
+        basePath.replace(/\.js$/, '.ts'),
         `${basePath}.ts`,
         `${basePath}.tsx`,
         `${basePath}.js`,
@@ -224,7 +228,7 @@ function buildReadme(params) {
 
     return `# AI Metadata Bundle
 
-This bundle captures the current repo-side AI metadata module code plus the existing single-photo debug runner.
+This bundle captures the evidence-oriented photo-analysis contracts, geometry, provider, pipeline and read-only single-photo debug runner.
 
 ## Included entry points
 ${entryList}
@@ -240,13 +244,16 @@ ${externalPackageLines || '- none'}
 The repo already exposes the debug runner:
 
 \`\`\`bash
-npm.cmd run ai-metadata:debug -- --asset=<asset-id-or-path-fragment> --imageStrategy=overview_only --metadataPass=scout --showPrompt=true --showSchema=true
+npm.cmd run ai-metadata:debug -- --asset=<asset-id-or-path-fragment> --metadataPass=scout --dryRun=true --showPrompt=true --showSchema=true
 \`\`\`
 
 The copied runner source is:
 - \`files/tooling/scripts/repo/ai-metadata-debug.mjs\`
 
 ## Notes for Google AI Studio
+- Requests use explicit image/source manifests, stable Face IDs, independent observations and targeted Refine concerns.
+- Export an actual request using \`ai-metadata:debug -- --asset=<asset> --dryRun=true --outDir=<request-directory>\`.
+- Compare arbitrary \`--model=<model-id>\` and \`--promptVariant=<variant>\` values with actual token/latency/retry telemetry.
 - Local repo imports are copied here as source files.
 - External npm packages are listed in \`external-packages.json\` and \`external-packages.txt\`, but not bundled.
 - Node built-ins used by the copied files are listed in \`node-builtins.txt\`.
@@ -315,7 +322,6 @@ async function main() {
     const tracedGraph = await traceBundleGraph(entryPaths);
     const externalPackages = buildExternalPackageRows(packageJson, tracedGraph.externalSpecifiers);
 
-    await fs.rm(outputDir, { recursive: true, force: true });
     await fs.mkdir(outputDir, { recursive: true });
     await writeCopiedFiles(outputDir, tracedGraph.localFiles);
     await writeBundleMetadata({

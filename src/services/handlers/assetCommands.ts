@@ -488,7 +488,7 @@ export const assetCommandHandlers: CommandHandlerMap = {
         try {
             const defaultTypes = ['photo', 'document', 'drawing', 'newspaper', 'slide', 'negative', 'postcard'];
             const rows = dbManager.getDb().prepare(`
-                SELECT DISTINCT type FROM photo_metadata_projection 
+                SELECT DISTINCT type FROM photo_analysis_display
                 WHERE type IS NOT NULL AND type != ''
             `).all() as { type: string }[];
             const dbTypes = rows.map((r) => r.type);

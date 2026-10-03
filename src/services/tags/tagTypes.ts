@@ -1,6 +1,6 @@
 export type TagDefinitionStatus = 'active' | 'retired';
 
-export type TagAssignmentSourceKind = 'manual' | 'system' | 'ai' | 'legacy_ai';
+export type TagAssignmentSourceKind = 'manual' | 'system' | 'ai' | 'legacy_ai' | 'analysis';
 
 export type ReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'dismissed' | 'superseded';
 

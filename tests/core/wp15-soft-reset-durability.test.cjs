@@ -34,7 +34,7 @@ function seedPeopleAndGedcom(db) {
         VALUES ('confirmed', 'tree', 'I1')`).run();
 }
 
-function seedEditsAndMetadata(db) {
+function seedEditsAndMetadata(db, manager) {
     db.prepare(`INSERT INTO photo_edit_documents (
         id, source_asset_id, rendered_asset_id, name, operations_json, masks_json, status
     ) VALUES ('edit-parent', 'source', 'rendered', 'Restoration', '[]', '[]', 'rendered')`).run();
@@ -43,9 +43,9 @@ function seedEditsAndMetadata(db) {
     ) VALUES ('edit-child', 'source', 'edit-parent', 'Crop', '[]', '[]')`).run();
     db.prepare(`INSERT INTO photo_edit_styles (id, name, operations_json, masks_json)
         VALUES ('style', 'Family style', '[]', '[]')`).run();
-    db.prepare(`INSERT INTO photo_metadata_assertions (
-        id, asset_id, field_path, value_json, user_id, note
-    ) VALUES ('assertion', 'source', 'caption', '"At the seaside"', 'contributor', 'From album note')`).run();
+    const { recordUserTruth } = require('../../dist/core/src/services/photoAnalysis/userTruth.js');
+    recordUserTruth(manager, { assetId: 'source', field: 'caption', value: 'At the seaside',
+        userId: 'contributor', note: 'From album note' });
 }
 
 function seedTagsAlbumsAndReviews(db) {
@@ -92,8 +92,10 @@ test('WP15 durable library snapshot restores human state and discards rebuildabl
         source.pragma('foreign_keys = ON');
         seedAssets(source);
         seedPeopleAndGedcom(source);
-        seedEditsAndMetadata(source);
+        seedEditsAndMetadata(source, sourceManager);
         seedTagsAlbumsAndReviews(source);
+        const { recordUserTruth } = require('../../dist/core/src/services/photoAnalysis/userTruth.js');
+        recordUserTruth(sourceManager, { assetId: 'source', field: 'tags', value: ['family'], userId: 'contributor' });
 
         const snapshot = resetState.snapshotDurableLibraryResetState(source);
         const target = targetManager.getDb();
@@ -106,10 +108,13 @@ test('WP15 durable library snapshot restores human state and discards rebuildabl
         assert.deepEqual(tableRows(target, 'people_gedcom_links'), tableRows(source, 'people_gedcom_links'));
         assert.deepEqual(tableRows(target, 'photo_edit_documents'), tableRows(source, 'photo_edit_documents'));
         assert.deepEqual(tableRows(target, 'photo_edit_styles'), tableRows(source, 'photo_edit_styles'));
-        assert.deepEqual(tableRows(target, 'photo_metadata_assertions'), tableRows(source, 'photo_metadata_assertions'));
+        assert.deepEqual(tableRows(target, 'analysis_claims'), tableRows(source, 'analysis_claims'));
+        assert.deepEqual(tableRows(target, 'analysis_sources'), tableRows(source, 'analysis_sources'));
+        assert.deepEqual(tableRows(target, 'analysis_runs'), tableRows(source, 'analysis_runs'));
+        assert.deepEqual(tableRows(target, 'analysis_claim_sources'), tableRows(source, 'analysis_claim_sources'));
         assert.deepEqual(tableRows(target, 'tag_definitions'), tableRows(source, 'tag_definitions'));
         assert.deepEqual(tableRows(target, 'tag_aliases'), tableRows(source, 'tag_aliases'));
-        assert.deepEqual(tableRows(target, 'asset_tag_assignments').map((row) => row.source_kind), ['manual']);
+        assert.deepEqual(tableRows(target, 'asset_tag_assignments').map((row) => row.source_kind).sort(), ['analysis', 'manual']);
         assert.deepEqual(tableRows(target, 'albums').map((row) => row.id), ['album']);
         assert.deepEqual(tableRows(target, 'album_items').map((row) => row.album_id), ['album']);
         assert.deepEqual(tableRows(target, 'review_items').map((row) => row.id), ['reviewed']);

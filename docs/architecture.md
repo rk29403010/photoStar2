@@ -7,6 +7,11 @@ This document is the canonical architecture reference for PhotoStar.
 PhotoStar now uses the workflow runtime as its only workflow orchestration
 system. The older queue-driven orchestration stack has been removed.
 
+AI photo analysis is an evidence-oriented pipeline with locally owned facts,
+optional visual perception, Scout, bounded context retrieval, targeted Refine,
+and authoritative user truth. Its claim storage, geometry, enhancement policy,
+and stage contracts are described in [Evidence-oriented photo analysis](architecture/evidence-photo-analysis.md).
+
 ## Design Principles
 
 - Keep UI, boundary, services, and data concerns separate.

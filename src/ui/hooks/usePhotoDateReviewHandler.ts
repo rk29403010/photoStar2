@@ -25,14 +25,6 @@ function buildStructuredNote(input: PhotoDateCorrectionInput): string {
     return lines.join('\n');
 }
 
-function buildRationale(input: PhotoDateCorrectionInput): string {
-    const base = `Manual date review flagged this photo as ${input.reasonCode}.`;
-    if (!input.note || input.note.trim().length === 0) {
-        return base;
-    }
-    return `${base} ${input.note.trim()}`;
-}
-
 type PhotoLibraryActions = ReturnType<typeof usePhotoLibrary>['actions'];
 
 export function usePhotoDateReviewHandler(actions: PhotoLibraryActions) {
@@ -40,28 +32,9 @@ export function usePhotoDateReviewHandler(actions: PhotoLibraryActions) {
         const note = buildStructuredNote(input);
 
         await actions.recordPhotoMetadataAssertion({
-            assetId: input.assetId,
-            fieldPath: 'estimated_date.most_likely_date',
-            value: input.correctedDate.trim(),
-            userId: PHOTO_DATE_REVIEW_USER_ID,
-            note,
-            includeEvidence: true,
-        });
-        await actions.recordPhotoMetadataAssertion({
-            assetId: input.assetId,
-            fieldPath: 'estimated_date.display_label',
-            value: input.correctedDate.trim(),
-            userId: PHOTO_DATE_REVIEW_USER_ID,
-            note,
-            includeEvidence: true,
-        });
-        await actions.recordPhotoMetadataAssertion({
-            assetId: input.assetId,
-            fieldPath: 'estimated_date.rationale',
-            value: buildRationale(input),
-            userId: PHOTO_DATE_REVIEW_USER_ID,
-            note,
-            includeEvidence: true,
+            assetId: input.assetId, fieldPath: 'date',
+            value: { start: input.correctedDate.trim(), end: input.correctedDate.trim(), label: input.correctedDate.trim() },
+            userId: PHOTO_DATE_REVIEW_USER_ID, note, includeEvidence: true,
         });
 
         await actions.loadAssetDetails(input.assetId, { includeEvidence: true });

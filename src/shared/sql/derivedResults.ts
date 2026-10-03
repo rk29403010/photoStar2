@@ -49,12 +49,12 @@ export function buildAssetDetailFragments(params: {
     projectionAlias: string;
     photoDateEstimateAlias: string;
 }): AssetDetailFragments {
-    const { detailLevel, includeEvidence, recAlias, aiNewAlias, aiLegacyAlias, projectionAlias, photoDateEstimateAlias } = params;
+    const { detailLevel, includeEvidence, recAlias, projectionAlias, photoDateEstimateAlias } = params;
     const projectionSelect = `
                 ${projectionAlias}.type as type,
                 ${projectionAlias}.type_source_kind as type_source_kind,
                 ${projectionAlias}.type_source_id as type_source_id,
-                COALESCE(${projectionAlias}.caption, a.caption) as caption,
+                ${projectionAlias}.caption as caption,
                 ${projectionAlias}.caption_source_kind as caption_source_kind,
                 ${projectionAlias}.caption_source_id as caption_source_id,
                 ${projectionAlias}.description as description,
@@ -96,7 +96,7 @@ export function buildAssetDetailFragments(params: {
                 ${projectionAlias}.regions_of_interest_json as regions_of_interest_json,
                 ${projectionAlias}.regions_of_interest_source_kind as regions_of_interest_source_kind,
                 ${projectionAlias}.regions_of_interest_source_id as regions_of_interest_source_id,`;
-    const projectionJoin = `LEFT JOIN photo_metadata_projection ${projectionAlias} ON ${projectionAlias}.asset_id = a.id`;
+    const projectionJoin = `LEFT JOIN photo_analysis_display ${projectionAlias} ON ${projectionAlias}.asset_id = a.id`;
     if (detailLevel === 'gallery' || !includeEvidence) {
         return {
             projectionSelect,
@@ -117,10 +117,8 @@ export function buildAssetDetailFragments(params: {
         projectionJoin,
         recSelect: `${recAlias}.data as rec_data,`,
         recJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: recAlias, task: 'face_recognition' }),
-        aiSelect: `COALESCE(${aiNewAlias}.data, ${aiLegacyAlias}.data) as ai_metadata_data,`,
-        aiJoin: `
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: aiNewAlias, task: 'ai_metadata' })}
-            ${buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: aiLegacyAlias, task: 'photo_metadata' })}`,
+        aiSelect: 'null as ai_metadata_data,',
+        aiJoin: '',
         embeddedMetadataSelect: 'r_meta.data as embedded_metadata_data,',
         embeddedMetadataJoin: buildLatestDerivedResultJoin({ assetAlias: 'a', joinAlias: 'r_meta', task: 'embedded_metadata' }),
         photoDateEstimateSelect: `${photoDateEstimateAlias}.data as photo_date_estimate_data,`,

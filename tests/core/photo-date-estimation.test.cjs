@@ -348,11 +348,6 @@ test('runtime.estimate_photo_date preserves import time and stores photo_created
             INSERT INTO assets (id, original_path, file_hash, file_size, width, height, exif_datetime, metadata_timestamp_source, created_at, photo_created_at, photo_created_at_confidence)
             VALUES ('asset-1', ?, NULL, 67, 1, 1, NULL, NULL, '2026-03-20T00:00:00.000Z', NULL, NULL)
         `).run(imagePath);
-        db.prepare(`
-            INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
-            VALUES ('ai-1', 'asset-1', 'ai_metadata', 'runtime_stub', '1.0', ?)
-        `).run(JSON.stringify({ estimated_date: '1960s' }));
-
         const modules = new runtime.ModuleRegistry();
         modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
         const moduleDefinition = modules.get(estimatePhotoDatePlugin.manifest.id);
@@ -387,6 +382,39 @@ test('runtime.estimate_photo_date preserves import time and stores photo_created
         assert.ok(stored.confidence.score > 0);
     } finally {
         dbManager?.close();
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+
+test('a user-confirmed unknown date clears earlier estimates and blocks filename inference', async () => {
+    const tempDir = createTempDir();
+    const imagePath = createFixtureImage(tempDir, 'family-1967-scan.png');
+    const { DatabaseManager } = require('../../dist/core/src/data/db.js');
+    const { recordUserTruth } = require('../../dist/core/src/services/photoAnalysis/userTruth.js');
+    const runtime = await import('../../dist/core/src/services/workflowRuntime/index.js');
+    const { estimatePhotoDatePlugin } = await import('../../dist/core/src/services/workflowRuntime/modules/plugins/estimate-photo-date/plugin.js');
+    const dbManager = new DatabaseManager(tempDir);
+    try {
+        const db = dbManager.getDb();
+        db.prepare(`INSERT INTO assets (id, original_path, photo_created_at, photo_created_at_confidence)
+            VALUES ('asset-1', ?, '1967-01-01T00:00:00.000Z', 0.8)`).run(imagePath);
+        db.prepare(`INSERT INTO derived_results (id, asset_id, task, provider, model_version, data)
+            VALUES ('date-1', 'asset-1', 'photo_date_estimate', 'runtime', '1', '{}')`).run();
+        db.prepare("INSERT INTO tag_definitions (id, canonical_label) VALUES ('other-system', 'Other system tag')").run();
+        db.prepare(`INSERT INTO asset_tag_assignments (asset_id, tag_definition_id, source_kind, source_record_id)
+            VALUES ('asset-1', 'other-system', 'system', 'other-module')`).run();
+        recordUserTruth(dbManager, { assetId: 'asset-1', field: 'date', value: null, userId: 'local-user' });
+        const modules = new runtime.ModuleRegistry();
+        modules.registerPlugin(estimatePhotoDatePlugin, { dbManager });
+        const result = await modules.get(estimatePhotoDatePlugin.manifest.id).run({ runId: 'run-1',
+            subject: { subjectType: 'asset', subjectId: 'asset-1' }, batchSubjects: [], parameters: {} });
+        assert.deepEqual(result.outputs, []);
+        assert.deepEqual(db.prepare('SELECT photo_created_at, photo_created_at_confidence FROM assets WHERE id = ?')
+            .get('asset-1'), { photo_created_at: null, photo_created_at_confidence: null });
+        assert.equal(db.prepare("SELECT COUNT(*) AS count FROM derived_results WHERE task = 'photo_date_estimate'").get().count, 0);
+        assert.equal(db.prepare("SELECT COUNT(*) AS count FROM asset_tag_assignments WHERE source_record_id = 'other-module'").get().count, 1);
+    } finally {
+        dbManager.close();
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });

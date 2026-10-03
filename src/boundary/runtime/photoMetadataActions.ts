@@ -1,4 +1,5 @@
 import type { PhotoMetadataBundle } from '../contracts/core';
+import type { RefinementTarget } from '../../shared/photoAnalysis/contracts';
 import type { RequestFn } from '@boundary/transport/usePhotoLibrary.transport';
 
 export type RecordPhotoMetadataAssertionInput = {
@@ -62,14 +63,15 @@ export function createPhotoMetadataActions(params: { request: RequestFn }) {
             assetId: string,
             options: {
                 aiMode?: 'mock' | 'live' | 'off';
-                imageStrategy?: 'overview_only' | 'overview_plus_tiles';
+                targets?: RefinementTarget[];
             } = {},
         ): Promise<string> => params.request<string>({
             idPrefix: `refine_photo_metadata_${assetId}`,
             command: 'start_selected_subject_metadata_workflow',
             payload: {
                 aiMode: options.aiMode ?? 'live',
-                imageStrategy: options.imageStrategy ?? 'overview_plus_tiles',
+                metadataPass: 'refine',
+                targets: options.targets,
                 selectedSubjects: [{ subjectType: 'asset', subjectId: assetId }],
             },
             timeoutMs: 10000,

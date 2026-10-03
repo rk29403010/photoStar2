@@ -1,8 +1,8 @@
 import type { CommandHandlerMap, CommandContext } from './types';
 import { buildWorkflowModuleRepositoryModel, getWorkflowVisualiserModel } from './systemWorkflowVisualiser';
-import { buildPhotoMetadataBundle } from '../photoMetadata/bundle';
-import { createPhotoMetadataManualAssertionsService } from '../photoMetadata/manualAssertions';
-import { createPhotoMetadataRepository } from '../photoMetadata/repository';
+import { buildAnalysisDisplay } from '../photoAnalysis/display';
+import { loadAnalysis } from '../photoAnalysis/repository';
+import type { RefinementTarget } from '../../shared/photoAnalysis/contracts';
 import type { WorkflowDefinition } from '../workflowRuntime/contracts';
 
 function getWorkflowRuntime(ctx: CommandContext) {
@@ -120,15 +120,9 @@ function loadMissingFolderAiMetadataSubjects(ctx: CommandContext, folderPath: st
         WHERE (a.original_path = ? OR a.original_path LIKE ? OR a.original_path LIKE ?)
           AND NOT EXISTS (
               SELECT 1
-              FROM photo_metadata_blocks pmb
+              FROM analysis_runs pmb
               WHERE pmb.asset_id = a.id
-                AND pmb.source_kind IN ('gemini_flash_scout', 'gemini_pro_refined')
-          )
-          AND NOT EXISTS (
-              SELECT 1
-              FROM derived_results dr
-              WHERE dr.asset_id = a.id
-                AND dr.task = 'ai_metadata'
+                AND pmb.stage = 'scout' AND pmb.status = 'successful'
           )
         ORDER BY a.created_at ASC, a.id ASC
     `).all(exactPath, ...descendantPatterns) as Array<{ id: string }>;
@@ -180,20 +174,18 @@ function rerunMissingFolderAiMetadata(ctx: CommandContext, runId: string): void 
 }
 
 export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
+    get_photo_analysis: ctx => {
+        const payload = ctx.payload as { assetId: string };
+        if (!payload.assetId) { throw new Error('assetId is required'); }
+        ctx.respond(ctx.id, 'ok', { analysis: loadAnalysis(ctx.dbManager, payload.assetId) }, null, ctx.originWs);
+    },
     get_photo_metadata: (ctx) => {
         const payload = ctx.payload as { assetId?: string; includeEvidence?: boolean } | undefined;
         if (!payload?.assetId) {
             throw new Error('assetId is required');
         }
 
-        const repository = createPhotoMetadataRepository({ dbManager: ctx.dbManager });
-        const manualAssertionsService = createPhotoMetadataManualAssertionsService({ dbManager: ctx.dbManager });
-        const photoMetadata = buildPhotoMetadataBundle({
-            repository,
-            manualAssertionsService,
-            assetId: payload.assetId,
-            includeEvidence: payload.includeEvidence === true,
-        });
+        const photoMetadata = buildAnalysisDisplay(ctx.dbManager, payload.assetId);
 
         ctx.respond(ctx.id, 'ok', { photo_metadata: photoMetadata }, null, ctx.originWs);
     },
@@ -315,6 +307,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
             aiMode?: 'mock' | 'live' | 'off';
             imageStrategy?: 'overview_only' | 'overview_plus_tiles';
             metadataPass?: 'scout' | 'refine';
+            targets?: RefinementTarget[];
             mediaId?: string;
             selectedSubjects?: SelectionSubject[];
         } | undefined;
@@ -331,6 +324,7 @@ export const systemWorkflowRuntimeCommandHandlers: CommandHandlerMap = {
                 aiMode: payload?.aiMode ?? 'live',
                 imageStrategy: payload?.imageStrategy ?? 'overview_only',
                 metadataPass: payload?.metadataPass ?? 'scout',
+                targets: payload?.targets,
                 selectedSubjects,
             },
         });

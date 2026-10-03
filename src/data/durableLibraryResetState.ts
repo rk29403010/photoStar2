@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3';
+import { restoreDurablePhotoAnalysisState, snapshotDurablePhotoAnalysisState } from './photoAnalysisResetState';
+import type { DurablePhotoAnalysisState } from './photoAnalysisResetState';
 
 type AssetRow = {
     id: string;
@@ -74,16 +76,6 @@ type PhotoEditStyleRow = {
     updated_at: string;
 };
 
-type PhotoMetadataAssertionRow = {
-    id: string;
-    asset_id: string;
-    field_path: string;
-    value_json: string;
-    user_id: string;
-    note: string | null;
-    created_at: string;
-};
-
 type TagDefinitionRow = {
     id: string;
     canonical_label: string;
@@ -150,7 +142,7 @@ export type DurableLibraryResetState = {
     peopleGedcomLinks: PeopleGedcomLinkRow[];
     photoEditDocuments: PhotoEditDocumentRow[];
     photoEditStyles: PhotoEditStyleRow[];
-    photoMetadataAssertions: PhotoMetadataAssertionRow[];
+    photoAnalysis: DurablePhotoAnalysisState;
     tagDefinitions: TagDefinitionRow[];
     tagAliases: TagAliasRow[];
     manualTagAssignments: AssetTagAssignmentRow[];
@@ -210,7 +202,6 @@ function collectAssetAnchorIds(state: Omit<DurableLibraryResetState, 'assetAncho
         ids.add(row.source_asset_id);
         if (row.rendered_asset_id) { ids.add(row.rendered_asset_id); }
     }
-    for (const row of state.photoMetadataAssertions) { ids.add(row.asset_id); }
     for (const row of state.manualTagAssignments) { ids.add(row.asset_id); }
     for (const row of state.userAlbums) {
         if (row.cover_asset_id) { ids.add(row.cover_asset_id); }
@@ -237,12 +228,15 @@ export function snapshotDurableLibraryResetState(db: Database.Database): Durable
         peopleGedcomLinks: rows<PeopleGedcomLinkRow>(db, 'SELECT * FROM people_gedcom_links ORDER BY created_at, person_id, gedcom_tree_id, gedcom_person_id'),
         photoEditDocuments: rows<PhotoEditDocumentRow>(db, 'SELECT * FROM photo_edit_documents ORDER BY created_at, id'),
         photoEditStyles: rows<PhotoEditStyleRow>(db, 'SELECT * FROM photo_edit_styles ORDER BY created_at, id'),
-        photoMetadataAssertions: rows<PhotoMetadataAssertionRow>(db, 'SELECT * FROM photo_metadata_assertions ORDER BY created_at, id'),
+        photoAnalysis: snapshotDurablePhotoAnalysisState(db),
         // Definitions and aliases have no provenance today. Preserve them all so a user rename,
         // merge, retirement, or alias cannot be mistaken for a rebuildable seed row.
         tagDefinitions: rows<TagDefinitionRow>(db, 'SELECT * FROM tag_definitions ORDER BY created_at, id'),
         tagAliases: rows<TagAliasRow>(db, 'SELECT * FROM tag_aliases ORDER BY created_at, id'),
-        manualTagAssignments: rows<AssetTagAssignmentRow>(db, "SELECT * FROM asset_tag_assignments WHERE source_kind = 'manual' ORDER BY created_at, asset_id, tag_definition_id"),
+        manualTagAssignments: rows<AssetTagAssignmentRow>(db, `SELECT * FROM asset_tag_assignments
+            WHERE source_kind = 'manual' OR (source_kind = 'analysis' AND source_record_id IN
+                (SELECT id FROM analysis_claims WHERE kind = 'user_confirmed'))
+            ORDER BY created_at, asset_id, tag_definition_id`),
         userAlbums: rows<AlbumRow>(db, 'SELECT * FROM albums WHERE is_system = 0 ORDER BY created_at, id'),
         userAlbumItems: rows<AlbumItemRow>(db, `
             SELECT item.* FROM album_items item
@@ -260,6 +254,7 @@ export function snapshotDurableLibraryResetState(db: Database.Database): Durable
         `),
     };
     const anchorIds = new Set(collectAssetAnchorIds(stateWithoutAnchors));
+    for (const assetId of stateWithoutAnchors.photoAnalysis.assetIds) { anchorIds.add(assetId); }
     const binnedAssets = rows<{ id: string }>(
         db,
         'SELECT id FROM assets WHERE binned_at IS NOT NULL ORDER BY id',
@@ -340,12 +335,6 @@ function restorePhotoEdits(db: Database.Database, state: DurableLibraryResetStat
 }
 
 function restoreMetadataAndTags(db: Database.Database, state: DurableLibraryResetState): void {
-    const assertion = db.prepare(`INSERT INTO photo_metadata_assertions (
-        id, asset_id, field_path, value_json, user_id, note, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`);
-    for (const row of state.photoMetadataAssertions) {
-        assertion.run(row.id, row.asset_id, row.field_path, row.value_json, row.user_id, row.note, row.created_at);
-    }
     const definition = db.prepare(`INSERT INTO tag_definitions (
         id, canonical_label, description, status, category, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)`);
@@ -400,5 +389,6 @@ export function restoreDurableLibraryResetState(
     restoreGedcom(db, state);
     restorePhotoEdits(db, state);
     restoreMetadataAndTags(db, state);
+    restoreDurablePhotoAnalysisState(db, state.photoAnalysis);
     restoreAlbumsAndReviews(db, state);
 }

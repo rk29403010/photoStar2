@@ -344,3 +344,8 @@ UI Improvements
   scale/visual acceptance; evidence is in
   `docs/architecture/semantic-relationships-local-acceptance.md`. Integration owner
   must close these gates and review the current SonarCloud failure before delivery.
+
+## 2026-10-03 - Evidence photo-analysis follow-up
+
+- Build UI views for per-field confidence, evidence, contradictions, refinement opportunities, and structured enhancement recommendations from `photo_metadata.analysis` / `get_photo_analysis`.
+- Benchmark configurable Scout, Perception, and Refine model variants on a representative archive set before fixing production cost/quality defaults. Dry runs do not make paid model calls.

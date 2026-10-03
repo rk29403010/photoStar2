@@ -11,9 +11,7 @@ import { startDevBridgeServer } from '../../boundary/transport/devBridgeServer';
 import type { WorkflowRuntimeFacade } from '../../services/handlers/types';
 import { buildLatestDerivedResultJoin } from '../../shared/sql/derivedResults';
 import { formatAssetDiagnosticLabel } from '../../shared/utils/diagnosticFormatting';
-import { buildPhotoMetadataBundle } from '../../services/photoMetadata/bundle';
-import { createPhotoMetadataManualAssertionsService } from '../../services/photoMetadata/manualAssertions';
-import { createPhotoMetadataRepository } from '../../services/photoMetadata/repository';
+import { buildAnalysisDisplay } from '../../services/photoAnalysis/display';
 import { loadLocalEnvFile } from './loadLocalEnv';
 import { shouldForwardEventToFrontend } from './frontendEventForwarding';
 import {
@@ -321,12 +319,7 @@ function buildUpdatedAsset(row: AssetUpdatedRow) {
     const aiMeta = row.ai_metadata_data ? JSON.parse(row.ai_metadata_data) : undefined;
     const embeddedMetadata = row.embedded_metadata_data ? JSON.parse(row.embedded_metadata_data) : undefined;
     const photoMetadata = dbManager
-        ? buildPhotoMetadataBundle({
-            repository: createPhotoMetadataRepository({ dbManager }),
-            manualAssertionsService: createPhotoMetadataManualAssertionsService({ dbManager }),
-            assetId: row.id,
-            includeEvidence: false,
-        })
+        ? buildAnalysisDisplay(dbManager, row.id)
         : undefined;
 
     return {

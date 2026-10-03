@@ -5,8 +5,9 @@ import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import { resolveOnnxModelPath } from '../modelPaths';
 import {
-    getOrientedDimensions,
-} from './faceImageGeometry';
+    canonicalBoxToPixelCrop,
+    pixelCropToCanonicalBox,
+} from '../photoAnalysis/geometry';
 import { suppressDuplicateFaceCandidates } from './faceDetectionSuppression';
 import { createScrfdAnchorCenters, decodeScrfdCandidates } from './scrfdDecode';
 
@@ -45,26 +46,18 @@ export class RetinaFaceDetector {
             await this.init();
         }
 
-        let image = sharp(imagePath);
-        if (interiorBox) {
-            const origMetadata = await image.metadata();
-            if (origMetadata.width && origMetadata.height) {
-                const left = Math.max(0, Math.min(Math.round(interiorBox.x * origMetadata.width), origMetadata.width - 1));
-                const top = Math.max(0, Math.min(Math.round(interiorBox.y * origMetadata.height), origMetadata.height - 1));
-                const cropWidth = Math.max(1, Math.min(Math.round(interiorBox.width * origMetadata.width), origMetadata.width - left));
-                const cropHeight = Math.max(1, Math.min(Math.round(interiorBox.height * origMetadata.height), origMetadata.height - top));
-                image = image.extract({ left, top, width: cropWidth, height: cropHeight });
-            }
-        }
-
-        const metadata = await image.metadata();
-        const orientedDimensions = getOrientedDimensions(metadata);
-        if (!orientedDimensions) {
-            return [];
+        // Orient before extraction; raw EXIF dimensions are never crop coordinates.
+        const oriented = await sharp(imagePath).rotate().png().toBuffer({ resolveWithObject: true });
+        const fullDimensions = { width: oriented.info.width, height: oriented.info.height };
+        const crop = interiorBox ? canonicalBoxToPixelCrop(interiorBox, fullDimensions) : null;
+        const sourceBox = crop ? pixelCropToCanonicalBox(crop, fullDimensions) : null;
+        const orientedDimensions = crop ? { width: crop.width, height: crop.height } : fullDimensions;
+        const image = sharp(oriented.data);
+        if (crop) {
+            image.extract(crop);
         }
 
         const resizedImage = await image
-            .rotate()
             .resize(INPUT_WIDTH, INPUT_HEIGHT, {
                 fit: 'inside',
             })
@@ -95,18 +88,18 @@ export class RetinaFaceDetector {
         const results = await this.session!.run({ 'input.1': tensor });
         const candidates = this.postProcess(results, orientedDimensions.width, orientedDimensions.height, detScale);
 
-        if (interiorBox) {
+        if (sourceBox) {
             return candidates.map((c) => {
-                const xMin = clampUnit(interiorBox.x + c.box[0] * interiorBox.width);
-                const yMin = clampUnit(interiorBox.y + c.box[1] * interiorBox.height);
-                const xMax = clampUnit(interiorBox.x + c.box[2] * interiorBox.width);
-                const yMax = clampUnit(interiorBox.y + c.box[3] * interiorBox.height);
+                const xMin = clampUnit(sourceBox.x + c.box[0] * sourceBox.width);
+                const yMin = clampUnit(sourceBox.y + c.box[1] * sourceBox.height);
+                const xMax = clampUnit(sourceBox.x + c.box[2] * sourceBox.width);
+                const yMax = clampUnit(sourceBox.y + c.box[3] * sourceBox.height);
                 return {
                     score: c.score,
                     box: [xMin, yMin, xMax, yMax],
                     landmarks: c.landmarks.map((l) => ({
-                        x: clampUnit(interiorBox.x + l.x * interiorBox.width),
-                        y: clampUnit(interiorBox.y + l.y * interiorBox.height),
+                        x: clampUnit(sourceBox.x + l.x * sourceBox.width),
+                        y: clampUnit(sourceBox.y + l.y * sourceBox.height),
                     })),
                 };
             });
