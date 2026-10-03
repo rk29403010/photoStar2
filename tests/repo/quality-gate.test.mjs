@@ -20,11 +20,22 @@ test('quality base compares task branches with origin main', () => {
     assert.equal(resolveQualityBase({ env: {}, git: taskBranchGitFixture }), 'origin/main');
 });
 
-test('quick gate contains changed fast checks and native app/core typechecks', () => {
+test('fix mode keeps routine changed-file lint repairs deterministic', () => {
+    const steps = buildQualitySteps('fix');
+    assert.deepEqual(steps.map((step) => step.label), [
+        'changed Oxlint autofix',
+        'changed ESLint autofix',
+    ]);
+    assert.ok(steps.every((step) => step.args.includes('--fix')));
+});
+
+test('quick gate catches changed lint, reviewability, complexity, and native type failures early', () => {
     const steps = buildQualitySteps('quick');
     assert.deepEqual(steps.map((step) => step.label), [
         'plug-in registry and boundary policy',
         'changed Oxlint',
+        'changed ESLint',
+        'changed reviewability',
         'changed complexity',
         'native application typecheck',
         'native core typecheck',
@@ -52,6 +63,7 @@ test('ready gate checks the complete branch with native types and affected test 
         'plug-in registry and boundary policy',
         'full Oxlint',
         'changed type-aware ESLint',
+        'changed reviewability',
         'changed complexity',
         'native application typecheck',
         'native core typecheck',
@@ -61,12 +73,13 @@ test('ready gate checks the complete branch with native types and affected test 
     ]);
 });
 
-test('merge gate includes full typed lint, all typechecks, and all test layers', () => {
+test('merge gate includes full typed lint, reviewability, all typechecks, and all test layers', () => {
     const labels = buildQualitySteps('merge').map((step) => step.label);
     assert.ok(labels.includes('full Oxlint'));
     assert.equal(labels.filter((label) => label === 'plug-in registry and boundary policy').length, 1);
     assert.ok(labels.includes('changed application type-aware Oxlint'));
     assert.ok(labels.includes('full type-aware ESLint'));
+    assert.ok(labels.includes('branch reviewability'));
     assert.ok(labels.includes('native application typecheck'));
     assert.ok(labels.includes('native core build'));
     assert.ok(!labels.includes('native core typecheck'));
@@ -84,5 +97,5 @@ test('affected UI smoke receives the resolved diff base', () => {
 });
 
 test('unknown quality mode fails clearly', () => {
-    assert.throws(() => buildQualitySteps('mystery'), /Expected quick, ready, or merge/);
+    assert.throws(() => buildQualitySteps('mystery'), /Expected fix, quick, ready, or merge/);
 });

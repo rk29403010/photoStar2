@@ -58,6 +58,13 @@ test('task finish starts from the current checkout snapshot', async () => {
     });
 });
 
+test('task finish can derive a readable task name for an editor-created worktree', async () => {
+    const { deriveTaskNameFromBranch } = await import('../../tooling/scripts/repo/task-finish.js');
+    assert.equal(deriveTaskNameFromBranch('codex/fix-gallery-scroll'), 'fix gallery scroll');
+    assert.equal(deriveTaskNameFromBranch('task/ai-metadata/refactor'), 'ai metadata refactor');
+    assert.equal(deriveTaskNameFromBranch('plain-branch'), 'plain branch');
+});
+
 test('lifecycle status vocabulary stays total for incomplete data', async () => {
     const lifecycle = await import('../../tooling/scripts/repo/task-status.js');
     for (const result of ['DONE', 'WAITING ON CI', 'FAILED', 'ACTION NEEDED']) {
