@@ -1,5 +1,6 @@
 import type { PhotoMaskMetadata } from './photoEditor';
 import type { AnalysisSnapshot } from '../../shared/photoAnalysis/contracts';
+import type { LibraryReadiness, LibraryReadinessSummary } from '../../shared/libraryReadiness';
 
 export type {
     TimelineGroupId,
@@ -232,6 +233,7 @@ export type Asset = {
     face_embeddings?: boolean[]; // Simplified boolean array if matching face index
     ai_metadata?: Record<string, unknown>;
     photo_metadata?: PhotoMetadataBundle | null;
+    library_readiness?: LibraryReadiness;
     embedded_metadata?: Record<string, unknown>;
     photo_date_estimate?: PhotoDateEstimateArtifact;
     tags?: AssetTag[];
@@ -304,6 +306,7 @@ export type GalleryTimelineSeek =
 
 export type LibraryStats = {
     count: number;
+    readiness?: LibraryReadinessSummary;
     timeline?: LibraryTimelineSummary;
     groupedTimeline?: LibraryTimelineSummary;
     ungroupedTimeline?: LibraryTimelineSummary;

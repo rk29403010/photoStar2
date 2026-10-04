@@ -1,5 +1,9 @@
 # TO DO List
 
+## 2026-10-03 - Library readiness history
+
+- Add an append-only readiness-transition ledger or explicit user baseline before presenting period claims such as "143 photos improved" or "38 dates resolved". Current readiness is derived honestly from stored state, but it has no historical snapshots from which to calculate those changes.
+
 ## 2026-09-27 - Gallery filename-sort verification
 
 - During acceptance verification, switching the grouped Justified gallery from

@@ -13,6 +13,7 @@ import type { LibraryViewProps } from '../LibraryView';
 import type { TimelineGalleryStateSlice } from '@ui/hooks/useTimelineGalleryState';
 import { buildDateTimelineJustifiedSections } from './libraryTimelineSections';
 import { isTimelineGroupId } from '@shared/utils/libraryTimelineGroupId';
+import type { LibraryReadinessView } from '@shared/libraryReadiness';
 
 function getTimelineGroupIds(sections: GalleryTimeSection[]): Set<TimelineGroupId> {
     return new Set(sections.map((section) => section.id).filter(isTimelineGroupId));
@@ -137,6 +138,8 @@ export function useLibraryPresentationModel(params: {
     handleTimelineBucketJump: (bucket: LibraryTimelineBucket) => void;
     timelineVisibleGroupId: TimelineGroupId | null;
     timelineVisibleGroupIndex: number | null;
+    readinessView: 'all' | LibraryReadinessView;
+    onReadinessViewChange: (view: 'all' | LibraryReadinessView) => void;
 }) {
     const handleShowInfoPanelChange = useCallback((show: boolean) => {
         handleInfoPanelVisibilityChange(show, params.props.onShowInfoPanelChange, params.props.onLibrarySelectionChange);
@@ -174,6 +177,8 @@ export function useLibraryPresentationModel(params: {
             onMoveSelectionToBin: params.props.onMoveSelectionToBin,
             onRestoreSelectionFromBin: params.props.onRestoreSelectionFromBin,
             onClearSelection: params.props.onClearSelection,
+            readinessView: params.readinessView,
+            onReadinessViewChange: params.onReadinessViewChange,
         }),
     };
 }

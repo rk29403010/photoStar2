@@ -5,6 +5,7 @@ import { Select } from '../Primitives';
 import { Layers, Hash, Info, ChevronDown, X } from 'lucide-react';
 import { getLibrarySelectionCount, type LibrarySelectionState } from '@shared/utils/librarySelectionState';
 import type { LibraryFilter } from '../../hooks/usePhotoLibrary';
+import type { LibraryReadinessSummary, LibraryReadinessView } from '@shared/libraryReadiness';
 
 type LibraryToolbarProps = {
     readonly sortMode: LibrarySortMode;
@@ -28,6 +29,9 @@ type LibraryToolbarProps = {
     readonly onMoveSelectionToBin?: () => Promise<void>;
     readonly onRestoreSelectionFromBin?: () => Promise<void>;
     readonly activeFilter?: LibraryFilter;
+    readonly readinessView: 'all' | LibraryReadinessView;
+    readonly readinessSummary?: LibraryReadinessSummary;
+    readonly onReadinessViewChange: (view: 'all' | LibraryReadinessView) => void;
 }
 
 function ToggleButton({
@@ -62,12 +66,14 @@ function ToolbarSelect<T extends string>({
     label,
     ariaLabel,
     value,
+    values,
     onChange,
     children,
 }: {
     readonly label: string;
     readonly ariaLabel: string;
     readonly value: T;
+    readonly values: readonly T[];
     readonly onChange: (value: T) => void;
     readonly children: ReactNode;
 }) {
@@ -77,7 +83,10 @@ function ToolbarSelect<T extends string>({
             <Select
                 aria-label={ariaLabel}
                 value={value}
-                onChange={(event) => onChange(event.target.value as T)}
+                onChange={(event) => {
+                    const selectedValue = values.find((option) => option === event.target.value);
+                    if (selectedValue !== undefined) {onChange(selectedValue);}
+                }}
                 className="rounded-full px-2.5 py-1 text-xs w-auto min-w-[100px]"
             >
                 {children}
@@ -99,7 +108,7 @@ const ToolbarSelectionActions: React.FC<{
 }> = (props) => {
     const [menuOpen, setMenuOpen] = useState(false);
     useEffect(() => {
-        if (!menuOpen) {return;}
+        if (!menuOpen) {return undefined;}
         const handleOutsideClick = () => setMenuOpen(false);
         globalThis.addEventListener('click', handleOutsideClick);
         return () => globalThis.removeEventListener('click', handleOutsideClick);
@@ -215,16 +224,23 @@ export function LibraryToolbar(props: LibraryToolbarProps) {
                         />
                     ) : (
                         <>
-                            <ToolbarSelect label="Tag" ariaLabel="Filter gallery by tag" value={props.selectedTag} onChange={props.onTagChange}>
+                            <ToolbarSelect label="Tag" ariaLabel="Filter gallery by tag" value={props.selectedTag} values={['', ...props.availableTags]} onChange={props.onTagChange}>
                                 <option value="">All tags</option>
                                 {props.availableTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
                             </ToolbarSelect>
-                            <ToolbarSelect label="View" ariaLabel="Gallery view" value={props.layoutMode} onChange={props.onLayoutModeChange}>
+                            <ToolbarSelect label="Focus" ariaLabel="Filter gallery by library readiness" value={props.readinessView} values={['all', 'ready_now', 'quick_wins', 'worth_investigating', 'needs_hands_on']} onChange={props.onReadinessViewChange}>
+                                <option value="all">All photos</option>
+                                <option value="ready_now">Ready now</option>
+                                <option value="quick_wins">Quick wins</option>
+                                <option value="worth_investigating">Worth investigating</option>
+                                <option value="needs_hands_on">Needs hands-on work</option>
+                            </ToolbarSelect>
+                            <ToolbarSelect label="View" ariaLabel="Gallery view" value={props.layoutMode} values={['tiled', 'grid', 'justified']} onChange={props.onLayoutModeChange}>
                                 <option value="tiled">Tiled</option>
                                 <option value="grid">Grid</option>
                                 <option value="justified">Justified</option>
                             </ToolbarSelect>
-                            <ToolbarSelect label="Sort" ariaLabel="Sort gallery" value={props.sortMode} onChange={props.onSortModeChange}>
+                            <ToolbarSelect label="Sort" ariaLabel="Sort gallery" value={props.sortMode} values={['date', 'reverse-date', 'filename', 'group']} onChange={props.onSortModeChange}>
                                 <option value="date">Date</option>
                                 <option value="reverse-date">Reverse date</option>
                                 <option value="filename">Filename</option>
@@ -234,6 +250,16 @@ export function LibraryToolbar(props: LibraryToolbarProps) {
                     )}
                 </div>
             </div>
+            {props.readinessSummary && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-content-secondary">
+                    <span className="font-semibold text-content">Library readiness {props.readinessSummary.readinessPercent ?? '—'}{props.readinessSummary.readinessPercent === null ? '' : '%'}</span>
+                    <span>{props.readinessSummary.assessedCount.toLocaleString()} assessed</span>
+                    <span>•</span>
+                    <span>{props.readinessSummary.views.quick_wins.toLocaleString()} quick wins</span>
+                    <span>•</span>
+                    <span>{props.readinessSummary.views.worth_investigating.toLocaleString()} worth investigating</span>
+                </div>
+            )}
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { buildAnalysisDisplay } from '../photoAnalysis/display';
 import type { CommandContext, CommandHandlerMap } from './types';
 import { getDevRuntimeImpact } from './systemDevRuntimeImpact';
 import { buildLibraryTimelineStats } from './libraryTimelineStats';
+import { buildLibraryReadinessSummary } from './libraryReadinessStats';
 import { ApiKeyManager } from '../security/ApiKeyManager';
 import { resetFaceAnalysisState } from '../../data/faceResetState';
 
@@ -221,7 +222,8 @@ export const systemCommandHandlers: CommandHandlerMap = {
             const count = db.prepare('SELECT COUNT(*) as count FROM assets').get() as { count: number };
             const history = db.prepare('SELECT path, last_scanned_at FROM folder_history ORDER BY last_scanned_at DESC LIMIT 5').all();
             const timelineStats = buildLibraryTimelineStats(db);
-            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, ...timelineStats }, null, ctx.originWs);
+            const readiness = buildLibraryReadinessSummary(db);
+            ctx.respond(ctx.id, 'ok', { count: count?.count || 0, folderHistory: history, readiness, ...timelineStats }, null, ctx.originWs);
         } catch (error) {
             respondError(ctx, error);
         }

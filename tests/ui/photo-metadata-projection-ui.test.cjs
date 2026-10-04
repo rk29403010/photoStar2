@@ -136,7 +136,7 @@ test('projection-backed file and analysis panel models prefer resolved metadata 
     assert.equal(fileSummary.captionSourceLabel, 'Pro refined');
     assert.equal(analysisSummary.caption, 'Billy and Dad enjoying Christmas dinner');
     assert.equal(analysisSummary.description, 'Billy sits beside his dad at the Christmas dinner table with crackers and candles visible in the background.');
-    assert.equal(analysisSummary.descriptionSourceLabel, 'Manual · father-in-law');
+    assert.equal(analysisSummary.descriptionSourceLabel, 'User confirmed · father-in-law');
 });
 
 test('file panel date range falls back to photo date estimate artifact when projection range is missing', async () => {
@@ -187,7 +187,7 @@ test('projection-backed people panel model exposes richer resolved subject field
     assert.equal(summary.subjects[0].uniform, 'school blazer');
     assert.equal(summary.subjects[0].features, 'holding a paper crown');
     assert.equal(summary.subjects[0].dobRange, '1958-1959');
-    assert.equal(summary.subjects[0].sourceLabel, 'Manual · father-in-law');
+    assert.equal(summary.subjects[0].sourceLabel, 'User confirmed · father-in-law');
 });
 
 test('raw evidence stays opt-in and is only requested for the raw tab when it is missing', async () => {

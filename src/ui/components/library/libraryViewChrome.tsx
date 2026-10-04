@@ -5,6 +5,7 @@ import type { LibrarySortMode } from '@shared/utils/libraryGallery';
 import type { GalleryLayoutMode } from '@shared/utils/libraryLayout';
 import { getAvailableTags, getSelectedTag } from './libraryTagFilterModel';
 import { getLibraryToolbarProps, getTimelineRailElement } from './libraryViewTimeline';
+import type { LibraryReadinessSummary, LibraryReadinessView } from '@shared/libraryReadiness';
 
 export function useLibraryChrome(params: {
     activeFilter?: LibraryFilter;
@@ -32,6 +33,9 @@ export function useLibraryChrome(params: {
     onMoveSelectionToBin?: () => Promise<void>;
     onRestoreSelectionFromBin?: () => Promise<void>;
     onClearSelection?: () => void;
+    readinessView: 'all' | LibraryReadinessView;
+    readinessSummary?: LibraryReadinessSummary;
+    onReadinessViewChange: (view: 'all' | LibraryReadinessView) => void;
 }) {
     const rawSelectedTag = params.activeFilter?.type === 'tag' ? params.activeFilter.value : '';
     const availableTags = useMemo(
@@ -60,6 +64,9 @@ export function useLibraryChrome(params: {
         onRestoreSelectionFromBin: params.onRestoreSelectionFromBin,
         onClearSelection: params.onClearSelection,
         activeFilter: params.activeFilter,
+        readinessView: params.readinessView,
+        readinessSummary: params.readinessSummary,
+        onReadinessViewChange: params.onReadinessViewChange,
     });
     const timelineRail = getTimelineRailElement({
         timeline: params.timeline,

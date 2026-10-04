@@ -79,7 +79,7 @@ function getStringArray(value: unknown): string[] {
 
 function getSubjectRecord(value: unknown): SubjectRecord | null {
     return value && typeof value === 'object' && !Array.isArray(value)
-        ? value as SubjectRecord
+        ? Object.fromEntries(Object.entries(value))
         : null;
 }
 
@@ -104,21 +104,20 @@ function lookupManualAuthor(params: {
         : undefined;
 }
 
-function getBaseSourceLabel(sourceKind: string | null | undefined): string | undefined {
-    switch (sourceKind) {
-        case null:
-        case undefined:
-            return undefined;
-        case 'gemini_pro_refined':
-            return 'Pro refined';
-        case 'gemini_flash_scout':
-            return 'Flash scout';
-        case 'manual':
-        case 'manual_user':
-            return 'Manual';
-    }
+const SOURCE_LABELS: Record<string, string> = {
+    gemini_pro_refined: 'Pro refined',
+    gemini_flash_scout: 'Flash scout',
+    manual: 'User confirmed',
+    manual_user: 'User confirmed',
+    embedded_metadata: 'Source file metadata',
+    file_metadata: 'Source file metadata',
+    exif: 'Source file metadata',
+    related_photo_context: 'Related-photo context',
+    relationship_inference: 'Related-photo context',
+};
 
-    return undefined;
+function getBaseSourceLabel(sourceKind: string | null | undefined): string | undefined {
+    return sourceKind ? SOURCE_LABELS[sourceKind] : undefined;
 }
 
 export function buildPhotoMetadataSourceLabel(params: {
@@ -130,7 +129,7 @@ export function buildPhotoMetadataSourceLabel(params: {
         return undefined;
     }
 
-    if (baseLabel !== 'Manual') {
+    if (baseLabel !== 'User confirmed') {
         return baseLabel;
     }
 
