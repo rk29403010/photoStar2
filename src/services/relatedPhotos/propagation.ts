@@ -48,7 +48,7 @@ function collectAnchors(context: PlanningContext, target: EventMember, members: 
 }
 
 function planningLink(context: PlanningContext, targetId: string, memberId: string): MembershipAssessment | null {
-    const key = JSON.stringify([targetId, memberId].sort());
+    const key = JSON.stringify([targetId, memberId].sort((left, right) => left.localeCompare(right)));
     if (!context.links.has(key)) { context.links.set(key, assessPhotoLink(context.manager, targetId, memberId)); }
     return context.links.get(key) ?? null;
 }
@@ -106,7 +106,8 @@ function inferenceSource(event: PhotoEvent, target: EventMember, inference: Infe
 }
 
 function inferenceRootIds(inference: Inference): string[] {
-    return [...new Set(inference.anchors.flatMap(anchor => [anchor.claim.id, ...anchor.linkClaimIds]))].sort();
+    return [...new Set(inference.anchors.flatMap(anchor => [anchor.claim.id, ...anchor.linkClaimIds]))]
+        .sort((left, right) => left.localeCompare(right));
 }
 
 function retireNetworkClaims(manager: DatabaseManager, assetId: string, field: Field): void {
