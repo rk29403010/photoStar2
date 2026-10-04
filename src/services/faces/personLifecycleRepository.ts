@@ -1,4 +1,5 @@
 import type { DatabaseManager } from '../../data/db';
+import { queuePersonPhotoReconsideration } from '../relatedPhotos/identityContext';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 
@@ -28,8 +29,11 @@ function loadPerson(db: DbHandle, personId: string): PersonLifecycleRow {
 }
 
 function setLifecycleStatus(db: DbHandle, personId: string, status: PersonLifecycleStatus): void {
-    loadPerson(db, personId);
-    db.prepare('UPDATE people SET lifecycle_status = ? WHERE id = ?').run(status, personId);
+    db.transaction(() => {
+        loadPerson(db, personId);
+        queuePersonPhotoReconsideration({ getDb: () => db }, personId, `person_${status}`);
+        db.prepare('UPDATE people SET lifecycle_status = ? WHERE id = ?').run(status, personId);
+    })();
 }
 
 function copyMissingDurableMetadata(db: DbHandle, oldPersonId: string, currentPersonId: string): void {
@@ -99,6 +103,15 @@ export function resolveCurrentPersonId(db: DbHandle, personId: string): string {
 }
 
 export function redirectMergedPerson(
+    db: DbHandle,
+    oldPersonId: string,
+    currentPersonId: string,
+    reasonDecisionId: string | null,
+): string {
+    return db.transaction(() => persistMergedPersonRedirect(db, oldPersonId, currentPersonId, reasonDecisionId))();
+}
+
+function persistMergedPersonRedirect(
     db: DbHandle,
     oldPersonId: string,
     currentPersonId: string,

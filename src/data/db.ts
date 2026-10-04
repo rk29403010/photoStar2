@@ -24,6 +24,7 @@ import { WP15_MIGRATIONS } from './wp15Migrations';
 import { WP16_MIGRATIONS } from './wp16Migrations';
 import { WP9_CONTRACTION_MIGRATIONS } from './wp9ContractionMigrations';
 import { snapshotSemanticPredicateDefinitions } from '../services/relationships/predicates/registry';
+import { RELATED_PHOTO_RUNTIME_TRIGGER_SQL } from './schema/relatedPhotos';
 
 
 const INTERRUPTED_WORKFLOW_MESSAGE = 'Workflow execution was interrupted before this step finished. Retry the remaining work from the workflow view.';
@@ -172,6 +173,7 @@ export class DatabaseManager {
       ...WP16_MIGRATIONS,
     ]);
     snapshotSemanticPredicateDefinitions(db);
+    db.exec(RELATED_PHOTO_RUNTIME_TRIGGER_SQL);
     this.removeLegacyWorkflowState(db);
     reconcileStaleWorkflowRuns(db);
 

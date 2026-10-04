@@ -1,8 +1,9 @@
-import { analysisClaimSchema } from '../../shared/photoAnalysis/contracts';
+import { analysisClaimSchema, refinementTargetSchema } from '../../shared/photoAnalysis/contracts';
 import type { AnalysisSource, StoredAnalysisClaim, AnalysisResult } from '../../shared/photoAnalysis/contracts';
 import type { AnalysisImageSource } from './geometry';
 import type { AnalysisDb, LoadedAnalysis, StoredAnalysisRegion, StoredAnalysisRun } from './repositoryTypes';
 import { claimKey } from './repositoryValidation';
+import { analysisValiditySql } from '../../shared/sql/analysisValidity';
 
 type RunRow = {
     id: string; asset_id: string; stage: StoredAnalysisRun['stage']; provider: string; model_version: string | null;
@@ -74,9 +75,19 @@ function loadRegions(db: AnalysisDb, assetId: string): StoredAnalysisRegion[] {
 function loadSources(db: AnalysisDb, assetId: string): AnalysisSource[] {
     const rows = db.prepare('SELECT * FROM analysis_sources WHERE asset_id = ? ORDER BY rowid').all(assetId) as Array<{
         id: string; asset_id: string; kind: AnalysisSource['kind']; ref_id: string; image_id: string | null; display_text: string;
+        evidence_confidence: AnalysisSource['evidenceConfidence'] | null;
     }>;
-    return rows.map(row => ({ id: row.id, assetId: row.asset_id, kind: row.kind, refId: row.ref_id,
-        ...(row.image_id ? { imageId: row.image_id } : {}), text: row.display_text }));
+    return rows.map(row => {
+        const roots = db.prepare('SELECT root_claim_id FROM analysis_source_roots WHERE source_id = ? ORDER BY root_claim_id')
+            .all(row.id) as { root_claim_id: string }[];
+        const memberships = db.prepare(`SELECT event_id AS eventId, asset_id AS assetId, revision
+            FROM analysis_source_memberships WHERE source_id = ?`).all(row.id) as NonNullable<AnalysisSource['memberships']>;
+        return { id: row.id, assetId: row.asset_id, kind: row.kind, refId: row.ref_id,
+            ...(row.image_id ? { imageId: row.image_id } : {}), text: row.display_text,
+            ...(row.evidence_confidence ? { evidenceConfidence: row.evidence_confidence } : {}),
+            ...(roots.length ? { rootClaimIds: roots.map(root => root.root_claim_id) } : {}),
+            ...(memberships.length ? { memberships } : {}) };
+    });
 }
 
 function resolveOpportunities(runs: StoredAnalysisRun[], winners: StoredAnalysisClaim[]): AnalysisResult['refinementOpportunities'] {
@@ -96,7 +107,8 @@ function resolveOpportunities(runs: StoredAnalysisRun[], winners: StoredAnalysis
 
 export function loadStoredAnalysis(db: AnalysisDb, assetId: string): LoadedAnalysis {
     const runs = (db.prepare('SELECT * FROM analysis_runs WHERE asset_id = ? ORDER BY rowid').all(assetId) as RunRow[]).map(parseRun);
-    const rows = db.prepare(`SELECT c.*, r.stage, r.provider, r.model_version FROM analysis_claims c
+    const rows = db.prepare(`SELECT c.*, CASE WHEN ${analysisValiditySql('c')} THEN c.state ELSE 'superseded' END AS state,
+        r.stage, r.provider, r.model_version FROM analysis_claims c
         JOIN analysis_runs r ON r.id = c.run_id WHERE c.asset_id = ? ORDER BY c.rowid`).all(assetId) as ClaimRow[];
     const references = db.prepare(`SELECT * FROM analysis_claim_sources WHERE asset_id = ?
         ORDER BY claim_id, role, ordinal, source_ordinal`).all(assetId) as ReferenceRow[];
@@ -110,7 +122,12 @@ export function loadStoredAnalysis(db: AnalysisDb, assetId: string): LoadedAnaly
     const winners = resolveWinners(claims);
     const images = (db.prepare('SELECT manifest_json FROM analysis_images WHERE asset_id = ? ORDER BY rowid')
         .all(assetId) as { manifest_json: string }[]).map(row => JSON.parse(row.manifest_json) as AnalysisImageSource);
+    const contextualOpportunities = (db.prepare(`SELECT targets_json FROM related_refinement_opportunities
+        WHERE asset_id = ? AND state = 'pending' ORDER BY field, subject_id LIMIT 12`).all(assetId) as { targets_json: string }[])
+        .map(row => ({ ...refinementTargetSchema.parse(JSON.parse(row.targets_json)), expectedValue: 'high' as const, reason: 'New attributable event or identity context is available.' }));
+    const opportunities = new Map(resolveOpportunities(runs, winners).map(item => [claimKey(item), item]));
+    for (const item of contextualOpportunities) { opportunities.set(claimKey(item), item); }
     return { runs, claims, winners, sources: loadSources(db, assetId), images, regions: loadRegions(db, assetId),
-        refinementOpportunities: resolveOpportunities(runs, winners),
+        refinementOpportunities: [...opportunities.values()],
         enhancementRecommendations: winners.flatMap(claim => claim.field === 'enhancements' ? claim.value : []) };
 }

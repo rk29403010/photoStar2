@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const Database = require('better-sqlite3');
 const { retrieveAnalysisContext } = require('../../dist/core/src/services/photoAnalysis/context.js');
 const { PHOTO_ANALYSIS_SCHEMA_SQL } = require('../../dist/core/src/data/schema/photoAnalysis.js');
+const { PHOTO_ANALYSIS_DISPLAY_SQL } = require('../../dist/core/src/data/schema/photoAnalysisDisplay.js');
 
 function fixture(t) {
     const db = new Database(':memory:');
@@ -15,6 +16,7 @@ function fixture(t) {
         CREATE TABLE semantic_propositions (id TEXT PRIMARY KEY, subject_entity_id TEXT, object_entity_id TEXT, predicate TEXT);
         CREATE TABLE semantic_decisions (id TEXT, proposition_id TEXT, status TEXT, is_current INTEGER, source_kind TEXT);
         CREATE TABLE people_gedcom_links (person_id TEXT, gedcom_tree_id TEXT, gedcom_person_id TEXT);
+        CREATE TABLE family_trees (id TEXT, gedcom_content TEXT);
         INSERT INTO assets VALUES ('photo', 'photo-guid', 'C:\\Archive\\Christmas 76.jpg', '2025:01:01', 'scan'),
             ('related', 'related-guid', 'C:\\Archive\\Related.jpg', NULL, NULL),
             ('unrelated', 'unrelated-guid', 'C:\\Archive\\Other.jpg', NULL, NULL);
@@ -22,6 +24,7 @@ function fixture(t) {
         INSERT INTO faces VALUES ('face-a', 'r1'), ('face-b', 'r2'), ('face-c', 'r3');
     `);
     db.exec(PHOTO_ANALYSIS_SCHEMA_SQL);
+    db.exec(PHOTO_ANALYSIS_DISPLAY_SQL);
     t.after(() => db.close());
     return { db, manager: { getDb: () => db } };
 }

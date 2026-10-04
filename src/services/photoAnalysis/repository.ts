@@ -5,6 +5,8 @@ import { mapModelBoxToFullPhoto } from './geometry';
 import { loadStoredAnalysis } from './repositoryRead';
 import { validateAnalysisRun } from './repositoryValidation';
 import type { AnalysisDb, PersistAnalysisRunInput, LoadedAnalysis } from './repositoryTypes';
+import { persistSourceLineage, persistClaimLineage, resolveSourceLineage } from './lineage';
+import { queuePhotoEvidenceChange } from '../../data/relatedPhotoQueue';
 
 export type { PersistAnalysisRunInput, LoadedAnalysis } from './repositoryTypes';
 
@@ -25,9 +27,10 @@ function insertInputs(db: AnalysisDb, input: PersistAnalysisRunInput, runId: str
         imageStatement.run(image.id, input.assetId, runId, JSON.stringify(image));
     }
     const sourceStatement = db.prepare(`INSERT INTO analysis_sources
-        (id, asset_id, run_id, kind, ref_id, image_id, display_text) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+        (id, asset_id, run_id, kind, ref_id, image_id, display_text, evidence_confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const source of input.sources) {
-        sourceStatement.run(source.id, input.assetId, runId, source.kind, source.refId, source.imageId ?? null, source.text);
+        sourceStatement.run(source.id, input.assetId, runId, source.kind, source.refId, source.imageId ?? null, source.text, resolveSourceLineage(db, source).confidence);
+        persistSourceLineage(db, source);
     }
 }
 
@@ -54,6 +57,7 @@ function insertClaims(db: AnalysisDb, input: PersistAnalysisRunInput, runId: str
         insert.run(id, input.assetId, runId, claim.field, claim.subjectId, JSON.stringify(claim.value),
             claim.confidence, claim.kind, claim.supersedesId, now);
         insertClaimReferences(db, input, claim, id);
+        persistClaimLineage(db, claim, id);
         if (claim.supersedesId) { supersede.run(claim.supersedesId, input.assetId); }
     }
 }
@@ -80,6 +84,13 @@ export function persistAnalysisRun(dbManager: DatabaseManager, input: PersistAna
         insertInputs(db, input, runId);
         insertClaims(db, input, runId, now);
         insertRegions(db, input, runId);
+        if (input.stage === 'refine' || input.stage === 'user') {
+            for (const claim of input.result.claims) {
+                db.prepare(`UPDATE related_refinement_opportunities SET state = 'resolved' WHERE asset_id = ? AND field = ? AND subject_id = ?`)
+                    .run(input.assetId, claim.field, claim.subjectId ?? '');
+            }
+        }
+        if (input.provider !== 'related-photo-network') { queuePhotoEvidenceChange(db, input.assetId, `analysis:${input.stage}`); }
     })();
     return runId;
 }

@@ -25,7 +25,8 @@ function addClaim(db, options) {
     db.prepare(`INSERT INTO analysis_claims VALUES (?, 'photo-1', ?, 'date', NULL, ?, 'high', ?, ?, NULL, ?)`)
         .run(options.id, runId, JSON.stringify(options.value), options.kind, options.state ?? 'active', options.date);
     const sourceId = `source:${options.id}`;
-    db.prepare(`INSERT INTO analysis_sources VALUES (?, 'photo-1', ?, ?, ?, NULL, ?)`)
+    db.prepare(`INSERT INTO analysis_sources(id, asset_id, run_id, kind, ref_id, image_id, display_text)
+        VALUES (?, 'photo-1', ?, ?, ?, NULL, ?)`)
         .run(sourceId, runId, options.kind === 'user_confirmed' ? 'user' : 'image', options.id, options.sourceText);
     db.prepare(`INSERT INTO analysis_claim_sources VALUES (?, 'photo-1', 'provenance', 0, 0, ?, NULL)`)
         .run(options.id, sourceId);

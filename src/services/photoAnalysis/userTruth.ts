@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseManager } from '../../data/db';
-import { analysisClaimSchema, type AnalysisField } from '../../shared/photoAnalysis/contracts';
+import { analysisClaimSchema, type AnalysisField, type AnalysisClaim } from '../../shared/photoAnalysis/contracts';
 import { loadAnalysis, persistAnalysisRun } from './repository';
 import { syncAnalysisTagAssignments } from './tagProjection';
+import { queuePersonPhotoReconsideration } from '../relatedPhotos/identityContext';
+
+function queueIdentityChange(manager: DatabaseManager, claim: AnalysisClaim | undefined, cause: string): void {
+    if (claim?.field === 'identity' && claim.value.personId) { queuePersonPhotoReconsideration(manager, claim.value.personId, cause); }
+}
 
 /** Corrections are immutable user claims; subsequent model runs cannot supersede them. */
 export function recordUserTruth(dbManager: DatabaseManager, params: {
@@ -17,12 +22,14 @@ export function recordUserTruth(dbManager: DatabaseManager, params: {
         evidence: [], contradictions: [], sourceIds: [sourceId], supersedesId: previous?.id ?? null,
     });
     const runId = dbManager.getDb().transaction(() => {
+        queueIdentityChange(dbManager, previous, 'identity-correction');
         const id = persistAnalysisRun(dbManager, {
             assetId: params.assetId, stage: 'user', provider: 'user', modelVersion: null, promptVersion: 'user-1',
             sources: [{ id: sourceId, assetId: params.assetId, kind: 'user', refId: params.userId, text: (params.note || 'User confirmation/correction').slice(0, 180) }],
             result: { claims: [claim], regions: [], refinementOpportunities: [] },
         });
         if (params.field === 'tags') { syncAnalysisTagAssignments(dbManager, params.assetId); }
+        queueIdentityChange(dbManager, claim, 'identity-confirmation');
         return id;
     })();
     const analysis = loadAnalysis(dbManager, params.assetId);

@@ -29,8 +29,10 @@ there is no migration, backfill, old-result reader, or dual-write path.
    user-confirmed or locally known facts. Explicit user correction can supersede
    an earlier claim for that exact field and subject.
 
-The existing workflow plug-ins orchestrate this service through the shared job
-runtime. There is no additional feedback channel or polling loop.
+The existing workflow plug-ins orchestrate model analysis through the shared job
+runtime. The bounded deterministic [related-photo network](related-photo-evidence-network.md)
+reconsiders relational evidence separately; it never starts a paid model or adds
+an ad-hoc UI feedback channel.
 
 ## Contracts and epistemic states
 
@@ -109,8 +111,10 @@ replace that projection without altering separately assigned manual tags.
 
 `record_photo_analysis_truth` accepts the typed field/subject/value contract with
 user attribution. Profile edits use the same source of truth. Soft reset preserves
-user claims together with supporting source/run history; machine-only analysis is
-disposable. No development database is deleted by this change.
+user claims together with supporting source/run history. Human event/rejection
+history and genuine network impacts retain their evidence/dependency closure;
+machine lookup indexes rebuild. Unreferenced machine-only analysis is disposable.
+No development database is deleted by this change.
 
 ## Google provider and evaluation
 

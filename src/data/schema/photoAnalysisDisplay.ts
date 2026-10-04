@@ -1,3 +1,5 @@
+import { analysisValiditySql } from '../../shared/sql/analysisValidity';
+
 const winner = (field: string, expression: string) => `MAX(CASE WHEN field = '${field}' AND subject_id IS NULL THEN ${expression} END)`;
 const sourceColumns = (name: string, field: string) => `${winner(field, 'stage')} AS ${name}_source_kind, ${winner(field, 'id')} AS ${name}_source_id`;
 
@@ -8,9 +10,10 @@ export const PHOTO_ANALYSIS_DISPLAY_SQL = `
     SELECT c.*, r.stage, ROW_NUMBER() OVER (
       PARTITION BY c.asset_id, c.field, c.subject_id
       ORDER BY CASE c.kind WHEN 'user_confirmed' THEN 4 WHEN 'known_fact' THEN 3
-        WHEN 'inferred_conclusion' THEN 2 WHEN 'hypothesis' THEN 1 ELSE 0 END DESC, c.rowid DESC
+        WHEN 'inferred_conclusion' THEN 2 WHEN 'hypothesis' THEN 1 ELSE 0 END DESC,
+        CASE r.stage WHEN 'user' THEN 4 WHEN 'local' THEN 3 WHEN 'refine' THEN 2 WHEN 'scout' THEN 1 ELSE 0 END DESC, c.rowid DESC
     ) AS winner_rank
-    FROM analysis_claims c JOIN analysis_runs r ON r.id = c.run_id WHERE c.state = 'active'
+    FROM analysis_claims c JOIN analysis_runs r ON r.id = c.run_id WHERE c.state = 'active' AND ${analysisValiditySql('c')}
   ) WHERE winner_rank = 1;
   CREATE VIEW IF NOT EXISTS photo_analysis_display AS
   SELECT asset_id,

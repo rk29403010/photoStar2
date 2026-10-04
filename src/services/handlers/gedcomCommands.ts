@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { resolveCurrentPersonId } from '../faces/personLifecycleRepository';
 import type { CommandHandlerMap } from './types';
+import { queuePersonPhotoReconsideration } from '../relatedPhotos/identityContext';
 
 function computeHash(content: string): string {
     const hash = crypto.createHash('sha256');
@@ -55,6 +56,20 @@ type GedcomLinkRow = {
     gedcom_tree_id: string;
     gedcom_person_id: string;
 };
+
+function queueTreePeople(db: Parameters<typeof resolveCurrentPersonId>[0], treeId: string, cause: string): void {
+    let cursor = '';
+    const page = db.prepare(`SELECT DISTINCT person_id FROM people_gedcom_links
+        WHERE gedcom_tree_id = ? AND person_id > ? ORDER BY person_id LIMIT 100`);
+    while (true) {
+        const rows = page.all(treeId, cursor) as Array<{ person_id: string }>;
+        if (rows.length === 0) { return; }
+        for (const person of rows) {
+            queuePersonPhotoReconsideration({ getDb: () => db }, person.person_id, cause);
+        }
+        cursor = rows[rows.length - 1].person_id;
+    }
+}
 
 function currentGedcomLinks(db: Parameters<typeof resolveCurrentPersonId>[0]): GedcomLinkRow[] {
     const rows = db.prepare(`
@@ -143,6 +158,7 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
             const { treeId } = payload as { treeId: string };
             const db = dbManager.getDb();
             db.transaction(() => {
+                queueTreePeople(db, treeId, 'family_tree_deleted');
                 db.prepare('DELETE FROM family_trees WHERE id = ?').run(treeId);
                 db.prepare('DELETE FROM people_gedcom_links WHERE gedcom_tree_id = ?').run(treeId);
             })();
@@ -158,10 +174,13 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
             const { personId, gedcomTreeId, gedcomPersonId } = payload as { personId: string; gedcomTreeId: string; gedcomPersonId: string };
             const db = dbManager.getDb();
             const currentPersonId = resolveCurrentPersonId(db, personId);
-            db.prepare(`
+            db.transaction(() => {
+                db.prepare(`
                 INSERT OR REPLACE INTO people_gedcom_links (person_id, gedcom_tree_id, gedcom_person_id)
                 VALUES (?, ?, ?)
-            `).run(currentPersonId, gedcomTreeId, gedcomPersonId);
+                `).run(currentPersonId, gedcomTreeId, gedcomPersonId);
+                queueTreePeople(db, gedcomTreeId, 'family_person_linked');
+            })();
             respond(id, 'ok', { message: 'Linked successfully' }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);
@@ -174,10 +193,13 @@ export const gedcomCommandHandlers: CommandHandlerMap = {
             const { personId, gedcomTreeId, gedcomPersonId } = payload as { personId: string; gedcomTreeId: string; gedcomPersonId: string };
             const db = dbManager.getDb();
             const currentPersonId = resolveCurrentPersonId(db, personId);
-            db.prepare(`
+            db.transaction(() => {
+                queueTreePeople(db, gedcomTreeId, 'family_person_unlinked');
+                db.prepare(`
                 DELETE FROM people_gedcom_links
                 WHERE person_id = ? AND gedcom_tree_id = ? AND gedcom_person_id = ?
-            `).run(currentPersonId, gedcomTreeId, gedcomPersonId);
+                `).run(currentPersonId, gedcomTreeId, gedcomPersonId);
+            })();
             respond(id, 'ok', { message: 'Unlinked successfully' }, null, originWs);
         } catch (error) {
             respond(id, 'error', null, error instanceof Error ? error.message : String(error), originWs);

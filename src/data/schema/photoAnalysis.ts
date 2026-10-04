@@ -1,3 +1,5 @@
+import { RELATED_PHOTOS_SCHEMA_SQL } from './relatedPhotos';
+
 /** Clean target schema. No migration or interpretation of historical AI blobs. */
 export const PHOTO_ANALYSIS_SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS analysis_runs (
@@ -31,6 +33,8 @@ export const PHOTO_ANALYSIS_SCHEMA_SQL = `
     ref_id TEXT,
     image_id TEXT,
     display_text TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active','withdrawn')),
+    evidence_confidence TEXT CHECK(evidence_confidence IN ('high','medium','low','unknown')),
     UNIQUE(id, asset_id),
     FOREIGN KEY(run_id, asset_id) REFERENCES analysis_runs(id, asset_id) ON DELETE CASCADE,
     FOREIGN KEY(image_id, run_id, asset_id) REFERENCES analysis_images(id, run_id, asset_id)
@@ -79,4 +83,5 @@ export const PHOTO_ANALYSIS_SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_analysis_claims_resolution ON analysis_claims(asset_id, field, subject_id, state);
   CREATE INDEX IF NOT EXISTS idx_analysis_runs_asset ON analysis_runs(asset_id, created_at);
+  ${RELATED_PHOTOS_SCHEMA_SQL}
 `;

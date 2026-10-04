@@ -4,6 +4,8 @@ import type { DatabaseManager } from '../../data/db';
 import type { AnalysisSource, RefinementTarget } from '../../shared/photoAnalysis/contracts';
 import type { StableAnalysisFace } from './geometry';
 import type { CandidateIdentity } from './stageContracts';
+import { buildFamilyIdentityContext } from '../relatedPhotos/identityContext';
+import { retrieveRelatedEventContext } from '../relatedPhotos/context';
 
 type Db = ReturnType<DatabaseManager['getDb']>;
 type CandidateRow = {
@@ -94,14 +96,27 @@ function loadCandidates(db: Db, assetId: string, faceId: string, limit: number):
         .all(assetId, faceId, faceId, faceId, limit) as CandidateRow[];
 }
 
-function addCandidateSources(db: Db, state: ContextState, face: StableAnalysisFace, limit: number): void {
+function addCandidateSources(db: Db, state: ContextState, face: StableAnalysisFace, limit: number, permitted: Set<string>): void {
     for (const candidate of loadCandidates(db, state.assetId, face.faceId, limit)) {
+        if (!permitted.has(candidate.person_id)) { continue; }
         const label = candidate.name ?? candidate.person_id;
         const status = candidate.priority < 0 ? 'User-confirmed identity' :
             `Candidate, raw cosine ${candidate.raw_cosine?.toFixed(3) ?? 'unknown'} (not a probability)`;
         const sourceId = addSource(state, { kind: 'person', refId: `${face.faceId}:${candidate.person_id}`,
             text: `${face.modelFaceId}: ${label.slice(0, 30)}. ${status}. Person birth: ${candidate.birth_date ?? 'unknown'}; death: ${candidate.death_date ?? 'unknown'}; separate from observed appearance.` });
         if (sourceId) { state.candidates.push({ faceId: face.faceId, personId: candidate.person_id, sourceId, label }); }
+    }
+}
+
+function addFaceContext(manager: DatabaseManager, state: ContextState, face: StableAnalysisFace, limit: number): void {
+    validateFaceScope(manager.getDb(), state.assetId, face.faceId);
+    const family = buildFamilyIdentityContext(manager, { assetId: state.assetId, faceId: face.faceId, limit: Math.min(limit, 10) });
+    addCandidateSources(manager.getDb(), state, face, limit, new Set(family.map(candidate => candidate.personId)));
+    for (const candidate of family) {
+        const sourceId = addSource(state, { kind: 'person', refId: candidate.sourceId, text: candidate.text });
+        if (!sourceId || state.candidates.filter(item => item.faceId === face.faceId).length >= limit) { continue; }
+        if (state.candidates.some(item => item.faceId === face.faceId && item.personId === candidate.personId)) { continue; }
+        state.candidates.push({ faceId: face.faceId, personId: candidate.personId, sourceId, label: candidate.label });
     }
 }
 
@@ -182,13 +197,15 @@ export function retrieveAnalysisContext(dbManager: DatabaseManager, input: Conte
     const photoWide = input.targets.some(target => target.subjectId === null);
     const faces = input.faces.filter(face => photoWide || input.targets.some(target => target.subjectId === face.faceId));
     for (const face of faces) {
-        validateFaceScope(db, input.assetId, face.faceId);
-        addCandidateSources(db, state, face, maxCandidates);
+        addFaceContext(dbManager, state, face, maxCandidates);
     }
     for (const personId of new Set(state.candidates.map(candidate => candidate.personId))) {
         addPersonLinks(db, state, personId);
         addRelationships(db, state, personId);
         addRelatedPhotos(db, state, personId);
+    }
+    for (const source of retrieveRelatedEventContext(dbManager, input.assetId, state.prefix, state.maxSources - state.sources.length)) {
+        addSource(state, source);
     }
     return { sources: state.sources, candidates: state.candidates };
 }

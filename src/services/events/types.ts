@@ -1,3 +1,5 @@
+import type { NetworkImpact } from '../../shared/relatedPhotos';
+
 export type FolderScanRequested = {
     type: "FolderScanRequested";
     folderId: string;
@@ -118,6 +120,7 @@ export type AiMetadataV2UpgradeQueued = {
 export type AssetUpdated = {
     type: "AssetUpdated";
     assetId: string;
+    source?: 'related-photo-network';
 };
 
 export type AiMetadataConfigurationError = {
@@ -195,6 +198,7 @@ export type SystemPausedStateChanged = {
 };
 
 export type DomainEvent =
+    | { type: 'ArchiveImpactRecorded'; impact: NetworkImpact }
     | FolderScanRequested
     | MediaDiscovered
     | PreviewGenerated
