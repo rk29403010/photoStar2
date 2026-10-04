@@ -3,6 +3,7 @@ import type { AnalysisClaim } from '../../shared/photoAnalysis/contracts';
 import { assertCanonicalPhotoBox, assertImageDimensions, mapModelBoxToFullPhoto } from './geometry';
 import type { AnalysisDb, PersistAnalysisRunInput } from './repositoryTypes';
 import { assertClaimEntities } from './repositoryEntities';
+import { validateClaimLineage } from './lineage';
 
 export function claimKey(claim: { field: string; subjectId: string | null }): string {
     return JSON.stringify([claim.field, claim.subjectId]);
@@ -10,15 +11,20 @@ export function claimKey(claim: { field: string; subjectId: string | null }): st
 
 function assertClaimStage(claim: AnalysisClaim, stage: PersistAnalysisRunInput['stage']): void {
     assertAuthorityStage(claim, stage);
+    assertObservationStage(claim, stage);
     if (stage === 'user' && claim.kind !== 'user_confirmed') {
         throw new Error('User stage requires user-confirmed claims');
     }
     if ((claim.field === 'appearance' || claim.field === 'identity') && !claim.subjectId) {
         throw new Error('People semantics require a canonical Face ID');
     }
+}
+
+function assertObservationStage(claim: AnalysisClaim, stage: PersistAnalysisRunInput['stage']): void {
     if (claim.field === 'appearance' && claim.kind !== 'observation' && stage !== 'user') {
         throw new Error('Visible appearance must remain an observation');
     }
+    if (claim.field === 'link_features' && claim.kind !== 'observation') { throw new Error('Link features must remain independent observations'); }
 }
 
 function assertAuthorityStage(claim: AnalysisClaim, stage: PersistAnalysisRunInput['stage']): void {
@@ -85,6 +91,7 @@ export function validateAnalysisRun(db: AnalysisDb, input: PersistAnalysisRunInp
     if (!input.provider || !input.promptVersion) { throw new Error('Analysis requires provider and prompt version'); }
     assertImages(input);
     const sources = assertSources(db, input);
+    validateClaimLineage(db, input);
     for (const region of input.result.regions) {
         mapModelBoxToFullPhoto({ sourceImageId: region.sourceImageId, box: region.box, sources: input.images ?? [] });
     }

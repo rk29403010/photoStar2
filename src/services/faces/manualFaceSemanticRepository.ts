@@ -6,6 +6,8 @@ import {
     recordSemanticDecision,
 } from '../relationships/semanticRepository';
 import { getSemanticPredicateManifest } from '../relationships/predicates/registry';
+import { queuePhotoEvidenceChange } from '../../data/relatedPhotoQueue';
+import { queuePersonPhotoReconsideration } from '../relatedPhotos/identityContext';
 
 type DbHandle = ReturnType<DatabaseManager['getDb']>;
 type ManualDecisionStatus = 'accepted' | 'rejected';
@@ -93,7 +95,7 @@ function depictsScopeKey(faceId: string): string {
     return `${faceId}:depicts`;
 }
 
-export function recordManualFacePersonDecisionByFaceId(
+function persistManualFacePersonDecision(
     db: DbHandle,
     input: RecordStableFacePersonDecisionInput,
 ): { faceId: string; personEntityId: string; propositionId: string; decisionId: string } {
@@ -114,6 +116,33 @@ export function recordManualFacePersonDecisionByFaceId(
         sourceRef: input.sourceRef,
     });
     return { faceId: position.faceId, personEntityId, propositionId, decisionId };
+}
+
+function currentFacePeople(db: DbHandle, faceId: string): string[] {
+    const rows = db.prepare(`SELECT DISTINCT person.native_id AS person_id
+        FROM semantic_decisions decision
+        JOIN semantic_propositions proposition ON proposition.id = decision.proposition_id
+        JOIN semantic_entities person ON person.id = proposition.object_entity_id AND person.kind = 'person'
+        WHERE proposition.subject_entity_id = ? AND proposition.predicate = 'depicts'
+            AND decision.is_current = 1`).all(faceId) as Array<{ person_id: string }>;
+    return rows.map(row => row.person_id);
+}
+
+/** Truth and its durable refresh request commit together, including inside caller transactions. */
+export function recordManualFacePersonDecisionByFaceId(
+    db: DbHandle,
+    input: RecordStableFacePersonDecisionInput,
+): { faceId: string; personEntityId: string; propositionId: string; decisionId: string } {
+    return db.transaction(() => {
+        const position = resolveStableFaceById(db, input.faceId);
+        for (const personId of currentFacePeople(db, input.faceId)) {
+            queuePersonPhotoReconsideration({ getDb: () => db }, personId, 'face_person_decision');
+        }
+        const result = persistManualFacePersonDecision(db, input);
+        queuePhotoEvidenceChange(db, position.assetId, 'face_person_decision');
+        queuePersonPhotoReconsideration({ getDb: () => db }, input.personId, 'face_person_decision');
+        return result;
+    })();
 }
 
 export function recordManualFacePersonDecision(

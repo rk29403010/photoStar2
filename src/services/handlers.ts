@@ -15,8 +15,10 @@ import { systemWorkflowRuntimeCommandHandlers } from './handlers/systemWorkflowR
 import { tagCommandHandlers } from './handlers/tagCommands';
 import { gedcomCommandHandlers } from './handlers/gedcomCommands';
 import { photoEditCommandHandlers } from './handlers/photoEditCommands';
+import { relatedPhotoCommandHandlers } from './relatedPhotos/commands';
 
 const COMMAND_ROUTES = [
+    relatedPhotoCommandHandlers,
     systemCommandHandlers,
     systemWorkflowRuntimeCommandHandlers,
     systemEventLogCommandHandlers,

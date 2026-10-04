@@ -17,6 +17,11 @@ export class EventBus {
             this.handlers.set(type, []);
         }
         this.handlers.get(type)!.push(handler);
+        return () => {
+            const handlers = this.handlers.get(type);
+            const index = handlers?.indexOf(handler) ?? -1;
+            if (index >= 0) { handlers!.splice(index, 1); }
+        };
     }
 
     public emit(event: DomainEvent) {

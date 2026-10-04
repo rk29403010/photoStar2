@@ -353,6 +353,7 @@ export const SCHEMA_SQL = `
     FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE CASCADE,
     FOREIGN KEY(gedcom_tree_id) REFERENCES family_trees(id) ON DELETE CASCADE
   );
+  CREATE INDEX IF NOT EXISTS idx_gedcom_tree_people ON people_gedcom_links(gedcom_tree_id, person_id);
 
   CREATE TABLE IF NOT EXISTS photo_edit_documents (
     id TEXT PRIMARY KEY,

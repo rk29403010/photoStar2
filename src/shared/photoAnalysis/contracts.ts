@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { linkFeatureSchema } from '../relatedPhotos';
 
 export const confidenceSchema = z.enum(['high', 'medium', 'low', 'unknown']);
 export const analysisStageSchema = z.enum(['local', 'perception', 'scout', 'context', 'refine', 'user']);
@@ -38,10 +39,11 @@ const fieldSchemas = {
     clue_interpretation: concise.nullable(), quality: qualityValueSchema,
     enhancements: z.array(enhancementRecommendationSchema).max(10),
     local_metadata: z.record(z.string(), z.json()),
+    link_features: z.array(linkFeatureSchema).max(24),
 };
 const analysisFields = [
     'caption', 'description', 'classification', 'tags', 'date', 'location', 'appearance',
-    'identity', 'archive_clue', 'text', 'clue_interpretation', 'quality', 'enhancements', 'local_metadata',
+    'identity', 'archive_clue', 'text', 'clue_interpretation', 'quality', 'enhancements', 'local_metadata', 'link_features',
 ] as const;
 export const analysisFieldSchema = z.enum(analysisFields);
 const claimCommon = {
@@ -56,7 +58,7 @@ function fieldClaim<K extends keyof typeof fieldSchemas>(field: K) {
 export const analysisClaimSchema = z.discriminatedUnion('field', [
     fieldClaim('caption'), fieldClaim('description'), fieldClaim('classification'), fieldClaim('tags'), fieldClaim('date'), fieldClaim('location'),
     fieldClaim('appearance'), fieldClaim('identity'), fieldClaim('archive_clue'), fieldClaim('text'),
-    fieldClaim('clue_interpretation'), fieldClaim('quality'), fieldClaim('enhancements'), fieldClaim('local_metadata'),
+    fieldClaim('clue_interpretation'), fieldClaim('quality'), fieldClaim('enhancements'), fieldClaim('local_metadata'), fieldClaim('link_features'),
 ]);
 export const refinementTargetSchema = z.strictObject({
     field: analysisFieldSchema, subjectId: id.nullable(), question: concise,
@@ -86,6 +88,9 @@ export type EnhancementRecommendation = z.infer<typeof enhancementRecommendation
 export type AnalysisSource = {
     id: string; assetId: string; kind: 'image' | 'local' | 'person' | 'related_photo' | 'relationship' | 'user' | 'claim';
     refId: string; imageId?: string; text: string;
+    rootClaimIds?: string[];
+    evidenceConfidence?: AnalysisClaim['confidence'];
+    memberships?: Array<{ eventId: string; assetId: string; revision: number }>;
 };
 export type StoredAnalysisClaim = AnalysisClaim & {
     id: string; assetId: string; runId: string; stage: AnalysisStage;

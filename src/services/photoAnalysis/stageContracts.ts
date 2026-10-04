@@ -5,8 +5,8 @@ import {
 } from '../../shared/photoAnalysis/contracts';
 import { mapModelBoxToFullPhoto, type AnalysisImageSource, type StableAnalysisFace } from './geometry';
 
-const SCOUT_FIELDS: AnalysisField[] = ['caption', 'classification', 'tags', 'date', 'location', 'appearance', 'archive_clue', 'quality', 'enhancements'];
-const PERCEPTION_FIELDS: AnalysisField[] = ['text', 'archive_clue'];
+const SCOUT_FIELDS: AnalysisField[] = ['caption', 'classification', 'tags', 'date', 'location', 'appearance', 'archive_clue', 'quality', 'enhancements', 'link_features'];
+const PERCEPTION_FIELDS: AnalysisField[] = ['text', 'archive_clue', 'link_features'];
 export type ModelStage = 'perception' | 'scout' | 'refine';
 export type CandidateIdentity = { faceId: string; personId: string; sourceId: string; label: string };
 export type StageScope = {
@@ -83,13 +83,17 @@ function assertClaimScope(result: AnalysisResult, scope: StageScope): void {
     const regionIds = new Set([...(scope.regionIds ?? []), ...result.regions.map(region => region.id)]);
     for (const claim of result.claims) {
         if (!fields.includes(claim.field)) { throw new Error(`Field ${claim.field} outside ${scope.stage} scope`); }
-        if (scope.stage === 'perception' && claim.kind !== 'observation') { throw new Error('Perception only extracts observations'); }
-        if (claim.field === 'appearance' && claim.kind !== 'observation') { throw new Error('Appearance must be an observation'); }
+        assertObservationKind(claim, scope.stage);
         assertPersonClaim(claim, scope, faceIds);
         if (claim.field === 'enhancements') { assertEnhancementTargets(claim.value, faceIds, regionIds); }
         assertTargetedClaim(claim, scope);
     }
     assertOpportunityScope(result, faceIds, regionIds);
+}
+
+function assertObservationKind(claim: AnalysisResult['claims'][number], stage: ModelStage): void {
+    const observationOnly = stage === 'perception' || claim.field === 'appearance' || claim.field === 'link_features';
+    if (observationOnly && claim.kind !== 'observation') { throw new Error('Perception, appearance and link features must be independent observations'); }
 }
 
 /** New localized entities receive globally unambiguous host IDs, never bare repeated R1 aliases. */

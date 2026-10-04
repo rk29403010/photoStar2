@@ -1,8 +1,16 @@
 # TO DO List
 
-## 2026-10-03 - Library readiness history
+## 2026-10-04 - Existing dependency security backlog
 
-- Add an append-only readiness-transition ledger or explicit user baseline before presenting period claims such as "143 photos improved" or "38 dates resolved". Current readiness is derived honestly from stored state, but it has no historical snapshots from which to calculate those changes.
+- The network task's read-only `pnpm audit --audit-level=high` reports 35 high
+  and 2 critical advisories in the unchanged dependency graph. Triage and update
+  dependencies in a dedicated task; this phase changes no package manifest,
+  lockfile or dependency build policy. Do not confuse a passing repository QA
+  gate with a clean dependency audit.
+
+## 2026-10-04 - Genuine archive-impact presentation
+
+- The related-photo network now records genuine before/after impact and Ready transitions. Future UI period/count messages must consume this ledger, state its observed coverage period, and never invent pre-ledger historical improvements. The current readiness UI remains unchanged; add impact presentation as a separately requested UI task.
 
 ## 2026-09-27 - Gallery filename-sort verification
 

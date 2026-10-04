@@ -1,6 +1,6 @@
 # AI Project Map
 
-Last updated: 2026-09-12
+Last updated: 2026-10-04
 
 ## Product summary
 
@@ -109,6 +109,7 @@ PhotoStar2 is a local-first photo library management and analysis application bu
 | **contributors / testimony / review attribution** | `src/services/relationships/contributorRepository.ts`, `src/services/handlers/contributorCommands.ts` | `src/services/relationships/semanticRepository.ts`, `src/services/handlers/peopleCandidateCommands.ts` | `tests/core/wp13*.test.cjs` |
 | **background jobs / workflows** | `src/services/workflowRuntime/`, `src/services/handlers/systemWorkflowRuntimeCommands.ts` | `src/data/dbSchema.ts` (workflow_runs) | `tests/core/` |
 | **Evidence photo analysis / Gemini** | `src/services/photoAnalysis/`, `src/shared/photoAnalysis/contracts.ts` | `docs/architecture/evidence-photo-analysis.md` | `tests/core/photo-analysis-*.test.cjs` |
+| **Related photos / events / evidence propagation / archive impacts** | `src/services/relatedPhotos/`, `src/data/schema/relatedPhotos.ts` | `src/data/relatedPhotoQueue.ts`, `docs/architecture/related-photo-evidence-network.md` | `tests/core/related-photo-*.test.cjs` |
 | **Local model integration** | `src/services/modelPaths.ts`, `src/services/tags/` | `src/services/photoDateEstimateAiText.ts` | `tests/core/` |
 | **Segmentation providers** | `src/services/segmentation/`, `docs/architecture/segmentation-providers.md` | `tooling/scripts/core/export_fastsam_s_model.py` | `tests/core/fastsam-provider-contract.test.cjs` |
 | **settings / configuration** | `src/ui/components/SettingsModal.tsx`, `src/services/handlers/systemCommands.ts` | `src/entrypoints/core/main.ts` | `tests/ui/` |

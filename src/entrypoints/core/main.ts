@@ -4,6 +4,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { DatabaseManager } from '../../data/db';
 import { handleSystemCommand } from '../../services/handlers';
 import { EventBus } from '../../services/events/bus';
+import { startRelatedPhotoWorker } from '../../services/relatedPhotos/worker';
 import type { WebSocket } from 'ws';
 import { z } from 'zod';
 import type { DomainEvent } from '../../services/events/types';
@@ -51,6 +52,7 @@ let workflowRuntime: WorkflowRuntimeFacade | null = null;
 let startupError: Error | null = null;
 const pendingAssetRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const ASSET_REFRESH_DEBOUNCE_MS = 75;
+let stopRelatedPhotoWorker: (() => void) | null = null;
 
 function initialiseCoreServices() {
     const nextDbManager = new DatabaseManager(LIB_DIR);
@@ -59,6 +61,8 @@ function initialiseCoreServices() {
 
     nextEventBus.subscribeAll(handleBroadcastEvent);
     nextEventBus.subscribe('AssetUpdated', handleAssetUpdatedEvent);
+    stopRelatedPhotoWorker?.();
+    stopRelatedPhotoWorker = startRelatedPhotoWorker(nextDbManager, nextEventBus);
 
     dbManager = nextDbManager;
     eventBus = nextEventBus;
