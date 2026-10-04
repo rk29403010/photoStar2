@@ -54,6 +54,17 @@ function declaredRootIds(source: AnalysisSource): string[] {
     return declared;
 }
 
+function sourceIsContextual(db: AnalysisDb, kind: AnalysisSource['kind'], roots: Root[], members: Membership[]): boolean {
+    if (['related_photo', 'person', 'relationship'].includes(kind) || members.length > 0) { return true; }
+    if (roots.length === 0) { return false; }
+    // Flattening roots must preserve their contextual nature, not just their confidence.
+    return Boolean(db.prepare(`SELECT 1 FROM analysis_claim_sources reference
+        JOIN analysis_sources source ON source.id = reference.source_id
+        WHERE reference.claim_id IN (SELECT value FROM json_each(?))
+          AND source.kind IN ('related_photo','person','relationship') LIMIT 1`)
+        .get(JSON.stringify(roots.map(root => root.id))));
+}
+
 /** Derived claims contribute their roots once; a chain is never an independent source. */
 export function resolveSourceLineage(db: AnalysisDb, source: AnalysisSource): SourceLineage {
     const declared = declaredRootIds(source);
@@ -72,7 +83,7 @@ export function resolveSourceLineage(db: AnalysisDb, source: AnalysisSource): So
     assertCurrentRoots(db, resultRoots);
     return { roots: resultRoots, memberships: members,
         confidence: capEvidenceConfidence(sourceConfidence(source, members), [membershipConfidence(db, members), ...declaredConfidences, ...resultRoots.map(root => root.confidence)]),
-        contextual: ['related_photo', 'person', 'relationship'].includes(source.kind) || members.length > 0 };
+        contextual: sourceIsContextual(db, source.kind, resultRoots, members) };
 }
 
 function storedSourceLineage(db: AnalysisDb, sourceId: string): SourceLineage {
@@ -86,7 +97,7 @@ function storedSourceLineage(db: AnalysisDb, sourceId: string): SourceLineage {
     if (!source) { throw new Error('Evidence source does not exist or was withdrawn'); }
     return { roots, memberships, confidence: capEvidenceConfidence(sourceConfidence(source, memberships),
         [membershipConfidence(db, memberships), ...roots.map(root => root.confidence)]),
-        contextual: ['related_photo', 'person', 'relationship'].includes(source.kind) || memberships.length > 0 };
+        contextual: sourceIsContextual(db, source.kind, roots, memberships) };
 }
 
 function referencedSources(claim: AnalysisClaim) {

@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const { persistAnalysisRun, loadAnalysis } = require('../../dist/core/src/services/photoAnalysis/repository.js');
-const { fixture, photo, confirmDate, roots } = require('./related-photo-network-fixtures.cjs');
+const { fixture, photo, confirmDate, roots, face } = require('./related-photo-network-fixtures.cjs');
 
 function setup(t, memberConfidence = 'high') {
     const { manager, db } = fixture(t);
@@ -77,5 +77,38 @@ test('reusing a stored source after its root is superseded is rejected without p
     confirmDate(manager, 'a', 1977);
     const before = db.prepare('SELECT COUNT(*) AS count FROM analysis_runs').get().count;
     assert.throws(() => persist(manager, 'b', { sourceIds: [input.id] }), /withdrawn|invalid|current/i);
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM analysis_runs').get().count, before);
+});
+
+function persistVisualObservation(manager, assetId, faceId, field, sources, sourceIds) {
+    return persistAnalysisRun(manager, { assetId, stage: 'context', provider: 'lineage-fixture', modelVersion: null,
+        promptVersion: 'fixture-1', sources, result: { claims: [{ field,
+            subjectId: field === 'appearance' ? faceId : null,
+            value: field === 'appearance'
+                ? { apparentAge: { min: 35, max: 40 }, presentation: null, expression: null, clothing: null }
+                : [{ kind: 'clothing', key: 'inferred-age-uniform', label: 'Uniform inferred from family age', confidence: 'medium' }],
+            confidence: 'medium', kind: 'observation', evidence: [], contradictions: [], sourceIds, supersedesId: null }],
+            regions: [], refinementOpportunities: [] } });
+}
+
+test('reused family-context claims cannot masquerade as independent visual ages or link observations', t => {
+    const { manager, db } = fixture(t);
+    photo(manager, 'target');
+    const faceId = face(manager, 'target');
+    const familySource = { id: 'family-source', assetId: 'target', kind: 'person', refId: 'recorded-family-person',
+        text: 'Recorded family date context' };
+    const original = persist(manager, 'target', { sources: [familySource], confidence: 'medium' });
+    const storedClaimSource = { id: 'stored-claim-source', assetId: 'target', kind: 'claim', refId: original.id,
+        text: 'Previously inferred date from recorded family context' };
+    const copy = persist(manager, 'target', { sources: [storedClaimSource], confidence: 'medium' });
+    assert.deepEqual(roots(manager, copy.id), [original.id]);
+    const before = db.prepare('SELECT COUNT(*) AS count FROM analysis_runs').get().count;
+    for (const field of ['appearance', 'link_features']) {
+        const freshClaimSource = { ...storedClaimSource, id: `fresh-source-${field}`, refId: copy.id };
+        assert.throws(() => persistVisualObservation(manager, 'target', faceId, field,
+            [freshClaimSource], [freshClaimSource.id]), /independent.*context/i);
+        assert.throws(() => persistVisualObservation(manager, 'target', faceId, field,
+            [], [storedClaimSource.id]), /independent.*context/i);
+    }
     assert.equal(db.prepare('SELECT COUNT(*) AS count FROM analysis_runs').get().count, before);
 });

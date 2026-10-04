@@ -43,7 +43,9 @@ Verification evidence:
   The task-owned verification runtime was stopped after these checks.
 - Hardening fixed stale human/visual support, binned anchors, conflicting
   membership versions, weak/empty root confidence bypasses, and an Unknown-date
-  false Ready classification. Existing small test fixtures now use the target
+  false Ready classification. Reused family-context claims retain their
+  contextual nature rather than masquerading as independent observations.
+  Existing small test fixtures now use the target
   schema. No unrelated implementation was changed.
 - Dependency audit remains a separate existing backlog (35 high, 2 critical);
   manifests and lockfile are identical to the baseline. See `docs/todo.md`.

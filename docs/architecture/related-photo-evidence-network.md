@@ -78,6 +78,9 @@ known facts and user truth remain distinct. Supporting link observations are
 dependencies too. Confidence cannot exceed root, source or membership confidence,
 including the confidence of an intermediate derived source. Weak possible
 membership cannot be promoted to high confidence by Refine.
+Reusing a person/relationship-derived claim preserves its contextual nature
+through flattened roots and stored sources; it cannot become a supposedly
+independent visual age or reusable link observation.
 
 Read views and repository reads synchronously exclude invalid dependencies while
 refresh work is pending. Corrections/supersession, source withdrawal, membership
