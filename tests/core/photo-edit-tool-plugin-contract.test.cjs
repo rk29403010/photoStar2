@@ -7,9 +7,10 @@ test('photo edit registry validates generated plug-ins and rejects duplicates', 
     const { generatedPhotoEditToolPlugins } = await import('../../dist/core/src/services/photoEditing/generatedPhotoEditToolPluginRegistry.js');
     const registry = new PhotoEditToolRegistry();
     for (const plugin of generatedPhotoEditToolPlugins) { registry.registerPlugin(plugin); }
-    assert.deepEqual(generatedPhotoEditToolPlugins.map((plugin) => plugin.id).sort(), ['adjust', 'blur', 'colour_pop', 'crop', 'dehaze', 'descreen', 'effects', 'focus', 'grayscale', 'red_eye', 'restore', 'rotate', 'sharpen']);
+    assert.deepEqual(generatedPhotoEditToolPlugins.map((plugin) => plugin.id).sort(), ['adjust', 'blur', 'colour_pop', 'crop', 'dehaze', 'descreen', 'effects', 'focus', 'grayscale', 'perception', 'red_eye', 'restore', 'rotate', 'sharpen']);
     assert.equal(registry.get('grayscale').label, 'Black & white');
     assert.equal(registry.get('descreen').label, 'Descreen print texture');
+    assert.equal(registry.get('perception').label, 'Perception');
     assert.throws(() => registry.registerPlugin({ id: '', recipeVersion: 0, label: '', icon: '', group: '', defaults: {} }), /photoEditToolPlugin.id/);
     assert.throws(() => registry.registerPlugin(generatedPhotoEditToolPlugins[0]), /duplicate photo edit tool/);
 });

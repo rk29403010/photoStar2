@@ -382,6 +382,65 @@ export const generatedPhotoEditToolBrowserManifests: readonly PhotoEditToolBrows
         "errorBoundaryDisplayName": "Black & white"
     },
     {
+        "id": "perception",
+        "recipeVersion": 1,
+        "label": "Perception",
+        "icon": "ScanEye",
+        "group": "effects",
+        "defaults": {
+            "strength": 55,
+            "localAdaptation": 65,
+            "emphasis": 0,
+            "suppression": 0,
+            "colourConstancy": 20
+        },
+        "controls": [
+            {
+                "key": "strength",
+                "label": "Strength",
+                "min": 0,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "localAdaptation",
+                "label": "Local adaptation",
+                "min": 0,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "emphasis",
+                "label": "Emphasis",
+                "min": 0,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "suppression",
+                "label": "Suppression",
+                "min": 0,
+                "max": 100,
+                "step": 1
+            },
+            {
+                "key": "colourConstancy",
+                "label": "Colour constancy",
+                "min": 0,
+                "max": 100,
+                "step": 1
+            }
+        ],
+        "capabilities": {
+            "maskCompatible": true
+        },
+        "help": {
+            "description": "Rebalances local adaptation and perceptual emphasis.",
+            "accessibilityLabel": "Add perception adjustment"
+        },
+        "errorBoundaryDisplayName": "Perception"
+    },
+    {
         "id": "red_eye",
         "recipeVersion": 1,
         "label": "Red eye",

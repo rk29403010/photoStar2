@@ -7,6 +7,7 @@ export type KnownPhotoEditTool =
     | 'effects'
     | 'focus'
     | 'grayscale'
+    | 'perception'
     | 'red_eye'
     | 'restore'
     | 'rotate'
