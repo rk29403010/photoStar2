@@ -88,13 +88,15 @@ test('all lint configurations use the canonical ignore policy', async () => {
     }
 });
 
-test('markdownlint ignores the canonical markdown policy', async () => {
+test('markdownlint ignores the canonical markdown policy, including dated inspiration output folders', async () => {
     const markdownIgnores = (await readFile('.markdownlintignore', 'utf8'))
         .split(/\r?\n/u)
         .map((line) => line.trim())
         .filter(Boolean);
 
     assert.deepEqual(markdownIgnores, [...qualityPolicy.markdownIgnores]);
+    assert.ok(qualityPolicy.markdownIgnores.includes('docs/daily-inspiration-*/**'));
+    assert.ok(!qualityPolicy.markdownIgnores.includes('docs/**'));
 });
 
 test('Oxlint reviewability limits match the canonical policy', async () => {

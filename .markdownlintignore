@@ -27,3 +27,4 @@ vite.config.ts.timestamp-*.mjs
 worktrees/**
 docs/architecture/semantic-relationships-architecture.md
 docs/architecture/semantic-relationships-implementation-plan.md
+docs/daily-inspiration-*/**

@@ -60,6 +60,8 @@ export const qualityPolicy = Object.freeze({
         ...lintIgnores,
         'docs/architecture/semantic-relationships-architecture.md',
         'docs/architecture/semantic-relationships-implementation-plan.md',
+        // Daily AI inspiration briefs are archival notes; preserve their original Markdown as written.
+        'docs/daily-inspiration-*/**',
     ]),
 });
 
